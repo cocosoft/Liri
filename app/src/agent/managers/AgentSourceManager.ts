@@ -1,4 +1,3 @@
-//
 /**
  * Agent源管理器
  * 负责从不同来源加载Agent定义，支持热加载
@@ -17,6 +16,7 @@ import {
   loadLocalAgents,
 } from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
+import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
 
 /**
  * Agent源类型
@@ -167,13 +167,11 @@ export class AgentSourceManager {
 
     // 监控用户和项目Agent目录
     const userAgentsDir = require('path').join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.py_app',
+      resolvePyappHome(),
       'agents'
     );
     const projectAgentsDir = require('path').join(
-      process.cwd(),
-      '.py_app',
+      resolveDataDir(),
       'agents'
     );
 

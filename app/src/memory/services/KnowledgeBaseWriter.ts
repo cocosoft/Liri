@@ -1,9 +1,9 @@
 import { join } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
 import type { Memory } from '../types/Memory';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export interface KnowledgeBaseEntry {
   title: string;
@@ -25,7 +25,7 @@ export class KnowledgeBaseWriter {
   private logger: Logger;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir || join(homedir(), '.pyapp', 'knowledge');
+    this.baseDir = baseDir || join(resolvePyappHome(), 'knowledge');
     this.logger = new Logger({ level: LogLevel.INFO });
   }
 

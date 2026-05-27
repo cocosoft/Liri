@@ -5,15 +5,15 @@
  */
 import { mkdir, writeFile, readdir, readFile, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands/types';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 获取记忆文件目录
  */
 function getMemoryDir(): string {
-  return join(homedir(), '.pyapp', 'memory');
+  return join(resolvePyappHome(), 'memory');
 }
 
 /**

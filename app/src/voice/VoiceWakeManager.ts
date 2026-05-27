@@ -7,9 +7,9 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { join } from 'path';
-import { homedir } from 'os';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -39,8 +39,7 @@ let writeLock: Promise<void> = Promise.resolve();
  * 获取唤醒词配置文件路径
  */
 function getConfigPath(): string {
-  const home = homedir();
-  return join(home, '.pyapp', 'settings', 'voicewake.json');
+  return join(resolvePyappHome(), 'settings', 'voicewake.json');
 }
 
 /**

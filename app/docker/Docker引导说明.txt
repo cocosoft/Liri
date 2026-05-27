@@ -96,8 +96,8 @@ PY_APP 的 Docker 版采用与 Windows 版相同的打包策略：
 
 Docker 版使用命名卷持久化数据：
 
-  pyapp_data   → /app/backend/data   数据库、会话、记忆等
-  pyapp_logs   → /app/backend/logs  日志文件
+  pyapp_data   → /app/app/data   数据库、会话、记忆等
+  pyapp_logs   → /app/app/logs  日志文件
 
 数据卷的生命周期独立于容器，docker compose down 不会删除数据。
 如需彻底清理：
@@ -136,7 +136,7 @@ Docker 版使用命名卷持久化数据：
   3. 使用反向代理（Nginx/Traefik）暴露端口 3000
   4. 日志建议接入外部日志系统（如 Loki/ELK）
   5. 定期备份数据卷：
-     docker run --rm -v pyapp_data:/data alpine tar czf /backup/data.tar.gz /app/backend/data
+     docker run --rm -v pyapp_data:/data alpine tar czf /backup/data.tar.gz /app/app/data
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

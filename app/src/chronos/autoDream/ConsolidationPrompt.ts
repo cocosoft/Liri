@@ -1,6 +1,5 @@
 /**
  * AutoDream整合提示词模块
- * 基于CC源码 cc_code/backend/services/autoDream/consolidationPrompt.ts 实现
  * 用于构建4阶段内存整合的提示词
  */
 

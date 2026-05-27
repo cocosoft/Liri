@@ -1,5 +1,4 @@
 /**
- * MCP XAA 跨应用访问（基于CC源码 services/mcp/xaa.ts + SEP-990）
  * Cross-App Access：跨应用MCP服务器访问控制
  */
 

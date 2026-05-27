@@ -62,7 +62,6 @@ export {
   type UnquoteResult,
 } from './QuoteHandler';
 
-// 新增：安全分析（基于CC源码 AST模式）
 export {
   parseForSecurity,
   isDangerousCommand,

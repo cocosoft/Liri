@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 转录配置
@@ -40,7 +40,7 @@ export class SessionTranscript {
     this.config = {
       enabled: config?.enabled !== false,
       storePath:
-        config?.storePath || path.join(os.homedir(), '.py_app', 'transcripts'),
+        config?.storePath || path.join(resolvePyappHome(), 'transcripts'),
       format: config?.format || 'jsonl',
       maxFileSize: config?.maxFileSize || 10 * 1024 * 1024,
       rotateCount: config?.rotateCount || 5,

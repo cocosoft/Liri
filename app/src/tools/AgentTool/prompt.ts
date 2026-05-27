@@ -1,6 +1,5 @@
 /**
  * AgentTool提示模板
- * 基于CC源码 cc_code/backend/tools/AgentTool/prompt.ts 实现
  */
 
 export const AGENT_TOOL_PROMPT = `你是一个子代理管理助手。使用AgentTool创建子代理执行复杂任务。

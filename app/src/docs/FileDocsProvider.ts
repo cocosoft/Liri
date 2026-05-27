@@ -5,7 +5,7 @@
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative, basename, dirname } from 'node:path';
-import { homedir } from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export interface FileDocEntry {
   relativePath: string;
@@ -382,5 +382,5 @@ export const fileDocsProvider = new FileDocsProvider(
 );
 
 export const knowledgeDocsProvider = new FileDocsProvider(
-  join(homedir(), '.pyapp', 'knowledge')
+  join(resolvePyappHome(), 'knowledge')
 );

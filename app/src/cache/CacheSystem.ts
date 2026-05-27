@@ -5,6 +5,7 @@
 
 import { join } from 'path';
 import { randomBytes } from 'crypto';
+import { resolveCacheDir } from '@modules/config/paths';
 import {
   open,
   writeFile,
@@ -613,7 +614,7 @@ let globalCacheSystem: CacheSystem | null = null;
 export function getCacheSystem(): CacheSystem {
   if (!globalCacheSystem) {
     const cacheDir =
-      process.env.PY_APP_CACHE_DIR || join(process.cwd(), '.cache');
+      process.env.PY_APP_CACHE_DIR || resolveCacheDir();
     globalCacheSystem = createCacheSystem({ cacheDir });
   }
   return globalCacheSystem;

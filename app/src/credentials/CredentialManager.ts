@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 凭据类型
@@ -84,7 +84,7 @@ export class CredentialManager {
   constructor(storePath?: string) {
     this.storePath =
       storePath ||
-      path.join(os.homedir(), '.py_app', 'credentials', 'store.enc');
+      path.join(resolvePyappHome(), 'credentials', 'store.enc');
     this.encryptionKey = this.loadOrCreateKey();
     this.loadStore();
   }
@@ -259,7 +259,7 @@ export class CredentialManager {
    * 加载或创建加密密钥
    */
   private loadOrCreateKey(): Buffer {
-    const keyPath = path.join(os.homedir(), '.py_app', 'credentials', '.key');
+    const keyPath = path.join(resolvePyappHome(), 'credentials', '.key');
 
     try {
       if (fs.existsSync(keyPath)) {

@@ -1,4 +1,3 @@
-//
 /**
  * 团队助手工具
  * 提供团队文件管理、路径权限等功能
@@ -8,6 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -383,7 +383,7 @@ export function getTeamDir(teamName: string): string {
   const { getEnvironmentVariable } = require('../../utils/envUtils');
   const baseDir =
     process.env.PY_APP_TEAM_DIR ||
-    join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'teams');
+    join(resolvePyappHome(), 'teams');
   return join(baseDir, teamName);
 }
 

@@ -1,6 +1,5 @@
 /**
  * 文件路径和类型常量
- * 基于CC源码 cc_code/backend/constants/files.ts 实现
  * 定义二进制文件扩展名、文件检测等常量
  */
 

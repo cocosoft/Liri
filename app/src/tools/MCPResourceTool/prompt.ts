@@ -1,6 +1,5 @@
 /**
  * MCPResourceTool提示模板
- * 基于CC源码 cc_code/backend/tools/MCPResourceTool/prompt.ts 实现
  */
 
 export const MCP_RESOURCE_TOOL_PROMPT = `你是一个MCP资源助手。使用MCPResourceTool列出和读取MCP服务器的资源和提示。

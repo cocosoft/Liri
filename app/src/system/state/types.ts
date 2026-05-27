@@ -1,7 +1,6 @@
 //
 /**
  * 应用状态类型定义
- * 基于CC源码 cc_code/backend/state/AppStateStore.ts 实现
  */
 
 import type { Store } from './Store.js';

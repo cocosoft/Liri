@@ -1,6 +1,5 @@
 /**
  * 通用常量
- * 基于CC源码 cc_code/backend/constants/common.ts 实现
  */
 
 export const APP_NAME = 'PY_APP';
@@ -23,7 +22,7 @@ export const DEFAULT_HOST = 'localhost';
 export const ENV_PREFIX = 'PY_APP_';
 
 export const CONFIG_FILE_NAME = 'config.json';
-export const CONFIG_DIR_NAME = '.py_app';
+export const CONFIG_DIR_NAME = '.pyapp';
 export const DATA_DIR_NAME = 'data';
 export const CACHE_DIR_NAME = 'cache';
 export const LOGS_DIR_NAME = 'logs';

@@ -1,6 +1,5 @@
 /**
  * /doctor 命令 - 系统诊断
- * 基于CC源码 commands/doctor/index.ts 模式
  */
 
 export interface DoctorCheck {

@@ -2,11 +2,12 @@
  * DaemonDiagnostics 守护进程诊断工具
  * 对标 CC 的 --daemon-diagnostics 机制
  */
-import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { DiskSpaceMonitor } from '../../delivery/monitor/DiskSpaceMonitor';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 诊断级别
@@ -175,7 +176,7 @@ export class DaemonDiagnostics {
    * 检查日志文件
    */
   private checkLogFile(): DiagnosticsCheck {
-    const logDir = path.join(os.homedir(), '.py_app', 'daemon', 'logs');
+    const logDir = path.join(resolvePyappHome(), 'daemon', 'logs');
 
     try {
       if (fs.existsSync(logDir)) {
@@ -219,12 +220,7 @@ export class DaemonDiagnostics {
    * 检查 Socket 文件
    */
   private checkSocketFile(): DiagnosticsCheck {
-    const socketPath = path.join(
-      os.homedir(),
-      '.py_app',
-      'daemon',
-      'pyapp.sock'
-    );
+    const socketPath = path.join(resolvePyappHome(), 'daemon', 'pyapp.sock');
 
     try {
       if (fs.existsSync(socketPath)) {
@@ -255,7 +251,7 @@ export class DaemonDiagnostics {
    */
   private checkDiskSpace(): DiagnosticsCheck {
     try {
-      const pyAppDir = path.join(os.homedir(), '.py_app');
+      const pyAppDir = resolvePyappHome();
 
       if (fs.existsSync(pyAppDir)) {
         const stats = fs.statfsSync(pyAppDir);
@@ -510,7 +506,7 @@ export class DaemonDiagnostics {
    */
   private checkSystemLogs(): DiagnosticsCheck {
     try {
-      const logDir = path.join(os.homedir(), '.py_app', 'daemon', 'logs');
+      const logDir = path.join(resolvePyappHome(), 'daemon', 'logs');
 
       if (fs.existsSync(logDir)) {
         const logFiles = fs
@@ -547,7 +543,7 @@ export class DaemonDiagnostics {
    */
   private checkCrashReports(): DiagnosticsCheck {
     try {
-      const crashDir = path.join(os.homedir(), '.py_app', 'daemon', 'crashes');
+      const crashDir = path.join(resolvePyappHome(), 'daemon', 'crashes');
 
       if (fs.existsSync(crashDir)) {
         const crashFiles = fs.readdirSync(crashDir);
@@ -620,7 +616,7 @@ export class DaemonDiagnostics {
    * 获取 PID 文件路径
    */
   private getPidPath(): string {
-    return path.join(os.homedir(), '.py_app', 'daemon', 'pyapp.pid');
+    return path.join(resolvePyappHome(), 'daemon', 'pyapp.pid');
   }
 
   /**

@@ -5,8 +5,8 @@
 import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -21,14 +21,14 @@ export interface MigrationResult {
  * 获取旧知识库路径（后端项目中的 docs/知识库/）
  */
 function getOldKnowledgePath(): string {
-  return join(process.cwd(), 'app', 'docs', '知识库');
+  return resolveKnowledgeBaseDir();
 }
 
 /**
  * 获取新知识库路径（用户目录下）
  */
 function getNewKnowledgePath(): string {
-  return join(homedir(), '.pyapp', 'knowledge');
+  return join(resolvePyappHome(), 'knowledge');
 }
 
 /**

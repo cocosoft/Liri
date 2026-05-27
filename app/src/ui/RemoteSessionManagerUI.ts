@@ -13,7 +13,10 @@ import {
   TerminalSession,
 } from '../ui/TerminalUIIntegration.js';
 import { RealtimeTerminalOutput } from '../ui/RealtimeTerminalOutput.js';
-import { logger } from '../utils/log.js';
+import { resolveSessionsDir } from '@modules/config/paths';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 会话历史记录
@@ -336,7 +339,7 @@ export class RemoteSessionManagerUI {
       const path = require('path');
       const historyPath =
         this.config.historyFilePath ||
-        path.join(process.cwd(), '.py_app_session_history.json');
+        path.join(resolveSessionsDir(), 'session_history.json');
 
       fs.writeFileSync(historyPath, JSON.stringify(this.history, null, 2));
     } catch (error) {
@@ -353,10 +356,11 @@ export class RemoteSessionManagerUI {
   loadHistory(): void {
     try {
       const fs = require('fs');
-      const path = require('path');
+        const path = require('path');
+        const { resolveDataDir } = require('@modules/config/paths');
       const historyPath =
         this.config.historyFilePath ||
-        path.join(process.cwd(), '.py_app_session_history.json');
+        path.join(resolveDataDir(), 'session_history.json');
 
       if (fs.existsSync(historyPath)) {
         const content = fs.readFileSync(historyPath, 'utf-8');

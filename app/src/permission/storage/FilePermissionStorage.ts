@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { resolvePermissionsDir } from '@modules/config/paths';
 import type {
   PermissionStorage,
   PermissionRule,
@@ -29,11 +30,7 @@ export class FilePermissionStorage implements PermissionStorage {
    * @param storagePath 存储路径
    */
   constructor(
-    storagePath: string = path.join(
-      process.env.HOME || process.env.USERPROFILE || '.',
-      '.py_app',
-      'permissions'
-    )
+    storagePath: string = resolvePermissionsDir()
   ) {
     this.storagePath = storagePath;
     this.rulesPath = path.join(storagePath, 'rules.json');

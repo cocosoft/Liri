@@ -1,10 +1,10 @@
 /**
  * AutoDream主逻辑模块
- * 基于CC源码 cc_code/backend/services/autoDream/autoDream.ts 实现
  * 自动内存整合的核心逻辑
  */
 
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
+import { resolveMemoryDir, resolvePyappHome } from '@modules/config/paths';
 import {
   readLastConsolidatedAt,
   listSessionsTouchedSince,
@@ -180,7 +180,7 @@ export async function initAutoDream(): Promise<void> {
       `[autoDream] firing — ${hoursSince.toFixed(1)}h since last, ${sessionIds.length} sessions to review`
     );
 
-    const memoryRoot = process.env.AUTO_MEM_PATH || '.py_copilot/memory';
+    const memoryRoot = process.env.AUTO_MEM_PATH || resolveMemoryDir();
     const transcriptDir = process.cwd();
 
     const extra = `
@@ -313,10 +313,9 @@ export function getAutoDreamStatus(): {
 export async function runKnowledgeRain(): Promise<void> {
   const { readdir } = await import('fs/promises');
   const { join } = await import('path');
-  const { homedir } = await import('os');
   const { existsSync } = await import('fs');
 
-  const rawDir = join(homedir(), '.pyapp', 'knowledge', 'raw');
+  const rawDir = join(resolvePyappHome(), 'knowledge', 'raw');
 
   if (!existsSync(rawDir)) return;
 

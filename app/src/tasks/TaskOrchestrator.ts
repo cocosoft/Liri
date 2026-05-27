@@ -3,7 +3,7 @@
  *
  * 职责：
  * 1. 计划生成：接收描述 + 步骤列表，创建 Plan 对象并注册 Task 到 TaskRegistry
- * 2. 计划持久化：Plan 元数据持久化到 backend/data/plans/
+ * 2. 计划持久化：Plan 元数据持久化到 app/data/plans/
  * 3. 步骤协调：提供步骤状态管理（pending → running → completed/failed）
  * 4. 进度追踪：查询计划整体进度、按状态分组
  * 5. 中断管理：终止所有活跃计划
@@ -13,8 +13,7 @@
  * 两者通过 taskId ↔ stepId 的映射关联。
  */
 
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import {
   existsSync,
   mkdirSync,
@@ -23,6 +22,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { taskRegistry } from './TaskRegistry';
+import { resolveDataSubDir } from '../config/paths';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 
@@ -60,13 +60,7 @@ function generateStepId(): string {
   return `step_${nextStepId++}_${Date.now().toString(36)}`;
 }
 
-const PLANS_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..',
-  'data',
-  'plans'
-);
+const PLANS_DIR = resolveDataSubDir('plans');
 
 export class TaskOrchestrator {
   private plans: Map<string, Plan> = new Map();

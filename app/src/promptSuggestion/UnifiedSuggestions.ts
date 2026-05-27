@@ -1,6 +1,5 @@
 /**
  * Unified Suggestions 统一建议生成模块
- * 基于CC源码设计
  */
 
 import {

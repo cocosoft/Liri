@@ -1,7 +1,6 @@
 /**
  * LSP命令
  * 调用LSPTool适配器来执行语言服务器协议操作
- * 基于CC源码 cc_code/backend/tools/LSPTool/LSPTool.ts 实现
  */
 
 import { readFileSync, existsSync } from 'fs';

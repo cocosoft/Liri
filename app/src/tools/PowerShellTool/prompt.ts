@@ -1,6 +1,5 @@
 /**
  * PowerShell工具提示模板
- * 基于CC源码 cc_code/backend/tools/PowerShellTool/prompt.ts 实现
  */
 
 export const POWERSHELL_TOOL_PROMPT = `你是一个PowerShell命令执行助手。使用PowerShell工具时，请遵循以下规则：

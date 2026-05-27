@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 任务状态
@@ -45,7 +45,7 @@ export class CronTaskStore {
 
   constructor(storePath?: string) {
     this.storePath =
-      storePath || path.join(os.homedir(), '.py_app', 'chronos', 'tasks.json');
+      storePath || path.join(resolvePyappHome(), 'chronos', 'tasks.json');
     this.load();
   }
 

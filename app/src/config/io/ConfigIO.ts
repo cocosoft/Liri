@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -60,7 +61,7 @@ export class ConfigIO {
   constructor(configDir?: string, lockTimeout?: number) {
     this.configDir =
       configDir ||
-      path.join(process.env.PYAPP_PROJECT_DIR || process.cwd(), '.pyapp');
+      resolvePyappHome();
     this.lockTimeout = lockTimeout ?? 10000;
     this.initSources();
   }
@@ -257,8 +258,7 @@ export class ConfigIO {
       {
         scope: 'global',
         path: path.join(
-          process.env.HOME || process.env.USERPROFILE || process.cwd(),
-          '.pyapp',
+          resolvePyappHome(),
           'config.json'
         ),
         priority: 10,

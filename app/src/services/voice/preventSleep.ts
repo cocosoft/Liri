@@ -1,9 +1,7 @@
 /**
  * 防止系统休眠
  * 在语音录制期间阻止系统进入休眠状态
- *
- * 基于CC源码 cc_code/backend/services/preventSleep.ts 实现
- */
+ * */
 
 import { spawn } from 'child_process';
 

@@ -1,6 +1,5 @@
 /**
  * 启动预读取模块
- * 基于CC源码 cc_code/backend/main.tsx 的 startDeferredPrefetches 设计
  * 在首屏渲染后启动后台预读取，减少用户等待时间
  */
 

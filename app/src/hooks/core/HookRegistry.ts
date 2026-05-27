@@ -1,5 +1,4 @@
 /**
- * Hooks注册和管理系统（基于CC源码实现）
  * 支持Hook的注册、匹配、优先级管理和依赖解析
  */
 
@@ -53,9 +52,6 @@ interface HookRegistration {
   executionCount: number;
 }
 
-/**
- * Hook注册器类（基于CC源码实现）
- */
 export class HookRegistry {
   private hooks: Map<HookEvent, HookRegistration[]> = new Map();
   private hookIndex: Map<string, HookRegistration> = new Map();

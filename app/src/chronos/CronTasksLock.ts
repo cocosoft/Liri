@@ -13,7 +13,7 @@ import {
 import { dirname, join } from 'path';
 import type { SchedulerLock } from './types';
 
-const LOCK_FILE_DIR = '.py_app';
+const LOCK_FILE_DIR = '.pyapp';
 const LOCK_FILE_NAME = 'scheduler.lock';
 
 /**

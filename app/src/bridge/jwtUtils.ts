@@ -1,5 +1,4 @@
 /**
- * JWT工具增强（基于CC源码 bridge/jwtUtils.ts）
  * Token刷新调度、验证、过期检测
  */
 import { randomUUID } from 'crypto';

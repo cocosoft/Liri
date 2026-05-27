@@ -1,6 +1,5 @@
 /**
  * Analytics事件类型定义
- * 基于CC源码 cc_code/backend/services/analytics/ 实现
  */
 
 export type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS = never;

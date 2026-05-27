@@ -5,28 +5,10 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolveDataDir } from '@modules/config/paths';
 import type { TAORCheckpoint, CheckpointStorage } from './TAORLoop.js';
 
-const CHECKPOINT_DIR_DEFAULT = 'data/checkpoints';
-
-function getProjectRoot(): string {
-  const currentDir =
-    typeof __dirname !== 'undefined'
-      ? __dirname
-      : path.dirname(fileURLToPath(import.meta.url));
-  const srcIndex = currentDir.lastIndexOf(path.sep + 'src');
-  if (srcIndex !== -1) {
-    return currentDir.slice(0, srcIndex);
-  }
-  return path.resolve(currentDir, '..', '..');
-}
-
-function ensureDir(dirPath: string): void {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
+const CHECKPOINT_DIR_DEFAULT = 'checkpoints';
 
 export class FileCheckpointStorage implements CheckpointStorage {
   private storageDir: string;
@@ -35,10 +17,15 @@ export class FileCheckpointStorage implements CheckpointStorage {
     if (storageDir) {
       this.storageDir = path.resolve(storageDir);
     } else {
-      const projectRoot = getProjectRoot();
-      this.storageDir = path.join(projectRoot, CHECKPOINT_DIR_DEFAULT);
+      this.storageDir = path.join(resolveDataDir(), CHECKPOINT_DIR_DEFAULT);
     }
-    ensureDir(this.storageDir);
+    this.ensureDir();
+  }
+
+  private ensureDir(): void {
+    if (!fs.existsSync(this.storageDir)) {
+      fs.mkdirSync(this.storageDir, { recursive: true });
+    }
   }
 
   getStorageDir(): string {
@@ -57,7 +44,7 @@ export class FileCheckpointStorage implements CheckpointStorage {
   }
 
   async save(checkpoint: TAORCheckpoint): Promise<string> {
-    ensureDir(this.storageDir);
+    this.ensureDir();
     const filePath = this.filePath(checkpoint);
     const data = JSON.stringify(checkpoint, null, 2);
     await fs.promises.writeFile(filePath, data, 'utf-8');

@@ -1,7 +1,6 @@
 //
 /**
  * 远程配置管理器
- * 基于CC源码学习成果，实现配置的实时同步和版本管理
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

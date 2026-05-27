@@ -5,6 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 /**
  * 启动报告配置
@@ -68,7 +69,7 @@ export class StartupReportService {
   private constructor() {
     this.config = {
       enabled: true,
-      reportPath: path.join(process.cwd(), 'reports'),
+      reportPath: resolveDataSubDir('reports'),
       includeMemory: true,
       includeTimings: true,
       includeEnvironment: true,

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Logger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
+import { resolveDataDir } from '../config/paths';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -38,7 +39,7 @@ export class IPCService {
       port: config.port ?? 0,
       transport: config.transport ?? 'http',
       socketPath:
-        config.socketPath ?? path.join(process.cwd(), '.py_app', 'ipc.sock'),
+        config.socketPath ?? path.join(resolveDataDir(), 'ipc.sock'),
     };
   }
 

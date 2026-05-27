@@ -1,8 +1,6 @@
 /**
  * 自动补全Hook
- * 基于CC源码 cc_code/backend/hooks/useTypeahead.tsx 实现
- *
- * 支持：
+ * * 支持：
  * - 命令补全
  * - 文件补全
  * - 参数补全

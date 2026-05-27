@@ -1,6 +1,5 @@
 /**
  * ExitWorktree工具提示模板
- * 基于CC源码 cc_code/backend/tools/ExitWorktreeTool/prompt.ts 实现
  */
 
 export const EXIT_WORKTREE_TOOL_PROMPT = `你是一个Worktree退出助手。使用ExitWorktree退出工作区模式，恢复到主工作区。

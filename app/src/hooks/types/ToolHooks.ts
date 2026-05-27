@@ -1,6 +1,5 @@
 /**
  * 工具Hook类型定义
- * 基于CC源码的Tool Hook机制增强
  */
 import { PermissionMode } from '@modules/permission/types/PermissionMode';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';

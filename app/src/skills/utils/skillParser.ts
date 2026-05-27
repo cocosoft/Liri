@@ -1,6 +1,5 @@
 //
 /**
- * 技能解析器（基于CC源码增强）
  * 支持完整的Frontmatter解析、参数替换、Shell执行等功能
  */
 
@@ -11,9 +10,6 @@ import { homedir } from 'os';
 import type { Skill } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
-/**
- * 技能Frontmatter接口（基于CC源码完整实现）
- */
 export interface SkillFrontmatter {
   name?: string;
   description?: string;
@@ -100,9 +96,6 @@ export enum SkillSource {
   MCP = 'mcp',
 }
 
-/**
- * 技能解析器类（基于CC源码实现）
- */
 export class SkillParser {
   private static readonly FRONTMATTER_REGEX =
     /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;

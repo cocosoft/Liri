@@ -2,7 +2,6 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * /theme 命令 - 主题管理
- * 基于CC源码 commands/theme/theme.tsx 模式
  */
 
 export type ThemeName = 'dark' | 'light' | 'system' | 'custom';

@@ -5,9 +5,9 @@
 import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { homedir } from 'node:os';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * Agent 源类型
@@ -187,12 +187,10 @@ function showHelp(): CommandResult {
  * 获取 Agent 配置文件目录
  */
 function getAgentsDirs(): { source: AgentSource; dir: string }[] {
-  const home = homedir();
-  const cwd = process.cwd();
 
   return [
-    { source: 'userSettings', dir: join(home, '.claude', 'agents') },
-    { source: 'projectSettings', dir: join(cwd, '.claude', 'agents') },
+    { source: 'userSettings', dir: join(resolvePyappHome(), 'agents') },
+    { source: 'projectSettings', dir: join(resolveProjectRoot(), '.pyapp', 'agents') },
   ];
 }
 
@@ -419,7 +417,7 @@ async function createAgentFile(
   tools?: string
 ): Promise<string> {
   const cwd = process.cwd();
-  const agentsDir = join(cwd, '.claude', 'agents');
+  const agentsDir = join(resolveProjectRoot(), '.pyapp', 'agents');
 
   if (!existsSync(agentsDir)) {
     await mkdir(agentsDir, { recursive: true });

@@ -1,8 +1,6 @@
 /**
  * 压缩服务实现
- * 基于CC源码 cc_code/backend/services/compact/compact.ts 实现
- *
- * 支持AI驱动的对话压缩、边界检测、摘要生成、关键信息提取和制品注入。
+ * * 支持AI驱动的对话压缩、边界检测、摘要生成、关键信息提取和制品注入。
  * 使用API轮次分组(groupMessagesByApiRound)确保压缩边界的语义完整性。
  */
 
@@ -13,7 +11,6 @@ import { groupMessagesByApiRound, getMessageTextContent } from './grouping';
 import { getCompactPrompt, getCompactUserSummaryMessage } from './prompt';
 import { roughTokenCountEstimationForMessages } from './utils';
 
-// autoCompact 阈值集成（基于CC源码 autoCompact.ts）
 import {
   getCompactConfig,
   shouldAutoCompact,

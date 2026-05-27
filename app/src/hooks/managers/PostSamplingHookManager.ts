@@ -1,6 +1,5 @@
 /**
  * 采样后置Hook管理器
- * 基于CC源码 cc_code/backend/utils/hooks/postSamplingHooks.ts 实现
  */
 
 import type {

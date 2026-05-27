@@ -1,6 +1,5 @@
 /**
  * ContextCollapse 类型定义
- * 基于CC源码设计原理实现
  */
 
 import type { Message } from '@modules/chat/types/message';

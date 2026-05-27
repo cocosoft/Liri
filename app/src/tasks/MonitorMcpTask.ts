@@ -1,6 +1,5 @@
 /**
  * Monitor MCP任务
- * 基于CC源码 cc_code/backend/tasks/MonitorMcpTask.ts 实现
  */
 
 import { BaseTask } from './BaseTask';

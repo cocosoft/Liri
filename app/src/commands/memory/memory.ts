@@ -8,13 +8,13 @@ import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 获取记忆文件目录
  */
 function getMemoryDir(): string {
-  return join(homedir(), '.py-app', 'memory');
+  return join(resolvePyappHome(), 'memory');
 }
 
 /**

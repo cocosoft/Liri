@@ -65,7 +65,7 @@ user-invocable: true
 
 清单：
 - 内置技能放 `src/skills/builtin/`
-- 用户技能放 `~/.py_app/skills/`
+- 用户技能放 `~/.pyapp/skills/`
 
 YAML front matter 支持条件：
 

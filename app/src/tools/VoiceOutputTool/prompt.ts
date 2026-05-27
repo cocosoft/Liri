@@ -1,6 +1,5 @@
 /**
  * VoiceOutputTool提示模板
- * 基于CC源码 cc_code/backend/tools/VoiceOutputTool/prompt.ts 实现
  */
 
 export const VOICE_OUTPUT_TOOL_PROMPT = `你是一个语音输出助手。使用VoiceOutputTool将文本转换为语音播放。

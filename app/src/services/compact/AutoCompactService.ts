@@ -1,9 +1,7 @@
 //
 /**
  * 自动压缩服务
- * 基于CC源码 cc_code/backend/services/compact/autoCompact.ts 实现
- *
- * 支持自动压缩边界检测、会话记忆压缩试路径、断路器模式、压缩后清理。
+ * * 支持自动压缩边界检测、会话记忆压缩试路径、断路器模式、压缩后清理。
  */
 
 import type { Message } from '@modules/chat/types/message';

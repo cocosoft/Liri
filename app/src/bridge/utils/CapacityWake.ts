@@ -2,7 +2,6 @@
  * 桥接轮询循环的共享容量唤醒原语
  * replBridge和bridgeMain都需要在"满容量"时休眠
  * 但在以下情况下提前唤醒：(a)外部循环信号中止（关闭），或(b)容量释放（会话完成/传输丢失）
- * 基于CC源码 cc_code/backend/bridge/capacityWake.ts 实现
  */
 
 export type CapacitySignal = { signal: AbortSignal; cleanup: () => void };

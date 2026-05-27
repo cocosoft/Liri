@@ -1,7 +1,6 @@
 /**
  * 受信设备管理
  * 负责受信设备Token的生成、存储和清理
- * 基于CC源码 cc_code/backend/bridge/trustedDevice.ts 实现
  */
 
 import { randomBytes } from 'crypto';

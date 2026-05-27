@@ -1,6 +1,5 @@
 /**
  * Speculation 超前执行模块
- * 基于CC源码设计
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

@@ -8,7 +8,7 @@ import { stat, readFile, mkdir, copyFile, unlink } from 'fs/promises';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname, relative, isAbsolute, resolve } from 'path';
 import { createHash, randomUUID } from 'crypto';
-import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 文件历史备份信息
@@ -47,7 +47,7 @@ export interface DiffStats {
 }
 
 const MAX_SNAPSHOTS = 100;
-const BACKUP_DIR = join(homedir(), '.py_app', 'file_history');
+const BACKUP_DIR = join(resolvePyappHome(), 'file_history');
 
 /**
  * 确保备份目录存在

@@ -5,6 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -26,10 +27,7 @@ export class HistoryManager {
   private historyFile: string;
 
   constructor() {
-    // 确定历史记录文件路径
-    const homeDir =
-      process.env.HOME || process.env.USERPROFILE || process.cwd();
-    const configDir = path.join(homeDir, '.py-app');
+    const configDir = resolvePyappHome();
     this.historyFile = path.join(configDir, 'history.json');
 
     // 确保配置目录存在

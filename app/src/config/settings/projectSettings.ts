@@ -1,30 +1,20 @@
 /**
  * 项目级设置管理
- * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的项目设置部分
- * 管理项目级别的共享配置，存储在项目根目录的 .py_app/settings.json
+ * 管理项目级别的共享配置，存储在 app/settings.json（通过 resolveProjectSettingsPath() 解析）
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { deepMerge } from '@modules/utils/common.js';
-
-/**
- * 项目设置目录名
- */
-const PROJECT_SETTINGS_DIR = '.py_app';
-
-/**
- * 项目设置文件名
- */
-const PROJECT_SETTINGS_FILE = 'settings.json';
+import { resolveProjectSettingsPath } from '@modules/config/paths';
 
 /**
  * 获取项目设置文件路径
+ * 使用统一的 app/settings.json
  */
 export function getProjectSettingsPath(projectRoot?: string): string {
-  const root = projectRoot || process.env.PYAPP_PROJECT_DIR || process.cwd();
-  return join(root, PROJECT_SETTINGS_DIR, PROJECT_SETTINGS_FILE);
+  return resolveProjectSettingsPath();
 }
 
 /**

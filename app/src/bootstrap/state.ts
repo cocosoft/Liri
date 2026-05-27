@@ -1,9 +1,7 @@
 /**
  * 应用启动状态管理
  * 负责管理应用启动过程中的状态和初始化
- * 基于CC源码 cc_code/backend/bootstrap/state.ts 增强会话管理
- *
- * 会话ID相关类型和函数已移至 core/state/types.ts，
+ * * 会话ID相关类型和函数已移至 core/state/types.ts，
  * 此处保留导出以保持向后兼容
  */
 

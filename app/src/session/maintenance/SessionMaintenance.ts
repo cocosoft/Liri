@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 维护配置
@@ -37,7 +37,7 @@ export class SessionMaintenance {
   constructor(config?: Partial<MaintenanceConfig>) {
     this.config = {
       storePath:
-        config?.storePath || path.join(os.homedir(), '.py_app', 'sessions'),
+        config?.storePath || path.join(resolvePyappHome(), 'sessions'),
       maxSessionAge: config?.maxSessionAge || 7 * 24 * 60 * 60 * 1000,
       maxSessions: config?.maxSessions || 1000,
       maxStorageSize: config?.maxStorageSize || 500 * 1024 * 1024,

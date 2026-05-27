@@ -1,6 +1,5 @@
 /**
  * 工具使用权限检查Hook
- * 基于CC源码 cc_code/backend/hooks/useCanUseTool.tsx 实现
  */
 
 import { useMemo, useState, useCallback, useEffect } from 'react';

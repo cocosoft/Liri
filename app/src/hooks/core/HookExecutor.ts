@@ -1,5 +1,4 @@
 /**
- * Hook执行引擎（基于CC源码实现）
  * 支持Hook的并发执行、超时控制、错误处理、性能监控等功能
  */
 
@@ -11,9 +10,6 @@ import type {
   HookExecutionStats,
 } from '../types';
 
-/**
- * Hook执行器类（基于CC源码实现）
- */
 export class HookExecutor {
   private config: HookExecutorConfig;
   private stats: Map<string, HookExecutionStats> = new Map();

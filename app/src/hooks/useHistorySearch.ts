@@ -1,6 +1,5 @@
 /**
  * 历史搜索
- * 基于CC源码 cc_code/backend/hooks/useHistorySearch.ts 实现
  * 适配Backend架构的版本
  */
 

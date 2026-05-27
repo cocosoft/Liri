@@ -7,6 +7,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -198,7 +199,7 @@ export class ThemeManager {
 
   constructor() {
     this.themes = builtinThemes;
-    this.configPath = path.join(process.cwd(), '.py_app', 'theme.json');
+    this.configPath = path.join(resolveDataDir(), 'theme.json');
     this.currentTheme = this.loadTheme();
   }
 

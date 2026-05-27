@@ -8,7 +8,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 import { randomUUID } from 'crypto';
 
 export interface AuthSession {
@@ -25,7 +25,7 @@ export interface AuthConfig {
   baseUrl?: string;
 }
 
-const CONFIG_DIR = join(homedir(), '.py_app');
+const CONFIG_DIR = resolvePyappHome();
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const SESSION_FILE = join(CONFIG_DIR, 'session.json');
 

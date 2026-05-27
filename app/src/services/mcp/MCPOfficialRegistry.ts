@@ -1,9 +1,7 @@
 /**
  * MCP官方注册表
  * 预置常用MCP服务器配置，支持一键安装
- *
- * 基于CC源码 cc_code/backend/services/mcp/officialRegistry.ts 实现
- */
+ * */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 

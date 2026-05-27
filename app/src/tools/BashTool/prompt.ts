@@ -1,6 +1,5 @@
 /**
  * Bash工具提示模板
- * 基于CC源码 cc_code/backend/tools/BashTool/prompt.ts 实现
  */
 
 export const BASH_TOOL_PROMPT = `你是一个强大的命令行执行助手。使用bash工具执行命令时，请遵循以下规则：

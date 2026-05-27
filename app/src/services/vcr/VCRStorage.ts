@@ -1,5 +1,6 @@
 import { mkdir, readdir, unlink, stat, readFile } from 'fs/promises';
 import { join, extname } from 'path';
+import { resolveDataSubDir } from '@modules/config/paths';
 import type { RecordedSession } from './SessionRecorder';
 
 export interface VCRStorageEntry {
@@ -16,7 +17,7 @@ export class VCRStorage {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir || join(process.cwd(), 'vcr_recordings');
+    this.baseDir = baseDir || resolveDataSubDir('vcr_recordings');
   }
 
   async ensureDirectory(): Promise<void> {

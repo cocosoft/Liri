@@ -5,10 +5,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import { mkdirSync } from 'node:fs';
+import { resolvePyappHome } from '@modules/config/paths';
 
-const SOUL_FILE_PATH = path.join(os.homedir(), '.pyapp', 'SOUL.md');
+const SOUL_FILE_PATH = path.join(resolvePyappHome(), 'SOUL.md');
 
 let cachedContent: string | null = null;
 let cachedMtime: number = 0;
@@ -130,7 +129,7 @@ export function clearSoulCache(): void {
 export function writeSoulMd(content: string): void {
   const dir = path.dirname(SOUL_FILE_PATH);
   if (!fs.existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true });
   }
   fs.writeFileSync(SOUL_FILE_PATH, content, 'utf-8');
   clearSoulCache();

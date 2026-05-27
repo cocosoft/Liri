@@ -1,8 +1,6 @@
-/**
- * 权限设置持久化加载（基于CC源码 utils/permissions/permissionsLoader.ts）
- */
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
 import type { PermissionRuleSource } from './PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';
@@ -65,9 +63,9 @@ export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
   let context = getEmptyToolPermissionContext();
 
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const userSettings = path.join(homeDir, '.py_app', 'settings.json');
-  const projectSettings = path.join(cwd, '.py_app', 'settings.json');
-  const localSettings = path.join(cwd, '.py_app', 'local_settings.json');
+  const userSettings = path.join(resolvePyappHome(), 'settings.json');
+  const projectSettings = path.join(resolveDataDir(), 'settings', 'settings.json');
+  const localSettings = path.join(resolveDataDir(), 'settings', 'local_settings.json');
 
   context = loadPermissionsFromSettings(userSettings, 'userSettings', context);
   context = loadPermissionsFromSettings(

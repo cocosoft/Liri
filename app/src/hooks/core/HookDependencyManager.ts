@@ -1,5 +1,4 @@
 /**
- * Hook优先级和依赖管理系统（基于CC源码实现）
  * 支持Hook依赖解析、循环依赖检测、优先级排序等功能
  */
 
@@ -70,9 +69,6 @@ interface DependencyResolutionResult {
   missingDependencies?: string[];
 }
 
-/**
- * Hook依赖管理器类（基于CC源码实现）
- */
 export class HookDependencyManager {
   private dependencyGraph: Map<string, DependencyNode> = new Map();
   private hookDefinitions: Map<string, HookDefinition> = new Map();

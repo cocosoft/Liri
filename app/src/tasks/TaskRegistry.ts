@@ -7,7 +7,6 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 任务注册表
- * 基于CC源码 cc_code/backend/tasks/TaskRegistry.ts 实现
  */
 
 import { BaseTask } from './BaseTask';

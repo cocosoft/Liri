@@ -1,6 +1,5 @@
 /**
  * EnterPlanMode工具提示模板
- * 基于CC源码 cc_code/backend/tools/EnterPlanModeTool/prompt.ts 实现
  */
 
 export const ENTER_PLAN_MODE_TOOL_PROMPT = `你是一个计划模式助手。使用EnterPlanMode进入计划模式，为用户提供详细的执行计划。

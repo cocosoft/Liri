@@ -1,7 +1,7 @@
 /**
  * 数据库备份管理器
  * 提供 SQLite 数据库的全量备份、恢复和自动清理功能
- * 备份目录: backend/data/backups/（第二层，不跟踪）
+ * 备份目录: app/data/backups/（第二层，不跟踪）
  * 命名格式: {dbname}-{YYYY-MM-DD}T{HH-mm-ss}.db
  * 保留策略: 默认保留最近 7 个备份
  */

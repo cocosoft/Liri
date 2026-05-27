@@ -1,6 +1,5 @@
 /**
  * TodoWrite工具提示模板
- * 基于CC源码 cc_code/backend/tools/TodoWriteTool/prompt.ts 实现
  */
 
 export const TODO_WRITE_TOOL_PROMPT = `你是一个任务管理助手。使用TodoWrite工具管理任务列表。

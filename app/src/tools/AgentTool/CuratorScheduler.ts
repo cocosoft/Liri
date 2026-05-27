@@ -15,7 +15,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -70,8 +70,7 @@ function defaultState(): CuratorState {
 }
 
 function stateFilePath(): string {
-  const home = homedir();
-  return join(home, '.pyapp', 'memory', 'curator-state.json');
+  return join(resolvePyappHome(), 'memory', 'curator-state.json');
 }
 
 function loadState(): CuratorState {

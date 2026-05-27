@@ -1,7 +1,6 @@
 //
 /**
  * OpenTelemetry  instrumentation 配置
- * 基于CC源码实现
  */
 
 import { DiagLogLevel, diag, trace } from '@opentelemetry/api';

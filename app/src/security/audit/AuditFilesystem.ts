@@ -29,7 +29,7 @@ const SENSITIVE_PATHS = [
     severity: 'HIGH' as AuditSeverity,
   },
   {
-    path: 'backend/data/py_copilot.db',
+    path: 'app/data/app.db',
     label: '数据库文件',
     severity: 'MEDIUM' as AuditSeverity,
   },

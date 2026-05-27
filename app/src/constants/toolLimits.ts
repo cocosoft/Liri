@@ -1,6 +1,5 @@
 /**
  * 工具结果大小限制常量
- * 基于CC源码 cc_code/backend/constants/toolLimits.ts 实现
  */
 
 /**
@@ -41,7 +40,7 @@ export const TOOL_SUMMARY_MAX_LENGTH = 50;
 /**
  * 工具结果存储路径
  */
-export const TOOL_RESULT_STORAGE_DIR = '.py_app/tool_results';
+export const TOOL_RESULT_STORAGE_DIR = '.pyapp/tool_results';
 
 /**
  * 工具结果预览最大长度

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { ICache, CacheStats } from '@modules/cache/models/types';
@@ -23,8 +24,7 @@ export class ToolCacheManager implements ICache<string, unknown> {
 
   constructor(
     cachePath: string = path.join(
-      process.env.HOME || process.env.USERPROFILE || '.',
-      '.py_app',
+      resolvePyappHome(),
       'tool_cache.json'
     ),
     maxCacheSize: number = 1000,

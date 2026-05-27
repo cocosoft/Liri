@@ -1,5 +1,4 @@
 /**
- * 记忆文件截断（基于CC源码 memdir/memdir.ts truncateEntrypointContent）
  * 双上限策略：MAX_LINES=200, MAX_BYTES=25000
  */
 

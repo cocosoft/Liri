@@ -5,6 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import { resolveDataSubDir } from '../config/paths';
 
 /**
  * 内存快照配置
@@ -76,7 +77,7 @@ export class MemorySnapshotService {
       enabled: true,
       captureInterval: 60000, // 1分钟
       maxSnapshots: 100,
-      snapshotPath: path.join(process.cwd(), 'snapshots'),
+      snapshotPath: resolveDataSubDir('snapshots'),
       includeProcessInfo: true,
       includeSystemInfo: true,
       captureOnStartup: true,

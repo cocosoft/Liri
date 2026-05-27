@@ -15,6 +15,7 @@ import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -28,7 +29,7 @@ export class NotebookManager {
   /**
    * 构造函数
    */
-  constructor(notebookDir: string = join(process.cwd(), 'notebooks')) {
+  constructor(notebookDir: string = resolveDataSubDir('notebooks')) {
     this.notebookDir = notebookDir;
     this.ensureNotebookDir();
     this.loadNotebooks();

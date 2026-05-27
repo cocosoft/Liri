@@ -1,9 +1,7 @@
 /**
  * 工具搜索配置
  * 控制工具搜索的行为和参数
- *
- * 基于CC源码 cc_code/backend/utils/toolSearch.ts 实现
- */
+ * */
 
 export interface ToolSearchConfig {
   /**

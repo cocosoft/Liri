@@ -1,6 +1,5 @@
 /**
  * 应用设置管理Hook
- * 基于CC源码 cc_code/backend/hooks/useSettings.ts 实现
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';

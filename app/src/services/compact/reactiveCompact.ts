@@ -89,9 +89,6 @@ export interface ReactiveCompactOptions {
   onProgress?: CompactProgressCallback;
 }
 
-/**
- * 反应式压缩服务类（基于CC源码实现）
- */
 export class ReactiveCompactService {
   private states: Map<string, ReactiveCompactState> = new Map();
   private defaultOptions: ReactiveCompactOptions = {

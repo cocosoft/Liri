@@ -5,13 +5,13 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
-const SETTINGS_FILE = join(homedir(), '.pyapp', 'settings.json');
+const SETTINGS_FILE = join(resolvePyappHome(), 'settings.json');
 
 export interface SettingsConfig {
   theme: 'light' | 'dark' | 'system';
@@ -135,7 +135,7 @@ export class SettingsPlugin implements Plugin {
 
   private saveSettings(): void {
     try {
-      const dir = join(homedir(), '.pyapp');
+      const dir = resolvePyappHome();
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }

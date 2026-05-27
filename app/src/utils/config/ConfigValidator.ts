@@ -1,6 +1,5 @@
 /**
  * 配置验证器
- * 基于CC源码配置系统实现
  */
 
 export enum ConfigSource {

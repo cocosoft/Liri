@@ -14,6 +14,7 @@ import {
 import { join } from 'path';
 import { AgentConfig } from '../models/types';
 import { AIModelType } from '@modules/ai/models/types';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -31,8 +32,7 @@ export class AgentConfigManager {
    */
   constructor(
     configDir: string = join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.py_app',
+      resolvePyappHome(),
       'config',
       'agents'
     )

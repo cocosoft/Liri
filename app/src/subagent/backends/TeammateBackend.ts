@@ -1,9 +1,7 @@
 /**
  * Teammate后端接口
  * 定义不同类型teammate的通用接口
- *
- * 基于CC源码 cc_code/backend/utils/swarm/backends/ 实现
- */
+ * */
 
 import type { Message } from '@modules/chat/types/message';
 import type {

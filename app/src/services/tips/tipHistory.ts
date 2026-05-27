@@ -1,9 +1,7 @@
 /**
  * Tips历史记录
  * 记录已显示的提示，避免重复显示
- *
- * 基于CC源码 cc_code/backend/services/tips/tipHistory.ts 实现
- */
+ * */
 
 interface TipsConfig {
   tipsHistory?: Record<string, number>;

@@ -2,7 +2,6 @@
 /**
  * 登录后流程
  * 协调登录完成后的各项初始化工作
- * 基于CC源码 cc_code/backend/commands/login/login.tsx 实现
  */
 
 import type { OAuthTokens } from './oauth-types.js';

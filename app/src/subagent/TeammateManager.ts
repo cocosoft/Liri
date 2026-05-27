@@ -1,9 +1,7 @@
 /**
  * Teammate管理器
  * 管理多个teammate的生命周期
- *
- * 基于CC源码 cc_code/backend/utils/swarm/teammateManager.ts 实现
- */
+ * */
 
 import type { Message } from '../chat/types/message';
 import {

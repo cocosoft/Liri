@@ -1,9 +1,7 @@
 /**
  * Todo命令
  * 调用TodoWriteTool来管理待办事项
- * 基于CC源码 cc_code/backend/tools/TodoWriteTool 实现
- *
- * CC 的 TodoWriteTool 采用 replace-all 模式（每次传入完整 todo 列表替换整个状态），
+ * * CC 的 TodoWriteTool 采用 replace-all 模式（每次传入完整 todo 列表替换整个状态），
  * 并支持 activeForm（现在进行时）字段和验证代理提示。
  * 本命令层提供人性化的 CRUD 接口，同时保持与 CC 工具的兼容。
  */

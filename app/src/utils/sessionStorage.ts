@@ -7,7 +7,7 @@
 import { readFile, writeFile, mkdir, readdir, unlink, stat } from 'fs/promises';
 import { join, dirname, basename } from 'path';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export interface SessionData<T = unknown> {
   id: string;
@@ -17,7 +17,7 @@ export interface SessionData<T = unknown> {
   metadata?: Record<string, string>;
 }
 
-const SESSION_DIR = join(homedir(), '.py_app', 'sessions');
+const SESSION_DIR = join(resolvePyappHome(), 'sessions');
 const MAX_SESSIONS = 100;
 
 export class SessionStorage {

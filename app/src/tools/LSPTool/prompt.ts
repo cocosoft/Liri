@@ -1,6 +1,5 @@
 /**
  * LSPTool提示模板
- * 基于CC源码 cc_code/backend/tools/LSPTool/prompt.ts 实现
  */
 
 export const LSP_TOOL_PROMPT = `你是一个代码分析助手。使用LSPTool查询代码符号信息。

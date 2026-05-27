@@ -1,8 +1,6 @@
 /**
  * 压缩后清理
- * 基于CC源码 cc_code/backend/services/compact/postCompactCleanup.ts 实现
- *
- * 在自动压缩和手动压缩后执行，释放被追踪结构占用的内存。
+ * * 在自动压缩和手动压缩后执行，释放被追踪结构占用的内存。
  * 保持向后兼容，不删除现有代码。
  */
 

@@ -1,4 +1,3 @@
-//
 /**
  * 系统健康检查服务
  * 提供系统资源检测和健康状态评估功能
@@ -12,6 +11,7 @@ import { freemem, totalmem, cpus, loadavg, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
@@ -391,7 +391,7 @@ export class SystemHealthChecker extends EventEmitter {
     const suggestions: string[] = [];
 
     const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-    const pyappDir = join(homedir(), '.pyapp');
+    const pyappDir = resolvePyappHome();
 
     if (!process.env.PYAPP_PROJECT_DIR) {
       issues.push('PYAPP_PROJECT_DIR 未设置');

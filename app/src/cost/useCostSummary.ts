@@ -1,8 +1,6 @@
 /**
  * 成本摘要Hook
- * 基于CC源码 cc_code/backend/costHook.ts 实现
- *
- * 在进程退出时输出成本摘要
+ * * 在进程退出时输出成本摘要
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';

@@ -1,9 +1,7 @@
 /**
  * 请求重试机制
  * 为API调用提供自动重试能力，支持指数退避
- *
- * 基于CC源码 cc_code/backend/utils/retry.ts 实现
- */
+ * */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 

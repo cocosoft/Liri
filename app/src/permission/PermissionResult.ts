@@ -1,7 +1,3 @@
-/**
- * 权限决策结果类型定义（基于CC源码 types/permissions.ts）
- */
-
 export type PermissionBehavior = 'allow' | 'deny' | 'ask' | 'passthrough';
 
 export type PermissionDecisionReason =

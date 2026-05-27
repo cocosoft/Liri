@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveGovernanceDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -91,14 +92,7 @@ export class GovernanceStrategyManager extends EventEmitter {
    * 获取策略文件路径
    */
   private getStrategiesPath(): string {
-    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-    const strategiesDir = join(
-      projectRoot,
-      'backend',
-      'data',
-      'governance',
-      'strategies'
-    );
+    const strategiesDir = join(resolveGovernanceDir(), 'strategies');
 
     if (!existsSync(strategiesDir)) {
       mkdirSync(strategiesDir, { recursive: true });

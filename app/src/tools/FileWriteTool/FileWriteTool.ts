@@ -1,6 +1,5 @@
 /**
  * FileWriteTool - 文件写入工具
- * 基于CC源码 FileWriteTool 模式
  */
 import * as fs from 'fs';
 import * as path from 'path';

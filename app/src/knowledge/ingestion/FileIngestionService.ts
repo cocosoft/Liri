@@ -5,11 +5,11 @@
  */
 import { readFile, writeFile, mkdir, copyFile, stat } from 'fs/promises';
 import { join, extname, basename, resolve } from 'path';
-import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -194,7 +194,7 @@ export class FileIngestionService {
   private aiService: AIService | null = null;
 
   constructor(aiService?: AIService) {
-    this.knowledgeRoot = join(homedir(), '.pyapp', 'knowledge');
+    this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
     this.rawDir = join(this.knowledgeRoot, 'raw');
     this.aiService = aiService || null;
   }

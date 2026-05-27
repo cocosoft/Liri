@@ -212,7 +212,7 @@ const ROOT_LEVEL_DIRS = [
 // ── 策略 5: 设置额外环境变量辅助路径解析 ──
 // 确保各模块的路径解析函数 fallback 到正确的项目根
 process.env.PYAPP_PROJECT_DIR = projectRoot;
-process.env.PYAPP_HOME = join(projectRoot, 'app', 'data');
+process.env.PYAPP_HOME = join(os.homedir(), '.pyapp');
 process.env.PYAPP_DATA_DIR = join(projectRoot, 'app', 'data');
 
 // ── 确保用户档案文件存在（~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md）──

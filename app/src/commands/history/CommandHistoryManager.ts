@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -34,8 +35,7 @@ export class CommandHistoryManager {
    */
   constructor(
     historyPath: string = path.join(
-      process.env.HOME || process.env.USERPROFILE || '.',
-      '.py_app',
+      resolvePyappHome(),
       'command_history.json'
     ),
     maxHistorySize: number = 1000

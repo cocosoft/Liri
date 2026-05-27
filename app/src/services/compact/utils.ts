@@ -1,8 +1,6 @@
 /**
  * 压缩服务工具函数
- * 基于CC源码 cc_code/backend/services/compact/ 实现
- *
- * 使用Rust原生库进行精确的token估算（编译时零依赖C FFI）
+ * * 使用Rust原生库进行精确的token估算（编译时零依赖C FFI）
  * 当原生库不可用时自动降级为启发式估算
  */
 

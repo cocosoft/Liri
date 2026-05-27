@@ -1,10 +1,11 @@
 /**
  * 用户自定义绑定加载
- * 加载用户定义的按键绑定配置（来自 ~/.py_app/keybindings.json）
+ * 加载用户定义的按键绑定配置（来自 ~/.pyapp/keybindings.json）
  */
 import { readFileSync, existsSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 import type {
   KeybindingsLoadResult,
   ParsedBinding,
@@ -21,8 +22,7 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 用户绑定文件路径
  */
 export const USER_BINDINGS_PATH = join(
-  homedir(),
-  '.py_app',
+  resolvePyappHome(),
   'keybindings.json'
 );
 

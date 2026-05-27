@@ -1,4 +1,3 @@
-//
 /**
  * 诊断日志管理器
  * 提供钩子系统的诊断和日志功能
@@ -6,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { join } from 'path';
-import { fileURLToPath } from 'url';
+import { resolveDataDir } from '@modules/config/paths';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -79,8 +78,7 @@ export class DiagnosticManager extends EventEmitter {
    * 获取日志目录
    */
   private getLogDirectory(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..', 'data', 'logs');
+    return join(resolveDataDir(), 'logs');
   }
 
   /**

@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -608,9 +609,7 @@ async function runCompatibilityValidation(): Promise<void> {
 
     const report = validator.generateCompatibilityReport(result);
 
-    const fs = require('fs');
-    const path = require('path');
-    const reportDir = path.join(process.cwd(), 'reports', 'compatibility');
+    const reportDir = resolveDataSubDir('reports/compatibility');
     if (!fs.existsSync(reportDir)) {
       fs.mkdirSync(reportDir, { recursive: true });
     }

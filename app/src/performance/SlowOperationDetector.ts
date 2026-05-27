@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveLogsDir } from '@modules/config/paths';
 import path from 'path';
 import fs from 'fs';
 
@@ -67,7 +68,7 @@ export class SlowOperationDetector {
       ),
       logLevel: 'warn',
       maxSlowOperations: 1000,
-      logFilePath: path.join(process.cwd(), 'logs', 'slow_operations.log'),
+      logFilePath: path.join(resolveLogsDir(), 'slow_operations.log'),
       includeStack: process.env.NODE_ENV !== 'production',
       sampleRate: 1.0,
     };

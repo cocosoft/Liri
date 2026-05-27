@@ -2,9 +2,7 @@
 /**
  * InProcessTeammateTask - 进程内队友任务
  * 管理in-process teammate的生命周期，包含团队身份、计划模式审批流和消息管理
- *
- * 基于CC源码 cc_code/backend/tasks/InProcessTeammateTask/InProcessTeammateTask.tsx 实现
- */
+ * */
 
 import type { Message } from '../chat/types/message';
 import { BaseTask } from './BaseTask';

@@ -1,8 +1,6 @@
 /**
  * 语音输入Hook
- * 基于CC源码 cc_code/backend/hooks/useVoice.ts 实现
- *
- * 支持语音识别和语音合成功能
+ * * 支持语音识别和语音合成功能
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';

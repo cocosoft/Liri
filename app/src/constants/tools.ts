@@ -1,6 +1,5 @@
 /**
  * 工具名称常量
- * 基于CC源码 cc_code/backend/constants/tools.ts 实现
  * 统一定义所有工具名称，消除硬编码字符串
  */
 

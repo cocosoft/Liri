@@ -1,6 +1,5 @@
 /**
  * /review 命令 - 代码审查
- * 基于CC源码 commands/review.ts 模式
  */
 import type { CommandResult } from '@modules/commands/types';
 

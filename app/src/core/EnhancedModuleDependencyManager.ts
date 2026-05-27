@@ -1,6 +1,5 @@
 /**
  * 增强版模块依赖管理系统
- * 基于CC源码学习成果，实现并行加载优化和高级依赖分析
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

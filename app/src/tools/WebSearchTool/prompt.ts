@@ -1,6 +1,5 @@
 /**
  * WebSearch工具提示模板
- * 基于CC源码 cc_code/backend/tools/WebSearchTool/prompt.ts 实现
  */
 
 export const WEB_SEARCH_TOOL_PROMPT = `你是一个网络搜索助手。使用WebSearch工具搜索信息时，请遵循以下规则：

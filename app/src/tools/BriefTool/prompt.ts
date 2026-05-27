@@ -1,6 +1,5 @@
 /**
  * BriefTool提示模板
- * 基于CC源码 cc_code/backend/tools/BriefTool/prompt.ts 实现
  */
 
 export const BRIEF_TOOL_PROMPT = `你是一个会话摘要助手。使用BriefTool生成当前会话的摘要。

@@ -1,6 +1,5 @@
 /**
  * 远程Agent任务
- * 基于CC源码 cc_code/backend/tasks/RemoteAgentTask.ts 实现
  */
 
 import type { AgentDefinition } from './types';

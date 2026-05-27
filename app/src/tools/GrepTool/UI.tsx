@@ -1,6 +1,5 @@
 /**
  * Grep工具UI组件
- * 基于CC源码 cc_code/backend/tools/GrepTool/UI.tsx 实现
  */
 
 import React from 'react';

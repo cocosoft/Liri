@@ -1,10 +1,8 @@
 /**
  * 上下文帮助管理器
  * 根据用户当前操作上下文提供相关帮助
- *
- * ⚠️ 【冻结】此文件已停止新增内容
- *
- * 新的帮助内容请直接添加到 docs/ 目录下的 Markdown 文件，
+ * * ⚠️ 【冻结】此文件已停止新增内容
+ * * 新的帮助内容请直接添加到 docs/ 目录下的 Markdown 文件，
  * 不要在本文件中新增内容。未来将逐步将现有内容迁移到 docs/ 目录。
  */
 
@@ -59,7 +57,6 @@ const DEFAULT_CONTEXT_HELP: ContextHelpEntry[] = [
     helpContent: `
 /git 命令 - Git操作封装
 
-基于CC源码实现的完整Git操作命令。
 
 子命令:
   status      - 显示工作区状态

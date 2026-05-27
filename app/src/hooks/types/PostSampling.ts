@@ -1,6 +1,5 @@
 /**
  * 采样后置Hook类型定义
- * 基于CC源码 cc_code/backend/utils/hooks/postSamplingHooks.ts 实现
  */
 
 import type { Message } from '@modules/chat/types/message';

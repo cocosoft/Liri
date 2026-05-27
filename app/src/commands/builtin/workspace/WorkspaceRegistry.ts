@@ -4,22 +4,23 @@
  */
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
 import { join, dirname } from 'path';
 import type { WorkspaceRegistry } from './types';
+import { resolvePyappHome } from '@modules/config/paths';
+import os from 'os';
 
 /**
  * 获取注册表文件路径
  */
 function getRegistryPath(): string {
-  return join(homedir(), '.pyapp', 'workspaces.json');
+  return join(resolvePyappHome(), 'workspaces.json');
 }
 
 /**
  * 获取默认工作空间根目录
  */
 export function getDefaultWorkspaceRoot(): string {
-  return join(homedir(), 'workspace');
+  return join(os.homedir(), 'workspace');
 }
 
 /**

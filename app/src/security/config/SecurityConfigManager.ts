@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveSecurityDir } from '@modules/config/paths';
 import { EventEmitter } from 'node:events';
 
 /**
@@ -133,7 +134,7 @@ export class SecurityConfigManager extends EventEmitter {
     super();
     this.configPath =
       configPath ||
-      path.join(process.cwd(), 'data', 'security', 'security-config.json');
+      path.join(resolveSecurityDir(), 'security-config.json');
     this.watchEnabled = false;
     this.config = JSON.parse(JSON.stringify(DEFAULT_SECURITY_CONFIG));
   }

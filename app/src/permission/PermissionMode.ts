@@ -1,6 +1,3 @@
-/**
- * 权限模式定义（基于CC源码 types/permissions.ts）
- */
 export const PERMISSION_MODES = [
   'default',
   'acceptEdits',

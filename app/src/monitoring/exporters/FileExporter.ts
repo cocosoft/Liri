@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { resolveLogsDir } from '@modules/config/paths';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/utils/errors.js';
 
@@ -46,12 +47,7 @@ export class FileExporter {
   constructor(config?: Partial<FileExporterConfig>) {
     this.config = {
       enabled: true,
-      outputDir: path.join(
-        process.env.PYAPP_PROJECT_DIR || process.cwd(),
-        'data',
-        'logs',
-        'telemetry'
-      ),
+      outputDir: path.join(resolveLogsDir(), 'telemetry'),
       maxFileSize: 10 * 1024 * 1024, // 10MB
       maxFiles: 10,
       rotationInterval: 3600000, // 1小时

@@ -1,9 +1,7 @@
 /**
  * Compact命令
  * 手动触发对话压缩，减少上下文大小
- *
- * 基于CC源码 cc_code/backend/commands/compact.ts 实现
- */
+ * */
 
 import type {
   Command,

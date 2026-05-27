@@ -15,13 +15,13 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, basename, extname } from 'path';
-import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   ThemeDefinition,
   ThemeMetadata,
   validateThemeDefinition,
 } from './ThemeSchema';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -33,7 +33,7 @@ const BUILTIN_THEMES_DIR = join(__dirname, 'builtin');
 /**
  * 用户主题目录
  */
-const USER_THEMES_DIR = join(homedir(), '.pyapp', 'themes');
+const USER_THEMES_DIR = join(resolvePyappHome(), 'themes');
 
 /**
  * 主题加载器

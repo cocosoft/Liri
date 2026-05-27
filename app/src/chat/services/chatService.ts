@@ -20,6 +20,7 @@ import {
 } from 'fs';
 import { AIModelType } from '@modules/ai/models/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

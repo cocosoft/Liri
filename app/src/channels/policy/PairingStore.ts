@@ -23,6 +23,8 @@ interface PendingPairing {
   expiresAt: number;
 }
 
+import { resolvePairingsDir } from '@modules/config/paths';
+
 export class PairingStore {
   private storeDir: string;
   private users: Map<string, PairedUser[]> = new Map();
@@ -30,7 +32,7 @@ export class PairingStore {
   private loaded = false;
 
   constructor(storeDir?: string) {
-    this.storeDir = storeDir || join(process.cwd(), 'data', 'pairings');
+    this.storeDir = storeDir || resolvePairingsDir();
     this.ensureDir();
     this.load();
   }

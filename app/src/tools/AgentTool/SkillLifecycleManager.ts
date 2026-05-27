@@ -14,7 +14,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -51,8 +51,7 @@ const DEFAULT_LIFECYCLE_CONFIG: Required<LifecycleConfig> = {
 };
 
 function lifecycleFilePath(): string {
-  const home = homedir();
-  return join(home, '.pyapp', 'memory', 'skill-lifecycle.json');
+  return join(resolvePyappHome(), 'memory', 'skill-lifecycle.json');
 }
 
 function loadLifecycleData(): Map<string, SkillLifecycleEntry> {

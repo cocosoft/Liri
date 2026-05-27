@@ -1,6 +1,5 @@
 /**
  * Loop技能
- * 用于循环执行任务，基于CC源码 cc_code/backend/skills/bundled/loop.ts 实现
  */
 
 import { registerBundledSkill } from './bundledSkills';

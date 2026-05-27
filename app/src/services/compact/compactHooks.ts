@@ -1,6 +1,5 @@
 /**
  * Compact Hooks（Pre/Post压缩钩子集成）
- * 基于CC源码 utils/hooks.ts executePreCompactHooks / executePostCompactHooks
  */
 
 export type CompactHookType = 'pre-compact' | 'post-compact';

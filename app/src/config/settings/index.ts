@@ -1,9 +1,7 @@
 /**
  * 多源设置管理
- * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的多源合并逻辑
  * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
- *
- * 本模块委托给 UnifiedConfigManager 实现，避免多源设置的重复实现。
+ * * 本模块委托给 UnifiedConfigManager 实现，避免多源设置的重复实现。
  * 新代码应直接使用 @modules/config 中的 getUnifiedConfigManager()。
  */
 

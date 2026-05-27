@@ -11,6 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -25,7 +26,7 @@ export class MailboxSystem {
    * 构造函数
    * @param mailboxDir 邮箱目录
    */
-  constructor(mailboxDir: string = join(process.cwd(), '.mailboxes')) {
+  constructor(mailboxDir: string = resolveDataSubDir('mailboxes')) {
     this.mailboxDir = mailboxDir;
 
     // 创建邮箱目录

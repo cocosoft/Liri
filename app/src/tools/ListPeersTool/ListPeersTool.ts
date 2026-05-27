@@ -10,6 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 /**
  * Peer信息
@@ -78,7 +79,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
 
   constructor() {
     super();
-    this.socketDir = join(process.cwd(), '.sockets');
+    this.socketDir = resolveDataSubDir('sockets');
   }
 
   override isEnabled(): boolean {
@@ -139,7 +140,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
     const peers: PeerInfo[] = [];
 
     // 检查bridge状态文件
-    const bridgeDir = join(process.cwd(), '.bridge');
+    const bridgeDir = resolveDataSubDir('bridge');
     if (!existsSync(bridgeDir)) {
       return peers;
     }

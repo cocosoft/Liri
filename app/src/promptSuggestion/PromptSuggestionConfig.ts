@@ -1,6 +1,5 @@
 /**
  * Prompt Suggestion配置和启用检查模块
- * 基于CC源码设计
  */
 
 import { getPromptSuggestionDatabase } from './database/PromptSuggestionDatabase';

@@ -1,6 +1,5 @@
 /**
  * 启动优化器
- * 基于CC源码学习成果，实现并行加载和预取优化
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

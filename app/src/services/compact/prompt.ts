@@ -1,8 +1,6 @@
 /**
  * 压缩提示词模板
- * 基于CC源码 cc_code/backend/services/compact/prompt.ts 实现
- *
- * 提供AI模型在压缩对话时使用的标准化提示词模板，
+ * * 提供AI模型在压缩对话时使用的标准化提示词模板，
  * 包含完整压缩(BASE)、部分压缩(PARTIAL)和前置压缩(PARTIAL_COMPACT_UP_TO)三种模式。
  */
 
@@ -273,8 +271,7 @@ const NO_TOOLS_TRAILER =
 
 /**
  * 获取部分压缩提示词
- *
- * @param customInstructions 自定义压缩指令
+ * * @param customInstructions 自定义压缩指令
  * @param direction 压缩方向
  * @returns 完整的部分压缩提示词
  */
@@ -299,8 +296,7 @@ export function getPartialCompactPrompt(
 
 /**
  * 获取完整压缩提示词
- *
- * @param customInstructions 自定义压缩指令
+ * * @param customInstructions 自定义压缩指令
  * @returns 完整的压缩提示词
  */
 export function getCompactPrompt(customInstructions?: string): string {
@@ -318,8 +314,7 @@ export function getCompactPrompt(customInstructions?: string): string {
 /**
  * 获取压缩摘要的用户消息内容
  * 将模型返回的摘要包装成可插入对话的用户消息
- *
- * @param summary 模型返回的摘要文本
+ * * @param summary 模型返回的摘要文本
  * @param transcriptPath 对话记录路径
  * @returns 包装后的用户消息内容
  */

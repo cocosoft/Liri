@@ -1,6 +1,5 @@
 /**
  * TaskOutput工具提示模板
- * 基于CC源码 cc_code/backend/tools/TaskOutputTool/prompt.ts 实现
  */
 
 export const TASK_OUTPUT_TOOL_PROMPT = `你是一个任务管理助手。使用TaskOutput工具获取运行中或已完成任务的输出。

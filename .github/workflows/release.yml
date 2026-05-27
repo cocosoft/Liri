@@ -15,7 +15,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: backend
+        working-directory: app
 
     steps:
       - name: Checkout code
@@ -29,8 +29,8 @@ jobs:
       - name: Cache node_modules
         uses: actions/cache@v4
         with:
-          path: backend/node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('backend/bun.lockb') }}
+          path: app/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lockb') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dist-bundle
-          path: backend/dist/
+          path: app/dist/
 
   release:
     name: Create Release

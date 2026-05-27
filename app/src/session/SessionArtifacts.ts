@@ -42,8 +42,10 @@ export interface ArtifactConfig {
   maxTotalSize: number;
 }
 
+import { resolveArtifactsDir } from '@modules/config/paths';
+
 const DEFAULT_CONFIG: ArtifactConfig = {
-  artifactsDir: join(process.cwd(), 'data', 'artifacts'),
+  artifactsDir: resolveArtifactsDir(),
   maxSizePerFile: 10 * 1024 * 1024,
   maxTotalSize: 100 * 1024 * 1024,
 };

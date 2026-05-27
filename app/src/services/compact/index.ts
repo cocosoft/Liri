@@ -1,6 +1,5 @@
 /**
  * 压缩服务模块
- * 基于CC源码 cc_code/backend/services/compact/ 实现
  */
 
 export type {

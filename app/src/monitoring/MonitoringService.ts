@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { resolveLogsDir } from '@modules/config/paths';
 import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
@@ -324,11 +325,7 @@ export class MonitoringService {
    */
   private rotateLogs(): void {
     try {
-      const logDir = path.join(
-        process.env.PYAPP_PROJECT_DIR || process.cwd(),
-        'data',
-        'logs'
-      );
+      const logDir = resolveLogsDir();
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }

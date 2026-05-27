@@ -1,6 +1,5 @@
 /**
  * GlobTool - glob文件模式匹配
- * 基于CC源码 GlobTool 模式
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -16,8 +15,7 @@ const MAX_FILES = 100;
 
 /**
  * 根据指定的通配符模式在目标路径下搜索匹配的文件。
- *
- * @param pattern - 用于匹配文件名的通配符模式字符串
+ * * @param pattern - 用于匹配文件名的通配符模式字符串
  * @param searchPath - 搜索的起始目录路径，默认为当前工作目录
  * @returns 包含搜索结果统计信息和文件列表的对象
  */
@@ -48,8 +46,7 @@ export function glob(
 
 /**
  * 递归遍历指定目录，查找匹配给定模式的文件路径，并将结果存入数组中。
- *
- * @param dir - 需要遍历的根目录路径
+ * * @param dir - 需要遍历的根目录路径
  * @param pattern - 用于匹配文件名或完整路径的通配符模式
  * @param results - 用于存储匹配到的文件路径的数组（会直接修改此数组）
  * @param limit - 限制收集的最大文件数量，达到该数量后停止遍历
@@ -92,13 +89,11 @@ function walkDir(
 
 /**
  * 检查文件名或路径是否匹配给定的 glob 模式。
- *
- * 支持以下通配符：
+ * * 支持以下通配符：
  * - `*`: 匹配任意非路径分隔符字符（不包括 `/` 和 `\`）
  * - `**`: 匹配任意字符（包括路径分隔符）
  * - `?`: 匹配单个任意字符
- *
- * @param name - 要检查的文件名或路径字符串
+ * * @param name - 要检查的文件名或路径字符串
  * @param pattern - glob 模式字符串
  * @returns 如果名称匹配模式则返回 true，否则返回 false
  */

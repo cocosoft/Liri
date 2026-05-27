@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
@@ -63,7 +63,7 @@ export class ChannelLogManager {
   ) {
     this.maxLogs = maxLogs;
     this.logDir =
-      logDir || path.join(os.homedir(), '.py_app', 'logs', 'channels');
+      logDir || path.join(resolvePyappHome(), 'logs', 'channels');
     this.persistEnabled = persistEnabled;
     this.enableRedact = true;
   }

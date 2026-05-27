@@ -4,7 +4,7 @@
  * 用于将KeybindingProvider集成到应用中的设置工具
  *
  * 这个文件提供绑定和一个组合的提供者，可以添加到应用的组件树中。
- * 它加载默认绑定和用户定义的绑定（来自 ~/.py_app/keybindings.json），
+ * 它加载默认绑定和用户定义的绑定（来自 ~/.pyapp/keybindings.json），
  * 并在文件变更时支持热重载。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -62,7 +62,7 @@ interface Props {
  *
  * 特性：
  * - 从代码加载默认绑定
- * - 与用户绑定合并（来自 ~/.py_app/keybindings.json）
+ * - 与用户绑定合并（来自 ~/.pyapp/keybindings.json）
  * - 监听文件变更并自动重载（热重载）
  * - 用户绑定覆盖默认绑定（后出现的条目获胜）
  * - 支持和弦自动超时

@@ -4,10 +4,9 @@
  */
 
 import * as fs from 'fs';
-import * as path from 'path';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveLogsDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -94,22 +93,13 @@ export class HookDiagnosticService {
    * 获取日志文件路径
    */
   private getLogPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const logDir = path.join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      'data',
-      'logs',
-      'hooks'
-    );
+    const logDir = join(resolveLogsDir(), 'hooks');
 
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
 
-    return path.join(logDir, 'hook_diagnostics.json');
+    return join(logDir, 'hook_diagnostics.json');
   }
 
   /**

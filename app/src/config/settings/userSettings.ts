@@ -1,6 +1,5 @@
 /**
  * 用户全局设置管理
- * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的用户设置部分
  * 管理用户级别的全局配置，存储在 ~/.pyapp/settings.json
  */
 
@@ -8,6 +7,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { deepMerge } from '@modules/utils/common.js';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 用户设置文件名
@@ -18,8 +18,7 @@ const USER_SETTINGS_FILE = 'settings.json';
  * 获取用户设置文件路径
  */
 export function getUserSettingsPath(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-  return join(homeDir, '.pyapp', USER_SETTINGS_FILE);
+  return join(resolvePyappHome(), USER_SETTINGS_FILE);
 }
 
 /**

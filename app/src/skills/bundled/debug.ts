@@ -1,6 +1,5 @@
 /**
  * Debug技能
- * 用于调试问题，基于CC源码 cc_code/backend/skills/bundled/debug.ts 实现
  */
 
 import { registerBundledSkill } from './bundledSkills';

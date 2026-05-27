@@ -6,6 +6,7 @@ import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveCacheDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -45,7 +46,7 @@ export class ToolCache {
   /**
    * 构造函数
    */
-  constructor(cacheDir: string = join(process.cwd(), '.tool-cache')) {
+  constructor(cacheDir: string = resolveCacheDir()) {
     this.diskCacheDir = cacheDir;
     this.ensureCacheDir();
     this.loadDiskCache();

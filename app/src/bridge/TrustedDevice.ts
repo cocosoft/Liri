@@ -1,9 +1,7 @@
-/**
- * 设备信任管理（基于CC源码 bridge/trustedDevice.ts）
- */
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export interface TrustedDevice {
   deviceId: string;
@@ -21,8 +19,7 @@ export interface TrustedDevice {
 const DEFAULT_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 
 function getDevicesPath(): string {
-  const home = process.env.HOME || process.env.USERPROFILE || '';
-  return path.join(home, '.py_app', 'trusted_devices.json');
+  return path.join(resolvePyappHome(), 'trusted_devices.json');
 }
 
 export function loadTrustedDevices(): TrustedDevice[] {

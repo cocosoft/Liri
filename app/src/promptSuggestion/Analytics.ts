@@ -1,6 +1,5 @@
 /**
  * Prompt Suggestion 事件追踪模块
- * 基于CC源码设计
  */
 
 import type { PromptVariant, SuggestionSource } from './types';

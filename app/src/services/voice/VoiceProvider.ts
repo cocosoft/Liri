@@ -1,5 +1,4 @@
 /**
- * 语音模式提供者（基于CC源码 context/voice.tsx 条件编译模式）
  * 由 VOICE_MODE feature flag 控制加载
  */
 import { FEATURE_FLAGS } from '@modules/core/featureFlags';

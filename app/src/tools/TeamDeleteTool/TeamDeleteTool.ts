@@ -11,6 +11,7 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
+import { resolveDataSubDir } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -86,7 +87,7 @@ export class TeamDeleteTool extends BaseTool<
 
   constructor() {
     super();
-    this.teamDir = join(process.cwd(), '.teams');
+    this.teamDir = resolveDataSubDir('teams');
   }
 
   override isEnabled(): boolean {

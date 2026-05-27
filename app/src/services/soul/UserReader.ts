@@ -5,10 +5,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import { mkdirSync } from 'node:fs';
+import { resolvePyappHome } from '@modules/config/paths';
 
-const USER_FILE_PATH = path.join(os.homedir(), '.pyapp', 'USER.md');
+const USER_FILE_PATH = path.join(resolvePyappHome(), 'USER.md');
 
 let cachedContent: string | null = null;
 let cachedMtime: number = 0;
@@ -85,7 +84,7 @@ export function clearUserCache(): void {
 export function writeUserMd(content: string): void {
   const dir = path.dirname(USER_FILE_PATH);
   if (!fs.existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true });
   }
   fs.writeFileSync(USER_FILE_PATH, content, 'utf-8');
   clearUserCache();

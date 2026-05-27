@@ -1,6 +1,5 @@
 /**
  * 增强版工具编排器
- * 基于CC源码 cc_code/backend/services/tools/toolOrchestration.ts 实现
  * 支持并发/串行混合执行，上下文修改器
  */
 

@@ -1,6 +1,5 @@
 /**
  * 日志格式化器
- * 基于CC源码日志系统实现
  */
 
 import type { LogEntry } from './LogFilter.js';

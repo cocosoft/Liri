@@ -25,8 +25,10 @@ export interface PruningResult {
   prunedSessions: string[];
 }
 
+import { resolveSessionsDir } from '@modules/config/paths';
+
 const DEFAULT_PRUNING_CONFIG: PruningConfig = {
-  sessionsDir: join(process.cwd(), 'data', 'sessions'),
+  sessionsDir: resolveSessionsDir(),
   maxSessions: 100,
   maxAgeDays: 90,
   maxSizeMB: 500,

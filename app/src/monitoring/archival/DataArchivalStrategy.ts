@@ -1,7 +1,7 @@
 /**
  * 监控数据归档策略
  * 将内存中的监控数据定期持久化到磁盘，支持压缩和保留策略
- * 归档目录: backend/data/monitoring/archives/（第二层，不跟踪）
+ * 归档目录: app/data/monitoring/archives/（第二层，不跟踪）
  */
 
 import {

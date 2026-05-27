@@ -1,6 +1,5 @@
 /**
  * /usage 命令 - 用量统计
- * 基于CC源码 commands/usage/usage.tsx 模式
  */
 
 export interface UsageStats {

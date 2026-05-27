@@ -1,7 +1,6 @@
 /**
  * 请求取消管理
  * 提供AbortController封装用于取消请求
- * 基于CC源码 cc_code/backend/hooks/useCancelRequest.ts 实现
  */
 
 export interface CancelRequestHandle {

@@ -1,4 +1,3 @@
-//
 /**
  * Teammate Mailbox系统
  * 提供结构化的团队消息传递，支持shutdown、plan_approval等消息类型
@@ -15,6 +14,7 @@ import {
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -136,8 +136,7 @@ export class TeammateMailbox {
     this.mailboxDir =
       config.mailboxDir ||
       join(
-        process.env.HOME || process.env.USERPROFILE || '',
-        '.py_app',
+        resolvePyappHome(),
         'mailbox'
       );
     this.messageTtlMs = config.messageTtlMs || 24 * 60 * 60 * 1000; // 24小时

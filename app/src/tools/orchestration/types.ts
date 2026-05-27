@@ -1,6 +1,5 @@
 /**
  * 工具编排类型定义
- * 基于CC源码 cc_code/backend/services/tools/toolOrchestration.ts 实现
  */
 
 import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';

@@ -1,10 +1,10 @@
-//
 /**
  * Agent内存管理
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 import { getProjectRoot } from '../../bootstrap/state.js';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
 import { getCwd } from '@modules/utils/cwd';
@@ -106,7 +106,7 @@ function getLocalAgentMemoryDir(dirName: string): string {
     );
   }
   return (
-    path.join(getCwd(), '.py_app', 'agent-memory-local', dirName) + path.sep
+    path.join(resolveDataDir(), 'agent-memory-local', dirName) + path.sep
   );
 }
 
@@ -120,7 +120,7 @@ export function getAgentMemoryDir(
   const dirName = sanitizeAgentTypeForPath(agentType);
   switch (scope) {
     case 'project':
-      return path.join(getCwd(), '.py_app', 'agent-memory', dirName) + path.sep;
+      return path.join(resolveDataDir(), 'agent-memory', dirName) + path.sep;
     case 'local':
       return getLocalAgentMemoryDir(dirName);
     case 'user':
@@ -145,7 +145,7 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
   // 项目范围：基于当前工作目录
   if (
     normalizedPath.startsWith(
-      path.join(getCwd(), '.py_app', 'agent-memory') + path.sep
+      path.join(resolveDataDir(), 'agent-memory') + path.sep
     )
   ) {
     return true;
@@ -163,7 +163,7 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
     }
   } else if (
     normalizedPath.startsWith(
-      path.join(getCwd(), '.py_app', 'agent-memory-local') + path.sep
+      path.join(resolveDataDir(), 'agent-memory-local') + path.sep
     )
   ) {
     return true;
@@ -192,7 +192,7 @@ export function getMemoryScopeDisplay(
     case 'user':
       return `User (${path.join(getMemoryBaseDir(), 'agent-memory')}/)`;
     case 'project':
-      return 'Project (.py_app/agent-memory/)';
+      return 'Project (agent-memory/)';
     case 'local':
       return `Local (${getLocalAgentMemoryDir('...')})`;
     default:

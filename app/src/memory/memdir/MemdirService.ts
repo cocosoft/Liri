@@ -6,8 +6,8 @@
 import { join } from 'path';
 import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -123,9 +123,6 @@ export interface EntrypointTruncation {
   wasByteTruncated: boolean;
 }
 
-/**
- * 记忆目录服务类（基于CC源码实现）
- */
 export class MemdirService {
   private config: MemdirConfig;
   private memoryFiles: Map<string, MemoryFile> = new Map();
@@ -135,7 +132,7 @@ export class MemdirService {
       entrypointName: 'MEMORY.md',
       maxEntrypointLines: 200,
       maxEntrypointBytes: 25000,
-      autoMemBaseDir: join(homedir(), '.pyapp', 'memory'),
+      autoMemBaseDir: join(resolvePyappHome(), 'memory'),
       autoMemoryEnabled: true,
       ...config,
     };
@@ -257,7 +254,7 @@ export class MemdirService {
    * 扫描用户级记忆文件（来自CC源码）
    */
   private async scanUserMemoryFiles(): Promise<void> {
-    const userMemDir = join(homedir(), '.pyapp');
+    const userMemDir = resolvePyappHome();
     const userFile = join(userMemDir, 'CLAUDE.md');
 
     if (existsSync(userFile)) {

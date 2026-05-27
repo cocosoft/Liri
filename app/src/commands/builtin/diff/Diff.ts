@@ -1,6 +1,5 @@
 /**
  * /diff 命令 - 差异查看
- * 基于CC源码 commands/diff/index.ts 模式
  */
 import { execFile } from 'child_process';
 import { promisify } from 'util';

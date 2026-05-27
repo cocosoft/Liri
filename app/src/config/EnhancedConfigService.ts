@@ -13,6 +13,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolvePyappHome } from './paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -177,8 +178,7 @@ export class EnhancedConfigService {
    * 获取默认配置路径
    */
   private getDefaultConfigPath(): string {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-    return path.join(homeDir, '.PY_APP', 'config.json');
+    return path.join(resolvePyappHome(), 'config.json');
   }
 
   /**

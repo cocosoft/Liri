@@ -1,6 +1,5 @@
 /**
  * Verify技能
- * 用于验证结果正确性，基于CC源码 cc_code/backend/skills/bundled/verify.ts 实现
  */
 
 import { registerBundledSkill } from './bundledSkills';

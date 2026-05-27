@@ -1,6 +1,5 @@
 /**
  * XML标签常量
- * 基于CC源码 cc_code/backend/constants/xml.ts 实现
  */
 
 export const COMMAND_NAME_TAG = 'command-name';

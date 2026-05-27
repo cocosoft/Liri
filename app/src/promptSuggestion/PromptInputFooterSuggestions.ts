@@ -1,6 +1,5 @@
 /**
  * PromptInputFooterSuggestions 建议显示组件
- * 基于CC源码设计
  */
 
 import type { SuggestionItem, SuggestionType } from './types';

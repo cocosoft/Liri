@@ -149,7 +149,8 @@ export class ConfigManager {
    */
   private resolveConfigPath(): string {
     const pyappHome = resolvePyappHome();
-    const oldPath = join(pyappHome, '..', '.PY_APP', 'config.json');
+    const LEGACY_CONFIG_DIR = '.PY_APP';
+    const oldPath = join(pyappHome, '..', LEGACY_CONFIG_DIR, 'config.json');
     const newPath = resolveUserConfigPath();
 
     // 首次启动时自动迁移从 ~/.PY_APP/ 到 ~/.pyapp/

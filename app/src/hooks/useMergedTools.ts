@@ -1,8 +1,6 @@
 /**
  * 工具列表合并Hook
- * 基于CC源码 cc_code/backend/hooks/useMergedTools.ts 实现
- *
- * 合并来源：
+ * * 合并来源：
  * - 内置工具（Built-in Tools）
  * - MCP工具（MCP Tools）
  * - 插件工具（Plugin Tools）

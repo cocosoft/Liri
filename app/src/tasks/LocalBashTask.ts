@@ -1,7 +1,6 @@
 /**
  * 本地Bash任务
  * 支持卡死检测（stall watchdog）、提示检测（prompt detection）、前后台管理
- * 基于CC源码 cc_code/backend/tasks/LocalShellTask/LocalShellTask.tsx 实现
  */
 
 import { spawn, ChildProcess } from 'child_process';

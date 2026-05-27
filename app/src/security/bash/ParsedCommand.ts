@@ -23,7 +23,6 @@ export type CommandSegment = {
 
 /**
  * SimpleCommand — AST级命令行解析结果（与BashAST.ts对齐）
- * 基于CC源码 SimpleCommand 结构
  */
 export type SimpleCommand = {
   argv: string[];

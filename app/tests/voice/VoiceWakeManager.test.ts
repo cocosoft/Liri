@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { unlinkSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
 import { rmSync } from 'fs';
 
 import {
@@ -16,8 +15,9 @@ import {
   setVoiceWakeTriggers,
   detectWakeWord,
 } from '../../src/voice/VoiceWakeManager.js';
+import { resolvePyappHome } from '@modules/config/paths';
 
-const CONFIG_PATH = join(homedir(), '.pyapp', 'settings', 'voicewake.json');
+const CONFIG_PATH = join(resolvePyappHome(), 'settings', 'voicewake.json');
 
 describe('defaultVoiceWakeTriggers', () => {
 
@@ -77,7 +77,7 @@ describe('loadVoiceWakeConfig', () => {
 describe('setVoiceWakeTriggers', () => {
 
   beforeEach(async () => {
-    const dir = join(homedir(), '.pyapp', 'settings');
+    const dir = join(resolvePyappHome(), 'settings');
     if (existsSync(CONFIG_PATH)) {
       unlinkSync(CONFIG_PATH);
     } else if (!existsSync(dir)) {

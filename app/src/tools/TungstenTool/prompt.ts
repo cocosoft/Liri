@@ -1,6 +1,5 @@
 /**
  * TungstenTool提示模板
- * 基于CC源码 cc_code/backend/tools/TungstenTool/prompt.ts 实现
  */
 
 export const TUNGSTEN_TOOL_PROMPT = `你是一个终端会话管理助手。使用TungstenTool管理交互式终端会话。

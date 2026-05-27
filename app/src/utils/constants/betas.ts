@@ -1,6 +1,5 @@
 /**
  * Beta功能头常量
- * 基于CC源码 cc_code/backend/constants/betas.ts 实现
  */
 
 export const CLAUDE_CODE_20250219_BETA_HEADER = 'claude-code-20250219';

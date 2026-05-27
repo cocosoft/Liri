@@ -1,4 +1,3 @@
-//
 /**
  * 代理服务
  */
@@ -8,6 +7,7 @@ import { AgentService, AgentConfig, AIAgent } from '../models/types';
 import { AIAgentImpl } from '../agent';
 import { ToolFactory } from '../tools/agentTool';
 import { join } from 'path';
+import { resolveMemoryDir } from '@modules/config/paths';
 import {
   readdirSync,
   writeFileSync,
@@ -217,7 +217,7 @@ export function createAgentService(
     temperature: 0.7,
     maxTokens: 1000,
     timeout: 60000,
-    memoryPath: join(process.cwd(), 'agent_memory'),
+    memoryPath: join(resolveMemoryDir(), 'agent_memory'),
     defaultStrategy: 'direct_answer',
     tools: ToolFactory.createDefaultTools(),
   };

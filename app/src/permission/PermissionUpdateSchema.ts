@@ -1,8 +1,4 @@
 //
-/**
- * 权限更新Schema（基于CC源码 utils/permissions/PermissionUpdateSchema.ts）
- */
-
 import type {
   PermissionBehavior,
   PermissionRuleSource,

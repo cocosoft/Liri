@@ -6,13 +6,13 @@
 
 import { appendFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
-import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const DEFAULT_TRAJECTORY_DIR = join(homedir(), '.py_app', 'trajectories');
+const DEFAULT_TRAJECTORY_DIR = join(resolvePyappHome(), 'trajectories');
 
 export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -72,7 +72,7 @@ function getTrajectoryDir(): string {
       mkdirSync(dir, { recursive: true });
     } catch {
       // 目录创建失败时使用临时目录
-      return join(homedir(), '.py_app');
+      return join(resolvePyappHome());
     }
   }
   return dir;

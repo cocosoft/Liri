@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { CryptoUtils } from '@modules/security/services/CryptoUtils.js';
+import { resolveOAuthDir, ensureDir } from '@modules/config/paths';
 
 /**
  * OAuth Token数据结构
@@ -39,12 +40,12 @@ export class OAuthStorageImpl implements OAuthStorage {
   private encryptionKey: string;
 
   constructor(options?: { storagePath?: string; encryptionKey?: string }) {
-    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
     this.storagePath =
       options?.storagePath ||
-      join(projectRoot, 'backend', 'data', 'oauth-tokens.json');
+      join(resolveOAuthDir(), 'oauth-tokens.json');
     this.encryptionKey =
       options?.encryptionKey || this.getDefaultEncryptionKey();
+    ensureDir(resolveOAuthDir());
   }
 
   /**

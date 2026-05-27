@@ -1,6 +1,5 @@
 /**
  * 日志过滤器
- * 基于CC源码日志系统实现
  */
 
 export enum LogLevel {

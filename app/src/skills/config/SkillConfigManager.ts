@@ -4,6 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 技能源类型
@@ -51,7 +52,7 @@ export class SkillConfigManager {
       allowedSources: ['user', 'project', 'plugin', 'mcp', 'bundled'],
     };
     const effectiveCwd = process.env.PYAPP_PROJECT_DIR || process.cwd();
-    this.configPath = path.join(effectiveCwd, '.pyapp', 'skill-config.json');
+    this.configPath = path.join(resolvePyappHome(), 'skill-config.json');
     this.loadDefaults();
   }
 
@@ -199,15 +200,11 @@ export class SkillConfigManager {
       name: 'user-skills',
       type: 'user',
       enabled: false,
-      path: path.join(osHomedir(), '.pyapp', 'skills'),
+      path: path.join(resolvePyappHome(), 'skills'),
       priority: 50,
       autoLoad: false,
     });
   }
-}
-
-function osHomedir(): string {
-  return process.env.USERPROFILE || process.env.HOME || '/tmp';
 }
 
 export const skillConfigManager = new SkillConfigManager();

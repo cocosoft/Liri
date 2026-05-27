@@ -4,6 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolvePyappHome, resolveMemoryDir } from '@modules/config/paths';
 
 export interface ProjectFiles {
   pyAppMd: string | null;
@@ -29,9 +30,9 @@ function safeReadFile(filePath: string): string | null {
   }
 }
 
-const PY_APP_MD_PATHS = ['PY_APP.md', '.py_app/PY_APP.md', '.github/PY_APP.md'];
+const PY_APP_MD_PATHS = ['PY_APP.md', path.join('docs', 'PY_APP.md'), '.github/PY_APP.md'];
 
-const MEMORY_MD_PATHS = ['MEMORY.md', '.py_app/MEMORY.md'];
+const MEMORY_MD_PATHS = ['MEMORY.md', path.join('docs', 'MEMORY.md')];
 
 export function readProjectFiles(cwd: string): ProjectFiles {
   let pyAppMd: string | null = null;
@@ -63,7 +64,7 @@ export function readUserPyAppMd(): string | null {
   const home = process.env.HOME || process.env.USERPROFILE || '';
   if (!home) return null;
   return (
-    safeReadFile(path.join(home, '.py_app', 'PY_APP.md')) ||
+    safeReadFile(path.join(resolvePyappHome(), 'PY_APP.md')) ||
     safeReadFile(path.join(home, 'PY_APP.md'))
   );
 }

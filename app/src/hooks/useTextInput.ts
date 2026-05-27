@@ -1,8 +1,6 @@
 /**
  * 文本输入管理Hook
- * 基于CC源码 cc_code/backend/hooks/useTextInput.ts 实现
- *
- * 支持：
+ * * 支持：
  * - 多行输入
  * - 历史记录
  * - 自动补全

@@ -1,6 +1,5 @@
 //
 /**
- * 技能菜单组件（基于CC源码实现）
  * 支持按来源分组显示技能、技能搜索、技能详情展示
  */
 
@@ -113,9 +112,6 @@ interface SkillsMenuState {
   showDetails: boolean;
 }
 
-/**
- * 技能菜单组件（基于CC源码实现）
- */
 export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   skillLoader,
   skillTool,

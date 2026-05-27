@@ -1,4 +1,3 @@
-//
 /**
  * Agent配置管理器
  * 实现基于文件系统的配置管理
@@ -13,6 +12,7 @@ import { CustomAgentDefinition, SettingSource } from './types';
 import { parseAgentsFromJson } from './parseAgent';
 import { getCwd } from '@modules/utils/cwd';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
+import { resolveDataDir, resolvePyappHome } from '@modules/config/paths';
 
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 
@@ -133,7 +133,7 @@ export class AgentConfigManager {
       case 'userSettings':
         return path.join(configHome, 'agents.json');
       case 'projectSettings':
-        return path.join(getCwd(), '.py_app', 'agents.json');
+        return path.join(resolveDataDir(), 'agents.json');
       case 'policySettings':
         return path.join(configHome, 'managed', 'agents.json');
       case 'flagSettings':

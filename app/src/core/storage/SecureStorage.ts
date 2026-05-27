@@ -1,4 +1,3 @@
-//
 import { EventEmitter } from 'events';
 import {
   createCipheriv,
@@ -8,11 +7,14 @@ import {
   CipherGCM,
   DecipherGCM,
 } from 'crypto';
-import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
+import {
+  readFile, writeFile, mkdir, access, stat,
+} from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 安全存储数据接口
@@ -64,9 +66,7 @@ const DEFAULT_ENCRYPTION_CONFIG: EncryptionConfig = {
 
 /**
  * 安全存储服务
- *
- * 基于CC源码的安全存储机制实现，提供：
- * - 多平台支持（macOS Keychain, Linux libsecret, Windows DPAPI）
+ * * - 多平台支持（macOS Keychain, Linux libsecret, Windows DPAPI）
  * - 降级策略（密钥链不可用时使用加密文件）
  * - AES-256-GCM加密
  * - 文件权限控制（0o600）
@@ -306,8 +306,7 @@ export class SecureStorage extends EventEmitter {
    * 获取默认存储路径
    */
   private getDefaultStoragePath(): string {
-    const { homedir } = require('os');
-    return join(homedir(), '.pyapp', 'secure', 'credentials.enc');
+    return join(resolvePyappHome(), 'secure', 'credentials.enc');
   }
 
   /**

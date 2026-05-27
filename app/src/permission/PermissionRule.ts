@@ -1,7 +1,3 @@
-/**
- * 权限规则类型定义（基于CC源码 types/permissions.ts + utils/permissions/PermissionRule.ts）
- */
-
 export type PermissionBehavior = 'allow' | 'deny' | 'ask';
 
 export type PermissionRuleSource =

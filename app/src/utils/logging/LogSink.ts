@@ -1,7 +1,6 @@
 //
 /**
  * 日志输出管理器
- * 基于CC源码日志系统实现
  */
 
 import { writeFile, appendFile, mkdir } from 'fs/promises';

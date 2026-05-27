@@ -1,9 +1,7 @@
 /**
  * 语音关键词
  * 提升语音识别准确率的关键词列表
- *
- * 基于CC源码 cc_code/backend/services/voiceKeyterms.ts 实现
- */
+ * */
 
 import { basename } from 'path';
 

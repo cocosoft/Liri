@@ -1,6 +1,5 @@
 /**
  * ConfigTool提示模板
- * 基于CC源码 cc_code/backend/tools/ConfigTool/prompt.ts 实现
  */
 
 export const CONFIG_TOOL_PROMPT = `你是一个配置管理助手。使用ConfigTool管理应用配置。

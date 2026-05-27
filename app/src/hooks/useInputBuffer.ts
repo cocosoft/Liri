@@ -1,6 +1,5 @@
 /**
  * 输入缓冲区管理
- * 基于CC源码 cc_code/backend/hooks/useInputBuffer.ts 实现
  * 适配Backend的Zustand store架构
  */
 

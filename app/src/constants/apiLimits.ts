@@ -1,6 +1,5 @@
 /**
  * API限制常量
- * 基于CC源码 cc_code/backend/constants/apiLimits.ts 实现
  * 定义API请求的服务端限制，保持此文件无依赖以防止循环导入
  */
 

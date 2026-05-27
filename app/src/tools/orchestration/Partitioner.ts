@@ -1,6 +1,5 @@
 /**
  * 工具调用分区器
- * 基于CC源码 cc_code/backend/services/tools/toolOrchestration.ts 实现
  * 根据工具类型将工具调用分区为并发安全组和串行执行组
  */
 

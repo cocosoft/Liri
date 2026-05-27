@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveProjectRoot } from '../../config/paths';
+import { resolveProjectRoot, resolvePyappHome } from '../../config/paths';
 
 /**
  * 发现源类型
@@ -194,19 +194,12 @@ export class PluginDiscovery {
 
     this.scanPaths.set('builtin', [path.join(cwd, 'plugins', 'builtin')]);
     this.scanPaths.set('installed', [path.join(cwd, 'plugins', 'installed')]);
-    this.scanPaths.set('user', [path.join(osHomedir(), '.pyapp', 'plugins')]);
+    this.scanPaths.set('user', [path.join(resolvePyappHome(), 'plugins')]);
     this.scanPaths.set('project', [path.join(cwd, '.pyapp', 'plugins')]);
     this.scanPaths.set('global', [
       process.env.PYAPP_PLUGIN_PATH || path.join(cwd, 'plugins'),
     ]);
   }
-}
-
-/**
- * 获取用户主目录
- */
-function osHomedir(): string {
-  return process.env.USERPROFILE || process.env.HOME || '/tmp';
 }
 
 export const pluginDiscovery = new PluginDiscovery();

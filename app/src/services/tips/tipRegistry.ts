@@ -1,9 +1,7 @@
 /**
  * Tips注册表
  * 管理所有可用的操作提示
- *
- * 基于CC源码 cc_code/backend/services/tips/tipRegistry.ts 实现
- */
+ * */
 
 import type { Tip, TipContext } from './types';
 

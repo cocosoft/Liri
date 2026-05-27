@@ -1,6 +1,5 @@
 /**
  * Prompt Suggestion过滤规则模块
- * 基于CC源码设计
  */
 
 import type { PromptVariant, SuggestionSource } from './types';

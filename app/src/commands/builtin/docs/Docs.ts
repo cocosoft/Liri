@@ -151,7 +151,7 @@ const DOC_SECTIONS: DocSection[] = [
       '  /config set <key> <值> - 设置配置值',
       '  /theme list            - 列出可用主题',
       '',
-      '配置文件保存在用户目录下的 .py_app/config.json。',
+      '配置文件保存在用户目录下的 ~/.pyapp/config.json。',
     ].join('\n'),
     keywords: ['config', 'configuration', '配置', '设置', 'settings'],
   },

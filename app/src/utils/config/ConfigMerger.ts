@@ -1,6 +1,5 @@
 /**
  * 配置合并和覆盖策略
- * 基于CC源码配置系统实现
  */
 
 import { logger } from '../log.js';

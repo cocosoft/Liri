@@ -48,7 +48,7 @@ const PLACEHOLDER_API_KEYS = new Set([
  * 获取首次运行标记文件路径
  */
 function getOnboardedFlagPath(): string {
-  return join(resolveProjectRoot(), 'backend', 'data', '.onboarded');
+  return join(resolveProjectRoot(), 'app', 'data', '.onboarded');
 }
 
 /**
@@ -69,14 +69,14 @@ function getEnvExamplePath(): string {
  * 获取引导重试计数文件路径
  */
 function getOnboardRetryFlagPath(): string {
-  return join(resolveProjectRoot(), 'backend', 'data', '.onboard_retry');
+  return join(resolveProjectRoot(), 'app', 'data', '.onboard_retry');
 }
 
 /**
  * 获取数据目录路径
  */
 function getDataDir(): string {
-  return join(resolveProjectRoot(), 'backend', 'data');
+  return join(resolveProjectRoot(), 'app', 'data');
 }
 
 /**

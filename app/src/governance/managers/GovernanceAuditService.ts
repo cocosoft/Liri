@@ -14,6 +14,7 @@ import type {
   GovernanceEventType,
 } from '../types/GovernanceTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveGovernanceDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -86,14 +87,7 @@ export class GovernanceAuditService extends EventEmitter {
    * 获取审计文件路径
    */
   private getAuditPath(): string {
-    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-    const auditDir = join(
-      projectRoot,
-      'backend',
-      'data',
-      'governance',
-      'audit'
-    );
+    const auditDir = join(resolveGovernanceDir(), 'audit');
 
     if (!existsSync(auditDir)) {
       mkdirSync(auditDir, { recursive: true });

@@ -10,9 +10,9 @@
  */
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, relative } from 'path';
-import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -46,7 +46,7 @@ export class KnowledgeDigestService {
   private cached: DigestCache | null = null;
 
   constructor() {
-    this.knowledgeRoot = join(homedir(), '.pyapp', 'knowledge');
+    this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
     this.cacheDir = join(this.knowledgeRoot, '.knowledge-cache');
     this.cachePath = join(this.cacheDir, DIGEST_FILENAME);
   }

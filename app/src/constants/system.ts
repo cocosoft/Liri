@@ -1,6 +1,5 @@
 /**
  * 系统常量
- * 基于CC源码 cc_code/backend/constants/system.ts 实现
  * 定义系统提示词前缀和归因头等关键常量
  */
 

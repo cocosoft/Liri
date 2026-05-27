@@ -10,6 +10,9 @@ import {
 } from './PerformanceAnalyzer.js';
 import { getSlowOperationStats } from './SlowOperations.js';
 import { getPhaseTimes } from './StartupProfiler.js';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { writeFileSync, readFileSync, unlinkSync } from 'fs';
 
 /**
  * 分析系统瓶颈
@@ -122,19 +125,15 @@ async function simulateMemoryIntensiveOperation() {
 async function simulateIOOperation() {
   const end = performanceAnalyzer.recordEvent('I/O操作', 'io');
 
-  // 模拟文件读写操作
-  const fs = require('fs');
-  const path = require('path');
-
   // 创建临时文件
-  const tempFile = path.join(__dirname, 'temp.txt');
-  fs.writeFileSync(tempFile, '测试内容');
+  const tempFile = join(tmpdir(), 'pyapp-bottleneck-temp.txt');
+  writeFileSync(tempFile, '测试内容');
 
   // 读取临时文件
-  const content = fs.readFileSync(tempFile, 'utf8');
+  const content = readFileSync(tempFile, 'utf8');
 
   // 删除临时文件
-  fs.unlinkSync(tempFile);
+  unlinkSync(tempFile);
 
   end();
 }

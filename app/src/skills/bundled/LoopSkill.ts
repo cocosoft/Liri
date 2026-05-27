@@ -1,6 +1,5 @@
 /**
  * Loop技能
- * 基于CC源码 cc_code/backend/skills/bundled/loop.ts 实现
  * 用于设置周期性任务的技能
  */
 

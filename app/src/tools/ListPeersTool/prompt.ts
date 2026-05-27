@@ -1,6 +1,5 @@
 /**
  * ListPeersTool提示模板
- * 基于CC源码 cc_code/backend/tools/ListPeersTool/prompt.ts 实现
  */
 
 export const LIST_PEERS_TOOL_PROMPT = `你是一个Peer发现助手。使用ListPeersTool发现本地或远程的Agent进程。

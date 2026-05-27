@@ -1,4 +1,3 @@
-//
 /**
  * 增强的MCP配置管理
  * 支持多种配置来源和验证
@@ -6,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -54,8 +54,7 @@ export class EnhancedMCPConfigManager {
    */
   private loadGlobalConfig(): Record<string, ScopedMcpServerConfig> {
     const globalConfigPath = path.join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.py_app',
+      resolvePyappHome(),
       'mcp.json'
     );
     const configs = this.loadConfigFile(globalConfigPath, 'local');
@@ -68,8 +67,7 @@ export class EnhancedMCPConfigManager {
    */
   private loadUserConfig(): Record<string, ScopedMcpServerConfig> {
     const userConfigPath = path.join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.py_app',
+      resolvePyappHome(),
       'user',
       'mcp.json'
     );
@@ -261,15 +259,13 @@ export class EnhancedMCPConfigManager {
       switch (scope) {
         case 'local':
           configPath = path.join(
-            process.env.HOME || process.env.USERPROFILE || '',
-            '.py_app',
+            resolvePyappHome(),
             'mcp.json'
           );
           break;
         case 'user':
           configPath = path.join(
-            process.env.HOME || process.env.USERPROFILE || '',
-            '.py_app',
+            resolvePyappHome(),
             'user',
             'mcp.json'
           );

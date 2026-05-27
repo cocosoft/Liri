@@ -1,6 +1,5 @@
 /**
  * Cron任务持久化管理
- * 基于CC源码 cc_code/backend/utils/cronTasks.ts 实现
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -13,7 +12,7 @@ import type { SqliteCronStore } from './service/SqliteCronStore';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const CRON_FILE_DIR = '.py_app';
+const CRON_FILE_DIR = '.pyapp';
 const CRON_FILE_NAME = 'scheduled_tasks.json';
 
 let _sqliteStore: SqliteCronStore | null = null;

@@ -209,6 +209,34 @@ export function resolveSnapshotsDir(
   return join(resolveDataDir(env), 'snapshots');
 }
 
+/** 日志目录（app/data/logs/） */
+export function resolveLogsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDataDir(env), 'logs');
+}
+
+/** 会话制品目录（app/data/artifacts/） */
+export function resolveArtifactsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDataDir(env), 'artifacts');
+}
+
+/** 治理数据目录（app/data/governance/） */
+export function resolveGovernanceDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDataDir(env), 'governance');
+}
+
+/** 配对存储目录（app/data/pairings/） */
+export function resolvePairingsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDataDir(env), 'pairings');
+}
+
 // ─── 第二层：便捷路径构造 ─────────────────────
 
 /**
@@ -350,6 +378,10 @@ export function ensureDataDirectories(
     resolvePermissionsDir(env),
     resolveChronosDir(env),
     resolveSnapshotsDir(env),
+    resolveLogsDir(env),
+    resolveArtifactsDir(env),
+    resolveGovernanceDir(env),
+    resolvePairingsDir(env),
     resolvePyappHome(env),
     resolveUserMemoryDir(env),
     resolveKnowledgeDir(env),
@@ -379,6 +411,10 @@ export const OAUTH_DIR = resolveOAuthDir();
 export const PERMISSIONS_DIR = resolvePermissionsDir();
 export const CHRONOS_DIR = resolveChronosDir();
 export const SNAPSHOTS_DIR = resolveSnapshotsDir();
+export const LOGS_DIR = resolveLogsDir();
+export const ARTIFACTS_DIR = resolveArtifactsDir();
+export const GOVERNANCE_DIR = resolveGovernanceDir();
+export const PAIRINGS_DIR = resolvePairingsDir();
 export const USER_CONFIG_PATH = resolveUserConfigPath();
 export const USER_SETTINGS_PATH = resolveUserSettingsPath();
 export const SOUL_PATH = resolveSoulPath();

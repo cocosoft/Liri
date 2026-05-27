@@ -1,6 +1,5 @@
 /**
  * 上下文修改器队列
- * 基于CC源码 cc_code/backend/services/tools/toolOrchestration.ts 实现
  * 管理工具执行后对上下文的修改
  */
 

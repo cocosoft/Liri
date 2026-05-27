@@ -6,13 +6,13 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 
 const CLEANUP_LOCK_FILE = '.chronos-cleanup.lock';
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 async function getCleanupLockPath(): Promise<string> {
-  const dataDir = join(process.cwd(), '.py_copilot');
-  return join(dataDir, CLEANUP_LOCK_FILE);
+  return join(resolveDataDir(), CLEANUP_LOCK_FILE);
 }
 
 async function isLockStale(lockPath: string): Promise<boolean> {
@@ -27,7 +27,7 @@ async function isLockStale(lockPath: string): Promise<boolean> {
 
 async function tryAcquireCleanupLock(): Promise<boolean> {
   const lockPath = await getCleanupLockPath();
-  const dataDir = join(process.cwd(), '.py_copilot');
+  const dataDir = resolveDataDir();
 
   try {
     await mkdir(dataDir, { recursive: true });
@@ -57,7 +57,7 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
   }
 
   try {
-    const sessionsDir = join(process.cwd(), '.py_copilot', 'sessions');
+    const sessionsDir = join(resolveDataDir(), 'sessions');
     const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
 

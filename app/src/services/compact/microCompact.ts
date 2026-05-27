@@ -1,9 +1,7 @@
 //
 /**
  * 微压缩实现
- * 基于CC源码 cc_code/backend/services/compact/microCompact.ts 实现
- *
- * 微压缩在每次API请求前运行，负责：
+ * * 微压缩在每次API请求前运行，负责：
  * 1. 时间型微压缩：当距上次助手消息间隔超过阈值时，清除旧的工具结果
  * 2. 可扩展的缓存微压缩路径（支持future cache-editing API）
  */

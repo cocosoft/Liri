@@ -1,5 +1,4 @@
 /**
- * MCP客户端实现（基于CC源码实现）
  * 提供与MCP服务器的连接、工具调用、资源管理等核心功能
  */
 
@@ -21,9 +20,6 @@ import type {
   MCPTransport,
 } from '../types/MCPTypes';
 
-/**
- * MCP客户端类（基于CC源码实现）
- */
 const logger = new Logger({ level: LogLevel.INFO });
 
 export class MCPClientImpl extends EventEmitter implements MCPClient {

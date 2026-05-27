@@ -1,6 +1,5 @@
 /**
  * VoiceInputTool提示模板
- * 基于CC源码 cc_code/backend/tools/VoiceInputTool/prompt.ts 实现
  */
 
 export const VOICE_INPUT_TOOL_PROMPT = `你是一个语音输入助手。使用VoiceInputTool将语音转换为文本。

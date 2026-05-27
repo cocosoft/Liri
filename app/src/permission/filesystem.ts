@@ -1,6 +1,3 @@
-/**
- * 文件系统权限检查（基于CC源码 utils/permissions/filesystem.ts）
- */
 import * as path from 'path';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 

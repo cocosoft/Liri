@@ -27,7 +27,7 @@ import {
 } from './trajectory';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { resolveSessionsDir } from '@modules/config/paths';
 import { CuratorScheduler } from '@modules/tools/AgentTool/CuratorScheduler';
 import { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 import { InternalEventBus } from './events';
@@ -543,11 +543,11 @@ export class AIAgentImpl implements AIAgent {
   /**
    * 保存 Agent 状态到磁盘
    * 对标 Hermes AIAgent.save_state()
-   * @param path 保存路径（可选，默认 ~/.py_app/sessions/<id>.json）
+   * @param path 保存路径（可选，默认 app/data/sessions/<id>.json）
    * @returns 保存路径
    */
   saveState(path?: string): string {
-    const sessionsDir = join(homedir(), '.py_app', 'sessions');
+    const sessionsDir = resolveSessionsDir();
     if (!existsSync(sessionsDir)) {
       mkdirSync(sessionsDir, { recursive: true });
     }

@@ -2,9 +2,7 @@
 /**
  * InProcessTeammate后端
  * 在当前进程中运行teammate
- *
- * 基于CC源码 cc_code/backend/utils/swarm/backends/InProcessTeammateBackend.ts 实现
- */
+ * */
 
 import type { Message } from '@modules/chat/types/message';
 import type {

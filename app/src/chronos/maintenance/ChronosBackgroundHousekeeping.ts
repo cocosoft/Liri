@@ -1,6 +1,5 @@
 /**
  * Chronos后台维护模块
- * 基于CC源码 cc_code/backend/utils/backgroundHousekeeping.ts 实现
  * 负责Chronos系统的后台维护任务调度
  */
 

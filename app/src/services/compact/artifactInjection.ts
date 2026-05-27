@@ -183,9 +183,6 @@ export interface ArtifactInjectionResult {
   error?: string;
 }
 
-/**
- * 制品注入服务类（基于CC源码实现）
- */
 export class ArtifactInjectionService {
   private defaultOptions: ArtifactInjectionOptions = {
     maxFilesToRestore: 5,

@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
+import { resolveDataSubDir } from '@modules/config/paths';
 import type { RecordedSession, RecordedMessage } from './SessionRecorder';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -202,7 +203,7 @@ export class SessionPlayer {
   }
 
   static async listRecordings(storageDir?: string): Promise<string[]> {
-    const dir = storageDir || join(process.cwd(), 'vcr_recordings');
+    const dir = storageDir || resolveDataSubDir('vcr_recordings');
 
     try {
       const files = await readdir(dir);

@@ -1,4 +1,3 @@
-//
 /**
  * 遥测工具
  *
@@ -7,8 +6,8 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
 import { randomUUID } from 'crypto';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export type TelemetryLevel = 'off' | 'basic' | 'full';
 
@@ -20,7 +19,7 @@ export interface TelemetryEvent {
   level: TelemetryLevel;
 }
 
-const TELEMETRY_DIR = join(homedir(), '.py_app', 'telemetry');
+const TELEMETRY_DIR = join(resolvePyappHome(), 'telemetry');
 const CONSENT_FILE = join(TELEMETRY_DIR, '.consent');
 const EVENTS_FILE = join(TELEMETRY_DIR, 'events.jsonl');
 const MAX_BATCH_SIZE = 50;

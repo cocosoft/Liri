@@ -1,12 +1,12 @@
 /**
  * AutoDream分布式锁模块
- * 基于CC源码 cc_code/backend/services/autoDream/consolidationLock.ts 实现
  * 防止多进程同时执行内存整合
  */
 
 import { mkdir, readFile, stat, unlink, utimes, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { resolveMemoryDir, resolveSessionsDir } from '@modules/config/paths';
 
 const LOCK_FILE = '.consolidate-lock';
 const HOLDER_STALE_MS = 60 * 60 * 1000;
@@ -19,7 +19,7 @@ export function setAutoMemPath(path: string): void {
 
 export function getAutoMemPath(): string {
   if (!autoMemPath) {
-    autoMemPath = join(process.cwd(), '.py_copilot', 'memory');
+    autoMemPath = resolveMemoryDir();
   }
   return autoMemPath;
 }
@@ -106,7 +106,7 @@ export async function rollbackConsolidationLock(
 export async function listSessionsTouchedSince(
   sinceMs: number
 ): Promise<string[]> {
-  const sessionsDir = join(process.cwd(), '.py_copilot', 'sessions');
+  const sessionsDir = resolveSessionsDir();
   const candidates: string[] = [];
 
   try {

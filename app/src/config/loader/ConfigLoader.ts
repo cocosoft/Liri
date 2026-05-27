@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolvePyappHome } from '../paths';
 
 export type ConfigFormat = 'json' | 'yaml' | 'env';
 
@@ -58,8 +59,7 @@ export class ConfigLoader implements IConfigLoader {
   }
 
   private getDefaultConfigPath(): string {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-    return join(homeDir, '.PY_APP', 'config.json');
+    return join(resolvePyappHome(), 'config.json');
   }
 
   async load(sources?: ConfigSource[]): Promise<Record<string, unknown>> {

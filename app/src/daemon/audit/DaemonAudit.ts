@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 审计事件类型
@@ -66,8 +66,7 @@ export class DaemonAudit {
   private eventCounter: number = 0;
 
   constructor() {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || os.tmpdir();
-    this.logDir = path.join(homeDir, '.py_app', 'daemon', 'audit');
+    this.logDir = path.join(resolvePyappHome(), 'daemon', 'audit');
     this.logFile = path.join(this.logDir, 'audit.log');
     this.ensureLogDir();
     this.loadExisting();

@@ -3,7 +3,6 @@
  * 在初始刷新（flush）期间控制消息写入
  * 当桥接会话启动时，历史消息通过单个HTTP POST刷新到服务器。
  * 在刷新期间，新消息必须排队以防止与历史消息交错到达服务器。
- * 基于CC源码 cc_code/backend/bridge/flushGate.ts 实现
  */
 
 export class FlushGate<T> {

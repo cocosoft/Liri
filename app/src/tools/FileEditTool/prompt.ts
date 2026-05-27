@@ -1,6 +1,5 @@
 /**
  * FileEdit工具提示模板
- * 基于CC源码 cc_code/backend/tools/FileEditTool/prompt.ts 实现
  */
 
 export const FILE_EDIT_TOOL_NAME = 'file_edit';

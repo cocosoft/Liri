@@ -1,6 +1,5 @@
 /**
  * 消息模板常量
- * 基于CC源码 cc_code/backend/constants/messages.ts 实现
  */
 
 export const NO_CONTENT_MESSAGE = '(no content)';

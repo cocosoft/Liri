@@ -1,9 +1,7 @@
 /**
  * Cost Analytics Tracker
  * 跟踪模型使用成本
- *
- * 基于CC源码 cc_code/backend/services/analytics/costTracker.ts 实现
- */
+ * */
 
 import { AnalyticsEventQueue } from './AnalyticsEventQueue';
 

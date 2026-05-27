@@ -13,6 +13,7 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '../monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import {
   loadStartupConfig,
@@ -536,10 +537,9 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const { mkdir } = await import('fs/promises');
           const { existsSync } = await import('fs');
-          const { homedir } = await import('os');
           const { join } = await import('path');
 
-          const userKnowledgeDir = join(homedir(), '.pyapp', 'knowledge');
+          const userKnowledgeDir = join(resolvePyappHome(), 'knowledge');
           if (!existsSync(userKnowledgeDir)) {
             await mkdir(userKnowledgeDir, { recursive: true });
             logger.info('用户知识库目录已创建', { path: userKnowledgeDir });

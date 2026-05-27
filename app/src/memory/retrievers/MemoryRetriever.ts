@@ -6,6 +6,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { EmbeddingService } from '../services/EmbeddingService';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -99,8 +100,7 @@ export const MEMORY_SEARCH_DEFAULTS: MemorySearchConfig = {
  * 优先级：settings.json.memory.search > MEMORY_SEARCH_DEFAULTS
  */
 export function loadMemorySearchConfig(): MemorySearchConfig {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-  const settingsPath = path.join(homeDir, '.pyapp', 'settings.json');
+  const settingsPath = path.join(resolvePyappHome(), 'settings.json');
 
   try {
     if (!existsSync(settingsPath)) {

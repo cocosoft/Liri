@@ -1,5 +1,4 @@
 /**
- * 技能执行工具（基于CC源码增强）
  * 支持Inline模式、Fork模式、权限检查、参数验证等功能
  */
 
@@ -130,9 +129,6 @@ export interface SkillPermissionResult {
   confirmationMessage?: string;
 }
 
-/**
- * 技能工具类（基于CC源码实现）
- */
 export class SkillTool {
   private parser: SkillParser;
   private skillUsage: Map<string, number> = new Map();
@@ -277,7 +273,6 @@ export class SkillTool {
       }
     }
 
-    // 检查安全属性（基于CC源码的安全属性自动放行）
     if (this.hasSafeAttributes(skill)) {
       return {
         allowed: true,

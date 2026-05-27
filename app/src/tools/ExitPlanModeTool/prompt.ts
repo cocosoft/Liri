@@ -1,6 +1,5 @@
 /**
  * ExitPlanMode工具提示模板
- * 基于CC源码 cc_code/backend/tools/ExitPlanModeTool/prompt.ts 实现
  */
 
 export const EXIT_PLAN_MODE_TOOL_PROMPT = `你是一个计划模式退出助手。使用ExitPlanMode退出计划模式，恢复正常执行模式。

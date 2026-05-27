@@ -1,9 +1,7 @@
 /**
  * 安全风险指令常量
- * 基于CC源码 cc_code/backend/constants/cyberRiskInstruction.ts 实现
  * 定义Claude处理安全相关请求时的行为边界
- *
- * 重要：未经安全团队审查，请勿修改此指令
+ * * 重要：未经安全团队审查，请勿修改此指令
  */
 
 /**

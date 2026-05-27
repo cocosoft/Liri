@@ -1,9 +1,7 @@
 /**
  * Tips调度器
  * 选择合适的时机显示操作提示
- *
- * 基于CC源码 cc_code/backend/services/tips/tipScheduler.ts 实现
- */
+ * */
 
 import { getSessionsSinceLastShown, recordTipShown } from './tipHistory';
 import { getRelevantTips } from './tipRegistry';

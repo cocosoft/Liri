@@ -5,8 +5,8 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -58,7 +58,7 @@ export interface SessionCostData {
   failedRequests: number;
 }
 
-const DEFAULT_DATA_FILE = join(homedir(), '.py_app', 'data', 'cost_data.json');
+const DEFAULT_DATA_FILE = join(resolveDataDir(), 'cost_data.json');
 const CURRENT_VERSION = 1;
 
 /**
@@ -89,7 +89,7 @@ export class CostPersistenceService {
   private initialized: boolean = false;
 
   /**
-   * @param dataFilePath 数据文件路径，默认 ~/.py_app/data/cost_data.json
+   * @param dataFilePath 数据文件路径，默认 app/data/cost_data.json
    */
   constructor(dataFilePath?: string) {
     this.dataFilePath = dataFilePath || DEFAULT_DATA_FILE;

@@ -1,6 +1,5 @@
 /**
  * Time工具提示模板
- * 基于CC源码 cc_code/backend/tools/TimeTool/prompt.ts 实现
  */
 
 export const TIME_TOOL_PROMPT = `你是一个时间查询助手。使用Time工具获取当前日期和时间。

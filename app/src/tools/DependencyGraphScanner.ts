@@ -20,6 +20,7 @@ import {
   MODULE_INITIALIZATION_ORDER,
 } from '../modules/ModuleDefinitions';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveCacheDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -542,10 +543,7 @@ async function main(): Promise<void> {
 
   // 输出 JSON 报告供程序化处理
   const reportPath = join(
-    SRC_ROOT,
-    '..',
-    'data',
-    'cache',
+    resolveCacheDir(),
     'dependency-scan-report.json'
   );
   const reportDir = dirname(reportPath);

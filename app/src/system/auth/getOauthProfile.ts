@@ -1,7 +1,6 @@
 /**
  * OAuth Profile获取
  * 使用 Node.js 内置 https/http 模块实现
- * 基于CC源码 cc_code/backend/services/oauth/getOauthProfile.ts 实现
  */
 
 import { request as httpsRequest } from 'https';

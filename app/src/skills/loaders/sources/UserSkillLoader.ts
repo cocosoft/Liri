@@ -7,8 +7,8 @@ import {
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
-import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveUserSkillsDir, resolveDataSubDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -23,9 +23,9 @@ export class UserSkillLoader extends SkillLoader {
   constructor() {
     super();
     // 用户技能目录：~/.py_copilot/skills
-    this.userSkillsDir = join(homedir(), '.py_copilot', 'skills');
+    this.userSkillsDir = resolveUserSkillsDir();
     // 测试技能目录：项目的testing目录
-    this.testSkillsDir = join(process.cwd(), 'testing');
+    this.testSkillsDir = resolveDataSubDir('testing');
   }
 
   /**

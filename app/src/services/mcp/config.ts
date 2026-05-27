@@ -1,4 +1,3 @@
-//
 /**
  * MCP配置管理
  * 负责加载、验证和管理MCP服务器配置
@@ -6,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -50,8 +50,7 @@ export class MCPConfigManager {
    */
   private loadGlobalConfig(): Record<string, ScopedMcpServerConfig> {
     const globalConfigPath = path.join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.py_app',
+      resolvePyappHome(),
       'mcp.json'
     );
     return this.loadConfigFile(globalConfigPath, 'local');
@@ -62,8 +61,7 @@ export class MCPConfigManager {
    */
   private loadUserConfig(): Record<string, ScopedMcpServerConfig> {
     const userConfigPath = path.join(
-      process.env.HOME || process.env.USERPROFILE || '',
-      '.py_app',
+      resolvePyappHome(),
       'user',
       'mcp.json'
     );

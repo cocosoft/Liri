@@ -1,6 +1,5 @@
 /**
  * 缓存过期和刷新策略
- * 基于CC源码缓存系统实现
  */
 
 export enum EvictionPolicy {

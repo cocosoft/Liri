@@ -3,7 +3,6 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 //
 /**
  * 错误恢复策略
- * 基于CC源码错误处理实现
  */
 
 export enum RecoveryStrategy {

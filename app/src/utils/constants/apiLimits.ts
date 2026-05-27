@@ -1,6 +1,5 @@
 /**
  * API限制常量
- * 基于CC源码 cc_code/backend/constants/apiLimits.ts 实现
  */
 
 // IMAGE LIMITS

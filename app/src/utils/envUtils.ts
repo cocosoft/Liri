@@ -43,5 +43,5 @@ export function getConfigHomeDir(): string {
   if (!homeDir) {
     return process.cwd();
   }
-  return `${homeDir}/.py_app`;
+  return `${homeDir}/.pyapp`;
 }

@@ -444,7 +444,7 @@ class DiagnosticsService {
    */
   async checkStorage() {
     try {
-      const dbPath = join(process.cwd(), 'backend/data/py_copilot.db');
+      const dbPath = join(process.cwd(), 'app/data/app.db');
 
       if (existsSync(dbPath)) {
         const stats = statSync(dbPath);

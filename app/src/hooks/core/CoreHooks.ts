@@ -1,5 +1,4 @@
 /**
- * 核心Hook类型实现（基于CC源码实现）
  * 包括pre-compression、post-compression、session-start等核心Hook
  */
 
@@ -13,9 +12,6 @@ import type {
   PermissionHookResult,
 } from '../types';
 
-/**
- * 核心Hook注册器类（基于CC源码实现）
- */
 export class CoreHooksRegistry {
   private hooks: Map<string, HookDefinition> = new Map();
 

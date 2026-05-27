@@ -3,7 +3,6 @@
  * 入站消息处理
  * 处理来自桥接的入站用户消息，提取内容和UUID
  * 支持字符串内容和ContentBlockParam[]（例如包含图像的消息）
- * 基于CC源码 cc_code/backend/bridge/inboundMessages.ts 实现
  */
 
 export interface InboundMessageFields {

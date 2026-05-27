@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 序列化格式
@@ -53,7 +53,7 @@ export class SessionPersistenceManager {
 
   constructor(baseDir?: string) {
     this.baseDir =
-      baseDir || path.join(os.homedir(), '.py_app', 'sessions', 'persistence');
+      baseDir || path.join(resolvePyappHome(), 'sessions', 'persistence');
     this.ensureDir();
   }
 

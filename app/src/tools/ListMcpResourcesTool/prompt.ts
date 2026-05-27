@@ -1,6 +1,5 @@
 /**
  * ListMcpResourcesTool提示模板
- * 基于CC源码 cc_code/backend/tools/ListMcpResourcesTool/prompt.ts 实现
  */
 
 export const LIST_MCP_RESOURCES_TOOL_PROMPT = `你是一个MCP资源发现助手。使用ListMcpResourcesTool列出已连接MCP服务器的可用资源。

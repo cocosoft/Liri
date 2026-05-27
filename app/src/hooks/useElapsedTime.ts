@@ -1,6 +1,5 @@
 /**
  * 经过时间追踪
- * 基于CC源码 cc_code/backend/hooks/useElapsedTime.ts 实现
  */
 
 export interface ElapsedTimeState {

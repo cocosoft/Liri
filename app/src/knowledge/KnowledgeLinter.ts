@@ -10,11 +10,11 @@
  */
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, relative } from 'path';
-import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { AIService } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -49,7 +49,7 @@ export interface LintIssue {
  * 获取用户知识库根目录
  */
 function getKnowledgeRoot(): string {
-  return join(homedir(), '.pyapp', 'knowledge');
+  return join(resolvePyappHome(), 'knowledge');
 }
 
 /**

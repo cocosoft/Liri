@@ -1,6 +1,5 @@
 /**
  * SendMessageTool提示模板
- * 基于CC源码 cc_code/backend/tools/SendMessageTool/prompt.ts 实现
  */
 
 export const SEND_MESSAGE_TOOL_PROMPT = `你是一个多代理消息助手。使用SendMessageTool向其他Agent发送消息。

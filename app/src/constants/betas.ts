@@ -1,6 +1,5 @@
 /**
  * Beta功能标志头常量
- * 基于CC源码 cc_code/backend/constants/betas.ts 实现
  * 用于API请求协议，标识启用的Beta功能
  * 注意：PY_APP不使用bun:bundle的feature()编译时宏，改用运行时feature()函数
  */

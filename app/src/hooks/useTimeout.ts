@@ -1,6 +1,5 @@
 /**
  * 超时管理
- * 基于CC源码 cc_code/backend/hooks/useTimeout.ts 实现
  */
 
 export interface TimeoutState {

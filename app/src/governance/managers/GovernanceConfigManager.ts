@@ -10,6 +10,7 @@ import { join } from 'path';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveGovernanceDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -66,8 +67,7 @@ export class GovernanceConfigManager extends EventEmitter {
    * 获取治理配置存储根目录（app/data/governance/）
    */
   private getGovernanceDir(): string {
-    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-    return join(projectRoot, 'backend', 'data', 'governance');
+    return resolveGovernanceDir();
   }
 
   /**

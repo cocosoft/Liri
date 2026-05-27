@@ -1,13 +1,13 @@
 /**
  * 本地设置管理（gitignored）
- * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的本地设置部分
- * 管理项目级别的本地配置（不提交到版本控制），存储在 .py_app/settings.local.json
+ * 管理项目级别的本地配置（不提交到版本控制），存储在 ~/.pyapp/settings.local.json
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { deepMerge } from '@modules/utils/common.js';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 本地设置文件名
@@ -15,16 +15,11 @@ import { deepMerge } from '@modules/utils/common.js';
 const LOCAL_SETTINGS_FILE = 'settings.local.json';
 
 /**
- * 项目设置目录名
- */
-const PROJECT_SETTINGS_DIR = '.py_app';
-
-/**
  * 获取本地设置文件路径
+ * 存储在用户主目录 ~/.pyapp/settings.local.json
  */
 export function getLocalSettingsPath(projectRoot?: string): string {
-  const root = projectRoot || process.env.PYAPP_PROJECT_DIR || process.cwd();
-  return join(root, PROJECT_SETTINGS_DIR, LOCAL_SETTINGS_FILE);
+  return join(resolvePyappHome(), LOCAL_SETTINGS_FILE);
 }
 
 /**

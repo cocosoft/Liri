@@ -141,9 +141,6 @@ export interface MemoryAgingConfig {
   lruThreshold: number;
 }
 
-/**
- * 记忆扫描器类（基于CC源码实现）
- */
 export class MemdirMemoryScanner {
   private scanResults: Map<string, MemoryScanResult> = new Map();
   private agingConfig: MemoryAgingConfig;
@@ -161,8 +158,7 @@ export class MemdirMemoryScanner {
   /**
    * 扫描记忆文件头信息（参考CC memoryScan.ts）
    * 单次扫描：读取frontmatter，返回按时间排序的记忆头列表（最多200条）
-   *
-   * @param memoryDir 记忆目录路径
+   *   * @param memoryDir 记忆目录路径
    * @param signal 可选的AbortSignal用于取消操作
    * @returns 记忆头信息列表，按修改时间降序排列
    */
@@ -213,8 +209,7 @@ export class MemdirMemoryScanner {
 
   /**
    * 格式化记忆头列表为文本清单（参考CC memoryScan.ts）
-   *
-   * @param memories 记忆头信息列表
+   *   * @param memories 记忆头信息列表
    * @returns 格式化的文本清单
    */
   static formatMemoryManifest(memories: MemoryHeader[]): string {

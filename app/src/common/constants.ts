@@ -193,7 +193,7 @@ export namespace ConfigConstants {
    */
   export const CONFIG_FILE_PATHS = [
     './config.json',
-    '~/.py_app/config.json',
+    '~/.pyapp/config.json',
     '/etc/py_app/config.json',
   ];
 
@@ -308,17 +308,17 @@ export namespace FileConstants {
   /**
    * 缓存目录
    */
-  export const CACHE_DIR = './.py_app/cache';
+  export const CACHE_DIR = './app/data/cache';
 
   /**
    * 日志目录
    */
-  export const LOG_DIR = './.py_app/logs';
+  export const LOG_DIR = './.pyapp/logs';
 
   /**
    * 数据目录
    */
-  export const DATA_DIR = './.py_app/data';
+  export const DATA_DIR = './.pyapp/data';
 
   /**
    * 忽略的文件模式

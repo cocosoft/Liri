@@ -1,6 +1,3 @@
-/**
- * 会话记忆压缩（基于CC源码 services/compact/sessionMemoryCompact.ts）
- */
 export interface SessionMemoryCompactResult {
   summary: string;
   originalTokens: number;

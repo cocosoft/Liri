@@ -28,8 +28,8 @@ PY_APP 是一个运行在终端中的 **AI 智能助手**，支持自然语言�
 ### 安装与运行
 
 ```bash
-# 1. 进入 backend 目录
-cd backend
+# 1. 进入 app 目录
+cd app
 
 # 2. 安装依赖
 bun install
@@ -56,13 +56,13 @@ bun run dev
 /exit         退出应用
 ```
 
-详细的使用指南请查看 [📖 用户引导](backend/docs/用户引导/guide.md)。
+详细的使用指南请查看 [📖 用户引导](app/docs/用户引导/guide.md)。
 
 ## 项目结构
 
 ```
 PY_APP/
-├── backend/              # 主应用（TypeScript + Bun）
+├── app/                  # 主应用（TypeScript + Bun）
 │   ├── src/              # 源代码
 │   │   ├── main.ts           # 应用入口（launch 函数）
 │   │   ├── entrypoints/      # 运行模式入口（CLI / REPL / MCP）
@@ -86,7 +86,7 @@ PY_APP/
 │   ├── docs/             # 完整文档目录
 │   ├── .env.example      # 环境变量模板
 │   └── package.json      # 项目配置
-├── py-app-client/        # 桌面客户端（React + Tauri）
+├── client/               # 桌面客户端（React + Tauri）
 │   └── src/              # React 前端源码
 └── README.md
 ```
@@ -145,13 +145,13 @@ PY_APP/
 5. **跨平台覆盖最广** — 30+ 平台适配器（Telegram/Discord/Slack/WhatsApp/Line/Signal/WeChat/Matrix/Dingtalk 等），全球覆盖中国/日本/韩国/越南/欧美主要市场
 6. **查询引擎最可控** — TAOR 四阶段循环（Think→Act→Observe→Repeat）含 5 种 StopHook 停止条件 + Checkpoint 断点续跑 + 三级 Token 预算（Warning/Critical/Hard）
 7. **会话记忆闭环最完整** — SQLite FTS5 + 可切换压缩（gzip/lz4/zstd/raw）+ Markdown/JSON 双格式转录 + 9 个会话管理工具 + Session Spawn 父子会话衍生
-8. **Rust 原生加速** — `backend/native/` Rust AST 编译时分析，C FFI 零依赖调用，渐进增强降级到 TS，对标产品中独有
+8. **Rust 原生加速** — `app/native/` Rust AST 编译时分析，C FFI 零依赖调用，渐进增强降级到 TS，对标产品中独有
 
 ### 对标差距
 
 | 优先级 | 方向 | 对标产品 | 说明 |
 |:-----:|------|----------|------|
-| **P1** | ACP 协议完整实现 | OpenClaw | `AcpClient`/`AcpServer` 双端 + 能力协商 + Translator，当前 `backend/src/acp/` 仅基础框架 |
+| **P1** | ACP 协议完整实现 | OpenClaw | `AcpClient`/`AcpServer` 双端 + 能力协商 + Translator，当前 `app/src/acp/` 仅基础框架 |
 | **P2** | 可插拔 ContextEngine 体系 | Hermes | 多策略压缩引擎（摘要/截断/混合），当前 `ContextCompact` 是单体实现 |
 | **P2** | Curator 自动化子代理调度 | Hermes | 空闲触发技能维护 + 状态持久化，当前 ForkSubagent 偏工具集成 |
 | **P2** | Sandbox bwrap 容器级隔离 | Codex | 文件系统白名单 + 网络访问控制 + bwrap 命名空间隔离，当前基于 Node.js 进程管理 |
@@ -205,24 +205,24 @@ PY_APP 使用 `/` 开头的斜杠命令，在 REPL 模式下输入 `/help` 可�
 
 ## 文档索引
 
-完整的文档位于 `backend/docs/` 目录：
+完整的文档位于 `app/docs/` 目录：
 
 | 文档 | 说明 |
 |------|------|
-| [📖 用户引导](backend/docs/用户引导/guide.md) | 新手上路指南 |
-| [🚀 快速入门](backend/docs/快速入门/index.md) | 安装部署与环境配置 |
-| [📚 完整命令参考](backend/docs/USAGE.md) | 所有命令的详细参数说明 |
-| [🔧 工具参考](backend/docs/工具参考/index.md) | 每个工具的详细用法 |
-| [🧩 插件系统](backend/docs/插件系统/index.md) | 插件开发与使用 |
-| [💻 开发指南](backend/docs/开发指南/index.md) | 二次开发指引 |
-| [❓ FAQ](backend/docs/帮助与支持/faq.md) | 常见问题 |
+| [📖 用户引导](app/docs/用户引导/guide.md) | 新手上路指南 |
+| [🚀 快速入门](app/docs/快速入门/index.md) | 安装部署与环境配置 |
+| [📚 完整命令参考](app/docs/USAGE.md) | 所有命令的详细参数说明 |
+| [🔧 工具参考](app/docs/工具参考/index.md) | 每个工具的详细用法 |
+| [🧩 插件系统](app/docs/插件系统/index.md) | 插件开发与使用 |
+| [💻 开发指南](app/docs/开发指南/index.md) | 二次开发指引 |
+| [❓ FAQ](app/docs/帮助与支持/faq.md) | 常见问题 |
 
 ## 桌面客户端
 
-`py-app-client/` 目录包含基于 **Tauri v2 + React** 的桌面客户端，提供图形界面：
+`client/` 目录包含基于 **Tauri v2 + React** 的桌面客户端，提供图形界面：
 
 ```bash
-cd py-app-client
+cd client
 npm install
 npm run tauri dev
 ```

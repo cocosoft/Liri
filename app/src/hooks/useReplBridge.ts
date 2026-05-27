@@ -1,8 +1,6 @@
 /**
  * REPL桥接Hook
- * 基于CC源码 cc_code/backend/hooks/useReplBridge.tsx 实现
- *
- * 与Bridge模块集成，支持远程会话的输入输出
+ * * 与Bridge模块集成，支持远程会话的输入输出
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';

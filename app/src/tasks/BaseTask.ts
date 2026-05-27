@@ -1,6 +1,5 @@
 /**
  * 任务基类
- * 基于CC源码 cc_code/backend/tasks/BaseTask.ts 实现
  */
 
 import { EventEmitter } from 'events';

@@ -5,8 +5,7 @@
  */
 
 import { platform } from 'os';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * 环境变量选项
@@ -94,8 +93,7 @@ export class EnvironmentManager {
    * 获取PY_APP_HOME路径
    */
   private getPyAppHome(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..');
+    return resolveProjectRoot();
   }
 
   /**

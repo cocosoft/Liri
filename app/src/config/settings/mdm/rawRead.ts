@@ -1,6 +1,5 @@
 /**
  * MDM原始数据读取
- * 基于CC源码 cc_code/backend/utils/settings/mdm/rawRead.ts
  * 最小化模块，用于启动MDM子进程读取而不阻塞事件循环
  */
 

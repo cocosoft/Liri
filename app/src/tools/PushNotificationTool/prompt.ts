@@ -1,6 +1,5 @@
 /**
  * PushNotificationTool提示模板
- * 基于CC源码 cc_code/backend/tools/PushNotificationTool/prompt.ts 实现
  */
 
 export const PUSH_NOTIFICATION_TOOL_PROMPT = `你是一个通知推送助手。使用PushNotificationTool发送系统通知。

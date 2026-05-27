@@ -1,6 +1,5 @@
 /**
  * 压缩服务类型定义
- * 基于CC源码 cc_code/backend/services/compact/ 实现
  */
 
 export interface TokenUsage {

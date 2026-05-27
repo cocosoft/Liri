@@ -1,6 +1,5 @@
 /**
  * FileReadTool - 文件读取工具
- * 基于CC源码 FileReadTool 模式
  */
 import * as fs from 'fs';
 import * as path from 'path';

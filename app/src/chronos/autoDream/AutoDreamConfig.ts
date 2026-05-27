@@ -1,6 +1,5 @@
 /**
  * AutoDream配置模块
- * 基于CC源码 cc_code/backend/services/autoDream/config.ts 实现
  * 用于检查自动内存整合是否启用
  */
 

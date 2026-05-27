@@ -22,7 +22,7 @@ import { LazyModuleLoader } from './utils/LazyModuleLoader.js';
 import { execSync } from 'child_process';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, resolve, dirname } from 'path';
-import { homedir } from 'os';
+import { resolveSessionsDir, resolveDataDir } from '@modules/config/paths';
 
 /**
  * Git 工作树创建选项
@@ -369,7 +369,7 @@ export class AppCore {
         await import('../session/storage/FileSystemStorage.js');
 
       const storageDir =
-        opts.storageDir ?? join(homedir(), '.py_app', 'sessions');
+        opts.storageDir ?? resolveSessionsDir();
       const storage = new FileSystemStorage(storageDir);
       this.sessionFactory = new SessionFactory(storage);
 
@@ -398,7 +398,7 @@ export class AppCore {
    */
   private async saveTerminalState(): Promise<void> {
     try {
-      const backupDir = join(homedir(), '.py_app', 'data');
+      const backupDir = resolveDataDir();
       if (!existsSync(backupDir)) {
         const { mkdirSync } = await import('fs');
         mkdirSync(backupDir, { recursive: true });

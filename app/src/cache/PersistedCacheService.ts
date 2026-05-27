@@ -1,4 +1,3 @@
-//
 /**
  * 持久化缓存服务
  * 支持磁盘持久化、版本管理和并发控制的缓存
@@ -9,6 +8,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveCacheDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -90,7 +90,7 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
    */
   constructor(config: PersistedCacheConfig) {
     this.config = {
-      cacheDir: config.cacheDir || path.join(process.cwd(), '.cache'),
+      cacheDir: config.cacheDir || resolveCacheDir(),
       fileName: config.fileName || 'persisted_cache.json',
       enableVersionMigration: config.enableVersionMigration ?? true,
       maxDataSize: config.maxDataSize || 10 * 1024 * 1024,

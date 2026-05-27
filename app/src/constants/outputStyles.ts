@@ -1,6 +1,5 @@
 /**
  * 输出风格常量
- * 基于CC源码 cc_code/backend/constants/outputStyles.ts 实现
  * 定义内置输出风格配置
  */
 

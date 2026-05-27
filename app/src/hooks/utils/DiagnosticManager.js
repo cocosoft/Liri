@@ -5,8 +5,8 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 
 /**
  * 诊断日志条目
@@ -84,8 +84,7 @@ class DiagnosticManager extends EventEmitter {
    * 获取日志路径
    */
   private getLogPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const logDir = join(__dirname, '..', '..', '..', 'data', 'logs', 'diagnostics');
+    const logDir = join(resolveDataDir(), 'logs', 'diagnostics');
     return join(logDir, 'hook_diagnostics.json');
   }
 

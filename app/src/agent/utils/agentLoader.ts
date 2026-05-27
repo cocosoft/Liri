@@ -197,19 +197,20 @@ export function loadAgentsDir(
  */
 export async function loadUserAgents(): Promise<AgentDefinition[]> {
   const userAgentsDir = join(
-    process.env.HOME || process.env.USERPROFILE || '',
-    '.py_app',
+    resolvePyappHome(),
     'agents'
   );
   return loadAgentsFromDir(userAgentsDir);
 }
+
+import { resolveDataSubDir, resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 加载项目级Agent
  * @returns Agent定义数组
  */
 export async function loadProjectAgents(): Promise<AgentDefinition[]> {
-  const projectAgentsDir = join(process.cwd(), '.py_app', 'agents');
+  const projectAgentsDir = resolveDataSubDir('agents');
   return loadAgentsFromDir(projectAgentsDir);
 }
 
@@ -218,14 +219,7 @@ export async function loadProjectAgents(): Promise<AgentDefinition[]> {
  * @returns Agent定义数组
  */
 export async function loadManagedAgents(): Promise<AgentDefinition[]> {
-  const managedAgentsDir = join(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    'agents',
-    'managed'
-  );
+  const managedAgentsDir = resolveDataSubDir(join('agents', 'managed'));
   return loadAgentsFromDir(managedAgentsDir);
 }
 
@@ -234,6 +228,6 @@ export async function loadManagedAgents(): Promise<AgentDefinition[]> {
  * @returns Agent定义数组
  */
 export async function loadLocalAgents(): Promise<AgentDefinition[]> {
-  const localAgentsDir = join(__dirname, '..', '..', '..', 'agents', 'local');
+  const localAgentsDir = resolveDataSubDir(join('agents', 'local'));
   return loadAgentsFromDir(localAgentsDir);
 }

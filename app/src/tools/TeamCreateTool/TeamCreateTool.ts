@@ -11,6 +11,7 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { resolveDataSubDir } from '@modules/config/paths';
 
 /**
  * 团队成员
@@ -115,7 +116,7 @@ export class TeamCreateTool extends BaseTool<
 
   constructor() {
     super();
-    this.teamDir = join(process.cwd(), '.teams');
+    this.teamDir = resolveDataSubDir('teams');
     this.ensureTeamDir();
   }
 

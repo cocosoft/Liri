@@ -7,7 +7,6 @@
 import { readdir, readFile, mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { Skill } from '../types';
 import { SkillSource } from '../types';
@@ -16,6 +15,7 @@ import {
   SkillConditionMatcher,
   type ConditionContext,
 } from '../SkillConditionMatcher';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -51,7 +51,7 @@ interface SkillCache {
 }
 
 const DEFAULT_CONFIG: SkillInjectionConfig = {
-  skillsDirs: [join(homedir(), '.pyapp', 'skills')],
+  skillsDirs: [join(resolvePyappHome(), 'skills')],
   builtinSkillsDir: '',
   maxActiveSkills: 10,
   cacheTtlMs: 300_000,
@@ -59,8 +59,7 @@ const DEFAULT_CONFIG: SkillInjectionConfig = {
   enableL3Cache: true,
   enableSnapshotCache: true,
   snapshotCachePath: join(
-    homedir(),
-    '.pyapp',
+    resolvePyappHome(),
     'cache',
     'skills_prompt_snapshot.json'
   ),

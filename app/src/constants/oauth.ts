@@ -2,7 +2,6 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * OAuth配置常量
- * 基于CC源码 cc_code/backend/constants/oauth.ts 实现
  * 去除Anthropic/CLAUDE特定内容，适配PY_APP
  */
 

@@ -1,6 +1,5 @@
 /**
  * EnterWorktree工具提示模板
- * 基于CC源码 cc_code/backend/tools/EnterWorktreeTool/prompt.ts 实现
  */
 
 export const ENTER_WORKTREE_TOOL_PROMPT = `你是一个Worktree助手。使用EnterWorktree进入工作区模式，集中处理特定任务。

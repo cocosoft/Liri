@@ -1,6 +1,5 @@
 /**
  * 任务停止功能模块
- * 基于CC源码 cc_code/backend/tasks/stopTask.ts 实现
  */
 
 import { taskRegistry } from './TaskRegistry';

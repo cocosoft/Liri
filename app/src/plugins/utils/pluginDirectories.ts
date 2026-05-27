@@ -4,8 +4,8 @@
  */
 
 import { join } from 'path';
-import { homedir } from 'os';
 import { existsSync, mkdirSync } from 'fs';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 获取插件目录
@@ -13,7 +13,7 @@ import { existsSync, mkdirSync } from 'fs';
  */
 export function getPluginsDirectory(): string {
   const baseDir =
-    process.env.PY_APP_PLUGINS_DIR || join(homedir(), '.PY_APP', 'plugins');
+    process.env.PY_APP_PLUGINS_DIR || join(resolvePyappHome(), 'plugins');
 
   // 确保目录存在
   if (!existsSync(baseDir)) {

@@ -1,6 +1,5 @@
 /**
  * 按键名称常量
- * 基于CC源码 cc_code/backend/constants/keys.ts 实现
  */
 
 export const KEY_NAMES = {

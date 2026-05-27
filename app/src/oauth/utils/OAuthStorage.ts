@@ -7,6 +7,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '@modules/infrastructure';
+import { resolvePyappHome } from '@modules/config/paths';
 import type {
   StoredTokenData,
   ITokenStorage,
@@ -202,7 +203,5 @@ class OAuthTokenStorage implements ITokenStorage {
  * 获取默认存储路径
  */
 function getDefaultStoragePath(): string {
-  const { homedir } = require('os');
-  const { join } = require('path');
-  return join(homedir(), '.pyapp', 'oauth', 'tokens');
+  return join(resolvePyappHome(), 'oauth', 'tokens');
 }

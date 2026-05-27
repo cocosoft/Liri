@@ -1,6 +1,5 @@
 /**
  * 任务系统类型定义
- * 基于CC源码 cc_code/backend/tasks/ 实现
  */
 
 export enum TaskType {

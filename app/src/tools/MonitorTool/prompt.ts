@@ -1,6 +1,5 @@
 /**
  * MonitorTool提示模板
- * 基于CC源码 cc_code/backend/tools/MonitorTool/prompt.ts 实现
  */
 
 export const MONITOR_TOOL_PROMPT = `你是一个监控助手。使用Monitor工具监控系统资源和服务状态。

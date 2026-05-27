@@ -1,6 +1,5 @@
 /**
  * WebFetch工具提示模板
- * 基于CC源码 cc_code/backend/tools/WebFetchTool/prompt.ts 实现
  */
 
 export const WEB_FETCH_TOOL_PROMPT = `你是一个网页内容获取助手。使用WebFetch工具获取网页内容时，请遵循以下规则：

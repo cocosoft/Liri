@@ -1,6 +1,5 @@
 /**
  * Sleep工具提示模板
- * 基于CC源码 cc_code/backend/tools/SleepTool/prompt.ts 实现
  */
 
 export const SLEEP_TOOL_PROMPT = `你是一个等待助手。使用Sleep工具在操作之间添加延时。

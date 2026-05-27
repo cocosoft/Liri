@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
+import { resolveDataSubDir } from '@modules/config/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface RecordedMessage {
@@ -36,7 +37,7 @@ export class SessionRecorder {
   private messageTimers: Map<string, number> = new Map();
 
   constructor(storageDir?: string) {
-    this.storageDir = storageDir || join(process.cwd(), 'vcr_recordings');
+    this.storageDir = storageDir || resolveDataSubDir('vcr_recordings');
   }
 
   get isRecording(): boolean {
@@ -200,6 +201,6 @@ export class SessionRecorder {
   }
 
   static getStorageDir(): string {
-    return process.env.VCR_STORAGE_DIR || join(process.cwd(), 'vcr_recordings');
+    return process.env.VCR_STORAGE_DIR || resolveDataSubDir('vcr_recordings');
   }
 }

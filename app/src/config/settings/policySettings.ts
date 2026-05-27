@@ -1,12 +1,12 @@
 /**
  * 策略设置管理（企业托管）
- * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的策略设置部分
  * 管理企业级托管配置，支持 managed-settings.json 和 drop-in 目录
  * 策略设置优先级最高，且不可被用户/项目设置覆盖
  */
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 import { logger } from '@modules/utils/log.js';
 import { deepMerge } from '@modules/utils/common.js';
 
@@ -24,8 +24,7 @@ const MANAGED_DROPIN_DIR = 'managed-settings.d';
  * 获取托管设置目录路径
  */
 export function getManagedSettingsDir(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-  return join(homeDir, '.py_app');
+  return resolvePyappHome();
 }
 
 /**

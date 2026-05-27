@@ -1,9 +1,7 @@
 /**
  * 工具发现服务
  * 动态发现和加载延迟工具
- *
- * 基于CC源码 cc_code/backend/utils/toolSearch.ts 实现
- */
+ * */
 
 import type { Tool } from '../types/Tool';
 import {

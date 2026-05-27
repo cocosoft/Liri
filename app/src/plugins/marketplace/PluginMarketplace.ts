@@ -5,7 +5,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { homedir } from 'node:os';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 市场插件信息
@@ -84,7 +84,7 @@ interface CacheMeta {
 const DEFAULT_CACHE_TTL_MS = 3600 * 1000;
 
 function getCacheDir(): string {
-  return join(homedir(), '.pyapp', 'cache');
+  return join(resolvePyappHome(), 'cache');
 }
 
 function getCacheFilePath(): string {

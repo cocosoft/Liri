@@ -183,7 +183,6 @@ export * from './web';
 export * from './version';
 
 /**
- * 条件工具组装（基于CC源码 tools.ts 模式篇）
  * 使用 feature() 控制可选工具的条件加载
  */
 export function getTools(): any[] {

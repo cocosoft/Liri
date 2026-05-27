@@ -57,7 +57,9 @@ venv/
 # Rust (Tauri)
 client/src-tauri/target/
 
-# Application data
+# Application data (第二层 — 项目运行时数据，不跟踪)
+app/data/
+# 旧命名兼容（部分历史环境可能仍有 .py_app/ 目录）
 .py_app/
 
 # Database files

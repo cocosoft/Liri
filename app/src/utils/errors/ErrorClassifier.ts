@@ -1,7 +1,6 @@
 //
 /**
  * 错误分类器
- * 基于CC源码 cc_code/backend/utils/errors.ts 实现
  */
 
 export type ErrorKind =

@@ -1,6 +1,5 @@
 /**
  * GrepTool - 代码搜索工具
- * 基于CC源码 GrepTool 模式，使用 ripgrep 或 fallback 到 Node.js 实现
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -36,8 +35,7 @@ const MAX_RESULTS = 500;
 
 /**
  * 在指定目录中搜索匹配正则表达式的文件内容。
- *
- * @param options - 搜索配置选项
+ * * @param options - 搜索配置选项
  * @param options.searchPath - 要搜索的根目录路径，默认为当前工作目录
  * @param options.pattern - 用于匹配的正则表达式模式字符串
  * @param options.multiline - 是否启用多行匹配模式
@@ -116,8 +114,7 @@ export function grep(options: GrepOptions): GrepResult {
 
 /**
  * 递归搜索指定目录及其子目录，查找匹配正则表达式的文件内容。
- *
- * @param dir - 要搜索的起始目录路径
+ * * @param dir - 要搜索的起始目录路径
  * @param regex - 用于匹配文件内容的正则表达式
  * @param options - 搜索选项，包含文件过滤规则等配置
  * @param results - 用于存储搜索结果的双向映射，键为文件路径，值为匹配的行内容数组
@@ -156,8 +153,7 @@ function searchDir(
 
 /**
  * 在指定文件中搜索匹配正则表达式的行，并将结果存储到 results Map 中。
- *
- * @param filePath - 要搜索的文件路径
+ * * @param filePath - 要搜索的文件路径
  * @param regex - 用于匹配的正则表达式对象
  * @param options - grep 搜索选项配置
  * @param results - 用于累积搜索结果的对象，键为文件路径，值为匹配的行内容数组
@@ -206,8 +202,7 @@ function searchFile(
 
 /**
  * 计算 Map 中所有字符串数组的元素总数。
- *
- * @param results - 键为字符串，值为字符串数组的 Map 对象
+ * * @param results - 键为字符串，值为字符串数组的 Map 对象
  * @returns 所有数组中字符串元素的总数量
  */
 function getTotalCount(results: Map<string, string[]>): number {
@@ -215,8 +210,7 @@ function getTotalCount(results: Map<string, string[]>): number {
   // 遍历 Map 中的所有值（字符串数组），累加每个数组的长度
   for (const v of results.values()) total += v.length; /**
    * 对字符串中的正则表达式特殊字符进行转义，使其可以安全地用于构建正则表达式。
-   *
-   * @param str - 需要转义的原始字符串
+   *   * @param str - 需要转义的原始字符串
    * @returns 转义后的字符串，其中所有正则表达式特殊字符前都添加了反斜杠
    */
   function escapeRegex(str: string): string {
@@ -227,8 +221,7 @@ function getTotalCount(results: Map<string, string[]>): number {
 
 /**
  * 对字符串中的特殊正则表达式字符进行转义，使其可以安全地用于构建正则表达式。
- *
- * @param str - 需要转义的原始字符串
+ * * @param str - 需要转义的原始字符串
  * @returns 转义后的字符串，其中所有正则表达式特殊字符都被反斜杠转义
  */
 function escapeRegex(str: string): string {
@@ -237,13 +230,11 @@ function escapeRegex(str: string): string {
 
 /**
  * 检查文件名是否匹配给定的通配符模式。
- *
- * 该函数将简单的通配符模式（支持 '*' 和 '.'）转换为正则表达式进行匹配。
+ * * 该函数将简单的通配符模式（支持 '*' 和 '.'）转换为正则表达式进行匹配。
  * - '*' 被解释为任意字符序列（等价于正则中的 .*）
  * - '.' 被转义为字面量点号
  * 匹配过程不区分大小写。
- *
- * @param filename - 待匹配的文件名字符串
+ * * @param filename - 待匹配的文件名字符串
  * @param pattern - 通配符模式字符串，支持 '*' 作为通配符
  * @returns 如果文件名匹配模式则返回 true，否则返回 false；若正则表达式构建失败也返回 false
  */

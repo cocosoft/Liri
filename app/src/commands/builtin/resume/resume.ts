@@ -1,9 +1,9 @@
 /**
  * /resume 命令 - 会话恢复
- * 基于CC源码 commands/resume/index.ts 模式
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export interface SessionManifest {
   id: string;
@@ -15,8 +15,7 @@ export interface SessionManifest {
 }
 
 export function getSessionDir(): string {
-  const home = process.env.HOME || process.env.USERPROFILE || '';
-  return path.join(home, '.py_app', 'sessions');
+  return path.join(resolvePyappHome(), 'sessions');
 }
 
 export function listSessions(): SessionManifest[] {

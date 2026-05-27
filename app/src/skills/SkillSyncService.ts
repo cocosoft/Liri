@@ -76,7 +76,9 @@ export class SkillSyncService {
   }
 }
 
+import { resolveDataDir } from '@modules/config/paths';
+
 export const skillSyncService = new SkillSyncService(
-  join(process.cwd(), 'data'),
+  resolveDataDir(),
   'https://hub.skills.example.com'
 );

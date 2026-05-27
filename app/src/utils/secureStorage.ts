@@ -1,4 +1,3 @@
-//
 /**
  * 安全存储工具
  *
@@ -8,8 +7,8 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { homedir } from 'os';
 import { randomBytes } from 'crypto';
+import { resolvePyappHome } from '@modules/config/paths';
 import {
   encrypt,
   decrypt,
@@ -17,7 +16,7 @@ import {
   ENCRYPTION_ALGORITHMS,
 } from '@modules/security';
 
-const STORAGE_DIR = join(homedir(), '.py_app', 'secure');
+const STORAGE_DIR = join(resolvePyappHome(), 'secure');
 const MASTER_KEY_FILE = join(STORAGE_DIR, '.master_key');
 
 function getOrCreateMasterKey(): Buffer {

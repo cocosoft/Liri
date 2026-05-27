@@ -6,8 +6,8 @@
 import { join } from 'path';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 import type {
   MemoryFile,
   MemoryType,
@@ -141,9 +141,6 @@ export interface AutoMemoryConfig {
   autoDreamInterval: number;
 }
 
-/**
- * 记忆命令系统类（基于CC源码实现）
- */
 export class MemoryCommands {
   private memdirService: MemdirService;
   private memoryScanner: MemdirMemoryScanner;
@@ -162,7 +159,7 @@ export class MemoryCommands {
       updateInterval: 24 * 60 * 60 * 1000, // 24小时
       minContentLength: 100,
       maxContentLength: 10000,
-      autoMemDir: join(homedir(), '.pyapp', 'memory'),
+      autoMemDir: join(resolvePyappHome(), 'memory'),
       enableAutoDream: true,
       autoDreamInterval: 7 * 24 * 60 * 60 * 1000, // 7天
       ...config,

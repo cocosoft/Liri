@@ -4,8 +4,9 @@
  */
 
 import { readFileSync, existsSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { resolveProjectRoot, resolveDataSubDir } from '@modules/config/paths';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
@@ -20,9 +21,6 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * 依赖关系验证结果
@@ -576,7 +574,7 @@ const CORE_MODULES = new Set(['core', 'infrastructure', 'error']);
  * 加载依赖图快照
  */
 function loadSnapshot(): any | null {
-  const snapshotPath = join(__dirname, '..', '..', 'dependency-snapshot.json');
+  const snapshotPath = join(resolveProjectRoot(), 'dependency-snapshot.json');
   if (!existsSync(snapshotPath)) {
     return null;
   }
@@ -678,7 +676,7 @@ async function runDependencyValidation(): Promise<void> {
 
     const report = validator.generateDependencyReport(validation);
 
-    const reportPath = join(process.cwd(), 'dependency_validation_report.md');
+    const reportPath = join(resolveDataSubDir('reports'), 'dependency_validation_report.md');
     writeFileSync(reportPath, report);
 
     logger.info(`\n依赖关系报告已保存到: ${reportPath}`);

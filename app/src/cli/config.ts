@@ -8,6 +8,7 @@ import { join, resolve } from 'path';
 import { z } from 'zod';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '../config/ConfigManager.js';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -106,8 +107,7 @@ export class CliConfigManager {
 
   constructor(options?: ConfigOptions) {
     const configDir =
-      options?.configDir ||
-      join(process.env.HOME || process.env.USERPROFILE || '', '.pyapp');
+      options?.configDir || resolvePyappHome();
     const configName = options?.configName || 'config.json';
 
     this.configPath = join(configDir, configName);

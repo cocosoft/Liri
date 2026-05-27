@@ -1,6 +1,5 @@
 /**
  * TeamDeleteTool提示模板
- * 基于CC源码 cc_code/backend/tools/TeamDeleteTool/prompt.ts 实现
  */
 
 export const TEAM_DELETE_TOOL_PROMPT = `你是一个团队管理助手。使用TeamDeleteTool解散多Agent团队。

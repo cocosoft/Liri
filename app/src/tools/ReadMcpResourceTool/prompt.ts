@@ -1,6 +1,5 @@
 /**
  * ReadMcpResourceTool提示模板
- * 基于CC源码 cc_code/backend/tools/ReadMcpResourceTool/prompt.ts 实现
  */
 
 export const READ_MCP_RESOURCE_TOOL_PROMPT = `你是一个MCP资源读取助手。使用ReadMcpResourceTool读取MCP服务器上的指定资源。

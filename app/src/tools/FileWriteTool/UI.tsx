@@ -1,6 +1,5 @@
 /**
  * FileWrite工具UI组件
- * 基于CC源码 cc_code/backend/tools/FileWriteTool/UI.tsx 实现
  */
 
 import React from 'react';

@@ -6,10 +6,10 @@
  */
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveLogsDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -143,17 +143,7 @@ export class EnterpriseAuditService {
   }
 
   private resolveDefaultAuditDir(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      'data',
-      'logs',
-      'enterprise-audit'
-    );
+    return join(resolveLogsDir(), 'enterprise-audit');
   }
 
   private ensureAuditDir(): void {

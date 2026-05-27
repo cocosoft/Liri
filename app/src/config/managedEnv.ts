@@ -1,6 +1,5 @@
 /**
  * 安全环境变量管理
- * 基于CC源码 cc_code/backend/utils/managedEnv.ts 和 managedEnvConstants.ts
  * 管理环境变量的安全应用，防止恶意配置劫持
  */
 
@@ -73,8 +72,7 @@ export const DANGEROUS_SHELL_SETTINGS = [
 /**
  * 安全的环境变量集合
  * 这些变量可以在信任对话框之前应用，不会造成安全风险
- *
- * 不在此列表中的环境变量被视为危险的，通过远程托管设置设置时会触发安全对话框
+ * * 不在此列表中的环境变量被视为危险的，通过远程托管设置设置时会触发安全对话框
  */
 export const SAFE_ENV_VARS = new Set([
   'PY_APP_CUSTOM_HEADERS',

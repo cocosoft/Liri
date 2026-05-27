@@ -1,3 +1,6 @@
+import { join } from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
+
 export type ResumeAgentInput = {
   agentId: string;
   prompt: string;
@@ -23,8 +26,7 @@ async function readAgentTranscript(
 ): Promise<Array<{ role: string; content: string }> | null> {
   try {
     const { existsSync, readFileSync } = await import('fs');
-    const home = process.env.HOME || process.env.USERPROFILE || '/root';
-    const transcriptPath = `${home}/.pyapp/agents/${agentId}/conversation.json`;
+    const transcriptPath = join(resolvePyappHome(), 'agents', agentId, 'conversation.json');
     if (!existsSync(transcriptPath)) {
       return null;
     }
@@ -40,8 +42,7 @@ async function readAgentMetadata(
 ): Promise<Record<string, unknown> | null> {
   try {
     const { existsSync, readFileSync } = await import('fs');
-    const home = process.env.HOME || process.env.USERPROFILE || '/root';
-    const metaPath = `${home}/.pyapp/agents/${agentId}/meta.json`;
+    const metaPath = join(resolvePyappHome(), 'agents', agentId, 'meta.json');
     if (!existsSync(metaPath)) {
       return null;
     }

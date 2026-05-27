@@ -1,9 +1,7 @@
 /**
  * MCP名称规范化
  * 负责MCP工具/服务器名称的标准化处理
- *
- * 基于CC源码 cc_code/backend/services/mcp/normalization.ts 实现
- */
+ * */
 
 const CLAUDEAI_SERVER_PREFIX = 'claude.ai ';
 const NON_ALPHANUMERIC = /[^a-zA-Z0-9_-]/g;

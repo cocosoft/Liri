@@ -67,9 +67,6 @@ export interface PartialCompactResult extends CompactionResult {
   userFeedback?: string;
 }
 
-/**
- * 部分压缩服务类（基于CC源码实现）
- */
 export class PartialCompactService {
   /**
    * 执行部分压缩

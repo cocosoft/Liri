@@ -1,7 +1,6 @@
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * MCP工具和资源管理系统（基于CC源码实现）
  * 负责MCP工具、资源、提示的注册、管理、调用和缓存
  */
 
@@ -124,9 +123,6 @@ export interface PromptRegistration {
   };
 }
 
-/**
- * MCP工具管理器类（基于CC源码实现）
- */
 export class MCPToolManager extends EventEmitter {
   private tools = new Map<string, ToolRegistration>();
   private resources = new Map<string, ResourceRegistration>();

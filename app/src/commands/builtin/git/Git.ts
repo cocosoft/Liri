@@ -1,9 +1,7 @@
 /**
  * Git命令
  * 提供Git操作封装
- *
- * 基于CC源码 cc_code/backend/utils/git.ts 和 cc_code/backend/utils/git/gitFilesystem.ts 实现
- * 核心功能：
+ * * 核心功能：
  * 1. 常用的git操作（status, log, branch, diff等）
  * 2. 工作树（worktree）支持
  * 3. 子模块支持
@@ -735,7 +733,6 @@ export class GitCommand {
   private showHelp(): GitResult {
     let output = `## /git 命令 - Git操作封装
 
-基于CC源码实现的完整Git操作命令。
 
 ### 子命令
 

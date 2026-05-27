@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { join, resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { resolveProjectRoot, resolveSecurityDir } from '@modules/config/paths';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -150,16 +150,11 @@ export class SecurityManager extends EventEmitter {
    * 获取配置路径
    */
   private getConfigPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..', 'config', 'security.json');
+    return join(resolveSecurityDir(), 'security.json');
   }
 
-  /**
-   * 获取工作区根目录
-   */
   private getWorkspaceRoot(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..');
+    return resolveProjectRoot();
   }
 
   /**

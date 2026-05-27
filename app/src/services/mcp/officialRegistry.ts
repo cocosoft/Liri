@@ -1,7 +1,3 @@
-/**
- * MCP 官方注册表预取（基于CC源码 services/mcp/officialRegistry.ts）
- */
-
 export interface OfficialMCPServer {
   name: string;
   displayName: string;

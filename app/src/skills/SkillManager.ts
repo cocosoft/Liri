@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { resolveUserSkillsDir } from '@modules/config/paths';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
@@ -78,7 +79,7 @@ export class SkillManager {
   constructor() {
     // 技能目录
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-    this.skillsDir = path.join(homeDir, '.py_app', 'skills');
+    this.skillsDir = resolveUserSkillsDir();
     this.builtinSkillsDir = path.join(__dirname, 'builtin');
   }
 

@@ -1,6 +1,5 @@
 /**
  * Plan工具提示模板
- * 基于CC源码 cc_code/backend/tools/PlanTool/prompt.ts 实现
  */
 
 export const PLAN_TOOL_PROMPT = `你是一个智能规划助手。使用Plan工具创建详细的执行计划时，请遵循以下规则：

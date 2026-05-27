@@ -1,6 +1,5 @@
 /**
  * FileEditTool - 文件编辑工具（SearchReplace模式）
- * 基于CC源码 FileEditTool 模式
  */
 import * as fs from 'fs';
 import * as path from 'path';

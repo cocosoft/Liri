@@ -78,8 +78,8 @@ docker build -t py-app:latest -f docker/Dockerfile .
 docker run -it --rm \
   --name py-app \
   -e DEEPSEEK_API_KEY=your_key_here \
-  -v pyapp_data:/app/backend/data \
-  -v pyapp_logs:/app/backend/logs \
+  -v pyapp_data:/app/app/data \
+  -v pyapp_logs:/app/app/logs \
   py-app:latest
 ```
 
@@ -99,8 +99,8 @@ docker run -it --rm py-app:latest daemon
 
 | 卷名 | 容器路径 | 说明 |
 |------|---------|------|
-| `pyapp_data` | `/app/backend/data` | 数据库、会话、记忆、附件等 |
-| `pyapp_logs` | `/app/backend/logs` | 日志文件 |
+| `pyapp_data` | `/app/app/data` | 数据库、会话、记忆、附件等 |
+| `pyapp_logs` | `/app/app/logs` | 日志文件 |
 
 数据卷独立于容器生命周期，`docker compose down` 不会删除数据。
 

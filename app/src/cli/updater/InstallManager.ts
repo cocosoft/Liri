@@ -4,9 +4,9 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { accessSync, constants, copyFileSync, unlinkSync } from 'fs';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -183,7 +183,6 @@ export class InstallManager {
    * 获取应用目录
    */
   private getAppDir(): string {
-    const __filename = fileURLToPath(import.meta.url);
-    return dirname(dirname(dirname(__filename)));
+    return resolveProjectRoot();
   }
 }

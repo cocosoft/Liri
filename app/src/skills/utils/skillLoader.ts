@@ -1,14 +1,13 @@
 /**
- * 技能加载器（基于CC源码增强）
  * 支持多目录加载、技能去重、缓存机制等功能
  */
 
 import { readdir, stat, realpath } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
-import { homedir } from 'os';
 import { SkillParser, SkillSource, type SkillDefinition } from './skillParser';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * 技能加载路径配置
@@ -90,9 +89,6 @@ export interface SkillCacheConfig {
   maxEntries: number;
 }
 
-/**
- * 技能加载器类（基于CC源码实现）
- */
 export class SkillLoader {
   private parser: SkillParser;
   private loadPaths: SkillLoadPath[];
@@ -124,14 +120,12 @@ export class SkillLoader {
    * 获取默认加载路径
    */
   private getDefaultLoadPaths(): SkillLoadPath[] {
-    const homeDir = homedir();
-    const currentDir = process.cwd();
 
     return [
       // 用户技能目录（最高优先级）
       {
         source: SkillSource.USER,
-        path: join(homeDir, '.claude', 'skills'),
+        path: join(resolvePyappHome(), 'skills'),
         priority: 100,
         enabled: true,
         recursive: true,
@@ -140,7 +134,7 @@ export class SkillLoader {
       // 项目技能目录
       {
         source: SkillSource.PROJECT,
-        path: join(currentDir, '.claude', 'skills'),
+        path: join(resolveProjectRoot(), '.pyapp', 'skills'),
         priority: 90,
         enabled: true,
         recursive: true,
@@ -158,7 +152,7 @@ export class SkillLoader {
       // 插件技能目录
       {
         source: SkillSource.PLUGIN,
-        path: join(homeDir, '.claude', 'plugins', 'skills'),
+        path: join(resolvePyappHome(), 'plugins', 'skills'),
         priority: 70,
         enabled: true,
         recursive: true,
@@ -353,9 +347,6 @@ export class SkillLoader {
     }
   }
 
-  /**
-   * 检查技能是否适用（基于CC源码的paths字段）
-   */
   private isSkillApplicable(skill: SkillDefinition): boolean {
     if (!skill.frontmatter.paths) {
       return true; // 没有路径限制，默认适用

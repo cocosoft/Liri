@@ -1,8 +1,6 @@
 /**
- * Bash AST 安全分析（基于CC源码 utils/bash/ast.ts FAIL-CLOSED模式）
  * 白名单节点类型策略：未知结构 -> 询问用户
- *
- * 使用Rust原生库进行精确解析（编译时零依赖C FFI）
+ * * 使用Rust原生库进行精确解析（编译时零依赖C FFI）
  * 当原生库不可用时自动降级为TypeScript解析
  */
 

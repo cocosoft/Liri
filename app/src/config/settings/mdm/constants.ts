@@ -1,6 +1,5 @@
 /**
  * MDM共享常量和路径构建器
- * 基于CC源码 cc_code/backend/utils/settings/mdm/constants.ts
  * 此模块零重量级导入（仅os），可安全从rawRead.ts使用
  */
 

@@ -1,6 +1,5 @@
 /**
  * UI图形字符常量
- * 基于CC源码 cc_code/backend/constants/figures.ts 实现
  */
 
 export const BLACK_CIRCLE = '●';

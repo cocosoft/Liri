@@ -1,6 +1,5 @@
 /**
  * TaskStop工具提示模板
- * 基于CC源码 cc_code/backend/tools/TaskStopTool/prompt.ts 实现
  */
 
 export const TASK_STOP_TOOL_PROMPT = `你是一个任务管理助手。使用TaskStop工具停止正在运行的后台任务。

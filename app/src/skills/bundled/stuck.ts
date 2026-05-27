@@ -1,6 +1,5 @@
 /**
  * Stuck技能
- * 用于解决卡住的问题，基于CC源码 cc_code/backend/skills/bundled/stuck.ts 实现
  */
 
 import { registerBundledSkill } from './bundledSkills';

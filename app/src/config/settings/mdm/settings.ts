@@ -1,11 +1,11 @@
 /**
  * MDM设置解析和管理
- * 基于CC源码 cc_code/backend/utils/settings/mdm/settings.ts
  * 读取企业级MDM配置并解析为设置对象
  */
 
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
+import { resolvePyappHome } from '@modules/config/paths';
 import { logger } from '@modules/utils/log.js';
 import {
   WINDOWS_REGISTRY_KEY_PATH_HKCU,
@@ -203,8 +203,7 @@ function consumeRawReadResult(raw: RawReadResult): {
  * 检查是否存在文件型托管设置
  */
 function hasManagedSettingsFile(): boolean {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-  const managedDir = join(homeDir, '.py_app');
+  const managedDir = resolvePyappHome();
 
   try {
     const filePath = join(managedDir, 'managed-settings.json');

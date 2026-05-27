@@ -1,7 +1,6 @@
 /**
  * OAuth授权码回调监听器
  * 启动本地HTTP服务器，捕获OAuth提供商的授权码重定向
- * 基于CC源码 cc_code/backend/services/oauth/auth-code-listener.ts 实现
  */
 
 import { createServer, type Server } from 'http';

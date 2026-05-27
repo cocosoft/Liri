@@ -1,8 +1,6 @@
 /**
  * PR状态Hook
- * 基于CC源码 cc_code/backend/hooks/usePrStatus.ts 实现
- *
- * 用于获取和监控GitHub Pull Request状态
+ * * 用于获取和监控GitHub Pull Request状态
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';

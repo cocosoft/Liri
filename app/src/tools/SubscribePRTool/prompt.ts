@@ -1,6 +1,5 @@
 /**
  * SubscribePRTool提示模板
- * 基于CC源码 cc_code/backend/tools/SubscribePRTool/prompt.ts 实现
  */
 
 export const SUBSCRIBE_PR_TOOL_PROMPT = `你是一个PR订阅助手。使用SubscribePRTool订阅GitHub PR事件。

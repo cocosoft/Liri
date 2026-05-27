@@ -1,5 +1,4 @@
 /**
- * 内置技能系统（基于CC源码实现）
  * 支持20个内置技能：debug、remember、verify、simplify、skillify等
  */
 
@@ -99,9 +98,6 @@ export interface BundledSkillDefinition {
   ) => Promise<string[]>;
 }
 
-/**
- * 内置技能注册器类（基于CC源码实现）
- */
 export class BundledSkillsRegistry {
   private skills: Map<string, BundledSkillDefinition> = new Map();
   private extractedFiles: Set<string> = new Set();
@@ -168,7 +164,6 @@ export class BundledSkillsRegistry {
           continue;
         }
 
-        // 安全写入（基于CC源码的O_NOFOLLOW|O_EXCL防护）
         await this.safeWriteFile(filePath, content);
         this.extractedFiles.add(filePath);
 

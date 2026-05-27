@@ -1,7 +1,6 @@
 //
 /**
  * OpenTelemetry 日志记录器
- * 基于CC源码实现，提供OTel日志支持
  */
 
 import { diag, DiagLogLevel } from '@opentelemetry/api';

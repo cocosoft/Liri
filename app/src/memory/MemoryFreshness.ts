@@ -1,7 +1,3 @@
-/**
- * 记忆新鲜度机制（基于CC源码 memdir/memoryAge.ts）
- */
-
 export interface MemoryFreshnessInfo {
   filePath: string;
   lastModified: number;

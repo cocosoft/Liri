@@ -6,6 +6,7 @@
  * 3. 执行健康检查（可选，默认仅在检查模式下执行）
  */
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -51,10 +52,9 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
   try {
     const { existsSync } = await import('fs');
     const { join } = await import('path');
-    const { homedir } = await import('os');
     const { readdir } = await import('fs/promises');
 
-    const rawDir = join(homedir(), '.pyapp', 'knowledge', 'raw');
+    const rawDir = join(resolvePyappHome(), 'knowledge', 'raw');
 
     if (!existsSync(rawDir)) {
       result.durationMs = Date.now() - startTime;

@@ -6,8 +6,8 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 
 /**
  * 会话级钩子匹配器

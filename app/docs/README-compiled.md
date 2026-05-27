@@ -37,7 +37,7 @@
 
 ## 编译构建
 
-如需从源码重新编译，在 `backend/` 目录执行：
+如需从源码重新编译，在 `app/` 目录执行：
 
 ```bash
 bun run build:win:coding
@@ -45,4 +45,4 @@ bun run build:win:coding
 
 编译产物输出到项目根目录下的 `dist/` 文件夹。
 
-更多信息请参考项目源码中的 `backend/docs/` 目录。
+更多信息请参考项目源码中的 `app/docs/` 目录。

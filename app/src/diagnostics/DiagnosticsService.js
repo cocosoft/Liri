@@ -413,7 +413,7 @@ class DiagnosticsService {
    * 检查项目结构
    */
   async checkProjectStructure() {
-    const requiredDirs = ['backend/src', 'backend/testing'];
+    const requiredDirs = ['app/src', 'app/testing'];
     const missingDirs = [];
 
     for (const dir of requiredDirs) {

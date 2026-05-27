@@ -15,7 +15,7 @@ PY_APP 的 Docker 镜像采用**多阶段构建**策略，与 Windows 版使用�
 
 最终镜像仅包含 Alpine 基础层 + 编译好的独立二进制 + Rust 原生插件 + 文档，无需 Node.js 或 Bun 运行时。
 
-> 所有 Docker 相关文件统一放在 `backend/docker/` 目录下：
+> 所有 Docker 相关文件统一放在 `app/docker/` 目录下：
 > - [docker/Dockerfile](../../docker/Dockerfile)
 > - [docker/docker-compose.yml](../../docker/docker-compose.yml)
 > - [docker/Docker引导说明.txt](../../docker/Docker引导说明.txt)
@@ -25,7 +25,7 @@ PY_APP 的 Docker 镜像采用**多阶段构建**策略，与 Windows 版使用�
 ### 1. 配置环境变量
 
 ```bash
-cd backend
+cd app
 cp .env.example .env
 # 编辑 .env，填入 DEEPSEEK_API_KEY
 ```
@@ -33,7 +33,7 @@ cp .env.example .env
 ### 2. 构建镜像
 
 ```bash
-cd backend
+cd app
 docker compose -f docker/docker-compose.yml build
 ```
 
@@ -58,9 +58,9 @@ docker compose -f docker/docker-compose.yml logs -f
 docker compose -f docker/docker-compose.yml down
 ```
 
-> **简便方式**：也可以 `cd backend/docker` 后直接运行 `docker compose`（省略 `-f` 参数）：
+> **简便方式**：也可以 `cd app/docker` 后直接运行 `docker compose`（省略 `-f` 参数）：
 > ```bash
-> cd backend/docker
+> cd app/docker
 > docker compose build
 > docker compose run --rm app
 > ```
@@ -68,7 +68,7 @@ docker compose -f docker/docker-compose.yml down
 ## 手动构建（不使用 Compose）
 
 ```bash
-cd backend
+cd app
 docker build -t py-app:latest -f docker/Dockerfile .
 ```
 

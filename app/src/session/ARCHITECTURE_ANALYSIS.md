@@ -1,7 +1,7 @@
 # Session 模块架构分析与持久化实施方案
 
 > 分析时间: 2026-05-24
-> 分析范围: `backend/src/session/` 全部子模块
+> 分析范围: `app/src/session/` 全部子模块
 
 ---
 

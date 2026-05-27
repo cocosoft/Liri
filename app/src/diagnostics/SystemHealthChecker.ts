@@ -398,7 +398,7 @@ export class SystemHealthChecker extends EventEmitter {
       suggestions.push('设置 PYAPP_PROJECT_DIR 环境变量可优化路径解析');
     }
 
-    if (!existsSync(join(projectRoot, 'backend', 'src', 'monitoring', 'alerts', 'presets'))) {
+    if (!existsSync(join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets'))) {
       issues.push('告警预置目录不存在');
       suggestions.push('确认 presets 目录存在于项目源码中');
     }

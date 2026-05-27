@@ -164,13 +164,6 @@ export function resolveTeamMemoryDir(
   return join(resolveDataDir(env), 'team-memory');
 }
 
-/** 用户附件 */
-export function resolveAttachmentsDir(
-  env: NodeJS.ProcessEnv = process.env
-): string {
-  return join(resolveDataDir(env), 'attachments');
-}
-
 /** 缓存 */
 export function resolveCacheDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveDataDir(env), 'cache');
@@ -248,22 +241,6 @@ export function resolveDataSubDir(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   return join(resolveDataDir(env), subDir);
-}
-
-/**
- * 获取按日期归档的附件子目录
- * @param date 日期（默认当天）
- * 格式：attachments/YYYYMMDD/
- */
-export function resolveAttachmentsDateDir(
-  date?: Date,
-  env: NodeJS.ProcessEnv = process.env
-): string {
-  const d = date ?? new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return join(resolveAttachmentsDir(env), `${y}${m}${day}`);
 }
 
 /**
@@ -348,6 +325,29 @@ export function resolveUserPermissionsDir(
   return join(resolvePyappHome(env), 'permissions');
 }
 
+/** 用户附件目录（~/.pyapp/attachments/） */
+export function resolveAttachmentsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePyappHome(env), 'attachments');
+}
+
+/**
+ * 获取按日期归档的附件子目录
+ * @param date 日期（默认当天）
+ * 格式：attachments/YYYYMMDD/
+ */
+export function resolveAttachmentsDateDir(
+  date?: Date,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const d = date ?? new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return join(resolveAttachmentsDir(env), `${y}${m}${day}`);
+}
+
 // ─── 初始化辅助 ───────────────────────────────
 
 /**
@@ -404,7 +404,6 @@ export const SESSIONS_DIR = resolveSessionsDir();
 export const TRANSCRIPTS_DIR = resolveTranscriptsDir();
 export const MEMORY_DIR = resolveMemoryDir();
 export const TEAM_MEMORY_DIR = resolveTeamMemoryDir();
-export const ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const CACHE_DIR = resolveCacheDir();
 export const SECURITY_DIR = resolveSecurityDir();
 export const OAUTH_DIR = resolveOAuthDir();
@@ -423,6 +422,8 @@ export const USER_MEMORY_DIR = resolveUserMemoryDir();
 export const KNOWLEDGE_DIR = resolveKnowledgeDir();
 export const USER_SKILLS_DIR = resolveUserSkillsDir();
 export const USER_PERMISSIONS_DIR = resolveUserPermissionsDir();
+export const USER_ATTACHMENTS_DIR = resolveAttachmentsDir();
+export const ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const DOCS_DIR = resolveDocsDir();
 export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
 /** @deprecated 使用 resolveConfigDir() 或 CONFIG_DIR */

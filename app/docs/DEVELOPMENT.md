@@ -3,7 +3,7 @@
 ## 项目结构
 
 ```
-PY_APP/backend/
+PY_APP/app/
 ├── src/                  # 源代码
 │   ├── agent/            # AI代理模块
 │   ├── ai/               # AI模型API集成
@@ -331,10 +331,10 @@ describe('Cache', () => {
 
 ### 集成测试
 
-在 `backend/testing` 目录下创建集成测试：
+在 `app/testing` 目录下创建集成测试：
 
 ```typescript
-// backend/testing/integration.test.ts
+// app/testing/integration.test.ts
 import { aiService, chatService } from '../src';
 
 describe('Integration Tests', () => {

@@ -3,9 +3,7 @@
  *
  * 解析 .gitignore 文件规则，支持模式匹配和目录遍历检测
  * 参考 git 官方文档的 gitignore pattern 规范
- *
- * 参考: cc_code/backend/utils/git/gitignore.ts
- */
+  */
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname, join, relative, normalize } from 'path';

@@ -67,7 +67,7 @@ const toolGuideData: ToolGuide[] = [
         title: '在特定目录中搜索',
         code: `SearchCodebase(
   information_request: "查找API路由定义和请求处理逻辑",
-  target_directories: ["backend/src/routes", "backend/src/api"]
+  target_directories: ["app/src/routes", "app/src/api"]
 )`,
         explanation:
           '只在指定的目录中搜索API路由定义和请求处理逻辑，缩小搜索范围提高效率。',

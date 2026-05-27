@@ -58,7 +58,7 @@ export interface SecurityConfig {
  */
 export const defaultSecurityConfig: SecurityConfig = {
   securityAuditEnabled: true,
-  securityAuditLogFile: 'backend/logs/security_audit.log',
+  securityAuditLogFile: 'app/data/logs/security_audit.log',
   securityAuditRetentionDays: 30,
   securityAuditMaxLogSize: 100,
   securityAuditVerbose: false,

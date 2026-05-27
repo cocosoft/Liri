@@ -39,7 +39,7 @@ export const LSP_TOOL_PROMPT = `你是一个代码分析助手。使用LSPTool�
 {
   "operation": "definition",
   "symbol": "LocalBashTask",
-  "file_path": "backend/src/tasks/LocalBashTask.ts"
+  "file_path": "app/src/tasks/LocalBashTask.ts"
 }
 \`\`\`
 
@@ -49,7 +49,7 @@ export const LSP_TOOL_PROMPT = `你是一个代码分析助手。使用LSPTool�
 {
   "operation": "references",
   "symbol": "taskRegistry",
-  "file_path": "backend/src/tasks/TaskRegistry.ts"
+  "file_path": "app/src/tasks/TaskRegistry.ts"
 }
 \`\`\`
 
@@ -59,7 +59,7 @@ export const LSP_TOOL_PROMPT = `你是一个代码分析助手。使用LSPTool�
 {
   "operation": "hover",
   "symbol": "BaseTask",
-  "file_path": "backend/src/tasks/BaseTask.ts"
+  "file_path": "app/src/tasks/BaseTask.ts"
 }
 \`\`\`
 

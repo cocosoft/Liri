@@ -1,12 +1,9 @@
-//
 /**
  * Git 文件系统操作
  *
  * 基于文件系统直接读取 git 状态，避免 shell out
  * 覆盖: .git 目录解析(worktree/submodule)、HEAD 解析、
  * ref 解析(loose files + packed-refs)、分支名安全校验
- *
- * 参考: cc_code/backend/utils/git/gitFilesystem.ts
  */
 
 import { readdir, readFile, stat } from 'fs/promises';

@@ -7,7 +7,7 @@
 ## 完整目录树
 
 ```
-backend/src/
+app/src/
 ├── main.ts                 入口 — launch() 多模式分发
 ├── entrypoints/            启动初始化 (init.ts/repl/cli/server/mcp/daemon)
 │

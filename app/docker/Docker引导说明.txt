@@ -51,14 +51,14 @@ PY_APP 的 Docker 版采用与 Windows 版相同的打包策略：
 3.1 配置 API Key
 ────────────────────────────────────────────────
 
-  # 在 backend/ 目录下操作
-  cd backend
+  # 在 app/ 目录下操作
+  cd app
   cp .env.example .env
 
   编辑 .env，填入 DEEPSEEK_API_KEY
   获取地址：https://platform.deepseek.com/api_keys
 
-3.2 构建镜像（在 backend/ 目录下）
+3.2 构建镜像（在 app/ 目录下）
 ────────────────────────────────────────────────
 
   docker compose -f docker/docker-compose.yml build
@@ -122,8 +122,8 @@ Docker 版使用命名卷持久化数据：
   进入容器 shell                         docker compose -f docker/docker-compose.yml run --rm app /bin/sh
   导出镜像                               docker save py_app-app:latest -o py_app.tar
 
-  # 也可以 cd backend/docker 后直接运行（省略 -f 参数）
-  cd backend/docker
+  # 也可以 cd app/docker 后直接运行（省略 -f 参数）
+  cd app/docker
   docker compose build                    # 等同完整命令
 
 
@@ -169,5 +169,5 @@ A: 在 docker-compose.yml 的 environment 中添加：
 
 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
   项目代码：https://github.com/py-app/py-app
-  详细文档：backend/docs/ 目录下的 Markdown 文档
+  详细文档：app/docs/ 目录下的 Markdown 文档
 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■

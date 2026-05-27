@@ -295,10 +295,10 @@ new DynamicClientReg(config: DynamicClientRegConfig)
 
 ```bash
 # 运行所有OAuth测试
-bun test backend/src/oauth/tests/
+bun test app/src/oauth/tests/
 
 # 运行特定测试
-bun test backend/src/oauth/tests/OAuthDiscovery.test.ts
+bun test app/src/oauth/tests/OAuthDiscovery.test.ts
 ```
 
 ### 测试覆盖
@@ -330,7 +330,7 @@ oauth
 ## 文件结构
 
 ```
-backend/src/oauth/
+app/src/oauth/
 ├── index.ts                    # 模块入口
 ├── types/                      # 类型定义
 │   ├── index.ts

@@ -1,0 +1,284 @@
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.markdown-body h1 {
+  font-size: 2em !important;
+  font-weight: 600 !important;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #d0d7de;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.markdown-body h2 {
+  font-size: 1.5em !important;
+  font-weight: 600 !important;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #d0d7de;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.markdown-body h3 {
+  font-size: 1.25em !important;
+  font-weight: 600 !important;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.markdown-body h4 {
+  font-size: 1em !important;
+  font-weight: 600 !important;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.markdown-body h5 {
+  font-size: 0.875em !important;
+  font-weight: 600 !important;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.markdown-body h6 {
+  font-size: 0.875em !important;
+  font-weight: 600 !important;
+  color: #57606a;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.markdown-body p {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
+.markdown-body li {
+  margin-top: 0.25em;
+}
+
+.markdown-body blockquote {
+  padding: 0 1em;
+  color: #57606a;
+  border-left: 0.25em solid #d0d7de;
+  margin: 0 0 16px 0;
+}
+
+.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body code {
+  padding: 0.2em 0.4em;
+  font-size: 85%;
+  background-color: rgba(175, 184, 193, 0.2);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+.markdown-body pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.markdown-body a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  box-sizing: content-box;
+}
+
+.markdown-body hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #d0d7de;
+  border: 0;
+}
+
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.markdown-body table th {
+  font-weight: 600;
+  padding: 6px 13px;
+  border: 1px solid #d0d7de;
+}
+
+.markdown-body table td {
+  padding: 6px 13px;
+  border: 1px solid #d0d7de;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body strong {
+  font-weight: 600;
+}
+
+.markdown-body em {
+  font-style: italic;
+}
+
+.markdown-body dl {
+  margin-bottom: 16px;
+}
+
+.markdown-body dt {
+  font-weight: 600;
+}
+
+.markdown-body dd {
+  margin-left: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body details {
+  margin-bottom: 16px;
+}
+
+.markdown-body summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.dark .markdown-body {
+  color: #c9d1d9;
+}
+
+.dark .markdown-body h1,
+.dark .markdown-body h2 {
+  border-bottom-color: #30363d;
+}
+
+.dark .markdown-body h6 {
+  color: #8b949e;
+}
+
+.dark .markdown-body blockquote {
+  color: #8b949e;
+  border-left-color: #30363d;
+}
+
+.dark .markdown-body code {
+  background-color: rgba(110, 118, 129, 0.4);
+}
+
+.dark .markdown-body pre {
+  background-color: #161b22;
+}
+
+.dark .markdown-body a {
+  color: #58a6ff;
+}
+
+.dark .markdown-body hr {
+  background-color: #30363d;
+}
+
+.dark .markdown-body table th,
+.dark .markdown-body table td {
+  border-color: #30363d;
+}
+
+.dark .markdown-body table tr:nth-child(2n) {
+  background-color: #21262d;
+}
+
+.dark .hljs {
+  background: transparent;
+  color: #e6e6e6;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-literal,
+.dark .hljs-section,
+.dark .hljs-link {
+  color: #c792ea;
+}
+
+.dark .hljs-string,
+.dark .hljs-title,
+.dark .hljs-name,
+.dark .hljs-type,
+.dark .hljs-attribute,
+.dark .hljs-symbol,
+.dark .hljs-bullet,
+.dark .hljs-addition,
+.dark .hljs-variable,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable {
+  color: #c3e88d;
+}
+
+.dark .hljs-comment,
+.dark .hljs-quote,
+.dark .hljs-deletion,
+.dark .hljs-meta {
+  color: #676e95;
+}
+
+.dark .hljs-number,
+.dark .hljs-regexp,
+.dark .hljs-literal,
+.dark .hljs-built_in {
+  color: #f78c6c;
+}
+
+.dark .hljs-attr {
+  color: #ffcb6b;
+}
+
+.dark .markdown-body pre code {
+  background: transparent !important;
+}
+
+.dark .markdown-body pre {
+  background-color: #1a1a2e !important;
+}

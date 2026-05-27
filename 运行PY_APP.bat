@@ -24,8 +24,8 @@ if not exist "%EXE_PATH%" (
 )
 
 :: Ensure the data directory exists before launching (compile exe may have path issues)
-if not exist "%PROJECT_DIR%\backend\data" (
-    mkdir "%PROJECT_DIR%\backend\data" > nul 2>&1
+if not exist "%PROJECT_DIR%\app\data" (
+    mkdir "%PROJECT_DIR%\app\data" > nul 2>&1
 )
 
 if not exist "%PROJECT_DIR%\.env" (

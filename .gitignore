@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 bun.lockb
+bun.lock
 package-lock.json
 
 # Build outputs
@@ -21,7 +22,7 @@ target/
 
 # Logs
 *.log
-backend/data/logs/
+app/data/logs/
 
 # Temp files
 *_qq_temp*
@@ -35,17 +36,17 @@ Desktop.ini
 # Python
 
 # Temporary / Scratch files
-backend/errors.txt
-backend/test_error.txt
-backend/typecheck-errors*.txt
-backend/fix_*.ps1
-backend/input.txt
-backend/test_errors.txt
-backend/test_output.txt
-backend/coverage_full.txt
-backend/.test_exports
-backend/_temp_*
-backend/_*_content.txt
+app/errors.txt
+app/test_error.txt
+app/typecheck-errors*.txt
+app/fix_*.ps1
+app/input.txt
+app/test_errors.txt
+app/test_output.txt
+app/coverage_full.txt
+app/.test_exports
+app/_temp_*
+app/_*_content.txt
 __pycache__/
 *.pyc
 *.pyo
@@ -54,7 +55,7 @@ __pycache__/
 venv/
 
 # Rust (Tauri)
-py-app-client/src-tauri/target/
+client/src-tauri/target/
 
 # Application data
 .py_app/
@@ -69,21 +70,21 @@ py-app-client/src-tauri/target/
 
 # Development artifacts
 *.heapsnapshot
-backend/reports/
-backend/help/
+app/reports/
+app/help/
 conversation-*.txt
 share-*.md
 test_write.txt
 dev_docs/
-backend/check-exports.js
-backend/debug-*.ts
-backend/debug_tools.*
-backend/find-problems.js
-backend/fix-*.js
-backend/fix-duplicate-exports.js
-backend/fix-exports.js
-backend/fix-remaining.js
-backend/eslint_report.json
+app/check-exports.js
+app/debug-*.ts
+app/debug_tools.*
+app/find-problems.js
+app/fix-*.js
+app/fix-duplicate-exports.js
+app/fix-exports.js
+app/fix-remaining.js
+app/eslint_report.json
 *.tar.gz
 *.rar
 
@@ -91,24 +92,24 @@ backend/eslint_report.json
 openclaw-main/
 
 # Testing - main test directory
-backend/testing/
+app/testing/
 
 # Testing - test directories within source code
-backend/src/**/__tests__/
-backend/src/**/tests/
+app/src/**/__tests__/
+app/src/**/tests/
 
 # Testing - standalone test files within source
-backend/src/**/*.test.ts
-backend/src/**/*.test.tsx
+app/src/**/*.test.ts
+app/src/**/*.test.tsx
 
 # Testing - test config
-backend/.test_config/
+app/.test_config/
 
 # Testing - test cache / version artifacts (auto-generated, variant per run)
-backend/.test_cache/
-backend/.test_versions/
-backend/.test_versions_export/
-backend/.test_versions_integrity/
+app/.test_cache/
+app/.test_versions/
+app/.test_versions_export/
+app/.test_versions_integrity/
 
 # Root-level test artifacts
 .test_cache/
@@ -120,25 +121,25 @@ backend/.test_versions_integrity/
 test-perfetto-trace.json
 
 # Testing - root-level test files
-backend/test_*.ts
-backend/test_*.js
-backend/test_*.mjs
-backend/test-*.ts
-backend/test-*.js
-backend/test-*.json
-backend/*.test.ts
-backend/*.test.js
+app/test_*.ts
+app/test_*.js
+app/test_*.mjs
+app/test-*.ts
+app/test-*.js
+app/test-*.json
+app/*.test.ts
+app/*.test.js
 
-backend/.test*
-backend/.tmp*
+app/.test*
+app/.tmp*
 
-backend/my-project
+app/my-project
 # Testing - frontend tests
-py-app-client/src/tests/
+client/src/tests/
 
 # Config
-backend/config.json
-backend/settings.json
+app/config.json
+app/settings.json
 
 # 参考 / 第三方代码（提取后的档案）
 cc_code/
@@ -149,10 +150,22 @@ reference/
 .trae/
 # Exclude specific dev_docs
 dev_docs/
-logs/
-backend/.cache/
-backend/data/
-data/
-backend/.test_exports/
-backend/output.txt
+app/data/
+app/.test_exports/
+app/output.txt
 UI_REF/
+
+# Root-level orphan directories (not used at root level)
+chat_sessions/
+logs/
+notebooks/
+
+# Legacy dot-directories (migrated to app/data/)
+app/.pyapp/
+app/.PY_APP/
+app/.document_versions/
+.PY_APP/
+
+# Build artifacts
+app/app/
+app/backend/

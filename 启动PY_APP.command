@@ -28,9 +28,9 @@ if [ ! -f "$EXE_PATH" ]; then
     echo "Please make sure py_app_coding is in the dist folder"
     echo ""
     echo "If you haven't built the macOS binary yet, run:"
-    echo "  cd backend && bun run build:mac-apple-silicon"
+    echo "  cd app && bun run build:mac-apple-silicon"
     echo "  # or for Intel Mac:"
-    echo "  cd backend && bun run build:mac-intel"
+    echo "  cd app && bun run build:mac-intel"
     read -p "Press Enter to exit"
     exit 1
 fi

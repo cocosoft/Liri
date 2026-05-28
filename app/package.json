@@ -22,6 +22,8 @@
     "build:mac-intel": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-darwin-x64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts",
     "build:win": "bun run scripts/build-variant.ts --variant=personal && bun build --compile --target=bun-windows-x64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts && bun run scripts/copy-external-deps.ts",
     "build:win:coding": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-windows-x64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts && bun run scripts/copy-external-deps.ts",
+    "build:linux": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-linux-x64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts && bun run scripts/copy-external-deps.ts",
+    "build:linux-arm64": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-linux-arm64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts && bun run scripts/copy-external-deps.ts",
     "build:dry-run": "bun run scripts/build-variant.ts --dry-run",
     "typecheck": "tsc --noEmit",
     "test": "bun test",

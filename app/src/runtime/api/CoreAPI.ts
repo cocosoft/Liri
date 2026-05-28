@@ -60,6 +60,7 @@ export interface ToolInfo {
 /** 会话信息 */
 export interface SessionInfo {
   id: string;
+  title?: string;
   createdAt: Date;
   updatedAt: Date;
   messageCount: number;
@@ -147,6 +148,15 @@ export interface CoreAPI {
 
   /** 删除会话 */
   deleteSession(sessionId: string): Promise<void>;
+
+  /** 切换当前会话 */
+  switchSession(sessionId: string): Promise<void>;
+
+  /** 重命名会话 */
+  renameSession(sessionId: string, title: string): Promise<void>;
+
+  /** 获取当前会话 */
+  getCurrentSession(): Promise<SessionInfo | undefined>;
 
   // ========== Agent ==========
 

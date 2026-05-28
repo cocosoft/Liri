@@ -1,3 +1,7 @@
+//! 聊天命令（HTTP-fallback）
+//!
+//! 前端通过 HTTP `/v1/chat/completions` 优先调用，失败后降级至此 IPC 通道。
+
 use crate::Message;
 use futures_util::stream::StreamExt;
 use once_cell::sync::Lazy;

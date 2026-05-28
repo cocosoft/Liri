@@ -4,13 +4,14 @@
  */
 
 import { initAutoDream } from '../autoDream/AutoDream';
+import { initBuddyDreamIntegration } from '../../buddy/dreamIntegration';
 import {
   cleanupOldMessageFilesInBackground,
   cleanupOldVersionsThrottled,
   cleanupNpmCacheForAnthropicPackages,
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
-import { transcriptArchiver } from '../../delivery/archiver/TranscriptArchiver';
+import { transcriptArchiver } from '../../core/delivery/archiver/TranscriptArchiver';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -92,6 +93,7 @@ export function startBackgroundHousekeeping(): void {
 
   isRunning = true;
   initAutoDream();
+  initBuddyDreamIntegration();
 
   setTimeout(
     runVerySlowOps,

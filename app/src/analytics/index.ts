@@ -121,3 +121,10 @@ export type {
   ErrorRateAnalysis,
   ToolUsageAnalysis,
 } from './DataAnalyzer.js';
+
+export { InsightsEngine, insightsEngine } from './InsightsEngine.js';
+export type {
+  ConversationMessage,
+  InsightsResult,
+  InsightsEngineConfig,
+} from './InsightsEngine.js';

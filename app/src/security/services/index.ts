@@ -13,4 +13,12 @@ export type {
   SensitiveError,
   SensitiveDataConfig,
 } from './SensitiveDataService';
+export { CredentialManager, credentialManager } from './CredentialManager';
+export type {
+  Credential,
+  CredentialType,
+  CredentialScope,
+  EncryptedCredential,
+  CredentialAuditEntry,
+} from './CredentialManager';
 export { SensitiveErrorType } from './SensitiveDataService';

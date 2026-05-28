@@ -140,7 +140,9 @@
       "@modules/acp": ["acp"],
       "@modules/acp/*": ["acp/*"],
       "@modules/voice": ["voice"],
-      "@modules/voice/*": ["voice/*"]
+      "@modules/voice/*": ["voice/*"],
+      "@modules/components": ["components"],
+      "@modules/components/*": ["components/*"]
     }
   },
   "include": ["src/**/*"],

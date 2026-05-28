@@ -222,3 +222,6 @@ export function setConfigValue<T = any>(key: string, value: T): void {
 export function resetConfigToDefaults(): void {
   configManager.resetConfig();
 }
+
+// ==================== 企业版模块（从 enterprise/ 迁移） ====================
+export * from './enterprise/index.js';

@@ -7,9 +7,11 @@ interface FileStore {
   currentPath: string;
   isLoading: boolean;
   error: string | null;
+  uploading: boolean;
   loadDir: (path: string) => Promise<void>;
   navigateTo: (path: string) => void;
   goUp: () => void;
+  uploadFile: (file: File) => Promise<void>;
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
@@ -17,6 +19,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
   currentPath: '/',
   isLoading: false,
   error: null,
+  uploading: false,
 
   loadDir: async (path: string) => {
     set({ isLoading: true, error: null });
@@ -36,5 +39,17 @@ export const useFileStore = create<FileStore>((set, get) => ({
     const current = get().currentPath;
     const parent = current === '/' ? '/' : current.split('/').slice(0, -1).join('/') || '/';
     get().loadDir(parent);
+  },
+
+  uploadFile: async (file: File) => {
+    set({ uploading: true, error: null });
+    try {
+      await fileService.upload(file);
+      await get().loadDir(get().currentPath);
+    } catch (e) {
+      set({ error: String(e), uploading: false });
+    } finally {
+      set({ uploading: false });
+    }
   },
 }));

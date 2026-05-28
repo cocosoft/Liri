@@ -74,3 +74,10 @@ export type {
   ChannelInteractiveCard,
   ChannelMessageContext,
 } from './channel-contract';
+
+// ==================== Provider 实现（从 extensions/ 迁移） ====================
+export { createOpenAIProvider } from './providers/OpenAIProvider.js';
+export type { OpenAIProviderConfig } from './providers/OpenAIProvider.js';
+
+export { createAnthropicProvider } from './providers/AnthropicProvider.js';
+export type { AnthropicProviderConfig } from './providers/AnthropicProvider.js';

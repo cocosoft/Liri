@@ -261,3 +261,55 @@ export interface CronScheduler {
    */
   getNextFireTime(): number | null;
 }
+
+/**
+ * 内存调度器选项
+ * 替代 EnhancedTaskScheduler 的配置接口
+ */
+export interface InMemorySchedulerOptions {
+  /** 任务执行回调 */
+  onTaskExecute: (task: ScheduledTask) => Promise<{
+    success: boolean;
+    stdout?: string;
+    stderr?: string;
+    error?: string;
+  }>;
+  /** 任务完成回调 */
+  onTaskComplete?: (
+    task: ScheduledTask,
+    status: 'success' | 'failed'
+  ) => void;
+  /** 任务重试回调 */
+  onTaskRetry?: (
+    task: ScheduledTask,
+    retryCount: number,
+    nextRetryAt: number
+  ) => void;
+  /** 任务依赖失败回调 */
+  onDependencyFailure?: (
+    task: ScheduledTask,
+    failedDependencies: string[]
+  ) => void;
+  /** 检查间隔（毫秒） */
+  checkIntervalMs?: number;
+}
+
+/**
+ * 内存调度器接口
+ */
+export interface InMemoryScheduler {
+  /** 启动调度器 */
+  start(): void;
+  /** 停止调度器 */
+  stop(): void;
+  /** 添加任务 */
+  addTask(task: ScheduledTask): void;
+  /** 移除任务 */
+  removeTask(taskId: string): void;
+  /** 获取所有任务 */
+  getTasks(): ScheduledTask[];
+  /** 获取单个任务 */
+  getTask(taskId: string): ScheduledTask | undefined;
+  /** 手动执行任务 */
+  executeTaskManually(taskId: string): Promise<boolean>;
+}

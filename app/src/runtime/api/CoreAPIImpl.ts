@@ -272,7 +272,7 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async createSession(params?: SessionCreateParams): Promise<SessionInfo> {
-    const session = this.sessionManager.createSession({
+    const session = this.chatManager.createSession({
       title: params?.title || 'New Session',
       tags: params?.tags,
       mode: params?.mode,
@@ -280,6 +280,7 @@ export class CoreAPIImpl implements CoreAPI {
 
     return {
       id: session.id,
+      title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: session.messages?.length || 0,
@@ -295,6 +296,7 @@ export class CoreAPIImpl implements CoreAPI {
 
     return {
       id: session.id,
+      title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: session.messages?.length || 0,
@@ -307,6 +309,7 @@ export class CoreAPIImpl implements CoreAPI {
 
     return sessions.map((session) => ({
       id: session.id,
+      title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: session.messages?.length || 0,
@@ -316,6 +319,32 @@ export class CoreAPIImpl implements CoreAPI {
 
   async deleteSession(sessionId: string): Promise<void> {
     this.sessionManager.deleteSession(sessionId);
+  }
+
+  async switchSession(sessionId: string): Promise<void> {
+    this.chatManager.switchSession(sessionId);
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<void> {
+    const session = this.chatManager.getSessions().find((s) => s.id === sessionId);
+    if (session) {
+      session.title = title;
+    }
+  }
+
+  async getCurrentSession(): Promise<SessionInfo | undefined> {
+    const session = this.sessionManager.getCurrentSession();
+    if (!session) {
+      return undefined;
+    }
+    return {
+      id: session.id,
+      title: session.title,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      messageCount: session.messages?.length || 0,
+      metadata: session.metadata,
+    };
   }
 
   async executeAgentTask(params: AgentTaskParams): Promise<AgentResult> {

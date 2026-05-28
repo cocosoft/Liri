@@ -1,11 +1,10 @@
 import type { Session } from '../types';
+import { http } from './httpClient';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
 async function getTauriCore() {
-  if (!isTauri) {
-    return null;
-  }
+  if (!isTauri) return null;
   try {
     return await import('@tauri-apps/api/core');
   } catch {
@@ -13,74 +12,91 @@ async function getTauriCore() {
   }
 }
 
-function createFallbackSessionService() {
+function createMemorySessionService() {
   return {
-    list: async (): Promise<Session[]> => {
-      return [];
-    },
-    create: async (title: string): Promise<Session> => {
-      return {
-        id: `local-${Date.now()}`,
-        title,
-        created_at: Date.now(),
-        last_modified_at: Date.now(),
-        message_count: 0,
-      };
-    },
+    list: async (): Promise<Session[]> => [],
+    create: async (title: string): Promise<Session> => ({
+      id: `local-${Date.now()}`,
+      title,
+      created_at: Date.now(),
+      last_modified_at: Date.now(),
+      message_count: 0,
+    }),
     switch: async (_id: string): Promise<void> => {},
     delete: async (_id: string): Promise<void> => {},
     rename: async (_id: string, _title: string): Promise<void> => {},
-    getCurrent: async (): Promise<Session | null> => {
-      return null;
-    },
+    getCurrent: async (): Promise<Session | null> => null,
   };
 }
 
-function createTauriSessionService() {
-  return {
-    list: async (): Promise<Session[]> => {
-      const core = await getTauriCore();
-      if (!core) {
-        return createFallbackSessionService().list();
-      }
-      return core.invoke<Session[]>('list_sessions');
-    },
-    create: async (title: string): Promise<Session> => {
-      const core = await getTauriCore();
-      if (!core) {
-        return createFallbackSessionService().create(title);
-      }
-      return core.invoke<Session>('create_session', { title });
-    },
-    switch: async (id: string): Promise<void> => {
-      const core = await getTauriCore();
-      if (!core) {
-        return createFallbackSessionService().switch(id);
-      }
-      return core.invoke<void>('switch_session', { id });
-    },
-    delete: async (id: string): Promise<void> => {
-      const core = await getTauriCore();
-      if (!core) {
-        return createFallbackSessionService().delete(id);
-      }
-      return core.invoke<void>('delete_session', { id });
-    },
-    rename: async (id: string, title: string): Promise<void> => {
-      const core = await getTauriCore();
-      if (!core) {
-        return createFallbackSessionService().rename(id, title);
-      }
-      return core.invoke<void>('rename_session', { id, title });
-    },
-    getCurrent: async (): Promise<Session | null> => {
-      const core = await getTauriCore();
-      if (!core) {
-        return createFallbackSessionService().getCurrent();
-      }
-      return core.invoke<Session | null>('get_current_session');
-    },
-  };
+async function tryTauri<T>(method: string, args?: Record<string, unknown>): Promise<T | null> {
+  const core = await getTauriCore();
+  if (!core) return null;
+  try {
+    return await core.invoke<T>(method, args);
+  } catch {
+    return null;
+  }
 }
 
-export const sessionService = isTauri ? createTauriSessionService() : createFallbackSessionService();
+export const sessionService = {
+  list: async (): Promise<Session[]> => {
+    try {
+      return await http.get<Session[]>('/v1/sessions');
+    } catch {
+      const result = await tryTauri<Session[]>('list_sessions');
+      if (result) return result;
+      return createMemorySessionService().list();
+    }
+  },
+
+  create: async (title: string): Promise<Session> => {
+    try {
+      return await http.post<Session>('/v1/sessions', { title });
+    } catch {
+      const result = await tryTauri<Session>('create_session', { title });
+      if (result) return result;
+      return createMemorySessionService().create(title);
+    }
+  },
+
+  switch: async (id: string): Promise<void> => {
+    try {
+      await http.post<void>(`/v1/sessions/${id}/switch`);
+    } catch {
+      const result = await tryTauri<void>('switch_session', { id });
+      if (result !== null) return;
+      return createMemorySessionService().switch(id);
+    }
+  },
+
+  delete: async (id: string): Promise<void> => {
+    try {
+      await http.delete<void>(`/v1/sessions/${id}`);
+    } catch {
+      const result = await tryTauri<void>('delete_session', { id });
+      if (result !== null) return;
+      return createMemorySessionService().delete(id);
+    }
+  },
+
+  rename: async (id: string, title: string): Promise<void> => {
+    try {
+      await http.put<void>(`/v1/sessions/${id}`, { title });
+    } catch {
+      const result = await tryTauri<void>('rename_session', { id, title });
+      if (result !== null) return;
+      return createMemorySessionService().rename(id, title);
+    }
+  },
+
+  getCurrent: async (): Promise<Session | null> => {
+    try {
+      return await http.get<Session | null>('/v1/sessions/current');
+    } catch {
+      const result = await tryTauri<Session | null>('get_current_session');
+      if (result !== null) return result;
+      return createMemorySessionService().getCurrent();
+    }
+  },
+};

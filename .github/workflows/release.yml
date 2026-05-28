@@ -72,3 +72,59 @@ jobs:
             dist/main.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  tauri-build:
+    name: Build Tauri Client (Windows)
+    runs-on: windows-latest
+    needs: bundle
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            client/src-tauri/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-tauri-${{ hashFiles('client/src-tauri/Cargo.lock') }}
+
+      - name: Install Tauri CLI
+        run: bun install --frozen-lockfile
+
+      - name: Build sidecar (py_app_coding.exe)
+        working-directory: app
+        run: |
+          bun install --frozen-lockfile
+          bun build --target=bun --packages=external src/main.ts --outdir=dist
+          bun run build:win
+        shell: powershell
+
+      - name: Copy sidecar to Tauri binaries dir
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries
+          Copy-Item ../app/dist/py_app_coding.exe "src-tauri/binaries/py_app_coding-x86_64-pc-windows-msvc.exe" -ErrorAction SilentlyContinue
+        shell: powershell
+
+      - name: Build Tauri app
+        run: bun run tauri build --bundles msi
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-installer
+          path: client/src-tauri/target/release/bundle/msi/*.msi

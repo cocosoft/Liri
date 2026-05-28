@@ -1,3 +1,7 @@
+//! 会话管理命令（HTTP-fallback）
+//!
+//! 前端通过 HTTP `/v1/sessions/*` 优先调用，失败后降级至此 IPC 通道。
+
 use crate::Session;
 use std::sync::Mutex;
 use tauri::State;

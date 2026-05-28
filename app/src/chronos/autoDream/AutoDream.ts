@@ -29,6 +29,46 @@ export interface DreamTask {
   error?: string;
 }
 
+/**
+ * DreamEvent — 梦境生命周期事件
+ * Buddy 可通过回调订阅，用于 UI 反馈和伙伴互动
+ */
+export type DreamEventType = 'dream:started' | 'dream:completed' | 'dream:failed';
+
+export interface DreamEvent {
+  type: DreamEventType;
+  taskId: string;
+  summary: string;
+  sessionsCount: number;
+  insightsGenerated: number;
+  timestamp: number;
+}
+
+/**
+ * 梦境事件回调函数
+ */
+export type DreamEventCallback = (event: DreamEvent) => void;
+
+let _dreamEventCallbacks: DreamEventCallback[] = [];
+
+/**
+ * 注册梦境事件回调
+ */
+export function onDreamEvent(callback: DreamEventCallback): void {
+  _dreamEventCallbacks.push(callback);
+}
+
+/**
+ * 移除梦境事件回调
+ */
+export function offDreamEvent(callback: DreamEventCallback): void {
+  _dreamEventCallbacks = _dreamEventCallbacks.filter(cb => cb !== callback);
+}
+
+function emitDreamEvent(event: DreamEvent): void {
+  _dreamEventCallbacks.forEach(cb => cb(event));
+}
+
 interface DreamProgress {
   text: string;
   toolUseCount: number;
@@ -209,6 +249,15 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
       setAppState
     );
 
+    emitDreamEvent({
+      type: 'dream:started',
+      taskId,
+      summary: `开始整理 ${sessionIds.length} 条会话记忆`,
+      sessionsCount: sessionIds.length,
+      insightsGenerated: 0,
+      timestamp: Date.now(),
+    });
+
     const executor = new DreamAgentExecutor({
       prompt,
       memoryRoot,
@@ -257,6 +306,15 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
         );
       }
 
+      emitDreamEvent({
+        type: 'dream:completed',
+        taskId,
+        summary: `整理了 ${result.insightsGenerated} 条洞察，处理了 ${result.filesTouched.length} 个文件`,
+        sessionsCount: sessionIds.length,
+        insightsGenerated: result.insightsGenerated,
+        timestamp: Date.now(),
+      });
+
       if (context?.toolUseContext?.appendSystemMessage) {
         context.toolUseContext.appendSystemMessage({
           type: 'text',
@@ -267,6 +325,15 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
       console.log(`[autoDream] consolidation failed: ${result.error}`);
       failDreamTask(taskId, setAppState, result.error);
       await rollbackConsolidationLock(priorMtime);
+
+      emitDreamEvent({
+        type: 'dream:failed',
+        taskId,
+        summary: result.error || '未知错误',
+        sessionsCount: sessionIds.length,
+        insightsGenerated: 0,
+        timestamp: Date.now(),
+      });
     }
   };
 }

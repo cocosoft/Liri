@@ -1,4 +1,3 @@
-//
 /**
  * Cron调度器核心
  */
@@ -7,7 +6,14 @@ import type {
   CronSchedulerOptions,
   CronScheduler as CronSchedulerInterface,
   ScheduledTask,
+  InMemorySchedulerOptions,
+  InMemoryScheduler,
 } from './types';
+import {
+  canRetryTask,
+  calculateNextRetryTime,
+  checkTaskDependencies,
+} from './EnhancedCronTask';
 import {
   readCronTasksFile,
   removeCronTasks,
@@ -399,6 +405,177 @@ export function createCronScheduler(
         if (t < min) min = t;
       }
       return min === Infinity ? null : min;
+    },
+  };
+}
+
+/**
+ * 创建内存调度器
+ * 替代 EnhancedTaskScheduler，提供基于内存的任务调度
+ * 支持重试策略、任务依赖、状态回调等增强特性
+ */
+export function createInMemoryScheduler(
+  options: InMemorySchedulerOptions
+): InMemoryScheduler {
+  const tasks = new Map<string, ScheduledTask>();
+  let isRunning = false;
+  let checkTimer: ReturnType<typeof setInterval> | null = null;
+  const taskExecutionPromises = new Map<string, Promise<void>>();
+
+  function parseCronField(
+    field: string,
+    current: number,
+    min: number,
+    max: number
+  ): number | null {
+    if (field === '*') return current;
+    if (field.includes('/')) {
+      const [range, step] = field.split('/');
+      const stepNum = parseInt(step, 10);
+      if (range === '*') return Math.floor(current / stepNum) * stepNum;
+      const [start] = range.split('-').map((n) => parseInt(n, 10));
+      const adjusted = Math.max(current, start);
+      return Math.floor((adjusted - start) / stepNum) * stepNum + start;
+    }
+    if (field.includes('-')) {
+      const [start, end] = field.split('-').map((n) => parseInt(n, 10));
+      return current < start || current > end ? start : current;
+    }
+    if (field.includes(',')) {
+      const values = field.split(',').map((n) => parseInt(n, 10)).sort((a, b) => a - b);
+      for (const v of values) {
+        if (v >= current) return v;
+      }
+      return values[0];
+    }
+    const value = parseInt(field, 10);
+    return isNaN(value) || value < min || value > max ? null : value;
+  }
+
+  function nextCronRunMs(cron: string, fromMs: number): number | null {
+    const parts = cron.split(' ');
+    if (parts.length !== 5) return null;
+    const [minute, hour, dayOfMonth, month] = parts;
+    const from = new Date(fromMs);
+    const m = parseCronField(minute, from.getMinutes(), 0, 59);
+    const h = parseCronField(hour, from.getHours(), 0, 23);
+    const d = parseCronField(dayOfMonth, from.getDate(), 1, 31);
+    const mo = parseCronField(month, from.getMonth() + 1, 1, 12);
+    if (m === null || h === null || d === null || mo === null) return null;
+    const candidate = new Date(from.getFullYear(), mo - 1, d, h, m);
+    if (candidate.getTime() <= fromMs) candidate.setMinutes(candidate.getMinutes() + 1);
+    return candidate.getTime();
+  }
+
+  async function executeTask(task: ScheduledTask): Promise<void> {
+    const execResult = await options.onTaskExecute(task);
+
+    if (execResult.success) {
+      const updated = { ...task, lastFiredAt: Date.now() };
+      tasks.set(task.id, updated);
+      if (options.onTaskComplete) {
+        options.onTaskComplete(updated, 'success');
+      }
+    } else {
+      if (canRetryTask(task as any)) {
+        const nextRetry = calculateNextRetryTime(task as any);
+        const retryTask = {
+          ...task,
+          retryCount: (task as any).retryCount || 0 + 1,
+          nextRetryAt: nextRetry,
+        };
+        tasks.set(task.id, retryTask);
+        if (options.onTaskRetry) {
+          options.onTaskRetry(retryTask, retryTask.retryCount, nextRetry);
+        }
+      } else {
+        if (options.onTaskComplete) {
+          options.onTaskComplete(task, 'failed');
+        }
+      }
+    }
+  }
+
+  async function processTask(task: ScheduledTask): Promise<void> {
+    if (taskExecutionPromises.has(task.id)) return;
+
+    const ext = task as any;
+    if (ext.nextRetryAt) {
+      if (Date.now() >= ext.nextRetryAt) {
+        taskExecutionPromises.set(task.id, executeTask(task));
+        await taskExecutionPromises.get(task.id);
+        taskExecutionPromises.delete(task.id);
+      }
+      return;
+    }
+
+    const nextRun = nextCronRunMs(task.cron, task.lastFiredAt || task.createdAt);
+    if (nextRun === null) return;
+    if (Date.now() < nextRun) return;
+
+    if (ext.dependencies && ext.dependencies.length > 0) {
+      const depCheck = checkTaskDependencies(task as any, tasks as any);
+      if (!depCheck.satisfied) {
+        if (options.onDependencyFailure) {
+          options.onDependencyFailure(task, depCheck.failedDependencies);
+        }
+        return;
+      }
+    }
+
+    taskExecutionPromises.set(task.id, executeTask(task));
+    await taskExecutionPromises.get(task.id);
+    taskExecutionPromises.delete(task.id);
+  }
+
+  async function checkTasks(): Promise<void> {
+    if (!isRunning) return;
+    for (const task of tasks.values()) {
+      await processTask(task);
+    }
+  }
+
+  function startCheckLoop(): void {
+    stopCheckLoop();
+    checkTimer = setInterval(() => { void checkTasks(); }, options.checkIntervalMs || 1000);
+    checkTimer.unref?.();
+  }
+
+  function stopCheckLoop(): void {
+    if (checkTimer) {
+      clearInterval(checkTimer);
+      checkTimer = null;
+    }
+  }
+
+  return {
+    start(): void {
+      if (isRunning) return;
+      isRunning = true;
+      startCheckLoop();
+    },
+    stop(): void {
+      isRunning = false;
+      stopCheckLoop();
+    },
+    addTask(task: ScheduledTask): void {
+      tasks.set(task.id, task);
+    },
+    removeTask(taskId: string): void {
+      tasks.delete(taskId);
+      taskExecutionPromises.delete(taskId);
+    },
+    getTasks(): ScheduledTask[] {
+      return Array.from(tasks.values());
+    },
+    getTask(taskId: string): ScheduledTask | undefined {
+      return tasks.get(taskId);
+    },
+    async executeTaskManually(taskId: string): Promise<boolean> {
+      const task = tasks.get(taskId);
+      if (!task) return false;
+      await executeTask(task);
+      return true;
     },
   };
 }

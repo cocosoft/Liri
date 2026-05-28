@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useAppStore } from '../../stores/appStore';
+import { useBuddyStore } from '../../stores/buddyStore';
 import ConfirmDialog from '../common/ConfirmDialog';
 import BackendStatusBadge from './BackendStatusBadge';
+import BuddyMini from '../Buddy/BuddyMini';
 
 function Sidebar() {
   const {
@@ -14,9 +17,17 @@ function Sidebar() {
     renameSession,
   } = useSessionStore();
 
-  const { activePage, setActivePage } = useAppStore();
+  const setActivePage = useAppStore((s) => s.setActivePage);
+  const location = useLocation();
+  const { loadBuddy } = useBuddyStore();
+
+  const activeRoute = location.pathname === '/' ? 'chat' : location.pathname.slice(1);
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadBuddy();
+  }, []);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
@@ -69,7 +80,7 @@ function Sidebar() {
   };
 
   const filteredSessions = sessions.filter((s) =>
-    s.title.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -84,7 +95,7 @@ function Sidebar() {
           <button
             onClick={() => setActivePage('chat')}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activePage === 'chat'
+              activeRoute === 'chat'
                 ? 'bg-gray-700 text-white'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
@@ -97,7 +108,7 @@ function Sidebar() {
           <button
             onClick={() => setActivePage('dashboard')}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activePage === 'dashboard'
+              activeRoute === 'dashboard'
                 ? 'bg-gray-700 text-white'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
@@ -110,7 +121,7 @@ function Sidebar() {
           <button
             onClick={() => setActivePage('files')}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activePage === 'files'
+              activeRoute === 'files'
                 ? 'bg-gray-700 text-white'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
@@ -123,7 +134,7 @@ function Sidebar() {
           <button
             onClick={() => setActivePage('knowledge')}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activePage === 'knowledge'
+              activeRoute === 'knowledge'
                 ? 'bg-gray-700 text-white'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
@@ -136,7 +147,7 @@ function Sidebar() {
           <button
             onClick={() => setActivePage('agent')}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activePage === 'agent'
+              activeRoute === 'agent'
                 ? 'bg-gray-700 text-white'
                 : 'text-gray-300 hover:bg-gray-700 hover:text-white'
             }`}
@@ -145,6 +156,46 @@ function Sidebar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             Agent
+          </button>
+          <button
+            onClick={() => setActivePage('cron')}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+              activeRoute === 'cron'
+                ? 'bg-gray-700 text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            定时任务
+          </button>
+          <button
+            onClick={() => setActivePage('channels')}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+              activeRoute === 'channels'
+                ? 'bg-gray-700 text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            消息渠道
+          </button>
+          <button
+            onClick={() => setActivePage('settings')}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+              activeRoute === 'settings'
+                ? 'bg-gray-700 text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            设置
           </button>
         </nav>
       </div>
@@ -230,6 +281,10 @@ function Sidebar() {
             {searchQuery ? '未找到匹配的会话' : '暂无会话，点击上方按钮创建'}
           </p>
         )}
+      </div>
+
+      <div className="border-t border-gray-700 p-2">
+        <BuddyMini />
       </div>
 
       <ConfirmDialog

@@ -1,5 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { resolveAttachmentsDir } from '../config/paths';
 
@@ -45,6 +45,41 @@ export class AttachmentManager {
   }
 
   /**
+   * 获取索引文件路径
+   */
+  private get indexPath(): string {
+    return join(this.attachmentsDir, '_index.json');
+  }
+
+  /**
+   * 加载索引
+   */
+  private loadIndex(): Attachment[] {
+    try {
+      if (existsSync(this.indexPath)) {
+        const raw = readFileSync(this.indexPath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        // 将 createdAt / updatedAt 字符串还原为 Date
+        return parsed.map((a: Attachment) => ({
+          ...a,
+          createdAt: new Date(a.createdAt),
+          updatedAt: new Date(a.updatedAt),
+        }));
+      }
+    } catch {
+      // 索引文件损坏时重建
+    }
+    return [];
+  }
+
+  /**
+   * 保存索引
+   */
+  private saveIndex(attachments: Attachment[]): void {
+    writeFileSync(this.indexPath, JSON.stringify(attachments, null, 2), 'utf-8');
+  }
+
+  /**
    * 保存附件
    * @param name 附件名称
    * @param data 附件数据
@@ -85,6 +120,11 @@ export class AttachmentManager {
       metadata,
     };
 
+    // 更新索引
+    const index = this.loadIndex();
+    index.push(attachment);
+    this.saveIndex(index);
+
     this.autoIngestAttachment(attachment);
 
     return attachment;
@@ -118,26 +158,28 @@ export class AttachmentManager {
    * @returns 是否删除成功
    */
   deleteAttachment(id: string): boolean {
-    // 查找附件文件
-    const files = this.listAttachments();
-    const attachment = files.find((attach) => attach.id === id);
+    const index = this.loadIndex();
+    const idx = index.findIndex((a) => a.id === id);
 
-    if (!attachment) {
+    if (idx === -1) {
       return false;
     }
+
+    const attachment = index[idx];
 
     // 删除文件
     try {
       if (existsSync(attachment.path)) {
-        // 这里应该使用 fs.unlinkSync，但为了安全起见，我们先不实际删除
-        console.log(`Would delete attachment: ${attachment.path}`);
-        return true;
+        unlinkSync(attachment.path);
       }
+      // 从索引中移除
+      index.splice(idx, 1);
+      this.saveIndex(index);
+      return true;
     } catch (error) {
       logger.error('Error deleting attachment:', error);
+      return false;
     }
-
-    return false;
   }
 
   /**
@@ -145,9 +187,7 @@ export class AttachmentManager {
    * @returns 附件列表
    */
   listAttachments(): Attachment[] {
-    // 这里应该实现实际的附件列表获取逻辑
-    // 由于我们没有实际的存储实现，这里返回空数组
-    return [];
+    return this.loadIndex();
   }
 
   /**

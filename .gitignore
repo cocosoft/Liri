@@ -24,6 +24,9 @@ target/
 *.log
 app/data/logs/
 
+# Tauri sidecar binaries (built during CI/release)
+client/src-tauri/binaries/
+
 # Temp files
 *_qq_temp*
 *test123*

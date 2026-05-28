@@ -78,3 +78,15 @@ export type {
 // 旧模块的所有原始导出保持不变（上方 barrel export），
 // 新增的插件包装通过兼容行引入，无需修改现有引用
 export { createBuddyPlugin } from '../plugins/bundled/BuddyPlugin';
+
+// ==================== 梦境集成（AutoDream × Buddy 联动） ====================
+export {
+  startDreamIntegration,
+  stopDreamIntegration,
+  initBuddyDreamIntegration,
+  formatDreamMessage,
+  formatGrowthDialogue,
+  DreamGrowthTracker,
+  DREAM_EVENT,
+} from './dreamIntegration';
+export type { DreamEvent, DreamEventType, DreamEventCallback } from '../chronos/autoDream/AutoDream';

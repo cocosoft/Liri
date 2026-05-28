@@ -1,9 +1,16 @@
-//
 /**
  * Chronos后台常驻系统 - 导出模块
  */
 
-export type { TaskStatus as ChronosTaskStatus, ScheduledTask } from './types';
+export type { TaskStatus as ChronosTaskStatus } from './types';
+export type {
+  ScheduledTask,
+  CronSchedulerOptions,
+  CronJitterConfig,
+  CronScheduler as CronSchedulerInterface,
+  InMemorySchedulerOptions,
+  InMemoryScheduler,
+} from './types';
 export { ChronosDatabase } from './ChronosDatabase';
 export {
   parseCronExpression,
@@ -49,6 +56,7 @@ export {
 export {
   createCronScheduler,
   buildMissedTaskNotification,
+  createInMemoryScheduler,
 } from './CronScheduler';
 
 // 执行引擎
@@ -56,9 +64,6 @@ export * from './engine';
 
 // 生命周期管理
 export * from './lifecycle';
-
-// 增强调度器
-export { EnhancedCronScheduler } from './EnhancedCronScheduler';
 
 // SQLite 持久化存储
 export {
@@ -81,10 +86,6 @@ export {
   calculateNextRetryTime,
   checkTaskDependencies,
 } from './EnhancedCronTask';
-
-// 增强任务调度器
-export { EnhancedTaskScheduler } from './EnhancedTaskScheduler';
-export type { EnhancedSchedulerOptions } from './EnhancedTaskScheduler';
 
 // 子进程隔离执行器
 export {

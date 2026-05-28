@@ -48,3 +48,6 @@ export {
   TOOL_NAMES,
   type FeatureFlag,
 } from './featureFlags';
+
+// ==================== 交付模块（从 delivery/ 迁移） ====================
+export * from './delivery/index';

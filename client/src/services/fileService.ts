@@ -1,4 +1,5 @@
 import type { FileEntry } from '../types';
+import { http } from './httpClient';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
@@ -19,6 +20,8 @@ function createFallbackFileService() {
     readFile: async (_path: string): Promise<string> => {
       throw new Error('File operations unavailable outside Tauri');
     },
+    upload: uploadViaHttp,
+    uploadBase64: uploadBase64ViaHttp,
   };
 }
 
@@ -34,7 +37,35 @@ function createTauriFileService() {
       if (!core) return createFallbackFileService().readFile(path);
       return core.invoke<string>('read_file', { path });
     },
+    upload: uploadViaHttp,
+    uploadBase64: uploadBase64ViaHttp,
   };
+}
+
+async function uploadViaHttp(file: File): Promise<{ path: string; size: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      http
+        .post<{ path: string; size: number }>('/v1/files/upload', {
+          filename: file.name,
+          data: base64,
+        })
+        .then(resolve)
+        .catch(reject);
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadBase64ViaHttp(filename: string, base64Data: string): Promise<{ path: string; size: number }> {
+  return http.post<{ path: string; size: number }>('/v1/files/upload', {
+    filename,
+    data: base64Data,
+  });
 }
 
 export const fileService = isTauri ? createTauriFileService() : createFallbackFileService();

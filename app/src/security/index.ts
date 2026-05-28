@@ -62,11 +62,18 @@ export {
   SensitiveDataService,
   sensitiveDataService,
   SensitiveErrorType,
+  CredentialManager,
+  credentialManager,
 } from './services';
 export type {
   EncryptionOptions,
   SensitiveError,
   SensitiveDataConfig,
+  Credential,
+  CredentialType,
+  CredentialScope,
+  EncryptedCredential,
+  CredentialAuditEntry,
 } from './services';
 
 // ==================== 策略模块 ====================

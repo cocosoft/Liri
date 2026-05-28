@@ -1,54 +1,24 @@
 import { useEffect, useState } from 'react';
-import { agentService } from '../../services/agentService';
+import { useAgentStore } from '../../stores/agentStore';
 import { useAppStore } from '../../stores/appStore';
 import { SkeletonCard } from '../common/Skeleton';
-import type { AgentTask } from '../../types';
 
 function AgentPage() {
-  const [tasks, setTasks] = useState<AgentTask[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [taskName, setTaskName] = useState('');
+  const { tasks, isLoading, error, loadTasks, executeTask, cancelTask } = useAgentStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
-
-  const loadTasks = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const items = await agentService.listTasks();
-      setTasks(items);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [taskName, setTaskName] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTasks();
+    const interval = setInterval(loadTasks, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleExecute = async () => {
     if (!taskName.trim()) return;
-    setError(null);
-    try {
-      const newTask = await agentService.executeTask(taskName.trim());
-      setTasks((prev) => [newTask, ...prev]);
-      setTaskName('');
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  const handleCancel = async (id: string) => {
-    try {
-      await agentService.cancelTask(id);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, status: 'failed' as const } : t))
-      );
-    } catch (e) {
-      setError(String(e));
-    }
+    await executeTask(taskName.trim());
+    setTaskName('');
   };
 
   const statusColor: Record<string, string> = {
@@ -74,7 +44,7 @@ function AgentPage() {
           </h2>
           <button
             onClick={() => setActivePage('chat')}
-            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+            className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded"
           >
             返回聊天
           </button>
@@ -123,21 +93,25 @@ function AgentPage() {
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {tasks.map((task) => (
-                <li key={task.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {task.name}
-                      </span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          statusColor[task.status] || ''
-                        }`}
-                      >
+                <li
+                  key={task.id}
+                  className="px-4 py-3"
+                >
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        statusColor[task.status] || ''
+                      }`}>
                         {statusText[task.status] || task.status}
                       </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {task.name || task.type || '未知任务'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {task.progress !== undefined && (
                         <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
@@ -148,27 +122,93 @@ function AgentPage() {
                       )}
                       {(task.status === 'pending' || task.status === 'running') && (
                         <button
-                          onClick={() => handleCancel(task.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelTask(task.id);
+                          }}
                           className="text-xs px-2 py-1 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-900/30"
                         >
                           取消
                         </button>
                       )}
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {expandedId === task.id ? '▲' : '▼'}
+                      </span>
                     </div>
                   </div>
-                  {task.result && (
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
-                      {task.result}
-                    </p>
+
+                  {expandedId === task.id && (
+                    <div className="mt-3 space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                      {task.result && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">结果:</span>
+                          <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {task.result}
+                          </p>
+                        </div>
+                      )}
+                      {task.error && (
+                        <div>
+                          <span className="text-xs font-medium text-red-500 dark:text-red-400">错误:</span>
+                          <p className="mt-0.5 text-xs text-red-500 dark:text-red-400">
+                            {task.error}
+                          </p>
+                        </div>
+                      )}
+                      {task.subTasks && task.subTasks.length > 0 && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            子任务 ({task.subTasks.length}):
+                          </span>
+                          <ul className="mt-1 space-y-1">
+                            {task.subTasks.map((st, idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400"
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  st.status === 'completed'
+                                    ? 'bg-green-400'
+                                    : st.status === 'running'
+                                    ? 'bg-blue-400'
+                                    : st.status === 'failed'
+                                    ? 'bg-red-400'
+                                    : 'bg-gray-300'
+                                }`} />
+                                <span className="truncate">{st.name}</span>
+                                {st.status === 'running' && st.progress !== undefined && (
+                                  <span className="text-gray-400">{st.progress}%</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {task.logs && task.logs.length > 0 && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            日志 ({task.logs.length}):
+                          </span>
+                          <div className="mt-1 max-h-32 overflow-y-auto space-y-0.5">
+                            {task.logs.map((log, idx) => (
+                              <p
+                                key={idx}
+                                className="text-xs text-gray-500 dark:text-gray-400 font-mono"
+                              >
+                                {log}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 pt-1">
+                        <span>{new Date(task.created_at).toLocaleString('zh-CN')}</span>
+                        {task.tokenUsed !== undefined && (
+                          <span>Token: {task.tokenUsed}</span>
+                        )}
+                      </div>
+                    </div>
                   )}
-                  {task.error && (
-                    <p className="mt-2 text-xs text-red-500 dark:text-red-400">
-                      {task.error}
-                    </p>
-                  )}
-                  <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(task.created_at).toLocaleString('zh-CN')}
-                  </p>
                 </li>
               ))}
             </ul>

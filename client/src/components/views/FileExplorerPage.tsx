@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFileStore } from '../../stores/fileStore';
 import { useAppStore } from '../../stores/appStore';
 import { SkeletonTable } from '../common/Skeleton';
@@ -21,8 +21,9 @@ function formatDate(ts?: number): string {
 }
 
 function FileExplorerPage() {
-  const { entries, currentPath, isLoading, error, loadDir, navigateTo, goUp } = useFileStore();
+  const { entries, currentPath, isLoading, error, uploading, loadDir, navigateTo, goUp, uploadFile } = useFileStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadDir(currentPath);
@@ -31,6 +32,18 @@ function FileExplorerPage() {
   const handleItemClick = (entry: { name: string; path: string; type: 'file' | 'directory' }) => {
     if (entry.type === 'directory') {
       navigateTo(entry.path);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadFile(file);
+      e.target.value = '';
     }
   };
 
@@ -48,6 +61,13 @@ function FileExplorerPage() {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={handleUploadClick}
+              disabled={uploading}
+              className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50"
+            >
+              {uploading ? '上传中...' : '上传文件'}
+            </button>
+            <button
               onClick={goUp}
               disabled={currentPath === '/'}
               className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40"
@@ -62,6 +82,13 @@ function FileExplorerPage() {
             </button>
           </div>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileChange}
+        />
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-sm text-red-600 dark:text-red-400">

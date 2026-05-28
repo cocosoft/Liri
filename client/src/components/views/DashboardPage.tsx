@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import { statsService, type DashboardStats } from '../../services/statsService';
 import { useAppStore } from '../../stores/appStore';
 import { SkeletonCard } from '../common/Skeleton';
+import { SPECIES_MAP } from '../Buddy/buddySprites';
+import { sseService } from '../../services/sseService';
 
-function BackendCard({ stats }: { stats: DashboardStats }) {
+const BackendCard = memo(function BackendCard({ stats }: { stats: DashboardStats }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Backend 服务</h4>
@@ -25,15 +27,45 @@ function BackendCard({ stats }: { stats: DashboardStats }) {
       )}
     </div>
   );
-}
+});
 
-function StatCard({
+const BuddyDashboardCard = memo(function BuddyDashboardCard({ buddy }: { buddy: NonNullable<DashboardStats['buddy']> }) {
+  const speciesInfo = SPECIES_MAP[buddy.species as keyof typeof SPECIES_MAP];
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">伙伴</h4>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-3xl">{speciesInfo?.emoji || '🦆'}</span>
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {buddy.name}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {buddy.species} · {buddy.rarity}
+          </p>
+        </div>
+      </div>
+      <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center justify-between">
+          <span>等级</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">{buddy.level}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>经验值</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">{buddy.xp}</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const StatCard = memo(function StatCard({
   label,
   value,
   icon,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   icon: string;
 }) {
   return (
@@ -49,7 +81,7 @@ function StatCard({
       </div>
     </div>
   );
-}
+});
 
 function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -57,7 +89,7 @@ function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const setActivePage = useAppStore((s) => s.setActivePage);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -68,13 +100,17 @@ function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    sseService.connect();
+    const handler = () => fetchStats();
+    sseService.on('heartbeat', handler);
+    return () => {
+      sseService.off('heartbeat', handler);
+    };
+  }, [fetchStats]);
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
@@ -113,19 +149,27 @@ function DashboardPage() {
 
         {stats && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard label="模型" value={stats.models} icon="🤖" />
               <StatCard label="工具" value={stats.tools} icon="🔧" />
               <StatCard label="会话" value={stats.sessions} icon="💬" />
+              <StatCard label="知识条目" value={stats.knowledge} icon="📚" />
+              <StatCard label="定时任务" value={stats.cronTasks} icon="⏰" />
+              <StatCard label="消息渠道" value={stats.channels} icon="📡" />
+              <StatCard label="Agent 任务" value={stats.agentTasks} icon="⚙️" />
+              <StatCard label="伙伴等级" value={stats.buddy?.level ?? '-'} icon="🌟" />
             </div>
 
-            <BackendCard stats={stats} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <BackendCard stats={stats} />
+              {stats.buddy && <BuddyDashboardCard buddy={stats.buddy} />}
+            </div>
           </div>
         )}
 
         {loading && !stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SkeletonCard count={3} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <SkeletonCard count={8} />
           </div>
         )}
       </div>

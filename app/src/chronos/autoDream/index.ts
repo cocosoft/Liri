@@ -36,4 +36,12 @@ export {
   completeDreamTask,
   failDreamTask,
   addDreamTurn,
+  onDreamEvent,
+  offDreamEvent,
+} from './AutoDream';
+export type {
+  DreamTask,
+  DreamEvent,
+  DreamEventType,
+  DreamEventCallback,
 } from './AutoDream';

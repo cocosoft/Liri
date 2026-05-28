@@ -843,7 +843,7 @@ export class LocalHTTPService {
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
-      this.broadcastEvent('agent:task', { taskId: result?.id });
+      this.broadcastEvent('agent:task', { taskId: result?.agentId });
     } catch (err) {
       this.sendError(res, err);
     }
@@ -1126,7 +1126,7 @@ export class LocalHTTPService {
       const result = await manager.execute(companion, action);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
-      this.broadcastEvent('buddy:interacted', { action, result: result.message });
+      this.broadcastEvent('buddy:interacted', { action, result: result.response });
     } catch (err) {
       this.sendError(res, err);
     }

@@ -220,8 +220,8 @@ export class DependencyValidator {
       if (!essentialIds.has(moduleId)) {
         result.initializationOrderIssues.push(
           `模块 "${moduleId}" 在初始化顺序中位于 Phase 1-4（索引 ${i}），` +
-          `但未声明为 CRITICAL 优先级。若该模块由 init.ts 急切加载，` +
-          `请在 LazyModuleStrategy.ts 中将其设置为 CRITICAL`
+            `但未声明为 CRITICAL 优先级。若该模块由 init.ts 急切加载，` +
+            `请在 LazyModuleStrategy.ts 中将其设置为 CRITICAL`
         );
       }
     }
@@ -232,8 +232,8 @@ export class DependencyValidator {
       if (essentialIds.has(moduleId)) {
         result.initializationOrderIssues.push(
           `模块 "${moduleId}" 在初始化顺序中位于 Phase 5-8（索引 ${i}），` +
-          `但声明为 CRITICAL 优先级。延迟模块不应在启动时急切加载，` +
-          `请在 LazyModuleStrategy.ts 中将其调整为 DEFERRED 或 ON_DEMAND`
+            `但声明为 CRITICAL 优先级。延迟模块不应在启动时急切加载，` +
+            `请在 LazyModuleStrategy.ts 中将其调整为 DEFERRED 或 ON_DEMAND`
         );
       }
     }
@@ -243,9 +243,7 @@ export class DependencyValidator {
    * 验证可选依赖引用
    * 检查 optionalDependencies 引用的模块是否在 MODULE_DEFINITIONS 中存在
    */
-  private checkOptionalDependencies(
-    result: DependencyValidationResult
-  ): void {
+  private checkOptionalDependencies(result: DependencyValidationResult): void {
     for (const [moduleId, definition] of Object.entries(MODULE_DEFINITIONS)) {
       for (const depId of definition.optionalDependencies) {
         if (!MODULE_DEFINITIONS[depId]) {
@@ -676,7 +674,10 @@ async function runDependencyValidation(): Promise<void> {
 
     const report = validator.generateDependencyReport(validation);
 
-    const reportPath = join(resolveDataSubDir('reports'), 'dependency_validation_report.md');
+    const reportPath = join(
+      resolveDataSubDir('reports'),
+      'dependency_validation_report.md'
+    );
     writeFileSync(reportPath, report);
 
     logger.info(`\n依赖关系报告已保存到: ${reportPath}`);

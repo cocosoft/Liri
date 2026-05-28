@@ -155,11 +155,7 @@ try {
         if (typeof options === 'function') {
           return origMkdir(join(projectRoot, 'app', 'data'), options);
         }
-        return origMkdir(
-          join(projectRoot, 'app', 'data'),
-          options,
-          callback
-        );
+        return origMkdir(join(projectRoot, 'app', 'data'), options, callback);
       }
       return origMkdir(path, options, callback);
     };
@@ -220,7 +216,8 @@ process.env.PYAPP_DATA_DIR = join(projectRoot, 'app', 'data');
 try {
   const soulPath = join(os.homedir(), '.pyapp', 'SOUL.md');
   const userPath = join(os.homedir(), '.pyapp', 'USER.md');
-  const { existsSync, mkdirSync, writeFileSync } = require('fs') as typeof import('fs');
+  const { existsSync, mkdirSync, writeFileSync } =
+    require('fs') as typeof import('fs');
 
   if (!existsSync(soulPath)) {
     const dir = join(os.homedir(), '.pyapp');

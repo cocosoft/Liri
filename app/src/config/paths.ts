@@ -111,9 +111,7 @@ export function resolveKnowledgeBaseDir(
 }
 
 /** 项目配置目录（app/config/） */
-export function resolveConfigDir(
-  env: NodeJS.ProcessEnv = process.env
-): string {
+export function resolveConfigDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveProjectRoot(env), 'app', 'config');
 }
 
@@ -203,9 +201,7 @@ export function resolveSnapshotsDir(
 }
 
 /** 日志目录（app/data/logs/） */
-export function resolveLogsDir(
-  env: NodeJS.ProcessEnv = process.env
-): string {
+export function resolveLogsDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveDataDir(env), 'logs');
 }
 

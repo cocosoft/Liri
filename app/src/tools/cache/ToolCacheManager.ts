@@ -23,10 +23,7 @@ export class ToolCacheManager implements ICache<string, unknown> {
   private defaultExpiration: number | null;
 
   constructor(
-    cachePath: string = path.join(
-      resolvePyappHome(),
-      'tool_cache.json'
-    ),
+    cachePath: string = path.join(resolvePyappHome(), 'tool_cache.json'),
     maxCacheSize: number = 1000,
     defaultExpiration: number | null = 24 * 60 * 60 * 1000
   ) {

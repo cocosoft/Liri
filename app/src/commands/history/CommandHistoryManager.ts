@@ -34,10 +34,7 @@ export class CommandHistoryManager {
    * @param maxHistorySize 最大历史记录数量
    */
   constructor(
-    historyPath: string = path.join(
-      resolvePyappHome(),
-      'command_history.json'
-    ),
+    historyPath: string = path.join(resolvePyappHome(), 'command_history.json'),
     maxHistorySize: number = 1000
   ) {
     this.historyPath = historyPath;

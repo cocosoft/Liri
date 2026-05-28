@@ -83,8 +83,7 @@ export class CredentialManager {
 
   constructor(storePath?: string) {
     this.storePath =
-      storePath ||
-      path.join(resolvePyappHome(), 'credentials', 'store.enc');
+      storePath || path.join(resolvePyappHome(), 'credentials', 'store.enc');
     this.encryptionKey = this.loadOrCreateKey();
     this.loadStore();
   }

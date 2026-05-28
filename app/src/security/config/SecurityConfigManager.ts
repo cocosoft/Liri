@@ -133,8 +133,7 @@ export class SecurityConfigManager extends EventEmitter {
   constructor(configPath?: string) {
     super();
     this.configPath =
-      configPath ||
-      path.join(resolveSecurityDir(), 'security-config.json');
+      configPath || path.join(resolveSecurityDir(), 'security-config.json');
     this.watchEnabled = false;
     this.config = JSON.parse(JSON.stringify(DEFAULT_SECURITY_CONFIG));
   }

@@ -442,7 +442,10 @@ export function createInMemoryScheduler(
       return current < start || current > end ? start : current;
     }
     if (field.includes(',')) {
-      const values = field.split(',').map((n) => parseInt(n, 10)).sort((a, b) => a - b);
+      const values = field
+        .split(',')
+        .map((n) => parseInt(n, 10))
+        .sort((a, b) => a - b);
       for (const v of values) {
         if (v >= current) return v;
       }
@@ -463,7 +466,8 @@ export function createInMemoryScheduler(
     const mo = parseCronField(month, from.getMonth() + 1, 1, 12);
     if (m === null || h === null || d === null || mo === null) return null;
     const candidate = new Date(from.getFullYear(), mo - 1, d, h, m);
-    if (candidate.getTime() <= fromMs) candidate.setMinutes(candidate.getMinutes() + 1);
+    if (candidate.getTime() <= fromMs)
+      candidate.setMinutes(candidate.getMinutes() + 1);
     return candidate.getTime();
   }
 
@@ -509,7 +513,10 @@ export function createInMemoryScheduler(
       return;
     }
 
-    const nextRun = nextCronRunMs(task.cron, task.lastFiredAt || task.createdAt);
+    const nextRun = nextCronRunMs(
+      task.cron,
+      task.lastFiredAt || task.createdAt
+    );
     if (nextRun === null) return;
     if (Date.now() < nextRun) return;
 
@@ -537,7 +544,9 @@ export function createInMemoryScheduler(
 
   function startCheckLoop(): void {
     stopCheckLoop();
-    checkTimer = setInterval(() => { void checkTasks(); }, options.checkIntervalMs || 1000);
+    checkTimer = setInterval(() => {
+      void checkTasks();
+    }, options.checkIntervalMs || 1000);
     checkTimer.unref?.();
   }
 

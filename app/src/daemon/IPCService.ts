@@ -38,8 +38,7 @@ export class IPCService {
       host: config.host ?? '127.0.0.1',
       port: config.port ?? 0,
       transport: config.transport ?? 'http',
-      socketPath:
-        config.socketPath ?? path.join(resolveDataDir(), 'ipc.sock'),
+      socketPath: config.socketPath ?? path.join(resolveDataDir(), 'ipc.sock'),
     };
   }
 

@@ -49,10 +49,7 @@ export class MCPConfigManager {
    * 加载全局配置
    */
   private loadGlobalConfig(): Record<string, ScopedMcpServerConfig> {
-    const globalConfigPath = path.join(
-      resolvePyappHome(),
-      'mcp.json'
-    );
+    const globalConfigPath = path.join(resolvePyappHome(), 'mcp.json');
     return this.loadConfigFile(globalConfigPath, 'local');
   }
 
@@ -60,11 +57,7 @@ export class MCPConfigManager {
    * 加载用户配置
    */
   private loadUserConfig(): Record<string, ScopedMcpServerConfig> {
-    const userConfigPath = path.join(
-      resolvePyappHome(),
-      'user',
-      'mcp.json'
-    );
+    const userConfigPath = path.join(resolvePyappHome(), 'user', 'mcp.json');
     return this.loadConfigFile(userConfigPath, 'user');
   }
 

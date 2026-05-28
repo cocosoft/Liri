@@ -198,7 +198,10 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, DELETE, OPTIONS'
+    );
     res.setHeader(
       'Access-Control-Allow-Headers',
       'Content-Type, Authorization'
@@ -236,16 +239,32 @@ export class LocalHTTPService {
       return this.handleGetCurrentSession(req, res);
     }
     if (req.method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-      return this.handleGetSession(req, res, url.match(/^\/v1\/sessions\/(.+)$/)![1]);
+      return this.handleGetSession(
+        req,
+        res,
+        url.match(/^\/v1\/sessions\/(.+)$/)![1]
+      );
     }
     if (req.method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/switch$/)) {
-      return this.handleSwitchSession(req, res, url.match(/^\/v1\/sessions\/(.+)\/switch$/)![1]);
+      return this.handleSwitchSession(
+        req,
+        res,
+        url.match(/^\/v1\/sessions\/(.+)\/switch$/)![1]
+      );
     }
     if (req.method === 'PUT' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-      return this.handleRenameSession(req, res, url.match(/^\/v1\/sessions\/(.+)$/)![1]);
+      return this.handleRenameSession(
+        req,
+        res,
+        url.match(/^\/v1\/sessions\/(.+)$/)![1]
+      );
     }
     if (req.method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-      return this.handleDeleteSession(req, res, url.match(/^\/v1\/sessions\/(.+)$/)![1]);
+      return this.handleDeleteSession(
+        req,
+        res,
+        url.match(/^\/v1\/sessions\/(.+)$/)![1]
+      );
     }
 
     // ---- Tools ----
@@ -253,7 +272,11 @@ export class LocalHTTPService {
       return this.handleListTools(req, res);
     }
     if (req.method === 'POST' && url.match(/^\/v1\/tools\/(.+)\/execute$/)) {
-      return this.handleExecuteTool(req, res, url.match(/^\/v1\/tools\/(.+)\/execute$/)![1]);
+      return this.handleExecuteTool(
+        req,
+        res,
+        url.match(/^\/v1\/tools\/(.+)\/execute$/)![1]
+      );
     }
 
     // ---- Agent ----
@@ -264,7 +287,11 @@ export class LocalHTTPService {
       return this.handleExecuteAgentTask(req, res);
     }
     if (req.method === 'GET' && url.match(/^\/v1\/agents\/tasks\/(.+)$/)) {
-      return this.handleGetAgentProgress(req, res, url.match(/^\/v1\/agents\/tasks\/(.+)$/)![1]);
+      return this.handleGetAgentProgress(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)$/)![1]
+      );
     }
 
     // ---- Files ----
@@ -289,10 +316,18 @@ export class LocalHTTPService {
       return this.handleCreateKnowledge(req, res);
     }
     if (req.method === 'PUT' && url.match(/^\/v1\/knowledge\/(.+)$/)) {
-      return this.handleUpdateKnowledge(req, res, url.match(/^\/v1\/knowledge\/(.+)$/)![1]);
+      return this.handleUpdateKnowledge(
+        req,
+        res,
+        url.match(/^\/v1\/knowledge\/(.+)$/)![1]
+      );
     }
     if (req.method === 'DELETE' && url.match(/^\/v1\/knowledge\/(.+)$/)) {
-      return this.handleDeleteKnowledge(req, res, url.match(/^\/v1\/knowledge\/(.+)$/)![1]);
+      return this.handleDeleteKnowledge(
+        req,
+        res,
+        url.match(/^\/v1\/knowledge\/(.+)$/)![1]
+      );
     }
 
     // ---- Buddy ----
@@ -320,13 +355,25 @@ export class LocalHTTPService {
       return this.handleGetCron(req, res, url.match(/^\/v1\/cron\/(.+)$/)![1]);
     }
     if (req.method === 'PUT' && url.match(/^\/v1\/cron\/(.+)$/)) {
-      return this.handleUpdateCron(req, res, url.match(/^\/v1\/cron\/(.+)$/)![1]);
+      return this.handleUpdateCron(
+        req,
+        res,
+        url.match(/^\/v1\/cron\/(.+)$/)![1]
+      );
     }
     if (req.method === 'DELETE' && url.match(/^\/v1\/cron\/(.+)$/)) {
-      return this.handleDeleteCron(req, res, url.match(/^\/v1\/cron\/(.+)$/)![1]);
+      return this.handleDeleteCron(
+        req,
+        res,
+        url.match(/^\/v1\/cron\/(.+)$/)![1]
+      );
     }
     if (req.method === 'POST' && url.match(/^\/v1\/cron\/(.+)\/run$/)) {
-      return this.handleRunCron(req, res, url.match(/^\/v1\/cron\/(.+)\/run$/)![1]);
+      return this.handleRunCron(
+        req,
+        res,
+        url.match(/^\/v1\/cron\/(.+)\/run$/)![1]
+      );
     }
 
     // ---- Channels ----
@@ -334,13 +381,25 @@ export class LocalHTTPService {
       return this.handleListChannels(req, res);
     }
     if (req.method === 'GET' && url.match(/^\/v1\/channels\/(.+)$/)) {
-      return this.handleGetChannel(req, res, url.match(/^\/v1\/channels\/(.+)$/)![1]);
+      return this.handleGetChannel(
+        req,
+        res,
+        url.match(/^\/v1\/channels\/(.+)$/)![1]
+      );
     }
     if (req.method === 'POST' && url.match(/^\/v1\/channels\/(.+)\/toggle$/)) {
-      return this.handleToggleChannel(req, res, url.match(/^\/v1\/channels\/(.+)\/toggle$/)![1]);
+      return this.handleToggleChannel(
+        req,
+        res,
+        url.match(/^\/v1\/channels\/(.+)\/toggle$/)![1]
+      );
     }
     if (req.method === 'DELETE' && url.match(/^\/v1\/channels\/(.+)$/)) {
-      return this.handleDeleteChannel(req, res, url.match(/^\/v1\/channels\/(.+)$/)![1]);
+      return this.handleDeleteChannel(
+        req,
+        res,
+        url.match(/^\/v1\/channels\/(.+)$/)![1]
+      );
     }
 
     // ---- Config ----
@@ -348,10 +407,18 @@ export class LocalHTTPService {
       return this.handleListConfig(req, res);
     }
     if (req.method === 'GET' && url.match(/^\/v1\/config\/(.+)$/)) {
-      return this.handleGetConfig(req, res, url.match(/^\/v1\/config\/(.+)$/)![1]);
+      return this.handleGetConfig(
+        req,
+        res,
+        url.match(/^\/v1\/config\/(.+)$/)![1]
+      );
     }
     if (req.method === 'PUT' && url.match(/^\/v1\/config\/(.+)$/)) {
-      return this.handleSetConfig(req, res, url.match(/^\/v1\/config\/(.+)$/)![1]);
+      return this.handleSetConfig(
+        req,
+        res,
+        url.match(/^\/v1\/config\/(.+)$/)![1]
+      );
     }
 
     // ---- Health ----
@@ -680,7 +747,11 @@ export class LocalHTTPService {
       const session = await coreAPI.getSession(sessionId);
       if (!session) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Session not found', type: 'not_found' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'Session not found', type: 'not_found' },
+          })
+        );
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -861,7 +932,11 @@ export class LocalHTTPService {
       const coreAPI = getCoreAPI();
       const progress = await coreAPI.getAgentProgress(agentId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(progress || { agentId, state: 'unknown', progress: 0, message: '' }));
+      res.end(
+        JSON.stringify(
+          progress || { agentId, state: 'unknown', progress: 0, message: '' }
+        )
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -882,7 +957,11 @@ export class LocalHTTPService {
       const { filename, data } = JSON.parse(body);
       if (!filename || !data) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'filename and data are required' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'filename and data are required' },
+          })
+        );
         return;
       }
       const buffer = Buffer.from(data, 'base64');
@@ -918,7 +997,11 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const { filePath, outputFormat, options } = JSON.parse(body);
       const coreAPI = getCoreAPI();
-      const result = await coreAPI.convertFile({ filePath, outputFormat, options });
+      const result = await coreAPI.convertFile({
+        filePath,
+        outputFormat,
+        options,
+      });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
@@ -956,7 +1039,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { knowledgeDocsProvider } = await import('@modules/docs/FileDocsProvider');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
       const docs = await knowledgeDocsProvider.buildIndex();
       const result = docs.map((doc: any, idx: number) => ({
         id: `knowledge-${idx}`,
@@ -990,8 +1074,10 @@ export class LocalHTTPService {
         res.end(JSON.stringify([]));
         return;
       }
-      const { HybridKnowledgeRouter } = await import('@modules/knowledge/HybridKnowledgeRouter');
-      const { knowledgeDocsProvider } = await import('@modules/docs/FileDocsProvider');
+      const { HybridKnowledgeRouter } =
+        await import('@modules/knowledge/HybridKnowledgeRouter');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
       const router = new HybridKnowledgeRouter(knowledgeDocsProvider);
       const routes = await router.search(query, { maxResults: 20 });
       const result = routes.map((route: any) => ({
@@ -1035,14 +1121,23 @@ export class LocalHTTPService {
       await mkdir(targetDir, { recursive: true });
       const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
       const filePath = join(targetDir, fileName);
-      const fileContent = content ? `# ${title}\n\n${content}\n` : `# ${title}\n\n`;
+      const fileContent = content
+        ? `# ${title}\n\n${content}\n`
+        : `# ${title}\n\n`;
       await writeFile(filePath, fileContent, 'utf-8');
       const newId = `knowledge-${Date.now()}`;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        id: newId, title, content: content || '', category: category || '根目录',
-        docPath: filePath, created_at: Date.now(), updated_at: Date.now(),
-      }));
+      res.end(
+        JSON.stringify({
+          id: newId,
+          title,
+          content: content || '',
+          category: category || '根目录',
+          docPath: filePath,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        })
+      );
       this.broadcastEvent('knowledge:created', { id: newId, title });
     } catch (err) {
       this.sendError(res, err);
@@ -1061,7 +1156,14 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const { title, content } = JSON.parse(body);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ id: knowledgeId, title, content, updated_at: Date.now() }));
+      res.end(
+        JSON.stringify({
+          id: knowledgeId,
+          title,
+          content,
+          updated_at: Date.now(),
+        })
+      );
       this.broadcastEvent('knowledge:updated', { id: knowledgeId });
     } catch (err) {
       this.sendError(res, err);
@@ -1115,7 +1217,8 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { action } = JSON.parse(body);
-      const { InteractionManager, getCompanion } = await import('@modules/buddy');
+      const { InteractionManager, getCompanion } =
+        await import('@modules/buddy');
       const companion = getCompanion();
       if (!companion) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1126,7 +1229,10 @@ export class LocalHTTPService {
       const result = await manager.execute(companion, action);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
-      this.broadcastEvent('buddy:interacted', { action, result: result.response });
+      this.broadcastEvent('buddy:interacted', {
+        action,
+        result: result.response,
+      });
     } catch (err) {
       this.sendError(res, err);
     }
@@ -1144,14 +1250,18 @@ export class LocalHTTPService {
       const dreamStats = getDreamStats();
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        interactions: 0,
-        dreamsCompleted: dreamStats.totalCompleted,
-        totalXp: 0,
-      }));
+      res.end(
+        JSON.stringify({
+          interactions: 0,
+          dreamsCompleted: dreamStats.totalCompleted,
+          totalXp: 0,
+        })
+      );
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ interactions: 0, dreamsCompleted: 0, totalXp: 0 }));
+      res.end(
+        JSON.stringify({ interactions: 0, dreamsCompleted: 0, totalXp: 0 })
+      );
     }
   }
 
@@ -1163,12 +1273,16 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+      const urlObj = new URL(
+        req.url || '',
+        `http://${req.headers.host || 'localhost'}`
+      );
       const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
       const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
       const typeFilter = urlObj.searchParams.get('type') || '';
 
-      const { getDreamLogs, getDreamLogsByType, getDreamStats } = await import('@modules/buddy/dreamLogStore');
+      const { getDreamLogs, getDreamLogsByType, getDreamStats } =
+        await import('@modules/buddy/dreamLogStore');
 
       const result = typeFilter
         ? getDreamLogsByType(typeFilter as any, limit, offset)
@@ -1180,7 +1294,19 @@ export class LocalHTTPService {
       res.end(JSON.stringify({ ...result, stats }));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ logs: [], total: 0, stats: { totalCompleted: 0, totalFailed: 0, totalSessions: 0, totalInsights: 0, lastDreamAt: null } }));
+      res.end(
+        JSON.stringify({
+          logs: [],
+          total: 0,
+          stats: {
+            totalCompleted: 0,
+            totalFailed: 0,
+            totalSessions: 0,
+            totalInsights: 0,
+            lastDreamAt: null,
+          },
+        })
+      );
     }
   }
 
@@ -1228,13 +1354,31 @@ export class LocalHTTPService {
       const { cron, prompt, recurring, durable, agentId } = JSON.parse(body);
       if (!cron || !prompt) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'cron and prompt are required' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'cron and prompt are required' } })
+        );
         return;
       }
       const { addCronTask } = await import('@modules/chronos/CronTasks');
-      const id = await addCronTask(cron, prompt, recurring !== false, durable !== false, agentId);
+      const id = await addCronTask(
+        cron,
+        prompt,
+        recurring !== false,
+        durable !== false,
+        agentId
+      );
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ id, cron, prompt, recurring: recurring !== false, durable: durable !== false, agentId, createdAt: Date.now() }));
+      res.end(
+        JSON.stringify({
+          id,
+          cron,
+          prompt,
+          recurring: recurring !== false,
+          durable: durable !== false,
+          agentId,
+          createdAt: Date.now(),
+        })
+      );
       this.broadcastEvent('cron:created', { id });
     } catch (err) {
       this.sendError(res, err);
@@ -1275,7 +1419,8 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const updates = JSON.parse(body);
-      const { updateCronTask, getCronTask } = await import('@modules/chronos/CronTasks');
+      const { updateCronTask, getCronTask } =
+        await import('@modules/chronos/CronTasks');
       const existing = await getCronTask(cronId);
       if (!existing) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1320,7 +1465,8 @@ export class LocalHTTPService {
     cronId: string
   ): Promise<void> {
     try {
-      const { getCronTask, updateCronTask } = await import('@modules/chronos/CronTasks');
+      const { getCronTask, updateCronTask } =
+        await import('@modules/chronos/CronTasks');
       const task = await getCronTask(cronId);
       if (!task) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1329,7 +1475,9 @@ export class LocalHTTPService {
       }
       await updateCronTask(cronId, { lastFiredAt: Date.now() });
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, message: `Task ${cronId} triggered` }));
+      res.end(
+        JSON.stringify({ success: true, message: `Task ${cronId} triggered` })
+      );
       this.broadcastEvent('cron:run', { id: cronId });
     } catch (err) {
       this.sendError(res, err);
@@ -1346,7 +1494,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { channelRegistry } = await import('@modules/channels/registry/ChannelRegistry');
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
       const channels = channelRegistry.getAll();
       const result = channels.map((ch: any) => ({
         id: ch.name,
@@ -1372,7 +1521,8 @@ export class LocalHTTPService {
     channelId: string
   ): Promise<void> {
     try {
-      const { channelRegistry } = await import('@modules/channels/registry/ChannelRegistry');
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
       const channel = channelRegistry.get(channelId);
       if (!channel) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1380,13 +1530,15 @@ export class LocalHTTPService {
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        id: channel.name,
-        name: channel.name,
-        type: channel.type,
-        enabled: channel.enabled,
-        connected: channel.connected,
-      }));
+      res.end(
+        JSON.stringify({
+          id: channel.name,
+          name: channel.name,
+          type: channel.type,
+          enabled: channel.enabled,
+          connected: channel.connected,
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -1403,7 +1555,8 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { enabled } = JSON.parse(body);
-      const { channelRegistry } = await import('@modules/channels/registry/ChannelRegistry');
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
       const channel = channelRegistry.get(channelId);
       if (!channel) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1432,7 +1585,8 @@ export class LocalHTTPService {
     channelId: string
   ): Promise<void> {
     try {
-      const { channelRegistry } = await import('@modules/channels/registry/ChannelRegistry');
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
       const result = channelRegistry.unregister(channelId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: result }));
@@ -1555,7 +1709,11 @@ export class LocalHTTPService {
   /**
    * 发送错误响应
    */
-  private sendError(res: http.ServerResponse, err: unknown, status = 500): void {
+  private sendError(
+    res: http.ServerResponse,
+    err: unknown,
+    status = 500
+  ): void {
     const message = err instanceof Error ? err.message : String(err);
     logger.error('API 错误', { error: message });
     res.writeHead(status, { 'Content-Type': 'application/json' });

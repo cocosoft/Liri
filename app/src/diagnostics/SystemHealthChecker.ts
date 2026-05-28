@@ -328,7 +328,9 @@ export class SystemHealthChecker extends EventEmitter {
 
     if (!process.env.OAUTH_ENCRYPTION_KEY) {
       warnings.push('OAUTH_ENCRYPTION_KEY');
-      suggestions.push('设置 OAUTH_ENCRYPTION_KEY 环境变量以确保 OAuth 令牌加密安全');
+      suggestions.push(
+        '设置 OAUTH_ENCRYPTION_KEY 环境变量以确保 OAuth 令牌加密安全'
+      );
     }
 
     if (missing.length > 0) {
@@ -398,19 +400,27 @@ export class SystemHealthChecker extends EventEmitter {
       suggestions.push('设置 PYAPP_PROJECT_DIR 环境变量可优化路径解析');
     }
 
-    if (!existsSync(join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets'))) {
+    if (
+      !existsSync(
+        join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets')
+      )
+    ) {
       issues.push('告警预置目录不存在');
       suggestions.push('确认 presets 目录存在于项目源码中');
     }
 
     if (!existsSync(join(pyappDir, 'SOUL.md'))) {
       issues.push('~/.pyapp/SOUL.md 不存在');
-      suggestions.push('SOUL.md 会在首次启动时自动创建，手动创建可自定义 AI 人格');
+      suggestions.push(
+        'SOUL.md 会在首次启动时自动创建，手动创建可自定义 AI 人格'
+      );
     }
 
     if (!existsSync(join(pyappDir, 'USER.md'))) {
       issues.push('~/.pyapp/USER.md 不存在');
-      suggestions.push('USER.md 会在首次启动时自动创建，手动创建可自定义用户身份');
+      suggestions.push(
+        'USER.md 会在首次启动时自动创建，手动创建可自定义用户身份'
+      );
     }
 
     if (issues.length > 0) {
@@ -449,7 +459,9 @@ export class SystemHealthChecker extends EventEmitter {
         _require.resolve(pkg);
       } catch {
         npmMissing.push(`${pkg}（${purpose}）`);
-        npmSuggestions.push(`运行 bun add ${pkg} 安装可选依赖以启用 ${purpose} 功能`);
+        npmSuggestions.push(
+          `运行 bun add ${pkg} 安装可选依赖以启用 ${purpose} 功能`
+        );
       }
     }
 
@@ -465,10 +477,15 @@ export class SystemHealthChecker extends EventEmitter {
     }
 
     const parts: string[] = [];
-    const allSuggestions: string[] = [...extResult.suggestions, ...npmSuggestions];
+    const allSuggestions: string[] = [
+      ...extResult.suggestions,
+      ...npmSuggestions,
+    ];
 
     if (missingCommands.length > 0) {
-      parts.push(`缺少外部命令: ${missingCommands.map((i) => i.command).join(', ')}`);
+      parts.push(
+        `缺少外部命令: ${missingCommands.map((i) => i.command).join(', ')}`
+      );
     }
     if (missingNpm) {
       parts.push(`缺少 npm 包: ${npmMissing.join(', ')}`);

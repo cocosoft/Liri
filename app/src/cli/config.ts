@@ -106,8 +106,7 @@ export class CliConfigManager {
   private configPath: string;
 
   constructor(options?: ConfigOptions) {
-    const configDir =
-      options?.configDir || resolvePyappHome();
+    const configDir = options?.configDir || resolvePyappHome();
     const configName = options?.configName || 'config.json';
 
     this.configPath = join(configDir, configName);

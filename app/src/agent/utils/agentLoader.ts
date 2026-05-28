@@ -196,10 +196,7 @@ export function loadAgentsDir(
  * @returns Agent定义数组
  */
 export async function loadUserAgents(): Promise<AgentDefinition[]> {
-  const userAgentsDir = join(
-    resolvePyappHome(),
-    'agents'
-  );
+  const userAgentsDir = join(resolvePyappHome(), 'agents');
   return loadAgentsFromDir(userAgentsDir);
 }
 

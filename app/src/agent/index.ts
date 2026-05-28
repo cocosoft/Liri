@@ -202,8 +202,16 @@ export {
   ContextCompressor,
 };
 export type { TrajectoryEntry, ConversationMessage } from './trajectory';
-export type { ToolCallItem, ToolCallBatchResult, BatchConfig } from './ToolCallBatch';
-export type { CompressibleMessage, ContextCompressionConfig, CompressionResult } from './ContextCompressor';
+export type {
+  ToolCallItem,
+  ToolCallBatchResult,
+  BatchConfig,
+} from './ToolCallBatch';
+export type {
+  CompressibleMessage,
+  ContextCompressionConfig,
+  CompressionResult,
+} from './ContextCompressor';
 import {
   StrategySelector,
   TaskComplexity,
@@ -215,9 +223,17 @@ import type {
   StrategySelection,
 } from './StrategySelector';
 import { ToolCallBatch } from './ToolCallBatch';
-import type { ToolCallItem, ToolCallBatchResult, BatchConfig } from './ToolCallBatch';
+import type {
+  ToolCallItem,
+  ToolCallBatchResult,
+  BatchConfig,
+} from './ToolCallBatch';
 import { ContextCompressor } from './ContextCompressor';
-import type { CompressibleMessage, ContextCompressionConfig, CompressionResult } from './ContextCompressor';
+import type {
+  CompressibleMessage,
+  ContextCompressionConfig,
+  CompressionResult,
+} from './ContextCompressor';
 
 const agentService = createAgentService();
 export default agentService;

@@ -5,7 +5,13 @@
  */
 
 import { BaseTool } from './BaseTool';
-import type { ToolParam, ToolUseContext, ToolCallProgress, ToolResult, ToolProgressData } from './types';
+import type {
+  ToolParam,
+  ToolUseContext,
+  ToolCallProgress,
+  ToolResult,
+  ToolProgressData,
+} from './types';
 
 /**
  * 工具分组
@@ -79,7 +85,12 @@ export class ToolGroup {
   /**
    * 生成组信息的简要描述
    */
-  toSummary(): { name: string; description: string; toolCount: number; toolNames: string[] } {
+  toSummary(): {
+    name: string;
+    description: string;
+    toolCount: number;
+    toolNames: string[];
+  } {
     return {
       name: this.name,
       description: this.description,

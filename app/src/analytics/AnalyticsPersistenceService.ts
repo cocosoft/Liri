@@ -17,8 +17,7 @@ export interface StorageConfig {
 }
 
 export const DEFAULT_STORAGE_CONFIG: StorageConfig = {
-  baseDir:
-    process.env.ANALYTICS_STORAGE_DIR || resolveDataSubDir('analytics'),
+  baseDir: process.env.ANALYTICS_STORAGE_DIR || resolveDataSubDir('analytics'),
   maxFileSize: 50 * 1024 * 1024,
   rotationCount: 5,
   enabled: process.env.ANALYTICS_PERSISTENCE_ENABLED !== 'false',

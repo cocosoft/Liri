@@ -542,10 +542,7 @@ async function main(): Promise<void> {
   logger.info(`扫描完成，耗时 ${duration}ms，扫描 ${fileCount} 个文件`);
 
   // 输出 JSON 报告供程序化处理
-  const reportPath = join(
-    resolveCacheDir(),
-    'dependency-scan-report.json'
-  );
+  const reportPath = join(resolveCacheDir(), 'dependency-scan-report.json');
   const reportDir = dirname(reportPath);
   if (!existsSync(reportDir)) {
     mkdirSync(reportDir, { recursive: true });

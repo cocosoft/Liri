@@ -58,10 +58,7 @@ export class ContextCompressor {
   private config: ContextCompressionConfig;
   private model: AIModelType;
 
-  constructor(
-    config?: Partial<ContextCompressionConfig>,
-    model?: AIModelType
-  ) {
+  constructor(config?: Partial<ContextCompressionConfig>, model?: AIModelType) {
     this.config = { ...DEFAULT_COMPRESSION_CONFIG, ...config };
     this.model = model ?? ('gpt-4o-mini' as AIModelType);
   }
@@ -80,9 +77,7 @@ export class ContextCompressor {
    * @param messages 消息列表
    * @returns 压缩结果
    */
-  async compress(
-    messages: CompressibleMessage[]
-  ): Promise<CompressionResult> {
+  async compress(messages: CompressibleMessage[]): Promise<CompressionResult> {
     const originalTokenCount = messages.reduce(
       (sum, m) => sum + m.tokenCount,
       0
@@ -154,9 +149,7 @@ export class ContextCompressor {
       originalTokenCount,
       compressedTokenCount,
       compressionRatio:
-        originalTokenCount > 0
-          ? compressedTokenCount / originalTokenCount
-          : 1,
+        originalTokenCount > 0 ? compressedTokenCount / originalTokenCount : 1,
       summary,
     };
   }
@@ -239,10 +232,7 @@ export class ContextCompressor {
         this.model,
         {
           temperature: 0.3,
-          max_tokens: Math.min(
-            2048,
-            Math.round(this.config.maxTokens * 0.1)
-          ),
+          max_tokens: Math.min(2048, Math.round(this.config.maxTokens * 0.1)),
         }
       );
 
@@ -261,9 +251,7 @@ export class ContextCompressor {
    * @param messages 消息列表
    * @returns 摘要文本
    */
-  private fallbackSummary(
-    messages: CompressibleMessage[]
-  ): string {
+  private fallbackSummary(messages: CompressibleMessage[]): string {
     const parts: string[] = [];
     let totalLength = 0;
     const maxLength = 2000;

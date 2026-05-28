@@ -3,7 +3,11 @@
  * 支持 text-embedding-3-small / text-embedding-3-large / text-embedding-ada-002
  */
 
-import { EmbeddingBase, EmbeddingOptions, EmbeddingResult } from '../EmbeddingBase';
+import {
+  EmbeddingBase,
+  EmbeddingOptions,
+  EmbeddingResult,
+} from '../EmbeddingBase';
 
 /**
  * OpenAI 嵌入模型配置
@@ -39,7 +43,8 @@ export class OpenAIEmbeddingProvider extends EmbeddingBase {
     this.apiKey = config.apiKey || process.env.OPENAI_API_KEY || '';
     this.modelName = config.model || 'text-embedding-3-small';
     this.dimensions = config.dimensions || 1536;
-    this.baseURL = config.baseURL || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
+    this.baseURL =
+      config.baseURL || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
   }
 
   /**
@@ -73,7 +78,9 @@ export class OpenAIEmbeddingProvider extends EmbeddingBase {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`OpenAI Embedding API 错误 (${response.status}): ${error}`);
+      throw new Error(
+        `OpenAI Embedding API 错误 (${response.status}): ${error}`
+      );
     }
 
     const data = (await response.json()) as {

@@ -58,7 +58,8 @@ export class GitHubReleaseFetcher {
    */
   async fetchLatest(): Promise<UpdateInfo> {
     // 检查 GitHub Release 断路器状态
-    const { CircuitBreaker } = await import('../../diagnostics/CircuitBreaker.js');
+    const { CircuitBreaker } =
+      await import('../../diagnostics/CircuitBreaker.js');
     const releaseBreaker = CircuitBreaker.getOrCreate('github-release', {
       maxFailures: 2,
       baseDelayMs: 30000,

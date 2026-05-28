@@ -187,10 +187,12 @@ function showHelp(): CommandResult {
  * 获取 Agent 配置文件目录
  */
 function getAgentsDirs(): { source: AgentSource; dir: string }[] {
-
   return [
     { source: 'userSettings', dir: join(resolvePyappHome(), 'agents') },
-    { source: 'projectSettings', dir: join(resolveProjectRoot(), '.pyapp', 'agents') },
+    {
+      source: 'projectSettings',
+      dir: join(resolveProjectRoot(), '.pyapp', 'agents'),
+    },
   ];
 }
 

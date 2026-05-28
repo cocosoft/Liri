@@ -668,12 +668,13 @@ export class ChannelManager extends EventEmitter {
       // 将消息写入共享会话存储，使所有通道消息在统一上下文中可见
       try {
         const { getDIContainer } = await import('../../core/DIContainer.js');
-        const { MessageType, MessageRole } = await import(
-          '../../session/types/Message.js'
-        );
+        const { MessageType, MessageRole } =
+          await import('../../session/types/Message.js');
         const container = getDIContainer();
         if (container.has('combinedSessionGateway')) {
-          const combinedGateway = container.resolve<any>('combinedSessionGateway');
+          const combinedGateway = container.resolve<any>(
+            'combinedSessionGateway'
+          );
           if (typeof combinedGateway.sendMessage === 'function') {
             await combinedGateway.sendMessage('shared-context', {
               id: message.id,

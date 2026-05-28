@@ -102,7 +102,7 @@ export class FileWriteTool extends BaseTool {
     try {
       const filePathCheck = checkPathAccessibility(
         path.dirname(input.file_path as string),
-        '写入目录',
+        '写入目录'
       );
       if (!filePathCheck.accessible) {
         const msg = filePathCheck.reason || '';

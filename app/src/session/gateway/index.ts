@@ -1,6 +1,10 @@
 import { SessionGateway } from '../SessionGateway';
 import { CombinedSessionGateway } from './CombinedSessionGateway';
-import type { AgentGatewayEntry, CombinedGatewayConfig, CombinedSessionResult } from './CombinedSessionGateway';
+import type {
+  AgentGatewayEntry,
+  CombinedGatewayConfig,
+  CombinedSessionResult,
+} from './CombinedSessionGateway';
 
 export { CombinedSessionGateway };
 export type {

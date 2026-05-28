@@ -368,8 +368,7 @@ export class AppCore {
       const { FileSystemStorage } =
         await import('../session/storage/FileSystemStorage.js');
 
-      const storageDir =
-        opts.storageDir ?? resolveSessionsDir();
+      const storageDir = opts.storageDir ?? resolveSessionsDir();
       const storage = new FileSystemStorage(storageDir);
       this.sessionFactory = new SessionFactory(storage);
 

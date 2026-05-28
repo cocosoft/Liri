@@ -337,9 +337,11 @@ export function checkPathAccessibility(
       path.dirname(resolved).toLowerCase().charAt(0)
     ) {
       suggestions.push(
-        `目标路径位于 ${path.dirname(resolved).charAt(0).toUpperCase()}: 盘，项目根目录位于 ${path.dirname(resolvedProject).charAt(0).toUpperCase()}: 盘`,
+        `目标路径位于 ${path.dirname(resolved).charAt(0).toUpperCase()}: 盘，项目根目录位于 ${path.dirname(resolvedProject).charAt(0).toUpperCase()}: 盘`
       );
-      suggestions.push('可尝试通过 --project-dir 或 PYAPP_PROJECT_DIR 指定正确路径');
+      suggestions.push(
+        '可尝试通过 --project-dir 或 PYAPP_PROJECT_DIR 指定正确路径'
+      );
     }
   }
 

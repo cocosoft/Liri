@@ -53,10 +53,7 @@ export class EnhancedMCPConfigManager {
    * 加载全局配置
    */
   private loadGlobalConfig(): Record<string, ScopedMcpServerConfig> {
-    const globalConfigPath = path.join(
-      resolvePyappHome(),
-      'mcp.json'
-    );
+    const globalConfigPath = path.join(resolvePyappHome(), 'mcp.json');
     const configs = this.loadConfigFile(globalConfigPath, 'local');
     this.watchConfigFile(globalConfigPath, 'local');
     return configs;
@@ -66,11 +63,7 @@ export class EnhancedMCPConfigManager {
    * 加载用户配置
    */
   private loadUserConfig(): Record<string, ScopedMcpServerConfig> {
-    const userConfigPath = path.join(
-      resolvePyappHome(),
-      'user',
-      'mcp.json'
-    );
+    const userConfigPath = path.join(resolvePyappHome(), 'user', 'mcp.json');
     const configs = this.loadConfigFile(userConfigPath, 'user');
     this.watchConfigFile(userConfigPath, 'user');
     return configs;
@@ -258,17 +251,10 @@ export class EnhancedMCPConfigManager {
 
       switch (scope) {
         case 'local':
-          configPath = path.join(
-            resolvePyappHome(),
-            'mcp.json'
-          );
+          configPath = path.join(resolvePyappHome(), 'mcp.json');
           break;
         case 'user':
-          configPath = path.join(
-            resolvePyappHome(),
-            'user',
-            'mcp.json'
-          );
+          configPath = path.join(resolvePyappHome(), 'user', 'mcp.json');
           break;
         case 'project':
           configPath = path.join(process.cwd(), '.mcp.json');

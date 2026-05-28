@@ -64,8 +64,16 @@ export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
 
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
   const userSettings = path.join(resolvePyappHome(), 'settings.json');
-  const projectSettings = path.join(resolveDataDir(), 'settings', 'settings.json');
-  const localSettings = path.join(resolveDataDir(), 'settings', 'local_settings.json');
+  const projectSettings = path.join(
+    resolveDataDir(),
+    'settings',
+    'settings.json'
+  );
+  const localSettings = path.join(
+    resolveDataDir(),
+    'settings',
+    'local_settings.json'
+  );
 
   context = loadPermissionsFromSettings(userSettings, 'userSettings', context);
   context = loadPermissionsFromSettings(

@@ -11,7 +11,11 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolTag } from '../types/Tool';
 import { PermissionResult, createAllowResult } from '../types/PermissionResult';
 import { ValidationResult } from '../types/Tool';
-import { createSuccessResult, createFailureResult, checkPathAccessibility } from '../utils/ToolUtils';
+import {
+  createSuccessResult,
+  createFailureResult,
+  checkPathAccessibility,
+} from '../utils/ToolUtils';
 import { glob } from '../GlobTool/GlobTool';
 
 export class GlobTool extends BaseTool {
@@ -55,7 +59,7 @@ export class GlobTool extends BaseTool {
       if (!pathCheck.accessible) {
         return createFailureResult(
           `${pathCheck.reason}${pathCheck.suggestions?.length ? `\n建议: ${pathCheck.suggestions.join('; ')}` : ''}`,
-          { executionTime: Date.now() - startTime },
+          { executionTime: Date.now() - startTime }
         );
       }
 

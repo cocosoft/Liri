@@ -10,7 +10,11 @@
  * 适用于: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash, gemini-2.5-pro
  */
 
-import { ModelFormatter, type FormatContext, type FormatResult } from './ModelFormatter';
+import {
+  ModelFormatter,
+  type FormatContext,
+  type FormatResult,
+} from './ModelFormatter';
 import type { ChatMessage, ChatResponse } from '../models/types';
 
 /**
@@ -93,7 +97,11 @@ export class GeminiFormatter extends ModelFormatter {
   private toGeminiParts(msg: ChatMessage): GeminiPart[] {
     const parts: GeminiPart[] = [];
 
-    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
+    if (
+      msg.role === 'assistant' &&
+      msg.tool_calls &&
+      msg.tool_calls.length > 0
+    ) {
       for (const tc of msg.tool_calls) {
         parts.push({
           function_call: {
@@ -147,7 +155,9 @@ export class GeminiFormatter extends ModelFormatter {
    * 解析 Gemini 响应
    */
   parseResponse(rawResponse: Record<string, unknown>): ChatResponse {
-    const candidates = rawResponse.candidates as Array<Record<string, unknown>> | undefined;
+    const candidates = rawResponse.candidates as
+      | Array<Record<string, unknown>>
+      | undefined;
     const candidate = candidates?.[0];
     const content = candidate?.content as Record<string, unknown> | undefined;
     const parts = content?.parts as GeminiPart[] | undefined;
@@ -171,7 +181,9 @@ export class GeminiFormatter extends ModelFormatter {
     }
 
     const finishReason = candidate?.finish_reason as string | undefined;
-    const usageMetadata = rawResponse.usage_metadata as Record<string, unknown> | undefined;
+    const usageMetadata = rawResponse.usage_metadata as
+      | Record<string, unknown>
+      | undefined;
 
     return {
       content: text,
@@ -181,7 +193,8 @@ export class GeminiFormatter extends ModelFormatter {
       usage: usageMetadata
         ? {
             prompt_tokens: (usageMetadata.prompt_token_count as number) ?? 0,
-            completion_tokens: (usageMetadata.candidates_token_count as number) ?? 0,
+            completion_tokens:
+              (usageMetadata.candidates_token_count as number) ?? 0,
             total_tokens: (usageMetadata.total_token_count as number) ?? 0,
           }
         : undefined,
@@ -191,7 +204,9 @@ export class GeminiFormatter extends ModelFormatter {
   /**
    * 映射 Gemini finish_reason 到统一格式
    */
-  private mapFinishReason(reason?: string): 'stop' | 'tool_calls' | 'max_tokens' {
+  private mapFinishReason(
+    reason?: string
+  ): 'stop' | 'tool_calls' | 'max_tokens' {
     switch (reason) {
       case 'STOP':
         return 'stop';

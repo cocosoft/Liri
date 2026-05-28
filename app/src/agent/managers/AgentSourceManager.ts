@@ -166,14 +166,8 @@ export class AgentSourceManager {
     this.isHotReloadEnabled = true;
 
     // 监控用户和项目Agent目录
-    const userAgentsDir = require('path').join(
-      resolvePyappHome(),
-      'agents'
-    );
-    const projectAgentsDir = require('path').join(
-      resolveDataDir(),
-      'agents'
-    );
+    const userAgentsDir = require('path').join(resolvePyappHome(), 'agents');
+    const projectAgentsDir = require('path').join(resolveDataDir(), 'agents');
 
     this.directoryWatcher.watchDirectory(userAgentsDir);
     this.directoryWatcher.watchDirectory(projectAgentsDir);

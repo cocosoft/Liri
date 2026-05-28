@@ -275,10 +275,7 @@ export interface InMemorySchedulerOptions {
     error?: string;
   }>;
   /** 任务完成回调 */
-  onTaskComplete?: (
-    task: ScheduledTask,
-    status: 'success' | 'failed'
-  ) => void;
+  onTaskComplete?: (task: ScheduledTask, status: 'success' | 'failed') => void;
   /** 任务重试回调 */
   onTaskRetry?: (
     task: ScheduledTask,

@@ -105,9 +105,7 @@ function getLocalAgentMemoryDir(dirName: string): string {
       ) + path.sep
     );
   }
-  return (
-    path.join(resolveDataDir(), 'agent-memory-local', dirName) + path.sep
-  );
+  return path.join(resolveDataDir(), 'agent-memory-local', dirName) + path.sep;
 }
 
 /**

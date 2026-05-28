@@ -53,7 +53,8 @@ const DEFAULT_MAX_DELAY_MS = 300_000;
  */
 export class CircuitBreaker {
   private state: CircuitState;
-  private readonly options: Required<Omit<CircuitBreakerOptions, 'name'>> & Pick<CircuitBreakerOptions, 'name'>;
+  private readonly options: Required<Omit<CircuitBreakerOptions, 'name'>> &
+    Pick<CircuitBreakerOptions, 'name'>;
   private static instances = new Map<string, CircuitBreaker>();
 
   constructor(options: CircuitBreakerOptions) {
@@ -74,7 +75,10 @@ export class CircuitBreaker {
   /**
    * 获取或创建命名断路器实例（单例复用）
    */
-  static getOrCreate(name: string, opts?: Partial<CircuitBreakerOptions>): CircuitBreaker {
+  static getOrCreate(
+    name: string,
+    opts?: Partial<CircuitBreakerOptions>
+  ): CircuitBreaker {
     let breaker = CircuitBreaker.instances.get(name);
     if (!breaker) {
       breaker = new CircuitBreaker({ name, ...opts });

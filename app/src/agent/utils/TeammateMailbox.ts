@@ -133,12 +133,7 @@ export class TeammateMailbox {
   private cleanupTimer?: NodeJS.Timeout;
 
   constructor(config: Partial<MailboxConfig> = {}) {
-    this.mailboxDir =
-      config.mailboxDir ||
-      join(
-        resolvePyappHome(),
-        'mailbox'
-      );
+    this.mailboxDir = config.mailboxDir || join(resolvePyappHome(), 'mailbox');
     this.messageTtlMs = config.messageTtlMs || 24 * 60 * 60 * 1000; // 24小时
     this.cleanupIntervalMs = config.cleanupIntervalMs || 60 * 60 * 1000; // 1小时
 

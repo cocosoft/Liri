@@ -4,7 +4,11 @@
  * 零启动开销：仅在使用时初始化
  */
 
-import { EmbeddingBase, EmbeddingOptions, EmbeddingResult } from './EmbeddingBase';
+import {
+  EmbeddingBase,
+  EmbeddingOptions,
+  EmbeddingResult,
+} from './EmbeddingBase';
 import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
 

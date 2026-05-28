@@ -126,4 +126,4 @@ jobs:
       run: bun install
 
     - name: Run performance tests
-      run: bun test testing/performance.test.ts
+      run: bun test data/testing/performance.test.ts

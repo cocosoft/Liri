@@ -66,7 +66,10 @@ function checkCommandExists(cmd: string): { found: boolean; version?: string } {
     timeout: 3000,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  const version = versionResult.status === 0 ? versionResult.stdout?.trim() || versionResult.stderr?.trim() : undefined;
+  const version =
+    versionResult.status === 0
+      ? versionResult.stdout?.trim() || versionResult.stderr?.trim()
+      : undefined;
 
   return { found: true, version };
 }
@@ -98,7 +101,8 @@ function getCommandList(): Omit<ExternalCommandCheck, 'found' | 'version'>[] {
       displayName: 'PowerShell',
       required: false,
       purpose: 'PowerShell 工具执行',
-      installHint: 'Windows 系统自带，可通过 https://github.com/PowerShell/PowerShell 更新',
+      installHint:
+        'Windows 系统自带，可通过 https://github.com/PowerShell/PowerShell 更新',
     });
   }
 
@@ -119,9 +123,13 @@ export async function checkExternalCommands(): Promise<DependenciesCheckResult> 
     items.push({ ...cmdDef, found, version });
 
     if (!found && cmdDef.required) {
-      suggestions.push(`缺少必需命令 ${cmdDef.command}（${cmdDef.purpose}）：${cmdDef.installHint}`);
+      suggestions.push(
+        `缺少必需命令 ${cmdDef.command}（${cmdDef.purpose}）：${cmdDef.installHint}`
+      );
     } else if (!found) {
-      suggestions.push(`可选命令 ${cmdDef.command}（${cmdDef.purpose}）未安装，${cmdDef.installHint}；不影响核心功能`);
+      suggestions.push(
+        `可选命令 ${cmdDef.command}（${cmdDef.purpose}）未安装，${cmdDef.installHint}；不影响核心功能`
+      );
     }
   }
 
@@ -140,7 +148,9 @@ export function formatExternalCommands(items: ExternalCommandCheck[]): string {
     const icon = item.found ? '✅' : '⚠️';
     const tag = item.required ? '[必需]' : '[可选]';
     const ver = item.version ? ` (${item.version})` : '';
-    parts.push(`  ${icon} ${tag} ${item.displayName}: ${item.found ? `已找到${ver}` : `未找到 — ${item.installHint}`}`);
+    parts.push(
+      `  ${icon} ${tag} ${item.displayName}: ${item.found ? `已找到${ver}` : `未找到 — ${item.installHint}`}`
+    );
   }
   return parts.join('\n');
 }

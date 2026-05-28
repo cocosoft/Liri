@@ -29,9 +29,7 @@ export class FilePermissionStorage implements PermissionStorage {
    * 构造函数
    * @param storagePath 存储路径
    */
-  constructor(
-    storagePath: string = resolvePermissionsDir()
-  ) {
+  constructor(storagePath: string = resolvePermissionsDir()) {
     this.storagePath = storagePath;
     this.rulesPath = path.join(storagePath, 'rules.json');
     this.rolesPath = path.join(storagePath, 'roles.json');

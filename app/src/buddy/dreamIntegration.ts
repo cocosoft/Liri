@@ -13,7 +13,11 @@ import type { DreamEvent } from '../chronos/autoDream/AutoDream';
 import { onDreamEvent, offDreamEvent } from '../chronos/autoDream/AutoDream';
 import type { EventBus } from '../core/events/EventBus';
 import { globalEventBus } from '../core/events/EventBus';
-import { createInfoNotification, createAchievementNotification, createLevelUpNotification } from './notifications';
+import {
+  createInfoNotification,
+  createAchievementNotification,
+  createLevelUpNotification,
+} from './notifications';
 import { ifNotificationsEnabled } from './conditional';
 import { getCompanion } from './companion';
 import type { Companion } from './types';
@@ -80,7 +84,10 @@ export class DreamGrowthTracker {
     const companion = getCompanion();
     if (!companion) return null;
 
-    if (this.totalCompleted === 1 && !this.unlockedAchievements.has('first_dream')) {
+    if (
+      this.totalCompleted === 1 &&
+      !this.unlockedAchievements.has('first_dream')
+    ) {
       this.unlockedAchievements.add('first_dream');
       return {
         id: 'first_dream',
@@ -90,7 +97,10 @@ export class DreamGrowthTracker {
       };
     }
 
-    if (this.totalCompleted === 5 && !this.unlockedAchievements.has('dreamer_5')) {
+    if (
+      this.totalCompleted === 5 &&
+      !this.unlockedAchievements.has('dreamer_5')
+    ) {
       this.unlockedAchievements.add('dreamer_5');
       return {
         id: 'dreamer_5',
@@ -100,7 +110,10 @@ export class DreamGrowthTracker {
       };
     }
 
-    if (this.totalCompleted === 10 && !this.unlockedAchievements.has('dreamer_10')) {
+    if (
+      this.totalCompleted === 10 &&
+      !this.unlockedAchievements.has('dreamer_10')
+    ) {
       this.unlockedAchievements.add('dreamer_10');
       return {
         id: 'dreamer_10',
@@ -110,7 +123,10 @@ export class DreamGrowthTracker {
       };
     }
 
-    if (this.totalCompleted === 25 && !this.unlockedAchievements.has('dreamer_25')) {
+    if (
+      this.totalCompleted === 25 &&
+      !this.unlockedAchievements.has('dreamer_25')
+    ) {
       this.unlockedAchievements.add('dreamer_25');
       return {
         id: 'dreamer_25',
@@ -120,7 +136,10 @@ export class DreamGrowthTracker {
       };
     }
 
-    if (this.consecutiveDays >= 7 && !this.unlockedAchievements.has('week_dream')) {
+    if (
+      this.consecutiveDays >= 7 &&
+      !this.unlockedAchievements.has('week_dream')
+    ) {
       this.unlockedAchievements.add('week_dream');
       return {
         id: 'week_dream',
@@ -130,7 +149,10 @@ export class DreamGrowthTracker {
       };
     }
 
-    if (this.totalSessions >= 100 && !this.unlockedAchievements.has('sessions_100')) {
+    if (
+      this.totalSessions >= 100 &&
+      !this.unlockedAchievements.has('sessions_100')
+    ) {
       this.unlockedAchievements.add('sessions_100');
       return {
         id: 'sessions_100',
@@ -185,7 +207,10 @@ export function formatDreamMessage(event: DreamEvent): string {
 /**
  * 根据梦境规模和累计数据生成伙伴对话文本
  */
-export function formatGrowthDialogue(event: DreamEvent, stats: DreamGrowthStats): string {
+export function formatGrowthDialogue(
+  event: DreamEvent,
+  stats: DreamGrowthStats
+): string {
   const parts: string[] = [];
 
   if (event.insightsGenerated >= 10) {
@@ -197,7 +222,9 @@ export function formatGrowthDialogue(event: DreamEvent, stats: DreamGrowthStats)
   }
 
   if (stats.consecutiveDays >= 3) {
-    parts.push(`连续 ${stats.consecutiveDays} 天都在做梦，感觉和你越来越有默契了~`);
+    parts.push(
+      `连续 ${stats.consecutiveDays} 天都在做梦，感觉和你越来越有默契了~`
+    );
   }
 
   if (event.sessionsCount >= 20) {
@@ -247,7 +274,9 @@ function handleDreamEvent(event: DreamEvent): void {
 
     console.log(`[BuddyDream] ${event.type}: ${fullMessage}`);
     if (event.insightsGenerated >= 10) {
-      console.log(`[BuddyDream] large dream — ${event.insightsGenerated} insights, ${stats.totalCompleted} total dreams`);
+      console.log(
+        `[BuddyDream] large dream — ${event.insightsGenerated} insights, ${stats.totalCompleted} total dreams`
+      );
     }
   } else if (event.type === 'dream:failed') {
     ifNotificationsEnabled(() => {

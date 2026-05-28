@@ -190,7 +190,10 @@ export class FileReadTool extends BaseTool {
     try {
       const filePath = path.resolve(input.file_path as string);
 
-      const pathCheck = checkPathAccessibility(input.file_path as string, '文件');
+      const pathCheck = checkPathAccessibility(
+        input.file_path as string,
+        '文件'
+      );
       if (!pathCheck.accessible) {
         const msg = pathCheck.reason || '';
         const hint = pathCheck.suggestions?.length

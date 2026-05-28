@@ -382,8 +382,7 @@ export class TeamHelper {
 export function getTeamDir(teamName: string): string {
   const { getEnvironmentVariable } = require('../../utils/envUtils');
   const baseDir =
-    process.env.PY_APP_TEAM_DIR ||
-    join(resolvePyappHome(), 'teams');
+    process.env.PY_APP_TEAM_DIR || join(resolvePyappHome(), 'teams');
   return join(baseDir, teamName);
 }
 

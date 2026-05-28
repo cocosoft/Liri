@@ -109,7 +109,12 @@ export class ToolCallBatch {
 
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(
-            () => reject(new Error(`工具 ${call.tool.name} 执行超时 (${this.config.timeoutMs}ms)`)),
+            () =>
+              reject(
+                new Error(
+                  `工具 ${call.tool.name} 执行超时 (${this.config.timeoutMs}ms)`
+                )
+              ),
             this.config.timeoutMs
           )
         );

@@ -76,7 +76,14 @@ export class AlertPresetLoader {
     const presetsDir = this.config.presetsDir;
     if (!presetsDir || !fs.existsSync(presetsDir)) {
       const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-      const fallbackDir = path.join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets');
+      const fallbackDir = path.join(
+        projectRoot,
+        'app',
+        'src',
+        'monitoring',
+        'alerts',
+        'presets'
+      );
       if (fs.existsSync(fallbackDir)) {
         this.config.presetsDir = fallbackDir;
         logger.info(`预置目录已回退到: ${fallbackDir}`);

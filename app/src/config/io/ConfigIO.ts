@@ -59,9 +59,7 @@ export class ConfigIO {
   private locks: Map<string, boolean> = new Map();
 
   constructor(configDir?: string, lockTimeout?: number) {
-    this.configDir =
-      configDir ||
-      resolvePyappHome();
+    this.configDir = configDir || resolvePyappHome();
     this.lockTimeout = lockTimeout ?? 10000;
     this.initSources();
   }
@@ -257,10 +255,7 @@ export class ConfigIO {
     this.sources = [
       {
         scope: 'global',
-        path: path.join(
-          resolvePyappHome(),
-          'config.json'
-        ),
+        path: path.join(resolvePyappHome(), 'config.json'),
         priority: 10,
         format: 'json',
         exists: false,

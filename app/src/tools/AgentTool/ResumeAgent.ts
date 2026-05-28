@@ -26,7 +26,12 @@ async function readAgentTranscript(
 ): Promise<Array<{ role: string; content: string }> | null> {
   try {
     const { existsSync, readFileSync } = await import('fs');
-    const transcriptPath = join(resolvePyappHome(), 'agents', agentId, 'conversation.json');
+    const transcriptPath = join(
+      resolvePyappHome(),
+      'agents',
+      agentId,
+      'conversation.json'
+    );
     if (!existsSync(transcriptPath)) {
       return null;
     }

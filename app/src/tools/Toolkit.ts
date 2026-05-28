@@ -111,8 +111,18 @@ export class Toolkit {
   /**
    * 获取所有已激活的工具组摘要信息
    */
-  getActivatedGroupSummaries(): Array<{ name: string; description: string; toolCount: number; toolNames: string[] }> {
-    const summaries: Array<{ name: string; description: string; toolCount: number; toolNames: string[] }> = [];
+  getActivatedGroupSummaries(): Array<{
+    name: string;
+    description: string;
+    toolCount: number;
+    toolNames: string[];
+  }> {
+    const summaries: Array<{
+      name: string;
+      description: string;
+      toolCount: number;
+      toolNames: string[];
+    }> = [];
     for (const groupName of this.activatedGroups) {
       const group = this.groups.get(groupName);
       if (group) {

@@ -120,7 +120,6 @@ export class SkillLoader {
    * 获取默认加载路径
    */
   private getDefaultLoadPaths(): SkillLoadPath[] {
-
     return [
       // 用户技能目录（最高优先级）
       {

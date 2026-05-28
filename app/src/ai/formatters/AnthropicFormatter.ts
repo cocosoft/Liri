@@ -10,7 +10,11 @@
  * 适用于: claude-3, claude-3.5, claude-4 系列
  */
 
-import { ModelFormatter, type FormatContext, type FormatResult } from './ModelFormatter';
+import {
+  ModelFormatter,
+  type FormatContext,
+  type FormatResult,
+} from './ModelFormatter';
 import type { ChatMessage, ChatResponse } from '../models/types';
 
 /**
@@ -79,7 +83,9 @@ export class AnthropicFormatter extends ModelFormatter {
       const contentBlocks = this.toContentBlocks(msg);
 
       // 合并连续相同角色的消息（Anthropic 不允许相邻的相同角色）
-      const lastMsg = result[result.length - 1] as Record<string, unknown> | undefined;
+      const lastMsg = result[result.length - 1] as
+        | Record<string, unknown>
+        | undefined;
       if (lastMsg && lastMsg.role === role) {
         const existingBlocks = lastMsg.content as AnthropicContentBlock[];
         lastMsg.content = [...existingBlocks, ...contentBlocks];
@@ -100,7 +106,11 @@ export class AnthropicFormatter extends ModelFormatter {
   private toContentBlocks(msg: ChatMessage): AnthropicContentBlock[] {
     const blocks: AnthropicContentBlock[] = [];
 
-    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
+    if (
+      msg.role === 'assistant' &&
+      msg.tool_calls &&
+      msg.tool_calls.length > 0
+    ) {
       // assistant 消息中有 tool_calls → 转为 tool_use blocks
       for (const tc of msg.tool_calls) {
         blocks.push({
@@ -171,7 +181,7 @@ export class AnthropicFormatter extends ModelFormatter {
     if (content) {
       for (const block of content) {
         if (block.type === 'text') {
-          text += (block as Record<string, unknown>).text as string || '';
+          text += ((block as Record<string, unknown>).text as string) || '';
         } else if (block.type === 'tool_use') {
           const tb = block as AnthropicToolUseBlock;
           if (!toolCalls) toolCalls = [];
@@ -196,9 +206,15 @@ export class AnthropicFormatter extends ModelFormatter {
         ? {
             prompt_tokens: (usage.input_tokens as number) ?? 0,
             completion_tokens: (usage.output_tokens as number) ?? 0,
-            total_tokens: ((usage.input_tokens as number) ?? 0) + ((usage.output_tokens as number) ?? 0),
-            cache_read_input_tokens: usage.cache_read_input_tokens as number | undefined,
-            cache_creation_input_tokens: usage.cache_creation_input_tokens as number | undefined,
+            total_tokens:
+              ((usage.input_tokens as number) ?? 0) +
+              ((usage.output_tokens as number) ?? 0),
+            cache_read_input_tokens: usage.cache_read_input_tokens as
+              | number
+              | undefined,
+            cache_creation_input_tokens: usage.cache_creation_input_tokens as
+              | number
+              | undefined,
           }
         : undefined,
     };

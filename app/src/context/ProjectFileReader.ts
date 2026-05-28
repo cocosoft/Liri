@@ -30,7 +30,11 @@ function safeReadFile(filePath: string): string | null {
   }
 }
 
-const PY_APP_MD_PATHS = ['PY_APP.md', path.join('docs', 'PY_APP.md'), '.github/PY_APP.md'];
+const PY_APP_MD_PATHS = [
+  'PY_APP.md',
+  path.join('docs', 'PY_APP.md'),
+  '.github/PY_APP.md',
+];
 
 const MEMORY_MD_PATHS = ['MEMORY.md', path.join('docs', 'MEMORY.md')];
 

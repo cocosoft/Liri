@@ -428,9 +428,8 @@ export class ModuleInitializer {
    */
   private async _registerCombinedGateway(): Promise<void> {
     try {
-      const { createCombinedGateway } = await import(
-        '../session/gateway/index.js'
-      );
+      const { createCombinedGateway } =
+        await import('../session/gateway/index.js');
       const { getDIContainer } = await import('../core/DIContainer.js');
       const container = getDIContainer();
 

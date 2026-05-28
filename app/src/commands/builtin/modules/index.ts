@@ -19,9 +19,8 @@ const modulesCommand: Command = {
 
       switch (subcommand) {
         case 'list': {
-          const { MODULE_DEFINITIONS, MODULE_INITIALIZATION_ORDER } = await import(
-            '../../../modules/ModuleDefinitions.js'
-          );
+          const { MODULE_DEFINITIONS, MODULE_INITIALIZATION_ORDER } =
+            await import('../../../modules/ModuleDefinitions.js');
 
           const moduleEntries = Object.entries(MODULE_DEFINITIONS);
           const orderedSet = new Set(MODULE_INITIALIZATION_ORDER);
@@ -39,12 +38,14 @@ const modulesCommand: Command = {
             return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
           })) {
             const inOrder = orderedSet.has(id) ? '✓' : '✗';
-            const deps = def.dependencies.length > 0
-              ? `依赖: [${def.dependencies.join(', ')}]`
-              : '无依赖';
-            const optDeps = def.optionalDependencies.length > 0
-              ? `可选: [${def.optionalDependencies.join(', ')}]`
-              : '';
+            const deps =
+              def.dependencies.length > 0
+                ? `依赖: [${def.dependencies.join(', ')}]`
+                : '无依赖';
+            const optDeps =
+              def.optionalDependencies.length > 0
+                ? `可选: [${def.optionalDependencies.join(', ')}]`
+                : '';
             lines.push(
               `  ${inOrder} ${id} (${def.displayName}) v${def.version}`,
               `     类别: ${def.category} | ${deps}${optDeps ? ' ' + optDeps : ''}`
@@ -56,16 +57,18 @@ const modulesCommand: Command = {
 
         case 'validate':
         case 'check': {
-          const includeDetails = restArgs.includes('--verbose') || restArgs.includes('-v');
+          const includeDetails =
+            restArgs.includes('--verbose') || restArgs.includes('-v');
 
-          const { DependencyValidator } = await import(
-            '../../../tools/DependencyValidator.js'
-          );
+          const { DependencyValidator } =
+            await import('../../../tools/DependencyValidator.js');
           const validator = new DependencyValidator();
           const result = validator.validateAllDependencies();
 
           const lines: string[] = [
-            result.valid ? '✅ 模块依赖验证通过' : '❌ 模块依赖验证发现以下问题:',
+            result.valid
+              ? '✅ 模块依赖验证通过'
+              : '❌ 模块依赖验证发现以下问题:',
             '',
           ];
 
@@ -86,7 +89,9 @@ const modulesCommand: Command = {
           }
 
           if (result.circularDependencies.length > 0) {
-            lines.push(`【循环依赖】(${result.circularDependencies.length} 项)`);
+            lines.push(
+              `【循环依赖】(${result.circularDependencies.length} 项)`
+            );
             for (const cycle of result.circularDependencies) {
               lines.push(`  🔄 ${cycle.join(' → ')}`);
             }
@@ -94,7 +99,9 @@ const modulesCommand: Command = {
           }
 
           if (result.initializationOrderIssues.length > 0) {
-            lines.push(`【初始化顺序问题】(${result.initializationOrderIssues.length} 项)`);
+            lines.push(
+              `【初始化顺序问题】(${result.initializationOrderIssues.length} 项)`
+            );
             for (const issue of result.initializationOrderIssues) {
               lines.push(`  ⚠ ${issue}`);
             }
@@ -102,7 +109,9 @@ const modulesCommand: Command = {
           }
 
           if (result.optionalDepIssues.length > 0) {
-            lines.push(`【可选依赖问题】(${result.optionalDepIssues.length} 项)`);
+            lines.push(
+              `【可选依赖问题】(${result.optionalDepIssues.length} 项)`
+            );
             for (const issue of result.optionalDepIssues) {
               lines.push(`  ⚠ ${issue}`);
             }

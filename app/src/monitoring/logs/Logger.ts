@@ -47,11 +47,16 @@ export class Logger {
     return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.level];
   }
 
-  private formatMessage(level: LogLevel, message: string, meta?: unknown): string {
+  private formatMessage(
+    level: LogLevel,
+    message: string,
+    meta?: unknown
+  ): string {
     const timestamp = new Date().toISOString();
-    const metaStr = meta !== undefined
-      ? ` ${typeof meta === 'string' ? meta : JSON.stringify(meta)}`
-      : '';
+    const metaStr =
+      meta !== undefined
+        ? ` ${typeof meta === 'string' ? meta : JSON.stringify(meta)}`
+        : '';
     return `[${timestamp}] [${level.toUpperCase()}] [${this.module}] ${message}${metaStr}`;
   }
 

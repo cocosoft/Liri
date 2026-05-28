@@ -89,4 +89,8 @@ export {
   DreamGrowthTracker,
   DREAM_EVENT,
 } from './dreamIntegration';
-export type { DreamEvent, DreamEventType, DreamEventCallback } from '../chronos/autoDream/AutoDream';
+export type {
+  DreamEvent,
+  DreamEventType,
+  DreamEventCallback,
+} from '../chronos/autoDream/AutoDream';

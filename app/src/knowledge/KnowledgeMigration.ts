@@ -6,7 +6,10 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/config/paths';
+import {
+  resolvePyappHome,
+  resolveKnowledgeBaseDir,
+} from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -501,13 +501,13 @@ export async function launchRepl(
           try {
             const { getDIContainer } = await import('../core/DIContainer.js');
             const { randomUUID } = await import('crypto');
-            const { MessageType, MessageRole } = await import(
-              '../session/types/Message.js'
-            );
+            const { MessageType, MessageRole } =
+              await import('../session/types/Message.js');
             const container = getDIContainer();
             if (container.has('combinedSessionGateway')) {
-              const combinedGateway =
-                container.resolve<any>('combinedSessionGateway');
+              const combinedGateway = container.resolve<any>(
+                'combinedSessionGateway'
+              );
               if (typeof combinedGateway.sendMessage === 'function') {
                 await combinedGateway.sendMessage('shared-context', {
                   id: randomUUID(),

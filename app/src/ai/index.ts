@@ -239,10 +239,7 @@ export {
   FormatterRegistry,
   formatterRegistry,
 } from './formatters';
-export type {
-  FormatContext,
-  FormatResult,
-} from './formatters';
+export type { FormatContext, FormatResult } from './formatters';
 
 const aiService = createAIService();
 export default aiService;

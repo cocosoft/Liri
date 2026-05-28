@@ -385,7 +385,10 @@ export async function migrateAllModules(): Promise<void> {
   logger.info('开始迁移所有模块...');
 
   const report = tool.generateMigrationReport(analysis);
-  const reportPath = path.join(resolveDataSubDir('reports'), 'module_migration_report.md');
+  const reportPath = path.join(
+    resolveDataSubDir('reports'),
+    'module_migration_report.md'
+  );
   fs.writeFileSync(reportPath, report);
   logger.info(`迁移报告已生成: ${reportPath}`);
 

@@ -888,7 +888,9 @@ export class ChatManagerImpl implements ChatManager {
         const { getDIContainer } = await import('../core/DIContainer.js');
         const container = getDIContainer();
         if (container.has('combinedSessionGateway')) {
-          const combinedGateway = container.resolve<any>('combinedSessionGateway');
+          const combinedGateway = container.resolve<any>(
+            'combinedSessionGateway'
+          );
           if (typeof combinedGateway.getMessages === 'function') {
             const sharedMessages = await combinedGateway.getMessages(
               'shared-context',
@@ -2132,13 +2134,15 @@ export class ChatManagerImpl implements ChatManager {
         // 检查工具执行结果是否包含错误
         let error: string | undefined;
         if (toolResult.error) {
-          error = typeof toolResult.error === 'string'
-            ? toolResult.error
-            : JSON.stringify(toolResult.error);
+          error =
+            typeof toolResult.error === 'string'
+              ? toolResult.error
+              : JSON.stringify(toolResult.error);
         } else if (toolResult.metadata?.error) {
-          error = typeof toolResult.metadata.error === 'string'
-            ? toolResult.metadata.error
-            : JSON.stringify(toolResult.metadata.error);
+          error =
+            typeof toolResult.metadata.error === 'string'
+              ? toolResult.metadata.error
+              : JSON.stringify(toolResult.metadata.error);
         }
 
         return {

@@ -33,7 +33,10 @@ export interface DreamTask {
  * DreamEvent — 梦境生命周期事件
  * Buddy 可通过回调订阅，用于 UI 反馈和伙伴互动
  */
-export type DreamEventType = 'dream:started' | 'dream:completed' | 'dream:failed';
+export type DreamEventType =
+  | 'dream:started'
+  | 'dream:completed'
+  | 'dream:failed';
 
 export interface DreamEvent {
   type: DreamEventType;
@@ -62,11 +65,11 @@ export function onDreamEvent(callback: DreamEventCallback): void {
  * 移除梦境事件回调
  */
 export function offDreamEvent(callback: DreamEventCallback): void {
-  _dreamEventCallbacks = _dreamEventCallbacks.filter(cb => cb !== callback);
+  _dreamEventCallbacks = _dreamEventCallbacks.filter((cb) => cb !== callback);
 }
 
 function emitDreamEvent(event: DreamEvent): void {
-  _dreamEventCallbacks.forEach(cb => cb(event));
+  _dreamEventCallbacks.forEach((cb) => cb(event));
 }
 
 interface DreamProgress {

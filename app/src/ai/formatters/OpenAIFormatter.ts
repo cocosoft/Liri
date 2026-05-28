@@ -10,8 +10,16 @@
  * 适用于: gpt-4, gpt-4o, gpt-4o-mini, gpt-3.5-turbo, o1, o1-mini, o3-mini
  */
 
-import { ModelFormatter, type FormatContext, type FormatResult } from './ModelFormatter';
-import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
+import {
+  ModelFormatter,
+  type FormatContext,
+  type FormatResult,
+} from './ModelFormatter';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+} from '../models/types';
 import type { ContentPart } from '../models/types';
 
 export class OpenAIFormatter extends ModelFormatter {
@@ -117,13 +125,17 @@ export class OpenAIFormatter extends ModelFormatter {
    * 解析 OpenAI 响应
    */
   parseResponse(rawResponse: Record<string, unknown>): ChatResponse {
-    const choices = rawResponse.choices as Array<Record<string, unknown>> | undefined;
+    const choices = rawResponse.choices as
+      | Array<Record<string, unknown>>
+      | undefined;
     const choice = choices?.[0];
     const message = choice?.message as Record<string, unknown> | undefined;
 
     const content = (message?.content as string) ?? '';
     const finishReason = (choice?.finish_reason as string) ?? 'stop';
-    const rawToolCalls = message?.tool_calls as Array<Record<string, unknown>> | undefined;
+    const rawToolCalls = message?.tool_calls as
+      | Array<Record<string, unknown>>
+      | undefined;
 
     let toolCalls;
     if (rawToolCalls && rawToolCalls.length > 0) {
@@ -131,7 +143,8 @@ export class OpenAIFormatter extends ModelFormatter {
         id: tc.id as string,
         name: ((tc.function as Record<string, unknown>)?.name as string) ?? '',
         arguments: JSON.parse(
-          ((tc.function as Record<string, unknown>)?.arguments as string) ?? '{}'
+          ((tc.function as Record<string, unknown>)?.arguments as string) ??
+            '{}'
         ),
       }));
     }
@@ -148,8 +161,12 @@ export class OpenAIFormatter extends ModelFormatter {
             prompt_tokens: (usage.prompt_tokens as number) ?? 0,
             completion_tokens: (usage.completion_tokens as number) ?? 0,
             total_tokens: (usage.total_tokens as number) ?? 0,
-            cache_read_input_tokens: usage.cache_read_input_tokens as number | undefined,
-            cache_creation_input_tokens: usage.cache_creation_input_tokens as number | undefined,
+            cache_read_input_tokens: usage.cache_read_input_tokens as
+              | number
+              | undefined,
+            cache_creation_input_tokens: usage.cache_creation_input_tokens as
+              | number
+              | undefined,
           }
         : undefined,
     };

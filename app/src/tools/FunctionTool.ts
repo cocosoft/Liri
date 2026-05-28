@@ -5,7 +5,13 @@
  */
 
 import { BaseTool } from './BaseTool';
-import type { ToolParam, ToolUseContext, ToolCallProgress, ToolResult, ToolProgressData } from './types';
+import type {
+  ToolParam,
+  ToolUseContext,
+  ToolCallProgress,
+  ToolResult,
+  ToolProgressData,
+} from './types';
 import { ToolTag } from './types/Tool';
 
 /**
@@ -56,8 +62,10 @@ export interface FunctionToolConfig<I, O> {
  * });
  * ```
  */
-export class FunctionTool<I extends Record<string, unknown> = Record<string, unknown>, O = unknown>
-  extends BaseTool<I, O> {
+export class FunctionTool<
+  I extends Record<string, unknown> = Record<string, unknown>,
+  O = unknown,
+> extends BaseTool<I, O> {
   readonly name: string;
 
   readonly description: string;
@@ -77,7 +85,16 @@ export class FunctionTool<I extends Record<string, unknown> = Record<string, unk
   constructor(config: FunctionToolConfig<I, O>) {
     super();
 
-    const { func, name, description, inputSchema, tags, isReadOnly, aliases, searchHint } = config;
+    const {
+      func,
+      name,
+      description,
+      inputSchema,
+      tags,
+      isReadOnly,
+      aliases,
+      searchHint,
+    } = config;
 
     this.name = name ?? (func.name || 'anonymous_function');
     this.description = description ?? this.extractDescription(func);

@@ -125,7 +125,14 @@ export class MonitoringService {
   private loadAlertPresets(): void {
     try {
       const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-      const presetsDir = path.join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets');
+      const presetsDir = path.join(
+        projectRoot,
+        'app',
+        'src',
+        'monitoring',
+        'alerts',
+        'presets'
+      );
       if (!fs.existsSync(presetsDir)) {
         const altDir = path.join(projectRoot, 'alerts', 'presets');
         if (fs.existsSync(altDir)) {

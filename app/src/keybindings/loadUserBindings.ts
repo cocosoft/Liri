@@ -21,10 +21,7 @@ const logger = new Logger({ level: LogLevel.INFO });
 /**
  * 用户绑定文件路径
  */
-export const USER_BINDINGS_PATH = join(
-  resolvePyappHome(),
-  'keybindings.json'
-);
+export const USER_BINDINGS_PATH = join(resolvePyappHome(), 'keybindings.json');
 
 /**
  * 用户绑定文件是否存在的标志

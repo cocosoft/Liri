@@ -62,8 +62,7 @@ export class ChannelLogManager {
     persistEnabled: boolean = false
   ) {
     this.maxLogs = maxLogs;
-    this.logDir =
-      logDir || path.join(resolvePyappHome(), 'logs', 'channels');
+    this.logDir = logDir || path.join(resolvePyappHome(), 'logs', 'channels');
     this.persistEnabled = persistEnabled;
     this.enableRedact = true;
   }

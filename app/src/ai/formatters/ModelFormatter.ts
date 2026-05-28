@@ -12,7 +12,11 @@
  * 业务代码只需处理标准格式，由注册器按模型名自动路由到对应格式化器。
  */
 
-import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+} from '../models/types';
 
 /**
  * 格式化上下文

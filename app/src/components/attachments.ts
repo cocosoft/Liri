@@ -1,5 +1,11 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
+import {
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  unlinkSync,
+} from 'fs';
 import { join, dirname } from 'path';
 import { resolveAttachmentsDir } from '../config/paths';
 
@@ -76,7 +82,11 @@ export class AttachmentManager {
    * 保存索引
    */
   private saveIndex(attachments: Attachment[]): void {
-    writeFileSync(this.indexPath, JSON.stringify(attachments, null, 2), 'utf-8');
+    writeFileSync(
+      this.indexPath,
+      JSON.stringify(attachments, null, 2),
+      'utf-8'
+    );
   }
 
   /**

@@ -326,7 +326,9 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
-    const session = this.chatManager.getSessions().find((s) => s.id === sessionId);
+    const session = this.chatManager
+      .getSessions()
+      .find((s) => s.id === sessionId);
     if (session) {
       session.title = title;
     }

@@ -31,11 +31,7 @@ export class AgentConfigManager {
    * @param configDir 配置目录
    */
   constructor(
-    configDir: string = join(
-      resolvePyappHome(),
-      'config',
-      'agents'
-    )
+    configDir: string = join(resolvePyappHome(), 'config', 'agents')
   ) {
     this.configPath = configDir;
     this.ensureConfigDirExists();

@@ -356,7 +356,7 @@ export class BashTool {
               {
                 executionTime: ToolUtils.calculateExecutionTime(startTime),
                 toolName: 'bash',
-              },
+              }
             );
           }
 

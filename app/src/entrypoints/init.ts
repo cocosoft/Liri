@@ -196,7 +196,8 @@ export async function init(): Promise<void> {
         const startTime = Date.now();
 
         // 检查 Gateway 断路器状态
-        const { CircuitBreaker } = await import('../diagnostics/CircuitBreaker.js');
+        const { CircuitBreaker } =
+          await import('../diagnostics/CircuitBreaker.js');
         const gatewayBreaker = CircuitBreaker.getOrCreate('gateway-init', {
           maxFailures: 2,
           baseDelayMs: 10000,
@@ -267,7 +268,9 @@ export async function init(): Promise<void> {
               });
             }
           } catch (setupError) {
-            logger.debug('Gateway 通道自动启动失败（非关键）', { error: setupError });
+            logger.debug('Gateway 通道自动启动失败（非关键）', {
+              error: setupError,
+            });
           }
 
           // 通道已由 Gateway 系统（ChannelPluginRegistry）统一管理

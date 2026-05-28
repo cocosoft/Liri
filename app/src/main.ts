@@ -311,9 +311,8 @@ async function initializeModuleSystem(): Promise<void> {
  */
 async function displayStartupHealthReport(): Promise<void> {
   try {
-    const { systemHealthChecker, formatHealthReport } = await import(
-      './diagnostics/SystemHealthChecker'
-    );
+    const { systemHealthChecker, formatHealthReport } =
+      await import('./diagnostics/SystemHealthChecker');
     const report = await systemHealthChecker.performFullCheck();
     console.log(formatHealthReport(report));
   } catch {
@@ -559,7 +558,7 @@ export async function main(): Promise<void> {
 
   let mode: LaunchMode;
   let args: string[];
-  
+
   if (filteredArgv.length > 0 && !filteredArgv[0].startsWith('--')) {
     mode = (filteredArgv[0] as LaunchMode) || LaunchMode.REPL;
     args = filteredArgv.slice(1);

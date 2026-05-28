@@ -129,9 +129,18 @@ export class LocalWorkspace extends WorkspaceBase {
    * 将文件模式转换为权限字符串
    */
   private modeToPermissions(mode: number): string {
-    const owner = ((mode & 0o400) ? 'r' : '-') + ((mode & 0o200) ? 'w' : '-') + ((mode & 0o100) ? 'x' : '-');
-    const group = ((mode & 0o040) ? 'r' : '-') + ((mode & 0o020) ? 'w' : '-') + ((mode & 0o010) ? 'x' : '-');
-    const other = ((mode & 0o004) ? 'r' : '-') + ((mode & 0o002) ? 'w' : '-') + ((mode & 0o001) ? 'x' : '-');
+    const owner =
+      (mode & 0o400 ? 'r' : '-') +
+      (mode & 0o200 ? 'w' : '-') +
+      (mode & 0o100 ? 'x' : '-');
+    const group =
+      (mode & 0o040 ? 'r' : '-') +
+      (mode & 0o020 ? 'w' : '-') +
+      (mode & 0o010 ? 'x' : '-');
+    const other =
+      (mode & 0o004 ? 'r' : '-') +
+      (mode & 0o002 ? 'w' : '-') +
+      (mode & 0o001 ? 'x' : '-');
     return owner + group + other;
   }
 }

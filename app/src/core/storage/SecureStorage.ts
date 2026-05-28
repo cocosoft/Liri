@@ -7,9 +7,7 @@ import {
   CipherGCM,
   DecipherGCM,
 } from 'crypto';
-import {
-  readFile, writeFile, mkdir, access, stat,
-} from 'fs/promises';
+import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

@@ -356,8 +356,8 @@ export class RemoteSessionManagerUI {
   loadHistory(): void {
     try {
       const fs = require('fs');
-        const path = require('path');
-        const { resolveDataDir } = require('@modules/config/paths');
+      const path = require('path');
+      const { resolveDataDir } = require('@modules/config/paths');
       const historyPath =
         this.config.historyFilePath ||
         path.join(resolveDataDir(), 'session_history.json');

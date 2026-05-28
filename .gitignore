@@ -146,9 +146,9 @@ app/config.json
 app/settings.json
 
 # 参考 / 第三方代码（提取后的档案）
-cc_code/
-reference/
-
+BA_REF/
+UI_REF/
+CJL_REF/
 
 # 项目规则文件
 .trae/

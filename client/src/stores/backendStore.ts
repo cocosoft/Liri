@@ -2,7 +2,20 @@ import { create } from 'zustand';
 import { chatService } from '../services/chatService';
 import type { BackendStatus } from '../types';
 
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+async function isTauriApp(): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  if ('__TAURI__' in window) {
+    return true;
+  }
+  try {
+    await import('@tauri-apps/api/core');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface BackendStore {
   status: BackendStatus;
@@ -14,13 +27,19 @@ interface BackendStore {
   startBackend: () => Promise<void>;
   stopBackend: () => Promise<void>;
   clearError: () => void;
+  initBrowserMode: () => Promise<void>;
 }
 
 export const useBackendStore = create<BackendStore>((set) => ({
   status: { running: false, port: null },
   isChecking: false,
   error: null,
-  isBrowserMode: !isTauri,
+  isBrowserMode: true,
+
+  initBrowserMode: async () => {
+    const tauri = await isTauriApp();
+    set({ isBrowserMode: !tauri });
+  },
 
   checkStatus: async () => {
     set({ isChecking: true });
@@ -39,11 +58,12 @@ export const useBackendStore = create<BackendStore>((set) => ({
   startBackend: async () => {
     set({ error: null });
 
+    const isTauri = !useBackendStore.getState().isBrowserMode;
     if (!isTauri) {
       set({
         error:
           '浏览器模式下无法自动启动后端。请在终端中运行：\n' +
-          'cd backend && bun start -- --http-port 7890\n' +
+          'cd app && bun run src/main.ts repl --http-port 7890\n' +
           '启动后刷新页面。',
       });
       return;
@@ -60,6 +80,7 @@ export const useBackendStore = create<BackendStore>((set) => ({
   stopBackend: async () => {
     set({ error: null });
 
+    const isTauri = !useBackendStore.getState().isBrowserMode;
     if (!isTauri) {
       set({ status: { running: false, port: null } });
       return;

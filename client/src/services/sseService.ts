@@ -1,16 +1,17 @@
+import { getBackendBaseUrl } from './backendUrl';
+
 type EventHandler = (data: Record<string, unknown>) => void;
 
 class SSEService {
   private eventSource: EventSource | null = null;
   private handlers = new Map<string, Set<EventHandler>>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private baseUrl = 'http://127.0.0.1:7890';
 
   connect(): void {
     if (this.eventSource) return;
 
     try {
-      this.eventSource = new EventSource(`${this.baseUrl}/v1/events`);
+      this.eventSource = new EventSource(`${getBackendBaseUrl()}/v1/events`);
 
       this.eventSource.onopen = () => {
         if (this.reconnectTimer) {

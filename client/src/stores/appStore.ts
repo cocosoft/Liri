@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppPage = 'chat' | 'dashboard' | 'cron' | 'files' | 'knowledge' | 'agent' | 'channels' | 'settings' | 'buddy';
+export type AppPage = 'home' | 'chat' | 'dashboard' | 'monitor' | 'logs' | 'memory' | 'skills' | 'cron' | 'files' | 'knowledge' | 'agent' | 'channels' | 'settings' | 'buddy';
 
 type NavigateFn = (path: string) => void;
 
@@ -12,14 +12,14 @@ interface AppStore {
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
-  activePage: 'chat',
+  activePage: 'home',
   _navigate: null,
 
   setActivePage: (page) => {
     set({ activePage: page });
     const nav = get()._navigate;
     if (nav) {
-      nav(page === 'chat' ? '/' : `/${page}`);
+      nav(page === 'home' ? '/' : `/${page}`);
     }
   },
 

@@ -1,4 +1,4 @@
-const BACKEND_BASE = 'http://127.0.0.1:7890';
+import { getBackendBaseUrl } from './backendUrl';
 
 class HTTPClientError extends Error {
   constructor(
@@ -15,7 +15,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${BACKEND_BASE}${path}`;
+  const url = `${getBackendBaseUrl()}${path}`;
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -37,7 +37,19 @@ async function request<T>(
 }
 
 export const http = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, options?: { params?: Record<string, unknown> }) => {
+    let url = path;
+    if (options?.params) {
+      const params = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.set(key, String(value));
+        }
+      });
+      url += `?${params.toString()}`;
+    }
+    return request<T>(url);
+  },
 
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
@@ -55,4 +67,4 @@ export const http = {
     request<T>(path, { method: 'DELETE' }),
 };
 
-export { BACKEND_BASE, HTTPClientError };
+export { HTTPClientError };

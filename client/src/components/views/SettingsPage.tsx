@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConfigStore } from '../../stores/configStore';
 import { chatService } from '../../services/chatService';
+import { appConfigService } from '../../services/appConfigService';
+import { setBackendPort as setBackendUrlPort } from '../../services/backendUrl';
 import type { BackendStatus } from '../../types';
 
 function SettingsPage() {
+  const navigate = useNavigate();
   const { config, setConfig } = useConfigStore();
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
     running: false,
@@ -12,14 +16,62 @@ function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendPort, setBackendPort] = useState('7890');
+  const [portSaved, setPortSaved] = useState(false);
 
   const isDark = config.theme === 'dark';
 
   useEffect(() => {
+    loadPersistedPort();
     checkBackendStatus();
     const interval = setInterval(checkBackendStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadPersistedPort = async () => {
+    try {
+      const appConfig = await appConfigService.get();
+      setBackendPort(String(appConfig.httpPort));
+    } catch {
+      // 使用默认值
+    }
+  };
+
+  const handleSavePort = async () => {
+    const port = parseInt(backendPort, 10);
+    if (isNaN(port) || port < 1024 || port > 65535) {
+      setError('端口号必须在 1024-65535 之间');
+      return;
+    }
+
+    setPortSaved(false);
+    setError(null);
+
+    try {
+      await appConfigService.set({
+        ...(await appConfigService.get()),
+        httpPort: port,
+      });
+
+      setBackendUrlPort(port);
+
+      const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+      if (isTauri) {
+        try {
+          const core = await import('@tauri-apps/api/core');
+          if (core && typeof core.invoke === 'function') {
+            await core.invoke('set_backend_port', { port });
+          }
+        } catch {
+          // Tauri API 不可用，跳过
+        }
+      }
+
+      setPortSaved(true);
+      setTimeout(() => setPortSaved(false), 3000);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
 
   const checkBackendStatus = async () => {
     try {
@@ -138,6 +190,16 @@ function SettingsPage() {
                   className="flex-1 max-w-[120px] px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   disabled={backendStatus.running}
                 />
+                <button
+                  onClick={handleSavePort}
+                  disabled={backendStatus.running}
+                  className="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
+                >
+                  应用端口
+                </button>
+                {portSaved && (
+                  <span className="text-xs text-green-500">已保存</span>
+                )}
               </div>
 
               {error && (
@@ -227,6 +289,108 @@ function SettingsPage() {
             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
               <p>PY_APP Client</p>
               <p>后端状态: {backendStatus.running ? `运行中 (端口 ${backendStatus.port})` : '未运行'}</p>
+            </div>
+          </div>
+
+          {/* 系统维护 */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              系统维护
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <button
+                onClick={() => navigate('/plugins')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🔌</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">插件管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/oauth')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🔑</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">OAuth认证</span>
+              </button>
+              <button
+                onClick={() => navigate('/media')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>📺</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">媒体管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/autoreply')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🔄</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">自动回复</span>
+              </button>
+              <button
+                onClick={() => navigate('/sandbox')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🏜️</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">沙箱管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/channels')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>📡</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">消息渠道</span>
+              </button>
+              <button
+                onClick={() => navigate('/permissions')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🔐</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">权限管理</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 智能体配置 */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              智能体配置
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <button
+                onClick={() => navigate('/memory')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🧠</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">记忆管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/skills')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>⚡</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">技能管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/agent')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🤖</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Agent管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/logs')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>📝</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">日志查看</span>
+              </button>
+              <button
+                onClick={() => navigate('/buddy')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🤝</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">伙伴管理</span>
+              </button>
             </div>
           </div>
         </div>

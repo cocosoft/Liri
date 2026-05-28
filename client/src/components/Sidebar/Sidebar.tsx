@@ -1,302 +1,101 @@
-import { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useSessionStore } from '../../stores/sessionStore';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/appStore';
-import { useBuddyStore } from '../../stores/buddyStore';
-import ConfirmDialog from '../common/ConfirmDialog';
-import BackendStatusBadge from './BackendStatusBadge';
-import BuddyMini from '../Buddy/BuddyMini';
 
-function Sidebar() {
-  const {
-    sessions,
-    currentSession,
-    createSession,
-    switchSession,
-    deleteSession,
-    renameSession,
-  } = useSessionStore();
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: string;
+  path?: string;
+  action?: () => void;
+}
 
+const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
+  { id: 'home', label: '首页', icon: '🏠', path: '/' },
+  { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
+  { id: 'knowledge', label: '知识库', icon: '📚', path: '/knowledge' },
+  { id: 'cost', label: '成本', icon: '💰', path: '/cost' },
+  { id: 'dashboard', label: '仪表盘', icon: '📊', path: '/dashboard' },
+];
+
+const MEDIUM_FREQUENCY_ITEMS: MenuItem[] = [
+  { id: 'cron', label: '任务', icon: '🎯', path: '/cron' },
+  { id: 'files', label: '文件', icon: '📁', path: '/files' },
+  { id: 'terminal', label: '终端', icon: '💻', path: '/terminal' },
+  { id: 'monitor', label: '监控', icon: '📈', path: '/monitor' },
+];
+
+const SYSTEM_ITEMS: MenuItem[] = [
+  { id: 'settings', label: '设置', icon: '⚙️', path: '/settings' },
+];
+
+function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
+  const navigate = useNavigate();
   const setActivePage = useAppStore((s) => s.setActivePage);
-  const location = useLocation();
-  const { loadBuddy } = useBuddyStore();
 
-  const activeRoute = location.pathname === '/' ? 'chat' : location.pathname.slice(1);
-
-  const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    loadBuddy();
-  }, []);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
-  const editInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingId && editInputRef.current) {
-      editInputRef.current.focus();
-      editInputRef.current.select();
-    }
-  }, [editingId]);
-
-  const handleCreateSession = () => {
-    const title = `新会话 ${sessions.length + 1}`;
-    createSession(title);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setDeleteTarget(id);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deleteTarget) {
-      deleteSession(deleteTarget);
-      setDeleteTarget(null);
+  const handleClick = () => {
+    if (item.path) {
+      if (item.path === '/') {
+        setActivePage('home');
+      } else {
+        const pageId = item.path.replace('/', '') || 'chat';
+        setActivePage(pageId as any);
+      }
+      navigate(item.path);
+    } else if (item.action) {
+      item.action();
     }
   };
-
-  const handleDoubleClick = (id: string, title: string) => {
-    setEditingId(id);
-    setEditingTitle(title);
-  };
-
-  const handleRenameConfirm = () => {
-    if (editingId && editingTitle.trim()) {
-      renameSession(editingId, editingTitle.trim());
-    }
-    setEditingId(null);
-    setEditingTitle('');
-  };
-
-  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRenameConfirm();
-    } else if (e.key === 'Escape') {
-      setEditingId(null);
-      setEditingTitle('');
-    }
-  };
-
-  const filteredSessions = sessions.filter((s) =>
-    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
-    <aside className="w-64 bg-gray-800 text-white flex flex-col h-full">
-      <div className="p-4 border-b border-gray-700 space-y-1">
-        <h2 className="text-lg font-bold">PY_APP</h2>
-        <BackendStatusBadge />
-      </div>
+    <button
+      onClick={handleClick}
+      className={`flex flex-col items-center justify-center py-2 px-1 rounded transition-colors ${
+        isActive
+          ? 'bg-blue-600 text-white'
+          : 'text-gray-400 hover:bg-gray-700 hover:text-white dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'
+      }`}
+      title={item.label}
+    >
+      <span className="text-lg">{item.icon}</span>
+      <span className="text-xs mt-0.5 truncate w-full text-center">{item.label}</span>
+    </button>
+  );
+}
 
-      <div className="p-2 border-b border-gray-700">
-        <nav className="space-y-1">
-          <button
-            onClick={() => setActivePage('chat')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'chat'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-            聊天
-          </button>
-          <button
-            onClick={() => setActivePage('dashboard')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'dashboard'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
-            仪表盘
-          </button>
-          <button
-            onClick={() => setActivePage('files')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'files'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
-            文件浏览
-          </button>
-          <button
-            onClick={() => setActivePage('knowledge')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'knowledge'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            知识库
-          </button>
-          <button
-            onClick={() => setActivePage('agent')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'agent'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            Agent
-          </button>
-          <button
-            onClick={() => setActivePage('cron')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'cron'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            定时任务
-          </button>
-          <button
-            onClick={() => setActivePage('channels')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'channels'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            消息渠道
-          </button>
-          <button
-            onClick={() => setActivePage('settings')}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-              activeRoute === 'settings'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            设置
-          </button>
-        </nav>
-      </div>
+function Sidebar() {
+  const location = useLocation();
+  const activeRoute = location.pathname.replace('/', '') || 'home';
 
-      <div className="p-4 border-b border-gray-700 space-y-2">
-        <button
-          onClick={handleCreateSession}
-          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded text-white font-medium transition-colors"
-        >
-          + 新建会话
-        </button>
-        <div className="relative">
-          <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索会话..."
-            className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-700 rounded border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-      </div>
+  const isActive = (path: string) => {
+    const normalizedPath = path.replace('/', '') || 'home';
+    return activeRoute === normalizedPath || activeRoute.startsWith(normalizedPath + '/');
+  };
 
-      <div className="flex-1 overflow-y-auto p-2">
-        <div className="space-y-1">
-          {filteredSessions.map((session) => (
-            <div
-              key={session.id}
-              onClick={() => switchSession(session.id)}
-              onDoubleClick={() => handleDoubleClick(session.id, session.title)}
-              className={`p-3 rounded cursor-pointer transition-colors group ${
-                currentSession?.id === session.id
-                  ? 'bg-gray-700'
-                  : 'hover:bg-gray-700'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  {editingId === session.id ? (
-                    <input
-                      ref={editInputRef}
-                      type="text"
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      onBlur={handleRenameConfirm}
-                      onKeyDown={handleRenameKeyDown}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full px-1 py-0.5 text-sm bg-gray-600 rounded border border-blue-500 text-white focus:outline-none"
-                    />
-                  ) : (
-                    <p className="font-medium truncate text-sm">{session.title}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {session.message_count} 条消息
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => handleDeleteClick(e, session.id)}
-                  className="ml-2 p-1 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="删除会话"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+  return (
+    <aside className="w-20 bg-gray-800 dark:bg-gray-800 text-white flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-1">
+        <div className="space-y-0.5">
+          {HIGH_FREQUENCY_ITEMS.map((item) => (
+            <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />
           ))}
         </div>
 
-        {filteredSessions.length === 0 && (
-          <p className="text-gray-400 text-center text-sm mt-8">
-            {searchQuery ? '未找到匹配的会话' : '暂无会话，点击上方按钮创建'}
-          </p>
-        )}
-      </div>
+        <div className="my-3 border-t border-gray-700 dark:border-gray-700" />
 
-      <div className="border-t border-gray-700 p-2">
-        <BuddyMini />
-      </div>
+        <div className="space-y-0.5">
+          {MEDIUM_FREQUENCY_ITEMS.map((item) => (
+            <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />
+          ))}
+        </div>
 
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="删除会话"
-        message="确定要删除此会话吗？此操作不可撤销。"
-        confirmText="删除"
-        cancelText="取消"
-        variant="danger"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTarget(null)}
-      />
+        <div className="my-3 border-t border-gray-700 dark:border-gray-700" />
+
+        <div className="space-y-0.5">
+          {SYSTEM_ITEMS.map((item) => (
+            <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />
+          ))}
+        </div>
+      </div>
     </aside>
   );
 }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import BuddyAvatar from '../Buddy/BuddyAvatar';
 import DreamLogTab from '../Buddy/DreamLogTab';
+import BuddyGame from '../Buddy/BuddyGame';
+import BuddyEvolution from '../Buddy/BuddyEvolution';
+import BuddyDreamDetail from '../Buddy/BuddyDreamDetail';
 import { useBuddyStore } from '../../stores/buddyStore';
 import { STAT_LABELS, SPECIES_MAP, RARITY_LABELS, RARITY_COLORS } from '../Buddy/buddySprites';
 import type { BuddyStat } from '../../types';
@@ -19,7 +22,7 @@ function BuddyPage() {
   const { companion, lastInteraction, stats, isLoading, loadBuddy, interact, loadStats } = useBuddyStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'dreams'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'dreams' | 'game' | 'evolution' | 'dreamDetail'>('overview');
 
   useEffect(() => {
     loadBuddy();
@@ -78,6 +81,26 @@ function BuddyPage() {
             概览
           </button>
           <button
+            onClick={() => setActiveTab('game')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'game'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            🎮 游戏
+          </button>
+          <button
+            onClick={() => setActiveTab('evolution')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'evolution'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            ⬆️ 进化
+          </button>
+          <button
             onClick={() => setActiveTab('dreams')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'dreams'
@@ -86,6 +109,16 @@ function BuddyPage() {
             }`}
           >
             🌙 梦境日志
+          </button>
+          <button
+            onClick={() => setActiveTab('dreamDetail')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'dreamDetail'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            ✨ 梦境详情
           </button>
         </div>
 
@@ -248,7 +281,19 @@ function BuddyPage() {
             className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
-        </>
+        </>)
+      : activeTab === 'game' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <BuddyGame />
+        </div>
+      ) : activeTab === 'evolution' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <BuddyEvolution />
+        </div>
+      ) : activeTab === 'dreamDetail' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <BuddyDreamDetail />
+        </div>
       ) : (
         <DreamLogTab />
       )}

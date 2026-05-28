@@ -4,6 +4,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useAppStore } from '../../stores/appStore';
 import { fileService } from '../../services/fileService';
+import VoiceInputButton from '../VoiceInputButton';
 import ModelSelector from './ModelSelector';
 
 interface FileAttachment {
@@ -327,6 +328,7 @@ function ChatInput() {
             className="hidden"
             onChange={handleFileSelect}
           />
+          <VoiceInputButton isDark={config.theme === 'dark'} />
           <button
             onClick={handleSubmit}
             disabled={!currentSession || isSending || (!input.trim() && attachments.length === 0)}

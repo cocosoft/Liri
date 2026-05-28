@@ -1,3 +1,24 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
  * PY_APP 启动入口
  *
@@ -166,13 +187,10 @@ try {
   }
 }
 
-// ── 策略 4: 预创建所有可能需要的根级目录 ──
-// Bun 编译 exe 中 process.cwd() 返回根路径（如 \ 或 D:\），
-// 导致 mkdir(recursive) 在创建 \data 等目录时可能尝试创建 \ 根目录本身，
-// 从而触发 EPERM。预创建这些目录可使后续 mkdir 变为无操作。
-const ROOT_LEVEL_DIRS = [
+// ── 策略 4: 预创建项目级目录 ──
+// 确保所有必要的目录在项目根目录下存在
+const PROJECT_DIRS = [
   'data', // 数据目录（OAuth token 等）
-  'data/oauth-tokens.json', // OAuthStorageImpl 默认路径的父目录
   'data/sessions',
   'data/cache',
   'data/attachments',
@@ -189,18 +207,15 @@ const ROOT_LEVEL_DIRS = [
 
 {
   const fs = require('fs') as typeof import('fs');
-  for (const dir of ROOT_LEVEL_DIRS) {
-    // 分别在根级别和项目级别创建
-    const rootPath = join('\\', ...dir.split('/'));
+  for (const dir of PROJECT_DIRS) {
+    // 只在项目根目录下创建，不在系统根目录创建
     const projectPath = join(projectRoot, ...dir.split('/'));
-    for (const p of [rootPath, projectPath]) {
-      try {
-        if (!fs.existsSync(p)) {
-          fs.mkdirSync(p, { recursive: true });
-        }
-      } catch (e) {
-        // 静默忽略
+    try {
+      if (!fs.existsSync(projectPath)) {
+        fs.mkdirSync(projectPath, { recursive: true });
       }
+    } catch (e) {
+      // 静默忽略
     }
   }
 }
@@ -250,16 +265,15 @@ try {
 // 捕获 mkdir '\' 等不可恢复的系统调用 EPERM 错误，
 // 尝试创建关键目录后重试
 {
-  const rootLevelDirsExisted = new Set<string>();
-  const markRootDirCreated = (p: string) => {
-    rootLevelDirsExisted.add(p);
-    rootLevelDirsExisted.add(p.replace(/\\/g, '/'));
+  const projectDirsExisted = new Set<string>();
+  const markDirCreated = (p: string) => {
+    projectDirsExisted.add(p);
+    projectDirsExisted.add(p.replace(/\\/g, '/'));
   };
 
-  for (const dir of ROOT_LEVEL_DIRS) {
-    markRootDirCreated(dir);
-    markRootDirCreated(join('\\', ...dir.split('/')));
-    markRootDirCreated(join(projectRoot, ...dir.split('/')));
+  for (const dir of PROJECT_DIRS) {
+    markDirCreated(dir);
+    markDirCreated(join(projectRoot, ...dir.split('/')));
   }
 
   process.on('uncaughtException', (error) => {

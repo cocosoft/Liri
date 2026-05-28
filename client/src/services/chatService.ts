@@ -1,18 +1,19 @@
 import type { Message, BackendStatus } from '../types';
-
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
-
-const BACKEND_BASE = 'http://127.0.0.1:7890';
-const CHAT_URL = `${BACKEND_BASE}/v1/chat/completions`;
-const MODELS_URL = `${BACKEND_BASE}/v1/models`;
+import { getBackendBaseUrl, getBackendPort } from './backendUrl';
 
 async function getTauriCore() {
-  if (!isTauri) {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  if (!('__TAURI__' in window)) {
     return null;
   }
   try {
     const core = await import('@tauri-apps/api/core');
-    return core;
+    if (core && typeof core.invoke === 'function') {
+      return core;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -37,7 +38,7 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function checkHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_BASE}/health`, { method: 'GET' });
+    const res = await fetch(`${getBackendBaseUrl()}/health`, { method: 'GET' });
     return res.ok;
   } catch {
     return false;
@@ -66,7 +67,7 @@ export const chatService = {
     }
 
     const healthy = await checkHealth();
-    return { running: healthy, port: healthy ? 7890 : null };
+    return { running: healthy, port: healthy ? getBackendPort() : null };
   },
 
   stopBackend: async (): Promise<void> => {
@@ -89,7 +90,7 @@ export const chatService = {
     }
 
     const healthy = await checkHealth();
-    return { running: healthy, port: healthy ? 7890 : null };
+    return { running: healthy, port: healthy ? getBackendPort() : null };
   },
 
   sendMessage: async (content: string, sessionId?: string): Promise<Message> => {
@@ -99,7 +100,7 @@ export const chatService = {
         message: { role: string; content: string };
         finish_reason: string;
       }>;
-    }>(CHAT_URL, {
+    }>(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: 'POST',
       body: JSON.stringify({
         model: 'pyapp-default',
@@ -119,7 +120,7 @@ export const chatService = {
   },
 
   streamMessage: async function* (content: string, _sessionId?: string): AsyncGenerator<string, void, unknown> {
-    const response = await fetch(CHAT_URL, {
+    const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -176,7 +177,7 @@ export const chatService = {
 
   fetchModels: async (): Promise<Array<{ id: string; name: string; provider: string }>> => {
     try {
-      const response = await fetchJSON<{ data: Array<{ id: string; owned_by?: string }> }>(MODELS_URL);
+      const response = await fetchJSON<{ data: Array<{ id: string; owned_by?: string }> }>(`${getBackendBaseUrl()}/v1/models`);
       return response.data.map((m) => ({
         id: m.id,
         name: m.id,

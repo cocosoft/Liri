@@ -155,3 +155,63 @@ export interface DreamLogResponse {
     lastDreamAt: number | null;
   };
 }
+
+export interface User {
+  id: string;
+  username: string;
+  email?: string;
+  role: 'admin' | 'user' | 'guest';
+  trustLevel: 1 | 2 | 3 | 4 | 5;
+  created_at: number;
+  last_login_at?: number;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: number;
+  last_used_at?: number;
+  expires_at?: number;
+  permissions: string[];
+}
+
+export interface Permission {
+  scope: string;
+  description: string;
+  level: 'none' | 'read' | 'write' | 'admin';
+}
+
+export interface MetricPoint {
+  timestamp: number;
+  value: number;
+  labels?: Record<string, string>;
+}
+
+export interface Alert {
+  id: string;
+  level: 'info' | 'warn' | 'error' | 'critical';
+  message: string;
+  timestamp: number;
+  acknowledged: boolean;
+  source?: string;
+}
+
+export interface LogEntry {
+  id: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  timestamp: number;
+  source?: string;
+  details?: string;
+}
+
+export interface SystemHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  components: {
+    name: string;
+    status: 'ok' | 'warning' | 'error';
+    message?: string;
+  }[];
+  timestamp: number;
+}

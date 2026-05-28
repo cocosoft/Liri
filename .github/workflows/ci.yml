@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+defaults:
+  run:
+    working-directory: app
+
 jobs:
   test:
     name: Test Suite
@@ -28,7 +32,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'bun'
 
     - name: Install dependencies
       run: bun install

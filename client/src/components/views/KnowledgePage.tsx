@@ -4,8 +4,9 @@ import { useAppStore } from '../../stores/appStore';
 import { SkeletonCard } from '../common/Skeleton';
 
 function KnowledgePage() {
-  const { items, isLoading, searchQuery, loadItems, searchItems, createItem, updateItem, deleteItem, setSearchQuery } =
-    useKnowledgeStore();
+  const store = useKnowledgeStore();
+  const items = store.items || [];
+  const { isLoading, searchQuery, loadItems, searchItems, createItem, updateItem, deleteItem, setSearchQuery } = store;
   const setActivePage = useAppStore((s) => s.setActivePage);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -46,7 +47,7 @@ function KnowledgePage() {
     setEditingId(item.id);
     setEditTitle(item.title);
     setEditContent(item.content);
-    setEditTags(item.tags.join(', '));
+    setEditTags((item.tags || []).join(', '));
   };
 
   const handleUpdate = async () => {
@@ -185,7 +186,7 @@ function KnowledgePage() {
                       {item.content.slice(0, 80)}
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
-                      {item.tags.map((tag) => (
+                      {(item.tags || []).map((tag) => (
                         <span
                           key={tag}
                           className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded"
@@ -209,9 +210,9 @@ function KnowledgePage() {
                 <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                   {selectedItem.content}
                 </p>
-                {selectedItem.tags.length > 0 && (
+                {(selectedItem.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
-                    {selectedItem.tags.map((tag) => (
+                    {(selectedItem.tags || []).map((tag) => (
                       <span
                         key={tag}
                         className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded"

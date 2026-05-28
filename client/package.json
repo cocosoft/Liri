@@ -10,7 +10,11 @@
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:tauri": "tauri build",
+    "dist": "tauri build && node scripts/copy-dist.js",
+    "dist:msi": "tauri build --bundles msi && node scripts/copy-dist.js",
+    "dist:nsis": "tauri build --bundles nsis && node scripts/copy-dist.js"
   },
   "dependencies": {
     "@tauri-apps/api": "~2.11.0",

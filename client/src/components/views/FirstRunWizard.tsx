@@ -10,6 +10,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const [dataDir, setDataDir] = useState('');
   const [httpPort, setHttpPort] = useState(7890);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'welcome' | 'configure' | 'finishing'>('welcome');
   const checkBackendStatus = useBackendStore((s) => s.checkStatus);
 
@@ -23,6 +24,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const handleComplete = async () => {
     setStep('finishing');
     setSaving(true);
+    setError(null);
 
     try {
       await appConfigService.completeFirstRun({
@@ -34,7 +36,8 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
 
       onComplete();
     } catch (e) {
-      console.error('Failed to save first-run config:', e);
+      setError(e instanceof Error ? e.message : String(e));
+      setStep('configure');
       setSaving(false);
     }
   };
@@ -108,6 +111,12 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               后端 HTTP 服务监听的端口（默认 7890）
             </p>
           </div>
+
+          {error && (
+            <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
 
           {saving && (
             <div className="text-sm text-blue-600 dark:text-blue-400 text-center py-2">

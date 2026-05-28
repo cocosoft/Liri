@@ -43,14 +43,12 @@ export const appConfigService = {
   },
 
   async set(config: AppConfig): Promise<void> {
-    try {
-      await invoke('set_app_config', { config });
-    } catch (e) {
-      console.warn('Failed to save app config:', e);
-    }
+    if (!isTauri) return;
+    await invoke('set_app_config', { config });
   },
 
   async isFirstRun(): Promise<boolean> {
+    if (!isTauri) return false;
     try {
       const config = await this.get();
       return !config.firstRunCompleted;

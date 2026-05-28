@@ -5,9 +5,13 @@ use tauri::Manager;
 use tracing::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppConfig {
+    #[serde(alias = "data_dir")]
     pub data_dir: String,
+    #[serde(alias = "http_port")]
     pub http_port: u16,
+    #[serde(alias = "first_run_completed")]
     pub first_run_completed: bool,
 }
 

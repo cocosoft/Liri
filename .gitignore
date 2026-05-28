@@ -174,3 +174,4 @@ app/.document_versions/
 # Build artifacts
 app/app/
 app/backend/
+client/scripts/

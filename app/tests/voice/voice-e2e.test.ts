@@ -4,7 +4,7 @@
  * 使用原始 net.Server 模拟 HTTP Server（避免 Node.js http.Server 对 WebSocket 升级的特殊处理）
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
 import * as net from 'net';
 import type * as http from 'http';
 import { handleVoiceUpgrade, getActiveVoiceSessionCount, closeAllVoiceSessions } from '../../src/voice/VoiceGatewayBridge.js';
@@ -126,6 +126,7 @@ function createRawVoiceServer(): Promise<{ server: net.Server; port: number }> {
           if (!handled && statusCode !== 101) {
             // handleVoiceUpgrade 返回 false 时已写入响应
           }
+          rawData = '';
         } else {
           res.writeHead(404);
           res.end('Not Found');
@@ -276,6 +277,10 @@ describe('Voice E2E: 会话生命周期', () => {
 });
 
 describe('Voice E2E: Bun WebSocket 原生连接', () => {
+  beforeEach(() => {
+    closeAllVoiceSessions();
+  });
+
   it('通过原生 WebSocket 连接 /voice 成功', async () => {
     const ws = new WebSocket(`ws://127.0.0.1:${rawPort}/voice`);
 

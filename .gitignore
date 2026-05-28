@@ -162,8 +162,9 @@ UI_REF/
 
 # Root-level orphan directories (not used at root level)
 chat_sessions/
-logs/
+/logs/
 notebooks/
+app/logs/
 
 # Legacy dot-directories (migrated to app/data/)
 app/.pyapp/

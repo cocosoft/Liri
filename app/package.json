@@ -65,7 +65,6 @@
     "typescript",
     "rust"
   ],
-  "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.26.0",
     "@growthbook/growthbook": "^1.6.5",

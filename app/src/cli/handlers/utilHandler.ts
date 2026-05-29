@@ -1,4 +1,3 @@
-//
 /**
  * 工具处理器
  * 提供通用工具命令处理
@@ -158,7 +157,8 @@ export class UtilHandler {
   async showVersion() {
     const { readFileSync, existsSync } = await import('fs');
     const { join } = await import('path');
-    const packagePath = join(process.cwd(), 'package.json');
+      const { resolveProjectRoot } = await import('@modules/config/paths');
+      const packagePath = join(resolveProjectRoot(), 'package.json');
     let version = '0.0.0';
     if (existsSync(packagePath)) {
       try {

@@ -28,11 +28,14 @@ import type {
   VoiceEventType,
   VoiceEvent,
   VoiceEventListener,
+  STTResult,
+  STTTranscribeOptions,
 } from '../models/types';
 
 import { VadDetector } from './vadDetector';
 import { EnvironmentDetector } from './environmentDetector';
 import { TTSRegistry } from './ttsProvider';
+import { STTRegistry } from './sttRegistry';
 
 const logger = new Logger({});
 
@@ -1070,12 +1073,28 @@ $source.Close()
 
   /**
    * 语音识别（将音频转换为文本）
+   * 通过 STTRegistry 选择可用的 STT 提供者执行转录。
    * @param audioData 音频数据
+   * @param options 转录选项
    */
   async recognizeSpeech(
-    audioData: Buffer
+    audioData: Buffer,
+    options?: STTTranscribeOptions
   ): Promise<SpeechRecognitionResult | null> {
-    return null;
+    const result: STTResult = await STTRegistry.transcribe(audioData, {
+      ...options,
+      language: options?.language || this.config.sttLanguage || this.config.language,
+      keyterms: options?.keyterms || this.config.sttKeyterms,
+    });
+
+    if (!result.text) {
+      return null;
+    }
+
+    return {
+      text: result.text,
+      confidence: result.confidence,
+    };
   }
 
   /**
@@ -1083,10 +1102,15 @@ $source.Close()
    * @param audioData 音频数据
    */
   async recognize(audioData: Buffer): Promise<VoiceInputResult> {
+    const result: STTResult = await STTRegistry.transcribe(audioData, {
+      language: this.config.sttLanguage || this.config.language,
+      keyterms: this.config.sttKeyterms,
+    });
+
     return {
-      text: '',
-      confidence: 0,
-      duration: 0,
+      text: result.text || '',
+      confidence: result.confidence,
+      duration: result.duration || 0,
     };
   }
 

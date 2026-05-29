@@ -9,6 +9,7 @@ import { existsSync, statSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, hostname } from 'os';
 import { randomUUID } from 'crypto';
+import { resolveDbPath, resolveProjectRoot } from '@modules/config/paths';
 
 const execAsync = promisify(exec);
 
@@ -136,7 +137,7 @@ class DiagnosticsService {
   async checkInstallType() {
     try {
       const npmGlobalPrefix = await this.getNpmGlobalPrefix();
-      const currentDir = process.cwd();
+      const currentDir = resolveProjectRoot();
       const nodePath = process.execPath;
 
       if (npmGlobalPrefix && currentDir.startsWith(npmGlobalPrefix)) {
@@ -231,7 +232,7 @@ class DiagnosticsService {
         });
       }
 
-      const localNodeModules = join(process.cwd(), 'node_modules');
+      const localNodeModules = join(resolveProjectRoot(), 'node_modules');
       if (existsSync(localNodeModules)) {
         instances.push({
           type: 'local',
@@ -366,7 +367,7 @@ class DiagnosticsService {
    */
   async checkDependencies() {
     try {
-      const packageJsonPath = join(process.cwd(), 'package.json');
+      const packageJsonPath = join(resolveProjectRoot(), 'package.json');
 
       if (!existsSync(packageJsonPath)) {
         this.addResult({
@@ -380,7 +381,7 @@ class DiagnosticsService {
 
       const { stdout, stderr } = await execAsync(
         'npm ls --depth=0 2>/dev/null',
-        { cwd: process.cwd() }
+        { cwd: resolveProjectRoot() }
       );
 
       if (stderr && stderr.includes('UNMET')) {
@@ -444,7 +445,7 @@ class DiagnosticsService {
    */
   async checkStorage() {
     try {
-      const dbPath = join(process.cwd(), 'app/data/app.db');
+      const dbPath = resolveDbPath();
 
       if (existsSync(dbPath)) {
         const stats = statSync(dbPath);
@@ -560,7 +561,7 @@ class DiagnosticsService {
     }
 
     try {
-      const diskPath = process.cwd();
+      const diskPath = resolveProjectRoot();
       this.addResult({
         name: '磁盘路径',
         level: DiagnosticLevel.INFO,
@@ -581,9 +582,9 @@ class DiagnosticsService {
    */
   async checkConfiguration() {
     const configFiles = [
-      { name: 'package.json', path: join(process.cwd(), 'package.json') },
-      { name: 'tsconfig.json', path: join(process.cwd(), 'tsconfig.json') },
-      { name: '.env', path: join(process.cwd(), '.env') },
+      { name: 'package.json', path: join(resolveProjectRoot(), 'package.json') },
+      { name: 'tsconfig.json', path: join(resolveProjectRoot(), 'tsconfig.json') },
+      { name: '.env', path: join(resolveProjectRoot(), '.env') },
     ];
 
     for (const config of configFiles) {

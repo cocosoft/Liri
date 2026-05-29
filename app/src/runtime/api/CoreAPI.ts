@@ -186,6 +186,9 @@ export interface CoreAPI {
   /** 重命名会话 */
   renameSession(sessionId: string, title: string): Promise<void>;
 
+  /** 生成会话标题 */
+  generateSessionTitle(sessionId: string, userMessage: string, assistantResponse: string): Promise<string | null>;
+
   /** 获取当前会话 */
   getCurrentSession(): Promise<SessionInfo | undefined>;
 

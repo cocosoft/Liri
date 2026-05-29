@@ -7,7 +7,7 @@
 import { getConfig, setConfigValue } from '@modules/config/index.js';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * 语言包接口
@@ -137,7 +137,7 @@ export class LanguageManager {
   private loadCustomLanguagePacks(): void {
     try {
       const config = getConfig();
-      const languagePacksDir = join(process.cwd(), 'language-packs');
+      const languagePacksDir = join(resolveProjectRoot(), 'language-packs');
 
       if (existsSync(languagePacksDir)) {
         // 这里可以实现从目录加载自定义语言包

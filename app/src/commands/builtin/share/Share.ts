@@ -2,13 +2,12 @@
  * Share命令
  * 分享对话记录到 Markdown 文件
  *
- * 对标 CC 源码 cc_code/backend/commands/share/index.js
- * CC 中 share 为禁用 stub，PY_APP 实现为完整功能命令：
  * /share [filename|help|status|--json]
  */
 
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 import type { CommandContext } from '@modules/commands/types';
 
 interface MsgLike {
@@ -141,7 +140,7 @@ function renderShareJson(context: CommandContext): string {
  * 保存内容到文件
  */
 async function saveToFile(content: string, filename: string): Promise<string> {
-  const filepath = join(process.cwd(), filename);
+  const filepath = join(resolveDataDir(), filename);
   writeFileSync(filepath, content, { encoding: 'utf-8' });
   return filepath;
 }
@@ -238,7 +237,7 @@ async function handleStatus(context: CommandContext) {
       '==============',
       '',
       `对话消息数: ${msgCount}`,
-      `工作目录: ${process.cwd()}`,
+      `分享目录: ${resolveDataDir()}`,
       `输出格式: Markdown (.md)`,
       `编码: UTF-8`,
       '',

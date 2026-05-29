@@ -1,11 +1,11 @@
 /**
  * 路径验证增强
- * 参考CC_CODE utils/permissions/pathValidation.ts实现
- * 提供细粒度路径权限控制
+  * 提供细粒度路径权限控制
  */
 
 import { homedir } from 'os';
 import { isAbsolute, resolve, dirname } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import {
   PathValidationRule,
   ValidationResult,
@@ -88,7 +88,7 @@ export class PathValidator {
     const expandedPath = expandTilde(path);
     const absolutePath = isAbsolute(expandedPath)
       ? resolve(expandedPath)
-      : resolve(process.cwd(), expandedPath);
+      : resolve(resolveProjectRoot(), expandedPath);
 
     if (
       (operation === 'write' || operation === 'delete') &&

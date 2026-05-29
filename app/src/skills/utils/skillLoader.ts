@@ -4,10 +4,10 @@
 
 import { readdir, stat, realpath } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, dirname, basename } from 'path';
+import { join, basename } from 'path';
 import { SkillParser, SkillSource, type SkillDefinition } from './skillParser';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
+import { resolvePyappHome, resolveDataDir, resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * 技能加载路径配置
@@ -142,7 +142,7 @@ export class SkillLoader {
       // 内置技能目录
       {
         source: SkillSource.BUILTIN,
-        path: join(__dirname, '..', '..', 'builtin', 'skills'),
+        path: join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills'),
         priority: 80,
         enabled: true,
         recursive: false,
@@ -351,7 +351,7 @@ export class SkillLoader {
       return true; // 没有路径限制，默认适用
     }
 
-    const currentDir = process.cwd();
+    const currentDir = resolveProjectRoot();
     const paths = Array.isArray(skill.frontmatter.paths)
       ? skill.frontmatter.paths
       : [skill.frontmatter.paths];

@@ -1,13 +1,13 @@
 /**
  * 插件信任审计模块
  * 验证已安装插件的来源、完整性和权限范围
- * 对齐 OpenClaw security/audit-plugins-trust.ts
- */
+  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -25,7 +25,7 @@ interface PluginMeta {
  */
 export function auditPlugins(pluginsDir?: string): SecurityAuditFinding[] {
   const findings: SecurityAuditFinding[] = [];
-  const scanDir = pluginsDir || join(process.cwd(), 'plugins');
+  const scanDir = pluginsDir || join(resolveProjectRoot(), 'plugins');
 
   try {
     if (!existsSync(scanDir)) {

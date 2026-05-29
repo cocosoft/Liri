@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveUserSkillsDir } from '@modules/config/paths';
+import { resolveUserSkillsDir, resolveProjectRoot } from '@modules/config/paths';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
@@ -80,7 +80,7 @@ export class SkillManager {
     // 技能目录
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     this.skillsDir = resolveUserSkillsDir();
-    this.builtinSkillsDir = path.join(__dirname, 'builtin');
+    this.builtinSkillsDir = path.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills');
   }
 
   /**

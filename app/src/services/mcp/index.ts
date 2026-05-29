@@ -64,6 +64,7 @@ import {
   isResourceAccessAllowed,
   isToolAccessAllowed,
 } from './channelPermissions';
+import { mcpMarketplace } from './marketplace/MCPMarketplace';
 import type { ScopedMcpServerConfig } from './types';
 
 /**
@@ -364,6 +365,13 @@ export class MCPSystem {
   }
 
   /**
+   * 获取 MCP 市场模块
+   */
+  get marketplace() {
+    return mcpMarketplace;
+  }
+
+  /**
    * 清理资源
    */
   async cleanup(): Promise<void> {
@@ -437,3 +445,16 @@ export {
 } from './channelPermissions';
 export { mcpToolBridge, MCPToolBridge } from './MCPToolBridge';
 export { McpToolWrapper } from './McpToolWrapper';
+export { mcpMarketplace, MCPMarketplace } from './marketplace/MCPMarketplace';
+export type {
+  RegistryType,
+  ThirdPartyRegistry,
+  MCPSource,
+  MCPServerSummary,
+  ServerDetail,
+  SearchParams,
+  SearchResult,
+  ServerInstallConfig,
+  InstalledMCPServer,
+  RegistryAdapter,
+} from './marketplace/types';

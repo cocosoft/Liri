@@ -28,11 +28,12 @@ import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
 import { getGitInfo } from '@modules/context/GitDetector';
 import { readProjectFiles } from '@modules/context/ProjectFileReader';
 import { basename, join } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 
 /** 技能注入服务单例 */
 export const skillInjectionService = new SkillInjectionService({
-  builtinSkillsDir: join(__dirname, '..', 'builtin', 'skills'),
+  builtinSkillsDir: join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills'),
 });
 
 /**
@@ -109,7 +110,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   DANGEROUS_uncachedSystemPromptSection(
     'projectRules',
     () => {
-      const cwd = process.cwd();
+      const cwd = resolveProjectRoot();
       const agentsContent = readAgentsMd(cwd);
       if (!agentsContent) return null;
       return `## 项目规则\n\n${agentsContent}`;
@@ -120,7 +121,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   DANGEROUS_uncachedSystemPromptSection(
     'toolsConvention',
     () => {
-      const cwd = process.cwd();
+      const cwd = resolveProjectRoot();
       const toolsContent = readToolsMd(cwd);
       if (!toolsContent) return null;
       return `## 工具约定\n\n${toolsContent}`;
@@ -165,7 +166,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   DANGEROUS_uncachedSystemPromptSection(
     'gitContext',
     async () => {
-      const gitInfo = await getGitInfo(process.cwd());
+      const gitInfo = await getGitInfo(resolveProjectRoot());
       if (!gitInfo.isGit) return null;
       const parts: string[] = ['## Git 上下文'];
       if (gitInfo.branch) {
@@ -182,7 +183,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   DANGEROUS_uncachedSystemPromptSection(
     'projectMeta',
     async () => {
-      const cwd = process.cwd();
+      const cwd = resolveProjectRoot();
       const projectFiles = readProjectFiles(cwd);
       const projectName = basename(cwd);
       const parts: string[] = [`## 项目信息\n\n项目名称: ${projectName}`];

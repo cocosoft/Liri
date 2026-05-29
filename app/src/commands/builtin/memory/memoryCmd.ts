@@ -26,8 +26,8 @@ export interface MemoryCommandResult {
   truncated: boolean;
 }
 
-export function readMemoryFile(cwd?: string): MemoryCommandResult {
-  const filePath = getAutoMemPath(cwd);
+export function readMemoryFile(): MemoryCommandResult {
+  const filePath = getAutoMemPath();
   const exists = fs.existsSync(filePath);
 
   if (!exists) {
@@ -70,16 +70,15 @@ export function readMemoryFile(cwd?: string): MemoryCommandResult {
 }
 
 export function updateMemoryFile(
-  content: string,
-  cwd?: string
+  content: string
 ): MemoryCommandResult {
-  const filePath = getAutoMemPath(cwd);
+  const filePath = getAutoMemPath();
   const dir = path.dirname(filePath);
 
   try {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filePath, content, 'utf-8');
-    return readMemoryFile(cwd);
+    return readMemoryFile();
   } catch (e: any) {
     return {
       success: false,

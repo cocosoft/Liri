@@ -5,6 +5,7 @@
  */
 
 import { join } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import {
   MEMORY_FRONTMATTER_EXAMPLE,
@@ -200,7 +201,7 @@ export function buildMemoryPrompt(params: {
  * 构建自动记忆提示
  */
 export function buildAutoMemoryPrompt(): string {
-  const memoryDir = join(process.cwd(), 'memory');
+  const memoryDir = join(resolveProjectRoot(), 'memory');
   return buildMemoryPrompt({ displayName: 'auto memory', memoryDir });
 }
 
@@ -214,7 +215,7 @@ export class MemoryPromptBuilder {
    * @returns 系统提示文本
    */
   buildSystemPrompt(memoryDir?: string): string {
-    const dir = memoryDir || join(process.cwd(), 'memory');
+    const dir = memoryDir || join(resolveProjectRoot(), 'memory');
     return buildMemoryPrompt({
       displayName: 'persistent memory',
       memoryDir: dir,

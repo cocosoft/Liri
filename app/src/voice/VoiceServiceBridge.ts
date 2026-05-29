@@ -34,6 +34,10 @@ import {
 } from '../services/voice/services/ttsProvider';
 import { OpenAITTSProvider } from '../services/voice/services/openAITTSProvider';
 import { CommandTTSProvider } from '../services/voice/services/commandTTSProvider';
+import { STTRegistry } from '../services/voice/services/sttRegistry';
+import { LocalSTTProvider } from '../services/voice/services/localSTTProvider';
+import { CloudSTTProvider } from '../services/voice/services/cloudSTTProvider';
+import { StreamSTTProvider } from '../services/voice/services/streamSTTProvider';
 import { VadDetector } from '../services/voice/services/vadDetector';
 import { EnvironmentDetector } from '../services/voice/services/environmentDetector';
 import {
@@ -97,10 +101,19 @@ export interface VoiceBridgeConfig {
     sampleRate?: number;
     channels?: number;
     language?: string;
-    /** OpenAI API 密钥（用于 OpenAI TTS） */
+    /** OpenAI API 密钥（用于 OpenAI TTS 和 Cloud STT） */
     openAIApiKey?: string;
     /** OpenAI TTS 模型 */
     openAITTSCModel?: 'tts-1' | 'tts-1-hd';
+    /** STT 配置 */
+    stt?: {
+      /** OpenAI Whisper API 密钥（默认复用 openAIApiKey） */
+      openAIApiKey?: string;
+      /** Stream STT WebSocket URL */
+      wsUrl?: string;
+      /** Stream STT API 密钥 */
+      streamApiKey?: string;
+    };
   };
   /** 实时模式配置 */
   realtime?: {
@@ -126,6 +139,7 @@ export interface VoiceBridgeStatus {
   service: {
     available: boolean;
     ttsProviderCount: number;
+    sttProviderCount: number;
     recordingAvailable: boolean;
   };
   /** 实时模式状态 */
@@ -184,6 +198,8 @@ export class VoiceServiceBridge {
   readonly service: {
     /** TTS 功能 */
     tts: TTSRegistry;
+    /** STT 功能 */
+    stt: STTRegistry;
     /** 录音服务 */
     recorder: VoiceService;
     /** VAD 检测器 */
@@ -351,8 +367,33 @@ export class VoiceServiceBridge {
       }
     }
 
+    // 注册 STT 提供者
+    STTRegistry.register(new LocalSTTProvider());
+
+    const sttConfig = this.config.service?.stt;
+    const sttApiKey = sttConfig?.openAIApiKey || this.config.service?.openAIApiKey;
+    if (sttApiKey) {
+      const cloudProvider = new CloudSTTProvider({ apiKey: sttApiKey });
+      if (cloudProvider.isAvailable()) {
+        STTRegistry.register(cloudProvider);
+        STTRegistry.setDefaultProvider(cloudProvider.id);
+      }
+    }
+
+    if (sttConfig?.wsUrl || sttConfig?.streamApiKey) {
+      const streamProvider = new StreamSTTProvider({
+        apiKey: sttConfig?.streamApiKey,
+        wsUrl: sttConfig?.wsUrl,
+      });
+      STTRegistry.register(streamProvider);
+      if (streamProvider.isAvailable()) {
+        STTRegistry.setDefaultProvider(streamProvider.id);
+      }
+    }
+
     this.service = {
       tts: TTSRegistry,
+      stt: STTRegistry,
       recorder: voiceService,
       vad: new VadDetector(),
       environment: new EnvironmentDetector(),
@@ -432,6 +473,7 @@ export class VoiceServiceBridge {
       service: {
         available: true,
         ttsProviderCount: TTSRegistry.getProviderNames().length,
+        sttProviderCount: STTRegistry.getProviderIds().length,
         recordingAvailable: !runtimeEnv.isRemote || runtimeEnv.hasAudioDevice,
       },
       realtime: {

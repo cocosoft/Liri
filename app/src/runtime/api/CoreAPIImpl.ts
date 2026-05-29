@@ -56,6 +56,7 @@ import { globalToolManager } from '../../tools/core/ToolManager';
 import type { Coordinator } from '../../core/Coordinator';
 import { coordinator as defaultCoordinator } from '../../core/Coordinator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getTitleGenerator } from '../../agent/TitleGenerator';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -465,6 +466,21 @@ export class CoreAPIImpl implements CoreAPI {
       .find((s) => s.id === sessionId);
     if (session) {
       session.title = title;
+    }
+  }
+
+  async generateSessionTitle(sessionId: string, userMessage: string, assistantResponse: string): Promise<string | null> {
+    try {
+      const titleGenerator = getTitleGenerator();
+      const title = await titleGenerator.generateTitle(userMessage, assistantResponse, async (messages) => {
+        const llmClient = this.chatManager.getLLMClient();
+        const response = await llmClient.sendMessage(messages as any, {});
+        return response?.content || null;
+      });
+      return title;
+    } catch (error) {
+      logger.warning('Failed to generate session title', error);
+      return null;
     }
   }
 

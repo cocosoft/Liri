@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -65,7 +65,7 @@ export class MCPConfigManager {
    * 加载项目配置
    */
   private loadProjectConfig(): Record<string, ScopedMcpServerConfig> {
-    const projectConfigPath = path.join(process.cwd(), '.mcp.json');
+    const projectConfigPath = path.join(resolveProjectRoot(), '.mcp.json');
     return this.loadConfigFile(projectConfigPath, 'project');
   }
 

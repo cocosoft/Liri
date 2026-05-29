@@ -28,6 +28,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SRC_ROOT = resolve(__dirname, '..');
 
+/** 
+ * 已知风险：使用 __dirname 扫描源码目录
+ * 此工具仅开发时使用，编译为独立 exe 前需移除 __dirname 依赖
+ */
 /** @modules/xxx 到 module ID 的映射（基于 tsconfig paths） */
 const MODULE_ALIAS_MAP: Record<string, string> = {
   core: 'core',

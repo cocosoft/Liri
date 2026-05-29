@@ -9,6 +9,7 @@
  * - 优雅卸载：依次执行 deactivate → saveContext → unload
  */
 
+import { resolveProjectRoot } from '@modules/config/paths';
 import {
   watch,
   FSWatcher,
@@ -377,7 +378,7 @@ export class PluginHotloadManager {
     if (envDir) {
       return resolve(envDir);
     }
-    return resolve(process.cwd(), 'plugins');
+    return resolve(resolveProjectRoot(), 'plugins');
   }
 
   /**

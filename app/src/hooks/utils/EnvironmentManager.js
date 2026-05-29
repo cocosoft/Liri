@@ -6,8 +6,8 @@
 
 import { platform, homedir } from 'os';
 import { join, sep, resolve, isAbsolute } from 'path';
-import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import { resolveProjectRoot, resolveSessionsDir } from '@modules/config/paths';
 
 /**
  * 环境变量选项
@@ -187,24 +187,14 @@ class EnvironmentManager {
    * 获取PY_APP_HOME路径
    */
   private getPyAppHome(): string {
-    const __dirname = this.getDirname(import.meta.url);
-    return join(__dirname, '..', '..', '..');
+    return resolveProjectRoot();
   }
 
   /**
    * 获取会话目录
    */
   private getSessionDir(sessionId: string): string {
-    const __dirname = this.getDirname(import.meta.url);
-    return join(__dirname, '..', '..', '..', 'sessions', sessionId);
-  }
-
-  /**
-   * 获取目录名
-   */
-  private getDirname(path: string): string {
-    const normalized = path.replace(/^file:\/\/\//, '/').replace(/\\/g, '/');
-    return normalized.substring(0, normalized.lastIndexOf('/'));
+    return join(resolveSessionsDir(), sessionId);
   }
 
   /**

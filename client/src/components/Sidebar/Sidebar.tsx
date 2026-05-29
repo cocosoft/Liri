@@ -22,6 +22,8 @@ const MEDIUM_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'files', label: '文件', icon: '📁', path: '/files' },
   { id: 'terminal', label: '终端', icon: '💻', path: '/terminal' },
   { id: 'monitor', label: '监控', icon: '📈', path: '/monitor' },
+  { id: 'skillMarket', label: '技能市场', icon: '🧩', path: '/skill-market' },
+  { id: 'mcpMarket', label: 'MCP 市场', icon: '🔌', path: '/mcp-market' },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [

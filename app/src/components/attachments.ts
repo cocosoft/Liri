@@ -115,6 +115,77 @@ export class AttachmentManager {
   }
 
   /**
+   * 清理文件名，移除特殊字符并限制长度
+   * @param filename 原始文件名
+   * @returns 清理后的文件名
+   */
+  private sanitizeFilename(filename: string): string {
+    // 分离文件名和扩展名
+    const extIndex = filename.lastIndexOf('.');
+    let namePart = filename;
+    let extension = '';
+    
+    if (extIndex !== -1) {
+      namePart = filename.substring(0, extIndex);
+      extension = filename.substring(extIndex);
+    }
+
+    // 移除特殊字符，保留字母、数字和基本符号
+    // 将中文替换为拼音首字母或简单标识
+    const sanitizedName = namePart
+      .replace(/[\u4e00-\u9fa5]/g, (char) => {
+        // 简单处理：中文替换为 'CN' 标记
+        return 'CN';
+      })
+      .replace(/[<>:"/\\|?*]/g, '_')
+      .replace(/[\s]+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_|_$/g, '');
+
+    // 限制文件名部分长度（总长度限制留给外部处理）
+    const maxNameLength = 32;
+    const truncatedName = sanitizedName.length > maxNameLength
+      ? sanitizedName.substring(0, maxNameLength)
+      : sanitizedName;
+
+    return `${truncatedName}${extension}`;
+  }
+
+  /**
+   * 生成安全的文件名
+   * @param originalName 原始文件名
+   * @returns 安全的文件名（仅包含ASCII字符，长度可控）
+   */
+  private generateSafeFilename(originalName: string): string {
+    // 获取扩展名
+    const extIndex = originalName.lastIndexOf('.');
+    const extension = extIndex !== -1 ? originalName.substring(extIndex).toLowerCase() : '';
+
+    // 使用时间戳 + 随机字符串作为基础文件名
+    const timestamp = Date.now().toString(36);
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    
+    // 限制总长度（Windows 最大路径限制为 260，这里保守设置为 100）
+    const maxTotalLength = 100;
+    const baseName = `attach_${timestamp}_${randomStr}`;
+    
+    // 计算可用长度（减去基础名称和扩展名）
+    const availableLength = maxTotalLength - baseName.length - extension.length;
+    
+    // 如果有可用空间，添加简化的原始文件名
+    let safeName = baseName;
+    if (availableLength > 0) {
+      const sanitized = this.sanitizeFilename(originalName);
+      const namePart = sanitized.substring(0, Math.min(availableLength, sanitized.length));
+      if (namePart) {
+        safeName = `${baseName}_${namePart}`;
+      }
+    }
+    
+    return `${safeName}${extension}`;
+  }
+
+  /**
    * 保存附件
    * @param name 附件名称
    * @param data 附件数据
@@ -133,8 +204,9 @@ export class AttachmentManager {
     // 生成唯一ID
     const id = `attach_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-    // 生成文件路径
-    let filePath = join(this.attachmentsDir, `${id}_${name}`);
+    // 生成安全的文件路径（使用简化的文件名）
+    const safeFilename = this.generateSafeFilename(name);
+    let filePath = join(this.attachmentsDir, safeFilename);
 
     // 确保目录存在
     mkdirSync(dirname(filePath), { recursive: true });
@@ -149,7 +221,7 @@ export class AttachmentManager {
       if (this.attachmentsDir !== this.fallbackDir) {
         logger.warn(`尝试使用回退目录 ${this.fallbackDir}`);
         this.ensureDirectoryExists(this.fallbackDir);
-        filePath = join(this.fallbackDir, `${id}_${name}`);
+        filePath = join(this.fallbackDir, safeFilename);
         writeFileSync(filePath, data);
         // 更新当前使用的目录
         this.attachmentsDir = this.fallbackDir;

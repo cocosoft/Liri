@@ -1,6 +1,7 @@
 import { fork } from 'node:child_process';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { join } from 'node:path';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -27,7 +28,7 @@ export class DetachedTaskRuntime {
 
   async run(config: DetachedTaskConfig): Promise<DetachedTaskResult> {
     const startTime = Date.now();
-    const modulePath = join(process.cwd(), config.modulePath);
+    const modulePath = join(resolveProjectRoot(), config.modulePath);
 
     return new Promise((resolve) => {
       const child = fork(modulePath, [], {

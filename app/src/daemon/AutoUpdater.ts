@@ -2,6 +2,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -91,7 +92,7 @@ export class AutoUpdater {
   }
 
   private detectVersion(): string {
-    const pkgPath = join(process.cwd(), 'package.json');
+    const pkgPath = join(resolveProjectRoot(), 'package.json');
     if (existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));

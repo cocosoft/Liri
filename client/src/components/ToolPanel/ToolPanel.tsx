@@ -7,13 +7,14 @@ import type { CronTask } from '../../types';
 function ContextPanel() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { sessions, createSession, switchSession } = useSessionStore();
+  const { sessions, currentSession, createSession, switchSession, loadSessions, deleteSession } = useSessionStore();
   const [isExpanded, setIsExpanded] = useState(true);
   const [cronTasks, setCronTasks] = useState<CronTask[]>([]);
   const [cronLoading, setCronLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    loadSessions().catch(() => {});
     cronService.list().then((data) => {
       if (mounted) {
         setCronTasks(data);
@@ -23,7 +24,7 @@ function ContextPanel() {
       if (mounted) setCronLoading(false);
     });
     return () => { mounted = false; };
-  }, []);
+  }, [loadSessions]);
 
   const currentRoute = location.pathname.replace('/', '') || 'chat';
 
@@ -57,20 +58,42 @@ function ContextPanel() {
 
       <div>
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">最近会话</h3>
-        <div className="space-y-1 max-h-48 overflow-y-auto">
-          {sessions.slice(0, 5).map((session) => (
-            <button
-              key={session.id}
-              onClick={() => {
-                switchSession(session.id);
-                navigate('/chat');
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors truncate"
-            >
-              <span>💬</span>
-              <span className="truncate">{session.title || '未命名会话'}</span>
-            </button>
-          ))}
+        <div className="space-y-1 h-full overflow-y-auto">
+          {sessions.map((session) => {
+            const isActive = currentSession?.id === session.id;
+            return (
+              <div
+                key={session.id}
+                className={`relative flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                  isActive
+                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <button
+                  onClick={() => {
+                    switchSession(session.id);
+                    navigate('/chat');
+                  }}
+                  className="flex-1 flex items-center gap-2 truncate text-left"
+                >
+                  <span>💬</span>
+                  <span className="truncate">{session.title || '未命名会话'}</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`确定要删除会话 "${session.title || '未命名会话'}" 吗？`)) {
+                      deleteSession(session.id);
+                    }
+                  }}
+                  className="opacity-0 hover:opacity-100 transition-opacity p-1 hover:text-red-500 dark:hover:text-red-400"
+                >
+                  <span>🗑️</span>
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

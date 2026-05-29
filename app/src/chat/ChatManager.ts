@@ -90,6 +90,7 @@ import {
 import type { UnifiedMessage } from '@modules/session/types/Message';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
@@ -767,7 +768,7 @@ export class ChatManagerImpl implements ChatManager {
         `/${commandName} ${args.join(' ')}`,
         {
           sessionId: options?.sessionId || 'chat-session',
-          cwd: process.cwd(),
+          cwd: resolveProjectRoot(),
           messages: cmdSession?.messages || [],
         }
       );
@@ -2176,12 +2177,12 @@ export class ChatManagerImpl implements ChatManager {
         const context = {
           toolUseId: normalizedToolCall.id,
           options: {
-            cwd: process.cwd(),
-            env: process.env as Record<string, string>,
-          },
-        };
+            cwd: resolveProjectRoot(),
+          env: process.env as Record<string, string>,
+        },
+      };
 
-        const registry = this.toolRegistry as unknown as {
+      const registry = this.toolRegistry as unknown as {
           executeTool: (
             params: {
               toolName: string;

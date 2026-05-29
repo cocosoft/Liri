@@ -1,8 +1,7 @@
 /**
  * 安全审计引擎
  * 统一编排所有审计维度，支持快速模式和深度模式
- * 对齐 OpenClaw security/audit.ts 设计
- */
+  */
 
 import type {
   SecurityAuditFinding,
@@ -17,6 +16,7 @@ import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -34,9 +34,9 @@ export function createDefaultAuditContext(
     deep: options.deep || false,
     includeFilesystem: options.includeFilesystem !== false,
     includePlugins: options.includePlugins !== false,
-    stateDir: options.stateDir || process.cwd(),
-    configPath: options.configPath || process.cwd(),
-    workspaceDir: options.workspaceDir || process.cwd(),
+    stateDir: options.stateDir || resolveProjectRoot(),
+    configPath: options.configPath || resolveProjectRoot(),
+    workspaceDir: options.workspaceDir || resolveProjectRoot(),
     deepTimeoutMs: options.deepTimeoutMs || DEFAULT_DEEP_TIMEOUT_MS,
   };
 }

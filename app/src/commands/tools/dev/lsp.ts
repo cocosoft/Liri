@@ -5,6 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { extname, resolve } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { feature } from '@modules/core/featureFlags.js';
@@ -201,7 +202,7 @@ function readFileContent(
 ):
   | { content: string; language: string; absolutePath: string }
   | { error: string } {
-  const absolutePath = resolve(process.cwd(), filePath);
+  const absolutePath = resolve(resolveProjectRoot(), filePath);
 
   if (!existsSync(absolutePath)) {
     return { error: `File not found: ${filePath}` };

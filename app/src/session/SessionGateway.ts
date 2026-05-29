@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import path from 'node:path';
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveSessionsDir } from '../config/paths';
+import { resolveSessionsDir, resolveDataDir } from '../config/paths';
 import {
   createTranscriptManager,
   TranscriptManager,
@@ -636,9 +636,7 @@ export class SessionGateway {
    * 获取 FTS5 索引持久化路径
    */
   private getFTSIndexPath(): string {
-    const basePath =
-      this.config.storageConfig?.basePath ?? resolveSessionsDir();
-    return path.join(basePath, '../fts-index.json');
+    return path.join(resolveDataDir(), 'fts-index.json');
   }
 
   /**

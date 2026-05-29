@@ -159,10 +159,19 @@ export class LocalHTTPService {
       const mdFiles = sourceFiles.filter((f: string) => f.endsWith('.md'));
       if (mdFiles.length > 0) {
         for (const file of mdFiles) {
-          const content = await fs.readFile(path.join(sourceDir, file), 'utf-8');
-          await fs.writeFile(path.join(userKnowledgeDir, file), content, 'utf-8');
+          const content = await fs.readFile(
+            path.join(sourceDir, file),
+            'utf-8'
+          );
+          await fs.writeFile(
+            path.join(userKnowledgeDir, file),
+            content,
+            'utf-8'
+          );
         }
-        logger.info(`知识库种子完成：从 ${sourceDir} 复制了 ${mdFiles.length} 个文件`);
+        logger.info(
+          `知识库种子完成：从 ${sourceDir} 复制了 ${mdFiles.length} 个文件`
+        );
         return;
       }
     } catch {
@@ -257,7 +266,9 @@ export class LocalHTTPService {
         await fs.writeFile(filePath, doc.content, 'utf-8');
         logger.info(`已写入默认知识文档：${filePath}`);
       } catch (err) {
-        logger.warning(`写入默认知识文档失败：${filePath}`, { error: String(err) });
+        logger.warning(`写入默认知识文档失败：${filePath}`, {
+          error: String(err),
+        });
       }
     }
   }
@@ -293,7 +304,9 @@ export class LocalHTTPService {
         );
         // 异步初始化知识库种子，不阻塞启动
         this.seedKnowledgeBaseIfEmpty().catch((err) =>
-          logger.warning('知识库种子初始化失败（非关键错误）', { error: String(err) })
+          logger.warning('知识库种子初始化失败（非关键错误）', {
+            error: String(err),
+          })
         );
         resolve();
       });
@@ -407,6 +420,13 @@ export class LocalHTTPService {
         url.match(/^\/v1\/sessions\/(.+)$/)![1]
       );
     }
+    if (req.method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/title$/)) {
+      return this.handleGenerateTitle(
+        req,
+        res,
+        url.match(/^\/v1\/sessions\/(.+)\/title$/)![1]
+      );
+    }
     if (req.method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
       return this.handleDeleteSession(
         req,
@@ -440,6 +460,11 @@ export class LocalHTTPService {
         res,
         url.match(/^\/v1\/agents\/tasks\/(.+)$/)![1]
       );
+    }
+
+    // ---- Voice ----
+    if (req.method === 'POST' && url === '/v1/voice/transcribe') {
+      return this.handleSTTTranscribe(req, res);
     }
 
     // ---- Files ----
@@ -577,6 +602,51 @@ export class LocalHTTPService {
       return this.handleSetDataDirectory(req, res);
     }
 
+    // ---- Skills (ClawHub 生态对接) ----
+    if (req.method === 'GET' && url === '/v1/skills') {
+      return this.handleListSkills(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/skills/search') {
+      return this.handleSearchSkills(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/skills/recommended') {
+      return this.handleRecommendedSkills(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/skills/categories') {
+      return this.handleSkillCategories(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/skills\/(.+)$/)) {
+      return this.handleGetSkillDetail(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/skills/install') {
+      return this.handleInstallSkill(req, res);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/uninstall$/)) {
+      return this.handleUninstallSkill(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)\/uninstall$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/update$/)) {
+      return this.handleUpdateSkill(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)\/update$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/toggle$/)) {
+      return this.handleToggleSkill(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)\/toggle$/)![1]
+      );
+    }
+
     // ---- Monitor ----
     if (req.method === 'GET' && url === '/v1/monitor/summary') {
       return this.handleMonitorSummary(req, res);
@@ -587,8 +657,15 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url.startsWith('/v1/monitor/alerts')) {
       return this.handleMonitorAlerts(req, res);
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)) {
-      return this.handleAcknowledgeAlert(req, res, url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)![1]);
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)
+    ) {
+      return this.handleAcknowledgeAlert(
+        req,
+        res,
+        url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)![1]
+      );
     }
     if (req.method === 'GET' && url.startsWith('/v1/monitor/logs')) {
       return this.handleMonitorLogs(req, res);
@@ -606,6 +683,53 @@ export class LocalHTTPService {
     }
     if (req.method === 'GET' && url === '/api/cost/range') {
       return this.handleCostRange(req, res);
+    }
+
+    // ---- Commands ----
+    if (req.method === 'GET' && url === '/v1/commands') {
+      return this.handleListCommands(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/commands/execute') {
+      return this.handleExecuteCommand(req, res);
+    }
+
+    // ---- MCP Marketplace ----
+    if (req.method === 'GET' && url === '/v1/mcp/marketplace/search') {
+      return this.handleMCPMarketplaceSearch(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/mcp/marketplace/categories') {
+      return this.handleMCPMarketplaceCategories(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)) {
+      return this.handleMCPMarketplaceServerDetail(
+        req,
+        res,
+        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'GET' && url === '/v1/mcp/marketplace/installed') {
+      return this.handleMCPInstalledServers(req, res);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)) {
+      return this.handleMCPInstallServer(
+        req,
+        res,
+        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)) {
+      return this.handleMCPUninstallServer(
+        req,
+        res,
+        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)) {
+      return this.handleMCPToggleServer(
+        req,
+        res,
+        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)![1]
+      );
     }
 
     // ---- Health ----
@@ -635,14 +759,14 @@ export class LocalHTTPService {
       const status = service.getSystemStatus();
       const os = await import('node:os');
 
-      const cpuPercent = status.loadAverage.length > 0
-        ? Math.round((status.loadAverage[0] / os.cpus().length) * 100)
-        : 0;
+      const cpuPercent =
+        status.loadAverage.length > 0
+          ? Math.round((status.loadAverage[0] / os.cpus().length) * 100)
+          : 0;
       const heapUsedMB = Math.round(status.memory.heapUsed / 1024 / 1024);
       const heapTotalMB = Math.round(status.memory.heapTotal / 1024 / 1024);
-      const memoryPercent = heapTotalMB > 0
-        ? Math.round((heapUsedMB / heapTotalMB) * 100)
-        : 0;
+      const memoryPercent =
+        heapTotalMB > 0 ? Math.round((heapUsedMB / heapTotalMB) * 100) : 0;
 
       const summary = {
         uptime: Math.floor(status.uptime),
@@ -659,11 +783,18 @@ export class LocalHTTPService {
       res.end(JSON.stringify(summary));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        uptime: 0, cpuPercent: 0, memoryPercent: 0,
-        memoryUsedMB: 0, memoryTotalMB: 0,
-        requestCount: 0, errorCount: 0, avgResponseTime: 0,
-      }));
+      res.end(
+        JSON.stringify({
+          uptime: 0,
+          cpuPercent: 0,
+          memoryPercent: 0,
+          memoryUsedMB: 0,
+          memoryTotalMB: 0,
+          requestCount: 0,
+          errorCount: 0,
+          avgResponseTime: 0,
+        })
+      );
     }
   }
 
@@ -681,9 +812,10 @@ export class LocalHTTPService {
 
       const cpuMetric = {
         timestamp: now,
-        value: status.loadAverage.length > 0
-          ? Math.round(status.loadAverage[0] * 100) / 100
-          : 0,
+        value:
+          status.loadAverage.length > 0
+            ? Math.round(status.loadAverage[0] * 100) / 100
+            : 0,
       };
       const memoryMetric = {
         timestamp: now,
@@ -702,9 +834,15 @@ export class LocalHTTPService {
       res.end(JSON.stringify(metricsData));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        requests: [], responseTime: [], errorRate: [], cpu: [], memory: [],
-      }));
+      res.end(
+        JSON.stringify({
+          requests: [],
+          responseTime: [],
+          errorRate: [],
+          cpu: [],
+          memory: [],
+        })
+      );
     }
   }
 
@@ -790,18 +928,23 @@ export class LocalHTTPService {
       const components = [
         {
           name: 'system',
-          status: (status.uptime > 0 ? 'ok' : 'warning') as 'ok' | 'warning' | 'error',
+          status: (status.uptime > 0 ? 'ok' : 'warning') as
+            | 'ok'
+            | 'warning'
+            | 'error',
         },
         {
           name: 'memory',
           status: (status.memory.heapUsed < status.memory.heapTotal * 0.9
-            ? 'ok' : 'warning') as 'ok' | 'warning' | 'error',
+            ? 'ok'
+            : 'warning') as 'ok' | 'warning' | 'error',
         },
       ];
 
       const healthReport = {
-        status: (components.every(c => c.status === 'ok')
-          ? 'healthy' : 'degraded') as 'healthy' | 'degraded' | 'unhealthy',
+        status: (components.every((c) => c.status === 'ok')
+          ? 'healthy'
+          : 'degraded') as 'healthy' | 'degraded' | 'unhealthy',
         components,
         timestamp: Date.now(),
       };
@@ -810,9 +953,13 @@ export class LocalHTTPService {
       res.end(JSON.stringify(healthReport));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        status: 'healthy', components: [], timestamp: Date.now(),
-      }));
+      res.end(
+        JSON.stringify({
+          status: 'healthy',
+          components: [],
+          timestamp: Date.now(),
+        })
+      );
     }
   }
 
@@ -907,16 +1054,18 @@ export class LocalHTTPService {
 
     const modelUsage = costTracker.getModelUsage();
     const totalModelCost = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.costUSD, 0
+      (sum, u) => sum + u.costUSD,
+      0
     );
 
     const topProviders = Object.entries(modelUsage)
       .map(([provider, usage]) => ({
         provider,
         cost: usage.costUSD,
-        percentage: totalModelCost > 0
-          ? Math.round((usage.costUSD / totalModelCost) * 100)
-          : 0,
+        percentage:
+          totalModelCost > 0
+            ? Math.round((usage.costUSD / totalModelCost) * 100)
+            : 0,
       }))
       .sort((a, b) => b.cost - a.cost)
       .slice(0, 4);
@@ -980,7 +1129,10 @@ export class LocalHTTPService {
 
       const mapped = records.map((r) => ({
         id: r.id,
-        date: new Date(r.timestamp).toISOString().replace('T', ' ').slice(0, 19),
+        date: new Date(r.timestamp)
+          .toISOString()
+          .replace('T', ' ')
+          .slice(0, 19),
         provider: r.model,
         model: r.model,
         promptTokens: r.inputTokens,
@@ -1010,7 +1162,9 @@ export class LocalHTTPService {
     const urlObj = new URL(req.url!, `http://${req.headers.host}`);
     const startDateStr = urlObj.searchParams.get('startDate');
     const endDateStr = urlObj.searchParams.get('endDate');
-    const startTime = startDateStr ? new Date(startDateStr).getTime() : undefined;
+    const startTime = startDateStr
+      ? new Date(startDateStr).getTime()
+      : undefined;
     const endTime = endDateStr ? new Date(endDateStr).getTime() : undefined;
 
     try {
@@ -1022,7 +1176,10 @@ export class LocalHTTPService {
 
       const mapped = records.map((r) => ({
         id: r.id,
-        date: new Date(r.timestamp).toISOString().replace('T', ' ').slice(0, 19),
+        date: new Date(r.timestamp)
+          .toISOString()
+          .replace('T', ' ')
+          .slice(0, 19),
         provider: r.model,
         model: r.model,
         promptTokens: r.inputTokens,
@@ -1234,7 +1391,13 @@ export class LocalHTTPService {
         created,
         model,
         __pyapp_type: 'status',
-        choices: [{ index: 0, delta: { content: 'AI is thinking...' }, finish_reason: null }],
+        choices: [
+          {
+            index: 0,
+            delta: { content: 'AI is thinking...' },
+            finish_reason: null,
+          },
+        ],
       })}\n\n`
     );
 
@@ -1276,7 +1439,13 @@ export class LocalHTTPService {
               created,
               model,
               __pyapp_type: 'thinking',
-              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null }],
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: chunk.content },
+                  finish_reason: null,
+                },
+              ],
             })}\n\n`
           );
         } else if (chunk.type === 'status' && chunk.content) {
@@ -1287,7 +1456,13 @@ export class LocalHTTPService {
               created,
               model,
               __pyapp_type: 'status',
-              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null }],
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: chunk.content },
+                  finish_reason: null,
+                },
+              ],
             })}\n\n`
           );
         } else if (chunk.type === 'tool_call' && chunk.toolCall) {
@@ -1298,17 +1473,25 @@ export class LocalHTTPService {
               created,
               model,
               __pyapp_type: 'tool_call',
-              choices: [{ index: 0, delta: {
-                content: '',
-                tool_calls: [{
-                  id: chunk.toolCall.id,
-                  type: 'function',
-                  function: {
-                    name: chunk.toolCall.name,
-                    arguments: JSON.stringify(chunk.toolCall.arguments),
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    content: '',
+                    tool_calls: [
+                      {
+                        id: chunk.toolCall.id,
+                        type: 'function',
+                        function: {
+                          name: chunk.toolCall.name,
+                          arguments: JSON.stringify(chunk.toolCall.arguments),
+                        },
+                      },
+                    ],
                   },
-                }],
-              }, finish_reason: null }],
+                  finish_reason: null,
+                },
+              ],
             })}\n\n`
           );
         }
@@ -1516,6 +1699,34 @@ export class LocalHTTPService {
     }
   }
 
+  /**
+   * 处理生成会话标题请求
+   */
+  private async handleGenerateTitle(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { userMessage, assistantResponse } = JSON.parse(body);
+      const coreAPI = getCoreAPI();
+      const title = await coreAPI.generateSessionTitle(
+        sessionId,
+        userMessage,
+        assistantResponse
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, title }));
+      if (title) {
+        await coreAPI.renameSession(sessionId, title);
+        this.broadcastEvent('session:renamed', { id: sessionId, title });
+      }
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
   // ========== Tools Handlers ==========
 
   /**
@@ -1704,6 +1915,132 @@ export class LocalHTTPService {
       const result = await coreAPI.detectFileType(filePath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Voice Handlers ==========
+
+  /**
+   * 处理 STT 语音转录请求 POST /v1/voice/transcribe
+   * 接收 base64 编码的音频数据，通过 STTRegistry 选择可用提供者执行转录
+   */
+  private async handleSTTTranscribe(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { audioData, providerId, language, keyterms } = JSON.parse(body);
+
+      if (!audioData) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'audioData 是必需的（base64 编码的音频数据）' },
+          })
+        );
+        return;
+      }
+
+      const audioBuffer = Buffer.from(audioData, 'base64');
+
+      if (audioBuffer.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: '音频数据为空' } }));
+        return;
+      }
+
+      const { STTRegistry } =
+        await import('../../../services/voice/services/sttRegistry');
+
+      // 自动注册 STT 提供者（如尚未注册）
+      if (STTRegistry.getAllProviders().length === 0) {
+        const { LocalSTTProvider } =
+          await import('../../../services/voice/services/localSTTProvider');
+        STTRegistry.register(new LocalSTTProvider());
+
+        if (process.env.OPENAI_API_KEY) {
+          const { CloudSTTProvider } =
+            await import('../../../services/voice/services/cloudSTTProvider');
+          STTRegistry.register(
+            new CloudSTTProvider({ apiKey: process.env.OPENAI_API_KEY })
+          );
+        }
+      }
+
+      const startTime = Date.now();
+
+      // providerId 是 STTRegistry.transcribe 的第三个独立参数
+      const result = await STTRegistry.transcribe(
+        audioBuffer,
+        {
+          language: language,
+          keyterms: keyterms
+            ? Array.isArray(keyterms)
+              ? keyterms
+              : [keyterms]
+            : undefined,
+        },
+        providerId || undefined
+      );
+
+      const elapsed = Date.now() - startTime;
+
+      const providers = STTRegistry.getAllProviders();
+      const activeProvider = providerId
+        ? providers.find((p: any) => p.id === providerId)
+        : STTRegistry.getDefaultProvider();
+
+      // 构建详细状态信息
+      const status: string[] = [];
+      if (!result.text) {
+        status.push('识别文本为空');
+        if (activeProvider) {
+          status.push(
+            `提供者 "${activeProvider.name} (${activeProvider.id})" 不可用`
+          );
+          if (activeProvider.id === 'local') {
+            status.push(
+              '本地 STT 需要 Python 3.8+ 和 faster-whisper: pip install faster-whisper'
+            );
+          } else if (activeProvider.id === 'cloud') {
+            status.push('云端 STT 需要配置 OpenAI API 密钥');
+          } else if (activeProvider.id === 'stream') {
+            status.push('流式 STT 需要配置 WebSocket 端点');
+          }
+        } else {
+          status.push('没有已注册且可用的 STT 提供者');
+          status.push(
+            '请安装 faster-whisper（pip install faster-whisper）或配置云端/流式 STT 提供者'
+          );
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          text: result.text,
+          confidence: result.confidence,
+          isFinal: result.isFinal,
+          duration: result.duration,
+          language: result.language,
+          timing: {
+            elapsed,
+            unit: 'ms',
+          },
+          provider: activeProvider
+            ? {
+                id: activeProvider.id,
+                name: activeProvider.name,
+                type: activeProvider.type,
+                available: activeProvider.isAvailable(),
+              }
+            : null,
+          status: status.length > 0 ? status.join('；') : undefined,
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -2431,17 +2768,21 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { resolvePyappHome, getUserDataDirOverride } = await import('@modules/config/paths');
-      
+      const { resolvePyappHome, getUserDataDirOverride } =
+        await import('@modules/config/paths');
+
       const currentDir = resolvePyappHome();
       const configuredDir = getUserDataDirOverride();
-      
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           currentDirectory: currentDir,
           configuredDirectory: configuredDir || null,
-          defaultDirectory: require('path').join(require('os').homedir(), '.pyapp'),
+          defaultDirectory: require('path').join(
+            require('os').homedir(),
+            '.pyapp'
+          ),
         })
       );
     } catch (error) {
@@ -2449,10 +2790,100 @@ export class LocalHTTPService {
     }
   }
 
+  // ========== Commands Handlers ==========
+
+  /**
+   * 处理列出所有命令请求 GET /v1/commands
+   */
+  private async handleListCommands(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { getCommandManager } =
+        await import('@modules/commands/manager/CommandManager.js');
+      const commandManager = getCommandManager();
+      const commands = await commandManager.getAllCommands();
+      const result = commands.map((cmd: any) => ({
+        name: cmd.name,
+        description: cmd.description,
+        aliases: cmd.aliases || [],
+        argumentHint: cmd.argumentHint || '',
+        userInvocable: cmd.userInvocable !== false,
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理执行命令请求 POST /v1/commands/execute
+   */
+  private async handleExecuteCommand(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      if (!body) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'request body is required' } })
+        );
+        return;
+      }
+
+      let parsedBody;
+      try {
+        parsedBody = JSON.parse(body);
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'invalid JSON in request body' } })
+        );
+        return;
+      }
+
+      const { command } = parsedBody;
+
+      if (!command) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'command is required' } }));
+        return;
+      }
+
+      const { commandExecutor } =
+        await import('@modules/commands/executor/CommandExecutor.js');
+      const result = await commandExecutor.execute(command);
+
+      const output =
+        result.value?.toString() || result.message?.toString() || '';
+      const error = result.type === 'error' ? output : '';
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          success: result.success !== false,
+          output,
+          error,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
   /**
    * 递归复制目录
    */
-  private copyDirectory(src: string, dest: string, fs: any, path: any): { copied: number; skipped: number; errors: string[] } {
+  private copyDirectory(
+    src: string,
+    dest: string,
+    fs: any,
+    path: any
+  ): { copied: number; skipped: number; errors: string[] } {
     let copied = 0;
     let skipped = 0;
     const errors: string[] = [];
@@ -2496,8 +2927,8 @@ export class LocalHTTPService {
 
   /**
    * 设置用户数据目录 PUT /v1/settings/data-directory
-   * @param req 
-   * @param res 
+   * @param req
+   * @param res
    * @param options.migrate 是否迁移现有数据（默认 true）
    */
   private async handleSetDataDirectory(
@@ -2511,7 +2942,14 @@ export class LocalHTTPService {
 
       if (!directory || typeof directory !== 'string') {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: '目录路径不能为空', type: 'invalid_request_error' } }));
+        res.end(
+          JSON.stringify({
+            error: {
+              message: '目录路径不能为空',
+              type: 'invalid_request_error',
+            },
+          })
+        );
         return;
       }
 
@@ -2529,16 +2967,28 @@ export class LocalHTTPService {
         fs.unlinkSync(testFile);
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: `无法创建或写入目录: ${(err as Error).message}`, type: 'invalid_request_error' } }));
+        res.end(
+          JSON.stringify({
+            error: {
+              message: `无法创建或写入目录: ${(err as Error).message}`,
+              type: 'invalid_request_error',
+            },
+          })
+        );
         return;
       }
 
       // 获取当前数据目录
-      const { resolvePyappHome, setUserDataDirOverride } = await import('@modules/config/paths');
+      const { resolvePyappHome, setUserDataDirOverride } =
+        await import('@modules/config/paths');
       const currentDir = resolvePyappHome();
 
       // 执行数据迁移
-      let migrationResult: { copied: number; skipped: number; errors: string[] } | null = null;
+      let migrationResult: {
+        copied: number;
+        skipped: number;
+        errors: string[];
+      } | null = null;
       if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
         migrationResult = this.copyDirectory(currentDir, resolvedDir, fs, path);
       }
@@ -2547,7 +2997,8 @@ export class LocalHTTPService {
       setUserDataDirOverride(resolvedDir);
 
       // 持久化到用户设置
-      const { updateUserSettings } = await import('@modules/config/settings/userSettings');
+      const { updateUserSettings } =
+        await import('@modules/config/settings/userSettings');
       await updateUserSettings({ dataDirectory: resolvedDir });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2563,6 +3014,473 @@ export class LocalHTTPService {
       );
     } catch (error) {
       this.sendError(res, error);
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Skills（ClawHub 生态对接）处理器
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取 ClawHubAdapter 实例
+   */
+  private async getClawHubAdapter(): Promise<any> {
+    const { ClawHubAdapter } =
+      await import('@modules/services/clawhub/ClawHubAdapter');
+
+    const adapter = ClawHubAdapter.getInstance();
+
+    if (!adapter['initialized']) {
+      await adapter.initialize();
+    }
+
+    return adapter;
+  }
+
+  /**
+   * 处理列出已安装技能请求 GET /v1/skills
+   */
+  private async handleListSkills(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      const skills = await adapter.getInstalledSkills();
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ skills }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理搜索技能请求 GET /v1/skills/search?q=...&category=...&tags=...
+   */
+  private async handleSearchSkills(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const query = urlObj.searchParams.get('q') || '';
+      const category = urlObj.searchParams.get('category') || undefined;
+      const tagsStr = urlObj.searchParams.get('tags') || undefined;
+      const tags = tagsStr
+        ? tagsStr.split(',').map((t) => t.trim())
+        : undefined;
+
+      const adapter = await this.getClawHubAdapter();
+      const results = await adapter.searchSkills(query, { category, tags });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ results }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理推荐技能列表请求 GET /v1/skills/recommended
+   * 返回 ClawHub 市场推荐的技能列表
+   */
+  private async handleRecommendedSkills(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const limit = parseInt(urlObj.searchParams.get('limit') || '10', 10);
+
+      const adapter = await this.getClawHubAdapter();
+      const installed = await adapter.getInstalledSkills();
+      const installedIds = new Set(installed.map((s: any) => s.meta.id));
+
+      const searchEngine = adapter.getSearchEngine();
+      const allResults = await searchEngine.searchRemote('', {});
+
+      const recommended = allResults
+        .filter((r: any) => !installedIds.has(r.skill.id))
+        .slice(0, limit)
+        .map((r: any) => ({ ...r, installed: false }));
+
+      const categories = this.getSkillCategoryMap(installed);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ recommended, categories }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理技能分类列表请求 GET /v1/skills/categories
+   * 按能力分类统计已安装插件数量，技能统一归入 skill 分类
+   */
+  private async handleSkillCategories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { PLUGIN_CATEGORIES } =
+        await import('@modules/plugins/categories/PluginCategories');
+
+      const adapter = await this.getClawHubAdapter();
+      const installed = await adapter.getInstalledSkills();
+
+      const categoryMap = this.getSkillCategoryMap(installed);
+
+      const categories = Object.entries(PLUGIN_CATEGORIES).map(
+        ([key, cat]) => ({
+          id: key,
+          capability: cat.capability,
+          description: cat.description,
+          count: categoryMap[key] || 0,
+        })
+      );
+
+      const sourceMap = this.getSkillSourceMap(installed);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ categories, sourceDistribution: sourceMap }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 构建插件分类统计映射
+   * 所有技能统一归入 skill 分类，不再按来源分裂
+   */
+  private getSkillCategoryMap(installed: any[]): Record<string, number> {
+    const map: Record<string, number> = {};
+
+    for (const skill of installed) {
+      const source = skill.meta.source || 'third_party';
+
+      if (source === 'builtin') {
+        map['builtin'] = (map['builtin'] || 0) + 1;
+      } else {
+        map['skill'] = (map['skill'] || 0) + 1;
+      }
+    }
+
+    return map;
+  }
+
+  /**
+   * 构建技能来源分布统计
+   * 按 source 字段统计各来源的技能数量
+   */
+  private getSkillSourceMap(installed: any[]): Record<string, number> {
+    const map: Record<string, number> = {};
+
+    for (const skill of installed) {
+      const source = skill.meta.source || 'unknown';
+      map[source] = (map[source] || 0) + 1;
+    }
+
+    return map;
+  }
+
+  /**
+   * 处理获取技能详情请求 GET /v1/skills/:id
+   */
+  private async handleGetSkillDetail(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      const skill = await adapter.getSkillDetail(skillId);
+
+      if (!skill) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `技能未找到: ${skillId}` } })
+        );
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ skill }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理安装技能请求 POST /v1/skills/install
+   */
+  private async handleInstallSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      if (!body) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'request body is required' } })
+        );
+        return;
+      }
+
+      const parsedBody = JSON.parse(body);
+      const { skillId, sourceUrl } = parsedBody;
+
+      if (!skillId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'skillId is required' } }));
+        return;
+      }
+
+      const adapter = await this.getClawHubAdapter();
+      const installed = await adapter.installSkill(skillId, sourceUrl);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, skill: installed }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理卸载技能请求 POST /v1/skills/:id/uninstall
+   */
+  private async handleUninstallSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      await adapter.uninstallSkill(skillId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理更新技能请求 POST /v1/skills/:id/update
+   */
+  private async handleUpdateSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      const updated = await adapter.updateSkill(skillId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, skill: updated }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理切换技能启用状态请求 POST /v1/skills/:id/toggle
+   */
+  private async handleToggleSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const parsedBody = body ? JSON.parse(body) : {};
+      const enabled = parsedBody.enabled;
+
+      const adapter = await this.getClawHubAdapter();
+
+      if (enabled === true) {
+        await adapter.enableSkill(skillId);
+      } else if (enabled === false) {
+        await adapter.disableSkill(skillId);
+      } else {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'enabled field is required (true/false)' },
+          })
+        );
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, enabled }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== MCP Marketplace Handlers ==========
+
+  /**
+   * 处理 MCP 市场搜索请求 GET /v1/mcp/marketplace/search?query=xx&category=xx
+   */
+  private async handleMCPMarketplaceSearch(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const parsedUrl = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+      const query = parsedUrl.searchParams.get('query') || '';
+      const category = parsedUrl.searchParams.get('category') || undefined;
+      const registry = parsedUrl.searchParams.get('registry') as any || undefined;
+      const sourceRegistry = parsedUrl.searchParams.get('sourceRegistry') as any || undefined;
+
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const results = await mcpSystem.marketplace.search({ query, category, registry, sourceRegistry });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(results));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取 MCP 市场分类请求 GET /v1/mcp/marketplace/categories
+   */
+  private async handleMCPMarketplaceCategories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const categories = await mcpSystem.marketplace.getCategories();
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(categories));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取 MCP 服务器详情请求 GET /v1/mcp/marketplace/servers/:serverId
+   */
+  private async handleMCPMarketplaceServerDetail(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    serverId: string
+  ): Promise<void> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const detail = await mcpSystem.marketplace.getServerDetail(serverId);
+
+      if (!detail) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Server not found' } }));
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(detail));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取已安装 MCP 服务器列表 GET /v1/mcp/marketplace/installed
+   */
+  private async handleMCPInstalledServers(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const servers = mcpSystem.marketplace.getInstalledServers();
+
+      const detailed = servers.map((s) => {
+        const detail = mcpSystem.marketplace.getInstalledServerDetail(s.name);
+        return {
+          ...s,
+          connected: detail.connected,
+          configInFile: detail.config ? true : false,
+        };
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(detailed));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理安装 MCP 服务器请求 POST /v1/mcp/marketplace/servers/:serverId/install
+   */
+  private async handleMCPInstallServer(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    serverId: string
+  ): Promise<void> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      await mcpSystem.marketplace.install(serverId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, serverId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理卸载 MCP 服务器请求 POST /v1/mcp/marketplace/servers/:serverId/uninstall
+   */
+  private async handleMCPUninstallServer(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    serverId: string
+  ): Promise<void> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      await mcpSystem.marketplace.uninstall(serverId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, serverId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理切换 MCP 服务器启用状态 POST /v1/mcp/marketplace/servers/:serverId/toggle
+   */
+  private async handleMCPToggleServer(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    serverId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const parsedBody = body ? JSON.parse(body) : {};
+      const enabled = parsedBody.enabled;
+
+      if (enabled === undefined) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'enabled field is required (true/false)' } }));
+        return;
+      }
+
+      const { mcpSystem } = await import('@modules/services/mcp');
+      await mcpSystem.marketplace.toggleServer(serverId, enabled);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, serverId, enabled }));
+    } catch (err) {
+      this.sendError(res, err);
     }
   }
 }

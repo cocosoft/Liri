@@ -1,12 +1,39 @@
 /**
  * 插件能力分类接口
- * 按能力类型区分插件注册入口
- * 对齐 OpenClaw plugins/types.ts 分类体系
- */
+ * 按能力类型区分插件注册入口，而非按来源
+ * 来源通过 PluginSource 元数据标注
+  */
 
 import type { Logger } from '@modules/monitoring/logs/Logger';
 
+/**
+ * 第三方市场类型（仅用于标注，不影响分类）
+ * 用于追溯第三方技能/插件的具体来源
+ */
+export type ThirdPartyMarket =
+  | 'clawhub'
+  | 'hermes'
+  | 'github'
+  | 'npm'
+  | 'smithery'
+  | 'manual'
+  | 'unknown';
+
+/**
+ * 插件来源类型（按宏观分类，不按具体市场细分）
+ * 所有第三方市场统一归类为 third_party，通过 ThirdPartyMarket 标注具体来源
+ */
+export type PluginSource =
+  | 'builtin'
+  | 'official'
+  | 'third_party';
+
+/**
+ * 插件能力分类
+ * 按「插件能做什么」划分，不按「插件从哪里来」划分
+ */
 export type PluginCapability =
+  | 'builtin'
   | 'provider'
   | 'tool'
   | 'hook'
@@ -14,6 +41,7 @@ export type PluginCapability =
   | 'harness'
   | 'cli_backend'
   | 'skill'
+  | 'mcp_server'
   | 'middleware'
   | 'image_generation'
   | 'speech';
@@ -29,6 +57,12 @@ export const PLUGIN_CATEGORIES: Record<
   PluginCapability,
   PluginCategoryMetadata
 > = {
+  builtin: {
+    capability: 'builtin',
+    description: '应用自带的内置模块',
+    requiredInterfaces: [],
+    optionalInterfaces: [],
+  },
   provider: {
     capability: 'provider',
     description: '注册 AI 模型 Provider',
@@ -67,9 +101,15 @@ export const PLUGIN_CATEGORIES: Record<
   },
   skill: {
     capability: 'skill',
-    description: '注册技能模块',
+    description: '注册技能模块（官方市场 / 第三方市场）',
     requiredInterfaces: ['ISkillPlugin'],
     optionalInterfaces: [],
+  },
+  mcp_server: {
+    capability: 'mcp_server',
+    description: '注册 MCP 服务器（官方注册表 / 社区市场）',
+    requiredInterfaces: ['IMCPServerPlugin'],
+    optionalInterfaces: ['IMCPSkillLoader'],
   },
   middleware: {
     capability: 'middleware',
@@ -133,12 +173,34 @@ export interface ISkillPlugin {
   execute(context: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
+export interface IMCPServerPlugin {
+  readonly capability: 'mcp_server';
+  readonly serverName: string;
+  getTools(): Promise<
+    Array<{
+      name: string;
+      description: string;
+      schema: Record<string, unknown>;
+    }>
+  >;
+  executeTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  healthCheck(): Promise<boolean>;
+}
+
+export interface IMCPSkillLoader {
+  readonly capability: 'mcp_server';
+  loadSkills(): Promise<
+    Array<{ name: string; execute: (...args: unknown[]) => unknown }>
+  >;
+}
+
 export type CategoryPlugin =
   | IProviderPlugin
   | IToolPlugin
   | IHookPlugin
   | IChannelPlugin
-  | ISkillPlugin;
+  | ISkillPlugin
+  | IMCPServerPlugin;
 
 export function getPluginCategory(
   capability: PluginCapability

@@ -90,6 +90,23 @@ export const sessionService = {
     }
   },
 
+  generateTitle: async (sessionId: string, userMessage: string, assistantResponse: string): Promise<string | null> => {
+    try {
+      const response = await http.post<{ success: boolean; title: string | null }>(
+        `/v1/sessions/${sessionId}/title`,
+        { userMessage, assistantResponse }
+      );
+      return response.title;
+    } catch {
+      const result = await tryTauri<{ title: string | null }>('generate_session_title', {
+        sessionId,
+        userMessage,
+        assistantResponse,
+      });
+      return result?.title || null;
+    }
+  },
+
   getCurrent: async (): Promise<Session | null> => {
     try {
       return await http.get<Session | null>('/v1/sessions/current');

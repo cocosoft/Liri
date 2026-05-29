@@ -6,6 +6,7 @@ import Header from './components/common/Header';
 import Footer from './components/common/Footer';
 import ChatArea from './components/ChatArea/ChatArea';
 import ChatInput from './components/ChatArea/ChatInput';
+import SessionHeader from './components/ChatArea/SessionHeader';
 import ToolPanel from './components/ToolPanel/ToolPanel';
 import ConfigPanel from './components/ConfigPanel/ConfigPanel';
 import ToastContainer from './components/common/ToastContainer';
@@ -38,6 +39,7 @@ import BuddyPage from './components/views/BuddyPage';
 import OAuthPage from './components/views/OAuthPage';
 import MediaPage from './components/views/MediaPage';
 import AutoReplyPage from './components/views/AutoReplyPage';
+import STTTestPage from './components/views/STTTestPage';
 import HomePage from './components/views/HomePage';
 import { FirstRunWizard } from './components/views/FirstRunWizard';
 import { useSessionStore } from './stores/sessionStore';
@@ -51,7 +53,7 @@ import { appConfigService } from './services/appConfigService';
 import { initBackendUrlFromConfig } from './services/backendUrl';
 
 function App() {
-  const { loadSessions, createSession, sessions, currentSession } = useSessionStore();
+  const { loadSessions } = useSessionStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const _setNavigate = useAppStore((s) => s._setNavigate);
   const checkBackendStatus = useBackendStore((s) => s.checkStatus);
@@ -113,11 +115,7 @@ function App() {
     _setNavigate(navigate);
   }, [_setNavigate, navigate]);
 
-  useEffect(() => {
-    if (sessions.length === 0 && !currentSession) {
-      createSession('新会话 1');
-    }
-  }, [sessions.length, currentSession, createSession]);
+
 
   useEffect(() => {
     const path = location.pathname.replace('/', '');
@@ -137,6 +135,7 @@ function App() {
           <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} />
           <Route path="/chat" element={
             <main className="flex-1 flex flex-col page-transition-enter">
+              <SessionHeader />
               <ChatArea />
               <ChatInput />
             </main>
@@ -166,6 +165,7 @@ function App() {
           <Route path="/settings" element={<AuthGuard><SettingsPage /></AuthGuard>} />
           <Route path="/settings/deep" element={<AuthGuard><ConfigDeepPage /></AuthGuard>} />
           <Route path="/buddy" element={<AuthGuard><BuddyPage /></AuthGuard>} />
+          <Route path="/voice-stt" element={<AuthGuard><STTTestPage /></AuthGuard>} />
           </Routes>
         </div>
         <ToolPanel />

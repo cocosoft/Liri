@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
+import { resolvePyappHome, resolveDataDir, resolveProjectRoot } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -73,7 +73,7 @@ export class EnhancedMCPConfigManager {
    * 加载项目配置
    */
   private loadProjectConfig(): Record<string, ScopedMcpServerConfig> {
-    const projectConfigPath = path.join(process.cwd(), '.mcp.json');
+    const projectConfigPath = path.join(resolveProjectRoot(), '.mcp.json');
     const configs = this.loadConfigFile(projectConfigPath, 'project');
     this.watchConfigFile(projectConfigPath, 'project');
     return configs;
@@ -257,7 +257,7 @@ export class EnhancedMCPConfigManager {
           configPath = path.join(resolvePyappHome(), 'user', 'mcp.json');
           break;
         case 'project':
-          configPath = path.join(process.cwd(), '.mcp.json');
+          configPath = path.join(resolveProjectRoot(), '.mcp.json');
           break;
         default:
           return false;

@@ -15,15 +15,49 @@ interface ChatStore {
   setMessages: (messages: Message[]) => void;
 }
 
+import { sessionService } from '../services/sessionService';
+
 function shouldAutoRename(sessionId?: string): boolean {
-  if (!sessionId) return false;
-  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-  return !!session && session.title.startsWith('新会话');
+  if (!sessionId) {
+    console.log('[shouldAutoRename] sessionId is undefined');
+    return false;
+  }
+  const session = useSessionStore.getState().currentSession;
+  if (!session) {
+    console.log('[shouldAutoRename] currentSession is null');
+    return false;
+  }
+  if (session.id !== sessionId) {
+    console.log('[shouldAutoRename] sessionId mismatch:', session.id, 'vs', sessionId);
+    return false;
+  }
+  const title = session.title || '';
+  const shouldRename = title.startsWith('新会话') || title.startsWith('New Session');
+  console.log('[shouldAutoRename] title:', title, 'shouldRename:', shouldRename);
+  return shouldRename;
 }
 
-function doAutoRename(sessionId: string, content: string): void {
-  const title = content.length > 30 ? content.slice(0, 30) + '…' : content;
-  useSessionStore.getState().renameSession(sessionId, title);
+async function doAutoRename(sessionId: string, userMessage: string, assistantResponse: string): Promise<void> {
+  console.log('[doAutoRename] Starting auto-rename for session:', sessionId);
+  console.log('[doAutoRename] User message:', userMessage.slice(0, 50), '...');
+  
+  try {
+    const title = await sessionService.generateTitle(sessionId, userMessage, assistantResponse);
+    console.log('[doAutoRename] Backend returned title:', title);
+    
+    if (title) {
+      console.log('[doAutoRename] Renaming session to:', title);
+      useSessionStore.getState().renameSession(sessionId, title);
+    } else {
+      console.log('[doAutoRename] Backend returned null, using fallback');
+      const fallbackTitle = userMessage.length > 30 ? userMessage.slice(0, 30) + '…' : userMessage;
+      useSessionStore.getState().renameSession(sessionId, fallbackTitle);
+    }
+  } catch (error) {
+    console.warn('[doAutoRename] Failed to generate title from backend, using fallback', error);
+    const fallbackTitle = userMessage.length > 30 ? userMessage.slice(0, 30) + '…' : userMessage;
+    useSessionStore.getState().renameSession(sessionId, fallbackTitle);
+  }
 }
 
 function generateBlockId(): string {
@@ -73,13 +107,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     try {
       const response = await chatService.sendMessage(content, sessionId);
-      if (shouldAutoRename(sessionId)) {
-        doAutoRename(sessionId!, content);
-      }
       set({
         messages: [...get().messages, response],
         isLoading: false,
       });
+      if (shouldAutoRename(sessionId)) {
+        await doAutoRename(sessionId!, content, response.content);
+      }
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }
@@ -197,7 +231,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({ isLoading: false, isStreaming: false });
 
       if (shouldAutoRename(sessionId)) {
-        doAutoRename(sessionId!, content);
+        const finalMessages = get().messages;
+        const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
+        const assistantResponse = finalMsgIdx !== -1 ? finalMessages[finalMsgIdx].content : '';
+        await doAutoRename(sessionId!, content, assistantResponse);
       }
     } catch (error) {
       set({ error: String(error), isLoading: false, isStreaming: false });

@@ -14,6 +14,12 @@ export interface Message {
   session_id: string;
   tool_calls?: ToolCall[];
   blocks?: MessageBlock[];
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd?: number;
+  };
 }
 
 export interface MessageBlock {

@@ -6,8 +6,8 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
+import { resolveGovernanceDir } from '@modules/config/paths';
 
 /**
  * 治理策略管理服务类
@@ -56,16 +56,7 @@ class GovernanceStrategyManager extends EventEmitter {
    * 获取策略文件路径
    */
   getStrategiesPath() {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const strategiesDir = join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      'config',
-      'strategies'
-    );
-    return join(strategiesDir, 'governance_strategies.json');
+    return join(resolveGovernanceDir(), 'governance_strategies.json');
   }
 
   /**

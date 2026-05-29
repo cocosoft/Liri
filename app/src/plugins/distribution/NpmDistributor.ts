@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { execSync } from 'node:child_process';
 import {
   existsSync,
@@ -46,7 +47,7 @@ export class NpmDistributor {
   private registry: string;
 
   constructor(pluginsDir?: string, registry?: string) {
-    this.pluginsDir = pluginsDir || join(process.cwd(), 'plugins');
+    this.pluginsDir = pluginsDir || join(resolveProjectRoot(), 'plugins');
     this.registry = registry || 'https://registry.npmjs.org/';
     this.ensurePluginsDir();
   }

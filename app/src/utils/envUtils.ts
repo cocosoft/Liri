@@ -2,6 +2,9 @@
  * 环境变量工具函数
  */
 
+import { homedir } from 'os';
+import { join } from 'path';
+
 /**
  * 检查环境变量是否为真值
  */
@@ -39,9 +42,5 @@ export function isProdMode(): boolean {
  * 获取配置文件的主目录
  */
 export function getConfigHomeDir(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE;
-  if (!homeDir) {
-    return process.cwd();
-  }
-  return `${homeDir}/.pyapp`;
+  return join(homedir(), '.pyapp');
 }

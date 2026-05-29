@@ -11,6 +11,7 @@ import {
 import { ChatSession } from '../types/session';
 import { ChatSession as ChatSessionImpl } from '../sessions/chatSession';
 import { join } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import {
   readdirSync,
   writeFileSync,
@@ -238,7 +239,7 @@ export function createChatService(
   const defaultConfig: ChatServiceConfig = {
     defaultModel: AIModelType.GPT_3_5_TURBO,
     defaultHistoryLimit: 100,
-    storagePath: join(process.cwd(), 'chat_sessions'),
+    storagePath: join(resolveProjectRoot(), 'chat_sessions'),
     autoSave: true,
   };
 

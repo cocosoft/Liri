@@ -39,6 +39,7 @@ import {
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
 import { RegistrationStub } from './stub/RegistrationStub';
+import { ClawHubAdapter } from '@modules/services/clawhub/ClawHubAdapter';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
@@ -254,32 +255,44 @@ export class PluginSystem {
     );
 
     // 配置核心 PluginRegistry 回退加载器（§5 向后兼容性保障 — 措施3）
-    // 当 getPlugin() 在注册表中查找失败时，自动从内置插件列表回退加载
+    // 链式回退策略：先查内置插件，再查 ClawHub 已安装技能
     const bundledManager = new BundledPluginManager();
     const bundledMeta = bundledManager.scan();
-    this.registry.setFallback((pluginId: string) => {
-      const match = bundledMeta.find((p) => p.name === pluginId);
-      if (!match) return undefined;
 
-      return {
-        id: pluginId,
-        name: match.name,
-        version: match.version,
-        path: match.entryPoint,
-        state: PluginState.LOADED,
-        registeredAt: new Date(),
-        enabled: match.enabled,
-        dependencies: [],
-        dependents: [],
-      };
+    const clawhubFallback = ClawHubAdapter.getInstance().createFallbackLoader();
+
+    this.registry.setFallback((pluginId: string) => {
+      // 第一级：内置插件回退
+      const match = bundledMeta.find((p) => p.name === pluginId);
+      if (match) {
+        return {
+          id: pluginId,
+          name: match.name,
+          version: match.version,
+          path: match.entryPoint,
+          state: PluginState.LOADED,
+          registeredAt: new Date(),
+          enabled: match.enabled,
+          dependencies: [],
+          dependents: [],
+        };
+      }
+
+      // 第二级：ClawHub 已安装技能回退
+      return clawhubFallback(pluginId);
     });
 
     logger.info('插件系统已就绪（延迟加载模式）');
     logger.info('内核服务注册完成', {
       services: this._kernelRegistry.getRegisteredServices().length,
     });
-    logger.info('内置插件回退加载器已配置', {
+    // 将 PluginRegistry 注入 ClawHubAdapter，使已安装技能注册到插件系统
+    const clawhub = ClawHubAdapter.getInstance();
+    clawhub.setPluginRegistry(this.registry);
+
+    logger.info('链式回退加载器已配置', {
       bundledPlugins: bundledMeta.length,
+      clawhubEnabled: true,
     });
   }
 

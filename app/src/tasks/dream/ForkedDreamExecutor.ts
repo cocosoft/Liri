@@ -1,6 +1,7 @@
 import { fork, ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 export interface ForkedDreamConfig {
   thinkingPrompt: string;
@@ -34,7 +35,7 @@ export class ForkedDreamExecutor extends EventEmitter {
 
   private init(): Promise<ForkedDreamResult> {
     const workerPath =
-      this.config.workerScript || path.resolve(__dirname, 'dreamWorker.js');
+      this.config.workerScript || path.join(resolveProjectRoot(), 'app', 'src', 'tasks', 'dream', 'dreamWorker.js');
 
     return new Promise((resolve) => {
       const child = fork(workerPath, [], {

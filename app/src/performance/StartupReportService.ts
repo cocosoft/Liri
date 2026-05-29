@@ -5,7 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * 启动报告配置
@@ -302,7 +302,7 @@ export class StartupReportService {
     const deps: Record<string, string> = {};
 
     try {
-      const packageJsonPath = path.join(process.cwd(), 'package.json');
+      const packageJsonPath = path.join(resolveProjectRoot(), 'package.json');
       if (fs.existsSync(packageJsonPath)) {
         const packageJson = JSON.parse(
           fs.readFileSync(packageJsonPath, 'utf8')

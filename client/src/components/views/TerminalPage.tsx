@@ -1,10 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface TerminalLine {
   id: string;
   type: 'input' | 'output' | 'error';
   content: string;
   timestamp: number;
+}
+
+interface CommandResult {
+  success: boolean;
+  output: string;
+  error: string;
 }
 
 function TerminalPage() {
@@ -18,7 +24,7 @@ function TerminalPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    addLine('欢迎使用 PY_APP 终端模拟器', 'output');
+    addLine('欢迎使用 PY_APP 终端', 'output');
     addLine('输入 help 查看可用命令', 'output');
     addLine('', 'output');
   }, []);
@@ -27,13 +33,33 @@ function TerminalPage() {
     terminalRef.current?.scrollTo(0, terminalRef.current.scrollHeight);
   }, [lines]);
 
-  const addLine = (content: string, type: TerminalLine['type']) => {
+  const addLine = useCallback((content: string, type: TerminalLine['type']) => {
     setLines((prev) => [...prev, {
       id: crypto.randomUUID(),
       type,
       content,
       timestamp: Date.now(),
     }]);
+  }, []);
+
+  const executeBackendCommand = async (command: string): Promise<CommandResult> => {
+    try {
+      const response = await fetch('http://localhost:1420/v1/commands/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command }),
+      });
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : '网络错误',
+      };
+    }
   };
 
   const executeCommand = async (cmd: string) => {
@@ -43,61 +69,68 @@ function TerminalPage() {
     setHistory((prev) => [cmd, ...prev].slice(0, 50));
     setHistoryIndex(-1);
 
-    const trimmedCmd = cmd.trim().toLowerCase();
-    const args = cmd.trim().split(/\s+/).slice(1);
+    const trimmedCmd = cmd.trim();
     setIsExecuting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    if (trimmedCmd === 'help') {
-      addLine('可用命令:', 'output');
-      addLine('  help     - 显示帮助信息', 'output');
-      addLine('  clear    - 清除终端', 'output');
-      addLine('  pwd      - 显示当前目录', 'output');
-      addLine('  cd <dir> - 切换目录', 'output');
-      addLine('  ls       - 列出文件', 'output');
-      addLine('  echo     - 显示文本', 'output');
-      addLine('  date     - 显示当前时间', 'output');
-      addLine('  whoami   - 显示当前用户', 'output');
-      addLine('  env      - 显示环境变量', 'output');
-    } else if (trimmedCmd === 'clear') {
-      setLines([]);
-    } else if (trimmedCmd === 'pwd') {
-      addLine(cwd === '~' ? '/home/user' : cwd, 'output');
-    } else if (trimmedCmd.startsWith('cd ')) {
+    // 处理 cd 命令（客户端维护目录状态）
+    if (trimmedCmd.startsWith('cd ')) {
+      const args = trimmedCmd.split(/\s+/).slice(1);
       const target = args[0];
       if (target === '..') {
         setCwd((prev) => prev === '~' ? '~' : prev.split('/').slice(0, -1).join('/') || '~');
       } else if (target === '~' || target === '/') {
         setCwd('~');
       } else {
-        setCwd((prev) => `${prev}/${target}`);
+        setCwd((prev) => `${prev === '~' ? '' : prev}/${target}`);
       }
       addLine('', 'output');
-    } else if (trimmedCmd === 'ls') {
-      addLine('drwxr-xr-x  2 user  staff   160 May 28 10:00 .', 'output');
-      addLine('drwxr-xr-x  4 user  staff   160 May 28 10:00 ..', 'output');
-      addLine('-rw-r--r--  1 user  staff  1024 May 28 10:00 README.md', 'output');
-      addLine('drwxr-xr-x  3 user  staff   160 May 28 10:00 src', 'output');
-      addLine('-rw-r--r--  1 user  staff  2048 May 28 10:00 package.json', 'output');
-    } else if (trimmedCmd.startsWith('echo ')) {
-      addLine(args.join(' '), 'output');
-    } else if (trimmedCmd === 'date') {
-      addLine(new Date().toLocaleString('zh-CN'), 'output');
-    } else if (trimmedCmd === 'whoami') {
-      addLine('user', 'output');
-    } else if (trimmedCmd === 'env') {
-      addLine('PATH=/usr/local/bin:/usr/bin:/bin', 'output');
-      addLine('HOME=/home/user', 'output');
-      addLine('SHELL=/bin/bash', 'output');
-      addLine('TERM=xterm-256color', 'output');
-    } else if (trimmedCmd.startsWith('npm ') || trimmedCmd.startsWith('npx ') || trimmedCmd.startsWith('git ')) {
-      addLine(`模拟执行: ${cmd}`, 'output');
-      addLine('(终端模拟器仅用于预览，实际命令执行由后端处理)', 'output');
-    } else {
-      addLine(`bash: ${trimmedCmd.split(' ')[0]}: command not found`, 'error');
+      setIsExecuting(false);
+      return;
     }
 
+    // 处理 clear 命令
+    if (trimmedCmd === 'clear' || trimmedCmd === '/clear') {
+      setLines([]);
+      setIsExecuting(false);
+      return;
+    }
+
+    // 处理 pwd 命令
+    if (trimmedCmd === 'pwd' || trimmedCmd === '/pwd') {
+      addLine(cwd === '~' ? '/home/user' : cwd, 'output');
+      setIsExecuting(false);
+      return;
+    }
+
+    // 处理 date 命令
+    if (trimmedCmd === 'date' || trimmedCmd === '/date') {
+      addLine(new Date().toLocaleString('zh-CN'), 'output');
+      setIsExecuting(false);
+      return;
+    }
+
+    // 处理 whoami 命令
+    if (trimmedCmd === 'whoami' || trimmedCmd === '/whoami') {
+      addLine('user', 'output');
+      setIsExecuting(false);
+      return;
+    }
+
+    // 其他命令发送到后端执行
+    const result = await executeBackendCommand(trimmedCmd);
+
+    if (result.success) {
+      if (result.output) {
+        const outputLines = result.output.split('\n');
+        outputLines.forEach((line: string) => {
+          addLine(line, 'output');
+        });
+      }
+    } else {
+      addLine(result.error || 'Command execution failed', 'error');
+    }
+
+    addLine('', 'output');
     setIsExecuting(false);
   };
 
@@ -188,6 +221,7 @@ function TerminalPage() {
             disabled={isExecuting}
             className="flex-1 bg-transparent text-white font-mono text-sm outline-none"
             autoFocus
+            placeholder={isExecuting ? '执行中...' : ''}
           />
         </div>
       </div>

@@ -109,9 +109,9 @@ export interface PermissionContext {
 export class PermissionManager {
   private static instance: PermissionManager;
   private rules: Map<string, PermissionRule> = new Map();
-  private defaultAllow: boolean = false;
+  private defaultAllow: boolean = true;
 
-  constructor(defaultAllow: boolean = false) {
+  constructor(defaultAllow: boolean = true) {
     this.defaultAllow = defaultAllow;
   }
 
@@ -390,7 +390,7 @@ export class PermissionManager {
  * 创建权限管理�?
  */
 export function createPermissionManager(
-  defaultAllow: boolean = false
+  defaultAllow: boolean = true
 ): PermissionManager {
   return new PermissionManager(defaultAllow);
 }

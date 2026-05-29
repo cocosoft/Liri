@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -88,9 +89,9 @@ export class UserContextService {
    */
   async findUserContextFile(): Promise<string | null> {
     const possibleFiles = [
-      path.join(process.cwd(), 'PY_APP.md'),
-      path.join(process.cwd(), 'CLAUDE.md'),
-      path.join(process.cwd(), '.claude.md'),
+      path.join(resolveProjectRoot(), 'PY_APP.md'),
+      path.join(resolveProjectRoot(), 'CLAUDE.md'),
+      path.join(resolveProjectRoot(), '.claude.md'),
     ];
 
     for (const file of possibleFiles) {

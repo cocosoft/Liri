@@ -7,6 +7,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveDataDir } from '../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -30,7 +31,7 @@ export class SessionMigration {
   private stateDir: string;
 
   constructor(stateDir?: string) {
-    this.stateDir = stateDir || process.cwd();
+    this.stateDir = stateDir || join(resolveDataDir(), 'sessions', '.migration');
   }
 
   registerMigration(migration: MigrationVersion): void {

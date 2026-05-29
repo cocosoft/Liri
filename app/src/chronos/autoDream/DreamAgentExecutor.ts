@@ -2,6 +2,7 @@ import { fork, ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -63,7 +64,7 @@ export class DreamAgentExecutor extends EventEmitter {
   }
 
   private execute(): Promise<DreamExecutionResult> {
-    const workerPath = path.resolve(__dirname, 'consolidationWorker.js');
+    const workerPath = path.join(resolveProjectRoot(), 'app', 'src', 'chronos', 'autoDream', 'consolidationWorker.js');
     const startTime = Date.now();
     const maxDuration = DEFAULT_MAX_DURATION_MS;
 

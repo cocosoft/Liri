@@ -2,13 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveMemoryDir } from '@modules/config/paths';
 
-export function getAutoMemPath(cwd: string = process.cwd()): string {
+export function getAutoMemPath(): string {
   return path.join(resolveMemoryDir(), 'MEMORY.md');
 }
 
-export function isAutoMemoryEnabled(cwd: string = process.cwd()): boolean {
+export function isAutoMemoryEnabled(): boolean {
   if (process.env.PY_APP_DISABLE_AUTO_MEMORY === 'true') return false;
-  return fs.existsSync(getAutoMemPath(cwd));
+  return fs.existsSync(getAutoMemPath());
 }
 
 export function hasAutoMemPathOverride(): boolean {

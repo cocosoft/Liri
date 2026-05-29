@@ -5,6 +5,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
@@ -67,7 +68,7 @@ export class PluginInstallPaths {
 
   constructor(basePath?: string) {
     this.basePath =
-      basePath || path.join(process.cwd(), 'plugins', 'installed');
+      basePath || path.join(resolveProjectRoot(), 'plugins', 'installed');
   }
 
   getBasePath(): string {

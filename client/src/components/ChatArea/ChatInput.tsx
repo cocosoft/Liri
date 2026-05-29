@@ -45,8 +45,9 @@ function ChatInput() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, isLoading, clearMessages } = useChatStore();
-  const { currentSession } = useSessionStore();
+  const { currentSession, createSession } = useSessionStore();
   const { config, setConfig } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
 
@@ -148,7 +149,6 @@ function ChatInput() {
    */
   const handleSubmit = async () => {
     const trimmed = input.trim();
-    if (!currentSession) return;
 
     const matched = slashCommands.find((cmd) => cmd.key === trimmed);
     if (matched) {
@@ -162,6 +162,13 @@ function ChatInput() {
     setIsUploading(true);
 
     try {
+      let sessionId = currentSession?.id;
+      
+      if (!sessionId) {
+        const newSession = await createSession('新会话');
+        sessionId = newSession.id;
+      }
+
       const uploadedPaths: string[] = [];
 
       for (const file of attachments) {
@@ -180,7 +187,7 @@ function ChatInput() {
       }
 
       if (messageContent) {
-        await streamMessage(messageContent, currentSession.id);
+        await streamMessage(messageContent, sessionId);
       }
 
       setInput('');
@@ -234,61 +241,53 @@ function ChatInput() {
 
   return (
     <div
-      className="p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+      className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors ${
+        isDragOver ? 'ring-2 ring-blue-400 ring-inset' : ''
+      }`}
       onDrop={handleFileDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <div className="flex items-center gap-2 mb-2">
-        <ModelSelector
-          selectedModel={selectedModel}
-          onModelChange={(modelId) => setConfig('model', modelId)}
-        />
-      </div>
-
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
-          {attachments.map((file, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300"
-            >
-              <span className="truncate max-w-[120px]">{file.name}</span>
-              <span className="text-blue-400 dark:text-blue-500">({formatFileSize(file.size)})</span>
-              <button
-                onClick={() => handleRemoveFile(i)}
-                className="ml-0.5 text-blue-400 hover:text-blue-600 dark:hover:text-blue-200"
-                title="移除"
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div
-        className={`relative flex space-x-3 rounded-lg transition-colors ${
-          isDragOver ? 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''
-        }`}
-      >
-        <div className="flex-1 relative">
-          <textarea
-            value={input}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              currentSession
-                ? '输入 / 查看命令，按 Enter 发送...'
-                : '请先选择或创建会话'
-            }
-            disabled={!currentSession || isSending}
-            className="w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-            rows={2}
+      <div className="max-w-4xl mx-auto">
+        {/* 模型选择器 */}
+        <div className="flex items-center gap-2 mb-3">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={(modelId) => setConfig('model', modelId)}
           />
+        </div>
 
+        {/* 附件列表 */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {attachments.map((file, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300"
+              >
+                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded flex items-center justify-center text-xs">📄</span>
+                <span className="truncate max-w-[120px]">{file.name}</span>
+                <span className="text-blue-400 dark:text-blue-500 text-xs">({formatFileSize(file.size)})</span>
+                <button
+                  onClick={() => handleRemoveFile(i)}
+                  className="ml-1 p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
+                  title="移除"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* 输入框区域 */}
+        <div className="relative">
+          {/* 命令提示 */}
           {showCommands && filteredCommands.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
+            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl overflow-hidden">
+              <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                快捷命令
+              </div>
               {filteredCommands.map((cmd, idx) => (
                 <button
                   key={cmd.key}
@@ -297,7 +296,7 @@ function ChatInput() {
                     setShowCommands(false);
                   }}
                   onMouseEnter={() => setCommandIndex(idx)}
-                  className={`w-full flex items-center gap-3 px-4 py-2 text-left text-sm transition-colors ${
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                     idx === commandIndex
                       ? 'bg-blue-50 dark:bg-blue-900/30'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -311,48 +310,106 @@ function ChatInput() {
               ))}
             </div>
           )}
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!currentSession || isSending}
-            className="p-2 text-gray-400 hover:text-blue-500 disabled:text-gray-300 dark:disabled:text-gray-600 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-            title="上传文件"
-          >
-            📎
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <VoiceInputButton isDark={config.theme === 'dark'} />
-          <button
-            onClick={handleSubmit}
-            disabled={!currentSession || isSending || (!input.trim() && attachments.length === 0)}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors font-medium"
-          >
-            {isUploading ? '上传中...' : '发送'}
-          </button>
-        </div>
-      </div>
+          {/* 输入框 */}
+          <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-xl p-1.5">
+            {/* 左侧按钮 */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!currentSession || isSending}
+                className="p-2 text-gray-500 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-400 dark:disabled:text-gray-600 rounded-lg transition-colors"
+                title="上传文件"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
 
-      {(isLoading || isUploading) && (
-        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          {isUploading ? '正在上传文件...' : '正在等待回复...'}
-        </div>
-      )}
+            {/* 文本输入 */}
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  currentSession
+                    ? '输入消息或 / 查看命令...'
+                    : '请先选择或创建会话'
+                }
+                disabled={!currentSession || isSending}
+                className="w-full px-3 py-2.5 bg-transparent resize-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:cursor-not-allowed"
+                rows={1}
+                style={{ minHeight: '40px', maxHeight: '200px' }}
+              />
+            </div>
 
-      {isDragOver && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-blue-500 font-medium bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg">
-            拖放文件以上传
+            {/* 右侧按钮 */}
+            <div className="flex items-center gap-1">
+              <VoiceInputButton isDark={config.theme === 'dark'} />
+              <button
+                onClick={handleSubmit}
+                disabled={!currentSession || isSending || (!input.trim() && attachments.length === 0)}
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>上传中</span>
+                  </>
+                ) : isLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>发送中</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    <span>发送</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      )}
+
+        {/* 状态提示 */}
+        {(isLoading || isUploading) && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{isUploading ? '正在上传文件...' : '正在思考中...'}</span>
+          </div>
+        )}
+
+        {/* 拖拽提示 */}
+        {isDragOver && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-blue-400 px-6 py-3 rounded-xl shadow-lg">
+              <span className="text-blue-500 font-medium">放开放置文件</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

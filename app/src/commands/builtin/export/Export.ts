@@ -2,13 +2,13 @@
  * Export命令
  * 导出对话记录到文件
  *
- * 对标 CC 源码 cc_code/backend/commands/export/export.tsx
- * CC 中 export 使用 local-jsx 渲染 ExportDialog 组件，
+
  * PY_APP 扩展为纯文本子命令形式：/export [help|status]
  */
 
 import { join } from 'path';
 import { writeFileSync } from 'fs';
+import { resolveDataDir } from '@modules/config/paths';
 import type { CommandContext } from '@modules/commands/types';
 
 interface MsgLike {
@@ -217,7 +217,7 @@ async function handleStatus(context: CommandContext) {
       '==============',
       '',
       `对话消息数: ${msgCount}`,
-      `工作目录: ${process.cwd()}`,
+      `导出目录: ${resolveDataDir()}`,
       `默认编码: UTF-8`,
       `支持格式: 纯文本 (.txt), JSON (.json)`,
       '',
@@ -232,7 +232,7 @@ async function handleStatus(context: CommandContext) {
 async function handleJsonExport(context: CommandContext) {
   const timestamp = formatTimestamp(new Date());
   const filename = `conversation-${timestamp}.json`;
-  const filepath = join(process.cwd(), filename);
+  const filepath = join(resolveDataDir(), filename);
 
   const messages = (context.messages || []) as MsgLike[];
 
@@ -277,7 +277,7 @@ async function handleExport(filenameArg: string, context: CommandContext) {
     const finalFilename = filenameArg.endsWith('.txt')
       ? filenameArg
       : filenameArg.replace(/\.[^.]+$/, '') + '.txt';
-    filepath = join(process.cwd(), finalFilename);
+    filepath = join(resolveDataDir(), finalFilename);
   } else {
     const firstPrompt = extractFirstPrompt(context);
     const timestamp = formatTimestamp(new Date());
@@ -292,7 +292,7 @@ async function handleExport(filenameArg: string, context: CommandContext) {
       defaultFilename = `conversation-${timestamp}.txt`;
     }
 
-    filepath = join(process.cwd(), defaultFilename);
+    filepath = join(resolveDataDir(), defaultFilename);
   }
 
   writeFileSync(filepath, content, { encoding: 'utf-8' });

@@ -1,13 +1,13 @@
 /**
  * 文件系统安全审计模块
  * 检查敏感路径权限、Windows ACL、密钥文件暴露
- * 对齐 OpenClaw security/audit-fs.ts
- */
+  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -52,7 +52,7 @@ const UNSAFE_WORLD_ACCESSIBLE = 0o777;
  */
 export function auditFilesystem(workspaceDir?: string): SecurityAuditFinding[] {
   const findings: SecurityAuditFinding[] = [];
-  const scanDir = workspaceDir || process.cwd();
+  const scanDir = workspaceDir || resolveProjectRoot();
 
   try {
     auditSensitivePathPermissions(scanDir, findings);

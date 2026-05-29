@@ -11,26 +11,25 @@ import {
   mkdirSync,
 } from 'fs';
 import { dirname, join } from 'path';
+import { resolveChronosDir } from '@modules/config/paths';
 import type { SchedulerLock } from './types';
 
-const LOCK_FILE_DIR = '.pyapp';
 const LOCK_FILE_NAME = 'scheduler.lock';
 
 /**
  * 获取锁文件路径
  */
 export function getLockFilePath(dir?: string): string {
-  const baseDir = dir ?? process.cwd();
-  return join(baseDir, LOCK_FILE_DIR, LOCK_FILE_NAME);
+  const baseDir = dir ?? resolveChronosDir();
+  return join(baseDir, LOCK_FILE_NAME);
 }
 
 /**
  * 确保锁目录存在
  */
 function ensureLockDir(dir: string): void {
-  const lockDir = join(dir, LOCK_FILE_DIR);
-  if (!existsSync(lockDir)) {
-    mkdirSync(lockDir, { recursive: true });
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
   }
 }
 
@@ -77,7 +76,7 @@ async function tryCreateExclusiveLock(
   lock: SchedulerLock,
   dir?: string
 ): Promise<boolean> {
-  const baseDir = dir ?? process.cwd();
+  const baseDir = dir ?? resolveChronosDir();
   ensureLockDir(baseDir);
   const lockPath = getLockFilePath(baseDir);
 

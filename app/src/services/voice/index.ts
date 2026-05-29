@@ -38,6 +38,12 @@ import type {
   VoiceEventType,
   VoiceEvent,
   VoiceEventListener,
+  STTProviderType,
+  STTResult,
+  STTSegment,
+  STTConfig,
+  STTTranscribeOptions,
+  STTStreamOptions,
 } from './models/types';
 
 // 导出语音相关类型
@@ -55,10 +61,30 @@ export type {
   VoiceEventType,
   VoiceEvent,
   VoiceEventListener,
+  STTProviderType,
+  STTResult,
+  STTSegment,
+  STTConfig,
+  STTTranscribeOptions,
+  STTStreamOptions,
 };
 
 // 导出语音服务类
 export { VoiceService, createVoiceService };
+
+// 导出 STT 提供者系统
+export { STTRegistry } from './services/sttRegistry';
+export type { STTProvider, STTStreamConnection } from './services/sttProvider';
+
+// 导出 STT 提供者实现
+export { LocalSTTProvider } from './services/localSTTProvider';
+export type { LocalSTTConfig } from './services/localSTTProvider';
+
+export { CloudSTTProvider } from './services/cloudSTTProvider';
+export type { CloudSTTConfig } from './services/cloudSTTProvider';
+
+export { StreamSTTProvider } from './services/streamSTTProvider';
+export type { StreamSTTConfig } from './services/streamSTTProvider';
 
 // 导出语音关键词
 export { getVoiceKeyterms, splitIdentifier } from './voiceKeyterms';

@@ -6,8 +6,8 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { join, dirname } from 'path';
+import { resolveConfigDir } from '@modules/config/paths';
 
 /**
  * 会话级钩子匹配器
@@ -91,8 +91,7 @@ class SessionHookManager extends EventEmitter {
    * 获取配置路径
    */
   private getConfigPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..', 'config', 'session_hooks.json');
+    return join(resolveConfigDir(), 'session_hooks.json');
   }
 
   /**

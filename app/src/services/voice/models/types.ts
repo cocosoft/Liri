@@ -108,6 +108,99 @@ export interface VoiceInputResult {
   duration: number;
 }
 
+// ===================================================================
+// STT（语音转文字）类型
+// ===================================================================
+
+/**
+ * STT 提供者类型
+ */
+export type STTProviderType = 'local' | 'cloud' | 'stream';
+
+/**
+ * STT 转录选项
+ */
+export interface STTTranscribeOptions {
+  /** 语言代码（如 zh-CN、en-US） */
+  language?: string;
+  /** 关键词/短语提示列表 */
+  keyterms?: string[];
+  /** 模型名称 */
+  model?: string;
+  /** 是否启用自动标点 */
+  punctuation?: boolean;
+  /** 请求超时（毫秒） */
+  timeout?: number;
+}
+
+/**
+ * STT 流式转录选项
+ */
+export interface STTStreamOptions {
+  /** 语言代码 */
+  language?: string;
+  /** 关键词/短语提示列表 */
+  keyterms?: string[];
+  /** 模型名称 */
+  model?: string;
+  /** 是否返回中间结果 */
+  interimResults?: boolean;
+  /** 语音结束检测超时（毫秒） */
+  endpointingMs?: number;
+  /** 语句结束超时（毫秒） */
+  utteranceEndMs?: number;
+}
+
+/**
+ * STT 转录结果
+ */
+export interface STTResult {
+  /** 转录文本 */
+  text: string;
+  /** 置信度（0-1） */
+  confidence: number;
+  /** 是否为最终结果（流式场景） */
+  isFinal: boolean;
+  /** 音频时长（秒） */
+  duration?: number;
+  /** 语言代码 */
+  language?: string;
+  /** 提供者名称 */
+  provider?: string;
+  /** 各语段详细结果 */
+  segments?: STTSegment[];
+}
+
+/**
+ * STT 语段详情
+ */
+export interface STTSegment {
+  /** 语段文本 */
+  text: string;
+  /** 起始时间（秒） */
+  start: number;
+  /** 结束时间（秒） */
+  end: number;
+  /** 置信度 */
+  confidence: number;
+}
+
+/**
+ * STT 配置
+ */
+export interface STTConfig {
+  /** 默认提供者 ID */
+  defaultProvider?: string;
+  /** 默认语言 */
+  language?: string;
+  /** 默认模型 */
+  model?: string;
+  /** 关键词列表 */
+  keyterms?: string[];
+  /** 是否启用自动标点 */
+  punctuation?: boolean;
+}
+
 /**
  * 语音输出选项（来自 VoiceService.ts）
  */
@@ -132,6 +225,14 @@ export interface VoiceServiceConfig {
   silenceThreshold?: string | number;
   silenceDuration?: string | number;
   language?: string;
+  /** 默认 STT 提供者 ID */
+  sttProvider?: string;
+  /** STT 语言 */
+  sttLanguage?: string;
+  /** STT 模型名称 */
+  sttModel?: string;
+  /** STT 关键词列表 */
+  sttKeyterms?: string[];
 }
 
 // ===================================================================

@@ -12,6 +12,7 @@ import {
 } from './SubAgent';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -55,7 +56,7 @@ export class ProcessSubAgent implements SubAgent {
     try {
       // 准备启动参数
       const executable = this.config.executable || process.execPath;
-      const args = this.config.args || [join(__dirname, 'process-subagent.js')];
+      const args = this.config.args || [join(resolveProjectRoot(), 'app', 'src', 'subagent', 'types', 'process-subagent.js')];
       const cwd = this.config.cwd || process.cwd();
       const env = {
         ...process.env,

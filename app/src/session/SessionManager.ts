@@ -17,6 +17,7 @@ import type {
 } from './qos/SessionPriority';
 import { BudgetTracker } from './budget/BudgetTracker';
 import { BudgetEnforcer } from './budget/BudgetEnforcer';
+import { resolvePyappHome } from '@modules/config/paths';
 import type {
   SessionTokenBudgetConfig,
   BudgetDecision,
@@ -80,7 +81,7 @@ export class SessionManager {
 
   constructor(config: SessionManagerConfig = {}) {
     this.config = {
-      storageRootDir: config.storageRootDir ?? './data/sessions',
+      storageRootDir: config.storageRootDir ?? require('path').join(resolvePyappHome(), 'sessions'),
       maxCacheSize: config.maxCacheSize ?? 100,
       enablePruner: config.enablePruner ?? true,
       enableMigration: config.enableMigration ?? true,

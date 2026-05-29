@@ -6,6 +6,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -55,7 +56,7 @@ export function auditModelHygiene(
   workspaceDir?: string
 ): SecurityAuditFinding[] {
   const findings: SecurityAuditFinding[] = [];
-  const scanDir = workspaceDir || process.cwd();
+  const scanDir = workspaceDir || resolveProjectRoot();
 
   try {
     auditApiKeyExposure(scanDir, findings);

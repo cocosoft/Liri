@@ -7,7 +7,7 @@ import { join } from 'path';
 import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -215,7 +215,7 @@ export class MemdirService {
     ];
 
     for (const fileName of projectFiles) {
-      const filePath = join(process.cwd(), fileName);
+      const filePath = join(resolveProjectRoot(), fileName);
 
       if (existsSync(filePath)) {
         try {

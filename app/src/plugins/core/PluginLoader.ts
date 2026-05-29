@@ -5,6 +5,7 @@
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginState,
@@ -36,7 +37,7 @@ export class PluginLoader extends EventEmitter {
     super();
 
     this.options = {
-      pluginDirectories: [join(process.cwd(), 'plugins')],
+      pluginDirectories: [join(resolveProjectRoot(), 'plugins')],
       autoLoad: true,
       autoActivate: false,
       validationEnabled: true,

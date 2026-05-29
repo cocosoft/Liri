@@ -4,6 +4,7 @@
  */
 import path from 'node:path';
 import os from 'node:os';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 /**
  * 内部缓存文件模式（禁止 Agent 读取）
@@ -36,11 +37,11 @@ export const SENSITIVE_CONFIG_FILES: string[] = (() => {
     path.join(home, '.netrc'),
     path.join(home, '.npmrc'),
     path.join(home, '.docker', 'config.json'),
-    path.join(process.cwd(), '.env'),
-    path.join(process.cwd(), '.env.local'),
-    path.join(process.cwd(), '.env.production'),
-    path.join(process.cwd(), 'credentials.json'),
-    path.join(process.cwd(), 'service-account.json'),
+    path.join(resolveProjectRoot(), '.env'),
+    path.join(resolveProjectRoot(), '.env.local'),
+    path.join(resolveProjectRoot(), '.env.production'),
+    path.join(resolveProjectRoot(), 'credentials.json'),
+    path.join(resolveProjectRoot(), 'service-account.json'),
   ];
 })();
 

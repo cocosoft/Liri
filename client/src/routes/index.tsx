@@ -13,6 +13,9 @@ const BuddyPage = lazy(() => import('../components/views/BuddyPage'));
 const FileExplorerPage = lazy(() => import('../components/views/FileExplorerPage'));
 const LoginPage = lazy(() => import('../components/views/LoginPage'));
 const ApiKeyPage = lazy(() => import('../components/views/ApiKeyPage'));
+const STTTestPage = lazy(() => import('../components/views/STTTestPage'));
+const SkillMarketPage = lazy(() => import('../components/views/SkillMarketPage'));
+const MCPMarketPage = lazy(() => import('../components/views/MCPMarketPage'));
 
 export const routes: RouteObject[] = [
   {
@@ -62,6 +65,18 @@ export const routes: RouteObject[] = [
   {
     path: '/buddy',
     element: <BuddyPage />,
+  },
+  {
+    path: '/voice-stt',
+    element: <STTTestPage />,
+  },
+  {
+    path: '/skill-market',
+    element: <SkillMarketPage />,
+  },
+  {
+    path: '/mcp-market',
+    element: <MCPMarketPage />,
   },
 ];
 

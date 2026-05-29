@@ -6,6 +6,7 @@
 
 import { Worker } from 'worker_threads';
 import { join } from 'path';
+import { resolveProjectRoot } from '@modules/config/paths';
 import {
   Sandbox,
   SandboxConfig,
@@ -120,7 +121,7 @@ export class WorkerSandbox implements Sandbox {
     if (this.workerConfig.workerScript) {
       return this.workerConfig.workerScript;
     }
-    return join(__dirname, 'worker-script.js');
+    return join(resolveProjectRoot(), 'app', 'src', 'sandbox', 'worker-script.js');
   }
 
   /**

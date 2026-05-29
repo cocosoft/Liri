@@ -36,13 +36,30 @@ function SettingsPage() {
     return () => clearInterval(interval);
   }, []);
 
+  interface DataDirectoryResponse {
+    currentDirectory: string;
+    configuredDirectory: string | null;
+    defaultDirectory: string;
+  }
+
+  interface SetDataDirectoryResponse {
+    success: boolean;
+    message: string;
+    directory: string;
+    migration?: {
+      copied: number;
+      skipped: number;
+      errors: string[];
+    };
+  }
+
   const loadDataDirectory = async () => {
     try {
-      const response = await http.get('/v1/settings/data-directory');
-      if (response && response.data) {
-        setDataDirectory(response.data.currentDirectory || '');
-        setConfiguredDirectory(response.data.configuredDirectory || null);
-        setDefaultDirectory(response.data.defaultDirectory || '');
+      const response = await http.get<DataDirectoryResponse>('/v1/settings/data-directory');
+      if (response) {
+        setDataDirectory(response.currentDirectory || '');
+        setConfiguredDirectory(response.configuredDirectory || null);
+        setDefaultDirectory(response.defaultDirectory || '');
       }
     } catch (e) {
       console.error('加载数据目录失败', e);
@@ -60,16 +77,16 @@ function SettingsPage() {
     setMigrationResult(null);
 
     try {
-      const response = await http.put('/v1/settings/data-directory', {
+      const response = await http.put<SetDataDirectoryResponse>('/v1/settings/data-directory', {
         directory: dataDirectory,
         migrate: migrateData,
       });
 
-      if (response && response.data?.success) {
+      if (response && response.success) {
         setConfiguredDirectory(dataDirectory);
         setDataDirSaved(true);
-        if (response.data.migration) {
-          setMigrationResult(response.data.migration);
+        if (response.migration) {
+          setMigrationResult(response.migration);
         }
         setTimeout(() => {
           setDataDirSaved(false);

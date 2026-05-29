@@ -2,6 +2,25 @@ import { http } from './httpClient';
 
 export type VoiceProvider = 'gemini' | 'openai' | 'webapi';
 
+export interface STTResult {
+  text: string;
+  confidence: number;
+  isFinal: boolean;
+  duration?: number;
+  language?: string;
+  timing: {
+    elapsed: number;
+    unit: string;
+  };
+  provider: {
+    id: string;
+    name: string;
+    type: string;
+    available?: boolean;
+  } | null;
+  status?: string;
+}
+
 export interface VoiceState {
   isRecording: boolean;
   isProcessing: boolean;
@@ -120,6 +139,45 @@ const voiceService = {
   async testWakeWord(wakeWordId: string): Promise<boolean> {
     const response = await http.post<{ detected: boolean }>(`/api/voice/wakeword/${wakeWordId}/test`);
     return response.detected;
+  },
+
+  /**
+   * STT 语音转录
+   * 将音频数据发送到后端进行语音识别
+   * @param audioBlob 音频 Blob 数据
+   * @param options 转录选项
+   */
+  async transcribe(
+    audioBlob: Blob,
+    options?: {
+      providerId?: string;
+      language?: string;
+      keyterms?: string[];
+    }
+  ): Promise<STTResult> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = async () => {
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+
+          const response = await http.post<STTResult>('/v1/voice/transcribe', {
+            audioData: base64,
+            providerId: options?.providerId,
+            language: options?.language,
+            keyterms: options?.keyterms,
+          });
+
+          resolve(response);
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      reader.onerror = () => reject(new Error('读取音频文件失败'));
+      reader.readAsDataURL(audioBlob);
+    });
   },
 };
 

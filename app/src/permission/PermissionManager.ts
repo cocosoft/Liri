@@ -392,8 +392,8 @@ export class PermissionManager {
       );
     }
 
-    // 没有规则匹配，默认询问
-    return createAskDecision('No matching rules, requiring user approval');
+    // 没有规则匹配，默认允许
+    return createAllowDecision('No matching rules, default allowing');
   }
 
   /**
@@ -489,8 +489,8 @@ export class PermissionManager {
       }
     } catch (error) {
       logger.error('Auto classifier error:', { error });
-      // 分类器出错时，回退到询问
-      return createAskDecision('Classifier error, requiring user approval');
+      // 分类器出错时，回退到允许
+      return createAllowDecision('Classifier error, default allowing');
     }
   }
 

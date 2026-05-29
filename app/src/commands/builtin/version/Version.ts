@@ -8,6 +8,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
+import { resolveProjectRoot } from '@modules/config/paths';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands/types';
 
@@ -25,7 +26,7 @@ function readPackageInfo(): Record<string, unknown> {
   }
 
   try {
-    const packagePath = join(process.cwd(), 'package.json');
+    const packagePath = join(resolveProjectRoot(), 'package.json');
     if (existsSync(packagePath)) {
       const content = readFileSync(packagePath, 'utf8');
       cachedPackage = JSON.parse(content);

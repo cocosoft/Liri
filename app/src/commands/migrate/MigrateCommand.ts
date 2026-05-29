@@ -1,7 +1,6 @@
 /**
  * Migrate命令
  * 跨版本配置升级和迁移
- * 对齐 OpenClaw commands/migrate.ts
  */
 
 import type {
@@ -18,6 +17,7 @@ import {
   copyFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -63,8 +63,7 @@ const migrate: Command = {
         context?: CommandContext
       ): Promise<CommandResult> {
         try {
-          const cwd = process.cwd();
-          const configDir = join(cwd, 'config');
+          const configDir = join(resolveProjectRoot(), 'config');
           const dryRun = args.includes('--dry-run');
           const report = await runMigrations(configDir, dryRun);
 

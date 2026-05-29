@@ -7,8 +7,8 @@
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { resolveLogsDir } from '@modules/config/paths';
 
 /**
  * 治理审计服务类
@@ -58,9 +58,7 @@ class GovernanceAuditService extends EventEmitter {
    * 获取审计文件路径
    */
   getAuditPath() {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const auditDir = join(__dirname, '..', '..', '..', 'logs', 'audit');
-    return join(auditDir, 'governance_audit.json');
+    return join(resolveLogsDir(), 'audit', 'governance_audit.json');
   }
 
   /**

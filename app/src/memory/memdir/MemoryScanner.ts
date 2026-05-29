@@ -9,6 +9,7 @@ import { existsSync } from 'fs';
 import type { MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -410,7 +411,7 @@ export class MemdirMemoryScanner {
       return MemoryLayer.USER;
     }
 
-    if (directory === process.cwd()) {
+    if (directory === resolveProjectRoot()) {
       return MemoryLayer.PROJECT;
     }
 

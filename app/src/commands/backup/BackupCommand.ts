@@ -1,7 +1,6 @@
 /**
  * Backup命令
  * 备份配置、数据、会话到tar.gz压缩包
- * 对齐 OpenClaw commands/backup.ts
  */
 
 import type {
@@ -20,6 +19,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
+import { resolveProjectRoot, resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -47,7 +47,7 @@ const backup: Command = {
         context?: CommandContext
       ): Promise<CommandResult> {
         try {
-          const outputDir = args.trim() || join(process.cwd(), 'backups');
+          const outputDir = args.trim() || join(resolveDataDir(), 'backups');
           const result = await createBackup(outputDir);
           return {
             success: true,
@@ -87,12 +87,12 @@ async function createBackup(
     sessions: 0,
   };
 
-  const cwd = process.cwd();
+  const projectRoot = resolveProjectRoot();
 
   // 备份配置
   const configDirs = ['config', 'configs'];
   for (const dir of configDirs) {
-    const srcDir = join(cwd, dir);
+    const srcDir = join(projectRoot, dir);
     if (existsSync(srcDir)) {
       const destDir = join(backupDir, dir);
       mkdirSync(destDir, { recursive: true });
@@ -103,7 +103,7 @@ async function createBackup(
   // 备份数据
   const dataDirs = ['data'];
   for (const dir of dataDirs) {
-    const srcDir = join(cwd, dir);
+    const srcDir = join(projectRoot, dir);
     if (existsSync(srcDir)) {
       const destDir = join(backupDir, dir);
       mkdirSync(destDir, { recursive: true });
@@ -112,14 +112,14 @@ async function createBackup(
   }
 
   // 备份 .env.example
-  const envExample = join(cwd, '.env.example');
+  const envExample = join(projectRoot, '.env.example');
   if (existsSync(envExample)) {
     copyFileSync(envExample, join(backupDir, '.env.example'));
     manifest.configs.push('.env.example');
   }
 
   // 备份 package.json
-  const pkgJson = join(cwd, 'package.json');
+  const pkgJson = join(projectRoot, 'package.json');
   if (existsSync(pkgJson)) {
     copyFileSync(pkgJson, join(backupDir, 'package.json'));
     manifest.files.push('package.json');

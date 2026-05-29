@@ -4,7 +4,7 @@ import { useConfigStore } from '../../stores/configStore';
 import { chatService } from '../../services/chatService';
 import { appConfigService } from '../../services/appConfigService';
 import { setBackendPort as setBackendUrlPort } from '../../services/backendUrl';
-import { httpClient } from '../../services/httpClient';
+import { http } from '../../services/httpClient';
 import type { BackendStatus } from '../../types';
 
 function SettingsPage() {
@@ -38,7 +38,7 @@ function SettingsPage() {
 
   const loadDataDirectory = async () => {
     try {
-      const response = await httpClient.get('/v1/settings/data-directory');
+      const response = await http.get('/v1/settings/data-directory');
       if (response && response.data) {
         setDataDirectory(response.data.currentDirectory || '');
         setConfiguredDirectory(response.data.configuredDirectory || null);
@@ -60,7 +60,7 @@ function SettingsPage() {
     setMigrationResult(null);
 
     try {
-      const response = await httpClient.put('/v1/settings/data-directory', {
+      const response = await http.put('/v1/settings/data-directory', {
         directory: dataDirectory,
         migrate: migrateData,
       });
@@ -83,7 +83,7 @@ function SettingsPage() {
 
   const handleResetDataDirectory = async () => {
     try {
-      await httpClient.put('/v1/settings/data-directory', {
+      await http.put('/v1/settings/data-directory', {
         directory: defaultDirectory,
         migrate: migrateData,
       });

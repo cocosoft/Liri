@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Session } from '../types';
 import { sessionService } from '../services/sessionService';
+import { useChatStore } from './chatStore';
 
 interface SessionStore {
   sessions: Session[];
@@ -48,9 +49,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   switchSession: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      await sessionService.switch(id);
-      const session = get().sessions.find((s) => s.id === id);
-      set({ currentSession: session || null, isLoading: false });
+      const session = await sessionService.switch(id);
+      const messages = await sessionService.getMessages(id);
+      useChatStore.getState().setMessages(messages);
+      set({ currentSession: session, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }

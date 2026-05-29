@@ -7,7 +7,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { resolveAttachmentsDir } from '../config/paths';
+import { resolveAttachmentsDir, resolveDataSubDir } from '../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -36,6 +36,7 @@ export interface Attachment {
  */
 export class AttachmentManager {
   private attachmentsDir: string;
+  private fallbackDir: string;
 
   /**
    * 构造函数
@@ -43,10 +44,34 @@ export class AttachmentManager {
    */
   constructor(attachmentsDir: string = resolveAttachmentsDir()) {
     this.attachmentsDir = attachmentsDir;
+    this.fallbackDir = resolveDataSubDir('attachments');
 
-    // 确保目录存在
-    if (!existsSync(this.attachmentsDir)) {
-      mkdirSync(this.attachmentsDir, { recursive: true });
+    // 确保目录存在，如果失败则使用回退目录
+    if (!this.ensureDirectoryExists(this.attachmentsDir)) {
+      logger.warn(`无法创建用户附件目录 ${this.attachmentsDir}，使用回退目录 ${this.fallbackDir}`);
+      this.attachmentsDir = this.fallbackDir;
+      this.ensureDirectoryExists(this.attachmentsDir);
+    }
+  }
+
+  /**
+   * 确保目录存在
+   * @param dirPath 目录路径
+   * @returns 是否成功创建/存在
+   */
+  private ensureDirectoryExists(dirPath: string): boolean {
+    try {
+      if (!existsSync(dirPath)) {
+        mkdirSync(dirPath, { recursive: true });
+      }
+      // 验证可写性
+      const testFile = join(dirPath, '.write_test');
+      writeFileSync(testFile, '');
+      unlinkSync(testFile);
+      return true;
+    } catch (error) {
+      logger.error(`无法创建或写入目录 ${dirPath}:`, error);
+      return false;
     }
   }
 
@@ -109,13 +134,29 @@ export class AttachmentManager {
     const id = `attach_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     // 生成文件路径
-    const filePath = join(this.attachmentsDir, `${id}_${name}`);
+    let filePath = join(this.attachmentsDir, `${id}_${name}`);
 
     // 确保目录存在
     mkdirSync(dirname(filePath), { recursive: true });
 
-    // 写入文件
-    writeFileSync(filePath, data);
+    // 写入文件，失败时尝试回退目录
+    try {
+      writeFileSync(filePath, data);
+    } catch (error) {
+      logger.error(`写入附件失败 ${filePath}:`, error);
+      
+      // 尝试使用回退目录
+      if (this.attachmentsDir !== this.fallbackDir) {
+        logger.warn(`尝试使用回退目录 ${this.fallbackDir}`);
+        this.ensureDirectoryExists(this.fallbackDir);
+        filePath = join(this.fallbackDir, `${id}_${name}`);
+        writeFileSync(filePath, data);
+        // 更新当前使用的目录
+        this.attachmentsDir = this.fallbackDir;
+      } else {
+        throw new Error(`无法保存附件: ${(error as Error).message}`);
+      }
+    }
 
     // 创建附件对象
     const attachment: Attachment = {

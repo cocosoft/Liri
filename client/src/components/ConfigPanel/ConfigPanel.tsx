@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConfigStore } from '../../stores/configStore';
 import { chatService } from '../../services/chatService';
 import type { BackendStatus } from '../../types';
@@ -182,7 +183,8 @@ function BackendControl() {
 function ConfigPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'backend' | 'config'>('config');
-  const { config, loadConfig, setConfig } = useConfigStore();
+  const { config, loadConfig } = useConfigStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isOpen) {
@@ -197,16 +199,6 @@ function ConfigPanel() {
       document.documentElement.classList.remove('dark');
     }
   }, [config.theme]);
-
-  const handleChange = (key: string, value: string) => {
-    let parsedValue: unknown = value;
-
-    if (value === 'true') parsedValue = true;
-    else if (value === 'false') parsedValue = false;
-    else if (!isNaN(Number(value)) && value !== '') parsedValue = Number(value);
-
-    setConfig(key, parsedValue);
-  };
 
   return (
     <>
@@ -258,29 +250,14 @@ function ConfigPanel() {
               <ThemeToggle />
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">配置项</h3>
-                {Object.entries(config).map(([key, value]) => (
-                  <div key={key} className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {key}
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue={String(value)}
-                      onBlur={(e) => handleChange(key, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleChange(key, (e.target as HTMLInputElement).value);
-                        }
-                      }}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                ))}
-
-                {Object.keys(config).length === 0 && (
-                  <p className="text-gray-500 text-center py-4">暂无配置项</p>
-                )}
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">快捷操作</div>
+                <button
+                  onClick={() => { setIsOpen(false); navigate('/settings'); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm transition-colors"
+                >
+                  <span>⚙️</span>
+                  <span>打开完整设置</span>
+                </button>
               </div>
             </div>
           )}

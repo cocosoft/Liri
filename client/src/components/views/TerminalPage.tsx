@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 interface TerminalLine {
-  id: number;
+  id: string;
   type: 'input' | 'output' | 'error';
   content: string;
   timestamp: number;
@@ -17,8 +17,6 @@ function TerminalPage() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const lineIdRef = useRef(0);
-
   useEffect(() => {
     addLine('欢迎使用 PY_APP 终端模拟器', 'output');
     addLine('输入 help 查看可用命令', 'output');
@@ -30,9 +28,8 @@ function TerminalPage() {
   }, [lines]);
 
   const addLine = (content: string, type: TerminalLine['type']) => {
-    lineIdRef.current++;
     setLines((prev) => [...prev, {
-      id: lineIdRef.current,
+      id: crypto.randomUUID(),
       type,
       content,
       timestamp: Date.now(),

@@ -1,5 +1,11 @@
-import type { Message, BackendStatus } from '../types';
+import type { Message, BackendStatus, ToolCall } from '../types';
 import { getBackendBaseUrl, getBackendPort } from './backendUrl';
+
+export interface StreamChunk {
+  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done';
+  content: string;
+  toolCall?: ToolCall;
+}
 
 async function getTauriCore() {
   if (typeof window === 'undefined') {
@@ -94,6 +100,13 @@ export const chatService = {
   },
 
   sendMessage: async (content: string, sessionId?: string): Promise<Message> => {
+    const body: Record<string, unknown> = {
+      model: 'pyapp-default',
+      messages: [{ role: 'user', content }],
+      max_tokens: 2000,
+    };
+    if (sessionId) body.session_id = sessionId;
+
     const response = await fetchJSON<{
       id: string;
       choices: Array<{
@@ -102,11 +115,7 @@ export const chatService = {
       }>;
     }>(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: 'POST',
-      body: JSON.stringify({
-        model: 'pyapp-default',
-        messages: [{ role: 'user', content }],
-        max_tokens: 2000,
-      }),
+      body: JSON.stringify(body),
     });
 
     const choice = response.choices[0];
@@ -119,18 +128,21 @@ export const chatService = {
     };
   },
 
-  streamMessage: async function* (content: string, _sessionId?: string): AsyncGenerator<string, void, unknown> {
+  streamMessage: async function* (content: string, sessionId?: string): AsyncGenerator<StreamChunk, void, unknown> {
+    const body: Record<string, unknown> = {
+      model: 'pyapp-default',
+      messages: [{ role: 'user', content }],
+      max_tokens: 2000,
+      stream: true,
+    };
+    if (sessionId) body.session_id = sessionId;
+
     const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'pyapp-default',
-        messages: [{ role: 'user', content }],
-        max_tokens: 2000,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -162,8 +174,39 @@ export const chatService = {
             const data = trimmed.slice(6);
             try {
               const chunk = JSON.parse(data);
-              if (chunk.choices?.[0]?.delta?.content) {
-                yield chunk.choices[0].delta.content;
+
+              const pyappType = chunk.__pyapp_type;
+              if (pyappType === 'thinking') {
+                yield {
+                  type: 'thinking',
+                  content: chunk.choices?.[0]?.delta?.content || '',
+                };
+              } else if (pyappType === 'status') {
+                yield {
+                  type: 'status',
+                  content: chunk.choices?.[0]?.delta?.content || '',
+                };
+              } else if (pyappType === 'tool_call') {
+                const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
+                if (tc) {
+                  yield {
+                    type: 'tool_call',
+                    content: '',
+                    toolCall: {
+                      id: tc.id,
+                      name: tc.function?.name || '',
+                      arguments: typeof tc.function?.arguments === 'string'
+                        ? JSON.parse(tc.function.arguments || '{}')
+                        : (tc.function?.arguments || {}),
+                      status: 'running',
+                    },
+                  };
+                }
+              } else if (chunk.choices?.[0]?.delta?.content) {
+                yield {
+                  type: 'text',
+                  content: chunk.choices[0].delta.content,
+                };
               }
             } catch {
             }

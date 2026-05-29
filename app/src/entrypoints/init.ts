@@ -54,7 +54,7 @@ export function getStartupConfig(): StartupConfig | null {
   return _startupConfig;
 }
 
-// 记录入口�?
+// 记录入口�?// 记录入口
 profileCheckpoint('cli_entry');
 
 // 记录导入完成
@@ -62,6 +62,27 @@ profileCheckpoint('main_imports_loaded');
 
 // 记录环境变量加载
 profileCheckpoint('env_vars_loaded');
+
+/**
+ * 从用户设置加载数据目录配置
+ * 在应用启动时优先应用用户配置的数据目录
+ */
+async function loadUserDataDirectory(): Promise<void> {
+  try {
+    const { loadUserSettings } = await import('../config/settings/userSettings.js');
+    const { setUserDataDirOverride } = await import('../config/paths.js');
+    
+    const settings = loadUserSettings();
+    const dataDirectory = settings.dataDirectory as string | undefined;
+    
+    if (dataDirectory && typeof dataDirectory === 'string' && dataDirectory.trim()) {
+      setUserDataDirOverride(dataDirectory.trim());
+      logger.info(`用户数据目录已从设置加载: ${dataDirectory}`);
+    }
+  } catch (error) {
+    logger.debug('加载用户数据目录配置失败（使用默认值）', { error });
+  }
+}
 
 export async function init(): Promise<void> {
   // 记录初始化开�?
@@ -81,12 +102,17 @@ export async function init(): Promise<void> {
   profileCheckpoint('startup_config_load_end');
   getStartupChainProfiler().markPhaseEnd('startup_config');
 
-  // 1. 启用配置系统
-  profileCheckpoint('load_settings_start');
-  getStartupChainProfiler().markPhaseStart('config_load');
-  enableConfigs();
-  profileCheckpoint('load_settings_end');
-  getStartupChainProfiler().markPhaseEnd('config_load');
+  // 1. 加载用户数据目录配置（在配置系统启用前）
+    profileCheckpoint('load_user_data_dir_start');
+    await loadUserDataDirectory();
+    profileCheckpoint('load_user_data_dir_end');
+
+    // 2. 启用配置系统
+    profileCheckpoint('load_settings_start');
+    getStartupChainProfiler().markPhaseStart('config_load');
+    enableConfigs();
+    profileCheckpoint('load_settings_end');
+    getStartupChainProfiler().markPhaseEnd('config_load');
 
   // 2. 设置优雅关闭
   profileCheckpoint('setup_graceful_shutdown_start');

@@ -4,6 +4,7 @@ import { useConfigStore } from '../../stores/configStore';
 import { chatService } from '../../services/chatService';
 import { appConfigService } from '../../services/appConfigService';
 import { setBackendPort as setBackendUrlPort } from '../../services/backendUrl';
+import { httpClient } from '../../services/httpClient';
 import type { BackendStatus } from '../../types';
 
 function SettingsPage() {
@@ -17,15 +18,83 @@ function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [backendPort, setBackendPort] = useState('7890');
   const [portSaved, setPortSaved] = useState(false);
+  const [dataDirectory, setDataDirectory] = useState('');
+  const [configuredDirectory, setConfiguredDirectory] = useState<string | null>(null);
+  const [defaultDirectory, setDefaultDirectory] = useState('');
+  const [dataDirSaved, setDataDirSaved] = useState(false);
+  const [dataDirError, setDataDirError] = useState<string | null>(null);
+  const [migrateData, setMigrateData] = useState(true);
+  const [migrationResult, setMigrationResult] = useState<{ copied: number; skipped: number; errors: string[] } | null>(null);
 
   const isDark = config.theme === 'dark';
 
   useEffect(() => {
     loadPersistedPort();
+    loadDataDirectory();
     checkBackendStatus();
     const interval = setInterval(checkBackendStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadDataDirectory = async () => {
+    try {
+      const response = await httpClient.get('/v1/settings/data-directory');
+      if (response && response.data) {
+        setDataDirectory(response.data.currentDirectory || '');
+        setConfiguredDirectory(response.data.configuredDirectory || null);
+        setDefaultDirectory(response.data.defaultDirectory || '');
+      }
+    } catch (e) {
+      console.error('加载数据目录失败', e);
+    }
+  };
+
+  const handleSaveDataDirectory = async () => {
+    if (!dataDirectory.trim()) {
+      setDataDirError('目录路径不能为空');
+      return;
+    }
+
+    setDataDirSaved(false);
+    setDataDirError(null);
+    setMigrationResult(null);
+
+    try {
+      const response = await httpClient.put('/v1/settings/data-directory', {
+        directory: dataDirectory,
+        migrate: migrateData,
+      });
+
+      if (response && response.data?.success) {
+        setConfiguredDirectory(dataDirectory);
+        setDataDirSaved(true);
+        if (response.data.migration) {
+          setMigrationResult(response.data.migration);
+        }
+        setTimeout(() => {
+          setDataDirSaved(false);
+          setMigrationResult(null);
+        }, 5000);
+      }
+    } catch (e: any) {
+      setDataDirError(e.response?.data?.error?.message || '保存失败');
+    }
+  };
+
+  const handleResetDataDirectory = async () => {
+    try {
+      await httpClient.put('/v1/settings/data-directory', {
+        directory: defaultDirectory,
+        migrate: migrateData,
+      });
+      setDataDirectory(defaultDirectory);
+      setConfiguredDirectory(null);
+      setDataDirSaved(true);
+      setTimeout(() => setDataDirSaved(false), 3000);
+    } catch (e) {
+      console.error('重置数据目录失败', e);
+    }
+  };
 
   const loadPersistedPort = async () => {
     try {
@@ -347,6 +416,100 @@ function SettingsPage() {
                 <span>🔐</span>
                 <span className="text-sm text-gray-700 dark:text-gray-300">权限管理</span>
               </button>
+            </div>
+          </div>
+
+          {/* 数据存储 */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              数据存储
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  用户数据目录
+                </label>
+                <input
+                  type="text"
+                  value={dataDirectory}
+                  onChange={(e) => setDataDirectory(e.target.value)}
+                  placeholder="请输入数据目录路径"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {configuredDirectory && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    当前已配置自定义目录
+                  </p>
+                )}
+                {!configuredDirectory && defaultDirectory && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    默认目录: {defaultDirectory}
+                  </p>
+                )}
+                {dataDirError && (
+                  <p className="text-xs text-red-500 mt-1">{dataDirError}</p>
+                )}
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="migrateData"
+                    checked={migrateData}
+                    onChange={(e) => setMigrateData(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="migrateData" className="text-sm text-gray-700 dark:text-gray-300">
+                    迁移现有数据
+                  </label>
+                </div>
+              </div>
+              
+              {migrationResult && (
+                <div className={`p-3 rounded ${
+                  migrationResult.errors.length > 0 
+                    ? 'bg-yellow-50 dark:bg-yellow-900/20' 
+                    : 'bg-green-50 dark:bg-green-900/20'
+                }`}>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    数据迁移完成：
+                    <span className="font-medium"> {migrationResult.copied}</span> 个文件已迁移，
+                    <span className="font-medium"> {migrationResult.skipped}</span> 个文件已存在（跳过）
+                  </p>
+                  {migrationResult.errors.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-red-500">迁移错误:</p>
+                      {migrationResult.errors.slice(0, 3).map((err, idx) => (
+                        <p key={idx} className="text-xs text-red-500">{err}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveDataDirectory}
+                  className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+                >
+                  应用
+                </button>
+                {configuredDirectory && (
+                  <button
+                    onClick={handleResetDataDirectory}
+                    className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded"
+                  >
+                    恢复默认
+                  </button>
+                )}
+                {dataDirSaved && !migrationResult && (
+                  <span className="text-xs text-green-500">已保存</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                注意：勾选"迁移现有数据"选项后，系统将自动将原目录中的文件复制到新目录。已存在的文件不会被覆盖。
+              </p>
             </div>
           </div>
 

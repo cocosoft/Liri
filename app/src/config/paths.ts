@@ -12,7 +12,7 @@
 
 import { homedir } from 'os';
 import { join, resolve } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 
 // ─── 环境变量键名 ─────────────────────────────
 
@@ -20,18 +20,64 @@ const ENV_PYAPP_HOME = 'PYAPP_HOME';
 const ENV_PYAPP_PROJECT_DIR = 'PYAPP_PROJECT_DIR';
 const ENV_PYAPP_DATA_DIR = 'PYAPP_DATA_DIR';
 
+// ─── 全局配置存储 ─────────────────────────────
+
+let userDataDirOverride: string | null = null;
+
+/**
+ * 设置用户数据目录覆盖值
+ * @param dir 目录路径，设置为 null 则使用默认值
+ */
+export function setUserDataDirOverride(dir: string | null): void {
+  userDataDirOverride = dir;
+}
+
+/**
+ * 获取用户数据目录覆盖值
+ */
+export function getUserDataDirOverride(): string | null {
+  return userDataDirOverride;
+}
+
 // ─── 基础目录解析（可注入 thunk 便于测试） ────
 
 /**
  * 获取用户主目录
- * 可通过 PYAPP_HOME 环境变量覆盖
+ * 优先级：
+ * 1. 用户设置中配置的数据目录
+ * 2. PYAPP_HOME 环境变量
+ * 3. 默认：项目安装目录下的 app/data/pyapp（优先）或用户目录下的 .pyapp（备选）
  */
 export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
+  // 1. 优先使用运行时设置的目录
+  if (userDataDirOverride) {
+    return resolve(userDataDirOverride);
+  }
+  
+  // 2. 环境变量覆盖
   const override = env[ENV_PYAPP_HOME]?.trim();
   if (override) {
     return resolve(override);
   }
-  return join(homedir(), '.pyapp');
+  
+  // 3. 默认：优先使用项目目录下的 app/data/pyapp
+  const projectDataDir = join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
+  
+  // 检查项目目录是否可写
+  try {
+    if (!existsSync(projectDataDir)) {
+      mkdirSync(projectDataDir, { recursive: true });
+    }
+    // 验证可写性
+    const testFile = join(projectDataDir, '.write_test');
+    const fs = require('fs');
+    fs.writeFileSync(testFile, '');
+    fs.unlinkSync(testFile);
+    return projectDataDir;
+  } catch {
+    // 项目目录不可写，回退到用户目录
+    return join(homedir(), '.pyapp');
+  }
 }
 
 /**

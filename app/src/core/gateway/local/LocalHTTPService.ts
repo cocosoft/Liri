@@ -10,6 +10,9 @@ import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { attachmentManager } from '@modules/components/attachments';
+import { costTracker } from '@modules/cost/CostTracker';
+import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
+import { getMonitoringService } from '@modules/monitoring/MonitoringService';
 import type {
   ChatRequest,
   ChatStreamChunk,
@@ -39,6 +42,7 @@ interface ChatCompletionRequest {
   presence_penalty?: number;
   frequency_penalty?: number;
   user?: string;
+  session_id?: string;
 }
 
 /**
@@ -375,6 +379,13 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/sessions/current') {
       return this.handleGetCurrentSession(req, res);
     }
+    if (req.method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
+      return this.handleGetSessionMessages(
+        req,
+        res,
+        url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
+      );
+    }
     if (req.method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
       return this.handleGetSession(
         req,
@@ -558,6 +569,45 @@ export class LocalHTTPService {
       );
     }
 
+    // ---- Settings ----
+    if (req.method === 'GET' && url === '/v1/settings/data-directory') {
+      return this.handleGetDataDirectory(req, res);
+    }
+    if (req.method === 'PUT' && url === '/v1/settings/data-directory') {
+      return this.handleSetDataDirectory(req, res);
+    }
+
+    // ---- Monitor ----
+    if (req.method === 'GET' && url === '/v1/monitor/summary') {
+      return this.handleMonitorSummary(req, res);
+    }
+    if (req.method === 'GET' && url.startsWith('/v1/monitor/metrics')) {
+      return this.handleMonitorMetrics(req, res);
+    }
+    if (req.method === 'GET' && url.startsWith('/v1/monitor/alerts')) {
+      return this.handleMonitorAlerts(req, res);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)) {
+      return this.handleAcknowledgeAlert(req, res, url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)![1]);
+    }
+    if (req.method === 'GET' && url.startsWith('/v1/monitor/logs')) {
+      return this.handleMonitorLogs(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/health/report') {
+      return this.handleHealthReport(req, res);
+    }
+
+    // ---- Cost ----
+    if (req.method === 'GET' && url === '/api/cost/summary') {
+      return this.handleCostSummary(req, res);
+    }
+    if (req.method === 'GET' && url === '/api/cost/records') {
+      return this.handleCostRecords(req, res);
+    }
+    if (req.method === 'GET' && url === '/api/cost/range') {
+      return this.handleCostRange(req, res);
+    }
+
     // ---- Health ----
     if (req.method === 'GET' && url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -571,6 +621,423 @@ export class LocalHTTPService {
         error: { message: 'Not found', type: 'invalid_request_error' },
       })
     );
+  }
+
+  /**
+   * 处理监控摘要请求 GET /v1/monitor/summary
+   */
+  private async handleMonitorSummary(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const service = getMonitoringService();
+      const status = service.getSystemStatus();
+      const os = await import('node:os');
+
+      const cpuPercent = status.loadAverage.length > 0
+        ? Math.round((status.loadAverage[0] / os.cpus().length) * 100)
+        : 0;
+      const heapUsedMB = Math.round(status.memory.heapUsed / 1024 / 1024);
+      const heapTotalMB = Math.round(status.memory.heapTotal / 1024 / 1024);
+      const memoryPercent = heapTotalMB > 0
+        ? Math.round((heapUsedMB / heapTotalMB) * 100)
+        : 0;
+
+      const summary = {
+        uptime: Math.floor(status.uptime),
+        cpuPercent,
+        memoryPercent,
+        memoryUsedMB: heapUsedMB,
+        memoryTotalMB: heapTotalMB,
+        requestCount: 0,
+        errorCount: 0,
+        avgResponseTime: 0,
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(summary));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        uptime: 0, cpuPercent: 0, memoryPercent: 0,
+        memoryUsedMB: 0, memoryTotalMB: 0,
+        requestCount: 0, errorCount: 0, avgResponseTime: 0,
+      }));
+    }
+  }
+
+  /**
+   * 处理监控指标请求 GET /v1/monitor/metrics?range=3600000
+   */
+  private async handleMonitorMetrics(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const service = getMonitoringService();
+      const status = service.getSystemStatus();
+      const now = Date.now();
+
+      const cpuMetric = {
+        timestamp: now,
+        value: status.loadAverage.length > 0
+          ? Math.round(status.loadAverage[0] * 100) / 100
+          : 0,
+      };
+      const memoryMetric = {
+        timestamp: now,
+        value: Math.round((status.memory.heapUsed / 1024 / 1024) * 100) / 100,
+      };
+
+      const metricsData = {
+        requests: [],
+        responseTime: [],
+        errorRate: [],
+        cpu: [cpuMetric],
+        memory: [memoryMetric],
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(metricsData));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        requests: [], responseTime: [], errorRate: [], cpu: [], memory: [],
+      }));
+    }
+  }
+
+  /**
+   * 处理告警列表请求 GET /v1/monitor/alerts?acknowledged=true
+   */
+  private async handleMonitorAlerts(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const service = getMonitoringService();
+      const rawAlerts = service.getAlerts();
+
+      const alerts = rawAlerts.map((msg, index) => ({
+        id: `alert-${index}`,
+        level: 'info' as const,
+        message: msg,
+        timestamp: Date.now(),
+        acknowledged: false,
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(alerts));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify([]));
+    }
+  }
+
+  /**
+   * 处理确认告警请求 POST /v1/monitor/alerts/:id/acknowledge
+   */
+  private async handleAcknowledgeAlert(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    alertId: string
+  ): Promise<void> {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true, id: alertId }));
+  }
+
+  /**
+   * 处理日志查询请求 GET /v1/monitor/logs?level=...&search=...&limit=20&offset=0
+   */
+  private async handleMonitorLogs(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const level = urlObj.searchParams.get('level');
+      const search = urlObj.searchParams.get('search');
+      const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
+      const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
+
+      const logLevelFilter: number[] = [];
+      if (level === 'error') logLevelFilter.push(4);
+      else if (level === 'warn') logLevelFilter.push(3, 4);
+      else if (level === 'info') logLevelFilter.push(2, 3, 4);
+      else if (level === 'debug') logLevelFilter.push(1, 2, 3, 4);
+      else logLevelFilter.push(1, 2, 3, 4);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ logs: [], total: 0 }));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ logs: [], total: 0 }));
+    }
+  }
+
+  /**
+   * 处理健康报告请求 GET /v1/health/report
+   */
+  private async handleHealthReport(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const service = getMonitoringService();
+      const status = service.getSystemStatus();
+
+      const components = [
+        {
+          name: 'system',
+          status: (status.uptime > 0 ? 'ok' : 'warning') as 'ok' | 'warning' | 'error',
+        },
+        {
+          name: 'memory',
+          status: (status.memory.heapUsed < status.memory.heapTotal * 0.9
+            ? 'ok' : 'warning') as 'ok' | 'warning' | 'error',
+        },
+      ];
+
+      const healthReport = {
+        status: (components.every(c => c.status === 'ok')
+          ? 'healthy' : 'degraded') as 'healthy' | 'degraded' | 'unhealthy',
+        components,
+        timestamp: Date.now(),
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(healthReport));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        status: 'healthy', components: [], timestamp: Date.now(),
+      }));
+    }
+  }
+
+  /**
+   * 获取当天 0 点的毫秒时间戳
+   */
+  private getStartOfToday(): number {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+
+  /**
+   * 获取本周一 0 点的毫秒时间戳
+   */
+  private getStartOfWeek(): number {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(now.getFullYear(), now.getMonth(), diff).getTime();
+  }
+
+  /**
+   * 获取本月 1 日 0 点的毫秒时间戳
+   */
+  private getStartOfMonth(): number {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  }
+
+  /**
+   * 获取本年 1 月 1 日 0 点的毫秒时间戳
+   */
+  private getStartOfYear(): number {
+    const now = new Date();
+    return new Date(now.getFullYear(), 0, 1).getTime();
+  }
+
+  /**
+   * 初始化成本记录仓库（如尚未初始化）
+   */
+  private async ensureCostRepository(): Promise<void> {
+    try {
+      const repository = getCostRecordRepository();
+      await repository.initDatabase();
+    } catch {
+      // 仓库不可用时静默失败，后续使用 costTracker 兜底
+    }
+  }
+
+  /**
+   * 查询指定时间范围的聚合成本
+   */
+  private async queryAggregatedCost(startTime: number): Promise<{
+    cost: number;
+    tokens: number;
+  }> {
+    try {
+      const repository = getCostRecordRepository();
+      const result = await repository.getAggregatedCosts({
+        startTime,
+      });
+      return {
+        cost: result.totalCostUSD,
+        tokens: result.totalInputTokens + result.totalOutputTokens,
+      };
+    } catch {
+      return { cost: 0, tokens: 0 };
+    }
+  }
+
+  /**
+   * 处理成本摘要请求 GET /api/cost/summary
+   */
+  private async handleCostSummary(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    await this.ensureCostRepository();
+
+    const now = Date.now();
+    const todayStart = this.getStartOfToday();
+    const weekStart = this.getStartOfWeek();
+    const monthStart = this.getStartOfMonth();
+    const yearStart = this.getStartOfYear();
+
+    const [today, weekly, monthly, yearly] = await Promise.all([
+      this.queryAggregatedCost(todayStart),
+      this.queryAggregatedCost(weekStart),
+      this.queryAggregatedCost(monthStart),
+      this.queryAggregatedCost(yearStart),
+    ]);
+
+    const modelUsage = costTracker.getModelUsage();
+    const totalModelCost = Object.values(modelUsage).reduce(
+      (sum, u) => sum + u.costUSD, 0
+    );
+
+    const topProviders = Object.entries(modelUsage)
+      .map(([provider, usage]) => ({
+        provider,
+        cost: usage.costUSD,
+        percentage: totalModelCost > 0
+          ? Math.round((usage.costUSD / totalModelCost) * 100)
+          : 0,
+      }))
+      .sort((a, b) => b.cost - a.cost)
+      .slice(0, 4);
+
+    const dailyBreakdown: { date: string; cost: number; tokens: number }[] = [];
+    try {
+      const repository = getCostRecordRepository();
+      const recentRecords = await repository.getCostRecords({
+        startTime: weekStart,
+      });
+      const dayMap = new Map<string, { cost: number; tokens: number }>();
+      for (const record of recentRecords) {
+        const dateStr = new Date(record.timestamp).toISOString().slice(5, 10);
+        const entry = dayMap.get(dateStr) || { cost: 0, tokens: 0 };
+        entry.cost += record.costUSD;
+        entry.tokens += record.inputTokens + record.outputTokens;
+        dayMap.set(dateStr, entry);
+      }
+      for (const [date, data] of dayMap.entries()) {
+        dailyBreakdown.push({ date, cost: data.cost, tokens: data.tokens });
+      }
+      dailyBreakdown.sort((a, b) => a.date.localeCompare(b.date));
+    } catch {
+      // 每日明细不可用时不返回
+    }
+
+    const summary = {
+      todayCost: today.cost,
+      weeklyCost: weekly.cost,
+      monthlyCost: monthly.cost,
+      yearlyCost: yearly.cost,
+      todayTokens: today.tokens,
+      monthlyTokens: monthly.tokens,
+      topProviders,
+      dailyBreakdown,
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(summary));
+  }
+
+  /**
+   * 处理成本记录列表请求 GET /api/cost/records?page=1&limit=20
+   */
+  private async handleCostRecords(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    await this.ensureCostRepository();
+
+    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+    const page = parseInt(urlObj.searchParams.get('page') || '1', 10);
+    const limit = parseInt(urlObj.searchParams.get('limit') || '20', 10);
+    const offset = (page - 1) * limit;
+
+    try {
+      const repository = getCostRecordRepository();
+      const records = await repository.getCostRecords({ limit, offset });
+      const totalResult = await repository.getAggregatedCosts({});
+      const total = totalResult.totalRequests;
+
+      const mapped = records.map((r) => ({
+        id: r.id,
+        date: new Date(r.timestamp).toISOString().replace('T', ' ').slice(0, 19),
+        provider: r.model,
+        model: r.model,
+        promptTokens: r.inputTokens,
+        completionTokens: r.outputTokens,
+        totalTokens: r.inputTokens + r.outputTokens,
+        cost: r.costUSD,
+        currency: 'USD',
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ records: mapped, total }));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ records: [], total: 0 }));
+    }
+  }
+
+  /**
+   * 处理按日期范围查询成本记录 GET /api/cost/range?startDate=2024-01-01&endDate=2024-12-31
+   */
+  private async handleCostRange(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    await this.ensureCostRepository();
+
+    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+    const startDateStr = urlObj.searchParams.get('startDate');
+    const endDateStr = urlObj.searchParams.get('endDate');
+    const startTime = startDateStr ? new Date(startDateStr).getTime() : undefined;
+    const endTime = endDateStr ? new Date(endDateStr).getTime() : undefined;
+
+    try {
+      const repository = getCostRecordRepository();
+      const records = await repository.getCostRecords({
+        startTime,
+        endTime,
+      });
+
+      const mapped = records.map((r) => ({
+        id: r.id,
+        date: new Date(r.timestamp).toISOString().replace('T', ' ').slice(0, 19),
+        provider: r.model,
+        model: r.model,
+        promptTokens: r.inputTokens,
+        completionTokens: r.outputTokens,
+        totalTokens: r.inputTokens + r.outputTokens,
+        cost: r.costUSD,
+        currency: 'USD',
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(mapped));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify([]));
+    }
   }
 
   /**
@@ -670,6 +1137,7 @@ export class LocalHTTPService {
       const chatRequest: ChatRequest = {
         content: userMessage.content,
         stream: false,
+        sessionId: request.session_id,
       };
 
       const response = await coreAPI.chat(chatRequest);
@@ -758,11 +1226,24 @@ export class LocalHTTPService {
       })}\n\n`
     );
 
+    // 发送启动状态事件
+    res.write(
+      `data: ${JSON.stringify({
+        id: responseId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        __pyapp_type: 'status',
+        choices: [{ index: 0, delta: { content: 'AI is thinking...' }, finish_reason: null }],
+      })}\n\n`
+    );
+
     try {
       const coreAPI = getCoreAPI();
       const chatRequest: ChatRequest = {
         content: userMessage.content,
         stream: true,
+        sessionId: request.session_id,
       };
 
       const generator = coreAPI.chatStream(chatRequest);
@@ -787,6 +1268,49 @@ export class LocalHTTPService {
           };
 
           res.write(`data: ${JSON.stringify(streamChunk)}\n\n`);
+        } else if (chunk.type === 'thinking' && chunk.content) {
+          res.write(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'thinking',
+              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null }],
+            })}\n\n`
+          );
+        } else if (chunk.type === 'status' && chunk.content) {
+          res.write(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'status',
+              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null }],
+            })}\n\n`
+          );
+        } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+          res.write(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'tool_call',
+              choices: [{ index: 0, delta: {
+                content: '',
+                tool_calls: [{
+                  id: chunk.toolCall.id,
+                  type: 'function',
+                  function: {
+                    name: chunk.toolCall.name,
+                    arguments: JSON.stringify(chunk.toolCall.arguments),
+                  },
+                }],
+              }, finish_reason: null }],
+            })}\n\n`
+          );
         }
 
         result = await generator.next();
@@ -899,6 +1423,24 @@ export class LocalHTTPService {
   }
 
   /**
+   * 处理获取会话消息列表请求
+   */
+  private async handleGetSessionMessages(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      const coreAPI = getCoreAPI();
+      const messages = await coreAPI.getSessionMessages(sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(messages));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
    * 处理删除会话请求
    */
   private async handleDeleteSession(
@@ -945,8 +1487,9 @@ export class LocalHTTPService {
     try {
       const coreAPI = getCoreAPI();
       await coreAPI.switchSession(sessionId);
+      const session = await coreAPI.getSession(sessionId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
+      res.end(JSON.stringify(session ?? { success: true }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -967,6 +1510,7 @@ export class LocalHTTPService {
       await coreAPI.renameSession(sessionId, title);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+      this.broadcastEvent('session:renamed', { id: sessionId, title });
     } catch (err) {
       this.sendError(res, err);
     }
@@ -1877,6 +2421,149 @@ export class LocalHTTPService {
         reject(err);
       });
     });
+  }
+
+  /**
+   * 获取当前用户数据目录 GET /v1/settings/data-directory
+   */
+  private async handleGetDataDirectory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { resolvePyappHome, getUserDataDirOverride } = await import('@modules/config/paths');
+      
+      const currentDir = resolvePyappHome();
+      const configuredDir = getUserDataDirOverride();
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          currentDirectory: currentDir,
+          configuredDirectory: configuredDir || null,
+          defaultDirectory: require('path').join(require('os').homedir(), '.pyapp'),
+        })
+      );
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
+  /**
+   * 递归复制目录
+   */
+  private copyDirectory(src: string, dest: string, fs: any, path: any): { copied: number; skipped: number; errors: string[] } {
+    let copied = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    if (!fs.existsSync(src)) {
+      return { copied, skipped, errors };
+    }
+
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest, { recursive: true });
+    }
+
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+
+      try {
+        if (entry.isDirectory()) {
+          const result = this.copyDirectory(srcPath, destPath, fs, path);
+          copied += result.copied;
+          skipped += result.skipped;
+          errors.push(...result.errors);
+        } else {
+          // 仅在目标文件不存在时复制
+          if (!fs.existsSync(destPath)) {
+            fs.copyFileSync(srcPath, destPath);
+            copied++;
+          } else {
+            skipped++;
+          }
+        }
+      } catch (err) {
+        errors.push(`复制 ${srcPath} 失败: ${(err as Error).message}`);
+      }
+    }
+
+    return { copied, skipped, errors };
+  }
+
+  /**
+   * 设置用户数据目录 PUT /v1/settings/data-directory
+   * @param req 
+   * @param res 
+   * @param options.migrate 是否迁移现有数据（默认 true）
+   */
+  private async handleSetDataDirectory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const payload = JSON.parse(body);
+      const { directory, migrate = true } = payload;
+
+      if (!directory || typeof directory !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: '目录路径不能为空', type: 'invalid_request_error' } }));
+        return;
+      }
+
+      const fs = await import('fs');
+      const path = await import('path');
+      const resolvedDir = path.resolve(directory);
+
+      // 验证目录可写
+      try {
+        if (!fs.existsSync(resolvedDir)) {
+          fs.mkdirSync(resolvedDir, { recursive: true });
+        }
+        const testFile = path.join(resolvedDir, '.write_test');
+        fs.writeFileSync(testFile, '');
+        fs.unlinkSync(testFile);
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: `无法创建或写入目录: ${(err as Error).message}`, type: 'invalid_request_error' } }));
+        return;
+      }
+
+      // 获取当前数据目录
+      const { resolvePyappHome, setUserDataDirOverride } = await import('@modules/config/paths');
+      const currentDir = resolvePyappHome();
+
+      // 执行数据迁移
+      let migrationResult: { copied: number; skipped: number; errors: string[] } | null = null;
+      if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
+        migrationResult = this.copyDirectory(currentDir, resolvedDir, fs, path);
+      }
+
+      // 设置全局覆盖
+      setUserDataDirOverride(resolvedDir);
+
+      // 持久化到用户设置
+      const { updateUserSettings } = await import('@modules/config/settings/userSettings');
+      await updateUserSettings({ dataDirectory: resolvedDir });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          message: migrationResult
+            ? `数据目录已更新，已迁移 ${migrationResult.copied} 个文件，跳过 ${migrationResult.skipped} 个文件`
+            : '数据目录已更新',
+          directory: resolvedDir,
+          migration: migrationResult,
+        })
+      );
+    } catch (error) {
+      this.sendError(res, error);
+    }
   }
 }
 

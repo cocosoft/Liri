@@ -1,3 +1,24 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
  * CoreAPI 实现
  * 串联现有的 ChatManager、ToolManager、Coordinator、ConverterEngine 等服务
@@ -131,15 +152,72 @@ export class CoreAPIImpl implements CoreAPI {
     let finalSessionId = request.sessionId || '';
     let finalMessageId = '';
 
+    yield {
+      type: 'status',
+      content: 'AI is analyzing your request...',
+      sessionId: finalSessionId,
+    } as ChatStreamChunk;
+
     try {
+      const pendingEvents: ChatStreamChunk[] = [];
+
       const generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
         metadata: request.metadata,
+        onToolCall: (phase, toolName, toolCallId, detail) => {
+          console.log(`[CoreAPIImpl] onToolCall triggered: phase=${phase}, tool=${toolName}, id=${toolCallId}, detail=${detail}`);
+          if (phase === 'start') {
+            pendingEvents.push({
+              type: 'status',
+              content: `🔧 Running tool: ${toolName}`,
+              sessionId: finalSessionId,
+            } as ChatStreamChunk);
+            if (detail && detail.length > 0) {
+              pendingEvents.push({
+                type: 'status',
+                content: `   └─ 参数: ${detail}`,
+                sessionId: finalSessionId,
+              } as ChatStreamChunk);
+            }
+          } else {
+            if (detail && detail.includes('失败')) {
+              pendingEvents.push({
+                type: 'status',
+                content: `❌ Tool ${toolName} failed`,
+                sessionId: finalSessionId,
+              } as ChatStreamChunk);
+              if (detail.length > 0) {
+                pendingEvents.push({
+                  type: 'status',
+                  content: `   └─ ${detail}`,
+                  sessionId: finalSessionId,
+                } as ChatStreamChunk);
+              }
+            } else {
+              pendingEvents.push({
+                type: 'status',
+                content: `✅ Tool ${toolName} completed successfully`,
+                sessionId: finalSessionId,
+              } as ChatStreamChunk);
+              if (detail && detail.length > 0 && !detail.includes('成功:')) {
+                pendingEvents.push({
+                  type: 'status',
+                  content: `   └─ ${detail}`,
+                  sessionId: finalSessionId,
+                } as ChatStreamChunk);
+              }
+            }
+          }
+        },
       });
 
       let result = await generator.next();
       while (!result.done) {
         const chunk = result.value;
+
+        while (pendingEvents.length > 0) {
+          yield pendingEvents.shift()!;
+        }
 
         if (typeof chunk === 'string') {
           fullContent += chunk;
@@ -149,9 +227,15 @@ export class CoreAPIImpl implements CoreAPI {
             content: chunk,
             sessionId: finalSessionId,
           } as ChatStreamChunk;
+        } else if (chunk) {
+          yield chunk as ChatStreamChunk;
         }
 
         result = await generator.next();
+      }
+
+      while (pendingEvents.length > 0) {
+        yield pendingEvents.shift()!;
       }
 
       const finalMessage = result.value;
@@ -167,6 +251,35 @@ export class CoreAPIImpl implements CoreAPI {
                 .join('');
 
         fullContent = finalContent || fullContent;
+
+        const toolCalls = (finalMessage as any).tool_calls;
+        if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
+          for (const tc of toolCalls) {
+            const fn = tc.function || tc;
+            const toolName = fn.name || '';
+            const toolArgs = typeof fn.arguments === 'string'
+              ? JSON.parse(fn.arguments || '{}')
+              : (fn.arguments || {});
+
+            yield {
+              type: 'status',
+              content: `📦 Tool result: ${toolName} — ${toolArgs && typeof toolArgs === 'object' ? JSON.stringify(toolArgs).slice(0, 80) : ''}`,
+              sessionId: finalSessionId,
+            } as ChatStreamChunk;
+
+            yield {
+              type: 'tool_call',
+              content: '',
+              sessionId: finalSessionId,
+              toolCall: {
+                id: tc.id || `tc_${Date.now()}`,
+                name: toolName,
+                arguments: toolArgs,
+                status: 'completed',
+              },
+            } as ChatStreamChunk;
+          }
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -302,6 +415,27 @@ export class CoreAPIImpl implements CoreAPI {
       messageCount: session.messages?.length || 0,
       metadata: session.metadata,
     };
+  }
+
+  async getSessionMessages(sessionId: string): Promise<Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: number;
+    tool_calls?: Array<Record<string, unknown>>;
+  }>> {
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      return [];
+    }
+
+    return (session.messages || []).map((msg) => ({
+      id: msg.id,
+      role: msg.role.toLowerCase(),
+      content: typeof msg.content === 'string' ? msg.content : '',
+      timestamp: msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
+      tool_calls: msg.tool_calls as Array<Record<string, unknown>> | undefined,
+    }));
   }
 
   async listSessions(): Promise<SessionInfo[]> {

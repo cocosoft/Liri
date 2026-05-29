@@ -1,3 +1,24 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -643,6 +664,53 @@ export class ChatManagerImpl implements ChatManager {
   async initialize(): Promise<void> {
     this.llmClient?.initialize();
     await this.sessionGateway.initialize();
+    await this._loadSessionsFromGateway();
+  }
+
+  private async _loadSessionsFromGateway(): Promise<void> {
+    try {
+      const storedSessions = await this.sessionGateway.listSessions();
+      for (const stored of storedSessions) {
+        if (this._chatSessions.has(stored.id)) continue;
+        const storedMessages = await this.sessionGateway.getMessages(stored.id);
+        const messages: Message[] = storedMessages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : '',
+          createdAt: new Date(m.timestamp),
+          updatedAt: new Date(m.timestamp),
+          sessionId: stored.id,
+          toolCallId: m.metadata?.toolCallId,
+        }));
+        const chatSession: ChatSession = {
+          id: stored.id,
+          title: stored.title,
+          state: this._mapSessionStatusToState(stored.status),
+          metadata: {
+            title: stored.title || '',
+            ...stored.metadata,
+            totalMessages: messages.length,
+            lastActivityAt: new Date(stored.lastActivityAt),
+          },
+          messages,
+          createdAt: new Date(stored.createdAt),
+          updatedAt: new Date(stored.updatedAt),
+        };
+        this._chatSessions.set(stored.id, chatSession);
+      }
+    } catch (e) {
+      logger.error('Failed to load sessions from gateway', { error: String(e) });
+    }
+  }
+
+  private _mapSessionStatusToState(status: string): SessionState {
+    switch (status) {
+      case 'active': case 'running': return SessionState.ACTIVE;
+      case 'paused': return SessionState.PAUSED;
+      case 'ended': case 'completed': case 'aborted': return SessionState.ENDED;
+      case 'archived': return SessionState.ARCHIVED;
+      default: return SessionState.ACTIVE;
+    }
   }
 
   /**
@@ -1903,11 +1971,19 @@ export class ChatManagerImpl implements ChatManager {
             );
           }
 
+          const argsStr = JSON.stringify(toolCall.arguments || {}).slice(0, 200);
+          options?.onToolCall?.('start', toolName, toolCall.id, argsStr);
+
           const toolResult = await this.executeTool({
             id: toolCall.id,
             name: toolName,
             arguments: toolCall.arguments,
           });
+
+          const resultDetail = toolResult.error
+            ? `失败: ${toolResult.error.slice(0, 200)}`
+            : `成功: ${(JSON.stringify(toolResult.result) ?? '').slice(0, 200)}`;
+          options?.onToolCall?.('end', toolName, toolCall.id, resultDetail);
 
           // 触发 ChatPostToolCall Hook
           await this.hookChainManager.execute('chat', {

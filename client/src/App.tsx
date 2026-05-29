@@ -115,7 +115,7 @@ function App() {
 
   useEffect(() => {
     if (sessions.length === 0 && !currentSession) {
-      createSession('第一个会话');
+      createSession('新会话 1');
     }
   }, [sessions.length, currentSession, createSession]);
 

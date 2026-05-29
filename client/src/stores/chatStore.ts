@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Message } from '../types';
+import { Message, MessageBlock } from '../types';
 import { chatService } from '../services/chatService';
+import { useSessionStore } from './sessionStore';
 
 interface ChatStore {
   messages: Message[];
@@ -12,6 +13,39 @@ interface ChatStore {
   streamMessage: (content: string, sessionId?: string) => Promise<void>;
   clearMessages: () => void;
   setMessages: (messages: Message[]) => void;
+}
+
+function shouldAutoRename(sessionId?: string): boolean {
+  if (!sessionId) return false;
+  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  return !!session && session.title.startsWith('新会话');
+}
+
+function doAutoRename(sessionId: string, content: string): void {
+  const title = content.length > 30 ? content.slice(0, 30) + '…' : content;
+  useSessionStore.getState().renameSession(sessionId, title);
+}
+
+function generateBlockId(): string {
+  return 'blk_' + crypto.randomUUID().slice(0, 8);
+}
+
+function findOrCreateBlock(
+  blocks: MessageBlock[],
+  type: MessageBlock['type'],
+  isStreaming: boolean
+): { blocks: MessageBlock[]; block: MessageBlock } {
+  let block = blocks.find((b) => b.type === type);
+  if (!block) {
+    block = {
+      id: generateBlockId(),
+      type,
+      content: '',
+      isStreaming,
+    };
+    blocks = [...blocks, block];
+  }
+  return { blocks, block };
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -39,6 +73,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     try {
       const response = await chatService.sendMessage(content, sessionId);
+      if (shouldAutoRename(sessionId)) {
+        doAutoRename(sessionId!, content);
+      }
       set({
         messages: [...get().messages, response],
         isLoading: false,
@@ -59,34 +96,109 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       session_id: sessionId || 'default',
     };
 
-    set({ messages: [...get().messages, userMessage] });
+    const assistantId = crypto.randomUUID();
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+      session_id: sessionId || 'default',
+      blocks: [],
+    };
+
+    set({ messages: [...get().messages, userMessage, assistantMessage] });
 
     try {
-      const assistantId = crypto.randomUUID();
-      const assistantMessage: Message = {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now(),
-        session_id: sessionId || 'default',
-      };
-
-      set({ messages: [...get().messages, assistantMessage] });
-
       const generator = chatService.streamMessage(content, sessionId);
 
       for await (const chunk of generator) {
         const current = get().messages;
-        set({
-          messages: current.map((m) =>
-            m.id === assistantId
-              ? { ...m, content: m.content + chunk }
-              : m
-          ),
-        });
+        const msgIdx = current.findIndex((m) => m.id === assistantId);
+
+        if (msgIdx === -1) continue;
+
+        const msg = current[msgIdx];
+        let updatedMsg: Message;
+
+        if (chunk.type === 'text') {
+          const { blocks, block } = findOrCreateBlock(msg.blocks || [], 'text', true);
+          const newBlock: MessageBlock = { ...block, content: block.content + chunk.content, isStreaming: true };
+          const newBlocks = blocks.map((b) => (b.id === block.id ? newBlock : b));
+          updatedMsg = { ...msg, content: msg.content + chunk.content, blocks: newBlocks };
+        } else if (chunk.type === 'thinking') {
+          const { blocks, block } = findOrCreateBlock(msg.blocks || [], 'thinking', true);
+          const newBlock: MessageBlock = { ...block, content: block.content + chunk.content, isStreaming: true };
+          const newBlocks = blocks.map((b) => (b.id === block.id ? newBlock : b));
+          updatedMsg = { ...msg, blocks: newBlocks };
+        } else if (chunk.type === 'status') {
+          console.log(`[chatStore] Received status chunk: "${chunk.content}"`);
+          const blocks = msg.blocks || [];
+          
+          const hasSameStatus = blocks.some((b) => {
+            if (b.type !== 'status') return false;
+            return b.content === chunk.content;
+          });
+          
+          console.log(`[chatStore] hasSameStatus: ${hasSameStatus}`);
+          
+          if (hasSameStatus) {
+            updatedMsg = msg;
+          } else {
+            const logBlock: MessageBlock = {
+              id: generateBlockId(),
+              type: 'status',
+              content: chunk.content,
+              isStreaming: true,
+            };
+            updatedMsg = { ...msg, blocks: [...blocks, logBlock] };
+          }
+        } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+          const tc = chunk.toolCall;
+          const existingBlock = (msg.blocks || []).find(
+            (b) => b.type === 'tool_call' && b.toolCall?.id === tc.id
+          );
+          if (existingBlock) {
+            const updatedToolCall = { ...existingBlock, toolCall: { ...tc, status: tc.status || 'completed' as const } };
+            const newBlocks = (msg.blocks || []).map((b) => (b.id === existingBlock.id ? updatedToolCall : b));
+            updatedMsg = { ...msg, blocks: newBlocks };
+          } else {
+            const newBlock: MessageBlock = {
+              id: generateBlockId(),
+              type: 'tool_call',
+              content: '',
+              toolCall: tc,
+              isStreaming: true,
+            };
+            const newBlocks = [...(msg.blocks || []), newBlock];
+            updatedMsg = { ...msg, blocks: newBlocks };
+          }
+        } else {
+          updatedMsg = msg;
+        }
+
+        const newMessages = [...current];
+        newMessages[msgIdx] = updatedMsg;
+        set({ messages: newMessages });
+      }
+
+      const finalMessages = get().messages;
+      const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
+      if (finalMsgIdx !== -1) {
+        const finalMsg = finalMessages[finalMsgIdx];
+        const finalBlocks = (finalMsg.blocks || []).map((b) => ({
+          ...b,
+          isStreaming: false,
+        }));
+        const newMessages = [...finalMessages];
+        newMessages[finalMsgIdx] = { ...finalMsg, blocks: finalBlocks };
+        set({ messages: newMessages });
       }
 
       set({ isLoading: false, isStreaming: false });
+
+      if (shouldAutoRename(sessionId)) {
+        doAutoRename(sessionId!, content);
+      }
     } catch (error) {
       set({ error: String(error), isLoading: false, isStreaming: false });
     }

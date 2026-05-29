@@ -187,7 +187,8 @@ function ChatInput() {
       setShowCommands(false);
       setAttachments([]);
     } catch (err) {
-      alert(`文件上传失败: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      alert(`文件上传失败: ${errorMsg}\n\n可能原因：\n• 系统安全策略限制了对用户目录的访问\n• 磁盘空间不足\n\n系统会自动尝试使用项目目录作为备选存储位置。`);
     } finally {
       setIsUploading(false);
     }

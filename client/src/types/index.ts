@@ -1,9 +1,9 @@
 export interface Session {
   id: string;
   title: string;
-  created_at: number;
-  last_modified_at: number;
-  message_count: number;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
 }
 
 export interface Message {
@@ -13,6 +13,16 @@ export interface Message {
   timestamp: number;
   session_id: string;
   tool_calls?: ToolCall[];
+  blocks?: MessageBlock[];
+}
+
+export interface MessageBlock {
+  id: string;
+  type: 'text' | 'thinking' | 'tool_call' | 'status';
+  content: string;
+  toolCall?: ToolCall;
+  status?: string;
+  isStreaming?: boolean;
 }
 
 export interface Tool {
@@ -28,6 +38,7 @@ export interface ToolCall {
   name: string;
   arguments: Record<string, unknown>;
   result?: unknown;
+  status?: 'running' | 'completed' | 'failed';
 }
 
 export interface ModelInfo {

@@ -1,4 +1,4 @@
-import type { Session } from '../types';
+import type { Message, Session } from '../types';
 import { http } from './httpClient';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
@@ -18,11 +18,11 @@ function createMemorySessionService() {
     create: async (title: string): Promise<Session> => ({
       id: `local-${Date.now()}`,
       title,
-      created_at: Date.now(),
-      last_modified_at: Date.now(),
-      message_count: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messageCount: 0,
     }),
-    switch: async (_id: string): Promise<void> => {},
+    switch: async (_id: string): Promise<Session> => ({ id: _id, title: '恢复的会话', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), messageCount: 0 }),
     delete: async (_id: string): Promise<void> => {},
     rename: async (_id: string, _title: string): Promise<void> => {},
     getCurrent: async (): Promise<Session | null> => null,
@@ -60,12 +60,12 @@ export const sessionService = {
     }
   },
 
-  switch: async (id: string): Promise<void> => {
+  switch: async (id: string): Promise<Session> => {
     try {
-      await http.post<void>(`/v1/sessions/${id}/switch`);
+      return await http.post<Session>(`/v1/sessions/${id}/switch`);
     } catch {
-      const result = await tryTauri<void>('switch_session', { id });
-      if (result !== null) return;
+      const result = await tryTauri<Session>('switch_session', { id });
+      if (result) return result;
       return createMemorySessionService().switch(id);
     }
   },
@@ -97,6 +97,16 @@ export const sessionService = {
       const result = await tryTauri<Session | null>('get_current_session');
       if (result !== null) return result;
       return createMemorySessionService().getCurrent();
+    }
+  },
+
+  getMessages: async (sessionId: string): Promise<Message[]> => {
+    try {
+      return await http.get<Message[]>(`/v1/sessions/${sessionId}/messages`);
+    } catch {
+      const result = await tryTauri<Message[]>('get_session_messages', { sessionId });
+      if (result) return result;
+      return [];
     }
   },
 };

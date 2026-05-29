@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Message } from '../../types';
+import type { Message, MessageBlock } from '../../types';
 import MarkdownRenderer from './MarkdownRenderer';
+import ThinkingBlock from './ThinkingBlock';
+import StatusBlock from './StatusBlock';
+import ToolCallBlock from './ToolCallBlock';
 
 interface ChatMessageProps {
   message: Message;
@@ -24,103 +26,81 @@ function ChatMessage({ message, isStreaming }: ChatMessageProps) {
             {message.content}
           </div>
         ) : (
-          <div className="text-sm break-words max-w-none">
-            <MarkdownRenderer content={message.content} isStreaming={isStreaming} />
-          </div>
-        )}
-
-        {message.tool_calls && message.tool_calls.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {message.tool_calls.map((toolCall) => (
-              <ToolCallCard
-                key={toolCall.id}
-                toolCall={toolCall}
-                isUser={isUser}
-              />
-            ))}
-          </div>
+          <AssistantMessage
+            message={message}
+            isStreaming={isStreaming}
+          />
         )}
       </div>
     </div>
   );
 }
 
-interface ToolCallCardProps {
-  toolCall: NonNullable<Message['tool_calls']>[number];
-  isUser: boolean;
-}
-
-function ToolCallCard({ toolCall, isUser }: ToolCallCardProps) {
-  const [expanded, setExpanded] = useState(false);
-
-  const hasResult = toolCall.result !== undefined;
-  const hasError = hasResult && typeof toolCall.result === 'object' &&
-    toolCall.result !== null && 'error' in (toolCall.result as Record<string, unknown>);
-  const isRunning = !hasResult;
-
-  const statusIcon = isRunning ? '⏳' : hasError ? '❌' : '✅';
-  const statusColor = isRunning
-    ? 'border-blue-300 dark:border-blue-600'
-    : hasError
-      ? 'border-red-300 dark:border-red-600'
-      : 'border-green-300 dark:border-green-600';
-  const headerBg = isRunning
-    ? 'bg-blue-50 dark:bg-blue-900/30'
-    : hasError
-      ? 'bg-red-50 dark:bg-red-900/30'
-      : 'bg-green-50 dark:bg-green-900/30';
+function AssistantMessage({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
+  if (message.blocks && message.blocks.length > 0) {
+    return (
+      <div className="text-sm break-words max-w-none space-y-2">
+        {message.blocks.map((block) => (
+          <BlockRenderer
+            key={block.id}
+            block={block}
+            isStreaming={isStreaming}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={`rounded border ${statusColor} text-xs overflow-hidden transition-colors ${
-        isUser ? '' : ''
-      }`}
-    >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className={`w-full flex items-center gap-2 px-3 py-2 ${headerBg} hover:opacity-80 transition-opacity text-left`}
-      >
-        <span className="text-sm">{statusIcon}</span>
-        <span className="font-medium flex-1 truncate">{toolCall.name}</span>
-        <span className="text-gray-400 dark:text-gray-500">
-          {expanded ? '▲' : '▼'}
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="p-3 space-y-2 bg-white dark:bg-gray-800">
-          <div>
-            <div className="font-medium text-gray-500 dark:text-gray-400 mb-1">
-              参数
-            </div>
-            <pre className="bg-gray-50 dark:bg-gray-900 p-2 rounded text-xs overflow-x-auto text-gray-700 dark:text-gray-300">
-              {JSON.stringify(toolCall.arguments, null, 2)}
-            </pre>
-          </div>
-
-          {hasResult && (
-            <div>
-              <div className="font-medium text-gray-500 dark:text-gray-400 mb-1">
-                结果
-              </div>
-              <pre className="bg-gray-50 dark:bg-gray-900 p-2 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto text-gray-700 dark:text-gray-300">
-                {typeof toolCall.result === 'string'
-                  ? toolCall.result
-                  : JSON.stringify(toolCall.result, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {isRunning && (
-            <div className="flex items-center gap-2 text-blue-500 dark:text-blue-400">
-              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              执行中...
-            </div>
-          )}
+    <div className="text-sm break-words max-w-none space-y-2">
+      <MarkdownRenderer content={message.content} isStreaming={isStreaming} />
+      {message.tool_calls && message.tool_calls.length > 0 && (
+        <div className="space-y-2">
+          {message.tool_calls.map((tc) => (
+            <ToolCallBlock
+              key={tc.id}
+              toolCall={tc}
+              isStreaming={isStreaming}
+            />
+          ))}
         </div>
       )}
     </div>
   );
+}
+
+interface BlockRendererProps {
+  block: MessageBlock;
+  isStreaming?: boolean;
+}
+
+function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
+  switch (block.type) {
+    case 'thinking':
+      return (
+        <ThinkingBlock
+          content={block.content}
+          isStreaming={block.isStreaming || isStreaming}
+        />
+      );
+    case 'status':
+      return <StatusBlock content={block.content} isStreaming={block.isStreaming || isStreaming} />;
+    case 'tool_call':
+      return block.toolCall ? (
+        <ToolCallBlock
+          toolCall={block.toolCall}
+          isStreaming={block.isStreaming || isStreaming}
+        />
+      ) : null;
+    case 'text':
+    default:
+      return (
+        <MarkdownRenderer
+          content={block.content}
+          isStreaming={block.isStreaming || isStreaming}
+        />
+      );
+  }
 }
 
 export default ChatMessage;

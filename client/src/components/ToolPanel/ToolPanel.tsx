@@ -1,19 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../../stores/sessionStore';
+import { cronService } from '../../services/cronService';
+import type { CronTask } from '../../types';
 
 function ContextPanel() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { sessions, createSession } = useSessionStore();
+  const { sessions, createSession, switchSession } = useSessionStore();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [cronTasks, setCronTasks] = useState<CronTask[]>([]);
+  const [cronLoading, setCronLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    cronService.list().then((data) => {
+      if (mounted) {
+        setCronTasks(data);
+        setCronLoading(false);
+      }
+    }).catch(() => {
+      if (mounted) setCronLoading(false);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const currentRoute = location.pathname.replace('/', '') || 'chat';
 
   const handleNewSession = () => {
     const title = `新会话 ${sessions.length + 1}`;
     createSession(title);
-    navigate('/');
+    navigate('/chat');
   };
 
   const renderChatContext = () => (
@@ -44,7 +61,10 @@ function ContextPanel() {
           {sessions.slice(0, 5).map((session) => (
             <button
               key={session.id}
-              onClick={() => navigate('/')}
+              onClick={() => {
+                switchSession(session.id);
+                navigate('/chat');
+              }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors truncate"
             >
               <span>💬</span>
@@ -98,28 +118,88 @@ function ContextPanel() {
     </div>
   );
 
-  const renderCronContext = () => (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">快捷操作</h3>
-        <div className="space-y-1">
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm transition-colors"
-          >
-            <span>➕</span>
-            <span>创建定时任务</span>
-          </button>
-        </div>
-      </div>
+  const renderCronContext = () => {
+    const runningTasks = cronTasks.filter(t => t.enabled && t.status === 'running');
+    const idleTasks = cronTasks.filter(t => t.enabled && t.status !== 'running');
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">运行中的任务</h3>
-        <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">
-          暂无运行中的任务
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">快捷操作</h3>
+          <div className="space-y-1">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm transition-colors"
+            >
+              <span>➕</span>
+              <span>创建定时任务</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            运行中的任务
+            {runningTasks.length > 0 && (
+              <span className="ml-1 text-xs text-blue-500">({runningTasks.length})</span>
+            )}
+          </h3>
+          {cronLoading ? (
+            <div className="text-sm text-gray-400 px-3 py-2">加载中...</div>
+          ) : runningTasks.length > 0 ? (
+            <div className="space-y-1">
+              {runningTasks.map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"
+                >
+                  <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                  <span className="text-gray-600 dark:text-gray-400 truncate">{task.name}</span>
+                </div>
+              ))}
+            </div>
+          ) : idleTasks.length > 0 ? (
+            <div className="space-y-1">
+              {idleTasks.map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"
+                >
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    task.status === 'error' ? 'bg-red-500' : 'bg-yellow-400'
+                  }`} />
+                  <span className="text-gray-600 dark:text-gray-400 truncate">{task.name}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">
+              暂无任务
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            任务统计
+          </h3>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+              <span className="block text-lg font-bold text-gray-900 dark:text-white">{cronTasks.length}</span>
+              <span className="text-gray-500 dark:text-gray-400">总数</span>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+              <span className="block text-lg font-bold text-green-600">{runningTasks.length}</span>
+              <span className="text-gray-500 dark:text-gray-400">运行中</span>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+              <span className="block text-lg font-bold text-yellow-600">{idleTasks.length}</span>
+              <span className="text-gray-500 dark:text-gray-400">待命中</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderFilesContext = () => (
     <div className="space-y-4">

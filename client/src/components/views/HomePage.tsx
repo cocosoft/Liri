@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBackendStore } from '../../stores/backendStore';
 
@@ -28,8 +29,9 @@ function NavCard({ icon, title, description, path }: NavCardProps) {
 }
 
 function HomePage() {
-  const { status } = useBackendStore();
+  const { status, startBackend, stopBackend, error } = useBackendStore();
   const navigate = useNavigate();
+  const [actionLoading, setActionLoading] = useState(false);
 
   const getStatusColor = () => {
     if (status.running) return 'text-green-600 dark:text-green-400';
@@ -39,6 +41,18 @@ function HomePage() {
   const getStatusIcon = () => {
     if (status.running) return '🟢';
     return '🔴';
+  };
+
+  const handleStart = async () => {
+    setActionLoading(true);
+    await startBackend();
+    setActionLoading(false);
+  };
+
+  const handleStop = async () => {
+    setActionLoading(true);
+    await stopBackend();
+    setActionLoading(false);
   };
 
   return (
@@ -69,13 +83,37 @@ function HomePage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => navigate('/settings')}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition-colors"
-            >
-              管理 Backend
-            </button>
+            <div className="flex items-center gap-2">
+              {status.running ? (
+                <button
+                  onClick={handleStop}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
+                >
+                  {actionLoading ? '停止中...' : '停止'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStart}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
+                >
+                  {actionLoading ? '启动中...' : '启动'}
+                </button>
+              )}
+              <button
+                onClick={() => navigate('/settings')}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition-colors"
+              >
+                高级设置
+              </button>
+            </div>
           </div>
+          {error && (
+            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap">
+              {error}
+            </div>
+          )}
         </div>
 
         {/* 常用功能网格 */}

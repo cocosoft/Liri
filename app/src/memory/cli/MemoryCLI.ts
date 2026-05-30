@@ -21,7 +21,7 @@ export class MemoryCLI {
    * 构造函数
    * @param memoryDir 记忆目录路径
    */
-  constructor(memoryDir: string = './data/memory') {
+  constructor(memoryDir: string = join(resolveDataDir(), 'memory')) {
     this.memoryManager = new MemoryManagerImpl(memoryDir);
     this.program = new Command();
     this.setupCommands();

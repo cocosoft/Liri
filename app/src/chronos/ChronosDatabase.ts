@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { Database } from 'sqlite3';
 import type {
   ScheduledTask,
@@ -6,6 +7,7 @@ import type {
   TaskStatus,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataDir } from '@modules/config/paths';
 
 /**
  * Chronos数据库存储实现
@@ -26,7 +28,7 @@ export class ChronosDatabase {
    * 构造函数
    * @param dbPath 数据库文件路径
    */
-  constructor(dbPath: string = './data/py_copilot.db') {
+  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
     this.dbPath = dbPath;
   }
 

@@ -27,15 +27,15 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { init } from './init.js';
-import { createMcpCommand } from '../mcp/cli/mcpCommand.js';
+import { createMcpCommand } from '@modules/mcp/cli/mcpCommand.js';
 import {
   eagerParseCliFlag,
   extractArgsAfterDoubleDash,
   parseRunMode,
   validateArgs,
   normalizeArgs,
-} from '../utils/cliArgs.js';
-import { generateBanner, getVersionString } from '../cli/banner/index.js';
+} from '@modules/utils/cliArgs.js';
+import { generateBanner, getVersionString } from '@modules/cli/banner/index.js';
 
 /**
  * 启动前环境变量优化

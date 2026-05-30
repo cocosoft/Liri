@@ -3,7 +3,7 @@
  * 管理用户权限，控制工具和功能的访�?
  */
 
-import { logger } from '../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 权限类型

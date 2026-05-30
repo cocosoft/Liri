@@ -34,24 +34,24 @@ export {
   sanitizeSecrets,
   scanMemoryContent,
   validateMemoryContent,
-} from '../../../memory/scanners/MemorySecretScanner';
+} from '@modules/memory/scanners/MemorySecretScanner';
 export type {
   SecretMatch as MemorySecretMatch,
   SecretScanResult,
-} from '../../../memory/scanners/MemorySecretScanner';
+} from '@modules/memory/scanners/MemorySecretScanner';
 
-export { scanForSecrets as scanTeamMemForSecrets } from '../../../services/teamMemorySync/SecretScanner';
-export type { SecretMatch as TeamMemSecretMatch } from '../../../services/teamMemorySync/SecretScanner';
+export { scanForSecrets as scanTeamMemForSecrets } from '@modules/services/teamMemorySync/SecretScanner';
+export type { SecretMatch as TeamMemSecretMatch } from '@modules/services/teamMemorySync/SecretScanner';
 
 export {
   isTeamMemPath,
   checkTeamMemSecrets,
-} from '../../../services/teamMemorySync/TeamMemSecretGuard';
+} from '@modules/services/teamMemorySync/TeamMemSecretGuard';
 
-export { PluginSecurityScanner } from '../../../plugins/utils/pluginSecurityScanner';
+export { PluginSecurityScanner } from '@modules/plugins/utils/pluginSecurityScanner';
 export type {
   SecurityIssue,
   SecurityScanResult as PluginSecurityScanResult,
   DangerPattern,
   RiskLevel,
-} from '../../../plugins/utils/pluginSecurityScanner';
+} from '@modules/plugins/utils/pluginSecurityScanner';

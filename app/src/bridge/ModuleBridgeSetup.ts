@@ -5,7 +5,7 @@
  * 各依赖均为可选，缺失的模块在命令执行时会返回"未接入"提示。
  */
 
-import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { initModuleBridge } from './ModuleBridgeInit.js';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 

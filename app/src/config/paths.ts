@@ -390,6 +390,13 @@ export function resolveAttachmentsDateDir(
   return join(resolveAttachmentsDir(env), `${y}${m}${day}`);
 }
 
+/** 用户输出目录（~/.pyapp/output/）—— 用户生产文件的默认导出位置 */
+export function resolveOutputDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePyappHome(env), 'output');
+}
+
 // ─── 初始化辅助 ───────────────────────────────
 
 /**
@@ -429,6 +436,7 @@ export function ensureDataDirectories(
     resolveKnowledgeDir(env),
     resolveUserSkillsDir(env),
     resolveUserPermissionsDir(env),
+    resolveOutputDir(env),
   ];
 
   for (const dir of dirs) {
@@ -466,6 +474,7 @@ export const USER_SKILLS_DIR = resolveUserSkillsDir();
 export const USER_PERMISSIONS_DIR = resolveUserPermissionsDir();
 export const USER_ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const ATTACHMENTS_DIR = resolveAttachmentsDir();
+export const OUTPUT_DIR = resolveOutputDir();
 export const DOCS_DIR = resolveDocsDir();
 export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
 /** @deprecated 使用 resolveConfigDir() 或 CONFIG_DIR */

@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { resolveDataDir } from '@modules/config/paths';
 
 /**
  * 安全模式库条目
@@ -44,7 +45,7 @@ export interface PatternLibraryConfig {
  * 默认配置
  */
 const DEFAULT_CONFIG: PatternLibraryConfig = {
-  libraryDir: './data/security/patterns',
+  libraryDir: path.join(resolveDataDir(), 'security', 'patterns'),
   autoUpdateIntervalMs: 90 * 24 * 3600_000,
   maxVersionHistory: 20,
   categories: [

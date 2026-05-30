@@ -15,10 +15,10 @@ import {
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
-import { taskRegistry } from '../../tasks/TaskRegistry';
-import { BaseTask } from '../../tasks/BaseTask';
-import { TaskType, TaskStatus } from '../../tasks/types';
-import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
+import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { BaseTask } from '@modules/tasks/BaseTask';
+import { TaskType, TaskStatus } from '@modules/tasks/types';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
 

@@ -2,6 +2,8 @@
  * 规则管理器
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 import {
   PermissionRule,
   PermissionBehavior,
@@ -46,7 +48,7 @@ export class RuleManager {
   /**
    * 规则存储路径
    */
-  private ruleSource: string = './data/permission_rules.json';
+  private ruleSource: string = join(resolveDataDir(), 'permission_rules.json');
 
   /**
    * 所有规则来源的优先级（数值越大优先级越高）

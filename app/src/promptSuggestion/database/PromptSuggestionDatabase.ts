@@ -18,7 +18,7 @@ export class PromptSuggestionDatabase {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = './data/py_copilot.db') {
+  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
     this.dbPath = dbPath;
   }
 

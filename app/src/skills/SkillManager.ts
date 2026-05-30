@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolveUserSkillsDir, resolveProjectRoot } from '@modules/config/paths';
-import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { profileCheckpoint } from '@modules/utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getSkillCurator } from './SkillCurator';

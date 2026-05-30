@@ -27,29 +27,29 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import {
   createVoiceService,
   VoiceService,
-} from '../services/voice/services/voiceService';
+} from '@modules/services/voice/services/voiceService';
 import {
   TTSRegistry,
   EdgeTTSProvider,
-} from '../services/voice/services/ttsProvider';
-import { OpenAITTSProvider } from '../services/voice/services/openAITTSProvider';
-import { CommandTTSProvider } from '../services/voice/services/commandTTSProvider';
-import { PiperTTSProvider } from '../services/voice/services/piperTTSProvider';
-import { STTRegistry } from '../services/voice/services/sttRegistry';
-import { LocalSTTProvider } from '../services/voice/services/localSTTProvider';
-import { CloudSTTProvider } from '../services/voice/services/cloudSTTProvider';
-import { StreamSTTProvider } from '../services/voice/services/streamSTTProvider';
-import { VadDetector } from '../services/voice/services/vadDetector';
-import { EnvironmentDetector } from '../services/voice/services/environmentDetector';
+} from '@modules/services/voice/services/ttsProvider';
+import { OpenAITTSProvider } from '@modules/services/voice/services/openAITTSProvider';
+import { CommandTTSProvider } from '@modules/services/voice/services/commandTTSProvider';
+import { PiperTTSProvider } from '@modules/services/voice/services/piperTTSProvider';
+import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
+import { LocalSTTProvider } from '@modules/services/voice/services/localSTTProvider';
+import { CloudSTTProvider } from '@modules/services/voice/services/cloudSTTProvider';
+import { StreamSTTProvider } from '@modules/services/voice/services/streamSTTProvider';
+import { VadDetector } from '@modules/services/voice/services/vadDetector';
+import { EnvironmentDetector } from '@modules/services/voice/services/environmentDetector';
 import {
   detectRuntimeEnvironment,
   isVoiceAvailable,
-} from '../services/voice/services/environmentRuntimeDetector';
-import { getVoiceKeyterms } from '../services/voice/voiceKeyterms';
+} from '@modules/services/voice/services/environmentRuntimeDetector';
+import { getVoiceKeyterms } from '@modules/services/voice/voiceKeyterms';
 import {
   startPreventSleep,
   stopPreventSleep,
-} from '../services/voice/preventSleep';
+} from '@modules/services/voice/preventSleep';
 
 import { VoiceSession } from './VoiceSession';
 import { GeminiLiveAdapter } from './GeminiLiveAdapter';
@@ -76,9 +76,9 @@ import { VoiceChannelIntegration } from './VoiceChannelIntegration';
 import type { VoiceChannelConfig } from './VoiceChannelIntegration';
 import { VoiceCommandRouter } from './VoiceCommandRouter';
 import type { VoiceCommandRouterConfig } from './VoiceCommandRouter';
-import { MemoryManagerImpl } from '../memory/MemoryManager';
+import { MemoryManagerImpl } from '@modules/memory/MemoryManager';
 
-import type { VoiceServiceConfig } from '../services/voice/models/types';
+import type { VoiceServiceConfig } from '@modules/services/voice/models/types';
 import type {
   VoiceClientEvent,
   VoiceServerEvent,

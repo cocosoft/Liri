@@ -1,3 +1,4 @@
+import { resolveDataDir } from '@modules/config/paths';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 import {
@@ -205,7 +206,7 @@ export class MemoryManagerImpl {
    * 构造函数
    * @param memoryDir 记忆目录路径
    */
-  constructor(memoryDir: string = './data/memory') {
+  constructor(memoryDir: string = join(resolveDataDir(), 'memory')) {
     this.storeDir = memoryDir;
     this.relationGraphPath = join(memoryDir, 'memory-relation-graph.json');
     this.store = new MemoryStoreImpl(memoryDir);

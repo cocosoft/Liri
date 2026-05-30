@@ -28,7 +28,7 @@ import {
   MCPServerConfig as _MCPServerConfig,
 } from './MCPTypes.js';
 
-import { ServerResource as _ServerResource } from '../../services/mcp/types/index.js';
+import { ServerResource as _ServerResource } from '@modules/services/mcp/types/index.js';
 
 export { MCP_PROTOCOL_VERSION, MCPServerStatus } from './MCPTypes.js';
 

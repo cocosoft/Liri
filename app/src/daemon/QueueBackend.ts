@@ -1,4 +1,6 @@
+import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveDataDir } from '@modules/config/paths';
 import { TaskPriority } from './TaskPriority';
 import type { Task, TaskResult } from './TaskQueue';
 
@@ -95,7 +97,7 @@ export class SqliteQueueBackend implements QueueBackend {
   private dbPath: string;
 
   constructor(dbPath?: string) {
-    this.dbPath = dbPath || './data/task_queue.db';
+    this.dbPath = dbPath || join(resolveDataDir(), 'task_queue.db');
   }
 
   enqueue(entry: QueuedTaskEntry, priority: TaskPriority): void {

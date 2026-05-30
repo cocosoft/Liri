@@ -6,8 +6,8 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import type { CronScheduler } from '../../chronos/types';
-import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
+import type { CronScheduler } from '@modules/chronos/types';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 
 /**
  * 平台类型

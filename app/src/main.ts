@@ -45,7 +45,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { resolveProjectRoot } from './config/paths';
+import { resolveProjectRoot, resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -89,14 +89,14 @@ function getEnvExamplePath(): string {
  * 获取引导重试计数文件路径
  */
 function getOnboardRetryFlagPath(): string {
-  return join(resolveProjectRoot(), 'app', 'data', '.onboard_retry');
+  return join(resolveDataDir(), '.onboard_retry');
 }
 
 /**
  * 获取数据目录路径
  */
 function getDataDir(): string {
-  return join(resolveProjectRoot(), 'app', 'data');
+  return resolveDataDir();
 }
 
 /**

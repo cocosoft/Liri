@@ -7,7 +7,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { resolveAttachmentsDir, resolveDataSubDir } from '../config/paths';
+import { resolveAttachmentsDir, resolveDataSubDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

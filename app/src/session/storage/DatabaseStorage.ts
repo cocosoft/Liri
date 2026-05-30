@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { Database } from 'sqlite3';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
@@ -8,6 +9,7 @@ import type {
   SessionListOptions,
 } from '../SessionStorage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataDir } from '@modules/config/paths';
 
 /**
  * 数据库存储实现
@@ -28,7 +30,7 @@ export class DatabaseStorage implements SessionStorage {
    * 构造函数
    * @param dbPath 数据库文件路径
    */
-  constructor(dbPath: string = './data/sessions.db') {
+  constructor(dbPath: string = join(resolveDataDir(), 'sessions.db')) {
     this.dbPath = dbPath;
   }
 

@@ -32,10 +32,10 @@ import {
 import { cronToHuman } from './cron';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
-import { taskRegistry } from '../tasks/TaskRegistry';
-import { BaseTask } from '../tasks/BaseTask';
-import { TaskType, TaskStatus } from '../tasks/types';
-import { globalEventBus, SystemEvents } from '../core/events/EventBus';
+import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { BaseTask } from '@modules/tasks/BaseTask';
+import { TaskType, TaskStatus } from '@modules/tasks/types';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

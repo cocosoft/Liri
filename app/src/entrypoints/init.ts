@@ -25,22 +25,22 @@
  */
 
 import { enableConfigs } from '@modules/config';
-import { initializeCommands } from '../commands/index.js';
-import { getExtensibilityService } from '../core/extensibility/index.js';
-import { profileCheckpoint, profileReport } from '../utils/startupProfiler';
+import { initializeCommands } from '@modules/commands/index.js';
+import { getExtensibilityService } from '@modules/core/extensibility/index.js';
+import { profileCheckpoint, profileReport } from '@modules/utils/startupProfiler';
 // @ts-ignore
-import * as gracefulShutdownModule from '../utils/gracefulShutdown.js';
+import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
-import { getMonitoringService } from '../monitoring/index.js';
+import { getMonitoringService } from '@modules/monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolvePyappHome } from '@modules/config/paths';
-import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
+import { getStartupChainProfiler } from '@modules/bootstrap/StartupChainProfiler.js';
 import {
   loadStartupConfig,
   formatConfigSummary,
-} from '../bootstrap/StartupYamlLoader.js';
-import type { StartupConfig } from '../bootstrap/StartupConfig.js';
+} from '@modules/bootstrap/StartupYamlLoader.js';
+import type { StartupConfig } from '@modules/bootstrap/StartupConfig.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

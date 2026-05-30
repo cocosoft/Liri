@@ -7,7 +7,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveDataDir } from '../config/paths';
+import { resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

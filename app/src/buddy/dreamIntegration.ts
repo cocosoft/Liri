@@ -9,10 +9,10 @@
  *   AutoDream (onDreamEvent) → 桥接层 (EventBus publish) → Buddy (subscribe)
  */
 
-import type { DreamEvent } from '../chronos/autoDream/AutoDream';
-import { offDreamEvent } from '../chronos/autoDream/AutoDream';
-import type { EventBus } from '../core/events/EventBus';
-import { globalEventBus, SystemEvents } from '../core/events/EventBus';
+import type { DreamEvent } from '@modules/chronos/autoDream/AutoDream';
+import { offDreamEvent } from '@modules/chronos/autoDream/AutoDream';
+import type { EventBus } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 import {
   createInfoNotification,
   createAchievementNotification,

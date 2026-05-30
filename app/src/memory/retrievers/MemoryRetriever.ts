@@ -6,7 +6,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { EmbeddingService } from '../services/EmbeddingService';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolveDataDir, resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -264,7 +264,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * @param searchConfig 可选的搜索配置（默认使用 MEMORY_SEARCH_DEFAULTS）
    */
   constructor(
-    memoryDir: string = './data/memory',
+    memoryDir: string = path.join(resolveDataDir(), 'memory'),
     embeddingService?: EmbeddingService,
     searchConfig?: MemorySearchConfig
   ) {

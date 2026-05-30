@@ -1,5 +1,6 @@
 import { readdir, stat, rename, mkdir } from 'fs/promises';
 import { join, basename, extname } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 import { createGzip } from 'node:zlib';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
@@ -20,7 +21,7 @@ export class TranscriptArchiver {
   private retentionDays: number;
 
   constructor(transcriptDir?: string, retentionDays: number = 30) {
-    this.transcriptDir = transcriptDir || './data/transcripts';
+    this.transcriptDir = transcriptDir || join(resolveDataDir(), 'transcripts');
     this.archiveDir = join(this.transcriptDir, 'archive');
     this.retentionDays = retentionDays;
   }

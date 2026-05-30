@@ -8,7 +8,8 @@ import { Memory } from '../types/Memory';
 import { MemoryType } from '../types/MemoryType';
 import { MemoryManager } from '../MemoryManager';
 import * as fs from 'fs';
-import * as path from 'path';
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import matter from 'gray-matter';
@@ -208,7 +209,7 @@ export class TeamMemoryService {
     this.config = {
       enabled: false,
       teamId: 'default',
-      teamMemoryDir: './data/team-memory',
+      teamMemoryDir: join(resolveDataDir(), 'team-memory'),
       syncInterval: 300, // 5分钟
       conflictResolution: 'local_wins',
       enableEncryption: false,
@@ -377,7 +378,7 @@ export class TeamMemoryService {
     for (const file of files) {
       if (file.endsWith('.md') && file !== 'MEMORY.md') {
         try {
-          const filePath = path.join(teamMemDir, file);
+          const filePath = join(teamMemDir, file);
           const content = fs.readFileSync(filePath, 'utf8');
           const { data, content: memoryContent } = matter(content);
           const memory: Memory = {
@@ -423,7 +424,7 @@ export class TeamMemoryService {
       const files = fs.readdirSync(teamMemDir);
       for (const file of files) {
         if (file.endsWith('.md') && file !== 'MEMORY.md') {
-          fs.unlinkSync(path.join(teamMemDir, file));
+          fs.unlinkSync(join(teamMemDir, file));
         }
       }
     } else {
@@ -432,7 +433,7 @@ export class TeamMemoryService {
 
     // 保存记忆
     for (const memory of memories) {
-      const filePath = path.join(teamMemDir, `${memory.id}.md`);
+      const filePath = join(teamMemDir, `${memory.id}.md`);
       const frontmatter: Record<string, unknown> = {
         id: memory.id,
         name: memory.metadata.name,

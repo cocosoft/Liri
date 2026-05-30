@@ -1,7 +1,6 @@
 /**
  * 存储优化服务
  * 实现文件系统存储和缓存机制，优化数据库访问
- * 参考CC源码: cc_code/backend/utils/cronTasks.ts
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -15,6 +14,7 @@ import {
 } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
+import { resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -58,13 +58,13 @@ export interface StorageStats {
 export class StorageOptimizationService {
   private static instance: StorageOptimizationService;
   private config: StorageConfig = {
-    fileStoragePath: './data/chronos_tasks.json',
+    fileStoragePath: join(resolveDataDir(), 'chronos_tasks.json'),
     enableFileStorage: true,
     enableCache: true,
     cacheTTLMs: 60000,
     maxCacheSize: 1000,
     persistCache: false,
-    cacheFilePath: './data/chronos_cache.json',
+    cacheFilePath: join(resolveDataDir(), 'chronos_cache.json'),
   };
 
   private memoryCache: Map<string, CacheItem<unknown>> = new Map();

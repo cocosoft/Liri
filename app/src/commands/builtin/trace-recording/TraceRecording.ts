@@ -11,7 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { join, resolve } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveOutputDir } from '@modules/config/paths';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
@@ -333,7 +333,7 @@ const traceRecordingCommand = {
     const format = (args[0] || 'md').toLowerCase();
     const outputDir = args[1]
       ? resolve(args[1])
-      : join(resolveProjectRoot(), 'trace-exports');
+      : join(resolveOutputDir(), 'traces');
 
     if (!['md', 'json', 'html'].includes(format)) {
       return {
@@ -423,7 +423,7 @@ const traceRecordingCommand = {
 
       const outputFile = args[0]
         ? resolve(args[0])
-        : join(resolveProjectRoot(), 'trace-viewer.html');
+        : join(resolveOutputDir(), 'trace-viewer.html');
 
       const {
         ViewerService,

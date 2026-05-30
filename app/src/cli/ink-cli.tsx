@@ -2,13 +2,13 @@
 //
 
 import React, { useState, useEffect } from 'react';
-import { render, Box, Text, Button, ScrollBox, AlternateScreen } from '../ink';
+import { render, Box, Text, Button, ScrollBox, AlternateScreen } from '@modules/ink';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { getSkillManager } from '../skills/SkillManager';
-import { getToolManager } from '../tools/ToolManager';
-import { profileReport } from '../utils/startupProfiler';
-import { CompanionSprite } from '../buddy/CompanionSprite';
-import { useBuddyNotification } from '../buddy/useBuddyNotification';
+import { getSkillManager } from '@modules/skills/SkillManager';
+import { getToolManager } from '@modules/tools/ToolManager';
+import { profileReport } from '@modules/utils/startupProfiler';
+import { CompanionSprite } from '@modules/buddy/CompanionSprite';
+import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

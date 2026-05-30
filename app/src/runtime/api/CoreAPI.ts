@@ -27,7 +27,7 @@
 import type {
   ConversionResult,
   FileInfo,
-} from '../../tools/converter/engine/types';
+} from '@modules/tools/converter/engine/types';
 
 /** 聊天请求 */
 export interface ChatRequest {

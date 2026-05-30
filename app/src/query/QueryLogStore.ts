@@ -3,10 +3,12 @@
  * 基于 SQLite 的查询日志持久化，记录每次 API 调用、工具调用和完整查询的执行信息
  */
 
+import { join } from 'path';
 import { Database } from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataDir } from '@modules/config/paths';
 import type {
   QueryLogEntry,
   QueryLogFilter,
@@ -24,7 +26,7 @@ export class QueryLogStore {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = './data/query_logs.db') {
+  constructor(dbPath: string = join(resolveDataDir(), 'query_logs.db')) {
     this.dbPath = dbPath;
   }
 

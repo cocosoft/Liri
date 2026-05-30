@@ -45,18 +45,18 @@ import type {
   ConversionResult,
   FileInfo,
   ConversionOptions,
-} from '../../tools/converter/engine/types';
-import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
-import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
-import type { ChatManager } from '../../chat/ChatManager';
-import { createChatManager } from '../../chat/ChatManager';
-import type { SessionManager } from '../../chat/types/session';
-import type { ToolManager } from '../../tools/core/ToolManager';
-import { globalToolManager } from '../../tools/core/ToolManager';
-import type { Coordinator } from '../../core/Coordinator';
-import { coordinator as defaultCoordinator } from '../../core/Coordinator';
+} from '@modules/tools/converter/engine/types';
+import { getConverterEngine } from '@modules/tools/converter/engine/ConverterEngine';
+import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetector';
+import type { ChatManager } from '@modules/chat/ChatManager';
+import { createChatManager } from '@modules/chat/ChatManager';
+import type { SessionManager } from '@modules/chat/types/session';
+import type { ToolManager } from '@modules/tools/core/ToolManager';
+import { globalToolManager } from '@modules/tools/core/ToolManager';
+import type { Coordinator } from '@modules/core/Coordinator';
+import { coordinator as defaultCoordinator } from '@modules/core/Coordinator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { getTitleGenerator } from '../../agent/TitleGenerator';
+import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

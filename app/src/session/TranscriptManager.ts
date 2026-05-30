@@ -1,11 +1,11 @@
 /**
  * Transcript管理器
- * 对标CC源码的sessionStorage.ts中的Transcript相关功能
  */
 
 import { writeFile, readFile, mkdir, stat, unlink, readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
+import { resolveDataDir } from '@modules/config/paths';
 
 import { UnifiedMessage, MessageType, MessageRole } from './types/Message.js';
 import type {
@@ -55,7 +55,7 @@ export class TranscriptManager {
   ) {
     this.storage = storage;
     this.config = {
-      basePath: config?.basePath ?? './data/transcripts',
+      basePath: config?.basePath ?? join(resolveDataDir(), 'transcripts'),
       maxFileSize: config?.maxFileSize ?? 50 * 1024 * 1024,
       encoding: config?.encoding ?? 'jsonl',
       enableCompression: config?.enableCompression ?? false,

@@ -24,7 +24,7 @@
 
 import { AIModelType } from '@modules/ai/models/types';
 import type { HooksSettings } from '@modules/types/hooks.js';
-import type { SkillLifecycleManager } from '../../tools/AgentTool/SkillLifecycleManager';
+import type { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 
 /**
  * 代理状态

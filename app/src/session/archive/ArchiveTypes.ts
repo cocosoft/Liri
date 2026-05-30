@@ -1,3 +1,6 @@
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
+
 export type ArchiveTrigger = 'manual' | 'auto_idle' | 'auto_size' | 'auto_age';
 
 export interface ArchiveMetadata {
@@ -39,7 +42,7 @@ export interface RestoreResult {
 }
 
 export const DEFAULT_ARCHIVE_CONFIG: ArchiveConfig = {
-  archiveRootDir: './data/sessions/archive',
+  archiveRootDir: join(resolveDataDir(), 'sessions', 'archive'),
   autoArchiveIdleMinutes: 7 * 24 * 60,
   autoArchiveMaxAgeDays: 30,
   autoArchiveMaxSessions: 500,

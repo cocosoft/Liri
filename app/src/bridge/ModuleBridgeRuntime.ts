@@ -25,7 +25,7 @@ import type {
   AcpRuntimeStatus,
   AcpRuntimeCapabilities,
   AcpRuntimeDoctorReport,
-} from '../acp/runtime/types.js';
+} from '@modules/acp/runtime/types.js';
 
 export interface ModuleBridgeDependencies {
   taskRegistry?: {

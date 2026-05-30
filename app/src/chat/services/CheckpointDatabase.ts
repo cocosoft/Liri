@@ -1,9 +1,11 @@
+import { join } from 'path';
 import { Database } from 'sqlite3';
 import type { SessionCheckpoint } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
 import { CHECKPOINT_TABLE, CHECKPOINT_MAX_AUTO } from '../types/checkpoint';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataDir } from '@modules/config/paths';
 
 const logger = new Logger();
 
@@ -11,7 +13,7 @@ export class CheckpointDatabase implements CheckpointStorage {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = './data/py_copilot.db') {
+  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
     this.dbPath = dbPath;
   }
 

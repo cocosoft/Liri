@@ -59,15 +59,15 @@ import {
   recursivelySanitizeUnicode,
   sanitizeHTML,
   validateInput,
-} from '../utils/sanitization.js';
-import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
+} from '@modules/utils/sanitization.js';
+import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
   ChatMessage,
   ParsedToolCall,
   ToolDefinition,
-} from '../ai/models/types.js';
+} from '@modules/ai/models/types.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';

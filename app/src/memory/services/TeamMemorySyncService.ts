@@ -1,17 +1,18 @@
 /**
  * 团队记忆同步服务
  * 负责团队记忆的完整同步流程
- * 参考CC源码 cc_code/backend/services/teamMemorySync/ 实现
  */
 
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-
-const logger = new Logger({ level: LogLevel.INFO });
 import {
   MemorySecretScanner,
   defaultMemorySecretScanner,
 } from '../scanners/MemorySecretScanner';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 同步方向
@@ -102,10 +103,13 @@ export interface TeamMemorySyncConfig {
 /**
  * 默认配置
  */
+import { join } from 'path';
+import { resolveDataDir } from '@modules/config/paths';
+
 const DEFAULT_CONFIG: TeamMemorySyncConfig = {
   serverUrl: '',
   teamId: 'default',
-  localDir: './data/team-memory',
+  localDir: join(resolveDataDir(), 'team-memory'),
   syncInterval: 300000,
   conflictResolution: 'local_wins',
   enableSecretScan: true,

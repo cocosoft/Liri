@@ -52,7 +52,7 @@ import * as print from './print';
 import type {
   CommandImplementation,
   CommandContext,
-} from '../commands/types/index';
+} from '@modules/commands/types/index';
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });

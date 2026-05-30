@@ -17,6 +17,8 @@ import {
 } from 'fs';
 import { join, basename, dirname, resolve, extname } from 'path';
 
+import { resolveDataDir } from '@modules/config/paths';
+
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
@@ -96,7 +98,7 @@ const DEFAULT_MAX_BACKUPS = 7;
 const DEFAULT_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 /** 默认备份目录 */
-const DEFAULT_BACKUP_DIR = join('data', 'backups');
+const DEFAULT_BACKUP_DIR = join(resolveDataDir(), 'backups');
 
 /**
  * 数据库备份管理器
@@ -472,15 +474,15 @@ export function createDefaultBackupManager(backupDir?: string): BackupManager {
   manager.registerDatabases([
     {
       name: 'py_copilot',
-      dbPath: join('data', 'py_copilot.db'),
+      dbPath: join(resolveDataDir(), 'py_copilot.db'),
     },
     {
       name: 'sessions',
-      dbPath: join('data', 'sessions.db'),
+      dbPath: join(resolveDataDir(), 'sessions.db'),
     },
     {
       name: 'query_logs',
-      dbPath: join('data', 'query_logs.db'),
+      dbPath: join(resolveDataDir(), 'query_logs.db'),
     },
   ]);
 

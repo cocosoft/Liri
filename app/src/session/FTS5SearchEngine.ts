@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveDataDir } from '@modules/config/paths';
 
 /**
  * 搜索文档
@@ -41,7 +42,7 @@ export interface FTSConfig {
  * 默认配置
  */
 const DEFAULT_CONFIG: FTSConfig = {
-  dbPath: './data/fts.db',
+  dbPath: path.join(resolveDataDir(), 'fts.db'),
   maxResults: 50,
   snippetLength: 200,
   cacheEnabled: true,

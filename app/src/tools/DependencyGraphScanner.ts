@@ -18,7 +18,7 @@ import { fileURLToPath } from 'url';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
-} from '../modules/ModuleDefinitions';
+} from '@modules/modules/ModuleDefinitions';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveCacheDir } from '@modules/config/paths';
 

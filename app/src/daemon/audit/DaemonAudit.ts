@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/config/paths';
-import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 
 /**
  * 审计事件类型

@@ -1,6 +1,6 @@
-# PY_APP 工具帮助文档
+# Liri 工具帮助文档
 
-本文档详细介绍 PY_APP 中所有可用的工具及其使用方法。
+本文档详细介绍 Liri 中所有可用的工具及其使用方法。
 
 ---
 
@@ -39,13 +39,13 @@ file_read({ file_path: "./config.json" })
 // 写入文本文件
 file_write({
   file_path: "./output.txt",
-  content: "Hello, PY_APP!"
+  content: "Hello, Liri!"
 })
 
 // 写入JSON配置
 file_write({
   file_path: "./config.json",
-  content: JSON.stringify({ name: "PY_APP" }, null, 2)
+  content: JSON.stringify({ name: "Liri" }, null, 2)
 })
 ```
 

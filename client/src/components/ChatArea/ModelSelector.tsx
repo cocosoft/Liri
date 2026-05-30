@@ -28,12 +28,12 @@ function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
           })));
         } else {
           setModels([
-            { id: 'pyapp-default', name: 'PY_APP 默认', provider: 'pyapp', type: 'chat', context_length: 8192, enabled: true },
+            { id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp', type: 'chat', context_length: 8192, enabled: true },
           ]);
         }
       } catch {
         setModels([
-          { id: 'pyapp-default', name: 'PY_APP 默认', provider: 'pyapp', type: 'chat', context_length: 8192, enabled: true },
+          { id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp', type: 'chat', context_length: 8192, enabled: true },
         ]);
       } finally {
         setLoading(false);

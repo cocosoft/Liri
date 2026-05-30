@@ -115,7 +115,7 @@ export class ContextManager {
     const gitPath = '.git';
     this.cacheService.watchDirectory(gitPath, [ContextCacheKeys.GIT_STATUS]);
 
-    const userContextPath = 'PY_APP.md';
+    const userContextPath = 'Liri.md';
     this.cacheService.watchFile(userContextPath, [
       ContextCacheKeys.USER_CONTEXT,
     ]);

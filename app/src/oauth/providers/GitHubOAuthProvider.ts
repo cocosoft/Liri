@@ -144,7 +144,7 @@ export class GitHubOAuthProvider implements OAuthProvider {
   async getUserInfo(accessToken: string): Promise<UserInfo> {
     const raw = await this.httpGet(`${GITHUB_API_URL}/user`, {
       Authorization: `Bearer ${accessToken}`,
-      'User-Agent': 'PY_APP',
+      'User-Agent': 'Liri',
       Accept: 'application/vnd.github.v3+json',
     });
 
@@ -152,7 +152,7 @@ export class GitHubOAuthProvider implements OAuthProvider {
     if (!email) {
       const emails = await this.httpGet(`${GITHUB_API_URL}/user/emails`, {
         Authorization: `Bearer ${accessToken}`,
-        'User-Agent': 'PY_APP',
+        'User-Agent': 'Liri',
         Accept: 'application/vnd.github.v3+json',
       });
 

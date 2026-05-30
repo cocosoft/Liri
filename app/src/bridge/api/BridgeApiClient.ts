@@ -54,7 +54,7 @@ export function createBridgeApiClient(deps: {
     const accessToken = deps.getAccessToken();
     if (!accessToken) {
       throw new AppError(
-        'Please log in first with `PY_APP login`',
+        'Please log in first with `Liri login`',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'

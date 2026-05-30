@@ -63,7 +63,7 @@ export { MemorySyncService, getMemorySyncService } from './MemorySyncService';
 export type { SyncStatus, SyncRecord, SyncConfig } from './MemorySyncService';
 export * from './providers';
 
-// 导出PY_APP集成服务
+// 导出Liri集成服务
 export {
   PYAppIntegrationService,
   createPYAppIntegrationService,

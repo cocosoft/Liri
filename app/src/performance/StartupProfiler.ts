@@ -5,7 +5,7 @@
  *
  * 两种模式：
  * 1. 采样日志：100% 内部用户，0.1% 外部用户 - 记录阶段到分析系统
- * 2. 详细分析：PY_APP_PROFILE_STARTUP=1 - 完整报告，包括内存快照
+ * 2. 详细分析：Liri_PROFILE_STARTUP=1 - 完整报告，包括内存快照
  *
  * 使用 Node.js 内置的性能钩子 API 进行标准时间测量
  */
@@ -17,7 +17,7 @@ import fs from 'fs';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
 // 模块级状态 - 在模块加载时决定
-const DETAILED_PROFILING = isEnvTruthy(process.env.PY_APP_PROFILE_STARTUP);
+const DETAILED_PROFILING = isEnvTruthy(process.env.Liri_PROFILE_STARTUP);
 
 // 采样率：100% 内部用户，0.5% 外部用户
 const STATSIG_SAMPLE_RATE = 0.005;

@@ -1,7 +1,7 @@
 /**
  * LegacyKeyAdapter — 旧式 UUID Key 兼容适配器
  *
- * PY_APP 当前使用 randomUUID() 生成会话 ID（见 SessionGateway.ts）。
+ * Liri 当前使用 randomUUID() 生成会话 ID（见 SessionGateway.ts）。
  * 本适配器在迁移到结构化 SessionKey 期间提供向后兼容：
  * - 旧 UUID 格式被包装为 "legacy:{uuid}" 以统一处理
  * - 提供双向转换能力

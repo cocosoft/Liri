@@ -9,7 +9,7 @@ import { getMonitoringService } from './monitoring/index.js';
 const logger = new Logger({ level: LogLevel.INFO });
 
 function monitor() {
-  console.log('=== PY_APP 监控面板 ===');
+  console.log('=== Liri 监控面板 ===');
 
   try {
     const monitoringService = getMonitoringService();

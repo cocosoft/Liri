@@ -1,6 +1,6 @@
 /**
  * ClawHubAdapter
- * ClawHub 生态对接适配器，作为第三方技能市场与 PY_APP 插件系统之间的桥梁。
+ * ClawHub 生态对接适配器，作为第三方技能市场与 Liri 插件系统之间的桥梁。
  * 负责协调 LocalSkillStore、Installer、SearchEngine、SkillConverter 等模块的工作。
  */
 

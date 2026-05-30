@@ -18,7 +18,7 @@ export interface OtelConfig {
 }
 
 const DEFAULT_OTEL_CONFIG: OtelConfig = {
-  serviceName: 'PY_APP',
+  serviceName: 'Liri',
   serviceVersion: '1.0.0',
   otlpEndpoint: process.env['OTEL_EXPORTER_OTLP_ENDPOINT'] || '',
   enabled:

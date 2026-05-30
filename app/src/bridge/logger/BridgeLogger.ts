@@ -153,8 +153,8 @@ export function createBridgeLogger(
     if (url) {
       writeStatus('\n');
       const footerText = isIdle
-        ? `随时随地使用 PY_APP 编码: ${url}`
-        : `在 PY_APP 中继续编码: ${url}`;
+        ? `随时随地使用 Liri 编码: ${url}`
+        : `在 Liri 中继续编码: ${url}`;
       writeStatus(`${chalk.dim(footerText)}\n`);
     }
   }

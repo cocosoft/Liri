@@ -30,7 +30,7 @@ import type { Command } from '@modules/commands/types';
  * 检查是否有API Key认证
  */
 function hasApiKeyAuth(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY || !!process.env.PY_APP_API_KEY;
+  return !!process.env.ANTHROPIC_API_KEY || !!process.env.Liri_API_KEY;
 }
 
 /**
@@ -47,7 +47,7 @@ function isEnvTruthy(value: string | undefined): boolean {
 export default (): Command => ({
   type: 'local',
   name: 'login',
-  description: hasApiKeyAuth() ? '切换PY_APP账户' : '登录您的PY_APP账户',
+  description: hasApiKeyAuth() ? '切换Liri账户' : '登录您的Liri账户',
   isEnabled: () => !isEnvTruthy(process.env.DISABLE_LOGIN_COMMAND),
   load: async () => {
     const { executeLogin } = await import('./login.js');

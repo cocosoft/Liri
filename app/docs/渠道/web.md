@@ -2,7 +2,7 @@
 
 ## 概述
 
-通过 Web 界面与 PY_APP 交互，提供 REST API 和 WebSocket 支持。
+通过 Web 界面与 Liri 交互，提供 REST API 和 WebSocket 支持。
 
 ## 配置
 
@@ -44,5 +44,5 @@ Web 渠道支持以下认证方式：
 curl -X POST http://localhost:3000/api/chat \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
-  -d '{"message": "Hello, PY_APP!"}'
+  -d '{"message": "Hello, Liri!"}'
 ```

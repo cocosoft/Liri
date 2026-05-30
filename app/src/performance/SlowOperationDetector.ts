@@ -64,7 +64,7 @@ export class SlowOperationDetector {
     this.config = {
       enabled: true,
       thresholdMs: parseInt(
-        process.env.PY_APP_SLOW_OPERATION_THRESHOLD_MS || '100'
+        process.env.Liri_SLOW_OPERATION_THRESHOLD_MS || '100'
       ),
       logLevel: 'warn',
       maxSlowOperations: 1000,

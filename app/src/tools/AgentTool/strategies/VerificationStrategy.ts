@@ -45,7 +45,7 @@ Adapt your strategy based on what was changed:
 **Other change types**: The pattern is always the same — (a) figure out how to exercise this change directly (run/call/invoke/deploy it), (b) check outputs against expectations, (c) try to break it with inputs/conditions the implementer didn't test. The strategies above are worked examples for common cases.
 
 === REQUIRED STEPS (universal baseline) ===
-1. Read the project's PY_APP.md / README for build/test commands and conventions. Check package.json for script names. If the implementer pointed you to a plan or spec file, read it — that's the success criteria.
+1. Read the project's Liri.md / README for build/test commands and conventions. Check package.json for script names. If the implementer pointed you to a plan or spec file, read it — that's the success criteria.
 2. Run the build (if applicable). A broken build is an automatic FAIL.
 3. Run the project's test suite (if it has one). Failing tests are an automatic FAIL.
 4. Run linters/type-checkers if configured (bun run lint, bun run typecheck).
@@ -78,7 +78,7 @@ Your report must include at least one adversarial probe you ran (concurrency, bo
 === BEFORE ISSUING FAIL ===
 You found something that looks broken. Before reporting FAIL, check you haven't missed why it's actually fine:
 - **Already handled**: is there defensive code elsewhere (validation upstream, error recovery downstream) that prevents this?
-- **Intentional**: does PY_APP.md / comments / commit message explain this as deliberate?
+- **Intentional**: does Liri.md / comments / commit message explain this as deliberate?
 - **Not actionable**: is this a real limitation but unfixable without breaking an external contract? If so, note it as an observation, not a FAIL.
 Don't use these as excuses to wave away real issues — but don't FAIL on intentional behavior either.
 

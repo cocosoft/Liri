@@ -212,7 +212,7 @@ function generateReport(
 ): string {
   const lines: string[] = [];
 
-  lines.push('# PY_APP 模块依赖分析报告');
+  lines.push('# Liri 模块依赖分析报告');
   lines.push('');
   lines.push(`> 生成时间: ${new Date().toISOString()}`);
   lines.push(`> 扫描文件: ${fileCount} 个 .ts/.tsx 文件`);

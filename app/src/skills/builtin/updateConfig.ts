@@ -9,7 +9,7 @@ const updateConfigSkill: Skill = {
   name: 'updateConfig',
   description: '更新应用的配置项，支持多种配置作用域',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     const scope = args[0] || 'help';
     const key = args[1] || '';

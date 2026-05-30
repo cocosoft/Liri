@@ -162,7 +162,7 @@ export class DiagnoseHandler {
     });
 
     // 环境变量检查
-    const requiredEnvVars = ['NODE_ENV', 'PY_APP_HOME'];
+    const requiredEnvVars = ['NODE_ENV', 'Liri_HOME'];
     const missingEnvVars = requiredEnvVars.filter(
       (v) => !process.env[v] && v !== 'NODE_ENV'
     );

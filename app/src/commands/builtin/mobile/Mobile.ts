@@ -63,7 +63,7 @@ export default {
       type: 'text',
       message:
         '正在生成配对二维码...\n\n' +
-        '请打开PY_APP移动应用并扫描此二维码进行配对。',
+        '请打开Liri移动应用并扫描此二维码进行配对。',
       data: { qrGenerated: true },
     };
   },

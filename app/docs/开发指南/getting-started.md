@@ -9,8 +9,8 @@
 ## 初始化
 
 ```bash
-git clone https://github.com/cocosoft/PY_APP.git
-cd PY_APP/backend
+git clone https://github.com/cocosoft/Liri.git
+cd Liri/backend
 bun install
 ```
 

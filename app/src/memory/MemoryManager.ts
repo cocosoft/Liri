@@ -136,7 +136,7 @@ export interface MemoryManager {
   getProvider(): MemoryProvider | null;
   removeProvider(): void;
 
-  // PY_APP.md集成功能
+  // Liri.md集成功能
   initializePYAppIntegration(): Promise<void>;
   getPYAppConfig(): PYAppConfig | null;
   getPYAppRules(): Rule[];
@@ -188,7 +188,7 @@ export class MemoryManagerImpl {
   private teamMemoryService: TeamMemoryService;
 
   /**
-   * PY_APP.md集成服务
+   * Liri.md集成服务
    */
   private pyAppIntegrationService: PYAppIntegrationService;
 
@@ -704,84 +704,84 @@ export class MemoryManagerImpl {
   }
 
   /**
-   * 初始化PY_APP.md集成
+   * 初始化Liri.md集成
    */
   async initializePYAppIntegration(): Promise<void> {
     await this.pyAppIntegrationService.initialize();
   }
 
   /**
-   * 获取PY_APP配置
+   * 获取Liri配置
    */
   getPYAppConfig(): PYAppConfig | null {
     return this.pyAppIntegrationService.getConfig();
   }
 
   /**
-   * 获取所有PY_APP规则
+   * 获取所有Liri规则
    */
   getPYAppRules(): Rule[] {
     return this.pyAppIntegrationService.getRules();
   }
 
   /**
-   * 获取指定类别的PY_APP规则
+   * 获取指定类别的Liri规则
    */
   getPYAppRulesByCategory(category: string): Rule[] {
     return this.pyAppIntegrationService.getRulesByCategory(category);
   }
 
   /**
-   * 获取指定优先级的PY_APP规则
+   * 获取指定优先级的Liri规则
    */
   getPYAppRulesByPriority(priority: 'high' | 'medium' | 'low'): Rule[] {
     return this.pyAppIntegrationService.getRulesByPriority(priority);
   }
 
   /**
-   * 获取所有PY_APP偏好设置
+   * 获取所有Liri偏好设置
    */
   getPYAppPreferences(): Preference[] {
     return this.pyAppIntegrationService.getPreferences();
   }
 
   /**
-   * 获取指定键的PY_APP偏好设置
+   * 获取指定键的Liri偏好设置
    */
   getPYAppPreference(key: string): Preference | undefined {
     return this.pyAppIntegrationService.getPreference(key);
   }
 
   /**
-   * 获取PY_APP偏好设置值
+   * 获取Liri偏好设置值
    */
   getPYAppPreferenceValue(key: string, defaultValue?: any): any {
     return this.pyAppIntegrationService.getPreferenceValue(key, defaultValue);
   }
 
   /**
-   * 获取PY_APP规则文本（用于AI模块）
+   * 获取Liri规则文本（用于AI模块）
    */
   getPYAppRulesText(): string {
     return this.pyAppIntegrationService.getRulesText();
   }
 
   /**
-   * 检查PY_APP是否有变化
+   * 检查Liri是否有变化
    */
   async checkPYAppChanges(): Promise<boolean> {
     return this.pyAppIntegrationService.checkForChanges();
   }
 
   /**
-   * 添加PY_APP变化监听器
+   * 添加Liri变化监听器
    */
   addPYAppChangeListener(listener: (config: PYAppConfig) => void): void {
     this.pyAppIntegrationService.addChangeListener(listener);
   }
 
   /**
-   * 移除PY_APP变化监听器
+   * 移除Liri变化监听器
    */
   removePYAppChangeListener(listener: (config: PYAppConfig) => void): void {
     this.pyAppIntegrationService.removeChangeListener(listener);

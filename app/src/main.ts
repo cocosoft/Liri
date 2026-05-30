@@ -181,7 +181,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   }
 
   console.log('');
-  console.log('🎉 欢迎使用 PY_APP，准备配置向导...');
+  console.log('🎉 欢迎使用 Liri，准备配置向导...');
   console.log('');
 
   if (retryCount >= MAX_ONBOARD_RETRIES) {
@@ -304,7 +304,7 @@ function setupWindowsSecurity(): void {
       // 非致命，部分终端可能不支持
     }
     try {
-      process.stdout.write('\x1b]0;PY_APP\x07');
+      process.stdout.write('\x1b]0;Liri\x07');
     } catch {
       // 非致命
     }
@@ -464,7 +464,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     startMdmPrefetch();
     if (process.platform === 'darwin') {
       startKeychainPrefetch(
-        ['PY_APP', 'com.pyapp.api-key'],
+        ['Liri', 'com.liri.api-key'],
         process.env.USER || ''
       );
     }
@@ -476,7 +476,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseStart('T1_module_init');
 
     // 显示加载提示（在 T1 执行期间给用户进度反馈）
-    process.stdout.write('⏳ PY_APP 正在加载模块...\r');
+    process.stdout.write('⏳ Liri 正在加载模块...\r');
 
     await initializeModuleSystem();
 
@@ -584,7 +584,7 @@ export async function main(): Promise<void> {
     }
   }
   if (projectDir) {
-    process.env.PYAPP_PROJECT_DIR = projectDir;
+    process.env.LIRI_PROJECT_DIR = projectDir;
   }
 
   let mode: LaunchMode;

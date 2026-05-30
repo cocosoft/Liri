@@ -381,7 +381,7 @@ export const BRIDGE_LOGIN_ERROR = 'Bridge login error';
  * Bridge登录指令
  */
 export const BRIDGE_LOGIN_INSTRUCTION =
-  'Please log in first with `PY_APP login`';
+  'Please log in first with `Liri login`';
 
 /**
  * 默认会话超时时间（毫秒）

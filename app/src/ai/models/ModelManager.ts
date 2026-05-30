@@ -275,7 +275,7 @@ export class ModelManager {
    * 获取当前模型
    */
   getCurrentModel(): string {
-    const envModel = process.env.PY_APP_MODEL;
+    const envModel = process.env.Liri_MODEL;
     if (envModel) {
       const modelKey = getModelKeyByName(envModel);
       if (modelKey) {
@@ -283,7 +283,7 @@ export class ModelManager {
       }
     }
     const defaultModel = this.getDefaultMainLoopModel();
-    process.env.PY_APP_MODEL = defaultModel;
+    process.env.Liri_MODEL = defaultModel;
     return defaultModel;
   }
 
@@ -293,7 +293,7 @@ export class ModelManager {
   setCurrentModel(modelId: string): boolean {
     const resolved = this.resolveModel(modelId);
     if (resolved) {
-      process.env.PY_APP_MODEL = resolved;
+      process.env.Liri_MODEL = resolved;
       this.config.modelOverride = resolved;
       return true;
     }

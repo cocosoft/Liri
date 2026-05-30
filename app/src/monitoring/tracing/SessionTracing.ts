@@ -167,7 +167,7 @@ export class SessionTracing {
     });
 
     const tracer = this.getTracer();
-    const span = tracer.startSpan('py_app.interaction', {
+    const span = tracer.startSpan('Liri.interaction', {
       attributes,
     });
 
@@ -244,7 +244,7 @@ export class SessionTracing {
       ? trace.setSpan(context.active(), parentSpanCtx.span)
       : context.active();
 
-    const span = tracer.startSpan('py_app.llm_request', { attributes }, ctx);
+    const span = tracer.startSpan('Liri.llm_request', { attributes }, ctx);
 
     const spanId = this.getSpanId(span);
     const spanContext: SpanContext = {
@@ -349,7 +349,7 @@ export class SessionTracing {
       ? trace.setSpan(context.active(), parentSpanCtx.span)
       : context.active();
 
-    const span = tracer.startSpan('py_app.tool', { attributes }, ctx);
+    const span = tracer.startSpan('Liri.tool', { attributes }, ctx);
 
     const spanId = this.getSpanId(span);
     const spanContext: SpanContext = {

@@ -53,10 +53,10 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               </svg>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-              PY_APP
+              Liri
             </h1>
             <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-              欢迎使用 PY_APP Client。在开始之前，我们先做一些基本设置。
+              欢迎使用 Liri Client。在开始之前，我们先做一些基本设置。
               你可以随时在设置页面中修改这些配置。
             </p>
           </div>

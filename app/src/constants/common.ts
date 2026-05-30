@@ -2,8 +2,8 @@
  * 通用常量
  */
 
-export const APP_NAME = 'PY_APP';
-export const APP_NAME_LOWER = 'py_app';
+export const APP_NAME = 'Liri';
+export const APP_NAME_LOWER = 'liri';
 export const APP_VERSION = '1.0.0';
 
 export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -19,10 +19,10 @@ export const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 
 export const DEFAULT_PORT = 3000;
 export const DEFAULT_HOST = 'localhost';
-export const ENV_PREFIX = 'PY_APP_';
+export const ENV_PREFIX = 'LIRI_';
 
 export const CONFIG_FILE_NAME = 'config.json';
-export const CONFIG_DIR_NAME = '.pyapp';
+export const CONFIG_DIR_NAME = '.liri';
 export const DATA_DIR_NAME = 'data';
 export const CACHE_DIR_NAME = 'cache';
 export const LOGS_DIR_NAME = 'logs';
@@ -40,13 +40,13 @@ export const TOKEN_ENCODING = 'cl100k_base';
 export const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 export const DEFAULT_MAX_TOKENS = 4096;
 
-export const USER_AGENT = 'PY_APP/1.0.0';
+export const USER_AGENT = 'Liri/1.0.0';
 
 export const PROTOCOL_VERSION = '1.0';
 export const API_VERSION = 'v1';
 
-export const CLIENT_ID = 'py_app_client';
-export const CLIENT_NAME = 'PY_APP';
+export const CLIENT_ID = 'liri_client';
+export const CLIENT_NAME = 'Liri';
 
-export const FEATURE_FLAGS_PREFIX = 'PY_APP_FEATURE_';
-export const EXPERIMENT_PREFIX = 'PY_APP_EXP_';
+export const FEATURE_FLAGS_PREFIX = 'LIRI_FEATURE_';
+export const EXPERIMENT_PREFIX = 'LIRI_EXP_';

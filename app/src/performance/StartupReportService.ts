@@ -280,8 +280,8 @@ export class StartupReportService {
     const importantEnvVars = [
       'NODE_ENV',
       'NODE_PATH',
-      'PY_APP_SLOW_OPERATION_THRESHOLD_MS',
-      'PY_APP_PERFETTO_TRACE',
+      'Liri_SLOW_OPERATION_THRESHOLD_MS',
+      'Liri_PERFETTO_TRACE',
       'PORT',
       'HOST',
     ];

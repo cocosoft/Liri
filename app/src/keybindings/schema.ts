@@ -214,8 +214,8 @@ export function validateKeybindings(config: unknown): {
 export function generateJsonSchema(): object {
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    title: 'PY_APP Keybindings Configuration',
-    description: 'Configuration schema for PY_APP keyboard shortcuts',
+    title: 'Liri Keybindings Configuration',
+    description: 'Configuration schema for Liri keyboard shortcuts',
     type: 'object',
     properties: {
       $schema: {

@@ -148,7 +148,7 @@ export class WebhookChannel extends EventEmitter {
   async sendMessage(target: string, text: string): Promise<boolean> {
     if (!this.connected && this.config.endpoints.length === 0) return false;
 
-    const payload = { text, timestamp: Date.now(), source: 'py_app' };
+    const payload = { text, timestamp: Date.now(), source: 'Liri' };
 
     const message: WebhookMessage = {
       id: `wh-out-${Date.now()}`,

@@ -36,7 +36,7 @@ export class ApiClient {
       timeoutMs: config.timeoutMs ?? 600000,
       defaultHeaders: {
         'Content-Type': 'application/json',
-        'User-Agent': 'py_app/1.0.0',
+        'User-Agent': 'Liri/1.0.0',
         ...config.defaultHeaders,
       },
     };

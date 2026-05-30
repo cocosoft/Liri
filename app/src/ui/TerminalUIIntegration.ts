@@ -79,7 +79,7 @@ export class TerminalUIIntegration {
    */
   showWelcomeScreen(): void {
     TerminalComponents.printHeader();
-    TerminalComponents.printBox(['欢迎使用PY_APP']);
+    TerminalComponents.printBox(['欢迎使用Liri']);
     TerminalComponents.printInfo('系统已就绪，输入help查看可用命令');
     TerminalComponents.printDivider();
   }

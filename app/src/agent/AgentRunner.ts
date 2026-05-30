@@ -144,7 +144,7 @@ export class AgentRunner {
   }
 
   isBackgroundTasksDisabled(): boolean {
-    return process.env.PY_APP_DISABLE_BACKGROUND_TASKS === 'true';
+    return process.env.Liri_DISABLE_BACKGROUND_TASKS === 'true';
   }
 
   getActiveCount(): number {

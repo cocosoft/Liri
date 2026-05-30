@@ -94,10 +94,10 @@ function sanitizeAgentTypeForPath(agentType: string): string {
  * 返回本地Agent内存目录，特定于项目且不签入VCS
  */
 function getLocalAgentMemoryDir(dirName: string): string {
-  if (process.env.PY_APP_REMOTE_MEMORY_DIR) {
+  if (process.env.Liri_REMOTE_MEMORY_DIR) {
     return (
       path.join(
-        process.env.PY_APP_REMOTE_MEMORY_DIR,
+        process.env.Liri_REMOTE_MEMORY_DIR,
         'projects',
         findCanonicalGitRoot(getProjectRoot()) ?? getProjectRoot(),
         'agent-memory-local',
@@ -150,11 +150,11 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
   }
 
   // 本地范围：根据环境变量决定
-  if (process.env.PY_APP_REMOTE_MEMORY_DIR) {
+  if (process.env.Liri_REMOTE_MEMORY_DIR) {
     if (
       normalizedPath.includes(path.sep + 'agent-memory-local' + path.sep) &&
       normalizedPath.startsWith(
-        path.join(process.env.PY_APP_REMOTE_MEMORY_DIR, 'projects') + path.sep
+        path.join(process.env.Liri_REMOTE_MEMORY_DIR, 'projects') + path.sep
       )
     ) {
       return true;
@@ -227,7 +227,7 @@ export function loadAgentMemoryPrompt(
   // 异步创建目录（非阻塞）
   void ensureMemoryDirExists(memoryDir);
 
-  const extraGuidelines = process.env.PY_APP_MEMORY_EXTRA_GUIDELINES;
+  const extraGuidelines = process.env.Liri_MEMORY_EXTRA_GUIDELINES;
   return buildMemoryPrompt({
     displayName: 'Persistent Agent Memory',
     memoryDir,

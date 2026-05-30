@@ -54,7 +54,7 @@ export class UtilHandler {
   }
 
   private printGeneralHelp() {
-    console.log(`\nPY_APP CLI 帮助信息
+    console.log(`\nLiri CLI 帮助信息
 
 命令列表:
   auth          - 认证相关命令
@@ -169,7 +169,7 @@ export class UtilHandler {
         version = '0.0.0';
       }
     }
-    console.log(`PY_APP v${version}`);
+    console.log(`Liri v${version}`);
   }
 
   async clearScreen() {
@@ -223,13 +223,13 @@ export class UtilHandler {
 
   async debug(args: string[]) {
     if (args.includes('on')) {
-      process.env.PY_APP_DEBUG = 'true';
+      process.env.Liri_DEBUG = 'true';
       console.log('调试模式已开启');
     } else if (args.includes('off')) {
-      delete process.env.PY_APP_DEBUG;
+      delete process.env.Liri_DEBUG;
       console.log('调试模式已关闭');
     } else {
-      const status = process.env.PY_APP_DEBUG ? '开启' : '关闭';
+      const status = process.env.Liri_DEBUG ? '开启' : '关闭';
       console.log(`调试模式: ${status}`);
       console.log(`Node版本: ${process.version}`);
       console.log(`平台: ${process.platform}`);

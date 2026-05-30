@@ -3,7 +3,7 @@
  * 显示基于真实数据的用量统计和趋势分析
  *
  * 对标 CC 源码 cc_code/backend/commands/usage/usage.tsx
- * CC 中以 Settings React 组件展示用量面板，PY_APP 使用 CLI 文本输出。
+ * CC 中以 Settings React 组件展示用量面板，Liri 使用 CLI 文本输出。
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
@@ -384,7 +384,7 @@ async function handleJson(): Promise<CommandResult> {
   const memUsage = process.memoryUsage();
 
   const data = {
-    app: 'PY_APP',
+    app: 'Liri',
     tokens: {
       total: usageStats.totalTokens,
       input: usageStats.inputTokens,

@@ -204,7 +204,7 @@ function generateSummary(
 export function printAuditReport(report: DeliveryAuditReport): void {
   console.log('');
   console.log('='.repeat(62));
-  console.log('               PY_APP 最终交付审计报告');
+  console.log('               Liri 最终交付审计报告');
   console.log('='.repeat(62));
   console.log(`状态: ${report.overallStatus}`);
   console.log(`得分: ${report.overallScore}/${report.maxScore}`);

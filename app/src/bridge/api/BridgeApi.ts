@@ -153,7 +153,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
     const accessToken = deps.getAccessToken();
     if (!accessToken) {
       throw new AppError(
-        'Please log in first with `PY_APP login`',
+        'Please log in first with `Liri login`',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'
@@ -253,14 +253,14 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
     switch (status) {
       case 401:
         throw new BridgeFatalError(
-          `${context}: Authentication failed (401)${detail ? `: ${detail}` : ''}. Please log in first with \`PY_APP login\``,
+          `${context}: Authentication failed (401)${detail ? `: ${detail}` : ''}. Please log in first with \`Liri login\``,
           401,
           errorType
         );
       case 403:
         throw new BridgeFatalError(
           isExpiredErrorType(errorType)
-            ? 'Remote Control session has expired. Please restart with `PY_APP bridge start`.'
+            ? 'Remote Control session has expired. Please restart with `Liri bridge start`.'
             : `${context}: Access denied (403)${detail ? `: ${detail}` : ''}. Check your organization permissions.`,
           403,
           errorType
@@ -275,7 +275,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
       case 410:
         throw new BridgeFatalError(
           detail ??
-            'Remote Control session has expired. Please restart with `PY_APP bridge start`.',
+            'Remote Control session has expired. Please restart with `Liri bridge start`.',
           410,
           errorType ?? 'environment_expired'
         );

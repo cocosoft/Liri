@@ -152,7 +152,7 @@ export const ConversationArea: React.FC<ConversationAreaProps> = ({
               id: 'welcome',
               role: 'system',
               content:
-                'PY_APP REPL (Ink 模式) — 输入消息开始对话，输入 /help 查看命令，输入 exit 退出。',
+                'Liri REPL (Ink 模式) — 输入消息开始对话，输入 /help 查看命令，输入 exit 退出。',
               timestamp: Date.now(),
             }}
           />

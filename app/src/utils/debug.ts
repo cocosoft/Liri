@@ -9,7 +9,7 @@ import { isEnvTruthy } from './envUtils.js';
  */
 export function isDebugMode(): boolean {
   return (
-    isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.PY_APP_DEBUG)
+    isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.Liri_DEBUG)
   );
 }
 
@@ -47,7 +47,7 @@ export function logForDebugging(
  * 检查是否需要格式化输出
  */
 export function getHasFormattedOutput(): boolean {
-  return !isEnvTruthy(process.env.PY_APP_STREAM_JSON);
+  return !isEnvTruthy(process.env.Liri_STREAM_JSON);
 }
 
 /**

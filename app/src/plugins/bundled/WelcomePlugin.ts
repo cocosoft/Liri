@@ -14,7 +14,7 @@ export const WelcomePluginMetadata: PluginMetadata = {
   name: 'Welcome',
   version: '1.0.0',
   description: '欢迎插件，提供欢迎信息和快速入门指南',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'core',
   dependencies: [],
   enabledByDefault: true,
@@ -55,7 +55,7 @@ export class WelcomePlugin implements Plugin {
    */
   getWelcomeMessage(): string {
     return `
-欢迎使用 PY_APP！
+欢迎使用 Liri！
 
 这是一个强大的 AI 辅助开发平台。
 

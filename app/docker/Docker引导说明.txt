@@ -1,5 +1,5 @@
 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-  PY_APP — Docker 引导说明
+  Liri — Docker 引导说明
   版本：1.0.0 | 更新日期：2026-05-26
 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
 
@@ -8,7 +8,7 @@
 一、概述
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PY_APP 的 Docker 版采用与 Windows 版相同的打包策略：
+Liri 的 Docker 版采用与 Windows 版相同的打包策略：
 使用 bun build --compile 将应用编译为独立的 Linux 二进制文件，
 再放入最小化的 Alpine 镜像中运行。
 
@@ -18,8 +18,8 @@ PY_APP 的 Docker 版采用与 Windows 版相同的打包策略：
   ─────────────────────────────────────────────────
   bun build --compile            Dockerfile 中的 bun build --compile
   --target=bun-windows-x64       --target=bun-linux-x64-musl-modern
-  py_app_coding.exe              py_app_coding（Linux ELF 二进制）
-  dist/ 目录                     镜像中的 /app/py_app_coding
+  Liri_coding.exe              Liri_coding（Linux ELF 二进制）
+  dist/ 目录                     镜像中的 /app/Liri_coding
   双击 exe 运行                   docker compose run --rm app
   启动脚本设置环境变量              docker-compose.yml 中的 env_file
 
@@ -120,7 +120,7 @@ Docker 版使用命名卷持久化数据：
   停止服务                               docker compose -f docker/docker-compose.yml down
   彻底清理（含数据卷）                    docker compose -f docker/docker-compose.yml down -v
   进入容器 shell                         docker compose -f docker/docker-compose.yml run --rm app /bin/sh
-  导出镜像                               docker save py_app-app:latest -o py_app.tar
+  导出镜像                               docker save Liri-app:latest -o Liri.tar
 
   # 也可以 cd app/docker 后直接运行（省略 -f 参数）
   cd app/docker

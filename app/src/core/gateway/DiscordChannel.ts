@@ -298,7 +298,7 @@ export class DiscordChannel implements GatewayChannel, ChannelPlugin {
         headers: {
           Authorization: `Bot ${this.config.botToken}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'PY_APP (https://github.com/your-org/PY_APP, 1.0.0)',
+          'User-Agent': 'Liri (https://github.com/your-org/Liri, 1.0.0)',
         },
       };
 

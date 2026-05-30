@@ -4,7 +4,7 @@ export type FirstPartyEventSchema = {
   eventId: string;
   eventName: string;
   timestamp: number;
-  source: 'py_app';
+  source: 'Liri';
   sourceVersion: string;
   sessionId: string;
   deviceId?: string;
@@ -73,7 +73,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
     if (!this.isEnabled) return;
     this.events.push({
       ...event,
-      source: 'py_app',
+      source: 'Liri',
       sourceVersion: this.sourceVersion,
       sessionId: event.sessionId || this.sessionId,
       schemaVersion: event.schemaVersion || '1.1',
@@ -106,7 +106,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          source: 'py_app',
+          source: 'Liri',
           schemaVersion: '1.1',
           events: batch,
         }),
@@ -134,7 +134,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
       eventId: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       eventName: analyticsEvent.eventName,
       timestamp: analyticsEvent.timestamp,
-      source: 'py_app',
+      source: 'Liri',
       sourceVersion: this.sourceVersion,
       sessionId: analyticsEvent.sessionId || this.sessionId,
       deviceId: this.deviceId,
@@ -163,7 +163,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
       eventId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       eventName: 'growthbook_experiment_exposure',
       timestamp: Date.now(),
-      source: 'py_app',
+      source: 'Liri',
       sourceVersion: this.sourceVersion,
       sessionId: this.sessionId,
       schemaVersion: '1.1',
@@ -192,7 +192,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
       eventId: `sec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       eventName: `security_${options.eventType}`,
       timestamp: Date.now(),
-      source: 'py_app',
+      source: 'Liri',
       sourceVersion: this.sourceVersion,
       sessionId: this.sessionId,
       schemaVersion: '1.1',

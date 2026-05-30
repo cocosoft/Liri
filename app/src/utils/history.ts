@@ -141,7 +141,7 @@ export class HistoryManager {
 /**
  * 历史记录管理器实例（使用全局符号确保单例）
  */
-const HISTORY_MANAGER_SYMBOL = Symbol.for('PY_APP_HISTORY_MANAGER');
+const HISTORY_MANAGER_SYMBOL = Symbol.for('Liri_HISTORY_MANAGER');
 
 export const historyManager: HistoryManager = (() => {
   const globalObj = globalThis as any;

@@ -33,7 +33,7 @@ export function resolveEmailAccount(id: string): ResolvedEmailAccount | null {
   if (!account) return null;
   return {
     ...account,
-    fromName: account.fromName || account.user.split('@')[0] || 'PY_APP',
+    fromName: account.fromName || account.user.split('@')[0] || 'Liri',
     resolved: true,
   };
 }

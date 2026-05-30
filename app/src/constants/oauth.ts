@@ -2,7 +2,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * OAuth配置常量
- * 去除Anthropic/CLAUDE特定内容，适配PY_APP
+ * 去除Anthropic/CLAUDE特定内容，适配Liri
  */
 
 type OauthConfigType = 'prod' | 'staging' | 'local';
@@ -12,10 +12,10 @@ type OauthConfigType = 'prod' | 'staging' | 'local';
  * 根据环境变量决定使用生产、预发布还是本地配置
  */
 function getOauthConfigType(): OauthConfigType {
-  if (process.env.PY_APP_USE_LOCAL_OAUTH === 'true') {
+  if (process.env.Liri_USE_LOCAL_OAUTH === 'true') {
     return 'local';
   }
-  if (process.env.PY_APP_USE_STAGING_OAUTH === 'true') {
+  if (process.env.Liri_USE_STAGING_OAUTH === 'true') {
     return 'staging';
   }
   return 'prod';
@@ -25,7 +25,7 @@ function getOauthConfigType(): OauthConfigType {
  * 获取OAuth配置文件后缀
  */
 export function fileSuffixForOauthConfig(): string {
-  if (process.env.PY_APP_CUSTOM_OAUTH_URL) {
+  if (process.env.Liri_CUSTOM_OAUTH_URL) {
     return '-custom-oauth';
   }
   switch (getOauthConfigType()) {
@@ -63,7 +63,7 @@ export const CONSOLE_OAUTH_SCOPES = [
 export const APP_OAUTH_SCOPES = [
   PROFILE_SCOPE,
   INFERENCE_SCOPE,
-  'user:sessions:py_app',
+  'user:sessions:Liri',
   'user:mcp_servers',
   'user:file_upload',
 ] as const;
@@ -99,8 +99,8 @@ const PROD_OAUTH_CONFIG: OauthConfig = {
   BASE_API_URL: 'https://api.pyapp.dev',
   AUTHORIZE_URL: 'https://platform.pyapp.dev/oauth/authorize',
   TOKEN_URL: 'https://platform.pyapp.dev/v1/oauth/token',
-  API_KEY_URL: 'https://api.pyapp.dev/api/oauth/py_app/create_api_key',
-  ROLES_URL: 'https://api.pyapp.dev/api/oauth/py_app/roles',
+  API_KEY_URL: 'https://api.pyapp.dev/api/oauth/Liri/create_api_key',
+  ROLES_URL: 'https://api.pyapp.dev/api/oauth/Liri/roles',
   SUCCESS_URL: 'https://platform.pyapp.dev/oauth/code/success?app=py-app',
   MANUAL_REDIRECT_URL: 'https://platform.pyapp.dev/oauth/code/callback',
   CLIENT_ID: 'py-app-client-id',
@@ -116,8 +116,8 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
   BASE_API_URL: 'https://api-staging.pyapp.dev',
   AUTHORIZE_URL: 'https://platform-staging.pyapp.dev/oauth/authorize',
   TOKEN_URL: 'https://platform-staging.pyapp.dev/v1/oauth/token',
-  API_KEY_URL: 'https://api-staging.pyapp.dev/api/oauth/py_app/create_api_key',
-  ROLES_URL: 'https://api-staging.pyapp.dev/api/oauth/py_app/roles',
+  API_KEY_URL: 'https://api-staging.pyapp.dev/api/oauth/Liri/create_api_key',
+  ROLES_URL: 'https://api-staging.pyapp.dev/api/oauth/Liri/roles',
   SUCCESS_URL:
     'https://platform-staging.pyapp.dev/oauth/code/success?app=py-app',
   MANUAL_REDIRECT_URL: 'https://platform-staging.pyapp.dev/oauth/code/callback',
@@ -133,18 +133,18 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
  */
 function getLocalOauthConfig(): OauthConfig {
   const api =
-    process.env.PY_APP_LOCAL_OAUTH_API_BASE?.replace(/\/$/, '') ??
+    process.env.Liri_LOCAL_OAUTH_API_BASE?.replace(/\/$/, '') ??
     'http://localhost:8000';
   const apps =
-    process.env.PY_APP_LOCAL_OAUTH_APPS_BASE?.replace(/\/$/, '') ??
+    process.env.Liri_LOCAL_OAUTH_APPS_BASE?.replace(/\/$/, '') ??
     'http://localhost:4000';
 
   return {
     BASE_API_URL: api,
     AUTHORIZE_URL: `${apps}/oauth/authorize`,
     TOKEN_URL: `${api}/v1/oauth/token`,
-    API_KEY_URL: `${api}/api/oauth/py_app/create_api_key`,
-    ROLES_URL: `${api}/api/oauth/py_app/roles`,
+    API_KEY_URL: `${api}/api/oauth/Liri/create_api_key`,
+    ROLES_URL: `${api}/api/oauth/Liri/roles`,
     SUCCESS_URL: `${apps}/oauth/code/success?app=py-app`,
     MANUAL_REDIRECT_URL: `${apps}/oauth/code/callback`,
     CLIENT_ID: 'py-app-local-client-id',
@@ -180,12 +180,12 @@ export function getOauthConfig(): OauthConfig {
     }
   })();
 
-  const oauthBaseUrl = process.env.PY_APP_CUSTOM_OAUTH_URL;
+  const oauthBaseUrl = process.env.Liri_CUSTOM_OAUTH_URL;
   if (oauthBaseUrl) {
     const base = oauthBaseUrl.replace(/\/$/, '');
     if (!ALLOWED_OAUTH_BASE_URLS.includes(base)) {
       throw new AppError(
-        'PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.',
+        'Liri_CUSTOM_OAUTH_URL is not an approved endpoint.',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'
@@ -196,15 +196,15 @@ export function getOauthConfig(): OauthConfig {
       BASE_API_URL: base,
       AUTHORIZE_URL: `${base}/oauth/authorize`,
       TOKEN_URL: `${base}/v1/oauth/token`,
-      API_KEY_URL: `${base}/api/oauth/py_app/create_api_key`,
-      ROLES_URL: `${base}/api/oauth/py_app/roles`,
+      API_KEY_URL: `${base}/api/oauth/Liri/create_api_key`,
+      ROLES_URL: `${base}/api/oauth/Liri/roles`,
       SUCCESS_URL: `${base}/oauth/code/success?app=py-app`,
       MANUAL_REDIRECT_URL: `${base}/oauth/code/callback`,
       OAUTH_FILE_SUFFIX: '-custom-oauth',
     };
   }
 
-  const clientIdOverride = process.env.PY_APP_OAUTH_CLIENT_ID;
+  const clientIdOverride = process.env.Liri_OAUTH_CLIENT_ID;
   if (clientIdOverride) {
     config = {
       ...config,

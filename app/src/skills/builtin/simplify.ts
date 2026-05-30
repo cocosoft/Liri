@@ -8,7 +8,7 @@ const simplifySkill: Skill = {
   name: 'simplify',
   description: 'Simplify complex code and make it more readable',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     return `Simplifying code...\n\nTarget: ${args.join(' ') || 'current selection'}\n\nSimplification approach:\n1. Remove redundant code\n2. Improve readability\n3. Optimize structure\n4. Add comments where needed`;
   },

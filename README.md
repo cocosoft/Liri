@@ -1,12 +1,15 @@
 <div align="center">
 
-# PY_APP
+# Liri · OpenLiri
+
+> 玲珑鸟 · 你的 AI 私人助手
+> 官网：https://openliri.com
 
 **终端里的 AI 智能体 · 连接 26+ 平台的智能助手**
 
 一键安装 · 自然语言交互 · 60+ 内置工具 · 企业级安全
 
-[![CI Status](https://github.com/190615273/PY_APP/actions/workflows/ci.yml/badge.svg)](https://github.com/190615273/PY_APP/actions/workflows/ci.yml)
+[![CI Status](https://github.com/190615273/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/190615273/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 
@@ -22,7 +25,7 @@
 
 ## 🎯 这是什么
 
-PY_APP 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
+Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 - **终端里的编程搭档** — 在命令行中自然语言对话，读代码、搜文件、写脚本、查文档
 - **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等 26+ 平台，一处部署处处可用
@@ -30,6 +33,24 @@ PY_APP 是一个运行在终端中的 **AI 智能助手**。你用它做什么�
 - **安全的命令执行环境** — Rust AST 级安全分析 + 沙箱隔离，让 AI 安全地操作你的系统
 
 > ⚡ **一行命令启动**：`cd app && bun install && cp .env.example .env` 填入 API Key，即可开始对话
+
+拥有 40+ 模块化子系统、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
+
+---
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| **运行时** | Bun（主要）/ Node.js |
+| **语言** | TypeScript (95%) + Rust (5%) |
+| **终端 UI** | React + Ink |
+| **AI 接口** | DeepSeek API（默认），支持多 Provider 切换（OpenAI、Gemini 等） |
+| **协议层** | ACP（Agent Communication Protocol）+ MCP + LSP |
+| **安全** | AST 级命令分析、细粒度权限控制、安全审计、Docker 沙箱 |
+| **可观测性** | OpenTelemetry（Tracing + Metrics）、结构化日志、告警体系 |
+| **存储** | SQLite + FTS5 全文搜索、文件系统持久化、缓存层 |
+| **原生模块** | Rust（Bash AST 解析、安全分析、压缩） |
 
 ---
 
@@ -71,9 +92,32 @@ bun run dev
 读取当前目录下的 package.json，告诉我依赖列表
 ```
 
+首次启动将自动进入 **Onboard 引导**，引导你配置 API 密钥和基础设置。
+
 ### 配置自己的 AI 模型
 
 支持 DeepSeek、OpenAI、Anthropic Claude、Ollama（本地）、Azure、Vertex 等多种模型，修改 `.env` 即可切换。
+
+---
+
+## 启动架构
+
+应用采用 **四阶段（T0-T3）分层启动**，确保核心功能快速就绪，重型模块延迟加载：
+
+```
+T0 ── 并行预读取（MDM / Keychain，不阻塞）
+ │
+T1 ── 模块系统初始化（仅 CRITICAL 模块）
+ │
+T2 ── 模式分发（REPL / CLI / MCP / Daemon）
+ │
+T3 ── 后台延迟加载（DEFERRED + ON_DEMAND 模块）
+```
+
+模块按优先级分三级：
+- **CRITICAL** — 启动时必需加载（core、ai、config、error、performance 等）
+- **DEFERRED** — 启动完成后按批次加载（chat、session、tools 等）
+- **ON_DEMAND** — 首次按需动态 import（security、sandbox、mcp、voice 等）
 
 ---
 
@@ -95,7 +139,7 @@ bun run dev
 |------|------|
 | 📁 文件操作 | 读写文件、搜索替换、glob 匹配、代码分析 |
 | ⚡ 命令执行 | Bash 沙箱执行、安全分析、权限控制 |
-| 🌐 网络能力 | 网页抓取(HTML→Markdown)、搜索引擎查询 |
+| 🌐 网络能力 | 网页抓取（HTML→Markdown）、搜索引擎查询 |
 | 🖼 媒体处理 | 图片生成/处理、语音合成/识别、视频生成、PDF 解析 |
 | 💻 编程辅助 | LSP 智能提示、代码执行、Notebook 编辑 |
 | 🧩 Agent 协作 | 子代理（SubAgent）异步执行、技能编排 |
@@ -117,7 +161,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 
 ### 🧩 插件系统
 
-- 标准插件 SDK（`@pyapp/core` / `@pyapp/personal` / `@pyapp/coding` / 企业版）
+- 标准插件 SDK（`@liri/core` / `@liri/personal` / `@liri/coding` / 企业版）
 - 插件市场支持，本地和 npm 来源
 - 完整的生命周期管理（激活、停用、热加载）
 - 技能系统，支持条件触发和自动编排
@@ -137,7 +181,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 
 ## 🌐 渠道生态
 
-一次部署，连接所有平台。PY_APP 支持 **26+ 消息通道**，配置环境变量即可启用：
+一次部署，连接所有平台。Liri 支持 **26+ 消息通道**，配置环境变量即可启用：
 
 | 区域 | 通道 |
 |------|------|
@@ -170,27 +214,48 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 ## 🏗 项目结构
 
 ```
-PY_APP/
-├── app/                    # 主应用（TypeScript + Bun）
-│   ├── src/                # 源代码
-│   │   ├── main.ts             # 入口（launch 函数）
-│   │   ├── agent/              # AI Agent 核心
-│   │   ├── tools/              # 60+ 工具实现
-│   │   ├── channels/           # 26+ 消息通道
-│   │   ├── mcp/                # MCP 协议实现
-│   │   ├── security/           # 安全防护体系
-│   │   ├── plugins/            # 插件系统
-│   │   ├── skills/             # 技能系统
-│   │   ├── session/            # 会话管理
-│   │   ├── chronos/            # 定时任务
-│   │   ├── cli/                # 命令行交互
-│   │   └── entrypoints/        # 4 种运行模式入口
-│   ├── native/             # Rust 原生模块（FFI）
-│   ├── docs/               # 完整中文文档
-│   ├── configs/            # 应用配置
+PY_APP/                          # 工程根目录（内部代号）
+├── app/                         # 主应用（TypeScript + Bun）
+│   ├── src/                     # 源代码
+│   │   ├── main.ts              # 应用启动入口（launch 函数）
+│   │   ├── entrypoints/         # 运行模式入口
+│   │   │   ├── cli.tsx          # CLI 模式
+│   │   │   ├── repl.ts          # REPL 模式
+│   │   │   └── mcp.ts           # MCP Server 模式
+│   │   ├── modules/             # 模块系统（注册表 + 初始化 + 延迟加载）
+│   │   ├── core/                # 核心基础设施
+│   │   │   ├── gateway/         # 消息网关
+│   │   │   ├── session/         # 会话管理
+│   │   │   ├── storage/         # 存储抽象
+│   │   │   ├── permission/      # 权限控制
+│   │   │   ├── events/          # 事件总线
+│   │   │   ├── lifecycle/       # 生命周期管理
+│   │   │   ├── cache/           # 缓存抽象
+│   │   │   └── tokenBudget/     # Token 预算控制
+│   │   ├── acp/                 # Agent Communication Protocol
+│   │   ├── ai/                  # AI 模型适配层
+│   │   ├── agent/               # AI Agent 核心
+│   │   ├── tools/               # 60+ 工具实现
+│   │   ├── channels/            # 26+ 消息通道
+│   │   ├── mcp/                 # MCP 协议实现
+│   │   ├── security/            # 安全防护体系（5 层）
+│   │   ├── plugins/             # 插件系统
+│   │   ├── skills/              # 技能系统
+│   │   ├── memory/              # 记忆与知识库
+│   │   ├── monitoring/          # 可观测性
+│   │   ├── sandbox/             # 沙箱环境
+│   │   ├── chronos/             # 定时任务调度
+│   │   ├── cli/                 # 命令行交互
+│   │   ├── bridge/              # 远程桥接控制
+│   │   ├── config/              # 配置管理
+│   │   ├── daemon/              # 守护进程
+│   │   ├── bootstrap/           # 启动引导
+│   │   └── context/             # 上下文引擎
+│   ├── native/                  # Rust 原生模块（FFI）
+│   ├── docs/                    # 完整中文文档
 │   └── package.json
-├── client/                 # 桌面客户端（Tauri v2 + React）
-└── .github/workflows/      # CI/CD 自动化
+├── client/                      # 桌面客户端（Tauri v2 + React）
+└── .github/workflows/           # CI/CD 自动化
 ```
 
 ---
@@ -222,12 +287,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📊 对标分析
 
-PY_APP 与行业同类项目进行了**系统性对标**，对标对象为 **Hermes v0.12.0**（Nous Research，自改进 AI Agent）和 **OpenClaw v2026.4.30**（多渠道 AI 网关）。对标采用四阶段法（清单编制 → 深度阅读 → 维度提取 → 逐维对比），覆盖 12 个关键维度。
+Liri 与行业同类项目进行了**系统性对标**，对标对象为 **Hermes v0.12.0**（Nous Research，自改进 AI Agent）和 **OpenClaw v2026.4.30**（多渠道 AI 网关）。对标采用四阶段法（清单编制 → 深度阅读 → 维度提取 → 逐维对比），覆盖 12 个关键维度。
 
 ### 综合评分
 
-| 维度 | PY_APP | Hermes | OpenClaw |
-|------|:-----:|:------:|:--------:|
+| 维度 | Liri | Hermes | OpenClaw |
+|------|:----:|:------:|:--------:|
 | D1 Agent 引擎 | ✅ 完善 | ✅✅ 成熟 | ✅ 完善 |
 | D2 消息渠道 | ✅✅ 19 通道 | ✅✅ 18+ 平台 | ⚠️ 框架级 |
 | D3 CLI 交互 | ✅✅ 70+ 命令 + Ink 自渲染 | ✅✅ prompt_toolkit TUI | ✅✅ 60+ 文件 |
@@ -244,12 +309,12 @@ PY_APP 与行业同类项目进行了**系统性对标**，对标对象为 **Her
 
 ### 核心结论
 
-1. **PY_APP 实际完成度与 OpenClaw 在同一梯队（10/12 vs 9.5/12）**，早期初步判断存在系统性低估（v1.0 评 2.5/12，经深入代码阅读后修正为 v2.0 的 10/12）
+1. **Liri 实际完成度与 OpenClaw 在同一梯队（10/12 vs 9.5/12）**，早期初步判断存在系统性低估（v1.0 评 2.5/12，经深入代码阅读后修正为 v2.0 的 10/12）
 2. **全线对标不落下风，部分领域反超**：通道数量并列第一（19 vs 18）、安全体系完善度领先、CLI 命令丰富度领先、构建部署自动化（Tauri + CI/CD）对标产品所不具备
 3. **独有差异化优势**：TAOR 检查点机制、Ink 自渲染引擎、Tauri 桌面客户端、4 种构建变体
 4. **提升空间在"精致度"而非"缺失度"**：Slack/WhatsApp 2 个通道为 EventEmitter Shim 期待升级、配置文档生成、测试覆盖率等工程质量有提升空间
 
-### PY_APP 独有优势
+### Liri 独有优势
 
 | 优势 | 竞争价值 |
 |------|---------|
@@ -278,7 +343,7 @@ PY_APP 与行业同类项目进行了**系统性对标**，对标对象为 **Her
 
 ## 🙏 致谢
 
-PY_APP 的诞生离不开 AI Agent 领域众多先行者的启发。在此致以诚挚感谢：
+Liri 的诞生离不开 AI Agent 领域众多先行者的启发。在此致以诚挚感谢：
 
 ### 参考与对标项目
 
@@ -305,6 +370,12 @@ PY_APP 的诞生离不开 AI Agent 领域众多先行者的启发。在此致以
 
 特别感谢 [Andrej Karpathy](https://github.com/karpathy) 等先行者在 AI Agent、LLM 应用和开源领域的开创性工作，为整个社区指明了方向。
 
+感谢我人生中遇到的每一个人——家人、朋友、同事、同学。
+
+你们的陪伴、启发、支持和包容,塑造了今天的我和这个项目。每一行代码背后,都有你们留下的痕迹。
+
+谢谢你们。
+
 ---
 
 ## 🤝 贡献
@@ -315,7 +386,7 @@ PY_APP 的诞生离不开 AI Agent 领域众多先行者的启发。在此致以
 
 <div align="center">
 
-**PY_APP** — MIT License
+**Liri · OpenLiri** — MIT License
 
 让你的终端和消息应用都装上 AI 大脑
 

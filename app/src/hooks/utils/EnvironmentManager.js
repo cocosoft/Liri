@@ -93,36 +93,36 @@ class EnvironmentManager {
       ...process.env,
     };
 
-    // PY_APP特定的环境变量
-    env.PY_APP_HOME = this.getPyAppHome();
-    env.PY_APP_SESSION_ID = options.sessionId || '';
-    env.PY_APP_PLATFORM = this.platformInfo.platform;
-    env.PY_APP_SHELL = this.platformInfo.shell;
-    env.PY_APP_IS_INTERACTIVE = process.env.TERM ? 'true' : 'false';
-    env.PY_APP_HOME_DIR = homedir();
-    env.PY_APP_TERM = process.env.TERM || '';
-    env.PY_APP_TERM_PROGRAM = process.env.TERM_PROGRAM || '';
+    // Liri特定的环境变量
+    env.Liri_HOME = this.getPyAppHome();
+    env.Liri_SESSION_ID = options.sessionId || '';
+    env.Liri_PLATFORM = this.platformInfo.platform;
+    env.Liri_SHELL = this.platformInfo.shell;
+    env.Liri_IS_INTERACTIVE = process.env.TERM ? 'true' : 'false';
+    env.Liri_HOME_DIR = homedir();
+    env.Liri_TERM = process.env.TERM || '';
+    env.Liri_TERM_PROGRAM = process.env.TERM_PROGRAM || '';
 
     // 工作区根目录
     if (options.workspaceRoot) {
-      env.PY_APP_WORKSPACE = options.workspaceRoot;
-      env.PY_APP_WORKSPACE_URI = this.pathToUri(options.workspaceRoot);
+      env.Liri_WORKSPACE = options.workspaceRoot;
+      env.Liri_WORKSPACE_URI = this.pathToUri(options.workspaceRoot);
     }
 
     // 技能根目录
     if (options.skillRoot) {
-      env.PY_APP_SKILL_ROOT = options.skillRoot;
-      env.PY_APP_SKILL_ROOT_URI = this.pathToUri(options.skillRoot);
+      env.Liri_SKILL_ROOT = options.skillRoot;
+      env.Liri_SKILL_ROOT_URI = this.pathToUri(options.skillRoot);
     }
 
     // 会话特定目录
     if (options.sessionId) {
-      env.PY_APP_SESSION_DIR = this.getSessionDir(options.sessionId);
+      env.Liri_SESSION_DIR = this.getSessionDir(options.sessionId);
     }
 
     // 非交互模式标志
     if (options.isNonInteractive !== undefined) {
-      env.PY_APP_NON_INTERACTIVE = options.isNonInteractive ? 'true' : 'false';
+      env.Liri_NON_INTERACTIVE = options.isNonInteractive ? 'true' : 'false';
     }
 
     // 添加插件选项作为环境变量
@@ -147,15 +147,15 @@ class EnvironmentManager {
    */
   private addPluginOptions(env: Record<string, string>, pluginOptions: Record<string, string>): void {
     for (const [key, value] of Object.entries(pluginOptions)) {
-      const envKey = `PY_APP_PLUGIN_${this.normalizeEnvKey(key)}`;
+      const envKey = `Liri_PLUGIN_${this.normalizeEnvKey(key)}`;
       env[envKey] = value;
 
       // 同时添加原始键名
-      env[`PY_APP_PLUGIN_${key}`] = value;
+      env[`Liri_PLUGIN_${key}`] = value;
     }
 
     // 添加所有插件选项的JSON表示
-    env.PY_APP_PLUGIN_OPTIONS = JSON.stringify(pluginOptions);
+    env.Liri_PLUGIN_OPTIONS = JSON.stringify(pluginOptions);
   }
 
   /**
@@ -184,7 +184,7 @@ class EnvironmentManager {
   }
 
   /**
-   * 获取PY_APP_HOME路径
+   * 获取Liri_HOME路径
    */
   private getPyAppHome(): string {
     return resolveProjectRoot();

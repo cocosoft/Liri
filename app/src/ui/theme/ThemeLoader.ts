@@ -184,7 +184,7 @@ export class ThemeLoader {
         displayName: theme.displayName || name,
         description: theme.description || '',
         type: (theme.type as 'light' | 'dark') || 'dark',
-        author: theme.author || 'PY_APP',
+        author: theme.author || 'Liri',
         version: theme.version || '1.0.0',
         isBuiltIn: true,
       });

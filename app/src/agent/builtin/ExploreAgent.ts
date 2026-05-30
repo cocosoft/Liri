@@ -13,7 +13,7 @@ import {
 } from '@modules/agent/models/types';
 
 const EXPLORE_AGENT_CONFIG: BuiltinAgentConfig = {
-  type: 'py_app-explore',
+  type: 'Liri-explore',
   name: 'Explore Agent',
   description: 'Explore codebase and provide insights',
   whenToUse: 'When user wants to understand or explore the codebase',

@@ -40,7 +40,7 @@ function isEnvTruthy(value: string | undefined): boolean {
 const logout: Command = {
   type: 'local',
   name: 'logout',
-  description: '登出您的PY_APP账户',
+  description: '登出您的Liri账户',
   isEnabled: () => !isEnvTruthy(process.env.DISABLE_LOGOUT_COMMAND),
   load: async () => {
     const { executeLogout } = await import('./logout.js');

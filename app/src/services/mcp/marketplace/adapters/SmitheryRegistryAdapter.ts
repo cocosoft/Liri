@@ -170,7 +170,7 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
         {
           timeout: this.timeout,
           headers: {
-            'User-Agent': 'PY_APP-MCPMarketplace/1.0',
+            'User-Agent': 'Liri-MCPMarketplace/1.0',
             Accept: 'application/json',
           },
         },

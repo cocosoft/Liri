@@ -149,11 +149,11 @@ export class ConfigManager {
    */
   private resolveConfigPath(): string {
     const pyappHome = resolvePyappHome();
-    const LEGACY_CONFIG_DIR = '.PY_APP';
+    const LEGACY_CONFIG_DIR = '.Liri';
     const oldPath = join(pyappHome, '..', LEGACY_CONFIG_DIR, 'config.json');
     const newPath = resolveUserConfigPath();
 
-    // 首次启动时自动迁移从 ~/.PY_APP/ 到 ~/.pyapp/
+    // 首次启动时自动迁移从 ~/.Liri/ 到 ~/.pyapp/
     if (existsSync(oldPath) && !existsSync(newPath)) {
       try {
         const data = readFileSync(oldPath, 'utf-8');

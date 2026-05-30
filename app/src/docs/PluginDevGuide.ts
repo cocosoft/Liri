@@ -314,7 +314,7 @@ export class PluginDevGuideSystem {
     console.log();
 
     console.log(chalk.green('1. 入门'));
-    console.log('   插件是扩展 PY_APP 功能的强大方式。');
+    console.log('   插件是扩展 Liri 功能的强大方式。');
     console.log('   每个插件都有 activate 和 deactivate 生命周期方法。');
     console.log();
 

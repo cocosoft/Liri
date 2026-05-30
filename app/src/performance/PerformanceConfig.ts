@@ -81,32 +81,32 @@ export interface PerformanceConfig {
  */
 const DEFAULT_CONFIG: PerformanceConfig = {
   startupProfiling: {
-    enabled: isEnvTruthy(process.env.PY_APP_PROFILE_STARTUP),
+    enabled: isEnvTruthy(process.env.Liri_PROFILE_STARTUP),
     sampleRate: process.env.USER_TYPE === 'ant' ? 1.0 : 0.005,
   },
   slowOperations: {
     thresholdMs: getEnvNumber(
-      'PY_APP_SLOW_OPERATION_THRESHOLD_MS',
+      'Liri_SLOW_OPERATION_THRESHOLD_MS',
       process.env.NODE_ENV === 'development' ? 20 : 300
     ),
     enabled: true,
   },
   memoryManagement: {
     enabled: true,
-    thresholdMb: getEnvNumber('PY_APP_MEMORY_THRESHOLD_MB', 512),
-    checkIntervalMs: getEnvNumber('PY_APP_MEMORY_CHECK_INTERVAL_MS', 60000),
+    thresholdMb: getEnvNumber('Liri_MEMORY_THRESHOLD_MB', 512),
+    checkIntervalMs: getEnvNumber('Liri_MEMORY_CHECK_INTERVAL_MS', 60000),
     heapUsageThreshold: 85,
     growthRateThreshold: 20,
     gcThreshold: 90,
     maxSnapshots: 100,
   },
   cache: {
-    sizeLimitMb: getEnvNumber('PY_APP_CACHE_SIZE_LIMIT_MB', 100),
-    expirationMs: getEnvNumber('PY_APP_CACHE_EXPIRATION_MS', 3600000),
+    sizeLimitMb: getEnvNumber('Liri_CACHE_SIZE_LIMIT_MB', 100),
+    expirationMs: getEnvNumber('Liri_CACHE_EXPIRATION_MS', 3600000),
   },
   lazyLoading: {
-    enabled: isEnvTruthy(process.env.PY_APP_LAZY_LOADING_ENABLED),
-    preloadThresholdMs: getEnvNumber('PY_APP_PRELOAD_THRESHOLD_MS', 100),
+    enabled: isEnvTruthy(process.env.Liri_LAZY_LOADING_ENABLED),
+    preloadThresholdMs: getEnvNumber('Liri_PRELOAD_THRESHOLD_MS', 100),
   },
 };
 
@@ -146,32 +146,32 @@ export class PerformanceConfigManager {
   reloadFromEnvironment(): void {
     this.config = {
       startupProfiling: {
-        enabled: isEnvTruthy(process.env.PY_APP_PROFILE_STARTUP),
+        enabled: isEnvTruthy(process.env.Liri_PROFILE_STARTUP),
         sampleRate: process.env.USER_TYPE === 'ant' ? 1.0 : 0.005,
       },
       slowOperations: {
         thresholdMs: getEnvNumber(
-          'PY_APP_SLOW_OPERATION_THRESHOLD_MS',
+          'Liri_SLOW_OPERATION_THRESHOLD_MS',
           process.env.NODE_ENV === 'development' ? 20 : 300
         ),
         enabled: true,
       },
       memoryManagement: {
         enabled: true,
-        thresholdMb: getEnvNumber('PY_APP_MEMORY_THRESHOLD_MB', 512),
-        checkIntervalMs: getEnvNumber('PY_APP_MEMORY_CHECK_INTERVAL_MS', 60000),
+        thresholdMb: getEnvNumber('Liri_MEMORY_THRESHOLD_MB', 512),
+        checkIntervalMs: getEnvNumber('Liri_MEMORY_CHECK_INTERVAL_MS', 60000),
         heapUsageThreshold: 85,
         growthRateThreshold: 20,
         gcThreshold: 90,
         maxSnapshots: 100,
       },
       cache: {
-        sizeLimitMb: getEnvNumber('PY_APP_CACHE_SIZE_LIMIT_MB', 100),
-        expirationMs: getEnvNumber('PY_APP_CACHE_EXPIRATION_MS', 3600000),
+        sizeLimitMb: getEnvNumber('Liri_CACHE_SIZE_LIMIT_MB', 100),
+        expirationMs: getEnvNumber('Liri_CACHE_EXPIRATION_MS', 3600000),
       },
       lazyLoading: {
-        enabled: isEnvTruthy(process.env.PY_APP_LAZY_LOADING_ENABLED),
-        preloadThresholdMs: getEnvNumber('PY_APP_PRELOAD_THRESHOLD_MS', 100),
+        enabled: isEnvTruthy(process.env.Liri_LAZY_LOADING_ENABLED),
+        preloadThresholdMs: getEnvNumber('Liri_PRELOAD_THRESHOLD_MS', 100),
       },
     };
     this.validateConfig();

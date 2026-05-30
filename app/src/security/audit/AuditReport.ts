@@ -93,7 +93,7 @@ export function buildAuditReport(
 export function formatAuditReport(report: SecurityAuditReport): string {
   const lines: string[] = [
     '═══════════════════════════════════════════',
-    '          PY_APP 安全审计报告',
+    '          Liri 安全审计报告',
     '═══════════════════════════════════════════',
     `时间: ${report.timestamp}`,
     `耗时: ${report.durationMs}ms`,

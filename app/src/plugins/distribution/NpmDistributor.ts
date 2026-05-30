@@ -194,7 +194,7 @@ export class NpmDistributor {
           info.push({
             name: pkg.name || entry.name,
             version: pkg.version || '?',
-            capability: pkg['py_app']?.capability || 'tool',
+            capability: pkg['Liri']?.capability || 'tool',
             description: pkg.description,
             source: 'npm',
             installedAt: installMeta.installedAt || 0,

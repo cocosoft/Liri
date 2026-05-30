@@ -28,7 +28,7 @@ export interface NotificationResult {
   success: boolean;
 }
 
-const DEFAULT_TITLE = 'PY_APP';
+const DEFAULT_TITLE = 'Liri';
 const DEFAULT_CHANNEL = 'auto';
 const BELL_CHAR = '\x07';
 
@@ -47,7 +47,7 @@ const BELL_CHAR = '\x07';
 export async function sendNotification(
   notif: NotificationOptions
 ): Promise<NotificationResult> {
-  const channel = process.env.PY_APP_NOTIFICATION_CHANNEL || DEFAULT_CHANNEL;
+  const channel = process.env.Liri_NOTIFICATION_CHANNEL || DEFAULT_CHANNEL;
 
   if (channel === 'notifications_disabled') {
     return { channel: 'notifications_disabled', success: true };

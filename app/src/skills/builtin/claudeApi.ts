@@ -9,7 +9,7 @@ const claudeApiSkill: Skill = {
   name: 'claudeApi',
   description: '提供 Claude API 使用指南，包括消息API、工具使用、流式响应等',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     const topic = args[0] || 'overview';
 

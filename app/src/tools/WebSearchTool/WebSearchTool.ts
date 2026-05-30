@@ -184,7 +184,7 @@ export class WebSearchTool extends BaseTool {
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
-            'User-Agent': 'PY_APP/1.0 (PowerShell AI Assistant)',
+            'User-Agent': 'Liri/1.0 (PowerShell AI Assistant)',
             Accept: 'text/html',
           },
           signal: controller.signal,

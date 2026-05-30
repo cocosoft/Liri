@@ -1246,7 +1246,7 @@ export function createReviewAssignTool(): Tool {
 
         const headers: Record<string, string> = {
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'PY_APP-Tool',
+          'User-Agent': 'Liri-Tool',
         };
         if (token) {
           headers.Authorization = `Bearer ${token}`;

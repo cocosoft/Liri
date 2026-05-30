@@ -25,7 +25,7 @@ export interface DocGenOptions {
 }
 
 const defaultOptions: DocGenOptions = {
-  title: 'PY_APP 配置参考',
+  title: 'Liri 配置参考',
   showExamples: true,
   showValidation: true,
   showEnum: true,

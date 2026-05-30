@@ -34,7 +34,7 @@ export class MemoryCLI {
     // 主命令
     this.program
       .name('memory')
-      .description('Memory module CLI for PY_APP')
+      .description('Memory module CLI for Liri')
       .version('1.0.0');
 
     // 创建记忆命令

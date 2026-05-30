@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Logo */}
       <div className="flex items-center justify-center h-16 border-b border-gray-700">
         {!collapsed && (
-          <span className="text-xl font-bold text-blue-400">PY_APP</span>
+          <span className="text-xl font-bold text-blue-400">Liri</span>
         )}
         {collapsed && <span className="text-xl">🚀</span>}
       </div>

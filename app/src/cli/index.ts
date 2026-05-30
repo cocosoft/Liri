@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * PY_APP CLI
+ * Liri CLI
  */
 
 import { Command } from 'commander';
@@ -77,7 +77,7 @@ function delay(ms: number): Promise<void> {
 
 const program = new Command();
 
-program.name('PY_APP').description('Py_APP - AI Agent').version('1.0.0');
+program.name('Liri').description('Liri - AI Agent').version('1.0.0');
 
 program
   .command('help [command]')
@@ -106,7 +106,7 @@ program
   .command('hello')
   .description('Show welcome message')
   .action(() => {
-    console.log(chalk.green('✓'), 'Py_APP is running!');
+    console.log(chalk.green('✓'), 'Liri is running!');
     console.log(chalk.blue('ℹ'), 'Available: chat, read, search, exec, status');
     console.log(chalk.gray('  Use --help for all commands'));
   });
@@ -116,7 +116,7 @@ program
   .description('Show project status')
   .action(() => {
     console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.bold('  PY_APP - Status'));
+    console.log(chalk.bold('  Liri - Status'));
     console.log(chalk.cyan('═'.repeat(60)));
     console.log();
     console.log(chalk.green('✓'), 'Core Engine');
@@ -594,14 +594,14 @@ const cliHandler = createCLIHandler({
 
 program
   .command('login [username]')
-  .description('Login to PY_APP')
+  .description('Login to Liri')
   .action(async (username?: string) => {
     await cliHandler.execute(`login ${username || ''}`);
   });
 
 program
   .command('logout')
-  .description('Logout from PY_APP')
+  .description('Logout from Liri')
   .action(async () => {
     await cliHandler.execute('logout');
   });
@@ -1085,7 +1085,7 @@ process.on('SIGTERM', () => {
 
 if (process.argv.length === 2) {
   console.log(chalk.cyan('═'.repeat(60)));
-  console.log(chalk.bold('  PY_APP - AI Agent'));
+  console.log(chalk.bold('  Liri - AI Agent'));
   console.log(chalk.cyan('═'.repeat(60)));
   console.log();
   program.help();

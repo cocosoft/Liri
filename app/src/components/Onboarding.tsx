@@ -70,7 +70,7 @@ export function Onboarding({
   visible = true,
   onComplete,
   onSkip,
-  title = '欢迎使用 PY_APP!',
+  title = '欢迎使用 Liri!',
   titleColor = 'cyan',
 }: OnboardingProps): React.ReactNode {
   const [currentStep, setCurrentStep] = useState(0);

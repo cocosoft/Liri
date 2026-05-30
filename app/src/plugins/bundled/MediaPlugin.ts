@@ -20,7 +20,7 @@ export const MediaPluginMetadata: PluginMetadata = {
   name: 'MediaPlugin',
   version: '1.0.0',
   description: '多媒体插件，提供图片生成、分析和语音能力',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'image_generation',
   dependencies: ['tools'],
   enabledByDefault: true,

@@ -2,7 +2,7 @@
 
 ## 概述
 
-PY_APP 提供了以下核心模块的 API：
+Liri 提供了以下核心模块的 API：
 
 - [AI 模块](#ai-模块)
 - [聊天模块](#聊天模块)
@@ -1493,7 +1493,7 @@ ui.showError('An error occurred');
 ui.showInfo('Information message');
 
 // 显示标题和分隔符
-ui.showTitle('Welcome to PY_APP');
+ui.showTitle('Welcome to Liri');
 ui.showSubtitle('Your AI assistant');
 ui.showSeparator();
 
@@ -1761,7 +1761,7 @@ const content = cache.get('file-path');
 ### 性能分析
 
 ```typescript
-// 启用性能分析（设置环境变量 PY_APP_PROFILE_QUERY=1）
+// 启用性能分析（设置环境变量 Liri_PROFILE_QUERY=1）
 startQueryProfile();
 
 // 记录检查点

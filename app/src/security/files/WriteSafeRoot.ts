@@ -8,7 +8,7 @@ import path from 'node:path';
 /**
  * 环境变量名：安全写入根目录
  */
-export const WRITE_SAFE_ROOT_ENV = 'PY_APP_WRITE_SAFE_ROOT';
+export const WRITE_SAFE_ROOT_ENV = 'Liri_WRITE_SAFE_ROOT';
 
 /**
  * 安全写入根管理器
@@ -18,7 +18,7 @@ export class WriteSafeRoot {
 
   /**
    * 构造函数
-   * 从环境变量 PY_APP_WRITE_SAFE_ROOT 读取安全根目录
+   * 从环境变量 Liri_WRITE_SAFE_ROOT 读取安全根目录
    */
   constructor() {
     this.loadFromEnv();

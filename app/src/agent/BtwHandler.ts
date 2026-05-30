@@ -11,7 +11,7 @@
  * - buildBtwQuestionPrompt(): 侧问包装 + 主任务上下文标记
  * - stripToolResultDetails(): 上下文脱敏
  *
- * PY_APP 的 BtwHandler 将侧问作为一个独立会话处理，
+ * Liri 的 BtwHandler 将侧问作为一个独立会话处理，
  * 主任务上下文仅作为背景信息传入，不影响侧问的独立性。
  */
 

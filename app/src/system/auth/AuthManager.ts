@@ -121,7 +121,7 @@ export class DefaultAuthManager implements AuthManager {
 
   private loadApiKeyFromEnv(): string {
     return (
-      process.env.PY_APP_API_KEY ||
+      process.env.Liri_API_KEY ||
       process.env.ANTHROPIC_API_KEY ||
       process.env.DEEPSEEK_API_KEY ||
       process.env.OPENAI_API_KEY ||

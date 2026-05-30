@@ -288,7 +288,7 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are PY_APP, a general-purpose AI agent capable of handling various tasks. Respond to user requests with detailed, accurate answers.`,
+        `You are Liri, a general-purpose AI agent capable of handling various tasks. Respond to user requests with detailed, accurate answers.`,
     },
     {
       agentType: 'code',
@@ -296,7 +296,7 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are PY_APP, a code expert skilled in writing, analyzing, and debugging code. Provide high-quality code solutions.`,
+        `You are Liri, a code expert skilled in writing, analyzing, and debugging code. Provide high-quality code solutions.`,
     },
     {
       agentType: 'explore',
@@ -304,7 +304,7 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are PY_APP, an exploration-focused AI agent skilled in researching and analyzing complex problems. Provide in-depth analysis and insights.`,
+        `You are Liri, an exploration-focused AI agent skilled in researching and analyzing complex problems. Provide in-depth analysis and insights.`,
     },
     {
       agentType: 'plan',
@@ -312,7 +312,7 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are PY_APP, a planning expert skilled in creating detailed plans and proposals. Provide structured plans and recommendations.`,
+        `You are Liri, a planning expert skilled in creating detailed plans and proposals. Provide structured plans and recommendations.`,
     },
   ];
 }

@@ -61,7 +61,7 @@ function HomePage() {
         {/* 欢迎区域 */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            欢迎使用 PY_APP
+            欢迎使用 Liri
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             快速访问常用功能，开始您的工作流程

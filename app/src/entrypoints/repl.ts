@@ -67,7 +67,7 @@ export interface REPLConfig {
  */
 const DEFAULT_CONFIG: REPLConfig = {
   prompt: '\u{1F4AC} ',
-  welcomeMessage: chalk.cyan('欢迎使用 PY_APP - AI Agent'),
+  welcomeMessage: chalk.cyan('欢迎使用 Liri - AI Agent'),
   exitCommand: 'exit',
 };
 
@@ -174,7 +174,7 @@ export async function launchRepl(
   const ui = getUIEnhancer();
 
   // 显示欢迎消息
-  ui.showTitle('PY_APP - AI Agent');
+  ui.showTitle('Liri - AI Agent');
 
   if (isOfflineMode) {
     ui.showInfo('我是您的 AI 个人助手。当前为离线模式，AI 对话暂不可用。');

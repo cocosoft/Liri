@@ -18,9 +18,9 @@ const MainMenu = ({
   return (
     <Box flexDirection="column" padding={1}>
       <Text bold color="green">
-        PY_APP Command Line Interface
+        Liri Command Line Interface
       </Text>
-      <Text color="gray">Welcome to PY_APP CLI. Select an option below:</Text>
+      <Text color="gray">Welcome to Liri CLI. Select an option below:</Text>
       <Newline />
 
       <Text color="cyan" onPress={() => onMenuChange('skills')}>

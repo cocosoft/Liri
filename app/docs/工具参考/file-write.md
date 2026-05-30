@@ -17,13 +17,13 @@
 // 写入文本文件
 file_write({
   file_path: "./output.txt",
-  content: "Hello, PY_APP!"
+  content: "Hello, Liri!"
 })
 
 // 写入 JSON 配置
 file_write({
   file_path: "./config.json",
-  content: JSON.stringify({ name: "PY_APP" }, null, 2)
+  content: JSON.stringify({ name: "Liri" }, null, 2)
 })
 ```
 

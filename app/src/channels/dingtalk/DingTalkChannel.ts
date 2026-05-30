@@ -208,7 +208,7 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
     try {
       return sendViaWebhook(target, {
         msgtype: 'markdown',
-        markdown: { title: 'PY_APP', text: content },
+        markdown: { title: 'Liri', text: content },
       });
     } catch (err) {
       return { success: false, error: (err as Error).message };

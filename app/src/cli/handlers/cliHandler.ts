@@ -50,8 +50,8 @@ export class CLIHandler {
       handler: 'auth',
       subcommands: ['login', 'logout', 'status', 'list'],
     },
-    login: { name: 'login', description: '登录到PY_APP', handler: 'auth' },
-    logout: { name: 'logout', description: '登出PY_APP', handler: 'auth' },
+    login: { name: 'login', description: '登录到Liri', handler: 'auth' },
+    logout: { name: 'logout', description: '登出Liri', handler: 'auth' },
     status: { name: 'status', description: '检查认证状态', handler: 'auth' },
     refresh: { name: 'refresh', description: '刷新认证令牌', handler: 'auth' },
     agents: {

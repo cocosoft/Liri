@@ -1,6 +1,6 @@
 /**
  * 项目文件读取器（参考CC源码 context.ts getClaudeMds）
- * 读取 PY_APP.md（对应CC的CLAUDE.md，遵循规则K品牌约束）
+ * 读取 Liri.md（对应CC的CLAUDE.md，遵循规则K品牌约束）
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -30,17 +30,17 @@ function safeReadFile(filePath: string): string | null {
   }
 }
 
-const PY_APP_MD_PATHS = [
-  'PY_APP.md',
-  path.join('docs', 'PY_APP.md'),
-  '.github/PY_APP.md',
+const Liri_MD_PATHS = [
+  'Liri.md',
+  path.join('docs', 'Liri.md'),
+  '.github/Liri.md',
 ];
 
 const MEMORY_MD_PATHS = ['MEMORY.md', path.join('docs', 'MEMORY.md')];
 
 export function readProjectFiles(cwd: string): ProjectFiles {
   let pyAppMd: string | null = null;
-  for (const relPath of PY_APP_MD_PATHS) {
+  for (const relPath of Liri_MD_PATHS) {
     const fullPath = path.join(cwd, relPath);
     const content = safeReadFile(fullPath);
     if (content) {
@@ -68,7 +68,7 @@ export function readUserPyAppMd(): string | null {
   const home = process.env.HOME || process.env.USERPROFILE || '';
   if (!home) return null;
   return (
-    safeReadFile(path.join(resolvePyappHome(), 'PY_APP.md')) ||
-    safeReadFile(path.join(home, 'PY_APP.md'))
+    safeReadFile(path.join(resolvePyappHome(), 'Liri.md')) ||
+    safeReadFile(path.join(home, 'Liri.md'))
   );
 }

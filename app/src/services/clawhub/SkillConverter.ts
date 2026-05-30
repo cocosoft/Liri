@@ -1,6 +1,6 @@
 /**
  * SkillConverter
- * 技能格式转换器，负责在 ClawHub 技能格式与 PY_APP 插件系统格式之间进行双向转换。
+ * 技能格式转换器，负责在 ClawHub 技能格式与 Liri 插件系统格式之间进行双向转换。
  * 支持 claw.json（主流）、skill.yaml 两种清单格式的解析与生成。
  */
 
@@ -41,7 +41,7 @@ interface ClawJsonManifest {
 }
 
 /**
- * ClawHub 权限声明 → PY_APP 权限检查映射
+ * ClawHub 权限声明 → Liri 权限检查映射
  */
 const CLAWHUB_TO_PYAPP_PERMISSIONS: Record<string, string> = {
   network: 'network:request',
@@ -55,7 +55,7 @@ const CLAWHUB_TO_PYAPP_PERMISSIONS: Record<string, string> = {
 
 /**
  * SkillConverter
- * 支持 ClawHub 与 PY_APP 内部格式的互转。
+ * 支持 ClawHub 与 Liri 内部格式的互转。
  */
 export class SkillConverter {
   /**
@@ -188,9 +188,9 @@ export class SkillConverter {
   }
 
   /**
-   * 将 ClawHub 权限声明转换为 PY_APP 权限检查路径
+   * 将 ClawHub 权限声明转换为 Liri 权限检查路径
    * @param clawhubPermissions ClawHub 权限声明列表
-   * @returns PY_APP 权限检查路径列表
+   * @returns Liri 权限检查路径列表
    */
   convertPermissions(clawhubPermissions?: string[]): string[] {
     if (!clawhubPermissions || clawhubPermissions.length === 0) {

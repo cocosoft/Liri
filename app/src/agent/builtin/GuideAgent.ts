@@ -12,12 +12,12 @@ import {
 } from '@modules/agent/models/types';
 
 const GUIDE_AGENT_CONFIG: BuiltinAgentConfig = {
-  type: 'py_app-guide',
-  name: 'PY_APP Guide',
-  description: 'Interactive guide for learning PY_APP',
-  whenToUse: 'When user wants to learn how to use PY_APP features',
+  type: 'Liri-guide',
+  name: 'Liri Guide',
+  description: 'Interactive guide for learning Liri',
+  whenToUse: 'When user wants to learn how to use Liri features',
   model: 'haiku',
-  systemPrompt: `You are a helpful guide helping users learn PY_APP.
+  systemPrompt: `You are a helpful guide helping users learn Liri.
 Follow these principles:
 1. Be concise and practical
 2. Provide examples

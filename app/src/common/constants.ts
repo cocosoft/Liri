@@ -10,7 +10,7 @@ export namespace SystemConstants {
   /**
    * 应用名称
    */
-  export const APP_NAME = 'PY_APP';
+  export const APP_NAME = 'Liri';
 
   /**
    * 应用版本
@@ -194,7 +194,7 @@ export namespace ConfigConstants {
   export const CONFIG_FILE_PATHS = [
     './config.json',
     '~/.pyapp/config.json',
-    '/etc/py_app/config.json',
+    '/etc/Liri/config.json',
   ];
 
   /**
@@ -210,7 +210,7 @@ export namespace ConfigConstants {
   /**
    * 环境变量前缀
    */
-  export const ENV_PREFIX = 'PY_APP_';
+  export const ENV_PREFIX = 'Liri_';
 
   /**
    * 日志级别
@@ -283,7 +283,7 @@ export namespace NetworkConstants {
   /**
    * 默认User-Agent
    */
-  export const DEFAULT_USER_AGENT = 'PY_APP/1.0.0';
+  export const DEFAULT_USER_AGENT = 'Liri/1.0.0';
 
   /**
    * 最大重定向次数
@@ -303,7 +303,7 @@ export namespace FileConstants {
   /**
    * 临时目录
    */
-  export const TEMP_DIR = '/tmp/py_app';
+  export const TEMP_DIR = '/tmp/Liri';
 
   /**
    * 缓存目录

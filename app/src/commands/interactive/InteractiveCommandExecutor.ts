@@ -34,13 +34,13 @@ export class InteractiveCommandExecutor {
    */
   constructor(options: InteractiveCommandExecutorOptions = {}) {
     this.options = {
-      prompt: options.prompt || 'PY_APP> ',
+      prompt: options.prompt || 'Liri> ',
       enableSuggestions: options.enableSuggestions !== false,
       enableHistoryNavigation: options.enableHistoryNavigation !== false,
       maxSuggestions: options.maxSuggestions || 10,
     };
 
-    this.promptPrefix = this.options.prompt || 'PY_APP> ';
+    this.promptPrefix = this.options.prompt || 'Liri> ';
 
     this.rl = readline.createInterface({
       input: process.stdin,
@@ -166,7 +166,7 @@ export class InteractiveCommandExecutor {
   private showWelcome(): void {
     console.log('');
     console.log('========================================');
-    console.log('  PY_APP 交互式命令行工具');
+    console.log('  Liri 交互式命令行工具');
     console.log('========================================');
     console.log('');
     console.log('可用命令:');

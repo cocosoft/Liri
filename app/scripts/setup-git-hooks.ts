@@ -38,7 +38,7 @@ function installPreCommitHook(gitDir: string): void {
   const hookPath = join(hooksDir, 'pre-commit');
 
   const hookContent = `#!/bin/sh
-# PY_APP pre-commit hook — 提交前自动验证模块依赖关系
+# Liri pre-commit hook — 提交前自动验证模块依赖关系
 # 由 scripts/setup-git-hooks.ts 自动生成
 
 echo "🔍 运行模块依赖关系验证..."

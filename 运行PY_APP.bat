@@ -1,5 +1,5 @@
 @echo off
-title PY_APP
+title Liri
 
 set "PROJECT_DIR=%~dp0"
 
@@ -7,12 +7,12 @@ set "PROJECT_DIR=%~dp0"
 set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 
 :: Set environment variable so the compiled exe knows where the project is
-set "PYAPP_PROJECT_DIR=%PROJECT_DIR%"
+set "LIRI_PROJECT_DIR=%PROJECT_DIR%"
 
 set "EXE_PATH=%PROJECT_DIR%\dist\py_app_coding.exe"
 
 echo ====================================
-echo         PY_APP is starting...
+echo         Liri is starting...
 echo ====================================
 echo.
 
@@ -31,13 +31,13 @@ if not exist "%PROJECT_DIR%\app\data" (
 if not exist "%PROJECT_DIR%\.env" (
     echo [INFO] Creating .env config file...
     (
-        echo # PY_APP Configuration
+        echo # Liri Configuration
         echo # Get your API key from: https://platform.deepseek.com/api_keys
         echo DEEPSEEK_API_KEY=your_api_key_here
         echo DEEPSEEK_BASE_URL=https://api.deepseek.com
         echo DEEPSEEK_MODEL=deepseek-chat
         echo.
-        echo APP_NAME=PY_APP
+        echo APP_NAME=Liri
         echo APP_VERSION=1.0.0
         echo.
         echo JWT_SECRET=auto_generated_change_me

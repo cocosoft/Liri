@@ -456,13 +456,13 @@ export class WizardEngine extends EventEmitter {
     this.register({
       id: 'config-wizard',
       name: '配置向导',
-      description: '引导式配置 PY_APP 应用',
+      description: '引导式配置 Liri 应用',
       steps: [
         {
           id: 'welcome',
           type: 'info',
-          title: '欢迎使用 PY_APP 配置向导',
-          description: '本向导将引导您完成 PY_APP 的基本配置。',
+          title: '欢迎使用 Liri 配置向导',
+          description: '本向导将引导您完成 Liri 的基本配置。',
           prompt: '按回车继续...',
         },
         {

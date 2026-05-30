@@ -33,7 +33,7 @@ function resolveApiKeyFromEnv(): string | undefined {
   return (
     process.env.ANTHROPIC_API_KEY ||
     process.env.CLAUDE_API_KEY ||
-    process.env.PY_APP_API_KEY
+    process.env.Liri_API_KEY
   );
 }
 
@@ -162,7 +162,7 @@ export async function refreshOAuthToken(
 }
 
 export function clearAuthConfig(): void {
-  const envVars = ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'PY_APP_API_KEY'];
+  const envVars = ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'Liri_API_KEY'];
   for (const envVar of envVars) {
     delete process.env[envVar];
   }

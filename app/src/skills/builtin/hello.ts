@@ -9,7 +9,7 @@ const helloSkill: Skill = {
   name: 'hello',
   description: '向用户问好',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     return `Hello, ${args[0] || 'world'}!`;
   },

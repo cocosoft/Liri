@@ -62,7 +62,7 @@ export const ${PluginClass}Metadata: PluginMetadata = {
   name: '${toPascalCase(moduleName)}',
   version: '1.0.0',
   description: '${description}',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'feature',
   dependencies: [],
   enabledByDefault: true,

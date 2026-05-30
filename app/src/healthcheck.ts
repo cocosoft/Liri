@@ -10,7 +10,7 @@ import { getExtensibilityService } from './core/extensibility/index.js';
 const logger = new Logger({ level: LogLevel.INFO });
 
 async function healthCheck() {
-  console.log('=== PY_APP 健康检查 ===');
+  console.log('=== Liri 健康检查 ===');
 
   try {
     // 检查监控服务

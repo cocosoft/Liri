@@ -95,7 +95,7 @@ git push origin "v$version"
 | 产物 | 来源 | 用途 |
 |------|------|------|
 | `dist/main.js` | `app/` 后端 JS 编译产物 | 运行后端服务 |
-| `client/src-tauri/target/release/PY_APP.*` | Tauri 原生打包 | 桌面客户端安装包 |
+| `client/src-tauri/target/release/Liri.*` | Tauri 原生打包 | 桌面客户端安装包 |
 
 ---
 
@@ -124,9 +124,9 @@ npm run tauri build
 
 ```
 release-v0.1.0/
-├── py_app_coding.exe          # 后端独立可执行文件
-├── PY_APP_0.1.0_x64.msi      # Tauri MSI 安装包
-├── PY_APP_0.1.0_x64-setup.exe # Tauri NSIS 安装包
+├── liri_coding.exe            # 后端独立可执行文件
+├── Liri_0.1.0_x64.msi        # Tauri MSI 安装包
+├── Liri_0.1.0_x64-setup.exe  # Tauri NSIS 安装包
 └── CHANGELOG.md               # 版本变更日志
 ```
 

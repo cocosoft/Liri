@@ -141,7 +141,7 @@ let globalProfiler: StartupChainProfiler | null = null;
 export function getStartupChainProfiler(): StartupChainProfiler {
   if (!globalProfiler) {
     const version =
-      process.env['PY_APP_SLO_VERSION'] ||
+      process.env['Liri_SLO_VERSION'] ||
       process.env['npm_package_version'] ||
       '0.0.0';
 

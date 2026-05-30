@@ -3,7 +3,7 @@
   "displayName": "默认亮色",
   "description": "清晰明亮的默认主题，适合日间使用",
   "type": "light",
-  "author": "PY_APP",
+  "author": "Liri",
   "version": "1.0.0",
   "colors": {
     "foreground": "#000000",

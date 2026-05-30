@@ -155,7 +155,7 @@ export class AgentDelegationOrchestrator {
         ...session.subTasks.map((st, i) => `  ${i + 1}. ${st.description}`),
         '',
         `ID: ${sessionId.slice(-8)}`,
-        `使用 py_app bridge status 查看进度`,
+        `使用 Liri bridge status 查看进度`,
       ].join('\n')
     );
 

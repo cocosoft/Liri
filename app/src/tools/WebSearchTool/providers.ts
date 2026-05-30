@@ -264,7 +264,7 @@ export class SearchProviderManager {
 
     try {
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'PY_APP/2.0 (SearchProvider)' },
+        headers: { 'User-Agent': 'Liri/2.0 (SearchProvider)' },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

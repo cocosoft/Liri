@@ -10,7 +10,7 @@
  *   bun run scripts/build-variant.ts --variant=enterprise
  *
  * 环境变量:
- *   PYAPP_BUILD_VARIANT=core|personal|coding|enterprise
+ *   LIRI_BUILD_VARIANT=core|personal|coding|enterprise
  */
 
 import * as fs from 'fs';
@@ -120,7 +120,7 @@ function generateFeatureFlags(variant: BuildVariant): string {
 function main(): void {
   const { variant, dryRun } = parseArgs();
 
-  console.log(`\n=== PY_APP 分版构建 ===`);
+  console.log(`\n=== Liri 分版构建 ===`);
   console.log(`变体: ${variant}`);
   console.log(`描述: ${VARIANT_CONFIGS[variant].description}`);
   console.log(`启用功能: ${VARIANT_CONFIGS[variant].features.length} 个`);
@@ -140,9 +140,9 @@ function main(): void {
   console.log(`\nFeature Flags 已写入: ${outputPath}`);
 
   console.log('\n执行 TypeScript 编译...');
-  console.log(`环境变量: PYAPP_BUILD_VARIANT=${variant}`);
+  console.log(`环境变量: LIRI_BUILD_VARIANT=${variant}`);
 
-  process.env['PYAPP_BUILD_VARIANT'] = variant;
+  process.env['LIRI_BUILD_VARIANT'] = variant;
 
   console.log('\n构建完成！');
   console.log(`输出目录: dist/`);

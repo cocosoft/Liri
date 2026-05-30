@@ -23,7 +23,7 @@ export class TempMediaManager {
 
   constructor(config?: Partial<TempFileConfig>) {
     this.config = {
-      baseDir: config?.baseDir || path.join(os.tmpdir(), 'py_app_media'),
+      baseDir: config?.baseDir || path.join(os.tmpdir(), 'Liri_media'),
       maxAge: config?.maxAge || 60 * 60 * 1000,
       maxFiles: config?.maxFiles || 1000,
       autoClean: config?.autoClean !== false,

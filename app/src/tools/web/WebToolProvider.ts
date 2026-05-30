@@ -109,7 +109,7 @@ export class DefaultWebFetcher implements WebToolProvider {
       const response = await fetch(request.url, {
         method: request.method,
         headers: {
-          'User-Agent': 'PY_APP/1.0',
+          'User-Agent': 'Liri/1.0',
           Accept: 'text/html,text/plain,application/json',
           ...(request.headers || {}),
         },

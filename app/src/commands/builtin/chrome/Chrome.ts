@@ -66,7 +66,7 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: '正在连接Chrome...\n\n请确保已安装PY_APP扩展并启用。',
+      message: '正在连接Chrome...\n\n请确保已安装Liri扩展并启用。',
       data: { connected: true },
     };
   },
@@ -92,7 +92,7 @@ export default {
     const tabs = [
       {
         id: 1,
-        title: 'GitHub - PY_APP',
+        title: 'GitHub - Liri',
         url: 'https://github.com/example',
         active: true,
       },

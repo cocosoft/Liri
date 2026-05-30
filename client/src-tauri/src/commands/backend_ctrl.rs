@@ -77,7 +77,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
 
     let mut command = app_handle
         .shell()
-        .sidecar("py_app_coding")
+        .sidecar("Liri_coding")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
         .args(["repl", "--http-port", &port_str])
         .current_dir(&data_dir)
@@ -86,7 +86,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .env("PYAPP_PROJECT_DIR", &data_dir);
 
     info!(
-        "Starting backend sidecar: py_app_coding repl --http-port={}, PYAPP_HOME={:?}",
+        "Starting backend sidecar: Liri_coding repl --http-port={}, PYAPP_HOME={:?}",
         current_port,
         if config.data_dir.is_empty() {
             "(default)"

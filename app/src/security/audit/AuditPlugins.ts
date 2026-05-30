@@ -67,7 +67,7 @@ function discoverPlugins(scanDir: string): PluginMeta[] {
       if (hasPackageJson) {
         try {
           const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-          permissions = pkg['py_app']?.permissions || [];
+          permissions = pkg['Liri']?.permissions || [];
           version = pkg.version;
         } catch {
           // 忽略解析错误
@@ -159,7 +159,7 @@ function auditPluginSource(
         path: meta.path,
         message: `插件 "${meta.name}" 使用了 child_process 但未声明 process.spawn 权限`,
         remediation:
-          '在 package.json 的 py_app.permissions 中声明 process.spawn 权限',
+          '在 package.json 的 Liri.permissions 中声明 process.spawn 权限',
       });
     }
     if (/https?:\/\/[^\s"']+/.test(content)) {

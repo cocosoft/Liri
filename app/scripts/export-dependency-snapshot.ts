@@ -61,7 +61,7 @@ function exportSnapshot(): void {
   const snapshot: DependencySnapshot = {
     version: '1.0.0',
     generatedAt: new Date().toISOString(),
-    description: 'PY_APP 模块依赖关系基准快照 — 记录批准的基础架构',
+    description: 'Liri 模块依赖关系基准快照 — 记录批准的基础架构',
     modules,
     initializationOrder: [...MODULE_INITIALIZATION_ORDER],
     fingerprint: ''

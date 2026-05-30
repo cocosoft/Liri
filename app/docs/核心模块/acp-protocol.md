@@ -2,7 +2,7 @@
 
 ## 概述
 
-ACP (Agent Communication Protocol) 是 PY_APP 的 Agent 间通信协议，支持 Agent 之间的消息交换、任务委托和结果共享。
+ACP (Agent Communication Protocol) 是 Liri 的 Agent 间通信协议，支持 Agent 之间的消息交换、任务委托和结果共享。
 
 ## 架构
 

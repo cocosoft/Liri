@@ -483,7 +483,7 @@ export class CommandManager {
 /**
  * 命令管理器实例（使用 Symbol 存储在全局对象中，防止模块重复加载导致实例丢失）
  */
-const COMMAND_MANAGER_SYMBOL = Symbol.for('PY_APP_COMMAND_MANAGER');
+const COMMAND_MANAGER_SYMBOL = Symbol.for('Liri_COMMAND_MANAGER');
 
 /**
  * 获取命令管理器实例

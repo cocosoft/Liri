@@ -88,13 +88,13 @@ export class HelpSystem {
     this.registerTopic({
       id: 'quickstart',
       title: '快速开始',
-      description: '了解PY_APP的基本使用方法',
+      description: '了解Liri的基本使用方法',
       content: `
 # 快速开始
 
 ## 基本概念
 
-PY_APP是一个智能助手，帮助你更高效地完成你的工作。
+Liri是一个智能助手，帮助你更高效地完成你的工作。
 
 ## 常用命令
 
@@ -868,7 +868,7 @@ ${this.getReleaseNotesContent()}
    * 显示完整帮助
    */
   displayFullHelp(): void {
-    console.log('PY_APP 帮助系统');
+    console.log('Liri 帮助系统');
     console.log('==============');
     this.getAllTopics().forEach((topic) => {
       console.log(`- ${topic.title}: ${topic.description}`);

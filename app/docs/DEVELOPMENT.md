@@ -3,7 +3,7 @@
 ## 项目结构
 
 ```
-PY_APP/app/
+Liri/app/
 ├── src/                  # 源代码
 │   ├── agent/            # AI代理模块
 │   ├── ai/               # AI模型API集成
@@ -252,7 +252,7 @@ export const add: Skill = {
     category: 'math',
     tags: ['calculation', 'basic'],
     version: '1.0.0',
-    author: 'PY_APP'
+    author: 'Liri'
   },
   execute: async (input: { a: number; b: number }, context: SkillContext): Promise<SkillResult> => {
     const result = input.a + input.b;
@@ -404,8 +404,8 @@ CMD ["npm", "start"]
 bun run deploy:docker
 
 # 或者手动构建和运行
-docker build -t PY_APP .
-docker run -p 3000:3000 --env-file .env PY_APP
+docker build -t Liri .
+docker run -p 3000:3000 --env-file .env Liri
 
 # 停止容器
 bun run stop:docker

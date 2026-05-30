@@ -73,7 +73,7 @@ export interface AcpClientHandle {
 
 export const ACP_AGENT_INFO = {
   name: 'pyapp-acp',
-  title: 'PY_APP ACP Gateway',
+  title: 'Liri ACP Gateway',
   version: '1.0.0',
 };
 

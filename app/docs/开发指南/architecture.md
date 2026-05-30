@@ -1,6 +1,6 @@
 # 项目架构
 
-> PY_APP 目录结构、核心设计模式、启动流程。
+> Liri 目录结构、核心设计模式、启动流程。
 
 ---
 
@@ -135,4 +135,4 @@ main.ts → launch(mode)
 | `GOOGLE_API_KEY` | Google Gemini API 密钥 |
 | `DEEPSEEK_API_KEY` | DeepSeek API 密钥 |
 | `REDACT_ENABLED` | 运行时日志脱敏开关 |
-| `PY_APP_WRITE_SAFE_ROOT` | 文件写入安全根目录 |
+| `Liri_WRITE_SAFE_ROOT` | 文件写入安全根目录 |

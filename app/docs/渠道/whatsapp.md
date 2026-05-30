@@ -2,7 +2,7 @@
 
 ## 概述
 
-支持将 PY_APP 接入 WhatsApp Business API。
+支持将 Liri 接入 WhatsApp Business API。
 
 ## 配置
 

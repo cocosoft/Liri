@@ -220,7 +220,7 @@ async function getOtlpTraceExporters() {
 }
 
 export function isTelemetryEnabled() {
-  return isEnvTruthy(process.env.PY_APP_ENABLE_TELEMETRY);
+  return isEnvTruthy(process.env.Liri_ENABLE_TELEMETRY);
 }
 
 function parseOtelHeadersEnvVar(): Record<string, string> {
@@ -317,7 +317,7 @@ export async function initializeTelemetry() {
   // Add customer exporters (if enabled)
   const telemetryEnabled = isTelemetryEnabled();
   logForDebugging(
-    `[3P telemetry] isTelemetryEnabled=${telemetryEnabled} (PY_APP_ENABLE_TELEMETRY=${process.env.PY_APP_ENABLE_TELEMETRY})`
+    `[3P telemetry] isTelemetryEnabled=${telemetryEnabled} (Liri_ENABLE_TELEMETRY=${process.env.Liri_ENABLE_TELEMETRY})`
   );
   if (telemetryEnabled) {
     readers.push(...(await getOtlpReaders()));
@@ -426,7 +426,7 @@ export async function flushTelemetry(): Promise<void> {
   }
 
   const timeoutMs = parseInt(
-    process.env.PY_APP_OTEL_FLUSH_TIMEOUT_MS || '5000'
+    process.env.Liri_OTEL_FLUSH_TIMEOUT_MS || '5000'
   );
 
   try {

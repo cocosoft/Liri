@@ -90,7 +90,7 @@ function extractTextFromContent(content: any): string {
  */
 function renderShareContent(context: CommandContext): string {
   const lines: string[] = [];
-  lines.push('# PY_APP 对话分享');
+  lines.push('# Liri 对话分享');
   lines.push('');
   lines.push(`> 分享时间: ${formatHumanDate(new Date())}`);
   lines.push('');
@@ -101,7 +101,7 @@ function renderShareContent(context: CommandContext): string {
   }
 
   for (const msg of messages) {
-    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'PY_APP';
+    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'Liri';
     const content = extractTextFromContent(msg.content);
 
     if (content.trim()) {
@@ -126,7 +126,7 @@ function renderShareJson(context: CommandContext): string {
   }));
 
   const data = {
-    app: 'PY_APP',
+    app: 'Liri',
     shareTime: new Date().toISOString(),
     format: 'markdown',
     messageCount: mapped.length,
@@ -201,7 +201,7 @@ async function handleHelp() {
       '',
       '输出格式:',
       '  Markdown 格式：',
-      '  - # PY_APP 对话分享（一级标题）',
+      '  - # Liri 对话分享（一级标题）',
       '  - > 分享时间（引用块）',
       '  - ## 用户 / ## Claude（二级标题）',
       '  - 支持 text / tool_use / tool_result / thinking 内容块',

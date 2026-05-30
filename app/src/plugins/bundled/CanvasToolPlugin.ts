@@ -18,7 +18,7 @@ export const CanvasToolPluginMetadata: PluginMetadata = {
   name: 'CanvasTool',
   version: '1.0.0',
   description: '画布工具模块插件，提供画布创建、绘制和导出功能（阶段4推广）',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'tool',
   dependencies: ['tools'],
   enabledByDefault: true,

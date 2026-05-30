@@ -8,18 +8,18 @@ import { createHash } from 'node:crypto';
  * Span 属性键常量
  */
 export const SPAN_ATTRIBUTE_KEYS = {
-  MODEL: 'py_app.model',
-  AGENT: 'py_app.agent',
-  STRATEGY: 'py_app.strategy',
-  SESSION_ID: 'py_app.session_id',
-  REQUEST_ID: 'py_app.request_id',
-  TOOL_COUNT: 'py_app.tool_count',
-  INPUT_TOKENS: 'py_app.input_tokens',
-  OUTPUT_TOKENS: 'py_app.output_tokens',
-  CACHE_HIT: 'py_app.cache_hit',
-  LATENCY_MS: 'py_app.latency_ms',
-  CHANNEL: 'py_app.channel',
-  PLATFORM: 'py_app.platform',
+  MODEL: 'Liri.model',
+  AGENT: 'Liri.agent',
+  STRATEGY: 'Liri.strategy',
+  SESSION_ID: 'Liri.session_id',
+  REQUEST_ID: 'Liri.request_id',
+  TOOL_COUNT: 'Liri.tool_count',
+  INPUT_TOKENS: 'Liri.input_tokens',
+  OUTPUT_TOKENS: 'Liri.output_tokens',
+  CACHE_HIT: 'Liri.cache_hit',
+  LATENCY_MS: 'Liri.latency_ms',
+  CHANNEL: 'Liri.channel',
+  PLATFORM: 'Liri.platform',
 } as const;
 
 /**

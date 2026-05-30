@@ -6,18 +6,18 @@
   "type": "module",
   "main": "src/main.ts",
   "bin": {
-    "PY_APP": "./src/main.ts",
-    "py-memory": "./src/cli.ts",
-    "py-ink": "./src/cli/simple-ink-cli.tsx"
+    "Liri": "./src/main.ts",
+    "liri-memory": "./src/cli.ts",
+    "liri-ink": "./src/cli/simple-ink-cli.tsx"
   },
   "scripts": {
     "dev": "bun run --watch src/main.ts",
     "start": "bun run src/main.ts",
     "build": "bun build src/main.ts --outdir=dist --target=bun",
-    "build:core": "cross-env PYAPP_BUILD_VARIANT=core bun run scripts/build-variant.ts --variant=core",
-    "build:personal": "cross-env PYAPP_BUILD_VARIANT=personal bun run scripts/build-variant.ts --variant=personal",
-    "build:coding": "cross-env PYAPP_BUILD_VARIANT=coding bun run scripts/build-variant.ts --variant=coding",
-    "build:enterprise": "cross-env PYAPP_BUILD_VARIANT=enterprise bun run scripts/build-variant.ts --variant=enterprise",
+    "build:core": "cross-env LIRI_BUILD_VARIANT=core bun run scripts/build-variant.ts --variant=core",
+    "build:personal": "cross-env LIRI_BUILD_VARIANT=personal bun run scripts/build-variant.ts --variant=personal",
+    "build:coding": "cross-env LIRI_BUILD_VARIANT=coding bun run scripts/build-variant.ts --variant=coding",
+    "build:enterprise": "cross-env LIRI_BUILD_VARIANT=enterprise bun run scripts/build-variant.ts --variant=enterprise",
     "build:mac": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-darwin-arm64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts",
     "build:mac-intel": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-darwin-x64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts",
     "build:win": "bun run scripts/build-variant.ts --variant=personal && bun build --compile --target=bun-windows-x64-modern --external pdfjs-dist --external sharp --outfile=../dist/py_app_coding src/pyapp.ts && bun run scripts/copy-external-deps.ts",

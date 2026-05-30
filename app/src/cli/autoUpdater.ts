@@ -49,7 +49,7 @@ export class AutoUpdater {
 
     this.currentVersion =
       process.env['npm_package_version'] ||
-      process.env['PY_APP_VERSION'] ||
+      process.env['Liri_VERSION'] ||
       '1.0.0';
 
     this.fetcher = new GitHubReleaseFetcher(
@@ -228,7 +228,7 @@ export class AutoUpdater {
    */
   private getUpdateCommand(): string {
     const hasGlobal = process.env['npm_config_global'];
-    return hasGlobal ? 'npm update -g PY_APP' : 'bun run update';
+    return hasGlobal ? 'npm update -g Liri' : 'bun run update';
   }
 
   /**

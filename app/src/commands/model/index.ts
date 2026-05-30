@@ -31,7 +31,7 @@ const modelCommand: Command = {
   type: 'local',
   name: 'model',
   get description() {
-    return `设置 PY_APP 的 AI 模型 (当前: ${modelManager.getCurrentModel()})`;
+    return `设置 Liri 的 AI 模型 (当前: ${modelManager.getCurrentModel()})`;
   },
   aliases: ['models', 'ml', 'list-models'],
   argumentHint: '[model|info|all|--json|help]',

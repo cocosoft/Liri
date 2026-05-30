@@ -84,7 +84,7 @@ export class GitHubReleaseFetcher {
       const response = await fetch(url, {
         headers: {
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'PY_APP-Updater/1.0.0',
+          'User-Agent': 'Liri-Updater/1.0.0',
         },
         signal: controller.signal,
       });

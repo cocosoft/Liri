@@ -47,7 +47,7 @@ export function createOpenAIProvider(
     name: 'OpenAI Provider',
     version: '1.0.0',
     description: 'OpenAI 模型提供者适配器，支持 GPT-4o/GPT-4/GPT-3.5 系列模型',
-    author: 'PY_APP',
+    author: 'Liri',
     tags: ['ai', 'llm', 'openai', 'provider'],
     providerName: 'openai',
     getModels: async () => cfg.models,

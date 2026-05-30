@@ -2,7 +2,7 @@
 
 ## 测试框架
 
-PY_APP 使用 Bun 内置的 `bun:test` 作为测试框架。
+Liri 使用 Bun 内置的 `bun:test` 作为测试框架。
 
 ## 测试结构
 

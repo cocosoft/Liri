@@ -135,7 +135,7 @@ export class CostMetricsBridge {
     }
 
     points.push({
-      name: 'py_app.cost.total',
+      name: 'Liri.cost.total',
       value: totalCost,
       unit: 'USD',
       labels: { type: 'cumulative' },
@@ -143,7 +143,7 @@ export class CostMetricsBridge {
     });
 
     points.push({
-      name: 'py_app.tokens.input',
+      name: 'Liri.tokens.input',
       value: totalInput,
       unit: 'tokens',
       labels: {},
@@ -151,7 +151,7 @@ export class CostMetricsBridge {
     });
 
     points.push({
-      name: 'py_app.tokens.output',
+      name: 'Liri.tokens.output',
       value: totalOutput,
       unit: 'tokens',
       labels: {},
@@ -159,7 +159,7 @@ export class CostMetricsBridge {
     });
 
     points.push({
-      name: 'py_app.tokens.cache',
+      name: 'Liri.tokens.cache',
       value: totalCache,
       unit: 'tokens',
       labels: {},
@@ -167,7 +167,7 @@ export class CostMetricsBridge {
     });
 
     points.push({
-      name: 'py_app.tokens.reasoning',
+      name: 'Liri.tokens.reasoning',
       value: totalReasoning,
       unit: 'tokens',
       labels: {},
@@ -175,7 +175,7 @@ export class CostMetricsBridge {
     });
 
     points.push({
-      name: 'py_app.requests.total',
+      name: 'Liri.requests.total',
       value: this.records.length,
       unit: 'requests',
       labels: {},
@@ -184,7 +184,7 @@ export class CostMetricsBridge {
 
     for (const [model, cost] of Object.entries(costByModel)) {
       points.push({
-        name: 'py_app.cost.by_model',
+        name: 'Liri.cost.by_model',
         value: cost,
         unit: 'USD',
         labels: { model },
@@ -251,21 +251,21 @@ export class CostMetricsBridge {
     const data = this.generateDashboard();
     const lines: string[] = [];
 
-    lines.push(`# HELP py_app_cost_total Total API cost in USD`);
-    lines.push(`# TYPE py_app_cost_total gauge`);
-    lines.push(`py_app_cost_total ${data.totalCost.toFixed(6)}`);
+    lines.push(`# HELP Liri_cost_total Total API cost in USD`);
+    lines.push(`# TYPE Liri_cost_total gauge`);
+    lines.push(`Liri_cost_total ${data.totalCost.toFixed(6)}`);
 
-    lines.push(`# HELP py_app_token_input_total Total input tokens`);
-    lines.push(`# TYPE py_app_token_input_total counter`);
-    lines.push(`py_app_token_input_total ${data.tokenUsage.inputTotal}`);
+    lines.push(`# HELP Liri_token_input_total Total input tokens`);
+    lines.push(`# TYPE Liri_token_input_total counter`);
+    lines.push(`Liri_token_input_total ${data.tokenUsage.inputTotal}`);
 
-    lines.push(`# HELP py_app_token_output_total Total output tokens`);
-    lines.push(`# TYPE py_app_token_output_total counter`);
-    lines.push(`py_app_token_output_total ${data.tokenUsage.outputTotal}`);
+    lines.push(`# HELP Liri_token_output_total Total output tokens`);
+    lines.push(`# TYPE Liri_token_output_total counter`);
+    lines.push(`Liri_token_output_total ${data.tokenUsage.outputTotal}`);
 
-    lines.push(`# HELP py_app_requests_total Total API requests`);
-    lines.push(`# TYPE py_app_requests_total counter`);
-    lines.push(`py_app_requests_total ${data.requestCount}`);
+    lines.push(`# HELP Liri_requests_total Total API requests`);
+    lines.push(`# TYPE Liri_requests_total counter`);
+    lines.push(`Liri_requests_total ${data.requestCount}`);
 
     return lines.join('\n');
   }

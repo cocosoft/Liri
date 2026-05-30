@@ -135,7 +135,7 @@ export class InteractiveShell {
    */
   private showHelp(): void {
     console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.bold('  PY_APP Interactive Shell'));
+    console.log(chalk.bold('  Liri Interactive Shell'));
     console.log(chalk.cyan('═'.repeat(60)));
     console.log();
     console.log('  Available commands:');
@@ -161,7 +161,7 @@ export class InteractiveShell {
    */
   start(): void {
     console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.bold('  PY_APP Interactive Shell'));
+    console.log(chalk.bold('  Liri Interactive Shell'));
     console.log(chalk.cyan('═'.repeat(60)));
     console.log(chalk.gray('  Type "help" for available commands'));
     console.log(chalk.cyan('═'.repeat(60)));

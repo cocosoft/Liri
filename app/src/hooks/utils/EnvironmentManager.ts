@@ -50,17 +50,17 @@ export class EnvironmentManager {
     // 基础环境变量
     const env: Record<string, string> = {
       ...process.env,
-      PY_APP_HOME: this.getPyAppHome(),
-      PY_APP_SESSION_ID: options.sessionId || '',
-      PY_APP_PLATFORM: platform(),
-      PY_APP_SKILL_ROOT: options.skillRoot || '',
+      Liri_HOME: this.getPyAppHome(),
+      Liri_SESSION_ID: options.sessionId || '',
+      Liri_PLATFORM: platform(),
+      Liri_SKILL_ROOT: options.skillRoot || '',
     };
 
     // 添加插件选项
     if (options.pluginOptions) {
       for (const [key, value] of Object.entries(options.pluginOptions)) {
         env[
-          `PY_APP_PLUGIN_${key.toUpperCase().replace(/[^a-zA-Z0-9_]/g, '_')}`
+          `Liri_PLUGIN_${key.toUpperCase().replace(/[^a-zA-Z0-9_]/g, '_')}`
         ] = value;
       }
     }
@@ -90,7 +90,7 @@ export class EnvironmentManager {
   }
 
   /**
-   * 获取PY_APP_HOME路径
+   * 获取Liri_HOME路径
    */
   private getPyAppHome(): string {
     return resolveProjectRoot();

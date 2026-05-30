@@ -2,7 +2,7 @@
 
 ## 概述
 
-支持将 PY_APP 接入 Signal 消息服务。
+支持将 Liri 接入 Signal 消息服务。
 
 ## 配置
 

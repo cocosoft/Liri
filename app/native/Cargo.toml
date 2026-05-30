@@ -2,8 +2,8 @@
 name = "py-app-native"
 version = "0.2.0"
 edition = "2021"
-description = "PY_APP Rust performance core - C ABI bindings (Bun FFI)"
-authors = ["PY_APP Team"]
+description = "Liri Rust performance core - C ABI bindings (Bun FFI)"
+authors = ["Liri Team"]
 license = "MIT"
 repository = "https://github.com/py-app/py-app"
 

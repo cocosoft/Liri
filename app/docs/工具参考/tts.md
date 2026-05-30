@@ -18,7 +18,7 @@
 ```javascript
 // 基本语音合成
 TTS({
-  text: "欢迎使用 PY_APP",
+  text: "欢迎使用 Liri",
   voice: "zh-CN-XiaoxiaoNeural"
 })
 

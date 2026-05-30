@@ -5,7 +5,7 @@
  *               reference/cc_code/backend/tools/WebSearchTool/
  * CC 的 WebSearchTool 使用 Anthropic 内置 web_search_20250305 工具，
  * 支持 query + allowed_domains/blocked_domains 域名过滤；
- * PY_APP WebSearchTool 使用 Bing 搜索，额外支持 maxResults/language/safeSearch/timeout。
+ * Liri WebSearchTool 使用 Bing 搜索，额外支持 maxResults/language/safeSearch/timeout。
  * 本命令作为 WebSearchTool 的 CLI 接口暴露其完整能力。
  *
  * 用法:

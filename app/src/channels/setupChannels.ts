@@ -402,7 +402,7 @@ export async function lazyConnectChannels(): Promise<void> {
 
             if (response.content && plugin.outbound) {
               // 终端回显：显示AI回复
-              console.log(`\n── [${channel.name.toUpperCase()}] PY_APP ──`);
+              console.log(`\n── [${channel.name.toUpperCase()}] Liri ──`);
               console.log(response.content);
               console.log(''); // 空行分隔
 

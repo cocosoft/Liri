@@ -2,7 +2,7 @@
 
 ## 核心原则
 
-**plugin-sdk 是 PY_APP 为第三方插件开发者提供的唯一公开 SDK。**
+**plugin-sdk 是 Liri 为第三方插件开发者提供的唯一公开 SDK。**
 
 ### 边界红线
 

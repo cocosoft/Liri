@@ -5,7 +5,7 @@
  */
 
 const ENABLED =
-  typeof process !== 'undefined' && process.env?.PY_APP_PROFILE_QUERY === '1';
+  typeof process !== 'undefined' && process.env?.Liri_PROFILE_QUERY === '1';
 
 const checkpoints: Array<{ name: string; time: number }> = [];
 let queryCount = 0;

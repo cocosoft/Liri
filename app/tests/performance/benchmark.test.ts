@@ -404,7 +404,7 @@ describe('性能基准总览', () => {
   it('打印基准测试概要', () => {
     console.log('\n');
     console.log('='.repeat(100));
-    console.log('  PY_APP 性能基准测试报告');
+    console.log('  Liri 性能基准测试报告');
     console.log('  ' + new Date().toISOString());
     console.log('='.repeat(100));
     console.log('  测试环境:');

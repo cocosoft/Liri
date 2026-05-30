@@ -140,7 +140,7 @@ interface GenerateSuggestionResult {
 /**
  * 生成AI预测建议
  * * 在完整 LLM 集成之前使用上下文感知的启发式建议。
- * 当 PY_APP 的 AI 模块配置完成后可改为调用真实 LLM 推理。
+ * 当 Liri 的 AI 模块配置完成后可改为调用真实 LLM 推理。
  */
 export async function generateSuggestion(
   abortController: AbortController,

@@ -32,7 +32,7 @@ export class SessionLock {
   private readonly instanceId: string;
 
   constructor(options: LockOptions = {}) {
-    this.lockDir = options.lockDir ?? join(tmpdir(), 'py_app', 'session_locks');
+    this.lockDir = options.lockDir ?? join(tmpdir(), 'Liri', 'session_locks');
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.retryInterval = options.retryInterval ?? DEFAULT_RETRY_INTERVAL;
     this.staleThreshold = options.staleThreshold ?? DEFAULT_STALE_THRESHOLD;

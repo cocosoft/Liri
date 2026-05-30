@@ -251,7 +251,7 @@ export class CoreModuleRefactorTest {
       logger.info('✅ 配置注册测试通过');
 
       const appName = this.configManager.getConfig<string>('app_name');
-      results.configAccess = appName === 'PY_APP';
+      results.configAccess = appName === 'Liri';
       logger.info('✅ 配置访问测试通过');
 
       const syncStatus = await this.configManager.sync();
@@ -278,7 +278,7 @@ export class CoreModuleRefactorTest {
   private registerTestConfigs(): void {
     // 字符串配置
     this.configManager.registerConfig(
-      ConfigUtils.createStringConfig('app_name', 'PY_APP', {
+      ConfigUtils.createStringConfig('app_name', 'Liri', {
         description: '应用名称',
         securityLevel: SecurityLevel.PUBLIC,
       })
@@ -312,7 +312,7 @@ export class CoreModuleRefactorTest {
     // 修改配置值
     this.configManager.setConfig(
       'app_name',
-      'PY_APP_MODIFIED',
+      'Liri_MODIFIED',
       'test_user',
       '测试回滚'
     );
@@ -325,7 +325,7 @@ export class CoreModuleRefactorTest {
 
       // 验证回滚成功
       const currentValue = this.configManager.getConfig<string>('app_name');
-      if (currentValue !== 'PY_APP') {
+      if (currentValue !== 'Liri') {
         throw new AppError(
           '配置回滚失败',
           ErrorCategory.EXECUTION,

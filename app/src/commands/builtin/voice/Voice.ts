@@ -3,7 +3,7 @@
  * 切换语音模式开关
  *
  * 对标 CC 源码 cc_code/backend/commands/voice/voice.ts
- * CC 中的 /voice 是纯 toggle，PY_APP 扩展为带子命令的形式：
+ * CC 中的 /voice 是纯 toggle，Liri 扩展为带子命令的形式：
  * /voice enable / disable / status / help
  */
 

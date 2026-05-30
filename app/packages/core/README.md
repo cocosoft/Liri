@@ -1,4 +1,4 @@
-# PY_APP Core
+# Liri Core
 
 AI Agent 核心运行时，提供 CLI 接口和基础工具集。
 

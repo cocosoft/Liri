@@ -13,7 +13,7 @@ const DEFAULT_ZH_PACK: LanguagePack = {
   code: 'zh',
   name: '中文',
   translations: {
-    'app.name': 'PY_APP',
+    'app.name': 'Liri',
     'app.description': '智能助手',
     'command.help': '显示帮助信息',
     'command.exit': '退出应用',
@@ -35,7 +35,7 @@ const DEFAULT_EN_PACK: LanguagePack = {
   code: 'en',
   name: 'English',
   translations: {
-    'app.name': 'PY_APP',
+    'app.name': 'Liri',
     'app.description': 'Intelligent Programming Assistant',
     'command.help': 'Show help information',
     'command.exit': 'Exit application',

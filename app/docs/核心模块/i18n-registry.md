@@ -65,7 +65,7 @@ const msg = registry.t("errors.notFound", {}, "zh-CN");
 registry.registerTranslation("ja", translations);
 
 // 注册单个条目
-registry.registerEntry("ja", "app.name", "PY_APP");
+registry.registerEntry("ja", "app.name", "Liri");
 ```
 
 ## API 参考

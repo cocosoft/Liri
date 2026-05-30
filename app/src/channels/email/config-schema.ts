@@ -20,7 +20,7 @@ export interface EmailConfig {
 const DEFAULTS: Partial<EmailConfig> = {
   port: 587,
   secure: false,
-  fromName: 'PY_APP',
+  fromName: 'Liri',
   maxRetries: 3,
   timeout: 30000,
 };

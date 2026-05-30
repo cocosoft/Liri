@@ -1,6 +1,6 @@
 # 安全体系
 
-> PY_APP 拥有 6 大安全子系统，是所有代码变更必须尊重的基础设施。
+> Liri 拥有 6 大安全子系统，是所有代码变更必须尊重的基础设施。
 
 ---
 
@@ -36,7 +36,7 @@
 
 `PathValidator.ts` 在每次写入/删除操作前自动检查 `isWriteProtected()`。
 
-`PY_APP_WRITE_SAFE_ROOT` 环境变量可限制所有写入仅在该根目录下。
+`Liri_WRITE_SAFE_ROOT` 环境变量可限制所有写入仅在该根目录下。
 
 ---
 

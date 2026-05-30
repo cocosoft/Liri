@@ -9,7 +9,7 @@ const scheduleRemoteAgentsSkill: Skill = {
   name: 'scheduleRemoteAgents',
   description: '调度远程 Agent 执行指定任务，支持分布式协作',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     const action = args[0] || 'help';
     const target = args[1] || '';

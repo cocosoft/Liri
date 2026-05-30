@@ -195,7 +195,7 @@ export class WebFetchTool extends BaseTool {
       const fetchOptions: RequestInit = {
         method,
         headers: {
-          'User-Agent': 'PY_APP/1.0 (PowerShell AI Assistant)',
+          'User-Agent': 'Liri/1.0 (PowerShell AI Assistant)',
           Accept:
             'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',

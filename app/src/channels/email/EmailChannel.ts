@@ -321,7 +321,7 @@ class SmtpClient {
       `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`,
       'MIME-Version: 1.0',
       `Date: ${new Date().toUTCString()}`,
-      `X-Mailer: PY_APP Email Channel`,
+      `X-Mailer: Liri Email Channel`,
     ];
 
     if (hasAttachments) {
@@ -522,7 +522,7 @@ export class EmailChannel extends EventEmitter {
       user: config?.user || '',
       pass: config?.pass || '',
       fromAddress: config?.fromAddress || '',
-      fromName: config?.fromName || 'PY_APP',
+      fromName: config?.fromName || 'Liri',
       maxRetries: config?.maxRetries ?? 3,
       timeout: config?.timeout ?? 30000,
     };
@@ -564,7 +564,7 @@ export class EmailChannel extends EventEmitter {
 
     const message: EmailMessage = {
       to: target.split(',').map((t) => t.trim()),
-      subject: 'PY_APP 消息通知',
+      subject: 'Liri 消息通知',
       body: text,
       status: 'queued',
       timestamp: Date.now(),
@@ -681,7 +681,7 @@ class EmailChannelPlugin extends BaseChannelPlugin {
       user: '',
       pass: '',
       fromAddress: '',
-      fromName: 'PY_APP',
+      fromName: 'Liri',
     };
   }
 
@@ -702,7 +702,7 @@ class EmailChannelPlugin extends BaseChannelPlugin {
       user: (config['user'] as string) || '',
       pass: (config['pass'] as string) || '',
       fromAddress: (config['fromAddress'] as string) || '',
-      fromName: (config['fromName'] as string) || 'PY_APP',
+      fromName: (config['fromName'] as string) || 'Liri',
       timeout: (config['timeout'] as number) || 30000,
     };
 
@@ -783,7 +783,7 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       const messageId = await this.smtpClient.sendMail({
         to: recipients,
-        subject: 'PY_APP 消息通知',
+        subject: 'Liri 消息通知',
         body: content,
       });
 
@@ -815,7 +815,7 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       const messageId = await this.smtpClient.sendMail({
         to: recipients,
-        subject: 'PY_APP 消息',
+        subject: 'Liri 消息',
         body: content,
         htmlBody,
       });
@@ -868,7 +868,7 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       const messageId = await this.smtpClient.sendMail({
         to: recipients,
-        subject: 'PY_APP 图片消息',
+        subject: 'Liri 图片消息',
         body: `[图片] ${imageUrl}`,
         attachments: [{ filename, content: imageBuffer, contentType }],
       });
@@ -919,7 +919,7 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       const messageId = await this.smtpClient.sendMail({
         to: recipients,
-        subject: 'PY_APP 文件消息',
+        subject: 'Liri 文件消息',
         body: `附件: ${filename}`,
         attachments: [{ filename, content: fileBuffer, contentType }],
       });

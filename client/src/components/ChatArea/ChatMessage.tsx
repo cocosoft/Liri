@@ -65,7 +65,7 @@ function ChatMessage({ message, isStreaming }: ChatMessageProps) {
           <span className={`text-sm font-medium ${
             isUser ? 'text-gray-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-400'
           }`}>
-            {isUser ? '你' : 'PY_APP'}
+            {isUser ? '你' : 'Liri'}
           </span>
         </div>
 

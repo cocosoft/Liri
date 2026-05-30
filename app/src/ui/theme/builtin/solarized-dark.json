@@ -3,7 +3,7 @@
   "displayName": "Solarized 深色",
   "description": "基于 Solarized 配色的低对比度深色主题",
   "type": "dark",
-  "author": "PY_APP",
+  "author": "Liri",
   "version": "1.0.0",
   "colors": {
     "foreground": "#839496",

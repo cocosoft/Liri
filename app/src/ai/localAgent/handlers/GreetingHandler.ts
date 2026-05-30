@@ -28,7 +28,7 @@ export class GreetingHandler implements QAHandler {
     }
 
     return {
-      response: '你好！我是 PY_APP 的 AI 助手，有什么我可以帮您的？',
+      response: '你好！我是 Liri 的 AI 助手，有什么我可以帮您的？',
       confidence: 0.9,
     };
   }

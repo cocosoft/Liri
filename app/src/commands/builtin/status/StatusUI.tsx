@@ -89,7 +89,7 @@ export function StatusUI({ onDone }: StatusUIProps) {
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
         <Text bold underline>
-          PY_APP System Status
+          Liri System Status
         </Text>
       </Box>
       <Box flexDirection="column">

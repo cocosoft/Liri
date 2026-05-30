@@ -3,7 +3,7 @@
  * 收集真实的系统运行数据、任务数据、代码数据
  *
  * 对标 CC 源码 cc_code/backend/commands/stats/index.ts
- * CC 中以 Stats React 组件展示使用统计，PY_APP 使用纯文本 CLI 输出。
+ * CC 中以 Stats React 组件展示使用统计，Liri 使用纯文本 CLI 输出。
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
@@ -472,7 +472,7 @@ async function handleJson(context: CommandContext): Promise<CommandResult> {
   const cmdMgr = getCmdMgr();
 
   const data = {
-    app: 'PY_APP',
+    app: 'Liri',
     uptime: Math.floor(uptime),
     commands: cmdMgr.getCommandCount(),
     sessions: sessionStats,

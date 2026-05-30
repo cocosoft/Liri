@@ -180,7 +180,7 @@ function ChannelsDeepPage() {
                 </h3>
                 <ul className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                   <li>• 请在对应的开放平台创建机器人/应用</li>
-                  <li>• 获取 Webhook URL 或 Bot Token 后配置到 PY_APP</li>
+                  <li>• 获取 Webhook URL 或 Bot Token 后配置到 Liri</li>
                   <li>• 确保机器人已添加到对应的群组或频道</li>
                   <li>• 启用后将自动接收和处理消息</li>
                 </ul>

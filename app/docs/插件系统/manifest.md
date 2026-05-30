@@ -21,7 +21,7 @@
   "name": "my-plugin",
   "version": "1.0.0",
   "description": "一个示例插件",
-  "author": "PY_APP Team",
+  "author": "Liri Team",
   "license": "MIT",
   "icon": "assets/icon.png",
   "entry": "dist/index.js",

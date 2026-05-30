@@ -471,7 +471,7 @@ class GitHubSearchSource implements SearchSource {
         url,
         {
           timeout: this.timeout,
-          headers: { 'User-Agent': 'PY_APP-ClawHub/1.0' },
+          headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
         },
         (res) => {
           const chunks: Buffer[] = [];

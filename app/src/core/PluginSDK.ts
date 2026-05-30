@@ -400,7 +400,7 @@ export class PluginSDK {
       name: '示例插件',
       version: '1.0.0',
       description: '这是一个示例插件，展示了如何使用PluginSDK',
-      author: 'PY_APP',
+      author: 'Liri',
       tags: ['example', 'demo'],
       category: '示例',
 

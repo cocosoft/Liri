@@ -8,7 +8,7 @@ const batchSkill: Skill = {
   name: 'batch',
   description: 'Run multiple commands in sequence',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     return `Batch operation mode...\n\nCommands: ${args.join(' ') || 'None specified'}\n\nUse the batch skill to execute multiple commands sequentially.\nFormat: /batch "command1" "command2" "command3"`;
   },

@@ -13,7 +13,7 @@ import {
 } from '@modules/agent/models/types';
 
 const VERIFICATION_AGENT_CONFIG: BuiltinAgentConfig = {
-  type: 'py_app-verification',
+  type: 'Liri-verification',
   name: 'Verification Agent',
   description: 'Verify code changes and test results',
   whenToUse: 'When user wants to verify code correctness or test results',

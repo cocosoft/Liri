@@ -9,7 +9,7 @@ const skillifySkill: Skill = {
   name: 'skillify',
   description: '将工具调用或命令序列转化为可复用的技能',
   version: '1.0.0',
-  author: 'PY_APP',
+  author: 'Liri',
   execute: async (args: any[]) => {
     const action = args[0] || 'help';
     const skillName = args[1] || '';

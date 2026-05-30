@@ -370,11 +370,11 @@ export class VoiceService {
    * 检查录音可用性
    */
   async checkRecordingAvailability(): Promise<RecordingAvailability> {
-    if (isEnvTruthy(process.env.PY_APP_REMOTE)) {
+    if (isEnvTruthy(process.env.Liri_REMOTE)) {
       return {
         available: false,
         reason:
-          'Voice mode requires microphone access, but no audio device is available in this environment.\n\nTo use voice mode, run PY_APP locally instead.',
+          'Voice mode requires microphone access, but no audio device is available in this environment.\n\nTo use voice mode, run Liri locally instead.',
       };
     }
 
@@ -397,7 +397,7 @@ export class VoiceService {
           return {
             available: false,
             reason:
-              'Voice mode could not access an audio device in WSL.\n\nWSL2 with WSLg (Windows 11) provides audio via PulseAudio — if you are on Windows 10 or WSL1, run PY_APP in native Windows instead.',
+              'Voice mode could not access an audio device in WSL.\n\nWSL2 with WSLg (Windows 11) provides audio via PulseAudio — if you are on Windows 10 or WSL1, run Liri in native Windows instead.',
           };
         }
       }

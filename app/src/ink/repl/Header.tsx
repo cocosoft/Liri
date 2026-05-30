@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
     >
       <Box flexDirection="row" justifyContent="space-between">
         <Text color="cyan" bold>
-          PY_APP
+          Liri
         </Text>
         <Text dimColor>
           {sessionTitle} | {messageCount} msgs

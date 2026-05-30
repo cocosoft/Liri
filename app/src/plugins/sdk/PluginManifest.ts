@@ -28,7 +28,7 @@ export interface PluginManifest {
   /** 入口文件（相对于插件根目录） */
   main: string;
 
-  /** 最低 PY_APP 版本要求 */
+  /** 最低 Liri 版本要求 */
   engine?: string;
 
   /** 依赖的其他插件 ID 列表 */
@@ -99,9 +99,9 @@ export interface FullPluginManifest extends Omit<
 
   /** 兼容性声明 */
   compatibility?: {
-    /** 最低 PY_APP 版本 */
+    /** 最低 Liri 版本 */
     minAppVersion: string;
-    /** 推荐 PY_APP 版本 */
+    /** 推荐 Liri 版本 */
     recommendedAppVersion?: string;
     /** 已知不兼容版本 */
     incompatibleVersions?: string[];

@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "description": "监控 CPU、内存、磁盘等系统资源的告警规则",
     "category": "system",
-    "author": "PY_APP",
+    "author": "Liri",
     "created": "2026-05-20"
   },
   "rules": [

@@ -8,7 +8,7 @@ function Header() {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="text-xl">📱</span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">PY_APP</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Liri</h1>
         </div>
       </div>
 

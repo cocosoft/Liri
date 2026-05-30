@@ -3,7 +3,7 @@
  *
  * 对标 CC 源码 cc_code/backend/commands/fast/fast.tsx
  * CC 中以 React FastModePicker 组件展示快速模式面板，
- * PY_APP 使用 CLI 文本输出。
+ * Liri 使用 CLI 文本输出。
  *
  * 快速模式通过切换 AI 模型（如切换到更快更便宜的模型）来实现
  * 更短的响应时间，状态持久化到 ConfigManager。

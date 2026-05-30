@@ -60,7 +60,7 @@ export const mockArticles: HelpArticle[] = [
     category: 'getting-started',
     content: `# 快速开始
 
-欢迎使用 PY_APP！本指南将帮助您快速上手。
+欢迎使用 Liri！本指南将帮助您快速上手。
 
 ## 第一步：登录
 
@@ -84,7 +84,7 @@ export const mockArticles: HelpArticle[] = [
     category: 'features',
     content: `# 记忆管理
 
-PY_APP 提供了强大的记忆管理功能。
+Liri 提供了强大的记忆管理功能。
 
 ## 查看记忆
 

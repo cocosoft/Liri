@@ -32,7 +32,7 @@ export class CommandParser {
   constructor() {
     this.program = new CommanderCommand();
     this.program
-      .name('PY_APP')
+      .name('Liri')
       .description('基于TypeScript + Rust架构的AI Agent项目')
       .version('1.0.0');
   }

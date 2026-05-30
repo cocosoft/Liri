@@ -269,9 +269,9 @@ class IrcChannelPlugin extends BaseChannelPlugin {
     return {
       server: '',
       port: 6667,
-      nickname: 'py_app_bot',
-      username: 'py_app_bot',
-      realname: 'PY_APP Bot',
+      nickname: 'Liri_bot',
+      username: 'Liri_bot',
+      realname: 'Liri Bot',
       password: '',
       nickservPassword: '',
       channels: [],
@@ -292,12 +292,12 @@ class IrcChannelPlugin extends BaseChannelPlugin {
       enabled: (raw['enabled'] as boolean) ?? true,
       server: (raw['server'] as string) || '',
       port: (raw['port'] as number) || (raw['tls'] ? 6697 : 6667),
-      nickname: (raw['nickname'] as string) || 'py_app_bot',
+      nickname: (raw['nickname'] as string) || 'Liri_bot',
       username:
         (raw['username'] as string) ||
         (raw['nickname'] as string) ||
-        'py_app_bot',
-      realname: (raw['realname'] as string) || 'PY_APP Bot',
+        'Liri_bot',
+      realname: (raw['realname'] as string) || 'Liri Bot',
       password: (raw['password'] as string) || '',
       nickservPassword: (raw['nickservPassword'] as string) || '',
       channels: (raw['channels'] as string[]) || [],

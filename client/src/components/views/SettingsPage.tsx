@@ -410,7 +410,7 @@ function SettingsPage() {
               关于
             </h3>
             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-              <p>PY_APP Client</p>
+              <p>Liri Client</p>
               <p>后端状态: {backendStatus.running ? `运行中 (端口 ${backendStatus.port})` : '未运行'}</p>
             </div>
           </div>

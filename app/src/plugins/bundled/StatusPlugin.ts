@@ -25,7 +25,7 @@ export const StatusPluginMetadata: PluginMetadata = {
   name: 'Status',
   version: '1.0.0',
   description: '状态插件，提供系统状态监控功能',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'core',
   dependencies: [],
   enabledByDefault: true,

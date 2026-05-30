@@ -4,7 +4,7 @@
  *
  * 对标 CC 源码 cc_code/backend/commands/version.ts
  * CC 通过构建宏 MACRO.VERSION / MACRO.BUILD_TIME 注入版本信息，
- * PY_APP 从 package.json 读取运行时版本信息。
+ * Liri 从 package.json 读取运行时版本信息。
  */
 
 import { readFileSync, existsSync } from 'fs';
@@ -37,7 +37,7 @@ function readPackageInfo(): Record<string, unknown> {
 
   if (!cachedPackage) {
     cachedPackage = {
-      name: 'PY_APP',
+      name: 'Liri',
       version: '1.0.0',
       description: '基于 TypeScript + Rust 架构的 AI Agent 项目',
     };
@@ -53,7 +53,7 @@ function getVersionInfo() {
   const pkg = readPackageInfo();
 
   return {
-    appName: pkg.name || 'PY_APP',
+    appName: pkg.name || 'Liri',
     version: pkg.version || '1.0.0',
     description: pkg.description || '',
     nodeVersion: process.version,
@@ -148,7 +148,7 @@ async function handleHelp() {
       '版本信息帮助',
       '==============',
       '',
-      '查看 PY_APP 系统版本和运行环境信息。',
+      '查看 Liri 系统版本和运行环境信息。',
       '',
       '用法:',
       '  /version          - 显示版本信息',
@@ -187,7 +187,7 @@ async function handleStatus() {
   return {
     success: true,
     message: [
-      'PY_APP 运行状态',
+      'Liri 运行状态',
       '==============',
       '',
       `应用名称: ${info.appName}`,

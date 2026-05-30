@@ -42,8 +42,8 @@ const toolsMenuOptions = [
 async function runCLI() {
   try {
     // 显示启动信息
-    ui.showTitle('PY_APP Command Line Interface');
-    ui.showInfo('Welcome to PY_APP CLI. Type help for available commands.');
+    ui.showTitle('Liri Command Line Interface');
+    ui.showInfo('Welcome to Liri CLI. Type help for available commands.');
     ui.showSeparator();
 
     // 初始化必要的服务
@@ -82,7 +82,7 @@ async function showMainMenu(skillManager: any, toolManager: any) {
         showProfile();
         break;
       case 'exit':
-        ui.showInfo('Exiting PY_APP CLI...');
+        ui.showInfo('Exiting Liri CLI...');
         return;
     }
   }
@@ -319,7 +319,7 @@ function handleCommandLineArgs() {
  * 显示帮助信息
  */
 function showHelp() {
-  ui.showTitle('PY_APP CLI Help');
+  ui.showTitle('Liri CLI Help');
   ui.showInfo('Usage: py-app [command] [options]');
   ui.showSeparator();
   ui.showInfo('Commands:');
@@ -338,7 +338,7 @@ function showHelp() {
  */
 function showVersion() {
   const packageJson = require('../../package.json');
-  ui.showInfo(`PY_APP version ${packageJson.version}`);
+  ui.showInfo(`Liri version ${packageJson.version}`);
   ui.cleanup();
 }
 

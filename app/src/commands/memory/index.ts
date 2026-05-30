@@ -20,7 +20,7 @@
 // SOFTWARE.
 /**
  * Memory命令（旧版）
- * 编辑PY_APP记忆文件（旧版，请使用 builtin/memory）
+ * 编辑Liri记忆文件（旧版，请使用 builtin/memory）
  */
 
 import type { Command } from '@modules/commands/types';
@@ -31,7 +31,7 @@ import type { Command } from '@modules/commands/types';
 const memory: Command = {
   type: 'local',
   name: 'memory-legacy',
-  description: '编辑PY_APP记忆文件（旧版）',
+  description: '编辑Liri记忆文件（旧版）',
   load: async () => {
     const { executeMemory } = await import('./memory.js');
     return {

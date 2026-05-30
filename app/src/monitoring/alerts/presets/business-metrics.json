@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "description": "监控会话数、用户活跃度、任务完成率等业务指标的告警规则",
     "category": "business",
-    "author": "PY_APP",
+    "author": "Liri",
     "created": "2026-05-20"
   },
   "rules": [

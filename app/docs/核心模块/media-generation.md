@@ -88,7 +88,7 @@ import { TTSTool } from "./tools/TTSTool/TTSTool.js";
 const tts = new TTSTool();
 
 const result = await tts.execute({
-  text: "欢迎使用 PY_APP",
+  text: "欢迎使用 Liri",
   voice: "zh-CN-Xiaoxiao",
   speed: 1.0
 });

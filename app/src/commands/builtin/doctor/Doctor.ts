@@ -3,7 +3,7 @@
  * 系统健康检查和问题诊断
  *
  * 对标 CC 源码 cc_code/backend/commands/doctor/doctor.tsx
- * CC 中以 React Doctor 组件展示诊断面板，PY_APP 使用 CLI 文本输出。
+ * CC 中以 React Doctor 组件展示诊断面板，Liri 使用 CLI 文本输出。
  *
  * 整合 DoctorCheck.ts 的真实数据检查（Node.js/Platform/CWD/Memory/Uptime）
  * 与系统诊断框架（网络/配置/安全/性能）。
@@ -794,7 +794,7 @@ async function handleJson(): Promise<CommandResult> {
   const diagnosis = await runDiagnosticChecks();
 
   const data = {
-    app: 'PY_APP',
+    app: 'Liri',
     command: 'doctor',
     timestamp: new Date().toISOString(),
     overallHealth: diagnosis.overallHealth,

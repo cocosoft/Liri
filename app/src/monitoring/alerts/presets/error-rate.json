@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "description": "监控各类错误率、异常捕获频率的告警规则",
     "category": "error",
-    "author": "PY_APP",
+    "author": "Liri",
     "created": "2026-05-20"
   },
   "rules": [

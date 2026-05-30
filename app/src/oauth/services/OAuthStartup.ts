@@ -122,7 +122,7 @@ export class OAuthStartupManager {
     }
 
     try {
-      const apiUrl = process.env.PY_APP_API_BASE_URL || 'https://api.pyapp.dev';
+      const apiUrl = process.env.Liri_API_BASE_URL || 'https://api.pyapp.dev';
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 

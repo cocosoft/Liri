@@ -99,7 +99,7 @@ export async function startMCPServer(
   // 创建MCP服务器实�?
   const server = new McpServer(
     {
-      name: 'PY_APP/mcp',
+      name: 'Liri/mcp',
       version: '1.0.0',
     },
     {

@@ -71,7 +71,7 @@ export class RuntimeFooterFactory {
 
     const lines: string[] = [];
     const runtime: RuntimeInfo = {
-      version: info?.version || process.env['PY_APP_VERSION'] || 'unknown',
+      version: info?.version || process.env['Liri_VERSION'] || 'unknown',
       uptimeMs: info?.uptimeMs || Date.now() - this.startTime,
       model: info?.model,
       estimatedCost: info?.estimatedCost,
@@ -98,7 +98,7 @@ export class RuntimeFooterFactory {
     lines.push('---');
 
     if (this.config.showVersion) {
-      lines.push(`[PY_APP v${info.version}]`);
+      lines.push(`[Liri v${info.version}]`);
     }
 
     if (this.config.showUptime && info.uptimeMs > 0) {
@@ -132,7 +132,7 @@ export class RuntimeFooterFactory {
     lines.push('');
 
     if (this.config.showVersion) {
-      lines.push(`> 🤖 **PY_APP** v${info.version}`);
+      lines.push(`> 🤖 **Liri** v${info.version}`);
     }
 
     if (this.config.showUptime && info.uptimeMs > 0) {

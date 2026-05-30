@@ -226,12 +226,12 @@ export function initHooksCommand(program: Command): void {
     console.log();
     console.log(chalk.green('Available commands:'));
     console.log(
-      chalk.gray('  PY_APP hooks list    - List all configured hooks')
+      chalk.gray('  Liri hooks list    - List all configured hooks')
     );
-    console.log(chalk.gray('  PY_APP hooks add     - Add a new hook'));
-    console.log(chalk.gray('  PY_APP hooks remove  - Remove a hook by index'));
-    console.log(chalk.gray('  PY_APP hooks enable  - Enable a hook by index'));
-    console.log(chalk.gray('  PY_APP hooks disable - Disable a hook by index'));
+    console.log(chalk.gray('  Liri hooks add     - Add a new hook'));
+    console.log(chalk.gray('  Liri hooks remove  - Remove a hook by index'));
+    console.log(chalk.gray('  Liri hooks enable  - Enable a hook by index'));
+    console.log(chalk.gray('  Liri hooks disable - Disable a hook by index'));
     console.log();
     console.log(chalk.cyan('═'.repeat(80)));
   });

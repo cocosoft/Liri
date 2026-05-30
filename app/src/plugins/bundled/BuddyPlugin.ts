@@ -17,7 +17,7 @@ export const BuddyPluginMetadata: PluginMetadata = {
   name: 'Buddy',
   version: '1.0.0',
   description: '伙伴模块插件，提供虚拟伙伴生成和交互功能（阶段2试点）',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'feature',
   dependencies: [],
   enabledByDefault: true,

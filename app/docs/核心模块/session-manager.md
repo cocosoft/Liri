@@ -2,7 +2,7 @@
 
 ## 概述
 
-`SessionGateway` 是 PY_APP 的统一会话管理入口，整合了会话创建、持久化、状态维护、生命周期事件、FTS5 全文搜索、QoS/优先级、预算管理、归档、修剪压缩等所有会话相关能力。
+`SessionGateway` 是 Liri 的统一会话管理入口，整合了会话创建、持久化、状态维护、生命周期事件、FTS5 全文搜索、QoS/优先级、预算管理、归档、修剪压缩等所有会话相关能力。
 
 > **架构变迁**：旧 `SessionManager` 已标记为 `@deprecated`，新代码应直接使用 `SessionGateway`。如需向后兼容，通过 `SessionManagerAdapter` 桥接。
 

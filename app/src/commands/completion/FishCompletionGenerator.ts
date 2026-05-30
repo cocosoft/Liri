@@ -17,7 +17,7 @@ export class FishCompletionGenerator {
   generate(): string {
     const lines: string[] = [];
 
-    lines.push('# PY_APP Fish Shell completions');
+    lines.push('# Liri Fish Shell completions');
     lines.push(`# Generated at ${new Date().toISOString()}`);
     lines.push('');
 
@@ -51,7 +51,7 @@ export class FishCompletionGenerator {
     const escapedDesc = (cmd.description || '').replace(/['"]/g, '');
 
     lines.push(
-      `complete -c py -n '__fish_py_app_using_command' -f -a '${name}' -d '${escapedDesc}'`
+      `complete -c py -n '__fish_Liri_using_command' -f -a '${name}' -d '${escapedDesc}'`
     );
 
     return lines;
@@ -63,7 +63,7 @@ export class FishCompletionGenerator {
    */
   generateHelperFunctions(): string {
     return [
-      'function __fish_py_app_using_command',
+      'function __fish_Liri_using_command',
       '  set -l cmd (commandline -opc)',
       '  if [ (count $cmd) -eq 1 ]',
       '    return 0',
@@ -86,7 +86,7 @@ export class FishCompletionGenerator {
     const targetDir =
       fishDir || join(homedir(), '.config', 'fish', 'completions');
 
-    return join(targetDir, 'py_app.fish');
+    return join(targetDir, 'Liri.fish');
   }
 }
 

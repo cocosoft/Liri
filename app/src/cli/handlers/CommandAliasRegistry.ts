@@ -4,7 +4,7 @@
  * 对标 OpenClaw manifest-command-aliases.ts 的别名机制：
  * PluginManifestCommandAliasRegistry 将别名解析到插件命令。
  *
- * PY_APP 的实现将别名注册到 CLIHandler 的命令系统，
+ * Liri 的实现将别名注册到 CLIHandler 的命令系统，
  * 支持内置别名和动态注册。
  *
  * 内置别名（默认注册）：

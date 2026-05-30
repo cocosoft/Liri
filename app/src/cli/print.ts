@@ -106,7 +106,7 @@ export function printError(text: string): void {
 }
 
 export function printDebug(text: string): void {
-  if (process.env.PY_APP_DEBUG === 'true') {
+  if (process.env.Liri_DEBUG === 'true') {
     console.log(formatText(text, { color: 'magenta', prefix: '🔍  ' }));
   }
 }

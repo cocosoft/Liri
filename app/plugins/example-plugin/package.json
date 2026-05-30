@@ -1,7 +1,7 @@
 {
   "name": "example-plugin",
   "version": "1.0.0",
-  "description": "Example plugin for PY_APP",
+  "description": "Example plugin for Liri",
   "main": "src/index.ts",
   "pyapp": {
     "activationEvents": ["onStartup"],

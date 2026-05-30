@@ -24,8 +24,8 @@ export class CommandCompleter {
    */
   private initializeCommands(): void {
     this.commands = [
-      { value: 'login', label: 'login', description: 'Login to PY_APP' },
-      { value: 'logout', label: 'logout', description: 'Logout from PY_APP' },
+      { value: 'login', label: 'login', description: 'Login to Liri' },
+      { value: 'logout', label: 'logout', description: 'Logout from Liri' },
       { value: 'status', label: 'status', description: 'Show project status' },
       { value: 'help', label: 'help', description: 'Show help information' },
       { value: 'version', label: 'version', description: 'Show version' },

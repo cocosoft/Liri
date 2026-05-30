@@ -122,7 +122,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             id: `ink-info-${Date.now()}`,
             role: 'system',
             content:
-              '当前运行: PY_APP Ink TUI 模式 (React-for-CLI) — 流式输出、工具调用可视化、Markdown 渲染。',
+              '当前运行: Liri Ink TUI 模式 (React-for-CLI) — 流式输出、工具调用可视化、Markdown 渲染。',
             timestamp: Date.now(),
           },
         ]);

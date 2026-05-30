@@ -44,7 +44,7 @@ export async function executeLogin(
     const params = parseLoginArgs(args);
 
     const existingToken =
-      process.env.PY_APP_API_KEY || process.env.ANTHROPIC_API_KEY;
+      process.env.Liri_API_KEY || process.env.ANTHROPIC_API_KEY;
 
     if (existingToken && !params.force) {
       return {
@@ -96,7 +96,7 @@ async function executeOAuthLogin(
     await executePostLogin(tokens, {
       onAuthChanged() {
         if (tokens.accessToken) {
-          process.env.PY_APP_API_KEY = tokens.accessToken;
+          process.env.Liri_API_KEY = tokens.accessToken;
         }
       },
     });
@@ -134,7 +134,7 @@ async function executeApiKeyLogin(params: LoginParams): Promise<CommandResult> {
 
   if (loginResult.success) {
     if (loginResult.token) {
-      process.env.PY_APP_API_KEY = loginResult.token;
+      process.env.Liri_API_KEY = loginResult.token;
     }
 
     return {

@@ -181,13 +181,13 @@ export function initPluginsCommand(program: Command): void {
     console.log();
     console.log(chalk.green('Available commands:'));
     console.log(
-      chalk.gray('  PY_APP plugins list     - List all configured plugins')
+      chalk.gray('  Liri plugins list     - List all configured plugins')
     );
-    console.log(chalk.gray('  PY_APP plugins install  - Install a new plugin'));
-    console.log(chalk.gray('  PY_APP plugins uninstall - Uninstall a plugin'));
-    console.log(chalk.gray('  PY_APP plugins enable   - Enable a plugin'));
-    console.log(chalk.gray('  PY_APP plugins disable  - Disable a plugin'));
-    console.log(chalk.gray('  PY_APP plugins update   - Update a plugin'));
+    console.log(chalk.gray('  Liri plugins install  - Install a new plugin'));
+    console.log(chalk.gray('  Liri plugins uninstall - Uninstall a plugin'));
+    console.log(chalk.gray('  Liri plugins enable   - Enable a plugin'));
+    console.log(chalk.gray('  Liri plugins disable  - Disable a plugin'));
+    console.log(chalk.gray('  Liri plugins update   - Update a plugin'));
     console.log();
     console.log(chalk.cyan('═'.repeat(80)));
   });

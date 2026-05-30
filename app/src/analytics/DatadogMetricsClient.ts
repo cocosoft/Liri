@@ -14,7 +14,7 @@ export const DEFAULT_DATADOG_CONFIG: DatadogConfig = {
   apiKey: process.env.DD_API_KEY || '',
   appKey: process.env.DD_APP_KEY || '',
   site: process.env.DD_SITE || 'datadoghq.com',
-  serviceName: process.env.DD_SERVICE || 'py_app',
+  serviceName: process.env.DD_SERVICE || 'Liri',
   env: process.env.DD_ENV || 'production',
   version: process.env.DD_VERSION || '1.0.0',
   enabled: process.env.DD_ENABLED === 'true' || !!process.env.DD_API_KEY,

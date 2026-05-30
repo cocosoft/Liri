@@ -661,7 +661,7 @@ export class SecurityManager extends EventEmitter {
   setWorkspaceTrusted(): void {
     const trustedFile = join(this.workspaceRoot, '.pyapp-trusted');
     try {
-      writeFileSync(trustedFile, '# PY_APP Trusted Workspace\n');
+      writeFileSync(trustedFile, '# Liri Trusted Workspace\n');
       this.trustState.isTrusted = true;
       this.saveSecurityConfig();
     } catch (error) {

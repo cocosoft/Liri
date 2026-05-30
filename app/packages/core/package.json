@@ -1,7 +1,7 @@
 {
   "name": "@pyapp/core",
   "version": "1.0.0",
-  "description": "PY_APP Core — AI Agent 核心运行时，提供 CLI 接口和基础工具集",
+  "description": "Liri Core — AI Agent 核心运行时，提供 CLI 接口和基础工具集",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -58,7 +58,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/PY_APP"
+    "url": "https://github.com/your-org/Liri"
   },
   "publishConfig": {
     "access": "public"

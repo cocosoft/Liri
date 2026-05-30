@@ -42,8 +42,8 @@ import { generateBanner, getVersionString } from '@modules/cli/banner/index.js';
  * 对标 CC 源码 entrypoints/cli.tsx 的启动前 process.env 设置
  */
 function optimizeStartupEnv(): void {
-  if (!process.env.PY_APP_PROFILE_STARTUP) {
-    process.env.PY_APP_PROFILE_STARTUP = '0';
+  if (!process.env.Liri_PROFILE_STARTUP) {
+    process.env.Liri_PROFILE_STARTUP = '0';
   }
   if (!process.env.FORCE_COLOR) {
     process.env.FORCE_COLOR = '1';
@@ -81,7 +81,7 @@ async function dumpSystemPrompt(): Promise<void> {
  * 运行诊断检查
  */
 async function runDoctor(): Promise<void> {
-  console.log(chalk.cyan('PY_APP 系统诊断'));
+  console.log(chalk.cyan('Liri 系统诊断'));
   console.log(chalk.gray('='.repeat(40)));
   console.log(chalk.green('✓') + '  CLI 入口正常');
   console.log(chalk.green('✓') + `  Node.js ${process.version}`);
@@ -153,10 +153,10 @@ export async function main(): Promise<void> {
     (arg) => arg === '--help' || arg === '-h'
   );
   if (helpArgs.length === 1 && normalizedArgs.length <= 2) {
-    console.log(chalk.cyan('PY_APP - AI Agent'));
+    console.log(chalk.cyan('Liri - AI Agent'));
     console.log(chalk.gray('Version: 1.0.0'));
     console.log();
-    console.log('Usage: PY_APP [options] [command]');
+    console.log('Usage: Liri [options] [command]');
     console.log();
     console.log('Options:');
     console.log('  -v, --version             显示版本信息');
@@ -195,7 +195,7 @@ export async function main(): Promise<void> {
 
   // 快速路径：列出可用运行模式
   if (normalizedArgs.includes('--list-modes')) {
-    console.log(chalk.cyan('PY_APP 可用运行模式'));
+    console.log(chalk.cyan('Liri 可用运行模式'));
     console.log(chalk.gray('='.repeat(40)));
     console.log('  --mcp              MCP 服务器模式');
     console.log('  --daemon           守护进程模式');

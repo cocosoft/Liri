@@ -57,7 +57,7 @@ export class LanguageManager {
       nativeName: '中文（简体）',
       messages: {
         'help.quickstart.title': '快速开始',
-        'help.quickstart.description': '了解PY_APP的基本使用方法',
+        'help.quickstart.description': '了解Liri的基本使用方法',
         'help.commands.title': '命令参考',
         'help.commands.description': '所有可用命令的详细说明',
         'help.shortcuts.title': '快捷键',
@@ -94,7 +94,7 @@ export class LanguageManager {
       nativeName: 'English (US)',
       messages: {
         'help.quickstart.title': 'Quick Start',
-        'help.quickstart.description': 'Learn the basic usage of PY_APP',
+        'help.quickstart.description': 'Learn the basic usage of Liri',
         'help.commands.title': 'Command Reference',
         'help.commands.description':
           'Detailed explanation of all available commands',

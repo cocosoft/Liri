@@ -18,7 +18,7 @@ export interface PluginValidatorOptions {
   /** 已注册的插件 ID 列表（用于依赖检查） */
   registeredPlugins?: string[];
 
-  /** 当前 PY_APP 版本（用于引擎版本检查） */
+  /** 当前 Liri 版本（用于引擎版本检查） */
   engineVersion?: string;
 
   /** 是否严格模式（警告也视为错误） */

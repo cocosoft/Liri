@@ -4,7 +4,7 @@ const os = require("os");
 
 function loadLibrary() {
   const isWindows = os.platform() === "win32";
-  const libName = isWindows ? "py_app_native.dll" : `libpy_app_native.${suffix}`;
+  const libName = isWindows ? "Liri_native.dll" : `libLiri_native.${suffix}`;
   const libPath = path.join(__dirname, "target", "release", libName);
 
   try {

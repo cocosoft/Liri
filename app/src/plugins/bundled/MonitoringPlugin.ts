@@ -21,7 +21,7 @@ export const MonitoringPluginMetadata: PluginMetadata = {
   name: 'Monitoring',
   version: '1.0.0',
   description: '监控模块插件，提供系统状态查询和健康检查功能（阶段4推广）',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'monitoring',
   dependencies: ['core', 'infrastructure'],
   enabledByDefault: true,

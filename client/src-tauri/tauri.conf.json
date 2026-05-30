@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "PY_APP",
+  "productName": "Liri",
   "version": "0.1.0",
-  "identifier": "com.py-app.client",
+  "identifier": "com.liri.client",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "PY_APP",
+        "title": "Liri",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

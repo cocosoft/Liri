@@ -1,5 +1,5 @@
 /**
- * Example plugin for PY_APP
+ * Example plugin for Liri
  * 包含命令和工具实现
  */
 
@@ -22,8 +22,8 @@ export class ExamplePlugin implements Plugin {
   metadata: PluginMetadata = {
     name: 'example-plugin',
     version: '1.0.0',
-    description: 'An example plugin for PY_APP with commands and tools',
-    author: 'PY_APP Team',
+    description: 'An example plugin for Liri with commands and tools',
+    author: 'Liri Team',
     dependencies: []
   };
   

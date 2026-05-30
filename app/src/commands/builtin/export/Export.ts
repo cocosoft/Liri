@@ -3,7 +3,7 @@
  * 导出对话记录到文件
  *
 
- * PY_APP 扩展为纯文本子命令形式：/export [help|status]
+ * Liri 扩展为纯文本子命令形式：/export [help|status]
  */
 
 import { join } from 'path';
@@ -89,7 +89,7 @@ function extractFirstPrompt(context: CommandContext): string {
  */
 function renderMessages(context: CommandContext): string {
   const lines: string[] = [];
-  lines.push('PY_APP 对话导出');
+  lines.push('Liri 对话导出');
   lines.push('='.repeat(50));
   lines.push(`导出时间: ${formatHumanDate(new Date())}`);
   lines.push('');
@@ -100,7 +100,7 @@ function renderMessages(context: CommandContext): string {
   }
 
   for (const msg of messages) {
-    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'PY_APP';
+    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'Liri';
     lines.push(`[${role}]`);
 
     if (typeof msg.content === 'string') {
@@ -237,7 +237,7 @@ async function handleJsonExport(context: CommandContext) {
   const messages = (context.messages || []) as MsgLike[];
 
   const exportData = {
-    app: 'PY_APP',
+    app: 'Liri',
     exportTime: new Date().toISOString(),
     messageCount: messages.length,
     messages: messages.map((msg) => ({

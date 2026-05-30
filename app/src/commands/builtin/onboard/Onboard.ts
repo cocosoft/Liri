@@ -490,7 +490,7 @@ async function runModelSection(
   console.log(`  步骤 ${step}/${total}: 选择 AI 模型`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('');
-  console.log('  PY_APP 需要 AI 模型来回答问题。DeepSeek 推荐首选：');
+  console.log('  Liri 需要 AI 模型来回答问题。DeepSeek 推荐首选：');
   console.log('  ✅ 注册即送 500 万 tokens 免费额度，无需付费即可开始使用');
   console.log('');
 
@@ -621,7 +621,7 @@ async function runChannelSection(
   console.log('  配置消息通道');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('');
-  console.log('  PY_APP 支持连接 QQ/Telegram 等消息平台，');
+  console.log('  Liri 支持连接 QQ/Telegram 等消息平台，');
   console.log('  让您在这些平台上与 AI 对话。');
   console.log('');
 
@@ -886,7 +886,7 @@ const onboardCommand = {
     let userStatus = '使用默认';
     try {
       const soulContent = readSoulMd();
-      const defaultSoulText = `# SOUL.md — PY_APP 的人格`;
+      const defaultSoulText = `# SOUL.md — Liri 的人格`;
       if (soulContent && soulContent.length > defaultSoulText.length + 100) {
         soulStatus = '✅ 已自定义';
       }
@@ -956,7 +956,7 @@ const onboardCommand = {
    */
   quickStart(): CommandResult {
     const guide = [
-      '🚀 PY_APP 快速入门',
+      '🚀 Liri 快速入门',
       '',
       '1. 首次配置 - 设置 AI 模型',
       '   /onboard                                      ← 启动配置向导',
@@ -985,9 +985,9 @@ const onboardCommand = {
    */
   startWizard(): CommandResult {
     const lines = [
-      '📋 PY_APP 配置向导',
+      '📋 Liri 配置向导',
       '',
-      '本向导将引导你完成 PY_APP 的初始配置。',
+      '本向导将引导你完成 Liri 的初始配置。',
       '',
       '• 快速配置（推荐）—— 仅需 AI 模型和密钥',
       '• 完整配置 —— 额外包含 AI 人格、用户档案、消息通道',
@@ -1015,7 +1015,7 @@ export async function runOnboard(
     if (!process.stdin.isTTY) {
       console.log('');
       console.log('╔════════════════════════════════════════════════╗');
-      console.log('║        PY_APP 配置向导                         ║');
+      console.log('║        Liri 配置向导                         ║');
       console.log('╚════════════════════════════════════════════════╝');
       console.log('');
       console.log('检测到非交互环境（无 TTY），无法运行交互式配置向导。');
@@ -1042,7 +1042,7 @@ export async function runOnboard(
   try {
     console.log('');
     console.log('╔════════════════════════════════════════════════╗');
-    console.log('║        PY_APP 配置向导                         ║');
+    console.log('║        Liri 配置向导                         ║');
     console.log('╚════════════════════════════════════════════════╝');
     console.log('');
     console.log('本向导帮助您快速完成 AI 模型与个性化配置。');
@@ -1105,7 +1105,7 @@ export async function runOnboard(
     if (!isQuickMode) {
       console.log('');
       console.log('╔════════════════════════════════════════════════╗');
-      console.log(`║        PY_APP 配置向导（共 ${totalSteps} 步）         ║`);
+      console.log(`║        Liri 配置向导（共 ${totalSteps} 步）         ║`);
       console.log('╚════════════════════════════════════════════════╝');
       console.log('');
     }
@@ -1115,7 +1115,7 @@ export async function runOnboard(
     console.log(`  步骤 1/${totalSteps}: 选择 AI 模型`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('');
-    console.log('  PY_APP 需要 AI 模型来回答问题。DeepSeek 推荐首选：');
+    console.log('  Liri 需要 AI 模型来回答问题。DeepSeek 推荐首选：');
     console.log('  ✅ 注册即送 500 万 tokens 免费额度，无需付费即可开始使用');
     console.log('');
 
@@ -1308,7 +1308,7 @@ export async function runOnboard(
     console.log(`  步骤 5/${totalSteps}（可选）: 配置消息通道`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('');
-    console.log('  PY_APP 支持连接 QQ/Telegram 等消息平台，');
+    console.log('  Liri 支持连接 QQ/Telegram 等消息平台，');
     console.log('  让您在这些平台上与 AI 对话。');
     console.log('');
 
@@ -1444,7 +1444,7 @@ async function runSoulSetup(
   console.log(`  步骤 4/${totalSteps}: 身份与人格设置`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('');
-  console.log('  接下来，让 PY_APP 了解你 —— 以及你希望它如何与你互动。');
+  console.log('  接下来，让 Liri 了解你 —— 以及你希望它如何与你互动。');
   console.log('  这些信息会保存到 SOUL.md（AI 人格）和 USER.md（用户档案），');
   console.log('  并自动注入到每次对话中。');
   console.log('  输入 "skip" 跳过此步骤，使用默认设置。');
@@ -1513,11 +1513,11 @@ async function runSoulSetup(
   console.log('');
 
   // ========== SOUL.md 配置 ==========
-  console.log('  ── 关于 PY_APP ──');
+  console.log('  ── 关于 Liri ──');
   console.log('');
 
   const aiName = await askQuestion(
-    '  你希望 PY_APP 怎么称呼你？（如：主人、老板、用户）> ',
+    '  你希望 Liri 怎么称呼你？（如：主人、老板、用户）> ',
     rl
   );
   if (aiName.toLowerCase() === 'exit') return;
@@ -1558,7 +1558,7 @@ async function runSoulSetup(
 
   console.log('');
   console.log('  💡 文件的初始设置已完成');
-  console.log('  💡 此后与 PY_APP 对话时，AI 会自动感知并更新这些文件');
+  console.log('  💡 此后与 Liri 对话时，AI 会自动感知并更新这些文件');
   console.log('  💡 你也可以手动编辑 ~/.pyapp/SOUL.md 和 USER.md');
   console.log('');
 }

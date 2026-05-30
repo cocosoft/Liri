@@ -10,13 +10,13 @@ describe('isDebugMode', () => {
 
   it('should return false when DEBUG env is not set', () => {
     const origDebug = process.env.DEBUG;
-    const origPyAppDebug = process.env.PY_APP_DEBUG;
+    const origPyAppDebug = process.env.Liri_DEBUG;
     delete process.env.DEBUG;
-    delete process.env.PY_APP_DEBUG;
+    delete process.env.Liri_DEBUG;
     const result = isDebugMode();
     expect(result).toBe(false);
     process.env.DEBUG = origDebug;
-    process.env.PY_APP_DEBUG = origPyAppDebug;
+    process.env.Liri_DEBUG = origPyAppDebug;
   });
 
 });
@@ -96,18 +96,18 @@ describe('getHasFormattedOutput', () => {
     expect(typeof getHasFormattedOutput()).toBe('boolean');
   });
 
-  it('should return true when PY_APP_STREAM_JSON is not set', () => {
-    const orig = process.env.PY_APP_STREAM_JSON;
-    delete process.env.PY_APP_STREAM_JSON;
+  it('should return true when Liri_STREAM_JSON is not set', () => {
+    const orig = process.env.Liri_STREAM_JSON;
+    delete process.env.Liri_STREAM_JSON;
     expect(getHasFormattedOutput()).toBe(true);
-    process.env.PY_APP_STREAM_JSON = orig;
+    process.env.Liri_STREAM_JSON = orig;
   });
 
-  it('should return false when PY_APP_STREAM_JSON is true', () => {
-    const orig = process.env.PY_APP_STREAM_JSON;
-    process.env.PY_APP_STREAM_JSON = 'true';
+  it('should return false when Liri_STREAM_JSON is true', () => {
+    const orig = process.env.Liri_STREAM_JSON;
+    process.env.Liri_STREAM_JSON = 'true';
     expect(getHasFormattedOutput()).toBe(false);
-    process.env.PY_APP_STREAM_JSON = orig;
+    process.env.Liri_STREAM_JSON = orig;
   });
 
 });

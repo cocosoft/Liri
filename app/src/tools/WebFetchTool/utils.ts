@@ -174,7 +174,7 @@ export function extractTitle(html: string): string | undefined {
 }
 
 export function buildUserAgent(): string {
-  return 'PY_APP/2.0 (WebFetch; compatible)';
+  return 'Liri/2.0 (WebFetch; compatible)';
 }
 
 export function buildDefaultHeaders(

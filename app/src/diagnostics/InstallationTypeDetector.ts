@@ -127,11 +127,11 @@ export class InstallationTypeDetector {
     const currentPlatform = platform();
 
     if (currentPlatform === 'win32') {
-      return execPath.includes(`${sep}PY_APP.exe`) || execPath.endsWith('.exe');
+      return execPath.includes(`${sep}Liri.exe`) || execPath.endsWith('.exe');
     }
 
     return (
-      execPath.includes(`${sep}PY_APP`) &&
+      execPath.includes(`${sep}Liri`) &&
       !execPath.includes('node_modules') &&
       !execPath.includes('node')
     );

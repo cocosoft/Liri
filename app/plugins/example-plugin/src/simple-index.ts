@@ -1,5 +1,5 @@
 /**
- * 简化版 Example plugin for PY_APP
+ * 简化版 Example plugin for Liri
  * 使用 createPlugin 辅助函数，减少样板代码
  */
 
@@ -15,8 +15,8 @@ export default createPlugin({
   metadata: {
     name: 'example-plugin',
     version: '1.0.0',
-    description: 'An example plugin for PY_APP with commands and tools',
-    author: 'PY_APP Team',
+    description: 'An example plugin for Liri with commands and tools',
+    author: 'Liri Team',
     type: 'tool'
   },
 

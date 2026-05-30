@@ -16,7 +16,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '快速开始',
     content: [
-      '快速开始指南帮助你迅速上手 PY_APP。',
+      '快速开始指南帮助你迅速上手 Liri。',
       '',
       '1. 启动应用后，直接输入 /help 查看所有可用命令',
       '2. 使用 /chat 命令开启对话模式',
@@ -30,7 +30,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '命令系统',
     content: [
-      'PY_APP 拥有丰富的命令系统：',
+      'Liri 拥有丰富的命令系统：',
       '',
       '基础命令:',
       '  /help     - 显示帮助信息',
@@ -57,7 +57,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '工具系统',
     content: [
-      'PY_APP 提供了一系列内置工具：',
+      'Liri 提供了一系列内置工具：',
       '',
       '文件工具:',
       '  FileReadTool  - 读取文件内容，支持多种格式',
@@ -98,7 +98,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '插件系统',
     content: [
-      '插件系统扩展 PY_APP 的功能：',
+      '插件系统扩展 Liri 的功能：',
       '',
       '插件类型:',
       '  - 功能插件: 添加新功能或命令',
@@ -137,7 +137,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '配置管理',
     content: [
-      'PY_APP 支持丰富的配置选项：',
+      'Liri 支持丰富的配置选项：',
       '',
       '配置类别:',
       '  - 主题配置: 自定义界面主题和颜色',
@@ -158,7 +158,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '会话管理',
     content: [
-      'PY_APP 的会话系统管理你的工作状态：',
+      'Liri 的会话系统管理你的工作状态：',
       '',
       '会话功能:',
       '  - 多会话支持: 同时管理多个工作会话',
@@ -177,7 +177,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '安全与权限',
     content: [
-      'PY_APP 实现了多层次安全机制：',
+      'Liri 实现了多层次安全机制：',
       '',
       '安全特性:',
       '  - 命令沙箱: 在隔离环境中执行命令',
@@ -197,7 +197,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '性能与监控',
     content: [
-      'PY_APP 提供性能监控和分析工具：',
+      'Liri 提供性能监控和分析工具：',
       '',
       '监控指标:',
       '  - Token 使用统计',
@@ -218,7 +218,7 @@ const DOC_SECTIONS: DocSection[] = [
   {
     title: '通知系统',
     content: [
-      'PY_APP 的通知系统提供事件驱动的消息推送能力：',
+      'Liri 的通知系统提供事件驱动的消息推送能力：',
       '',
       '通知类型:',
       '  - info     - 信息提示（一般性通知）',
@@ -399,9 +399,9 @@ const docsCommand = {
   async showOverview(): Promise<CommandResult> {
     const fileDocs = await this._ensureFileDocs();
     const lines = [
-      '📖 PY_APP 文档中心',
+      '📖 Liri 文档中心',
       '',
-      '欢迎使用 PY_APP 文档系统。',
+      '欢迎使用 Liri 文档系统。',
       '这里提供应用所有功能的详细说明和指南。',
       '',
       '快速链接:',

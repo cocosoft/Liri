@@ -218,7 +218,7 @@ async function checkSecurity(
 function formatDoctorReport(report: DoctorReport): string {
   const lines: string[] = [
     '═══════════════════════════════════════════',
-    '          PY_APP Doctor 诊断报告',
+    '          Liri Doctor 诊断报告',
     '═══════════════════════════════════════════',
     `时间: ${report.timestamp}`,
     '',

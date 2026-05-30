@@ -3,7 +3,7 @@
   "displayName": "德古拉",
   "description": "基于 Dracula 配色的深色主题",
   "type": "dark",
-  "author": "PY_APP",
+  "author": "Liri",
   "version": "1.0.0",
   "colors": {
     "foreground": "#f8f8f2",

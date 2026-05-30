@@ -21,7 +21,7 @@ export function getDefaultMetadata(
   return {
     timestamp: new Date().toISOString(),
     platform: process.platform,
-    version: process.env.PY_APP_VERSION || '1.0.0',
+    version: process.env.Liri_VERSION || '1.0.0',
     ...extra,
   };
 }

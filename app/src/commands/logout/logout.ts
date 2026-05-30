@@ -16,15 +16,15 @@ export async function executeLogout(
   try {
     // 清除API Key
     const hadToken = !!(
-      process.env.PY_APP_API_KEY || process.env.ANTHROPIC_API_KEY
+      process.env.Liri_API_KEY || process.env.ANTHROPIC_API_KEY
     );
 
-    delete process.env.PY_APP_API_KEY;
+    delete process.env.Liri_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
 
     // 清除其他认证相关环境变量
-    delete process.env.PY_APP_SESSION_TOKEN;
-    delete process.env.PY_APP_REFRESH_TOKEN;
+    delete process.env.Liri_SESSION_TOKEN;
+    delete process.env.Liri_REFRESH_TOKEN;
 
     if (hadToken) {
       return {

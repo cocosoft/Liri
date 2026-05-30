@@ -429,7 +429,7 @@ export function initializeBuiltinTranslations(
     { key: 'common.list', zh: '列表', en: 'List', ja: 'リスト', ko: '목록' },
 
     // ─── 应用 (app.*) ────────────────────────────────────────────
-    { key: 'app.name', zh: 'PY_APP', en: 'PY_APP', ja: 'PY_APP', ko: 'PY_APP' },
+    { key: 'app.name', zh: 'Liri', en: 'Liri', ja: 'Liri', ko: 'Liri' },
     {
       key: 'app.description',
       zh: '智能助手',
@@ -439,10 +439,10 @@ export function initializeBuiltinTranslations(
     },
     {
       key: 'app.greeting',
-      zh: '欢迎使用 PY_APP！输入 /help 查看帮助。',
-      en: 'Welcome to PY_APP! Type /help for assistance.',
-      ja: 'PY_APPへようこそ！/help でヘルプを表示。',
-      ko: 'PY_APP에 오신 것을 환영합니다! /help를 입력하여 도움말을 확인하세요.',
+      zh: '欢迎使用 Liri！输入 /help 查看帮助。',
+      en: 'Welcome to Liri! Type /help for assistance.',
+      ja: 'Liriへようこそ！/help でヘルプを表示。',
+      ko: 'Liri에 오신 것을 환영합니다! /help를 입력하여 도움말을 확인하세요.',
     },
     {
       key: 'app.goodbye',
@@ -453,17 +453,17 @@ export function initializeBuiltinTranslations(
     },
     {
       key: 'app.startup',
-      zh: '正在启动 PY_APP...',
-      en: 'Starting PY_APP...',
-      ja: 'PY_APPを起動中...',
-      ko: 'PY_APP 시작 중...',
+      zh: '正在启动 Liri...',
+      en: 'Starting Liri...',
+      ja: 'Liriを起動中...',
+      ko: 'Liri 시작 중...',
     },
     {
       key: 'app.shutdown',
-      zh: '正在关闭 PY_APP...',
-      en: 'Shutting down PY_APP...',
-      ja: 'PY_APPをシャットダウン中...',
-      ko: 'PY_APP 종료 중...',
+      zh: '正在关闭 Liri...',
+      en: 'Shutting down Liri...',
+      ja: 'Liriをシャットダウン中...',
+      ko: 'Liri 종료 중...',
     },
     {
       key: 'app.uptime',
@@ -1759,10 +1759,10 @@ export function initializeBuiltinTranslations(
     // ─── 帮助 (help.*) ──────────────────────────────────────
     {
       key: 'help.welcome',
-      zh: '欢迎使用 PY_APP 帮助系统',
-      en: 'Welcome to PY_APP help system',
-      ja: 'PY_APP ヘルプシステムへようこそ',
-      ko: 'PY_APP 도움말 시스템에 오신 것을 환영합니다',
+      zh: '欢迎使用 Liri 帮助系统',
+      en: 'Welcome to Liri help system',
+      ja: 'Liri ヘルプシステムへようこそ',
+      ko: 'Liri 도움말 시스템에 오신 것을 환영합니다',
     },
     {
       key: 'help.commands_header',

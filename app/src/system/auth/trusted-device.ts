@@ -5,7 +5,7 @@
 
 import { randomBytes } from 'crypto';
 
-const TRUSTED_DEVICE_TOKEN_KEY = 'PY_APP_TRUSTED_DEVICE_TOKEN';
+const TRUSTED_DEVICE_TOKEN_KEY = 'Liri_TRUSTED_DEVICE_TOKEN';
 
 const tokenStorage = new Map<string, string>();
 
@@ -22,7 +22,7 @@ function clearStoredToken(): void {
 }
 
 export function getTrustedDeviceToken(): string | undefined {
-  return process.env.PY_APP_TRUSTED_DEVICE_TOKEN || getStoredToken();
+  return process.env.Liri_TRUSTED_DEVICE_TOKEN || getStoredToken();
 }
 
 export function clearTrustedDeviceToken(): void {

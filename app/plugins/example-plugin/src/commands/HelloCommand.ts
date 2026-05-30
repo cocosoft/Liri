@@ -25,7 +25,7 @@ export class HelloCommand implements Command {
    * 执行命令
    */
   async execute(context: CommandContext): Promise<void> {
-    console.log('=== PY_APP 欢迎使用 ===');
+    console.log('=== Liri 欢迎使用 ===');
     console.log('版本: 1.0.0');
     console.log('插件: example-plugin');
     console.log('状态: 运行中');

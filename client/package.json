@@ -1,7 +1,7 @@
 {
-  "name": "py-app-client",
+  "name": "liri-client",
   "version": "0.1.0",
-  "description": "PY_APP Desktop Client",
+  "description": "Liri Desktop Client",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,15 +1,15 @@
 /**
  * Beta功能标志头常量
  * 用于API请求协议，标识启用的Beta功能
- * 注意：PY_APP不使用bun:bundle的feature()编译时宏，改用运行时feature()函数
+ * 注意：Liri不使用bun:bundle的feature()编译时宏，改用运行时feature()函数
  */
 
 import { feature } from '../core/featureFlags.js';
 
 /**
- * PY_APP协议版本头
+ * Liri协议版本头
  */
-export const PY_APP_20250219_BETA_HEADER = 'py-app-20250219';
+export const Liri_20250219_BETA_HEADER = 'py-app-20250219';
 
 /**
  * 交错思考Beta头
@@ -121,7 +121,7 @@ export const BEDROCK_EXTRA_PARAMS_HEADERS = new Set([
  * 其他Beta头会导致400错误
  */
 export const VERTEX_COUNT_TOKENS_ALLOWED_BETAS = new Set([
-  PY_APP_20250219_BETA_HEADER,
+  Liri_20250219_BETA_HEADER,
   INTERLEAVED_THINKING_BETA_HEADER,
   CONTEXT_MANAGEMENT_BETA_HEADER,
 ]);

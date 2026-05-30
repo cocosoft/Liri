@@ -31,7 +31,7 @@ export interface MemoryQuery {
 
 /**
  * 外部记忆提供商接口
- * 实现此接口可将外部记忆源接入 PY_APP 记忆系统
+ * 实现此接口可将外部记忆源接入 Liri 记忆系统
  */
 export interface ExternalMemoryProvider {
   /** 提供商标识 */

@@ -774,7 +774,7 @@ Vim 模式编辑操作:
 
 输出格式:
   Markdown 格式:
-  - # PY_APP 对话分享（一级标题）
+  - # Liri 对话分享（一级标题）
   - > 分享时间（引用块）
   - ## 用户 / ## Claude（二级标题）
   - 支持 text / tool_use / tool_result / thinking 内容块
@@ -1121,7 +1121,7 @@ CostAnalyticsTracker（会话级）和 CostPersistenceService（跨会话持久�
     description: '记忆文件管理帮助',
     helpContent: `
 记忆文件管理帮助:
-- 使用 "/memory" 命令管理 PY_APP 记忆文件
+- 使用 "/memory" 命令管理 Liri 记忆文件
 - 支持创建、查看、编辑、删除、状态查询和 JSON 输出
 
 /memory 命令用法:
@@ -1329,7 +1329,7 @@ MCP系统帮助:
     description: '版本信息帮助',
     helpContent: `
 版本信息帮助:
-- 使用 "/version" 命令查看 PY_APP 系统版本和运行环境信息
+- 使用 "/version" 命令查看 Liri 系统版本和运行环境信息
 - 支持详细状态和 JSON 格式输出
 
 /version 命令用法:

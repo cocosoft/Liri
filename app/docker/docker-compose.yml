@@ -1,5 +1,5 @@
 # =============================================================================
-#  PY_APP — Docker Compose 配置
+#  Liri — Docker Compose 配置
 #  参考 Windows 版：exe 直接运行，等同 docker-compose up 后进入交互界面
 # =============================================================================
 #  快速开始：
@@ -18,7 +18,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    # ── 交互模式（等同 Windows 版双击 py_app_coding.exe） ──
+    # ── 交互模式（等同 Windows 版双击 Liri_coding.exe） ──
     #   docker compose -f docker/docker-compose.yml run --rm app
     #   如需传启动模式：docker compose -f docker/docker-compose.yml run --rm app mcp
     stdin_open: true
@@ -53,7 +53,7 @@ services:
     # ── 健康检查 ──
     # 交互模式下 healthcheck 不适用，后台服务模式可取消注释
     # healthcheck:
-    #   test: ["CMD-SHELL", "pgrep py_app_coding || exit 1"]
+    #   test: ["CMD-SHELL", "pgrep Liri_coding || exit 1"]
     #   interval: 30s
     #   timeout: 10s
     #   retries: 3

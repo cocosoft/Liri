@@ -44,7 +44,7 @@ const DEFAULT_FLAGS: BuddyCompileFlags = {
 function getFlagsFromEnv(): Partial<BuddyCompileFlags> {
   const flags: Partial<BuddyCompileFlags> = {};
 
-  const envPrefix = 'PY_APP_BUDDY_';
+  const envPrefix = 'Liri_BUDDY_';
   const flagKeys: (keyof BuddyCompileFlags)[] = [
     'ENABLE_BUDDY',
     'ENABLE_BUDDY_NOTIFICATIONS',

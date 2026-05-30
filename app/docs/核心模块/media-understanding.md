@@ -38,7 +38,7 @@ const resized = await tool.execute({
 
 ## AI 视觉分析
 
-PY_APP 的 AI 模型层（如 DeepSeek）原生支持图片理解能力，可在对话中直接分析图片内容：
+Liri 的 AI 模型层（如 DeepSeek）原生支持图片理解能力，可在对话中直接分析图片内容：
 
 ```typescript
 // AI 模型调用时自动支持图片输入

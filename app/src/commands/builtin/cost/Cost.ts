@@ -3,7 +3,7 @@
  * 显示 API 调用成本和使用统计
  *
  * 对标 CC 源码 cc_code/backend/commands/cost/cost.ts
- * CC 中仅显示 formatTotalCost()，PY_APP 实现更丰富的成本分析视图。
+ * CC 中仅显示 formatTotalCost()，Liri 实现更丰富的成本分析视图。
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
@@ -481,7 +481,7 @@ async function handleJson(context: CommandContext): Promise<CommandResult> {
   const costData = await collectCostData();
 
   const data = {
-    app: 'PY_APP',
+    app: 'Liri',
     totalCost: Math.round(costData.totalCost * 100) / 100,
     sessionCost: Math.round(costData.totalSessionCost * 100) / 100,
     usage: {

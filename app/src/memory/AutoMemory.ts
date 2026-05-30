@@ -7,14 +7,14 @@ export function getAutoMemPath(): string {
 }
 
 export function isAutoMemoryEnabled(): boolean {
-  if (process.env.PY_APP_DISABLE_AUTO_MEMORY === 'true') return false;
+  if (process.env.Liri_DISABLE_AUTO_MEMORY === 'true') return false;
   return fs.existsSync(getAutoMemPath());
 }
 
 export function hasAutoMemPathOverride(): boolean {
-  return !!process.env.PY_APP_AUTO_MEM_PATH;
+  return !!process.env.Liri_AUTO_MEM_PATH;
 }
 
 export function getAutoMemPathOverride(): string | null {
-  return process.env.PY_APP_AUTO_MEM_PATH || null;
+  return process.env.Liri_AUTO_MEM_PATH || null;
 }

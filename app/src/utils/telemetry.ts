@@ -60,7 +60,7 @@ export class TelemetryService {
         this.level = data.trim() as TelemetryLevel;
       } else {
         this.level =
-          (process.env.PY_APP_TELEMETRY_LEVEL as TelemetryLevel) || 'basic';
+          (process.env.Liri_TELEMETRY_LEVEL as TelemetryLevel) || 'basic';
       }
     } catch {
       this.level = 'basic';

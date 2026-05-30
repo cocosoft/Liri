@@ -369,7 +369,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
       text: content,
       textFormat: 'plain',
       timestamp: new Date().toISOString(),
-      from: { id: this.appId, name: 'PY_APP Bot' },
+      from: { id: this.appId, name: 'Liri Bot' },
     };
 
     const result = await this.sendActivity(target, activity);
@@ -396,7 +396,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
           name: 'image',
         },
       ],
-      from: { id: this.appId, name: 'PY_APP Bot' },
+      from: { id: this.appId, name: 'Liri Bot' },
     };
 
     const result = await this.sendActivity(target, activity);
@@ -430,7 +430,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
             name: fileName,
           },
         ],
-        from: { id: this.appId, name: 'PY_APP Bot' },
+        from: { id: this.appId, name: 'Liri Bot' },
       };
 
       const result = await this.sendActivity(target, activity);
@@ -480,7 +480,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
           },
         },
       ],
-      from: { id: this.appId, name: 'PY_APP Bot' },
+      from: { id: this.appId, name: 'Liri Bot' },
     };
 
     const result = await this.sendActivity(target, activity);
@@ -621,7 +621,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     const ref: Record<string, unknown> = {
       activityId,
       user: activity['from'],
-      bot: { id: this.appId, name: 'PY_APP Bot' },
+      bot: { id: this.appId, name: 'Liri Bot' },
       conversation,
       channelId: 'msteams',
       serviceUrl: (activity['serviceUrl'] as string) || this.serviceUrl,

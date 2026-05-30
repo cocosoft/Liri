@@ -13,7 +13,7 @@ import { resolvePyappHome } from '@modules/config/paths';
  */
 export function getPluginsDirectory(): string {
   const baseDir =
-    process.env.PY_APP_PLUGINS_DIR || join(resolvePyappHome(), 'plugins');
+    process.env.Liri_PLUGINS_DIR || join(resolvePyappHome(), 'plugins');
 
   // 确保目录存在
   if (!existsSync(baseDir)) {

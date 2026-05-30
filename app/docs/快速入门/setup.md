@@ -56,7 +56,7 @@ NODE_ENV=production bun run start
 
 ## 数据库配置
 
-PY_APP 使用文件系统进行数据持久化，默认存储路径：
+Liri 使用文件系统进行数据持久化，默认存储路径：
 
 - **会话数据**: `data/sessions/`
 - **缓存数据**: `data/cache/`

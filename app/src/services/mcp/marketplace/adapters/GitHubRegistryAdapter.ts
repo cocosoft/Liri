@@ -169,7 +169,7 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
         {
           timeout: this.timeout,
           headers: {
-            'User-Agent': 'PY_APP-MCPMarketplace/1.0',
+            'User-Agent': 'Liri-MCPMarketplace/1.0',
             Accept: 'application/vnd.github.v3+json',
           },
         },

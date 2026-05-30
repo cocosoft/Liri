@@ -268,7 +268,7 @@ export class PluginHandler {
           version: '1.0.0',
           description: 'An example plugin',
           enabled: true,
-          author: 'PY_APP Team',
+          author: 'Liri Team',
         },
       ];
     }

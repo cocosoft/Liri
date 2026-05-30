@@ -27,7 +27,7 @@ export const SettingsPluginMetadata: PluginMetadata = {
   name: 'Settings',
   version: '1.0.0',
   description: '设置插件，提供系统设置管理功能',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'core',
   dependencies: [],
   enabledByDefault: true,

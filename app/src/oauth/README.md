@@ -2,7 +2,7 @@
 
 ## 概述
 
-OAuth认证模块为PY_APP提供完整的OAuth 2.0认证支持，包括：
+OAuth认证模块为Liri提供完整的OAuth 2.0认证支持，包括：
 
 - **OAuth Discovery** (RFC 8414) - 自动发现OAuth服务器元数据
 - **Token管理** - 安全的Token存储、刷新和生命周期管理
@@ -12,7 +12,7 @@ OAuth认证模块为PY_APP提供完整的OAuth 2.0认证支持，包括：
 
 ## 安装
 
-OAuth模块已集成到PY_APP项目中，无需额外安装。
+OAuth模块已集成到Liri项目中，无需额外安装。
 
 ## 快速开始
 

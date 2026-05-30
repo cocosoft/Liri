@@ -5,7 +5,7 @@
  * 在每次 Agent 循环前检测 token 预算，超出时裁剪早期非关键消息，
  * 始终保留 system prompt 和最近的 N 轮对话。
  *
- * PY_APP 的 TAORLoop 已有 TokenBudget 预算监控 + compactIfNeeded()
+ * Liri 的 TAORLoop 已有 TokenBudget 预算监控 + compactIfNeeded()
  * 压缩机制，但缺乏运行前的预防性裁剪。本模块在消息发送前进行预检，
  * 避免因 Token 溢出导致的请求拒决。
  */

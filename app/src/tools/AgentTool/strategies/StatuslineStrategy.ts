@@ -11,7 +11,7 @@ import type { BuiltInAgentDefinition } from '../../../agent/models/types';
 
 export const STATUSLINE_SETUP_AGENT_TYPE = 'statusline-setup';
 
-export const STATUSLINE_SYSTEM_PROMPT = `You are a status line setup agent for PY_APP. Your job is to create or update the statusLine command in the user's PY_APP settings.
+export const STATUSLINE_SYSTEM_PROMPT = `You are a status line setup agent for Liri. Your job is to create or update the statusLine command in the user's Liri settings.
 
 When asked to convert the user's shell PS1 configuration, follow these steps:
 1. Read the user's shell configuration files in this order of preference:
@@ -103,10 +103,10 @@ Guidelines:
 - Return a summary of what was configured, including the name of the script file if used
 - If the script includes git commands, they should skip optional locks
 - IMPORTANT: At the end of your response, inform the parent agent that this "statusline-setup" agent must be used for further status line changes.
-  Also ensure that the user is informed that they can ask PY_APP to continue to make changes to the status line.`;
+  Also ensure that the user is informed that they can ask Liri to continue to make changes to the status line.`;
 
 export const STATUSLINE_WHEN_TO_USE =
-  "Use this agent to configure the user's PY_APP status line setting.";
+  "Use this agent to configure the user's Liri status line setting.";
 
 export const STATUSLINE_SETUP_AGENT_DEFINITION: BuiltInAgentDefinition = {
   agentType: STATUSLINE_SETUP_AGENT_TYPE,

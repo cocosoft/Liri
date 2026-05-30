@@ -10,18 +10,18 @@ import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
  * 环境变量配置键名
  */
 const ENV_CONFIG_MAP: Record<keyof BridgeConfig, string> = {
-  bridgeId: 'PY_APP_BRIDGE_ID',
-  machineName: 'PY_APP_BRIDGE_MACHINE_NAME',
-  dir: 'PY_APP_BRIDGE_DIR',
-  branch: 'PY_APP_BRIDGE_BRANCH',
-  gitRepoUrl: 'PY_APP_BRIDGE_GIT_REPO_URL',
-  maxSessions: 'PY_APP_BRIDGE_MAX_SESSIONS',
-  workerType: 'PY_APP_BRIDGE_WORKER_TYPE',
-  apiBaseUrl: 'PY_APP_BRIDGE_API_BASE_URL',
-  sessionIngressUrl: 'PY_APP_BRIDGE_SESSION_INGRESS_URL',
-  reuseEnvironmentId: 'PY_APP_BRIDGE_REUSE_ENVIRONMENT_ID',
-  spawnMode: 'PY_APP_BRIDGE_SPAWN_MODE',
-  debugFile: 'PY_APP_BRIDGE_DEBUG_FILE',
+  bridgeId: 'Liri_BRIDGE_ID',
+  machineName: 'Liri_BRIDGE_MACHINE_NAME',
+  dir: 'Liri_BRIDGE_DIR',
+  branch: 'Liri_BRIDGE_BRANCH',
+  gitRepoUrl: 'Liri_BRIDGE_GIT_REPO_URL',
+  maxSessions: 'Liri_BRIDGE_MAX_SESSIONS',
+  workerType: 'Liri_BRIDGE_WORKER_TYPE',
+  apiBaseUrl: 'Liri_BRIDGE_API_BASE_URL',
+  sessionIngressUrl: 'Liri_BRIDGE_SESSION_INGRESS_URL',
+  reuseEnvironmentId: 'Liri_BRIDGE_REUSE_ENVIRONMENT_ID',
+  spawnMode: 'Liri_BRIDGE_SPAWN_MODE',
+  debugFile: 'Liri_BRIDGE_DEBUG_FILE',
 };
 
 /**
@@ -105,8 +105,8 @@ export function getDefaultBridgeConfig(): BridgeConfig {
     dir: process.cwd(),
     maxSessions: 4,
     workerType: 'cli',
-    apiBaseUrl: 'https://api.py_app.com',
-    sessionIngressUrl: 'https://api.py_app.com',
+    apiBaseUrl: 'https://api.Liri.com',
+    sessionIngressUrl: 'https://api.Liri.com',
     spawnMode: 'same-dir',
   };
 }

@@ -44,6 +44,6 @@ export class GreetCommand implements Command {
     else if (hour < 18) greeting = '下午好';
     else greeting = '晚上好';
 
-    console.log(`${greeting}, ${name}! 欢迎使用 PY_APP。`);
+    console.log(`${greeting}, ${name}! 欢迎使用 Liri。`);
   }
 }

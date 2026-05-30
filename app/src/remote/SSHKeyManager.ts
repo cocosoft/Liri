@@ -70,7 +70,7 @@ export interface SSHKeyPair {
  */
 export interface SSHKeyStorageOptions {
   /**
-   * 密钥存储目录（默认 ~/.ssh/py_app/）
+   * 密钥存储目录（默认 ~/.ssh/Liri/）
    */
   storageDir?: string;
 
@@ -103,7 +103,7 @@ export class SSHKeyManager {
   private keys: Map<string, SSHKeyPair> = new Map();
 
   constructor(storageDir?: string) {
-    this.storageDir = storageDir || join(homedir(), '.ssh', 'py_app');
+    this.storageDir = storageDir || join(homedir(), '.ssh', 'Liri');
   }
 
   /**

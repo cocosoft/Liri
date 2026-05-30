@@ -70,9 +70,9 @@ cargo build --release --target x86_64-pc-windows-gnu
 # 交叉编译 macOS 通用二进制
 cargo build --release --target x86_64-apple-darwin
 cargo build --release --target aarch64-apple-darwin
-lipo -create -output universal target/release/libpy_app.a \
-  target/x86_64-apple-darwin/release/libpy_app.a \
-  target/aarch64-apple-darwin/release/libpy_app.a
+lipo -create -output universal target/release/libLiri.a \
+  target/x86_64-apple-darwin/release/libLiri.a \
+  target/aarch64-apple-darwin/release/libLiri.a
 ```
 
 ## 验证构建

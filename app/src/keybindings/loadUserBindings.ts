@@ -346,7 +346,7 @@ export function createDefaultUserBindingsFile(): boolean {
     // 创建默认配置文件
     const defaultConfig = {
       $schema: './keybindings.schema.json',
-      $docs: 'https://docs.py_app.dev/keybindings',
+      $docs: 'https://docs.Liri.dev/keybindings',
       bindings: [
         {
           context: 'Global',

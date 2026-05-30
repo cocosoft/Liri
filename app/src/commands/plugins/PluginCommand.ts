@@ -1,6 +1,6 @@
 /**
  * 插件 CLI 命令
- * py_app plugin install/list/remove/update
+ * Liri plugin install/list/remove/update
  */
 
 import type {
@@ -75,7 +75,7 @@ async function installPlugin(name: string): Promise<CommandResult> {
     return {
       success: false,
       type: 'error',
-      error: '请指定插件名称: py_app plugin install <name>',
+      error: '请指定插件名称: Liri plugin install <name>',
     };
   }
   const distributor = new NpmDistributor();

@@ -613,7 +613,7 @@ let globalCacheSystem: CacheSystem | null = null;
  */
 export function getCacheSystem(): CacheSystem {
   if (!globalCacheSystem) {
-    const cacheDir = process.env.PY_APP_CACHE_DIR || resolveCacheDir();
+    const cacheDir = process.env.Liri_CACHE_DIR || resolveCacheDir();
     globalCacheSystem = createCacheSystem({ cacheDir });
   }
   return globalCacheSystem;

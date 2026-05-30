@@ -48,7 +48,7 @@ export const exitCommand: Command = {
   description: '退出应用程序',
   aliases: ['quit', 'q'],
   argumentHint: '[--force]',
-  whenToUse: '当你需要退出PY_APP时',
+  whenToUse: '当你需要退出Liri时',
   load: async () => ({
     execute: async (args: string, context: any) => {
       const parts = args.trim().split(/\s+/);
@@ -75,7 +75,7 @@ export const exitCommand: Command = {
         }
       }
 
-      logger.info(`${getRandomGoodbyeMessage()} Exiting PY_APP...`);
+      logger.info(`${getRandomGoodbyeMessage()} Exiting Liri...`);
 
       // 延迟退出以显示消息
       setTimeout(() => {

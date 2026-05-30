@@ -24,7 +24,7 @@ function TerminalPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    addLine('欢迎使用 PY_APP 终端', 'output');
+    addLine('欢迎使用 Liri 终端', 'output');
     addLine('输入 help 查看可用命令', 'output');
     addLine('', 'output');
   }, []);

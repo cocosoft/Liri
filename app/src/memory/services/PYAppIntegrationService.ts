@@ -6,7 +6,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * PY_APP.md规则类型
+ * Liri.md规则类型
  */
 export interface Rule {
   id: string;
@@ -16,7 +16,7 @@ export interface Rule {
 }
 
 /**
- * PY_APP.md偏好设置
+ * Liri.md偏好设置
  */
 export interface Preference {
   key: string;
@@ -33,7 +33,7 @@ export interface PersonalitySection {
 }
 
 /**
- * PY_APP.md配置信息
+ * Liri.md配置信息
  */
 export interface PYAppConfig {
   rules: Rule[];
@@ -44,8 +44,8 @@ export interface PYAppConfig {
 }
 
 /**
- * PY_APP.md集成服务
- * 负责解析PY_APP.md文件，提取规则和偏好设置
+ * Liri.md集成服务
+ * 负责解析Liri.md文件，提取规则和偏好设置
  */
 export class PYAppIntegrationService {
   private config: PYAppConfig | null = null;
@@ -56,9 +56,9 @@ export class PYAppIntegrationService {
 
   /**
    * 构造函数
-   * @param filePath PY_APP.md文件路径，默认为项目根目录下的PY_APP.md
+   * @param filePath Liri.md文件路径，默认为项目根目录下的Liri.md
    */
-  constructor(filePath: string = './PY_APP.md') {
+  constructor(filePath: string = './Liri.md') {
     this.filePath = path.resolve(filePath);
   }
 
@@ -96,7 +96,7 @@ export class PYAppIntegrationService {
       }
     } catch (error) {
       logger.warning(
-        `Failed to load PY_APP.md`,
+        `Failed to load Liri.md`,
         error instanceof Error ? error : new Error(String(error))
       );
       this.config = {
@@ -145,7 +145,7 @@ export class PYAppIntegrationService {
   }
 
   /**
-   * 解析PY_APP.md内容
+   * 解析Liri.md内容
    */
   private parsePYAppContent(
     content: string,
@@ -317,7 +317,7 @@ export class PYAppIntegrationService {
       }
     } catch (error) {
       logger.warning(
-        `Error handling PY_APP.md change`,
+        `Error handling Liri.md change`,
         error instanceof Error ? error : new Error(String(error))
       );
     }
@@ -473,7 +473,7 @@ export class PYAppIntegrationService {
 }
 
 /**
- * 创建PY_APP.md集成服务实例
+ * 创建Liri.md集成服务实例
  */
 export function createPYAppIntegrationService(
   filePath?: string
@@ -482,6 +482,6 @@ export function createPYAppIntegrationService(
 }
 
 /**
- * 全局PY_APP.md集成服务实例
+ * 全局Liri.md集成服务实例
  */
 export const pyAppIntegrationService = createPYAppIntegrationService();

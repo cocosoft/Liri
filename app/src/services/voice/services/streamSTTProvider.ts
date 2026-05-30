@@ -277,7 +277,7 @@ export class StreamSTTProvider implements STTProvider {
    */
   private buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
-      'User-Agent': 'PY_APP/1.0',
+      'User-Agent': 'Liri/1.0',
       ...this.config.headers,
     };
 

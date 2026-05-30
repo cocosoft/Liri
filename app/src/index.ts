@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * PY_APP - 历史入口文件（已弃用）
+ * Liri - 历史入口文件（已弃用）
  *
  * @deprecated 请使用 src/main.ts 的 launch() 函数
  * 所有运行模式通过 launch() 函数统一分发

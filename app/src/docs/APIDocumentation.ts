@@ -117,8 +117,8 @@ export class APIDocumentation {
     ];
 
     return {
-      title: 'PY_APP API Documentation',
-      description: 'API reference for PY_APP tools, commands, and skills',
+      title: 'Liri API Documentation',
+      description: 'API reference for Liri tools, commands, and skills',
       version: '1.0.0',
       endpoints,
       types: this.generateTypes(),

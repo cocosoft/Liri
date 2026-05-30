@@ -1,6 +1,6 @@
 /**
  * 通道 CLI 命令
- * py_app channel list/status/connect/disconnect
+ * Liri channel list/status/connect/disconnect
  */
 
 import type {

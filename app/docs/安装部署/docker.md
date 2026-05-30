@@ -7,7 +7,7 @@
 
 ## 概述
 
-PY_APP 的 Docker 镜像采用**多阶段构建**策略，与 Windows 版使用相同的 `bun build --compile` 方式生成独立二进制：
+Liri 的 Docker 镜像采用**多阶段构建**策略，与 Windows 版使用相同的 `bun build --compile` 方式生成独立二进制：
 
 1. **native-builder**：编译 Rust 原生加速插件（cdylib）
 2. **app-builder**：`bun install` + `bun build --compile` 生成独立二进制
@@ -128,7 +128,7 @@ services:
 services:
   app:
     healthcheck:
-      test: ["CMD-SHELL", "pgrep py_app_coding || exit 1"]
+      test: ["CMD-SHELL", "pgrep Liri_coding || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

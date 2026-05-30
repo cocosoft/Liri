@@ -98,7 +98,7 @@ export class DmPolicyEngine {
     logger.info(`生成配对码: ${ctx.senderId} → ${pairingCode}`);
     return {
       allowed: false,
-      reason: `需要配对。请管理员运行: py_app pairing approve ${ctx.channelId} ${pairingCode}`,
+      reason: `需要配对。请管理员运行: Liri pairing approve ${ctx.channelId} ${pairingCode}`,
       pairingCode,
     };
   }

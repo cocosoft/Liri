@@ -1,4 +1,4 @@
 @echo off
-cd /d E:\PY\CODES\PY_APP\backend
+cd /d E:\PY\CODES\Liri\backend
 bun run test_qq_channel.ts
 pause

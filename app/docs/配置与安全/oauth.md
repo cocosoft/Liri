@@ -2,7 +2,7 @@
 
 ## 概述
 
-PY_APP 支持 OAuth 2.0 认证流程，提供安全的用户身份验证。
+Liri 支持 OAuth 2.0 认证流程，提供安全的用户身份验证。
 
 ## 支持的提供者
 
@@ -26,7 +26,7 @@ OAUTH_GITHUB_CALLBACK_URL=http://localhost:3000/auth/github/callback
 1. 用户点击登录链接
 2. 重定向到 OAuth 提供者
 3. 用户授权应用
-4. 回调到 PY_APP
+4. 回调到 Liri
 5. 获取访问令牌
 6. 获取用户信息
 7. 创建/更新用户会话

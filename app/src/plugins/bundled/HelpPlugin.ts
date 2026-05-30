@@ -14,7 +14,7 @@ export const HelpPluginMetadata: PluginMetadata = {
   name: 'Help',
   version: '1.0.0',
   description: '帮助插件，提供系统帮助和命令说明',
-  author: 'PY_APP Team',
+  author: 'Liri Team',
   category: 'core',
   dependencies: [],
   enabledByDefault: true,
@@ -74,7 +74,7 @@ export class HelpPlugin implements Plugin {
 
   private getGeneralHelp(): string {
     return `
-PY_APP 帮助系统
+Liri 帮助系统
 
 可用命令：
 /help - 显示此帮助信息

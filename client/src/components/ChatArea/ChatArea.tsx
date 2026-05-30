@@ -59,7 +59,7 @@ function ChatArea() {
             <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-4xl shadow-lg">
               🤖
             </div>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">欢迎使用 PY_APP</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">欢迎使用 Liri</h2>
             <p className="text-gray-500 dark:text-gray-400">
               请从右侧选择一个会话或创建新会话开始聊天
             </p>

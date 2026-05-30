@@ -79,7 +79,7 @@ pub fn run() {
         )
         .init();
 
-    info!("Starting PY_APP Client");
+    info!("Starting Liri Client");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -96,7 +96,7 @@ pub fn run() {
             let menu = create_tray_menu(handle)?;
             let _tray = TrayIconBuilder::new()
                 .menu(&menu)
-                .tooltip("PY_APP")
+                .tooltip("Liri")
                 .on_menu_event(|app, event| {
                     let window = app.get_webview_window("main");
                     match event.id.as_ref() {
@@ -134,7 +134,7 @@ pub fn run() {
                 .build(app)?;
 
             let window = app.get_webview_window("main").unwrap();
-            window.set_title("PY_APP").unwrap();
+            window.set_title("Liri").unwrap();
 
             info!("Application setup completed");
             Ok(())

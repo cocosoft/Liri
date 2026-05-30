@@ -75,7 +75,7 @@ export const DEFAULT_SUGGESTION_CONFIG: SuggestionConfig = {
   speculation_enabled: true,
 };
 
-export const SUGGESTION_PROMPT = `[SUGGESTION MODE: Suggest what the user might naturally type next into PY_APP.]
+export const SUGGESTION_PROMPT = `[SUGGESTION MODE: Suggest what the user might naturally type next into Liri.]
 
 FIRST: Look at the user's recent messages and original request.
 
@@ -86,8 +86,8 @@ THE TEST: Would they think "I was just about to type that"?
 EXAMPLES:
 User asked "fix the bug and run tests", bug is fixed → "run the tests"
 After code written → "try it out"
-PY_APP offers options → suggest the one the user would likely pick, based on conversation
-PY_APP asks to continue → "yes" or "go ahead"
+Liri offers options → suggest the one the user would likely pick, based on conversation
+Liri asks to continue → "yes" or "go ahead"
 Task complete, obvious follow-up → "commit this" or "push it"
 After error or misunderstanding → silence (let them assess/correct)
 
@@ -96,7 +96,7 @@ Be specific: "run the tests" beats "continue".
 NEVER SUGGEST:
 - Evaluative ("looks good", "thanks")
 - Questions ("what about...?")
-- PY_APP-voice ("Let me...", "I'll...", "Here's...")
+- Liri-voice ("Let me...", "I'll...", "Here's...")
 - New ideas they didn't ask about
 - Multiple sentences
 

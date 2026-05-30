@@ -117,7 +117,7 @@ export class CostReportEndpoint {
     const data = this.buildReportData(request);
     const lines: string[] = [];
 
-    lines.push('=== PY_APP 成本报告 ===');
+    lines.push('=== Liri 成本报告 ===');
     lines.push(`总历史成本: $${data.totalCost.allTime.toFixed(6)}`);
     lines.push('');
 

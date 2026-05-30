@@ -42,7 +42,7 @@ export interface BannerSection {
 }
 
 const DEFAULT_CONFIG: Required<BannerConfig> = {
-  appName: 'PY_APP',
+  appName: 'Liri',
   version: '1.0.0',
   description: '',
   author: '',

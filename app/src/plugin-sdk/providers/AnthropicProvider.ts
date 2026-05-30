@@ -46,7 +46,7 @@ export function createAnthropicProvider(
     version: '1.0.0',
     description:
       'Anthropic Claude 模型提供者适配器，支持 Claude Sonnet/Opus 系列模型',
-    author: 'PY_APP',
+    author: 'Liri',
     tags: ['ai', 'llm', 'anthropic', 'claude', 'provider'],
     providerName: 'anthropic',
     getModels: async () => cfg.models,

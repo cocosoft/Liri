@@ -2,7 +2,7 @@
 
 ## 概述
 
-Webhook 功能允许 PY_APP 接收外部系统的 HTTP 回调，并触发相应的处理流程。
+Webhook 功能允许 Liri 接收外部系统的 HTTP 回调，并触发相应的处理流程。
 
 ## 配置
 
@@ -36,7 +36,7 @@ Content-Type: application/json
 
 ## 签名验证
 
-PY_APP 支持 Webhook 签名验证：
+Liri 支持 Webhook 签名验证：
 
 ```env
 WEBHOOK_SECRET=your_webhook_secret

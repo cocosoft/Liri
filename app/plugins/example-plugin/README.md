@@ -1,6 +1,6 @@
 # example-plugin
 
-示例插件，展示如何开发 PY_APP 插件，包含命令和工具实现。
+示例插件，展示如何开发 Liri 插件，包含命令和工具实现。
 
 ## 功能
 
@@ -180,7 +180,7 @@ export class MyPlugin implements Plugin {
 ## 测试
 
 ```bash
-# 启动 PY_APP 并测试插件
+# 启动 Liri 并测试插件
 npm run start
 
 # 测试命令
@@ -196,11 +196,11 @@ system_info({})
 
 ## 依赖
 
-- PY_APP 核心系统
+- Liri 核心系统
 - Node.js 18+
 
 ## 版本
 
 - 当前版本: 1.0.0
-- 作者: PY_APP Team
-- 描述: An example plugin for PY_APP with commands and tools
+- 作者: Liri Team
+- 描述: An example plugin for Liri with commands and tools

@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "description": "监控响应时间、吞吐量、操作延迟等性能指标的告警规则",
     "category": "performance",
-    "author": "PY_APP",
+    "author": "Liri",
     "created": "2026-05-20"
   },
   "rules": [

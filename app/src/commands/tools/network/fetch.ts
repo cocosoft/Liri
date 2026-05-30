@@ -6,7 +6,7 @@
  *   - URL 获取 + HTML→Markdown 转换（htmlToMarkdown）
  *   - 提示词提取（applyPrompt）
  *   - HTTP 状态/大小/耗时元数据
- * PY_APP WebFetchTool 额外支持 method/headers/body/timeout/maxContentLength。
+ * Liri WebFetchTool 额外支持 method/headers/body/timeout/maxContentLength。
  * 本命令作为 WebFetchTool 的 CLI 接口暴露其完整能力。
  *
  * 用法:

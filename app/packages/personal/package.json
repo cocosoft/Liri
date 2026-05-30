@@ -1,7 +1,7 @@
 {
   "name": "@pyapp/personal",
   "version": "1.0.0",
-  "description": "PY_APP Personal — 个人版 AI Agent，含 Telegram/Web 通道、插件系统和文件转换",
+  "description": "Liri Personal — 个人版 AI Agent，含 Telegram/Web 通道、插件系统和文件转换",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

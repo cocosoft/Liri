@@ -92,7 +92,7 @@ export const HINT_SOUL_CUSTOMIZATION = `💡 提示（仅此一次）— 你可�
 /**
  * 提示内容 — 消息通道配置提醒
  */
-export const HINT_CHANNEL_SETUP = `💡 提示（仅此一次）— PY_APP 支持连接消息平台：
+export const HINT_CHANNEL_SETUP = `💡 提示（仅此一次）— Liri 支持连接消息平台：
     运行 /onboard 选择完整配置 → 步骤 5 设置 QQ/Telegram 等通道
     或在配置文件中手动编辑通道设置`;
 

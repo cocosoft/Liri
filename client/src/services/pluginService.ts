@@ -42,10 +42,10 @@ export const pluginService: PluginService = {
 };
 
 export const mockPlugins: Plugin[] = [
-  { id: '1', name: 'Web Search', description: '网页搜索插件', version: '1.0.0', author: 'PY_APP', status: 'enabled', category: '搜索', lastUpdated: '2024-05-28' },
-  { id: '2', name: 'File Reader', description: '文件读取插件', version: '1.1.0', author: 'PY_APP', status: 'enabled', category: '工具', lastUpdated: '2024-05-27' },
-  { id: '3', name: 'Code Interpreter', description: '代码解释器', version: '2.0.0', author: 'PY_APP', status: 'disabled', category: '开发', lastUpdated: '2024-05-26' },
+  { id: '1', name: 'Web Search', description: '网页搜索插件', version: '1.0.0', author: 'Liri', status: 'enabled', category: '搜索', lastUpdated: '2024-05-28' },
+  { id: '2', name: 'File Reader', description: '文件读取插件', version: '1.1.0', author: 'Liri', status: 'enabled', category: '工具', lastUpdated: '2024-05-27' },
+  { id: '3', name: 'Code Interpreter', description: '代码解释器', version: '2.0.0', author: 'Liri', status: 'disabled', category: '开发', lastUpdated: '2024-05-26' },
   { id: '4', name: 'Weather', description: '天气查询插件', version: '1.0.5', author: 'Third Party', status: 'enabled', category: '生活', lastUpdated: '2024-05-25' },
-  { id: '5', name: 'Calculator', description: '计算器插件', version: '1.2.0', author: 'PY_APP', status: 'enabled', category: '工具', lastUpdated: '2024-05-24' },
+  { id: '5', name: 'Calculator', description: '计算器插件', version: '1.2.0', author: 'Liri', status: 'enabled', category: '工具', lastUpdated: '2024-05-24' },
   { id: '6', name: 'News', description: '新闻资讯插件', version: '1.0.0', author: 'Third Party', status: 'disabled', category: '资讯', lastUpdated: '2024-05-23' },
 ];

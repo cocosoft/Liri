@@ -2,7 +2,7 @@
 
 ## 概述
 
-支持将 PY_APP 接入 Matrix 协议。
+支持将 Liri 接入 Matrix 协议。
 
 ## 配置
 
@@ -11,7 +11,7 @@ MATRIX_ENABLED=true
 MATRIX_HOMESERVER=https://matrix.example.com
 MATRIX_USERNAME=@py-app-bot:example.com
 MATRIX_PASSWORD=your_password
-MATRIX_DEVICE_ID=PY_APP_BOT
+MATRIX_DEVICE_ID=Liri_BOT
 ```
 
 ## 功能

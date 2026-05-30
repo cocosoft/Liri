@@ -35,7 +35,7 @@ export function filterMcpServersByPolicy(
 }
 
 export function doesEnterpriseMcpConfigExist(): boolean {
-  return process.env.PY_APP_ENTERPRISE_MCP_CONFIG === 'true';
+  return process.env.Liri_ENTERPRISE_MCP_CONFIG === 'true';
 }
 
 export function excludeCommandsByServer(

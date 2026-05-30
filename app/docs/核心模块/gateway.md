@@ -2,7 +2,7 @@
 
 ## 概述
 
-Gateway 是 PY_APP 的消息网关（位于 `core/gateway/`），负责处理外部消息的路由、转换和分发，支持多协议接入（WebSocket、HTTP、MCP、OpenAI 兼容模式），并提供认证、限流、健康监控和 TLS 加密等能力。
+Gateway 是 Liri 的消息网关（位于 `core/gateway/`），负责处理外部消息的路由、转换和分发，支持多协议接入（WebSocket、HTTP、MCP、OpenAI 兼容模式），并提供认证、限流、健康监控和 TLS 加密等能力。
 
 ## 基本用法
 

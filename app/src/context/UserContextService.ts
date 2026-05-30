@@ -85,11 +85,11 @@ export class UserContextService {
 
   /**
    * 查找用户上下文文件
-   * 优先级：PY_APP.md > CLAUDE.md > .claude.md
+   * 优先级：Liri.md > CLAUDE.md > .claude.md
    */
   async findUserContextFile(): Promise<string | null> {
     const possibleFiles = [
-      path.join(resolveProjectRoot(), 'PY_APP.md'),
+      path.join(resolveProjectRoot(), 'Liri.md'),
       path.join(resolveProjectRoot(), 'CLAUDE.md'),
       path.join(resolveProjectRoot(), '.claude.md'),
     ];

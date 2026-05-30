@@ -114,7 +114,7 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
   ): string {
     const lines: string[] = [];
 
-    lines.push('# PY_APP 对话记录');
+    lines.push('# Liri 对话记录');
     lines.push('');
     lines.push(`> 保存时间: ${new Date().toLocaleString('zh-CN')}`);
     lines.push(`> 消息总数: ${messages.length}`);
@@ -125,7 +125,7 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
     );
 
     for (const msg of conversationMessages) {
-      const role = msg.type === 'user' ? '## 用户' : '## PY_APP';
+      const role = msg.type === 'user' ? '## 用户' : '## Liri';
       const time = msg.createdAt
         ? new Date(msg.createdAt).toLocaleString('zh-CN')
         : '';

@@ -1,7 +1,7 @@
 {
   "name": "@pyapp/coding",
   "version": "1.0.0",
-  "description": "PY_APP Coding — 编码版 AI Agent，含 LSP、Notebook、代码分析和浏览器工具",
+  "description": "Liri Coding — 编码版 AI Agent，含 LSP、Notebook、代码分析和浏览器工具",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

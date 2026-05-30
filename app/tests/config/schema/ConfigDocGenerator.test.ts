@@ -60,7 +60,7 @@ describe('ConfigDocGenerator', () => {
 
     it('should generate markdown with title', () => {
       const md = generator.generateMarkdown();
-      expect(md).toContain('# PY_APP 配置参考');
+      expect(md).toContain('# Liri 配置参考');
     });
 
     it('should include table of contents', () => {
@@ -153,7 +153,7 @@ describe('ConfigDocGenerator', () => {
         expect(result).toBe(tmpFile);
         expect(existsSync(tmpFile)).toBe(true);
         const content = require('fs').readFileSync(tmpFile, 'utf-8');
-        expect(content).toContain('PY_APP 配置参考');
+        expect(content).toContain('Liri 配置参考');
       } finally {
         if (existsSync(tmpFile)) unlinkSync(tmpFile);
       }

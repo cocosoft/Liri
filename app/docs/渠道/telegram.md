@@ -2,7 +2,7 @@
 
 ## 概述
 
-支持将 PY_APP 作为 Telegram Bot 提供服务。
+支持将 Liri 作为 Telegram Bot 提供服务。
 
 ## 配置
 

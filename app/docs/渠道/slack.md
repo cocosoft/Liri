@@ -2,7 +2,7 @@
 
 ## 概述
 
-支持将 PY_APP 接入 Slack 工作空间，作为 Slack App 提供交互服务。
+支持将 Liri 接入 Slack 工作空间，作为 Slack App 提供交互服务。
 
 ## 配置
 

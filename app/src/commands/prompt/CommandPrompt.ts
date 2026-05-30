@@ -32,7 +32,7 @@ export class CommandPrompt {
    * @param options 选项
    */
   constructor(options: CommandPromptOptions = {}) {
-    this.promptText = options.prompt || 'PY_APP> ';
+    this.promptText = options.prompt || 'Liri> ';
 
     this.rl = readline.createInterface({
       input: process.stdin,
@@ -137,7 +137,7 @@ export class CommandPrompt {
    * 启动命令提示器
    */
   start(): void {
-    console.log('PY_APP 命令行工具');
+    console.log('Liri 命令行工具');
     console.log('输入命令或按 Ctrl+C 退出');
     console.log('输入 help 查看可用命令');
     console.log('');

@@ -1,5 +1,4 @@
 import type { AcpClientOptions, AcpApprovalClass } from './types.js';
-import type { AcpRuntimeEnsureInput } from './runtime/types.js';
 
 export function buildServerArgs(opts: AcpClientOptions): string[] {
   const args: string[] = [];

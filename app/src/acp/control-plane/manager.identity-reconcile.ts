@@ -1,4 +1,3 @@
-import type { AcpRuntimeHandle } from '../runtime/types.js';
 import {
   getAcpRuntimeRegistry,
   type AcpRuntimeRegistry,
@@ -67,12 +66,6 @@ export async function reconcilePendingSessionIdentities(
     }
 
     try {
-      const handle: AcpRuntimeHandle = {
-        sessionKey: identity.sessionKey,
-        backend: identity.backend,
-        runtimeSessionName: identity.runtimeSessionName,
-      };
-
       if (runtime.prepareFreshSession) {
         await runtime.prepareFreshSession({ sessionKey: identity.sessionKey });
       }

@@ -2,8 +2,6 @@ import type { SessionId, AcpServerOptions } from '../types.js';
 import type {
   AcpRuntime,
   AcpRuntimeHandle,
-  AcpRuntimeEnsureInput,
-  AcpRuntimeTurnInput,
   AcpRuntimeEvent,
   AcpRuntimeStatus,
   AcpRuntimeCapabilities,

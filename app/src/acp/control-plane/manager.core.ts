@@ -1,12 +1,10 @@
 import type { SessionId } from '../types.js';
 import type {
-  AcpRuntime,
   AcpRuntimeHandle,
   AcpRuntimeEnsureInput,
   AcpRuntimeTurnInput,
   AcpRuntimeEvent,
 } from '../runtime/types.js';
-import type { AcpSessionStore } from '../session.js';
 import type {
   AcpSessionManagerConfig,
   AcpSessionManagerState,

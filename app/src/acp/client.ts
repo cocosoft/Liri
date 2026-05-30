@@ -90,8 +90,6 @@ export async function createAcpClient(
     windowsHide: invocation.windowsHide,
   });
 
-  const _connection = createStdioConnection(child);
-
   const sessionId = `acp-client-${Date.now()}`;
 
   return {

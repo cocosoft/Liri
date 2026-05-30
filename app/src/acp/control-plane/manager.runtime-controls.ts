@@ -86,7 +86,7 @@ export async function executeRuntimeControl(
             error: 'runtime does not support getStatus',
           };
         }
-        const status = await runtime.getStatus({ handle: request.handle });
+        await runtime.getStatus({ handle: request.handle });
         return { success: true };
       }
 

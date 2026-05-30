@@ -96,16 +96,16 @@ jobs:
       run: bun install
 
     - name: Run Phase 1 (Structure Audit)
-      run: bun test testing/commands/FullCommandAudit.test.ts
+      run: bun test tests/ci/commands/FullCommandAudit.test.ts
 
     - name: Run Phase 2 (Actual Execution)
-      run: bun test testing/commands/Phase2Execution.test.ts
+      run: bun test tests/ci/commands/Phase2Execution.test.ts
 
     - name: Upload test reports as artifacts
       uses: actions/upload-artifact@v4
       with:
         name: command-test-reports
-        path: dev_docs/testreports/
+        path: tests/ci/reports/
         retention-days: 30
         if-no-files-found: warn
 
@@ -126,4 +126,4 @@ jobs:
       run: bun install
 
     - name: Run performance tests
-      run: bun test data/testing/performance.test.ts
+      run: bun test tests/ci/performance.test.ts

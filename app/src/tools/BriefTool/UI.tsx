@@ -84,6 +84,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">Brief操作失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ description: string }> | undefined
 ): string | null {

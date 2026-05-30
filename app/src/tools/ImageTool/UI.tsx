@@ -90,3 +90,17 @@ export function renderToolUseErrorMessage(
     </Box>
   );
 }
+
+export function getToolUseSummary(
+  input: { action?: string; inputPath?: string } | undefined
+): string | null {
+  if (!input?.action) return null;
+  const actionLabels: Record<string, string> = {
+    resize: '调整大小',
+    convert: '格式转换',
+    info: '查看信息',
+    grayscale: '灰度化',
+  };
+  const label = actionLabels[input.action] || input.action;
+  return `${label}: ${input.inputPath || ''}`;
+}

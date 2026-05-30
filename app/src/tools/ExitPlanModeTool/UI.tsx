@@ -32,3 +32,16 @@ export function renderToolResultMessage(
     </Box>
   );
 }
+
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">退出计划模式失败: {error}</Text>;
+}
+
+export function getToolUseSummary(
+  _input: Record<string, never> | undefined
+): string | null {
+  return '退出计划模式';
+}

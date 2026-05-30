@@ -61,6 +61,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">MCP资源列表获取失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   _input: Partial<{ server: string }> | undefined
 ): string | null {

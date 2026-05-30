@@ -66,6 +66,13 @@ export function renderToolUseProgressMessage(): React.ReactNode {
   return <Text dimColor>Running...</Text>;
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">命令执行失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ command: string; description: string }> | undefined
 ): string | null {

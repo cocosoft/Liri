@@ -94,6 +94,13 @@ export function renderToolUseProgressMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">任务执行失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ description: string; task_type: string }> | undefined
 ): string | null {

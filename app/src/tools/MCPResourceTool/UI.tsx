@@ -85,6 +85,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">MCP调用失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ server_name: string; tool_name: string }> | undefined
 ): string | null {

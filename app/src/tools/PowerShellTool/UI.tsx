@@ -62,6 +62,13 @@ export function renderToolResultMessage(
   return <Text dimColor>Command completed</Text>;
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">PowerShell命令失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ command: string }> | undefined
 ): string | null {

@@ -76,3 +76,19 @@ export function renderToolResultMessage(
     </Box>
   );
 }
+
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">任务列表更新失败: {error}</Text>;
+}
+
+export function getToolUseSummary(
+  input: Partial<{ todos: TodoItem[] }> | undefined
+): string | null {
+  if (!input?.todos || input.todos.length === 0) return null;
+  const total = input.todos.length;
+  const completed = input.todos.filter((t) => t.status === 'completed').length;
+  return `任务列表: ${completed}/${total} 已完成`;
+}

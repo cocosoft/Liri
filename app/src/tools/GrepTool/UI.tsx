@@ -78,6 +78,13 @@ export function renderToolUseProgressMessage(): React.ReactNode {
   return <Text dimColor>Searching...</Text>;
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">搜索失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ pattern: string }> | undefined
 ): string | null {

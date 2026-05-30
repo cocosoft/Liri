@@ -79,6 +79,13 @@ export function renderToolUseRejectedMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">任务停止失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ task_id: string }> | undefined
 ): string | null {

@@ -62,6 +62,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">语音输入失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ action: string }> | undefined
 ): string | null {

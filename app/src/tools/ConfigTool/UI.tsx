@@ -71,6 +71,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">配置操作失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ action: string; key: string }> | undefined
 ): string | null {

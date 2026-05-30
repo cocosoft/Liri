@@ -44,3 +44,17 @@ export function renderToolResultMessage(
     </Box>
   );
 }
+
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">监控报告失败: {error}</Text>;
+}
+
+export function getToolUseSummary(
+  input: Partial<{ type: string; target: string }> | undefined
+): string | null {
+  if (!input?.type && !input?.target) return '系统监控';
+  return `监控 ${input.target || input.type}`;
+}

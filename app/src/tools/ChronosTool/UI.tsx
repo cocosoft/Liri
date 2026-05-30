@@ -105,6 +105,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">定时任务失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input:
     | Partial<{ cron_expression: string; command: string; description: string }>

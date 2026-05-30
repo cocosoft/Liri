@@ -55,6 +55,13 @@ export function renderToolUseProgressMessage(): React.ReactNode {
   return <Text dimColor>Writing file...</Text>;
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">文件写入失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ filePath: string }> | undefined
 ): string | null {

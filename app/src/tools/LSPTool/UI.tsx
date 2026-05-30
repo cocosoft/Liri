@@ -119,6 +119,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">LSP查询失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ operation: string; symbol: string }> | undefined
 ): string | null {

@@ -65,3 +65,14 @@ export function renderToolUseErrorMessage(
     </Box>
   );
 }
+
+export function getToolUseSummary(
+  input: { action?: string; content?: string } | undefined
+): string | null {
+  if (!input?.action) return null;
+  if (input.action === 'write') {
+    const preview = (input.content || '').slice(0, 40);
+    return `写入剪贴板: ${preview}${preview.length < (input.content || '').length ? '...' : ''}`;
+  }
+  return '读取剪贴板';
+}

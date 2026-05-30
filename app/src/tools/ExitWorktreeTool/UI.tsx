@@ -29,6 +29,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">退出Worktree失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   _input: Record<string, unknown> | undefined
 ): string | null {

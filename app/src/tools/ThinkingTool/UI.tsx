@@ -146,3 +146,17 @@ export function renderToolUseErrorMessage(
     </Box>
   );
 }
+
+export function getToolUseSummary(
+  input: { action?: string; thought?: string } | undefined
+): string | null {
+  if (!input?.action) return null;
+  const actionLabels: Record<string, string> = {
+    think: '思考',
+    reflect: '回顾',
+    summarize: '总结',
+    revise: '修正',
+  };
+  const label = actionLabels[input.action] || input.action;
+  return `${label}${input.thought ? ': ' + input.thought.slice(0, 60) : ''}`;
+}

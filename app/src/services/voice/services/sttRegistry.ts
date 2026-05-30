@@ -44,7 +44,7 @@ export class STTRegistry {
    */
   static register(provider: STTProvider, setAsDefault: boolean = false): void {
     STTRegistry.providers.set(provider.id, provider);
-    if (setAsDefault) {
+    if (setAsDefault || !STTRegistry.defaultProviderId) {
       STTRegistry.defaultProviderId = provider.id;
     }
   }

@@ -64,6 +64,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">代码分析失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ target: string; analysisType: string }> | undefined
 ): string | null {

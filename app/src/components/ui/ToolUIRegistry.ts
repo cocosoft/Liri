@@ -129,12 +129,12 @@ export function initDefaultToolUIRegistry(): void {
   } catch {}
 
   try {
-    const grepUI = require('../../tools/search/GrepUI');
+    const grepUI = require('../../tools/GrepTool/UI');
     registerToolUI('grep', grepUI);
   } catch {}
 
   try {
-    const globUI = require('../../tools/search/GlobUI');
+    const globUI = require('../../tools/GlobTool/UI');
     registerToolUI('glob', globUI);
   } catch {}
 
@@ -245,5 +245,80 @@ export function initDefaultToolUIRegistry(): void {
     const thinkingUI = require('../../tools/ThinkingTool/UI');
     registerToolUI('thinking', thinkingUI);
     registerToolUI('think', thinkingUI);
+  } catch {}
+
+  try {
+    const askUserUI = require('../../tools/AskUserQuestionTool/UI');
+    registerToolUI('ask_user_question', askUserUI);
+  } catch {}
+
+  try {
+    const browserUI = require('../../tools/BrowserTool/UI');
+    registerToolUI('browser', browserUI);
+  } catch {}
+
+  try {
+    const codeAnalysisUI = require('../../tools/CodeAnalysisTool/UI');
+    registerToolUI('code_analysis', codeAnalysisUI);
+  } catch {}
+
+  try {
+    const monitorUI = require('../../tools/MonitorTool/UI');
+    registerToolUI('monitor', monitorUI);
+  } catch {}
+
+  try {
+    const pushNotifUI = require('../../tools/PushNotificationTool/UI');
+    registerToolUI('push_notification', pushNotifUI);
+  } catch {}
+
+  try {
+    const sleepUI = require('../../tools/SleepTool/UI');
+    registerToolUI('sleep', sleepUI);
+  } catch {}
+
+  try {
+    const subscribePRUI = require('../../tools/SubscribePRTool/UI');
+    registerToolUI('subscribe_pr', subscribePRUI);
+  } catch {}
+
+  try {
+    const taskOutputUI = require('../../tools/TaskOutputTool/UI');
+    registerToolUI('task_output', taskOutputUI);
+  } catch {}
+
+  try {
+    const taskStopUI = require('../../tools/TaskStopTool/UI');
+    registerToolUI('task_stop', taskStopUI);
+  } catch {}
+
+  try {
+    const timeUI = require('../../tools/TimeTool/UI');
+    registerToolUI('time', timeUI);
+  } catch {}
+
+  try {
+    const todoWriteUI = require('../../tools/TodoWriteTool/UI');
+    registerToolUI('todo_write', todoWriteUI);
+  } catch {}
+
+  try {
+    const toolSearchUI = require('../../tools/ToolSearchTool/UI');
+    registerToolUI('tool_search', toolSearchUI);
+  } catch {}
+
+  try {
+    const tungstenUI = require('../../tools/TungstenTool/UI');
+    registerToolUI('tungsten', tungstenUI);
+  } catch {}
+
+  try {
+    const voiceInputUI = require('../../tools/VoiceInputTool/UI');
+    registerToolUI('voice_input', voiceInputUI);
+  } catch {}
+
+  try {
+    const voiceOutputUI = require('../../tools/VoiceOutputTool/UI');
+    registerToolUI('voice_output', voiceOutputUI);
   } catch {}
 }

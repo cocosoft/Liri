@@ -44,6 +44,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">PR订阅失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ repo: string; prNumber: number }> | undefined
 ): string | null {

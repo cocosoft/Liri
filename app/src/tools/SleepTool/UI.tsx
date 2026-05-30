@@ -25,3 +25,17 @@ export function renderToolResultMessage(
     </Box>
   );
 }
+
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">等待失败: {error}</Text>;
+}
+
+export function getToolUseSummary(
+  input: Partial<{ duration_ms: number }> | undefined
+): string | null {
+  if (!input?.duration_ms) return null;
+  return `等待 ${input.duration_ms}ms`;
+}

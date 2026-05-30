@@ -209,6 +209,8 @@ export interface VoiceOutputOptions {
   voice?: string;
   speed?: number;
   pitch?: number;
+  /** 人设 ID（通过 TTSPersonaManager 解析语音配置） */
+  personaId?: string;
 }
 
 // ===================================================================

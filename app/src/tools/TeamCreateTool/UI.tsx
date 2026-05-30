@@ -108,6 +108,13 @@ export function renderToolResultMessage(
   );
 }
 
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">团队操作失败: {error}</Text>;
+}
+
 export function getToolUseSummary(
   input: Partial<{ team_name: string }> | undefined
 ): string | null {

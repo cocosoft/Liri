@@ -6,7 +6,7 @@
  */
 
 import { type ChildProcess, spawn, spawnSync } from 'child_process';
-import { readFile, unlink } from 'fs/promises';
+import { readFile, writeFile, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -36,6 +36,14 @@ import { VadDetector } from './vadDetector';
 import { EnvironmentDetector } from './environmentDetector';
 import { TTSRegistry } from './ttsProvider';
 import { STTRegistry } from './sttRegistry';
+import { TTSPersonaManager } from './ttsPersonaManager';
+import { AudioLevelMeter } from './audioLevelMeter';
+import {
+  AudioFormatConverter,
+  isFFmpegAvailable,
+  getFormatInfo,
+} from './audioFormatConverter';
+import type { AudioFormat } from './audioFormatConverter';
 
 const logger = new Logger({});
 
@@ -187,6 +195,10 @@ export class VoiceService {
   private listeners: Map<VoiceEventType, Set<VoiceEventListener>> = new Map();
   private isRecording: boolean = false;
   private isSpeaking: boolean = false;
+  /** 音频电平表（录音时实时测量音量） */
+  private levelMeter: AudioLevelMeter;
+  /** 当前电平归一化值（0-1） */
+  private currentLevel: number = 0;
 
   /**
    * @param config 语音服务配置
@@ -200,6 +212,10 @@ export class VoiceService {
       silenceDuration: config.silenceDuration ?? SILENCE_DURATION_SECS,
       language: config.language || 'zh-CN',
     };
+
+    this.levelMeter = new AudioLevelMeter(
+      this.config.sampleRate ?? RECORDING_SAMPLE_RATE
+    );
   }
 
   // ===========================================================
@@ -439,6 +455,10 @@ export class VoiceService {
     this.isRecording = true;
     this.emit('start');
 
+    // 重置电平表
+    this.levelMeter.reset();
+    this.currentLevel = 0;
+
     // 创建环境检测器与 VAD（arecord 无内置静音检测，需要软件 VAD）
     const sampleRate = this.config.sampleRate ?? RECORDING_SAMPLE_RATE;
     const envDetector = new EnvironmentDetector({ sampleRate });
@@ -454,12 +474,18 @@ export class VoiceService {
     }
 
     /**
-     * 包装 onData 回调，集成环境检测和 VAD 静音检测
+     * 包装 onData 回调，集成环境检测、VAD 静音检测和电平测量
      */
     const wrappedOnData = (chunk: Buffer) => {
-      if (!envDetector.isComplete() || (vad && !wasSpeaking)) {
-        const samples = this.pcm16BufferToSamples(chunk);
+      const samples = this.pcm16BufferToSamples(chunk);
 
+      // 电平表处理（实时计算录音音量）
+      const levelResult = this.levelMeter.processFloat64(samples);
+      if (levelResult) {
+        this.currentLevel = levelResult.normalized;
+      }
+
+      if (!envDetector.isComplete() || (vad && !wasSpeaking)) {
         // 环境检测（录音初期自动分析背景噪声）
         if (!envDetector.isComplete()) {
           const envResult = envDetector.process(samples);
@@ -1120,25 +1146,95 @@ $source.Close()
 
   /**
    * 语音合成（将文本转换为语音 Buffer）
+   *
+   * 默认返回 TTS 提供者的原始音频数据。
+   * 如果指定 targetFormat 且 ffmpeg 可用，自动进行格式转换。
+   *
    * @param text 文本
+   * @param targetFormat 目标音频格式（可选，不指定则返回原始数据）
    */
-  async synthesizeSpeech(text: string): Promise<Buffer | null> {
-    return null;
+  async synthesizeSpeech(
+    text: string,
+    targetFormat?: AudioFormat
+  ): Promise<Buffer | null> {
+    const result = await TTSRegistry.speak({ text });
+
+    if (!result.success || !result.audioData) {
+      return null;
+    }
+
+    // 不需要格式转换，直接返回原始音频数据
+    if (!targetFormat || targetFormat === 'wav') {
+      return result.audioData;
+    }
+
+    // 需要格式转换但 ffmpeg 不可用，降级返回原始数据
+    if (!isFFmpegAvailable()) {
+      logger.warn('synthesizeSpeech · ffmpeg 不可用，返回原始音频');
+      return result.audioData;
+    }
+
+    const ext = getFormatInfo(targetFormat).extension;
+    const tmpInput = join(tmpdir(), `tts_raw_${randomUUID()}.bin`);
+    const tmpOutput = join(tmpdir(), `tts_conv_${randomUUID()}${ext}`);
+
+    try {
+      await writeFile(tmpInput, result.audioData);
+
+      const convResult = AudioFormatConverter.convert({
+        inputPath: tmpInput,
+        outputPath: tmpOutput,
+        targetFormat,
+      });
+
+      if (convResult.success && convResult.outputPath) {
+        return await readFile(convResult.outputPath);
+      }
+
+      // 转换失败，降级返回原始数据
+      return result.audioData;
+    } catch (error) {
+      logger.error('synthesizeSpeech · 格式转换异常', { error });
+      return result.audioData;
+    } finally {
+      try { await unlink(tmpInput); } catch { /* ignore */ }
+      try { await unlink(tmpOutput); } catch { /* ignore */ }
+    }
   }
 
   /**
    * 语音合成并播放
+   *
+   * 支持通过 personaId 指定人设，人设中的 voice/speed 可作为默认值，
+   * 被 options 中的显式 voice/speed 覆盖。
+   *
    * @param options 语音输出选项
    */
   async speak(options: VoiceOutputOptions): Promise<void> {
     this.isSpeaking = true;
     this.emit('start');
 
+    // 解析人设配置（如果指定了 personaId）
+    let resolvedVoice = options.voice;
+    let resolvedSpeed = options.speed;
+    let resolvedProvider: string | undefined;
+
+    if (options.personaId) {
+      const persona = TTSPersonaManager.get(options.personaId);
+      if (persona) {
+        resolvedVoice = options.voice ?? persona.voice;
+        resolvedSpeed = options.speed ?? persona.speed;
+        resolvedProvider = persona.provider;
+      } else {
+        logger.warn('VoiceService · 人设不存在', { personaId: options.personaId });
+      }
+    }
+
     const result = await TTSRegistry.speak({
       text: options.text,
-      voice: options.voice,
-      speed: options.speed,
-    });
+      voice: resolvedVoice,
+      speed: resolvedSpeed,
+    }, resolvedProvider);
 
     if (!result.success) {
       this.isSpeaking = false;
@@ -1167,10 +1263,12 @@ $source.Close()
   // ===========================================================
 
   /**
-   * 获取音量级别
+   * 获取当前音量级别（归一化值 0-1）
+   *
+   * 录音时实时从 AudioLevelMeter 读取；非录音状态返回 0。
    */
   getVolumeLevel(): number {
-    return 0;
+    return this.currentLevel;
   }
 
   /**

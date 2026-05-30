@@ -1,6 +1,6 @@
 {
   "name": "PY_APP",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "基于 TypeScript + Rust 架构的 AI Agent 项目",
   "license": "MIT",
   "type": "module",

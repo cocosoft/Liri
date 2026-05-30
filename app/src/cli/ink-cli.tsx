@@ -2,7 +2,14 @@
 //
 
 import React, { useState, useEffect } from 'react';
-import { render, Box, Text, Button, ScrollBox, AlternateScreen } from '@modules/ink';
+import {
+  render,
+  Box,
+  Text,
+  Button,
+  ScrollBox,
+  AlternateScreen,
+} from '@modules/ink';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getSkillManager } from '@modules/skills/SkillManager';
 import { getToolManager } from '@modules/tools/ToolManager';

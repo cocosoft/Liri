@@ -128,10 +128,7 @@ export class PCMAudioPlayer {
     return this._state;
   }
 
-  constructor(
-    options?: AudioPlayerOptions,
-    callbacks?: AudioPlayerCallbacks
-  ) {
+  constructor(options?: AudioPlayerOptions, callbacks?: AudioPlayerCallbacks) {
     this.options = {
       sampleRate: options?.sampleRate ?? 24000,
       channels: options?.channels ?? 1,
@@ -147,7 +144,10 @@ export class PCMAudioPlayer {
    * @param pcmData PCM16 音频数据
    * @param priority 播放优先级，默认 'normal'
    */
-  async play(pcmData: Buffer, priority: PlayPriority = 'normal'): Promise<void> {
+  async play(
+    pcmData: Buffer,
+    priority: PlayPriority = 'normal'
+  ): Promise<void> {
     this.stopInternal();
     this.queue = [];
     this.queue.push({ data: pcmData, priority });
@@ -453,7 +453,11 @@ export class PCMAudioPlayer {
 
       const timeout = setTimeout(() => {
         if (this.activeProcess === proc) {
-          try { proc.kill(); } catch { /* 忽略 */ }
+          try {
+            proc.kill();
+          } catch {
+            /* 忽略 */
+          }
           this.activeProcess = null;
         }
         resolve();

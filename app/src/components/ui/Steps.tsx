@@ -146,11 +146,7 @@ export function Steps({
             >
               {step.title}
             </Text>
-            {!isLast && (
-              <Text dimColor>
-                {' ─ '}
-              </Text>
-            )}
+            {!isLast && <Text dimColor>{' ─ '}</Text>}
           </Box>
         );
       })}

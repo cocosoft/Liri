@@ -1,7 +1,7 @@
 /**
  * 插件信任审计模块
  * 验证已安装插件的来源、完整性和权限范围
-  */
+ */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

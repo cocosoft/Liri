@@ -3,7 +3,10 @@ import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolvePyappHome } from '@modules/config/paths';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
-import type { ScopedMcpServerConfig, MCPServerConfig } from '@modules/services/mcp/types';
+import type {
+  ScopedMcpServerConfig,
+  MCPServerConfig,
+} from '@modules/services/mcp/types';
 import type { ServerInstallConfig } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -26,7 +29,11 @@ export class ConfigWriter {
       const userConfigPath = path.join(resolvePyappHome(), 'user', 'mcp.json');
       const servers = enhancedMcpConfigManager.readRawConfig(userConfigPath);
 
-      servers[name] = { command: config.command, args: config.args, env: config.env };
+      servers[name] = {
+        command: config.command,
+        args: config.args,
+        env: config.env,
+      };
       enhancedMcpConfigManager.writeRawConfig(userConfigPath, servers);
 
       enhancedMcpConfigManager.addConfig(name, mcpConfig);
@@ -65,7 +72,9 @@ export class ConfigWriter {
    */
   async toggle(name: string, enabled: boolean): Promise<void> {
     const userConfigPath = path.join(resolvePyappHome(), 'user', 'mcp.json');
-    const servers = enhancedMcpConfigManager.readRawConfig(userConfigPath) as Record<string, MCPServerConfig & { disabled?: boolean }>;
+    const servers = enhancedMcpConfigManager.readRawConfig(
+      userConfigPath
+    ) as Record<string, MCPServerConfig & { disabled?: boolean }>;
 
     if (servers[name]) {
       servers[name].disabled = !enabled;

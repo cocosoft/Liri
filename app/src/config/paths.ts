@@ -53,16 +53,16 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   if (userDataDirOverride) {
     return resolve(userDataDirOverride);
   }
-  
+
   // 2. 环境变量覆盖
   const override = env[ENV_PYAPP_HOME]?.trim();
   if (override) {
     return resolve(override);
   }
-  
+
   // 3. 默认：优先使用项目目录下的 app/data/pyapp
   const projectDataDir = join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
-  
+
   // 检查项目目录是否可写
   try {
     if (!existsSync(projectDataDir)) {
@@ -391,9 +391,7 @@ export function resolveAttachmentsDateDir(
 }
 
 /** 用户输出目录（~/.pyapp/output/）—— 用户生产文件的默认导出位置 */
-export function resolveOutputDir(
-  env: NodeJS.ProcessEnv = process.env
-): string {
+export function resolveOutputDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolvePyappHome(env), 'output');
 }
 

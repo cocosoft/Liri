@@ -63,8 +63,12 @@ class ProcessRegistryTask extends BaseTask {
     super(id, description, '', TaskType.DAEMON_PROCESS);
   }
 
-  async spawn(): Promise<void> { /* no-op */ }
-  async kill(): Promise<void> { /* no-op */ }
+  async spawn(): Promise<void> {
+    /* no-op */
+  }
+  async kill(): Promise<void> {
+    /* no-op */
+  }
 }
 
 /** process name → registryTaskId 映射 */
@@ -180,7 +184,9 @@ export class ProcessManager {
 
       const registryTaskId = processTaskMap.get(name);
       if (registryTaskId) {
-        taskRegistry.updateState(registryTaskId, { status: TaskStatus.RUNNING });
+        taskRegistry.updateState(registryTaskId, {
+          status: TaskStatus.RUNNING,
+        });
         globalEventBus.publish(SystemEvents.TASK_STARTED, {
           taskId: registryTaskId,
           name,

@@ -363,7 +363,9 @@ export function initBuddyDreamIntegration(bus?: EventBus): void {
     handleDreamEvent(de);
   });
 
-  console.log('[BuddyDream] integration initialized via standard EventBus events');
+  console.log(
+    '[BuddyDream] integration initialized via standard EventBus events'
+  );
 }
 
 /**
@@ -389,7 +391,9 @@ export function initBuddyTaskGrowthIntegration(): void {
 
     growthTracker.recordTaskCompletion(source, exp);
 
-    console.log(`[BuddyGrowth] task ${payload.taskId} completed: +${exp} exp (${source})`);
+    console.log(
+      `[BuddyGrowth] task ${payload.taskId} completed: +${exp} exp (${source})`
+    );
   });
 
   console.log('[BuddyGrowth] task-driven growth integration initialized');

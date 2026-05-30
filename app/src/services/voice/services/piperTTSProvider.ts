@@ -36,21 +36,91 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /** 内置知名 Piper 模型语音定义 */
 const PIPER_VOICES: TTSVoice[] = [
-  { id: 'zh_CN-hf_female', name: '中文女声', language: 'zh-CN', gender: 'female' },
+  {
+    id: 'zh_CN-hf_female',
+    name: '中文女声',
+    language: 'zh-CN',
+    gender: 'female',
+  },
   { id: 'zh_CN-hf_male', name: '中文男声', language: 'zh-CN', gender: 'male' },
-  { id: 'en_US-lessac-medium', name: '英文女声 (Lessac)', language: 'en-US', gender: 'female' },
-  { id: 'en_US-amy-medium', name: '英文女声 (Amy)', language: 'en-US', gender: 'female' },
-  { id: 'en_US-norman-medium', name: '英文男声 (Norman)', language: 'en-US', gender: 'male' },
-  { id: 'en_US-kathleen-medium', name: '英文女声 (Kathleen)', language: 'en-US', gender: 'female' },
-  { id: 'en_US-ryan-medium', name: '英文男声 (Ryan)', language: 'en-US', gender: 'male' },
-  { id: 'en_GB-alan-medium', name: '英式男声 (Alan)', language: 'en-GB', gender: 'male' },
-  { id: 'en_GB-sarah-medium', name: '英式女声 (Sarah)', language: 'en-GB', gender: 'female' },
-  { id: 'ja_JP-hf_female', name: '日语女声', language: 'ja-JP', gender: 'female' },
-  { id: 'ko_KR-hf_female', name: '韩语女声', language: 'ko-KR', gender: 'female' },
-  { id: 'fr_FR-hf_female', name: '法语女声', language: 'fr-FR', gender: 'female' },
-  { id: 'de_DE-hf_female', name: '德语女声', language: 'de-DE', gender: 'female' },
-  { id: 'ru_RU-hf_female', name: '俄语女声', language: 'ru-RU', gender: 'female' },
-  { id: 'es_ES-hf_female', name: '西班牙语女声', language: 'es-ES', gender: 'female' },
+  {
+    id: 'en_US-lessac-medium',
+    name: '英文女声 (Lessac)',
+    language: 'en-US',
+    gender: 'female',
+  },
+  {
+    id: 'en_US-amy-medium',
+    name: '英文女声 (Amy)',
+    language: 'en-US',
+    gender: 'female',
+  },
+  {
+    id: 'en_US-norman-medium',
+    name: '英文男声 (Norman)',
+    language: 'en-US',
+    gender: 'male',
+  },
+  {
+    id: 'en_US-kathleen-medium',
+    name: '英文女声 (Kathleen)',
+    language: 'en-US',
+    gender: 'female',
+  },
+  {
+    id: 'en_US-ryan-medium',
+    name: '英文男声 (Ryan)',
+    language: 'en-US',
+    gender: 'male',
+  },
+  {
+    id: 'en_GB-alan-medium',
+    name: '英式男声 (Alan)',
+    language: 'en-GB',
+    gender: 'male',
+  },
+  {
+    id: 'en_GB-sarah-medium',
+    name: '英式女声 (Sarah)',
+    language: 'en-GB',
+    gender: 'female',
+  },
+  {
+    id: 'ja_JP-hf_female',
+    name: '日语女声',
+    language: 'ja-JP',
+    gender: 'female',
+  },
+  {
+    id: 'ko_KR-hf_female',
+    name: '韩语女声',
+    language: 'ko-KR',
+    gender: 'female',
+  },
+  {
+    id: 'fr_FR-hf_female',
+    name: '法语女声',
+    language: 'fr-FR',
+    gender: 'female',
+  },
+  {
+    id: 'de_DE-hf_female',
+    name: '德语女声',
+    language: 'de-DE',
+    gender: 'female',
+  },
+  {
+    id: 'ru_RU-hf_female',
+    name: '俄语女声',
+    language: 'ru-RU',
+    gender: 'female',
+  },
+  {
+    id: 'es_ES-hf_female',
+    name: '西班牙语女声',
+    language: 'es-ES',
+    gender: 'female',
+  },
 ];
 
 /** Piper TTS 提供者配置 */
@@ -345,7 +415,12 @@ export class PiperTTSProvider implements TTSProvider {
     }
 
     try {
-      await this.runPiper(options.text, modelFile, options.filename, options.speed);
+      await this.runPiper(
+        options.text,
+        modelFile,
+        options.filename,
+        options.speed
+      );
 
       const durationEstimate = this.estimateDuration(
         options.text,
@@ -399,15 +474,22 @@ export class PiperTTSProvider implements TTSProvider {
 
       const lengthScale = speed ? 1.0 / speed : 1.0;
 
-      const piper = spawn(this.config.binaryPath, [
-        '--model', modelFile,
-        '--output', outputFile,
-        '--length-scale', String(lengthScale.toFixed(2)),
-      ], {
-        stdio: ['pipe', 'ignore', 'pipe'],
-        signal,
-        timeout: this.config.timeoutMs,
-      });
+      const piper = spawn(
+        this.config.binaryPath,
+        [
+          '--model',
+          modelFile,
+          '--output',
+          outputFile,
+          '--length-scale',
+          String(lengthScale.toFixed(2)),
+        ],
+        {
+          stdio: ['pipe', 'ignore', 'pipe'],
+          signal,
+          timeout: this.config.timeoutMs,
+        }
+      );
 
       const stderrChunks: Buffer[] = [];
       piper.stderr!.on('data', (chunk: Buffer) => {

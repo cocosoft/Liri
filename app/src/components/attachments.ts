@@ -7,7 +7,10 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { resolveAttachmentsDir, resolveDataSubDir } from '@modules/config/paths';
+import {
+  resolveAttachmentsDir,
+  resolveDataSubDir,
+} from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -48,7 +51,9 @@ export class AttachmentManager {
 
     // 确保目录存在，如果失败则使用回退目录
     if (!this.ensureDirectoryExists(this.attachmentsDir)) {
-      logger.warn(`无法创建用户附件目录 ${this.attachmentsDir}，使用回退目录 ${this.fallbackDir}`);
+      logger.warn(
+        `无法创建用户附件目录 ${this.attachmentsDir}，使用回退目录 ${this.fallbackDir}`
+      );
       this.attachmentsDir = this.fallbackDir;
       this.ensureDirectoryExists(this.attachmentsDir);
     }
@@ -124,7 +129,7 @@ export class AttachmentManager {
     const extIndex = filename.lastIndexOf('.');
     let namePart = filename;
     let extension = '';
-    
+
     if (extIndex !== -1) {
       namePart = filename.substring(0, extIndex);
       extension = filename.substring(extIndex);
@@ -144,9 +149,10 @@ export class AttachmentManager {
 
     // 限制文件名部分长度（总长度限制留给外部处理）
     const maxNameLength = 32;
-    const truncatedName = sanitizedName.length > maxNameLength
-      ? sanitizedName.substring(0, maxNameLength)
-      : sanitizedName;
+    const truncatedName =
+      sanitizedName.length > maxNameLength
+        ? sanitizedName.substring(0, maxNameLength)
+        : sanitizedName;
 
     return `${truncatedName}${extension}`;
   }
@@ -159,29 +165,33 @@ export class AttachmentManager {
   private generateSafeFilename(originalName: string): string {
     // 获取扩展名
     const extIndex = originalName.lastIndexOf('.');
-    const extension = extIndex !== -1 ? originalName.substring(extIndex).toLowerCase() : '';
+    const extension =
+      extIndex !== -1 ? originalName.substring(extIndex).toLowerCase() : '';
 
     // 使用时间戳 + 随机字符串作为基础文件名
     const timestamp = Date.now().toString(36);
     const randomStr = Math.random().toString(36).substring(2, 8);
-    
+
     // 限制总长度（Windows 最大路径限制为 260，这里保守设置为 100）
     const maxTotalLength = 100;
     const baseName = `attach_${timestamp}_${randomStr}`;
-    
+
     // 计算可用长度（减去基础名称和扩展名）
     const availableLength = maxTotalLength - baseName.length - extension.length;
-    
+
     // 如果有可用空间，添加简化的原始文件名
     let safeName = baseName;
     if (availableLength > 0) {
       const sanitized = this.sanitizeFilename(originalName);
-      const namePart = sanitized.substring(0, Math.min(availableLength, sanitized.length));
+      const namePart = sanitized.substring(
+        0,
+        Math.min(availableLength, sanitized.length)
+      );
       if (namePart) {
         safeName = `${baseName}_${namePart}`;
       }
     }
-    
+
     return `${safeName}${extension}`;
   }
 
@@ -216,7 +226,7 @@ export class AttachmentManager {
       writeFileSync(filePath, data);
     } catch (error) {
       logger.error(`写入附件失败 ${filePath}:`, error);
-      
+
       // 尝试使用回退目录
       if (this.attachmentsDir !== this.fallbackDir) {
         logger.warn(`尝试使用回退目录 ${this.fallbackDir}`);

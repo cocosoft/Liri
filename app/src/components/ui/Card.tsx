@@ -52,7 +52,11 @@ export function Card({
       <Box>
         <Text color={borderColor}>{wrapLine('')}</Text>
       </Box>
-      <Box flexDirection="column" paddingLeft={4 + padding} paddingRight={4 + padding}>
+      <Box
+        flexDirection="column"
+        paddingLeft={4 + padding}
+        paddingRight={4 + padding}
+      >
         {children}
       </Box>
       <Box>
@@ -66,7 +70,11 @@ export function Card({
           <Box>
             <Text color={borderColor}>{wrapLine('')}</Text>
           </Box>
-          <Box flexDirection="column" paddingLeft={4 + padding} paddingRight={4 + padding}>
+          <Box
+            flexDirection="column"
+            paddingLeft={4 + padding}
+            paddingRight={4 + padding}
+          >
             {footer}
           </Box>
           <Box>

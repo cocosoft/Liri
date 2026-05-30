@@ -30,9 +30,7 @@ const DEFAULT_ACTIONS: Record<DialogType, DialogAction[]> = {
     { label: 'Yes', value: 'yes', color: 'green', key: 'y' },
     { label: 'No', value: 'no', color: 'red', key: 'n' },
   ],
-  alert: [
-    { label: 'OK', value: 'ok', color: 'cyan', key: 'enter' },
-  ],
+  alert: [{ label: 'OK', value: 'ok', color: 'cyan', key: 'enter' }],
   prompt: [
     { label: 'Confirm', value: 'confirm', color: 'green', key: 'enter' },
     { label: 'Cancel', value: 'cancel', color: 'red', key: 'esc' },
@@ -93,26 +91,26 @@ export function Dialog({
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
-        <Text color={color}>
-          │{' '.repeat(width)}│
-        </Text>
+        <Text color={color}>│{' '.repeat(width)}│</Text>
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
         <Text color="white">
-          │  <Text color={color} bold>[{icon}]</Text> <Text bold>{title}</Text>
+          │{' '}
+          <Text color={color} bold>
+            [{icon}]
+          </Text>{' '}
+          <Text bold>{title}</Text>
           {' '.repeat(Math.max(0, width - title.length - 8))}│
         </Text>
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
-        <Text color={color}>
-          │{' '.repeat(width)}│
-        </Text>
+        <Text color={color}>│{' '.repeat(width)}│</Text>
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
-        <Text color={color}>│  </Text>
+        <Text color={color}>│ </Text>
         <Text>{message}</Text>
         <Text color={color}>
           {' '.repeat(Math.max(0, width - message.length - 2))}│
@@ -120,9 +118,7 @@ export function Dialog({
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
-        <Text color={color}>
-          │{' '.repeat(width)}│
-        </Text>
+        <Text color={color}>│{' '.repeat(width)}│</Text>
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
@@ -130,10 +126,10 @@ export function Dialog({
       </Box>
       <Box>
         <Text dimColor>{' '.repeat(padding)}</Text>
-        <Text color={color}>│  </Text>
+        <Text color={color}>│ </Text>
         {displayActions.map((action, i) => (
           <Text key={action.value}>
-            {i > 0 && <Text>  </Text>}
+            {i > 0 && <Text> </Text>}
             <Text color={action.color || 'white'} bold>
               [{action.key || action.label[0]}]{' '}
             </Text>
@@ -141,7 +137,14 @@ export function Dialog({
           </Text>
         ))}
         <Text color={color}>
-          {' '.repeat(Math.max(0, width - displayActions.reduce((acc, a) => acc + a.label.length + 6, 0)))}│
+          {' '.repeat(
+            Math.max(
+              0,
+              width -
+                displayActions.reduce((acc, a) => acc + a.label.length + 6, 0)
+            )
+          )}
+          │
         </Text>
       </Box>
       <Box>

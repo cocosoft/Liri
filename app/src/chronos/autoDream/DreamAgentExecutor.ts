@@ -64,7 +64,14 @@ export class DreamAgentExecutor extends EventEmitter {
   }
 
   private execute(): Promise<DreamExecutionResult> {
-    const workerPath = path.join(resolveProjectRoot(), 'app', 'src', 'chronos', 'autoDream', 'consolidationWorker.js');
+    const workerPath = path.join(
+      resolveProjectRoot(),
+      'app',
+      'src',
+      'chronos',
+      'autoDream',
+      'consolidationWorker.js'
+    );
     const startTime = Date.now();
     const maxDuration = DEFAULT_MAX_DURATION_MS;
 

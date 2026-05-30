@@ -1,7 +1,7 @@
 /**
  * 安全审计引擎
  * 统一编排所有审计维度，支持快速模式和深度模式
-  */
+ */
 
 import type {
   SecurityAuditFinding,

@@ -2,7 +2,7 @@
  * 插件能力分类接口
  * 按能力类型区分插件注册入口，而非按来源
  * 来源通过 PluginSource 元数据标注
-  */
+ */
 
 import type { Logger } from '@modules/monitoring/logs/Logger';
 
@@ -23,10 +23,7 @@ export type ThirdPartyMarket =
  * 插件来源类型（按宏观分类，不按具体市场细分）
  * 所有第三方市场统一归类为 third_party，通过 ThirdPartyMarket 标注具体来源
  */
-export type PluginSource =
-  | 'builtin'
-  | 'official'
-  | 'third_party';
+export type PluginSource = 'builtin' | 'official' | 'third_party';
 
 /**
  * 插件能力分类

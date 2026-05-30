@@ -73,7 +73,10 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
           categories: server.tags || [],
           isOfficial: false,
           installTypes: ['npm', 'docker', 'binary'],
-          rating: Math.min(5, ((server.stars || 0) + (server.downloads || 0)) / 500),
+          rating: Math.min(
+            5,
+            ((server.stars || 0) + (server.downloads || 0)) / 500
+          ),
           installCount: server.downloads || server.stars || 0,
           lastUpdated: server.updatedAt || '',
           protocolVersion: '2025-11-25',
@@ -107,7 +110,10 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
         categories: server.tags || [],
         isOfficial: false,
         installTypes: ['npm', 'docker', 'binary'],
-        rating: Math.min(5, ((server.stars || 0) + (server.downloads || 0)) / 500),
+        rating: Math.min(
+          5,
+          ((server.stars || 0) + (server.downloads || 0)) / 500
+        ),
         installCount: server.downloads || server.stars || 0,
         lastUpdated: server.updatedAt || '',
         protocolVersion: '2025-11-25',
@@ -134,11 +140,15 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
     }
   }
 
-  async getCategories(): Promise<Array<{ id: string; name: string; count: number }>> {
+  async getCategories(): Promise<
+    Array<{ id: string; name: string; count: number }>
+  > {
     return [];
   }
 
-  async buildInstallConfig(serverId: string): Promise<ServerInstallConfig | null> {
+  async buildInstallConfig(
+    serverId: string
+  ): Promise<ServerInstallConfig | null> {
     const detail = await this.getServerDetail(serverId);
 
     if (!detail) {
@@ -161,7 +171,7 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
           timeout: this.timeout,
           headers: {
             'User-Agent': 'PY_APP-MCPMarketplace/1.0',
-            'Accept': 'application/json',
+            Accept: 'application/json',
           },
         },
         (res) => {
@@ -171,7 +181,11 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString('utf-8');
 
-            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            if (
+              res.statusCode &&
+              res.statusCode >= 200 &&
+              res.statusCode < 300
+            ) {
               try {
                 resolve(JSON.parse(body));
               } catch {

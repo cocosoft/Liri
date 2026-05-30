@@ -27,7 +27,10 @@
 import { enableConfigs } from '@modules/config';
 import { initializeCommands } from '@modules/commands/index.js';
 import { getExtensibilityService } from '@modules/core/extensibility/index.js';
-import { profileCheckpoint, profileReport } from '@modules/utils/startupProfiler';
+import {
+  profileCheckpoint,
+  profileReport,
+} from '@modules/utils/startupProfiler';
 // @ts-ignore
 import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
@@ -69,13 +72,18 @@ profileCheckpoint('env_vars_loaded');
  */
 async function loadUserDataDirectory(): Promise<void> {
   try {
-    const { loadUserSettings } = await import('../config/settings/userSettings.js');
+    const { loadUserSettings } =
+      await import('../config/settings/userSettings.js');
     const { setUserDataDirOverride } = await import('../config/paths.js');
-    
+
     const settings = loadUserSettings();
     const dataDirectory = settings.dataDirectory as string | undefined;
-    
-    if (dataDirectory && typeof dataDirectory === 'string' && dataDirectory.trim()) {
+
+    if (
+      dataDirectory &&
+      typeof dataDirectory === 'string' &&
+      dataDirectory.trim()
+    ) {
       setUserDataDirOverride(dataDirectory.trim());
       logger.info(`用户数据目录已从设置加载: ${dataDirectory}`);
     }
@@ -103,16 +111,16 @@ export async function init(): Promise<void> {
   getStartupChainProfiler().markPhaseEnd('startup_config');
 
   // 1. 加载用户数据目录配置（在配置系统启用前）
-    profileCheckpoint('load_user_data_dir_start');
-    await loadUserDataDirectory();
-    profileCheckpoint('load_user_data_dir_end');
+  profileCheckpoint('load_user_data_dir_start');
+  await loadUserDataDirectory();
+  profileCheckpoint('load_user_data_dir_end');
 
-    // 2. 启用配置系统
-    profileCheckpoint('load_settings_start');
-    getStartupChainProfiler().markPhaseStart('config_load');
-    enableConfigs();
-    profileCheckpoint('load_settings_end');
-    getStartupChainProfiler().markPhaseEnd('config_load');
+  // 2. 启用配置系统
+  profileCheckpoint('load_settings_start');
+  getStartupChainProfiler().markPhaseStart('config_load');
+  enableConfigs();
+  profileCheckpoint('load_settings_end');
+  getStartupChainProfiler().markPhaseEnd('config_load');
 
   // 2. 设置优雅关闭
   profileCheckpoint('setup_graceful_shutdown_start');

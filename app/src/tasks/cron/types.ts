@@ -45,13 +45,14 @@ export type CronJobState =
  * 合法状态转移表
  * key: 当前状态, value: 允许转移到的目标状态集合
  */
-export const CRON_JOB_STATE_TRANSITIONS: Record<CronJobState, CronJobState[]> = {
-  scheduled: ['running', 'paused', 'completed', 'failed'],
-  running:   ['completed', 'failed', 'paused'],
-  paused:    ['scheduled', 'completed', 'failed'],
-  completed: [],
-  failed:    ['scheduled', 'paused', 'completed'],
-};
+export const CRON_JOB_STATE_TRANSITIONS: Record<CronJobState, CronJobState[]> =
+  {
+    scheduled: ['running', 'paused', 'completed', 'failed'],
+    running: ['completed', 'failed', 'paused'],
+    paused: ['scheduled', 'completed', 'failed'],
+    completed: [],
+    failed: ['scheduled', 'paused', 'completed'],
+  };
 
 /** 判断是否为终止状态 */
 export function isTerminalCronState(state: CronJobState): boolean {
@@ -59,15 +60,21 @@ export function isTerminalCronState(state: CronJobState): boolean {
 }
 
 /** 判断状态转移是否合法 */
-export function isValidCronTransition(from: CronJobState, to: CronJobState): boolean {
+export function isValidCronTransition(
+  from: CronJobState,
+  to: CronJobState
+): boolean {
   return CRON_JOB_STATE_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
 /** 验证状态转移，非法时抛出错误 */
-export function validateCronTransition(from: CronJobState, to: CronJobState): void {
+export function validateCronTransition(
+  from: CronJobState,
+  to: CronJobState
+): void {
   if (!isValidCronTransition(from, to)) {
     throw new Error(
-      `非法状态转移: ${from} → ${to}，允许的目标: [${CRON_JOB_STATE_TRANSITIONS[from]?.join(', ') ?? '无'}]`,
+      `非法状态转移: ${from} → ${to}，允许的目标: [${CRON_JOB_STATE_TRANSITIONS[from]?.join(', ') ?? '无'}]`
     );
   }
 }

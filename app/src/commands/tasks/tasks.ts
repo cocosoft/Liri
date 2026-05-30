@@ -180,10 +180,7 @@ function buildStatsHeader(tasks: BackgroundTaskInfo[]): string {
 /**
  * 按任务类型分组显示（新增 P3-3.3 增强）
  */
-function formatTypeGroups(
-  tasks: BackgroundTaskInfo[],
-  limit?: number
-): string {
+function formatTypeGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
   const typeMap = new Map<string, BackgroundTaskInfo[]>();
   for (const task of tasks) {
     const type = task.taskType || task.agentType || 'unknown';

@@ -1,7 +1,7 @@
 /**
  * 文件系统安全审计模块
  * 检查敏感路径权限、Windows ACL、密钥文件暴露
-  */
+ */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

@@ -69,9 +69,7 @@ export function readMemoryFile(): MemoryCommandResult {
   }
 }
 
-export function updateMemoryFile(
-  content: string
-): MemoryCommandResult {
+export function updateMemoryFile(content: string): MemoryCommandResult {
   const filePath = getAutoMemPath();
   const dir = path.dirname(filePath);
 

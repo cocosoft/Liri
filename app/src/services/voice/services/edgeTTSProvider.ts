@@ -23,37 +23,138 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /** Edge TTS WebSocket 端点 */
 const EDGE_TTS_HOST = 'speech.platform.bing.com';
-const EDGE_TTS_PATH = '/consumer/speech/synthesize/readaloud/edge/v1?TrustedClient=bing';
+const EDGE_TTS_PATH =
+  '/consumer/speech/synthesize/readaloud/edge/v1?TrustedClient=bing';
 
 /** 支持的语音列表 */
 const EDGE_VOICES: TTSVoice[] = [
-  { id: 'zh-CN-XiaoxiaoNeural', name: 'Xiaoxiao', language: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-XiaoyiNeural', name: 'Xiaoyi', language: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-YunjianNeural', name: 'Yunjian', language: 'zh-CN', gender: 'male' },
+  {
+    id: 'zh-CN-XiaoxiaoNeural',
+    name: 'Xiaoxiao',
+    language: 'zh-CN',
+    gender: 'female',
+  },
+  {
+    id: 'zh-CN-XiaoyiNeural',
+    name: 'Xiaoyi',
+    language: 'zh-CN',
+    gender: 'female',
+  },
+  {
+    id: 'zh-CN-YunjianNeural',
+    name: 'Yunjian',
+    language: 'zh-CN',
+    gender: 'male',
+  },
   { id: 'zh-CN-YunxiNeural', name: 'Yunxi', language: 'zh-CN', gender: 'male' },
-  { id: 'zh-CN-YunxiaNeural', name: 'Yunxia', language: 'zh-CN', gender: 'male' },
-  { id: 'zh-CN-YunyangNeural', name: 'Yunyang', language: 'zh-CN', gender: 'male' },
-  { id: 'zh-HK-HiuGaaiNeural', name: 'HiuGaai', language: 'zh-HK', gender: 'female' },
-  { id: 'zh-HK-HiuMaanNeural', name: 'HiuMaan', language: 'zh-HK', gender: 'female' },
-  { id: 'zh-HK-WanLungNeural', name: 'WanLung', language: 'zh-HK', gender: 'male' },
-  { id: 'zh-TW-HsiaoChenNeural', name: 'HsiaoChen', language: 'zh-TW', gender: 'female' },
-  { id: 'zh-TW-YunJheNeural', name: 'YunJhe', language: 'zh-TW', gender: 'male' },
-  { id: 'zh-TW-HsiaoYuNeural', name: 'HsiaoYu', language: 'zh-TW', gender: 'female' },
+  {
+    id: 'zh-CN-YunxiaNeural',
+    name: 'Yunxia',
+    language: 'zh-CN',
+    gender: 'male',
+  },
+  {
+    id: 'zh-CN-YunyangNeural',
+    name: 'Yunyang',
+    language: 'zh-CN',
+    gender: 'male',
+  },
+  {
+    id: 'zh-HK-HiuGaaiNeural',
+    name: 'HiuGaai',
+    language: 'zh-HK',
+    gender: 'female',
+  },
+  {
+    id: 'zh-HK-HiuMaanNeural',
+    name: 'HiuMaan',
+    language: 'zh-HK',
+    gender: 'female',
+  },
+  {
+    id: 'zh-HK-WanLungNeural',
+    name: 'WanLung',
+    language: 'zh-HK',
+    gender: 'male',
+  },
+  {
+    id: 'zh-TW-HsiaoChenNeural',
+    name: 'HsiaoChen',
+    language: 'zh-TW',
+    gender: 'female',
+  },
+  {
+    id: 'zh-TW-YunJheNeural',
+    name: 'YunJhe',
+    language: 'zh-TW',
+    gender: 'male',
+  },
+  {
+    id: 'zh-TW-HsiaoYuNeural',
+    name: 'HsiaoYu',
+    language: 'zh-TW',
+    gender: 'female',
+  },
   { id: 'en-US-AriaNeural', name: 'Aria', language: 'en-US', gender: 'female' },
   { id: 'en-US-GuyNeural', name: 'Guy', language: 'en-US', gender: 'male' },
-  { id: 'en-US-JennyNeural', name: 'Jenny', language: 'en-US', gender: 'female' },
+  {
+    id: 'en-US-JennyNeural',
+    name: 'Jenny',
+    language: 'en-US',
+    gender: 'female',
+  },
   { id: 'en-US-AnaNeural', name: 'Ana', language: 'en-US', gender: 'female' },
-  { id: 'en-US-MichelleNeural', name: 'Michelle', language: 'en-US', gender: 'female' },
-  { id: 'en-GB-SoniaNeural', name: 'Sonia', language: 'en-GB', gender: 'female' },
+  {
+    id: 'en-US-MichelleNeural',
+    name: 'Michelle',
+    language: 'en-US',
+    gender: 'female',
+  },
+  {
+    id: 'en-GB-SoniaNeural',
+    name: 'Sonia',
+    language: 'en-GB',
+    gender: 'female',
+  },
   { id: 'en-GB-RyanNeural', name: 'Ryan', language: 'en-GB', gender: 'male' },
-  { id: 'ja-JP-NanamiNeural', name: 'Nanami', language: 'ja-JP', gender: 'female' },
+  {
+    id: 'ja-JP-NanamiNeural',
+    name: 'Nanami',
+    language: 'ja-JP',
+    gender: 'female',
+  },
   { id: 'ja-JP-KeitaNeural', name: 'Keita', language: 'ja-JP', gender: 'male' },
-  { id: 'ko-KR-SunHiNeural', name: 'SunHi', language: 'ko-KR', gender: 'female' },
-  { id: 'ko-KR-InJoonNeural', name: 'InJoon', language: 'ko-KR', gender: 'male' },
-  { id: 'fr-FR-DeniseNeural', name: 'Denise', language: 'fr-FR', gender: 'female' },
+  {
+    id: 'ko-KR-SunHiNeural',
+    name: 'SunHi',
+    language: 'ko-KR',
+    gender: 'female',
+  },
+  {
+    id: 'ko-KR-InJoonNeural',
+    name: 'InJoon',
+    language: 'ko-KR',
+    gender: 'male',
+  },
+  {
+    id: 'fr-FR-DeniseNeural',
+    name: 'Denise',
+    language: 'fr-FR',
+    gender: 'female',
+  },
   { id: 'fr-FR-HenriNeural', name: 'Henri', language: 'fr-FR', gender: 'male' },
-  { id: 'de-DE-KatjaNeural', name: 'Katja', language: 'de-DE', gender: 'female' },
-  { id: 'de-DE-ConradNeural', name: 'Conrad', language: 'de-DE', gender: 'male' },
+  {
+    id: 'de-DE-KatjaNeural',
+    name: 'Katja',
+    language: 'de-DE',
+    gender: 'female',
+  },
+  {
+    id: 'de-DE-ConradNeural',
+    name: 'Conrad',
+    language: 'de-DE',
+    gender: 'male',
+  },
 ];
 
 /** WebSocket 操作码 */
@@ -63,7 +164,7 @@ const enum WsOpcode {
   BINARY = 0x2,
   CLOSE = 0x8,
   PING = 0x9,
-  PONG = 0xA,
+  PONG = 0xa,
 }
 
 /** WebSocket 连接状态 */
@@ -87,15 +188,24 @@ function generateWsKey(): string {
  */
 function computeWsAccept(key: string): string {
   const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-  const hash = createHash('sha1').update(key + GUID).digest();
+  const hash = createHash('sha1')
+    .update(key + GUID)
+    .digest();
   return hash.toString('base64');
 }
 
 /**
  * 发送 WebSocket 帧
  */
-function sendWsFrame(conn: WsConnection, opcode: number, payload: Buffer): void {
-  const maskKey = Buffer.from(randomUUID().replace(/-/g, '').slice(0, 4), 'utf8');
+function sendWsFrame(
+  conn: WsConnection,
+  opcode: number,
+  payload: Buffer
+): void {
+  const maskKey = Buffer.from(
+    randomUUID().replace(/-/g, '').slice(0, 4),
+    'utf8'
+  );
   const payloadLength = payload.length;
 
   let header: Buffer;
@@ -127,7 +237,11 @@ function sendWsFrame(conn: WsConnection, opcode: number, payload: Buffer): void 
 /**
  * 执行 WebSocket 握手
  */
-function wsHandshake(host: string, path: string, port: number): Promise<WsConnection> {
+function wsHandshake(
+  host: string,
+  path: string,
+  port: number
+): Promise<WsConnection> {
   return new Promise((resolve, reject) => {
     const key = generateWsKey();
     const socket = tlsConnect(port, host, { servername: host });
@@ -182,7 +296,9 @@ function wsHandshake(host: string, path: string, port: number): Promise<WsConnec
       };
 
       // 设置帧解析
-      let frameBuffer: Buffer = Buffer.from(responseBuffer.slice(headerEnd + 4));
+      let frameBuffer: Buffer = Buffer.from(
+        responseBuffer.slice(headerEnd + 4)
+      );
 
       socket.on('data', (frameData) => {
         frameBuffer = Buffer.concat([frameBuffer, frameData]);
@@ -222,9 +338,9 @@ function processWsFrames(
 
     const firstByte = buffer[offset];
     const secondByte = buffer[offset + 1];
-    const opcode = firstByte & 0x0F;
+    const opcode = firstByte & 0x0f;
     const masked = (secondByte & 0x80) !== 0;
-    let payloadLength = secondByte & 0x7F;
+    let payloadLength = secondByte & 0x7f;
     let headerLen = 2;
 
     if (payloadLength === 126) {
@@ -250,7 +366,9 @@ function processWsFrames(
       payloadStart += 4;
     }
 
-    let payload = Buffer.from(buffer.slice(payloadStart, payloadStart + payloadLength));
+    let payload = Buffer.from(
+      buffer.slice(payloadStart, payloadStart + payloadLength)
+    );
 
     if (maskKey) {
       for (let i = 0; i < payload.length; i++) {
@@ -290,7 +408,12 @@ function processWsFrames(
 /**
  * 生成合成上下文 SSML
  */
-function buildSsml(text: string, voice: string, rate: string = '+0%', pitch: string = '+0Hz'): string {
+function buildSsml(
+  text: string,
+  voice: string,
+  rate: string = '+0%',
+  pitch: string = '+0Hz'
+): string {
   return [
     '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US">',
     `<voice name="${voice}">`,
@@ -395,7 +518,10 @@ export class EdgeTTSProvider implements TTSProvider {
     try {
       const audioBuffer = await this.synthesize(options.text, voiceId);
 
-      const durationEstimate = this.estimateDuration(options.text, options.speed);
+      const durationEstimate = this.estimateDuration(
+        options.text,
+        options.speed
+      );
 
       logger.info('Edge TTS 合成成功', {
         voice: voiceId,
@@ -441,7 +567,10 @@ export class EdgeTTSProvider implements TTSProvider {
 
       writeFileSync(options.filename, audioBuffer);
 
-      const durationEstimate = this.estimateDuration(options.text, options.speed);
+      const durationEstimate = this.estimateDuration(
+        options.text,
+        options.speed
+      );
 
       logger.info('Edge TTS 保存成功', {
         voice: voiceId,

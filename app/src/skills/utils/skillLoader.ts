@@ -7,7 +7,11 @@ import { existsSync } from 'fs';
 import { join, basename } from 'path';
 import { SkillParser, SkillSource, type SkillDefinition } from './skillParser';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome, resolveDataDir, resolveProjectRoot } from '@modules/config/paths';
+import {
+  resolvePyappHome,
+  resolveDataDir,
+  resolveProjectRoot,
+} from '@modules/config/paths';
 
 /**
  * 技能加载路径配置

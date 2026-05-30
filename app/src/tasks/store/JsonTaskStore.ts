@@ -27,7 +27,11 @@ export class JsonTaskStore implements ITaskStore {
   async saveTaskStates(states: TaskState[]): Promise<void> {
     try {
       await fs.mkdir(this.dirPath, { recursive: true });
-      await fs.writeFile(this.filePath, JSON.stringify(states, null, 2), 'utf-8');
+      await fs.writeFile(
+        this.filePath,
+        JSON.stringify(states, null, 2),
+        'utf-8'
+      );
     } catch (error) {
       logger.error(
         '[JsonTaskStore] 保存任务状态失败',
@@ -60,7 +64,9 @@ export class JsonTaskStore implements ITaskStore {
 
   async healthCheck(): Promise<boolean> {
     try {
-      await fs.access(this.dirPath).catch(() => fs.mkdir(this.dirPath, { recursive: true }));
+      await fs
+        .access(this.dirPath)
+        .catch(() => fs.mkdir(this.dirPath, { recursive: true }));
       return true;
     } catch {
       return false;

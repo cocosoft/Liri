@@ -31,7 +31,8 @@ export class SessionMigration {
   private stateDir: string;
 
   constructor(stateDir?: string) {
-    this.stateDir = stateDir || join(resolveDataDir(), 'sessions', '.migration');
+    this.stateDir =
+      stateDir || join(resolveDataDir(), 'sessions', '.migration');
   }
 
   registerMigration(migration: MigrationVersion): void {

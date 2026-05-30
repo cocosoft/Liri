@@ -144,7 +144,6 @@ export function getFormatInfo(format: AudioFormat): AudioFormatInfo {
  * 音频格式转换器
  */
 export class AudioFormatConverter {
-
   /**
    * 转换音频格式
    *
@@ -162,7 +161,8 @@ export class AudioFormatConverter {
     if (!isFFmpegAvailable()) {
       return {
         success: false,
-        error: 'ffmpeg 不可用，无法进行音频格式转换。请安装 ffmpeg 并确保在 PATH 中',
+        error:
+          'ffmpeg 不可用，无法进行音频格式转换。请安装 ffmpeg 并确保在 PATH 中',
       };
     }
 
@@ -172,14 +172,18 @@ export class AudioFormatConverter {
       const sampleRate = options.sampleRate ?? 16000;
       const channels = options.channels ?? 1;
 
-      const outputPath = options.outputPath
-        || this.generateOutputPath(options.inputPath, meta.extension);
+      const outputPath =
+        options.outputPath ||
+        this.generateOutputPath(options.inputPath, meta.extension);
 
       const args: string[] = [
         '-y',
-        '-i', `"${options.inputPath}"`,
-        '-ar', String(sampleRate),
-        '-ac', String(channels),
+        '-i',
+        `"${options.inputPath}"`,
+        '-ar',
+        String(sampleRate),
+        '-ac',
+        String(channels),
       ];
 
       if (meta.format === 'mp3' || meta.format === 'opus') {
@@ -305,9 +309,15 @@ export class AudioFormatConverter {
   /**
    * 生成输出文件路径
    */
-  private static generateOutputPath(inputPath: string, extension: string): string {
+  private static generateOutputPath(
+    inputPath: string,
+    extension: string
+  ): string {
     const dir = require('path').dirname(inputPath);
-    const base = require('path').basename(inputPath, require('path').extname(inputPath));
+    const base = require('path').basename(
+      inputPath,
+      require('path').extname(inputPath)
+    );
     return join(dir, `${base}_converted${extension}`);
   }
 }

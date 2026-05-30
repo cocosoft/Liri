@@ -104,7 +104,9 @@ export class LocalSkillStore {
       try {
         const content = readFileSync(indexPath, 'utf-8');
         this.index = JSON.parse(content);
-        logger.debug(`已加载技能索引，共 ${Object.keys(this.index.skills).length} 个技能`);
+        logger.debug(
+          `已加载技能索引，共 ${Object.keys(this.index.skills).length} 个技能`
+        );
       } catch (error) {
         logger.warn('技能索引文件损坏，将重新创建', error as Error);
         this.index = {
@@ -232,11 +234,12 @@ export class LocalSkillStore {
           !query ||
           skill.meta.name.toLowerCase().includes(lowerQuery) ||
           skill.meta.description.toLowerCase().includes(lowerQuery) ||
-          skill.meta.tags?.some((tag) => tag.toLowerCase().includes(lowerQuery));
+          skill.meta.tags?.some((tag) =>
+            tag.toLowerCase().includes(lowerQuery)
+          );
 
         const matchesCategory =
-          !options?.category ||
-          skill.meta.category === options.category;
+          !options?.category || skill.meta.category === options.category;
 
         const matchesTags =
           !options?.tags?.length ||

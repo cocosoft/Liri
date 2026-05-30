@@ -30,7 +30,11 @@ export class LocalServerStore {
 
   private loadStore(): MCPLocalStoreData {
     if (!fs.existsSync(this.storePath)) {
-      return { version: STORE_VERSION, updatedAt: new Date().toISOString(), servers: {} };
+      return {
+        version: STORE_VERSION,
+        updatedAt: new Date().toISOString(),
+        servers: {},
+      };
     }
 
     try {
@@ -38,7 +42,11 @@ export class LocalServerStore {
       return JSON.parse(content) as MCPLocalStoreData;
     } catch (error) {
       logger.error('读取 MCP 本地存储失败，使用空数据', error as Error);
-      return { version: STORE_VERSION, updatedAt: new Date().toISOString(), servers: {} };
+      return {
+        version: STORE_VERSION,
+        updatedAt: new Date().toISOString(),
+        servers: {},
+      };
     }
   }
 
@@ -47,7 +55,11 @@ export class LocalServerStore {
     this.data.updatedAt = new Date().toISOString();
 
     try {
-      fs.writeFileSync(this.storePath, JSON.stringify(this.data, null, 2), 'utf8');
+      fs.writeFileSync(
+        this.storePath,
+        JSON.stringify(this.data, null, 2),
+        'utf8'
+      );
     } catch (error) {
       logger.error('保存 MCP 本地存储失败', error as Error);
     }
@@ -74,7 +86,11 @@ export class LocalServerStore {
   updateServer(name: string, updates: Partial<InstalledMCPServer>): void {
     const existing = this.data.servers[name];
     if (existing) {
-      this.data.servers[name] = { ...existing, ...updates, updatedAt: Date.now() };
+      this.data.servers[name] = {
+        ...existing,
+        ...updates,
+        updatedAt: Date.now(),
+      };
       this.saveStore();
     }
   }
@@ -93,17 +109,31 @@ export class LocalServerStore {
 
   setSearchCache(registry: string, query: string, data: unknown): void {
     this.ensureDirs();
-    const cacheFile = path.join(this.cacheDir, `${registry}-${encodeURIComponent(query)}.json`);
+    const cacheFile = path.join(
+      this.cacheDir,
+      `${registry}-${encodeURIComponent(query)}.json`
+    );
 
     try {
-      fs.writeFileSync(cacheFile, JSON.stringify({ data, cachedAt: Date.now() }), 'utf8');
+      fs.writeFileSync(
+        cacheFile,
+        JSON.stringify({ data, cachedAt: Date.now() }),
+        'utf8'
+      );
     } catch (error) {
       logger.warn(`写入搜索缓存失败: ${cacheFile}`, error as Error);
     }
   }
 
-  getSearchCache(registry: string, query: string, maxAgeMs = 5 * 60 * 1000): unknown | null {
-    const cacheFile = path.join(this.cacheDir, `${registry}-${encodeURIComponent(query)}.json`);
+  getSearchCache(
+    registry: string,
+    query: string,
+    maxAgeMs = 5 * 60 * 1000
+  ): unknown | null {
+    const cacheFile = path.join(
+      this.cacheDir,
+      `${registry}-${encodeURIComponent(query)}.json`
+    );
 
     if (!fs.existsSync(cacheFile)) {
       return null;

@@ -2,7 +2,7 @@
  * CloudSTTProvider
  * 云端 STT 提供者
  * 通过 OpenAI Whisper API 实现云端语音转文字
-  *
+ *
  * 用法：
  * ```ts
  * import { CloudSTTProvider } from './cloudSTTProvider';
@@ -134,36 +134,44 @@ export class CloudSTTProvider implements STTProvider {
     const parts: Buffer[] = [];
 
     // model 字段
-    parts.push(Buffer.from(
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="model"\r\n\r\n` +
-      `${model}\r\n`
-    ));
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="model"\r\n\r\n` +
+          `${model}\r\n`
+      )
+    );
 
     // language 字段（可选）
     if (language) {
-      parts.push(Buffer.from(
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="language"\r\n\r\n` +
-        `${language}\r\n`
-      ));
+      parts.push(
+        Buffer.from(
+          `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="language"\r\n\r\n` +
+            `${language}\r\n`
+        )
+      );
     }
 
     // prompt 字段（关键词提示）
     if (keyterms && keyterms.length > 0) {
-      parts.push(Buffer.from(
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="prompt"\r\n\r\n` +
-        `${keyterms.join(', ')}\r\n`
-      ));
+      parts.push(
+        Buffer.from(
+          `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="prompt"\r\n\r\n` +
+            `${keyterms.join(', ')}\r\n`
+        )
+      );
     }
 
     // 音频文件
-    parts.push(Buffer.from(
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n` +
-      `Content-Type: audio/wav\r\n\r\n`
-    ));
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n` +
+          `Content-Type: audio/wav\r\n\r\n`
+      )
+    );
     parts.push(audioData);
     parts.push(Buffer.from(`\r\n`));
 

@@ -1,7 +1,10 @@
 import * as http from 'http';
 import * as https from 'https';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { getOfficialServers, getOfficialServersByCategory } from '@modules/services/mcp/MCPOfficialRegistry';
+import {
+  getOfficialServers,
+  getOfficialServersByCategory,
+} from '@modules/services/mcp/MCPOfficialRegistry';
 import type {
   RegistryAdapter,
   SearchParams,
@@ -25,12 +28,13 @@ export class OfficialRegistryAdapter implements RegistryAdapter {
       const query = params.query?.toLowerCase() || '';
       const localServers = getOfficialServers();
       const filtered = localServers.filter((s) => {
-        const matchQuery = !query ||
+        const matchQuery =
+          !query ||
           s.name.toLowerCase().includes(query) ||
           s.description?.toLowerCase().includes(query);
 
-        const matchCategory = !params.category ||
-          s.category === params.category;
+        const matchCategory =
+          !params.category || s.category === params.category;
 
         return matchQuery && matchCategory;
       });
@@ -96,13 +100,18 @@ export class OfficialRegistryAdapter implements RegistryAdapter {
     }
   }
 
-  async getCategories(): Promise<Array<{ id: string; name: string; count: number }>> {
+  async getCategories(): Promise<
+    Array<{ id: string; name: string; count: number }>
+  > {
     const servers = getOfficialServers();
     const categoryMap = new Map<string, number>();
 
     for (const server of servers) {
       if (server.category) {
-        categoryMap.set(server.category, (categoryMap.get(server.category) || 0) + 1);
+        categoryMap.set(
+          server.category,
+          (categoryMap.get(server.category) || 0) + 1
+        );
       }
     }
 
@@ -113,7 +122,9 @@ export class OfficialRegistryAdapter implements RegistryAdapter {
     }));
   }
 
-  async buildInstallConfig(serverId: string): Promise<ServerInstallConfig | null> {
+  async buildInstallConfig(
+    serverId: string
+  ): Promise<ServerInstallConfig | null> {
     const servers = getOfficialServers();
     const server = servers.find((s) => s.name === serverId);
 

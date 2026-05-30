@@ -121,7 +121,13 @@ export class WorkerSandbox implements Sandbox {
     if (this.workerConfig.workerScript) {
       return this.workerConfig.workerScript;
     }
-    return join(resolveProjectRoot(), 'app', 'src', 'sandbox', 'worker-script.js');
+    return join(
+      resolveProjectRoot(),
+      'app',
+      'src',
+      'sandbox',
+      'worker-script.js'
+    );
   }
 
   /**

@@ -151,16 +151,13 @@ export class LocalSTTProvider implements STTProvider {
     options?: STTTranscribeOptions
   ): Promise<STTResult> {
     const audioPath = join(tmpdir(), `stt_${randomUUID()}.wav`);
-    const language = options?.language
-      ? options.language.split('-')[0]
-      : 'en';
+    const language = options?.language ? options.language.split('-')[0] : 'en';
     const model = options?.model || this.config.model!;
 
     try {
       writeFileSync(audioPath, audioData);
 
-      const script = TRANSCRIBE_SCRIPT
-        .replace('{model}', model)
+      const script = TRANSCRIBE_SCRIPT.replace('{model}', model)
         .replace('{device}', this.config.device!)
         .replace('{compute_type}', this.config.computeType!)
         .replace('{audio_path}', audioPath.replace(/\\/g, '\\\\'))
@@ -233,9 +230,7 @@ export class LocalSTTProvider implements STTProvider {
         if (code !== 0) {
           const stderr = Buffer.concat(errorChunks).toString().trim();
           reject(
-            new Error(
-              `Python 进程退出码 ${code}: ${stderr || '未知错误'}`
-            )
+            new Error(`Python 进程退出码 ${code}: ${stderr || '未知错误'}`)
           );
           return;
         }

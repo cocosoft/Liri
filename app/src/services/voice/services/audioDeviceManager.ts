@@ -106,9 +106,10 @@ function enumerateWindowsDevices(type: 'playback' | 'capture'): AudioDevice[] {
         const name = parts[0].trim();
         const deviceId = parts.length >= 2 ? parts[1].trim() : name;
         const role = parts.length >= 3 ? parts[2].trim().toLowerCase() : '';
-        const isMatch = type === 'playback'
-          ? role.includes('render') || role.includes('play')
-          : role.includes('capture') || role.includes('record');
+        const isMatch =
+          type === 'playback'
+            ? role.includes('render') || role.includes('play')
+            : role.includes('capture') || role.includes('record');
         if (isMatch) {
           devices.push({
             id: deviceId,
@@ -163,10 +164,10 @@ function enumerateWindowsDevices(type: 'playback' | 'capture'): AudioDevice[] {
 function enumerateMacOSDevices(type: 'playback' | 'capture'): AudioDevice[] {
   const devices: AudioDevice[] = [];
   try {
-    const output = execSync(
-      'system_profiler SPAudioDataType 2>/dev/null',
-      { encoding: 'utf-8', timeout: 10000 }
-    );
+    const output = execSync('system_profiler SPAudioDataType 2>/dev/null', {
+      encoding: 'utf-8',
+      timeout: 10000,
+    });
 
     const lines = output.split('\n');
     let currentDevice: Partial<AudioDevice> | null = null;
@@ -192,9 +193,15 @@ function enumerateMacOSDevices(type: 'playback' | 'capture'): AudioDevice[] {
         currentDevice.isDefault = currentDevice.isSystemDefault;
       } else if (currentDevice && trimmed.includes('Source:')) {
         const source = trimmed.replace('Source:', '').trim().toLowerCase();
-        if (type === 'playback' && (source.includes('output') || source.includes('speaker'))) {
+        if (
+          type === 'playback' &&
+          (source.includes('output') || source.includes('speaker'))
+        ) {
           currentDevice.type = 'playback';
-        } else if (type === 'capture' && (source.includes('input') || source.includes('mic'))) {
+        } else if (
+          type === 'capture' &&
+          (source.includes('input') || source.includes('mic'))
+        ) {
           currentDevice.type = 'capture';
         }
       }
@@ -250,7 +257,7 @@ function enumerateLinuxDevices(type: 'playback' | 'capture'): AudioDevice[] {
 
     // 如果 pactl 没有结果，尝试解析 aplay -l 输出
     if (devices.length === 0 && output.includes('card')) {
-      const cardLines = output.split('\n').filter(l => l.includes('card'));
+      const cardLines = output.split('\n').filter((l) => l.includes('card'));
       for (const line of cardLines) {
         const cardMatch = line.match(/card\s+(\d+):\s+(.+?)\[/);
         if (cardMatch) {
@@ -340,9 +347,7 @@ export class AudioDeviceManager {
    */
   static async getDefaultPlaybackDevice(): Promise<AudioDevice> {
     const devices = await AudioDeviceManager.listPlaybackDevices();
-    const defaultDevice = devices.find(
-      (d) => d.isSystemDefault || d.isDefault
-    );
+    const defaultDevice = devices.find((d) => d.isSystemDefault || d.isDefault);
 
     if (defaultDevice) {
       return defaultDevice;
@@ -421,9 +426,7 @@ export class AudioDeviceManager {
     }
 
     // 2. 系统默认设备
-    const systemDefault = devices.find(
-      (d) => d.isSystemDefault
-    );
+    const systemDefault = devices.find((d) => d.isSystemDefault);
     if (systemDefault) {
       return systemDefault;
     }

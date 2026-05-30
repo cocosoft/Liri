@@ -19,7 +19,12 @@ async function main() {
   if (report.findings.length > 0) {
     console.log('=== 发现详情 ===');
     for (const finding of report.findings) {
-      const icon = finding.severity === 'HIGH' ? '🔴' : finding.severity === 'MEDIUM' ? '🟡' : '🟢';
+      const icon =
+        finding.severity === 'HIGH'
+          ? '🔴'
+          : finding.severity === 'MEDIUM'
+            ? '🟡'
+            : '🟢';
       console.log(`${icon} [${finding.severity}] ${finding.message}`);
       if (finding.remediation) {
         console.log(`   修复建议: ${finding.remediation}`);
@@ -28,7 +33,9 @@ async function main() {
     }
   }
 
-  console.log(`\n⚠️ 共发现 ${report.summary.total} 个问题 (HIGH:${report.summary.high} MEDIUM:${report.summary.medium} LOW:${report.summary.low})`);
+  console.log(
+    `\n⚠️ 共发现 ${report.summary.total} 个问题 (HIGH:${report.summary.high} MEDIUM:${report.summary.medium} LOW:${report.summary.low})`
+  );
   console.log('📋 详情已输出至上方日志，请开发人员关注 HIGH 风险项');
   process.exit(0);
 }

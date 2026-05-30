@@ -5,7 +5,14 @@
 
 import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { CronJob, CronJobState, CronSchedule, CronRepeat, CronOrigin, CronJobFilter } from './types';
+import type {
+  CronJob,
+  CronJobState,
+  CronSchedule,
+  CronRepeat,
+  CronOrigin,
+  CronJobFilter,
+} from './types';
 import { validateCronTransition, isTerminalCronState } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -83,7 +90,9 @@ function rowToCronJob(row: any): CronJob {
     lastDeliveryError: row.last_delivery_error ?? undefined,
     deliver: row.deliver,
     origin: row.origin ? JSON.parse(row.origin) : undefined,
-    enabledToolsets: row.enabled_toolsets ? JSON.parse(row.enabled_toolsets) : undefined,
+    enabledToolsets: row.enabled_toolsets
+      ? JSON.parse(row.enabled_toolsets)
+      : undefined,
     workdir: row.workdir ?? undefined,
     model: row.model ?? undefined,
     provider: row.provider ?? undefined,
@@ -120,7 +129,9 @@ function cronJobToRow(job: CronJob): Record<string, unknown> {
     last_delivery_error: job.lastDeliveryError ?? null,
     deliver: job.deliver,
     origin: job.origin ? JSON.stringify(job.origin) : null,
-    enabled_toolsets: job.enabledToolsets ? JSON.stringify(job.enabledToolsets) : null,
+    enabled_toolsets: job.enabledToolsets
+      ? JSON.stringify(job.enabledToolsets)
+      : null,
     workdir: job.workdir ?? null,
     model: job.model ?? null,
     provider: job.provider ?? null,
@@ -153,7 +164,9 @@ export class CronJobStore {
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
           if (schemaErr) {
-            logger.error('[CronJobStore] 初始化表结构失败', { error: schemaErr.message });
+            logger.error('[CronJobStore] 初始化表结构失败', {
+              error: schemaErr.message,
+            });
             reject(schemaErr);
             return;
           }
@@ -191,7 +204,9 @@ export class CronJobStore {
     const db = this.ensureDb();
     const row = cronJobToRow(job);
     const columns = Object.keys(row).join(', ');
-    const placeholders = Object.keys(row).map(() => '?').join(', ');
+    const placeholders = Object.keys(row)
+      .map(() => '?')
+      .join(', ');
     const values = Object.values(row);
 
     const sql = `INSERT OR REPLACE INTO ${TABLE_CRON_JOBS} (${columns}) VALUES (${placeholders})`;
@@ -199,7 +214,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, values, (err) => {
         if (err) {
-          logger.error('[CronJobStore] 保存作业失败', { jobId: job.id, error: err.message });
+          logger.error('[CronJobStore] 保存作业失败', {
+            jobId: job.id,
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -225,7 +243,7 @@ export class CronJobStore {
         params.push(filter.state);
       }
       if (filter.skill) {
-        conditions.push("skills LIKE ?");
+        conditions.push('skills LIKE ?');
         params.push(`%"${filter.skill}"%`);
       }
       if (filter.ids && filter.ids.length > 0) {
@@ -286,7 +304,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [newState, Date.now(), jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 更新状态失败', { jobId, error: err.message });
+          logger.error('[CronJobStore] 更新状态失败', {
+            jobId,
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -313,7 +334,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.all(sql, [nowIso], (err, rows) => {
         if (err) {
-          logger.error('[CronJobStore] 获取到期作业失败', { error: err.message });
+          logger.error('[CronJobStore] 获取到期作业失败', {
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -327,7 +350,7 @@ export class CronJobStore {
     jobId: string,
     success: boolean,
     error?: string,
-    deliveryError?: string,
+    deliveryError?: string
   ): Promise<void> {
     const db = this.ensureDb();
     const now = new Date().toISOString();
@@ -342,14 +365,21 @@ export class CronJobStore {
       WHERE id = ?`;
 
     return new Promise((resolve, reject) => {
-      db.run(sql, [now, status, error ?? null, deliveryError ?? null, Date.now(), jobId], (err) => {
-        if (err) {
-          logger.error('[CronJobStore] 标记作业运行失败', { jobId, error: err.message });
-          reject(err);
-          return;
+      db.run(
+        sql,
+        [now, status, error ?? null, deliveryError ?? null, Date.now(), jobId],
+        (err) => {
+          if (err) {
+            logger.error('[CronJobStore] 标记作业运行失败', {
+              jobId,
+              error: err.message,
+            });
+            reject(err);
+            return;
+          }
+          resolve();
         }
-        resolve();
-      });
+      );
     });
   }
 
@@ -364,7 +394,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [nextRunAt, Date.now(), jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 更新下次运行时间失败', { jobId, error: err.message });
+          logger.error('[CronJobStore] 更新下次运行时间失败', {
+            jobId,
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -384,7 +417,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [Date.now(), jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 增加重复计数失败', { jobId, error: err.message });
+          logger.error('[CronJobStore] 增加重复计数失败', {
+            jobId,
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -411,14 +447,21 @@ export class CronJobStore {
       WHERE id = ? AND state = ?`;
 
     return new Promise((resolve, reject) => {
-      db.run(sql, [Date.now(), reason ?? null, Date.now(), jobId, job.state], (err) => {
-        if (err) {
-          logger.error('[CronJobStore] 暂停作业失败', { jobId, error: err.message });
-          reject(err);
-          return;
+      db.run(
+        sql,
+        [Date.now(), reason ?? null, Date.now(), jobId, job.state],
+        (err) => {
+          if (err) {
+            logger.error('[CronJobStore] 暂停作业失败', {
+              jobId,
+              error: err.message,
+            });
+            reject(err);
+            return;
+          }
+          resolve();
         }
-        resolve();
-      });
+      );
     });
   }
 
@@ -443,7 +486,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [nextRunAt, Date.now(), jobId, job.state], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 恢复作业失败', { jobId, error: err.message });
+          logger.error('[CronJobStore] 恢复作业失败', {
+            jobId,
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -458,7 +504,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(`DELETE FROM ${TABLE_CRON_JOBS} WHERE id = ?`, [jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 删除作业失败', { jobId, error: err.message });
+          logger.error('[CronJobStore] 删除作业失败', {
+            jobId,
+            error: err.message,
+          });
           reject(err);
           return;
         }
@@ -499,7 +548,7 @@ export class CronJobStore {
             failed: row.failed || 0,
             completed: row.completed || 0,
           });
-        },
+        }
       );
     });
   }

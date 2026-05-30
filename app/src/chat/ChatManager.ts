@@ -700,17 +700,27 @@ export class ChatManagerImpl implements ChatManager {
         this._chatSessions.set(stored.id, chatSession);
       }
     } catch (e) {
-      logger.error('Failed to load sessions from gateway', { error: String(e) });
+      logger.error('Failed to load sessions from gateway', {
+        error: String(e),
+      });
     }
   }
 
   private _mapSessionStatusToState(status: string): SessionState {
     switch (status) {
-      case 'active': case 'running': return SessionState.ACTIVE;
-      case 'paused': return SessionState.PAUSED;
-      case 'ended': case 'completed': case 'aborted': return SessionState.ENDED;
-      case 'archived': return SessionState.ARCHIVED;
-      default: return SessionState.ACTIVE;
+      case 'active':
+      case 'running':
+        return SessionState.ACTIVE;
+      case 'paused':
+        return SessionState.PAUSED;
+      case 'ended':
+      case 'completed':
+      case 'aborted':
+        return SessionState.ENDED;
+      case 'archived':
+        return SessionState.ARCHIVED;
+      default:
+        return SessionState.ACTIVE;
     }
   }
 
@@ -1972,7 +1982,10 @@ export class ChatManagerImpl implements ChatManager {
             );
           }
 
-          const argsStr = JSON.stringify(toolCall.arguments || {}).slice(0, 200);
+          const argsStr = JSON.stringify(toolCall.arguments || {}).slice(
+            0,
+            200
+          );
           options?.onToolCall?.('start', toolName, toolCall.id, argsStr);
 
           const toolResult = await this.executeTool({
@@ -2178,11 +2191,11 @@ export class ChatManagerImpl implements ChatManager {
           toolUseId: normalizedToolCall.id,
           options: {
             cwd: resolveProjectRoot(),
-          env: process.env as Record<string, string>,
-        },
-      };
+            env: process.env as Record<string, string>,
+          },
+        };
 
-      const registry = this.toolRegistry as unknown as {
+        const registry = this.toolRegistry as unknown as {
           executeTool: (
             params: {
               toolName: string;

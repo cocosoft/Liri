@@ -129,23 +129,44 @@ export { TextPreprocessor, preprocessText } from './services/textPreprocessor';
 export type { TextPreprocessOptions } from './services/textPreprocessor';
 
 // 导出 TTS 多级配置覆盖
-export { TTSConfigOverlay, getDefaultConfigOverlay, resetDefaultConfigOverlay }
-  from './services/ttsConfigOverlay';
-export type { TTSGlobalConfig, ResolvedTTSConfig } from './services/ttsConfigOverlay';
+export {
+  TTSConfigOverlay,
+  getDefaultConfigOverlay,
+  resetDefaultConfigOverlay,
+} from './services/ttsConfigOverlay';
+export type {
+  TTSGlobalConfig,
+  ResolvedTTSConfig,
+} from './services/ttsConfigOverlay';
 
 // 导出 TTS 人设管理
 export { TTSPersonaManager } from './services/ttsPersonaManager';
-export type { TTSPersona, CreatePersonaOptions } from './services/ttsPersonaManager';
+export type {
+  TTSPersona,
+  CreatePersonaOptions,
+} from './services/ttsPersonaManager';
 
 // 导出音频电平表
 export { AudioLevelMeter } from './services/audioLevelMeter';
-export type { LevelResult, LevelCategory, LevelCallback } from './services/audioLevelMeter';
+export type {
+  LevelResult,
+  LevelCategory,
+  LevelCallback,
+} from './services/audioLevelMeter';
 
 // 导出音频格式转换器
-export { AudioFormatConverter, isFFmpegAvailable, resetFFmpegCache, getFormatInfo }
-  from './services/audioFormatConverter';
-export type { AudioFormat, AudioConvertOptions, AudioConvertResult, AudioFormatInfo }
-  from './services/audioFormatConverter';
+export {
+  AudioFormatConverter,
+  isFFmpegAvailable,
+  resetFFmpegCache,
+  getFormatInfo,
+} from './services/audioFormatConverter';
+export type {
+  AudioFormat,
+  AudioConvertOptions,
+  AudioConvertResult,
+  AudioFormatInfo,
+} from './services/audioFormatConverter';
 
 // 导出命令 TTS 提供者
 export {
@@ -155,7 +176,10 @@ export {
 
 // 导出音频设备选择管理器
 export { AudioDeviceManager } from './services/audioDeviceManager';
-export type { AudioDevice, AudioDeviceConfig } from './services/audioDeviceManager';
+export type {
+  AudioDevice,
+  AudioDeviceConfig,
+} from './services/audioDeviceManager';
 
 // 导出运行时环境检测器
 export {

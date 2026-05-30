@@ -81,7 +81,9 @@ export class SessionManager {
 
   constructor(config: SessionManagerConfig = {}) {
     this.config = {
-      storageRootDir: config.storageRootDir ?? require('path').join(resolvePyappHome(), 'sessions'),
+      storageRootDir:
+        config.storageRootDir ??
+        require('path').join(resolvePyappHome(), 'sessions'),
       maxCacheSize: config.maxCacheSize ?? 100,
       enablePruner: config.enablePruner ?? true,
       enableMigration: config.enableMigration ?? true,

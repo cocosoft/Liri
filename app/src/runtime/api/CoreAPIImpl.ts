@@ -166,7 +166,9 @@ export class CoreAPIImpl implements CoreAPI {
         sessionId: request.sessionId,
         metadata: request.metadata,
         onToolCall: (phase, toolName, toolCallId, detail) => {
-          console.log(`[CoreAPIImpl] onToolCall triggered: phase=${phase}, tool=${toolName}, id=${toolCallId}, detail=${detail}`);
+          console.log(
+            `[CoreAPIImpl] onToolCall triggered: phase=${phase}, tool=${toolName}, id=${toolCallId}, detail=${detail}`
+          );
           if (phase === 'start') {
             pendingEvents.push({
               type: 'status',
@@ -258,9 +260,10 @@ export class CoreAPIImpl implements CoreAPI {
           for (const tc of toolCalls) {
             const fn = tc.function || tc;
             const toolName = fn.name || '';
-            const toolArgs = typeof fn.arguments === 'string'
-              ? JSON.parse(fn.arguments || '{}')
-              : (fn.arguments || {});
+            const toolArgs =
+              typeof fn.arguments === 'string'
+                ? JSON.parse(fn.arguments || '{}')
+                : fn.arguments || {};
 
             yield {
               type: 'status',
@@ -418,13 +421,15 @@ export class CoreAPIImpl implements CoreAPI {
     };
   }
 
-  async getSessionMessages(sessionId: string): Promise<Array<{
-    id: string;
-    role: string;
-    content: string;
-    timestamp: number;
-    tool_calls?: Array<Record<string, unknown>>;
-  }>> {
+  async getSessionMessages(sessionId: string): Promise<
+    Array<{
+      id: string;
+      role: string;
+      content: string;
+      timestamp: number;
+      tool_calls?: Array<Record<string, unknown>>;
+    }>
+  > {
     const session = this.sessionManager.getSession(sessionId);
     if (!session) {
       return [];
@@ -434,7 +439,8 @@ export class CoreAPIImpl implements CoreAPI {
       id: msg.id,
       role: msg.role.toLowerCase(),
       content: typeof msg.content === 'string' ? msg.content : '',
-      timestamp: msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
+      timestamp:
+        msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
       tool_calls: msg.tool_calls as Array<Record<string, unknown>> | undefined,
     }));
   }
@@ -469,14 +475,22 @@ export class CoreAPIImpl implements CoreAPI {
     }
   }
 
-  async generateSessionTitle(sessionId: string, userMessage: string, assistantResponse: string): Promise<string | null> {
+  async generateSessionTitle(
+    sessionId: string,
+    userMessage: string,
+    assistantResponse: string
+  ): Promise<string | null> {
     try {
       const titleGenerator = getTitleGenerator();
-      const title = await titleGenerator.generateTitle(userMessage, assistantResponse, async (messages) => {
-        const llmClient = this.chatManager.getLLMClient();
-        const response = await llmClient.sendMessage(messages as any, {});
-        return response?.content || null;
-      });
+      const title = await titleGenerator.generateTitle(
+        userMessage,
+        assistantResponse,
+        async (messages) => {
+          const llmClient = this.chatManager.getLLMClient();
+          const response = await llmClient.sendMessage(messages as any, {});
+          return response?.content || null;
+        }
+      );
       return title;
     } catch (error) {
       logger.warning('Failed to generate session title', error);

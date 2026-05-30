@@ -1109,7 +1109,8 @@ $source.Close()
   ): Promise<SpeechRecognitionResult | null> {
     const result: STTResult = await STTRegistry.transcribe(audioData, {
       ...options,
-      language: options?.language || this.config.sttLanguage || this.config.language,
+      language:
+        options?.language || this.config.sttLanguage || this.config.language,
       keyterms: options?.keyterms || this.config.sttKeyterms,
     });
 
@@ -1197,8 +1198,16 @@ $source.Close()
       logger.error('synthesizeSpeech · 格式转换异常', { error });
       return result.audioData;
     } finally {
-      try { await unlink(tmpInput); } catch { /* ignore */ }
-      try { await unlink(tmpOutput); } catch { /* ignore */ }
+      try {
+        await unlink(tmpInput);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await unlink(tmpOutput);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -1226,15 +1235,20 @@ $source.Close()
         resolvedSpeed = options.speed ?? persona.speed;
         resolvedProvider = persona.provider;
       } else {
-        logger.warn('VoiceService · 人设不存在', { personaId: options.personaId });
+        logger.warn('VoiceService · 人设不存在', {
+          personaId: options.personaId,
+        });
       }
     }
 
-    const result = await TTSRegistry.speak({
-      text: options.text,
-      voice: resolvedVoice,
-      speed: resolvedSpeed,
-    }, resolvedProvider);
+    const result = await TTSRegistry.speak(
+      {
+        text: options.text,
+        voice: resolvedVoice,
+        speed: resolvedSpeed,
+      },
+      resolvedProvider
+    );
 
     if (!result.success) {
       this.isSpeaking = false;

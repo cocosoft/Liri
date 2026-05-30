@@ -75,7 +75,10 @@ function renderStepLine(
   const isCompleted = steps[stepIndex].status === 'completed';
 
   return (
-    <Text dimColor={!isCompleted} color={isCompleted ? completedColor : undefined}>
+    <Text
+      dimColor={!isCompleted}
+      color={isCompleted ? completedColor : undefined}
+    >
       {' ─ '}
     </Text>
   );
@@ -168,9 +171,7 @@ function VerticalStepIndicator({
                     <Text color={color}>[{icon}]</Text>
                   )}
                 </Text>
-                {!isLast && (
-                  <Text dimColor>│</Text>
-                )}
+                {!isLast && <Text dimColor>│</Text>}
               </Box>
               <Box flexDirection="column" marginLeft={1}>
                 <Text

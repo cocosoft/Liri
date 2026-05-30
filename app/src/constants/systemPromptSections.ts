@@ -33,7 +33,13 @@ import { SkillInjectionService } from '@modules/skills/services/SkillInjectionSe
 
 /** 技能注入服务单例 */
 export const skillInjectionService = new SkillInjectionService({
-  builtinSkillsDir: join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills'),
+  builtinSkillsDir: join(
+    resolveProjectRoot(),
+    'app',
+    'src',
+    'builtin',
+    'skills'
+  ),
 });
 
 /**

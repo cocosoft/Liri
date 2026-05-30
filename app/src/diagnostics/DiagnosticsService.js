@@ -582,8 +582,14 @@ class DiagnosticsService {
    */
   async checkConfiguration() {
     const configFiles = [
-      { name: 'package.json', path: join(resolveProjectRoot(), 'package.json') },
-      { name: 'tsconfig.json', path: join(resolveProjectRoot(), 'tsconfig.json') },
+      {
+        name: 'package.json',
+        path: join(resolveProjectRoot(), 'package.json'),
+      },
+      {
+        name: 'tsconfig.json',
+        path: join(resolveProjectRoot(), 'tsconfig.json'),
+      },
       { name: '.env', path: join(resolveProjectRoot(), '.env') },
     ];
 

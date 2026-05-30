@@ -61,9 +61,10 @@ export class NPMRegistryAdapter implements RegistryAdapter {
           description: obj.package.description || '',
           registry: 'third_party' as const,
           sourceRegistry: 'npm' as ThirdPartyRegistry,
-          author: typeof obj.package.author === 'string'
-            ? obj.package.author
-            : obj.package.author?.name || 'unknown',
+          author:
+            typeof obj.package.author === 'string'
+              ? obj.package.author
+              : obj.package.author?.name || 'unknown',
           categories: obj.package.keywords || [],
           isOfficial: false,
           installTypes: ['npm'],
@@ -107,9 +108,10 @@ export class NPMRegistryAdapter implements RegistryAdapter {
         description: pkg.description || '',
         registry: 'third_party',
         sourceRegistry: 'npm',
-        author: typeof pkg.author === 'string'
-          ? pkg.author
-          : pkg.author?.name || 'unknown',
+        author:
+          typeof pkg.author === 'string'
+            ? pkg.author
+            : pkg.author?.name || 'unknown',
         categories: pkg.keywords || [],
         isOfficial: false,
         installTypes: ['npm'],
@@ -122,7 +124,8 @@ export class NPMRegistryAdapter implements RegistryAdapter {
         requiredEnv: [],
         exampleConfig: {},
         license: pkg.license || '',
-        repository: typeof pkg.repository === 'object' ? pkg.repository?.url || '' : '',
+        repository:
+          typeof pkg.repository === 'object' ? pkg.repository?.url || '' : '',
         knownIssues: [],
       };
     } catch (error) {
@@ -131,11 +134,15 @@ export class NPMRegistryAdapter implements RegistryAdapter {
     }
   }
 
-  async getCategories(): Promise<Array<{ id: string; name: string; count: number }>> {
+  async getCategories(): Promise<
+    Array<{ id: string; name: string; count: number }>
+  > {
     return [];
   }
 
-  async buildInstallConfig(serverId: string): Promise<ServerInstallConfig | null> {
+  async buildInstallConfig(
+    serverId: string
+  ): Promise<ServerInstallConfig | null> {
     return {
       name: serverId,
       command: 'npx',
@@ -152,7 +159,7 @@ export class NPMRegistryAdapter implements RegistryAdapter {
           timeout: this.timeout,
           headers: {
             'User-Agent': 'PY_APP-MCPMarketplace/1.0',
-            'Accept': 'application/json',
+            Accept: 'application/json',
           },
         },
         (res) => {
@@ -162,7 +169,11 @@ export class NPMRegistryAdapter implements RegistryAdapter {
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString('utf-8');
 
-            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            if (
+              res.statusCode &&
+              res.statusCode >= 200 &&
+              res.statusCode < 300
+            ) {
               try {
                 resolve(JSON.parse(body));
               } catch {

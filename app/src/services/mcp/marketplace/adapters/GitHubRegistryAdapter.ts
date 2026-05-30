@@ -69,7 +69,10 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
     return parts.join(' ');
   }
 
-  private parseResponse(data: GitHubSearchResponse, _cacheKey: string): SearchResult[] {
+  private parseResponse(
+    data: GitHubSearchResponse,
+    _cacheKey: string
+  ): SearchResult[] {
     return (data.items || []).map((repo) => ({
       server: {
         name: repo.full_name,
@@ -129,11 +132,15 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
     }
   }
 
-  async getCategories(): Promise<Array<{ id: string; name: string; count: number }>> {
+  async getCategories(): Promise<
+    Array<{ id: string; name: string; count: number }>
+  > {
     return [];
   }
 
-  async buildInstallConfig(serverId: string): Promise<ServerInstallConfig | null> {
+  async buildInstallConfig(
+    serverId: string
+  ): Promise<ServerInstallConfig | null> {
     const detail = await this.getServerDetail(serverId);
 
     if (!detail) {
@@ -145,7 +152,12 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
     return {
       name: pkgName,
       command: 'npx',
-      args: ['-y', pkgName.startsWith('@') ? pkgName : `@modelcontextprotocol/server-${pkgName}`],
+      args: [
+        '-y',
+        pkgName.startsWith('@')
+          ? pkgName
+          : `@modelcontextprotocol/server-${pkgName}`,
+      ],
       env: {},
     };
   }
@@ -156,7 +168,10 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
         url,
         {
           timeout: this.timeout,
-          headers: { 'User-Agent': 'PY_APP-MCPMarketplace/1.0', Accept: 'application/vnd.github.v3+json' },
+          headers: {
+            'User-Agent': 'PY_APP-MCPMarketplace/1.0',
+            Accept: 'application/vnd.github.v3+json',
+          },
         },
         (res) => {
           const chunks: Buffer[] = [];
@@ -171,7 +186,11 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
               return;
             }
 
-            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            if (
+              res.statusCode &&
+              res.statusCode >= 200 &&
+              res.statusCode < 300
+            ) {
               try {
                 resolve(JSON.parse(body));
               } catch {

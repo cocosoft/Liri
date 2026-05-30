@@ -700,7 +700,10 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/mcp/marketplace/categories') {
       return this.handleMCPMarketplaceCategories(req, res);
     }
-    if (req.method === 'GET' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)) {
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)
+    ) {
       return this.handleMCPMarketplaceServerDetail(
         req,
         res,
@@ -710,21 +713,30 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/mcp/marketplace/installed') {
       return this.handleMCPInstalledServers(req, res);
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)) {
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)
+    ) {
       return this.handleMCPInstallServer(
         req,
         res,
         url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)![1]
       );
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)) {
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)
+    ) {
       return this.handleMCPUninstallServer(
         req,
         res,
         url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)![1]
       );
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)) {
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)
+    ) {
       return this.handleMCPToggleServer(
         req,
         res,
@@ -3331,14 +3343,24 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const parsedUrl = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
       const query = parsedUrl.searchParams.get('query') || '';
       const category = parsedUrl.searchParams.get('category') || undefined;
-      const registry = parsedUrl.searchParams.get('registry') as any || undefined;
-      const sourceRegistry = parsedUrl.searchParams.get('sourceRegistry') as any || undefined;
+      const registry =
+        (parsedUrl.searchParams.get('registry') as any) || undefined;
+      const sourceRegistry =
+        (parsedUrl.searchParams.get('sourceRegistry') as any) || undefined;
 
       const { mcpSystem } = await import('@modules/services/mcp');
-      const results = await mcpSystem.marketplace.search({ query, category, registry, sourceRegistry });
+      const results = await mcpSystem.marketplace.search({
+        query,
+        category,
+        registry,
+        sourceRegistry,
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(results));
@@ -3470,7 +3492,11 @@ export class LocalHTTPService {
 
       if (enabled === undefined) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'enabled field is required (true/false)' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'enabled field is required (true/false)' },
+          })
+        );
         return;
       }
 

@@ -28,7 +28,14 @@ const logger = new Logger({ level: LogLevel.INFO });
 /**
  * 内置主题目录（相对于 src/ui/theme/）
  */
-const BUILTIN_THEMES_DIR = join(resolveProjectRoot(), 'app', 'src', 'ui', 'theme', 'builtin');
+const BUILTIN_THEMES_DIR = join(
+  resolveProjectRoot(),
+  'app',
+  'src',
+  'ui',
+  'theme',
+  'builtin'
+);
 
 /**
  * 用户主题目录

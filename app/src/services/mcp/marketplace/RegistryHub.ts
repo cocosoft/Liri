@@ -32,7 +32,9 @@ export class RegistryHub {
 
   registerAdapter(adapter: RegistryAdapter): void {
     this.adapters.set(adapter.id, adapter);
-    logger.info(`注册 MCP 注册表适配器: ${adapter.id} (${adapter.displayName})`);
+    logger.info(
+      `注册 MCP 注册表适配器: ${adapter.id} (${adapter.displayName})`
+    );
   }
 
   unregisterAdapter(id: string): void {
@@ -133,7 +135,9 @@ export class RegistryHub {
     return null;
   }
 
-  async buildInstallConfig(serverId: string): Promise<ServerInstallConfig | null> {
+  async buildInstallConfig(
+    serverId: string
+  ): Promise<ServerInstallConfig | null> {
     const results = await Promise.allSettled(
       Array.from(this.adapters.values()).map((adapter) =>
         adapter.buildInstallConfig(serverId)
@@ -155,26 +159,43 @@ export class RegistryHub {
     sourceRegistry?: ThirdPartyRegistry;
   }> {
     for (const adapter of this.adapters.values()) {
-      const config = await adapter.buildInstallConfig(serverId).catch(() => null);
+      const config = await adapter
+        .buildInstallConfig(serverId)
+        .catch(() => null);
 
       if (config) {
         if (adapter.id === 'official') {
           return { config, installedFrom: 'official' };
         }
 
-        return { config, installedFrom: 'third_party', sourceRegistry: adapter.sourceRegistry || 'manual' };
+        return {
+          config,
+          installedFrom: 'third_party',
+          sourceRegistry: adapter.sourceRegistry || 'manual',
+        };
       }
     }
 
-    return { config: null, installedFrom: 'third_party', sourceRegistry: 'manual' };
+    return {
+      config: null,
+      installedFrom: 'third_party',
+      sourceRegistry: 'manual',
+    };
   }
 
-  async getCategories(): Promise<Array<{ id: string; name: string; count: number }>> {
+  async getCategories(): Promise<
+    Array<{ id: string; name: string; count: number }>
+  > {
     const results = await Promise.allSettled(
-      Array.from(this.adapters.values()).map((adapter) => adapter.getCategories())
+      Array.from(this.adapters.values()).map((adapter) =>
+        adapter.getCategories()
+      )
     );
 
-    const categoryMap = new Map<string, { id: string; name: string; count: number }>();
+    const categoryMap = new Map<
+      string,
+      { id: string; name: string; count: number }
+    >();
 
     for (const result of results) {
       if (result.status === 'rejected') continue;

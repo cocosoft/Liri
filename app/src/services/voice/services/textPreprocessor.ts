@@ -58,8 +58,10 @@ const RE_MULTI_SPACE = /[ \t]+/g;
 const RE_MULTI_NEWLINE = /\n{3,}/g;
 const RE_LEADING_TRAILING_SPACE = /^[\s\n]+|[\s\n]+$/g;
 const RE_CJK = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
-const RE_CJK_EN_SPACE = /([\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff])([a-zA-Z0-9@#$%&])/g;
-const RE_EN_CJK_SPACE = /([a-zA-Z0-9@#$%&])([\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff])/g;
+const RE_CJK_EN_SPACE =
+  /([\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff])([a-zA-Z0-9@#$%&])/g;
+const RE_EN_CJK_SPACE =
+  /([a-zA-Z0-9@#$%&])([\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff])/g;
 const RE_SPECIAL_CHARS = /[……]{2,}/g;
 const RE_EM_DASH = /—{2,}/g;
 const RE_CONSECUTIVE_DOTS = /\.{3,}/g;

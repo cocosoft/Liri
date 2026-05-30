@@ -59,7 +59,8 @@ export class MCPMarketplace {
       throw new Error(`MCP 服务器 "${serverId}" 已安装`);
     }
 
-    const { config, installedFrom, sourceRegistry } = await this.registryHub.resolveInstallSource(serverId);
+    const { config, installedFrom, sourceRegistry } =
+      await this.registryHub.resolveInstallSource(serverId);
 
     if (!config) {
       throw new Error(`无法为 "${serverId}" 生成安装配置`);
@@ -87,7 +88,9 @@ export class MCPMarketplace {
       env: config.env,
     });
 
-    logger.info(`MCP 服务器已安装: ${serverId}，来源: ${installedFrom}${sourceRegistry ? `(${sourceRegistry})` : ''}`);
+    logger.info(
+      `MCP 服务器已安装: ${serverId}，来源: ${installedFrom}${sourceRegistry ? `(${sourceRegistry})` : ''}`
+    );
   }
 
   /**
@@ -126,7 +129,8 @@ export class MCPMarketplace {
     return {
       metadata,
       config,
-      connected: serverInfo?.status === MCPServerStatus.CONNECTED ||
+      connected:
+        serverInfo?.status === MCPServerStatus.CONNECTED ||
         serverInfo?.status?.toString() === 'connected',
     };
   }
@@ -149,7 +153,10 @@ export class MCPMarketplace {
   /**
    * 更新服务器配置信息
    */
-  async updateConfig(name: string, updates: Partial<ServerInstallConfig>): Promise<void> {
+  async updateConfig(
+    name: string,
+    updates: Partial<ServerInstallConfig>
+  ): Promise<void> {
     const existing = this.store.getServer(name);
 
     if (!existing) {
@@ -171,10 +178,11 @@ export class MCPMarketplace {
   /**
    * 获取分类列表
    */
-  async getCategories(): Promise<Array<{ id: string; name: string; count: number }>> {
+  async getCategories(): Promise<
+    Array<{ id: string; name: string; count: number }>
+  > {
     return await this.registryHub.getCategories();
   }
-
 }
 
 export const mcpMarketplace = new MCPMarketplace();

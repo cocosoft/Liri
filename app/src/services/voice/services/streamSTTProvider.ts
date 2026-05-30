@@ -236,7 +236,9 @@ export class StreamSTTProvider implements STTProvider {
   /**
    * 创建内部流式连接
    */
-  private createStreamInternal(options?: STTStreamOptions): StreamSTTConnectionImpl {
+  private createStreamInternal(
+    options?: STTStreamOptions
+  ): StreamSTTConnectionImpl {
     const wsUrl = this.buildWsUrl(options);
     const headers = this.buildHeaders();
 
@@ -257,9 +259,7 @@ export class StreamSTTProvider implements STTProvider {
       channels: String(this.config.channels || 1),
       endpointing_ms: String(this.config.endpointingMs || 300),
       utterance_end_ms: String(this.config.utteranceEndMs || 1000),
-      language: options?.language
-        ? options.language.split('-')[0]
-        : 'en',
+      language: options?.language ? options.language.split('-')[0] : 'en',
     });
 
     if (options?.keyterms?.length) {
@@ -304,7 +304,8 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
   private resolveFinalize: ((source: FinalizeSource) => void) | null = null;
   private cancelNoDataTimer: (() => void) | null = null;
 
-  private transcriptCallbacks: Array<(text: string, isFinal: boolean) => void> = [];
+  private transcriptCallbacks: Array<(text: string, isFinal: boolean) => void> =
+    [];
   private errorCallbacks: Array<(error: Error) => void> = [];
   private endCallbacks: Array<() => void> = [];
 
@@ -350,9 +351,10 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
     };
 
     ws.onmessage = (event: MessageEvent) => {
-      const raw = typeof event.data === 'string'
-        ? event.data
-        : new TextDecoder().decode(event.data as BufferSource);
+      const raw =
+        typeof event.data === 'string'
+          ? event.data
+          : new TextDecoder().decode(event.data as BufferSource);
       let msg: StreamMessage;
 
       try {

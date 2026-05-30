@@ -50,7 +50,12 @@ export interface DeliveryQueueEntry {
 
 export interface DeliveryPayload {
   deliver: string;
-  origin?: { platform: string; chatId: string; chatName?: string; threadId?: string };
+  origin?: {
+    platform: string;
+    chatId: string;
+    chatName?: string;
+    threadId?: string;
+  };
   result: {
     success: boolean;
     output: string;
@@ -103,13 +108,17 @@ export class DeliveryQueue {
     return new Promise((resolve, reject) => {
       this.db = new Database(this.dbPath, (err) => {
         if (err) {
-          logger.error('[DeliveryQueue] 打开数据库失败', { error: err.message });
+          logger.error('[DeliveryQueue] 打开数据库失败', {
+            error: err.message,
+          });
           reject(err);
           return;
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
           if (schemaErr) {
-            logger.error('[DeliveryQueue] 初始化表结构失败', { error: schemaErr.message });
+            logger.error('[DeliveryQueue] 初始化表结构失败', {
+              error: schemaErr.message,
+            });
             reject(schemaErr);
             return;
           }
@@ -144,7 +153,7 @@ export class DeliveryQueue {
   async enqueue(
     job: CronJob,
     result: CronJobResult,
-    error?: string,
+    error?: string
   ): Promise<string> {
     const db = this.ensureDb();
     const id = `del-${job.id}-${Date.now()}`;
@@ -171,15 +180,27 @@ export class DeliveryQueue {
     return new Promise((resolve, reject) => {
       db.run(
         sql,
-        [id, job.id, JSON.stringify(payload), this.config.defaultMaxAttempts, now, error ?? null, now, Date.now()],
+        [
+          id,
+          job.id,
+          JSON.stringify(payload),
+          this.config.defaultMaxAttempts,
+          now,
+          error ?? null,
+          now,
+          Date.now(),
+        ],
         (err) => {
           if (err) {
-            logger.error('[DeliveryQueue] 入队失败', { jobId: job.id, error: err.message });
+            logger.error('[DeliveryQueue] 入队失败', {
+              jobId: job.id,
+              error: err.message,
+            });
             reject(err);
             return;
           }
           resolve(id);
-        },
+        }
       );
     });
   }
@@ -217,7 +238,7 @@ export class DeliveryQueue {
         (err) => {
           if (err) reject(err);
           else resolve();
-        },
+        }
       );
     });
   }
@@ -232,7 +253,7 @@ export class DeliveryQueue {
         (err) => {
           if (err) reject(err);
           else resolve();
-        },
+        }
       );
     });
   }
@@ -255,7 +276,7 @@ export class DeliveryQueue {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
       return false;
@@ -271,7 +292,7 @@ export class DeliveryQueue {
         (err) => {
           if (err) reject(err);
           else resolve();
-        },
+        }
       );
     });
     return true;
@@ -287,7 +308,7 @@ export class DeliveryQueue {
         (err, row) => {
           if (err) reject(err);
           else resolve(row ? rowToEntry(row) : undefined);
-        },
+        }
       );
     });
   }
@@ -302,7 +323,7 @@ export class DeliveryQueue {
         (err, rows) => {
           if (err) reject(err);
           else resolve((rows as any[]).map(rowToEntry));
-        },
+        }
       );
     });
   }
@@ -333,7 +354,7 @@ export class DeliveryQueue {
             failed: row.failed || 0,
             total: row.total || 0,
           });
-        },
+        }
       );
     });
   }
@@ -352,7 +373,7 @@ export class DeliveryQueue {
         function (this: any, err) {
           if (err) reject(err);
           else resolve(this.changes || 0);
-        },
+        }
       );
     });
   }
@@ -371,7 +392,7 @@ export class DeliveryQueue {
         (err) => {
           if (err) reject(err);
           else resolve();
-        },
+        }
       );
     });
   }
@@ -390,7 +411,7 @@ export class DeliveryQueue {
         function (this: any, err) {
           if (err) reject(err);
           else resolve(this.changes || 0);
-        },
+        }
       );
     });
   }
@@ -412,7 +433,9 @@ export class DeliveryQueue {
   }
 
   /** 处理下一批待重试投递 */
-  async processNext(handler?: (entry: DeliveryQueueEntry) => Promise<boolean>): Promise<number> {
+  async processNext(
+    handler?: (entry: DeliveryQueueEntry) => Promise<boolean>
+  ): Promise<number> {
     const pending = await this.getPending();
     if (pending.length === 0) return 0;
 

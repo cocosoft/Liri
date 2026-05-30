@@ -56,7 +56,16 @@ export class ProcessSubAgent implements SubAgent {
     try {
       // 准备启动参数
       const executable = this.config.executable || process.execPath;
-      const args = this.config.args || [join(resolveProjectRoot(), 'app', 'src', 'subagent', 'types', 'process-subagent.js')];
+      const args = this.config.args || [
+        join(
+          resolveProjectRoot(),
+          'app',
+          'src',
+          'subagent',
+          'types',
+          'process-subagent.js'
+        ),
+      ];
       const cwd = this.config.cwd || process.cwd();
       const env = {
         ...process.env,

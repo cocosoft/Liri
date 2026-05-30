@@ -1,11 +1,5 @@
 import type { SessionId, AcpServerOptions } from '../types.js';
-import type {
-  AcpRuntime,
-  AcpRuntimeHandle,
-  AcpRuntimeEvent,
-  AcpRuntimeStatus,
-  AcpRuntimeCapabilities,
-} from '../runtime/types.js';
+import type { AcpRuntime, AcpRuntimeHandle } from '../runtime/types.js';
 import type { AcpSessionStore } from '../session.js';
 import type { GatewayClient } from '../server.js';
 

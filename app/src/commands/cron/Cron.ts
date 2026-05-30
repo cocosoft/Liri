@@ -5,7 +5,11 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
-import type { CronJob, CronSchedule, CronJobFilter } from '@modules/tasks/cron/types';
+import type {
+  CronJob,
+  CronSchedule,
+  CronJobFilter,
+} from '@modules/tasks/cron/types';
 import { resolveDataDir } from '@modules/config/paths';
 import { join } from 'path';
 
@@ -55,8 +59,10 @@ function formatDate(iso: string | undefined): string {
 function formatJobTable(jobs: CronJob[]): string {
   if (jobs.length === 0) return '暂无作业';
 
-  const header = 'ID         | 名称                | 调度            | 状态        | 下次运行   ';
-  const sep = '-----------+---------------------+-----------------+-------------+-------------';
+  const header =
+    'ID         | 名称                | 调度            | 状态        | 下次运行   ';
+  const sep =
+    '-----------+---------------------+-----------------+-------------+-------------';
   const rows = jobs.map((j) => {
     const id = j.id.padEnd(10).slice(0, 10);
     const name = j.name.padEnd(20).slice(0, 20);
@@ -70,7 +76,10 @@ function formatJobTable(jobs: CronJob[]): string {
 }
 
 export default {
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const parts = args.trim().split(/\s+/);
     const subcommand = parts[0]?.toLowerCase() || '';
 
@@ -177,14 +186,22 @@ export default {
 
   async handlePause(jobId?: string): Promise<CommandResult> {
     if (!jobId) {
-      return { success: false, type: 'text', message: '请提供作业 ID: /cron pause <ID>' };
+      return {
+        success: false,
+        type: 'text',
+        message: '请提供作业 ID: /cron pause <ID>',
+      };
     }
 
     try {
       const store = await getStore();
       const job = await store.getJob(jobId);
       if (!job) {
-        return { success: false, type: 'text', message: `作业 "${jobId}" 不存在` };
+        return {
+          success: false,
+          type: 'text',
+          message: `作业 "${jobId}" 不存在`,
+        };
       }
 
       await store.pauseJob(jobId, '用户手动暂停');
@@ -205,14 +222,22 @@ export default {
 
   async handleResume(jobId?: string): Promise<CommandResult> {
     if (!jobId) {
-      return { success: false, type: 'text', message: '请提供作业 ID: /cron resume <ID>' };
+      return {
+        success: false,
+        type: 'text',
+        message: '请提供作业 ID: /cron resume <ID>',
+      };
     }
 
     try {
       const store = await getStore();
       const job = await store.getJob(jobId);
       if (!job) {
-        return { success: false, type: 'text', message: `作业 "${jobId}" 不存在` };
+        return {
+          success: false,
+          type: 'text',
+          message: `作业 "${jobId}" 不存在`,
+        };
       }
 
       const nextRun = new Date(Date.now() + 5 * 60 * 1000).toISOString();
@@ -234,7 +259,11 @@ export default {
 
   async handleDelete(jobId?: string): Promise<CommandResult> {
     if (!jobId) {
-      return { success: false, type: 'text', message: '请提供作业 ID: /cron delete <ID>' };
+      return {
+        success: false,
+        type: 'text',
+        message: '请提供作业 ID: /cron delete <ID>',
+      };
     }
 
     try {
@@ -243,7 +272,9 @@ export default {
       if (!job && jobId.length >= 4) {
         // 尝试部分匹配
         const all = await store.loadJobs();
-        const match = all.find((j: CronJob) => j.id.startsWith(jobId) || j.name.includes(jobId));
+        const match = all.find(
+          (j: CronJob) => j.id.startsWith(jobId) || j.name.includes(jobId)
+        );
         if (match) {
           await store.deleteJob(match.id);
           return {
@@ -252,11 +283,19 @@ export default {
             message: `🗑️ 作业 "${match.name}" (${match.id}) 已删除`,
           };
         }
-        return { success: false, type: 'text', message: `没有匹配的作业: ${jobId}` };
+        return {
+          success: false,
+          type: 'text',
+          message: `没有匹配的作业: ${jobId}`,
+        };
       }
 
       if (!job) {
-        return { success: false, type: 'text', message: `作业 "${jobId}" 不存在` };
+        return {
+          success: false,
+          type: 'text',
+          message: `作业 "${jobId}" 不存在`,
+        };
       }
 
       await store.deleteJob(jobId);
@@ -302,14 +341,22 @@ export default {
 
   async handleView(jobId?: string): Promise<CommandResult> {
     if (!jobId) {
-      return { success: false, type: 'text', message: '请提供作业 ID: /cron view <ID>' };
+      return {
+        success: false,
+        type: 'text',
+        message: '请提供作业 ID: /cron view <ID>',
+      };
     }
 
     try {
       const store = await getStore();
       const job = await store.getJob(jobId);
       if (!job) {
-        return { success: false, type: 'text', message: `作业 "${jobId}" 不存在` };
+        return {
+          success: false,
+          type: 'text',
+          message: `作业 "${jobId}" 不存在`,
+        };
       }
 
       const lines: string[] = [
@@ -326,7 +373,8 @@ export default {
       ];
 
       if (job.prompt) lines.push(`Prompt:    ${job.prompt}`);
-      if (job.skills.length > 0) lines.push(`技能:      ${job.skills.join(', ')}`);
+      if (job.skills.length > 0)
+        lines.push(`技能:      ${job.skills.join(', ')}`);
       if (job.nextRunAt) lines.push(`下次运行:  ${formatDate(job.nextRunAt)}`);
       if (job.lastRunAt) lines.push(`上次运行:  ${formatDate(job.lastRunAt)}`);
       if (job.lastStatus) lines.push(`上次状态:  ${job.lastStatus}`);
@@ -335,7 +383,8 @@ export default {
       if (job.model) lines.push(`模型:      ${job.model}`);
       if (job.script) lines.push(`脚本:      ${job.script}`);
       if (job.noAgent) lines.push(`模式:      无 Agent（脚本输出直投）`);
-      if (job.origin) lines.push(`来源:      ${job.origin.platform}/${job.origin.chatId}`);
+      if (job.origin)
+        lines.push(`来源:      ${job.origin.platform}/${job.origin.chatId}`);
       if (job.ownerKey) lines.push(`所有者:   ${job.ownerKey}`);
       if (job.sessionKey) lines.push(`会话:      ${job.sessionKey}`);
 

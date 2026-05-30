@@ -1,6 +1,10 @@
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { HeartbeatRecord, HeartbeatTimeoutEvent, HeartbeatManagerOptions } from './types';
+import type {
+  HeartbeatRecord,
+  HeartbeatTimeoutEvent,
+  HeartbeatManagerOptions,
+} from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -24,7 +28,10 @@ export class HeartbeatManager extends EventEmitter {
       startedAt: now,
       ttlMs: ttlMs ?? this.defaultTtlMs,
     });
-    logger.debug('[HeartbeatManager] 注册心跳', { taskId, ttlMs: ttlMs ?? this.defaultTtlMs });
+    logger.debug('[HeartbeatManager] 注册心跳', {
+      taskId,
+      ttlMs: ttlMs ?? this.defaultTtlMs,
+    });
   }
 
   unregister(taskId: string): void {
@@ -88,7 +95,11 @@ export class HeartbeatManager extends EventEmitter {
     this.detectTimer = setInterval(() => {
       this.detectTimeout();
     }, this.detectIntervalMs);
-    if (this.detectTimer && typeof this.detectTimer === 'object' && 'unref' in this.detectTimer) {
+    if (
+      this.detectTimer &&
+      typeof this.detectTimer === 'object' &&
+      'unref' in this.detectTimer
+    ) {
       this.detectTimer.unref();
     }
   }

@@ -32,7 +32,4 @@ export {
   ModuleHealthRegistry,
   moduleHealthRegistry,
 } from './ModuleHealthRegistry';
-export type {
-  ModuleHealth,
-  ModuleHealthCheck,
-} from './ModuleHealthRegistry';
+export type { ModuleHealth, ModuleHealthCheck } from './ModuleHealthRegistry';

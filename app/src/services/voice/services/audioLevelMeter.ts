@@ -13,7 +13,12 @@
 /**
  * 电平等级
  */
-export type LevelCategory = 'silent' | 'quiet' | 'moderate' | 'loud' | 'clipping';
+export type LevelCategory =
+  | 'silent'
+  | 'quiet'
+  | 'moderate'
+  | 'loud'
+  | 'clipping';
 
 /**
  * 电平测量结果
@@ -260,7 +265,10 @@ export class AudioLevelMeter {
   /**
    * 合并缓冲区
    */
-  private concatBuffer(existing: Float64Array, newData: Float64Array): Float64Array {
+  private concatBuffer(
+    existing: Float64Array,
+    newData: Float64Array
+  ): Float64Array {
     if (existing.length === 0) return newData;
 
     const result = new Float64Array(existing.length + newData.length);

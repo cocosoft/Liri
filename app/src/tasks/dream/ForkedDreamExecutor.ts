@@ -35,7 +35,15 @@ export class ForkedDreamExecutor extends EventEmitter {
 
   private init(): Promise<ForkedDreamResult> {
     const workerPath =
-      this.config.workerScript || path.join(resolveProjectRoot(), 'app', 'src', 'tasks', 'dream', 'dreamWorker.js');
+      this.config.workerScript ||
+      path.join(
+        resolveProjectRoot(),
+        'app',
+        'src',
+        'tasks',
+        'dream',
+        'dreamWorker.js'
+      );
 
     return new Promise((resolve) => {
       const child = fork(workerPath, [], {

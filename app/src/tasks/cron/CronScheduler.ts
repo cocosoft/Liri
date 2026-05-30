@@ -4,7 +4,13 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { CronJob, CronJobResult, CronJobState, CronSchedulerConfig, CronSchedulerStatus } from './types';
+import type {
+  CronJob,
+  CronJobResult,
+  CronJobState,
+  CronSchedulerConfig,
+  CronSchedulerStatus,
+} from './types';
 import { validateCronTransition } from './types';
 import { CronJobStore } from './CronJobStore';
 import type { DeliveryQueue, DeliveryQueueEntry } from './DeliveryQueue';
@@ -28,7 +34,7 @@ export type JobExecutor = (job: CronJob) => Promise<CronJobResult>;
 /** 投递器函数签名 */
 export type DeliveryDispatcher = (
   job: CronJob,
-  result: CronJobResult,
+  result: CronJobResult
 ) => Promise<void>;
 
 /** 调度回调 */
@@ -40,10 +46,7 @@ export interface SchedulerCallbacks {
 /** 调度锁管理器 */
 const lockRegistry = new Map<string, SchedulerLock>();
 
-function acquireLock(
-  identity: string,
-  ttlMs: number = 30000,
-): SchedulerLock {
+function acquireLock(identity: string, ttlMs: number = 30000): SchedulerLock {
   const existing = lockRegistry.get(identity);
   if (existing && Date.now() - existing.acquiredAt < ttlMs) {
     return { acquired: false, identity, acquiredAt: existing.acquiredAt };
@@ -78,7 +81,7 @@ export class CronScheduler {
     store: CronJobStore,
     callbacks: SchedulerCallbacks,
     config?: CronSchedulerConfig,
-    deliveryQueue?: DeliveryQueue,
+    deliveryQueue?: DeliveryQueue
   ) {
     this.store = store;
     this.callbacks = callbacks;
@@ -217,11 +220,7 @@ export class CronScheduler {
     }
 
     // 持久化执行结果
-    await this.store.markJobRun(
-      job.id,
-      result.success,
-      result.error,
-    );
+    await this.store.markJobRun(job.id, result.success, result.error);
 
     // 更新重复计数
     await this.store.incrementRepeatCompleted(job.id);
@@ -231,22 +230,35 @@ export class CronScheduler {
       try {
         await this.callbacks.dispatchDelivery(job, result);
       } catch (deliveryError) {
-        const errMsg = deliveryError instanceof Error ? deliveryError.message : String(deliveryError);
+        const errMsg =
+          deliveryError instanceof Error
+            ? deliveryError.message
+            : String(deliveryError);
         logger.error('[CronScheduler] 投递失败', {
           jobId: job.id,
           error: errMsg,
         });
-        await this.store.markJobRun(job.id, result.success, result.error, errMsg);
+        await this.store.markJobRun(
+          job.id,
+          result.success,
+          result.error,
+          errMsg
+        );
 
         // 将失败投递加入重试队列
         if (this.deliveryQueue) {
           try {
             await this.deliveryQueue.enqueue(job, result, errMsg);
-            logger.info('[CronScheduler] 投递已加入重试队列', { jobId: job.id });
+            logger.info('[CronScheduler] 投递已加入重试队列', {
+              jobId: job.id,
+            });
           } catch (queueError) {
             logger.error('[CronScheduler] 加入重试队列失败', {
               jobId: job.id,
-              error: queueError instanceof Error ? queueError.message : String(queueError),
+              error:
+                queueError instanceof Error
+                  ? queueError.message
+                  : String(queueError),
             });
           }
         }
@@ -278,10 +290,7 @@ export class CronScheduler {
       }, this.config.jobTimeoutMs);
     });
 
-    return Promise.race([
-      this.callbacks.executeJob(job),
-      timeoutPromise,
-    ]);
+    return Promise.race([this.callbacks.executeJob(job), timeoutPromise]);
   }
 
   /**
@@ -289,7 +298,10 @@ export class CronScheduler {
    * 对标 hermes-agent cron/jobs.py:compute_next_run() 和 advance_next_run()
    */
   private computeNextRun(job: CronJob): string | null {
-    if (job.repeat.times !== null && job.repeat.completed + 1 >= job.repeat.times) {
+    if (
+      job.repeat.times !== null &&
+      job.repeat.completed + 1 >= job.repeat.times
+    ) {
       return null;
     }
 
@@ -341,11 +353,13 @@ export class CronScheduler {
 
     const maxIterations = 525600;
     for (let i = 0; i < maxIterations; i++) {
-      if (this.matchesField(candidate.getMinutes(), minute, 0, 59) &&
-          this.matchesField(candidate.getHours(), hour, 0, 23) &&
-          this.matchesField(candidate.getDate(), dayOfMonth, 1, 31) &&
-          this.matchesField(candidate.getMonth() + 1, month, 1, 12) &&
-          this.matchesField(candidate.getDay(), dayOfWeek, 0, 6)) {
+      if (
+        this.matchesField(candidate.getMinutes(), minute, 0, 59) &&
+        this.matchesField(candidate.getHours(), hour, 0, 23) &&
+        this.matchesField(candidate.getDate(), dayOfMonth, 1, 31) &&
+        this.matchesField(candidate.getMonth() + 1, month, 1, 12) &&
+        this.matchesField(candidate.getDay(), dayOfWeek, 0, 6)
+      ) {
         return candidate;
       }
       candidate.setTime(candidate.getTime() + 60 * 1000);
@@ -355,12 +369,19 @@ export class CronScheduler {
   }
 
   /** 校验字段是否匹配 cron 表达式段 */
-  private matchesField(value: number, pattern: string, min: number, max: number): boolean {
+  private matchesField(
+    value: number,
+    pattern: string,
+    min: number,
+    max: number
+  ): boolean {
     if (pattern === '*') return true;
 
     // 逗号分割的多值
     if (pattern.includes(',')) {
-      return pattern.split(',').some((p) => this.matchesField(value, p.trim(), min, max));
+      return pattern
+        .split(',')
+        .some((p) => this.matchesField(value, p.trim(), min, max));
     }
 
     // 步进表达式: */5, 1-10/2
@@ -369,9 +390,10 @@ export class CronScheduler {
       const step = parseInt(stepStr, 10);
       if (isNaN(step)) return false;
 
-      const [rMin, rMax] = range === '*'
-        ? [min, max]
-        : range.split('-').map((s) => parseInt(s.trim(), 10));
+      const [rMin, rMax] =
+        range === '*'
+          ? [min, max]
+          : range.split('-').map((s) => parseInt(s.trim(), 10));
 
       if (isNaN(rMin) || isNaN(rMax)) return false;
 
@@ -383,7 +405,9 @@ export class CronScheduler {
 
     // 范围表达式: 1-5
     if (pattern.includes('-')) {
-      const [pMin, pMax] = pattern.split('-').map((s) => parseInt(s.trim(), 10));
+      const [pMin, pMax] = pattern
+        .split('-')
+        .map((s) => parseInt(s.trim(), 10));
       if (isNaN(pMin) || isNaN(pMax)) return false;
       return value >= pMin && value <= pMax;
     }
@@ -431,7 +455,9 @@ export class CronScheduler {
     return this.deliveryQueue.processNext(async (entry: DeliveryQueueEntry) => {
       const job = await this.store.getJob(entry.jobId);
       if (!job) {
-        logger.warning('[CronScheduler] 投递重试：作业已不存在', { jobId: entry.jobId });
+        logger.warning('[CronScheduler] 投递重试：作业已不存在', {
+          jobId: entry.jobId,
+        });
         return false;
       }
 

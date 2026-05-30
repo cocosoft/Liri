@@ -378,10 +378,12 @@ export class VoiceServiceBridge {
       const piperConfig = this.config.service?.piper;
       if (piperConfig?.modelDir) {
         if (PiperTTSProvider.isAvailable()) {
-          TTSRegistry.register(new PiperTTSProvider({
-            modelDir: piperConfig.modelDir,
-            defaultVoice: piperConfig.defaultVoice ?? 'zh_CN-hf_female',
-          }));
+          TTSRegistry.register(
+            new PiperTTSProvider({
+              modelDir: piperConfig.modelDir,
+              defaultVoice: piperConfig.defaultVoice ?? 'zh_CN-hf_female',
+            })
+          );
         }
       }
     }
@@ -390,7 +392,8 @@ export class VoiceServiceBridge {
     STTRegistry.register(new LocalSTTProvider());
 
     const sttConfig = this.config.service?.stt;
-    const sttApiKey = sttConfig?.openAIApiKey || this.config.service?.openAIApiKey;
+    const sttApiKey =
+      sttConfig?.openAIApiKey || this.config.service?.openAIApiKey;
     if (sttApiKey) {
       const cloudProvider = new CloudSTTProvider({ apiKey: sttApiKey });
       if (cloudProvider.isAvailable()) {

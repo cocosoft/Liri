@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { AcpClientOptions, AcpClientHandle } from './types.js';
 import {
   buildServerArgs,
@@ -15,60 +15,6 @@ export interface ClientSideConnection {
   close(): void;
 }
 
-function createStdioConnection(proc: ChildProcess): ClientSideConnection {
-  let dataHandler: ((data: string) => void) | null = null;
-  let errorHandler: ((error: Error) => void) | null = null;
-  let closeHandler: (() => void) | null = null;
-
-  if (proc.stdout) {
-    proc.stdout.on('data', (chunk: Buffer) => {
-      if (dataHandler) {
-        dataHandler(chunk.toString('utf-8'));
-      }
-    });
-  }
-
-  if (proc.stderr) {
-    proc.stderr.on('data', (chunk: Buffer) => {
-      if (errorHandler) {
-        errorHandler(new Error(chunk.toString('utf-8')));
-      }
-    });
-  }
-
-  proc.on('close', () => {
-    if (closeHandler) {
-      closeHandler();
-    }
-  });
-
-  proc.on('error', (err: Error) => {
-    if (errorHandler) {
-      errorHandler(err);
-    }
-  });
-
-  return {
-    send(data: string): void {
-      if (proc.stdin) {
-        proc.stdin.write(data);
-      }
-    },
-    onData(handler: (data: string) => void): void {
-      dataHandler = handler;
-    },
-    onError(handler: (error: Error) => void): void {
-      errorHandler = handler;
-    },
-    onClose(handler: () => void): void {
-      closeHandler = handler;
-    },
-    close(): void {
-      proc.kill();
-    },
-  };
-}
-
 export async function createAcpClient(
   opts: AcpClientOptions
 ): Promise<AcpClientHandle> {
@@ -83,7 +29,7 @@ export async function createAcpClient(
     stripKeys: buildAcpClientStripKeys(),
   });
 
-  const child = spawn(invocation.command, invocation.args, {
+  spawn(invocation.command, invocation.args, {
     stdio: ['pipe', 'pipe', 'pipe'],
     env,
     shell: invocation.shell,

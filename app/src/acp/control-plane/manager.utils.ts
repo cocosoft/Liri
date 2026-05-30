@@ -1,4 +1,4 @@
-import type { AcpServerOptions, AcpProvenanceMode } from '../types.js';
+import type { AcpServerOptions } from '../types.js';
 
 export function validateServerOptions(options: AcpServerOptions): string[] {
   const errors: string[] = [];

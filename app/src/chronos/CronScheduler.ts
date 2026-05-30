@@ -66,8 +66,12 @@ class CronRegistryTask extends BaseTask {
     super(id, description, '', TaskType.CRON);
   }
 
-  async spawn(): Promise<void> { /* no-op */ }
-  async kill(): Promise<void> { /* no-op */ }
+  async spawn(): Promise<void> {
+    /* no-op */
+  }
+  async kill(): Promise<void> {
+    /* no-op */
+  }
 }
 
 /** cron task id → registryTaskId 映射 */
@@ -108,7 +112,9 @@ export function createCronScheduler(
         }
         const registryTaskId = cronTaskMap.get(t.id);
         if (registryTaskId) {
-          taskRegistry.updateState(registryTaskId, { status: TaskStatus.RUNNING });
+          taskRegistry.updateState(registryTaskId, {
+            status: TaskStatus.RUNNING,
+          });
           globalEventBus.publish(SystemEvents.TASK_STARTED, {
             taskId: registryTaskId,
             cronTaskId: t.id,

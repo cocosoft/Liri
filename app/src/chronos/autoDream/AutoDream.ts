@@ -108,8 +108,12 @@ class DreamRegistryTask extends BaseTask {
     super(id, description, '', TaskType.DREAM);
   }
 
-  async spawn(): Promise<void> { /* no-op */ }
-  async kill(): Promise<void> { /* no-op */ }
+  async spawn(): Promise<void> {
+    /* no-op */
+  }
+  async kill(): Promise<void> {
+    /* no-op */
+  }
 }
 
 /** 内部 dreamTaskId → registryTaskId 映射 */

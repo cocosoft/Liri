@@ -159,9 +159,7 @@ export class ModuleBridgeRuntime implements AcpRuntime {
     };
   }
 
-  async *runTurn(
-    input: AcpRuntimeTurnInput
-  ): AsyncIterable<AcpRuntimeEvent> {
+  async *runTurn(input: AcpRuntimeTurnInput): AsyncIterable<AcpRuntimeEvent> {
     const text = input.text.trim();
     const parts = text.split(/\s+/);
     const commandName = parts[0]?.toLowerCase() || '';
@@ -191,7 +189,10 @@ export class ModuleBridgeRuntime implements AcpRuntime {
     }
   }
 
-  async cancel(input: { handle: AcpRuntimeHandle; reason?: string }): Promise<void> {
+  async cancel(input: {
+    handle: AcpRuntimeHandle;
+    reason?: string;
+  }): Promise<void> {
     // 模块桥接操作无需取消，立即返回
   }
 
@@ -222,7 +223,8 @@ export class ModuleBridgeRuntime implements AcpRuntime {
   }
 
   async doctor(): Promise<AcpRuntimeDoctorReport> {
-    const checks: Array<{ name: string; passed: boolean; message?: string }> = [];
+    const checks: Array<{ name: string; passed: boolean; message?: string }> =
+      [];
 
     checks.push({
       name: 'TaskRegistry',
@@ -419,7 +421,10 @@ export class ModuleBridgeRuntime implements AcpRuntime {
     const action = args[0];
     if (!action || !['start', 'stop', 'restart'].includes(action)) {
       return [
-        { type: 'text_delta', text: '用法: module:daemon/action <start|stop|restart>' },
+        {
+          type: 'text_delta',
+          text: '用法: module:daemon/action <start|stop|restart>',
+        },
         { type: 'done', stopReason: 'error' },
       ];
     }
@@ -433,7 +438,10 @@ export class ModuleBridgeRuntime implements AcpRuntime {
     }
 
     return [
-      { type: 'text_delta', text: `守护进程 ${action} 操作失败: ${result.message || '未知错误'}` },
+      {
+        type: 'text_delta',
+        text: `守护进程 ${action} 操作失败: ${result.message || '未知错误'}`,
+      },
       { type: 'done', stopReason: 'error' },
     ];
   }

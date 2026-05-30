@@ -166,13 +166,15 @@ export interface CoreAPI {
   getSession(sessionId: string): Promise<SessionInfo | undefined>;
 
   /** 获取会话消息列表 */
-  getSessionMessages(sessionId: string): Promise<Array<{
-    id: string;
-    role: string;
-    content: string;
-    timestamp: number;
-    tool_calls?: Array<Record<string, unknown>>;
-  }>>;
+  getSessionMessages(sessionId: string): Promise<
+    Array<{
+      id: string;
+      role: string;
+      content: string;
+      timestamp: number;
+      tool_calls?: Array<Record<string, unknown>>;
+    }>
+  >;
 
   /** 列出所有会话 */
   listSessions(): Promise<SessionInfo[]>;
@@ -187,7 +189,11 @@ export interface CoreAPI {
   renameSession(sessionId: string, title: string): Promise<void>;
 
   /** 生成会话标题 */
-  generateSessionTitle(sessionId: string, userMessage: string, assistantResponse: string): Promise<string | null>;
+  generateSessionTitle(
+    sessionId: string,
+    userMessage: string,
+    assistantResponse: string
+  ): Promise<string | null>;
 
   /** 获取当前会话 */
   getCurrentSession(): Promise<SessionInfo | undefined>;

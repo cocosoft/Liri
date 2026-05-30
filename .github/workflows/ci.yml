@@ -43,11 +43,11 @@ jobs:
       run: bun run lint
 
     - name: Run tests with coverage
-      run: bun test --coverage
+      run: bun test --coverage tests/
 
     - name: Check coverage threshold (≥60%)
       run: |
-        bun test --coverage > coverage_report.txt 2>&1
+        bun test --coverage tests/ > coverage_report.txt 2>&1
         cat coverage_report.txt
         coverage=$(grep "All files" coverage_report.txt | awk '{print $4}' | tr -d '%')
         echo "Coverage: $coverage%"

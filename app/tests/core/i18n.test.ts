@@ -5,14 +5,14 @@
 
 import { describe, it, expect } from 'bun:test';
 
-import { I18nRegistry } from '../../src/core/i18n/registry.js';
+import { I18nRegistry } from '../../src/system/i18n/registry.js';
 import {
   I18nTranslationRegistry,
   initializeBuiltinTranslations,
   getI18nTranslationRegistry,
   t,
-} from '../../src/core/i18n/extended.js';
-import type { Locale, TranslationMap } from '../../src/core/i18n/types.js';
+} from '../../src/system/i18n/extended.js';
+import type { Locale, TranslationMap } from '../../src/system/i18n/types.js';
 
 describe('I18nRegistry', () => {
 

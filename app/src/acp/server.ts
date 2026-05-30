@@ -1,5 +1,14 @@
-import type { AcpServerOptions, SessionId, AcpWebSocketServerConfig } from './types.js';
-import type { AcpRuntime, AcpRuntimeHandle, AcpRuntimeSessionMode, AcpRuntimePromptMode } from './runtime/types.js';
+import type {
+  AcpServerOptions,
+  SessionId,
+  AcpWebSocketServerConfig,
+} from './types.js';
+import type {
+  AcpRuntime,
+  AcpRuntimeHandle,
+  AcpRuntimeSessionMode,
+  AcpRuntimePromptMode,
+} from './runtime/types.js';
 import type { AcpSessionStore } from './session.js';
 import { getDefaultSessionStore } from './session.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -20,7 +29,7 @@ const enum OpCode {
   BINARY = 0x2,
   CLOSE = 0x8,
   PING = 0x9,
-  PONG = 0xA,
+  PONG = 0xa,
 }
 
 /**
@@ -91,10 +100,10 @@ export class AcpWebSocketServer {
         if (!this.verifyUpgradeRequest(req)) {
           socket.write(
             'HTTP/1.1 401 Unauthorized\r\n' +
-            'Content-Type: text/plain\r\n' +
-            'Connection: close\r\n' +
-            '\r\n' +
-            'Unauthorized'
+              'Content-Type: text/plain\r\n' +
+              'Connection: close\r\n' +
+              '\r\n' +
+              'Unauthorized'
           );
           socket.destroy();
           return;
@@ -110,8 +119,11 @@ export class AcpWebSocketServer {
 
       this.httpServer.listen(this.config.port, this.config.host, () => {
         const addr = this.httpServer!.address();
-        const port = typeof addr === 'object' && addr ? addr.port : this.config.port;
-        logger.info(`[ACP] 远程桥接 WebSocket 服务器已启动: ws://${this.config.host}:${port}${this.config.path}`);
+        const port =
+          typeof addr === 'object' && addr ? addr.port : this.config.port;
+        logger.info(
+          `[ACP] 远程桥接 WebSocket 服务器已启动: ws://${this.config.host}:${port}${this.config.path}`
+        );
         this.started = true;
         resolve();
       });
@@ -229,11 +241,13 @@ export class AcpWebSocketServer {
       try {
         message = JSON.parse(text);
       } catch {
-        client.send(JSON.stringify({
-          type: 'error',
-          requestId: 'unknown',
-          payload: { message: '无效的 JSON 格式' },
-        }));
+        client.send(
+          JSON.stringify({
+            type: 'error',
+            requestId: 'unknown',
+            payload: { message: '无效的 JSON 格式' },
+          })
+        );
         return;
       }
 
@@ -241,11 +255,13 @@ export class AcpWebSocketServer {
       const rid = requestId || crypto.randomUUID();
 
       if (type === 'ping') {
-        client.send(JSON.stringify({
-          type: 'pong',
-          requestId: rid,
-          payload: { timestamp: Date.now() },
-        }));
+        client.send(
+          JSON.stringify({
+            type: 'pong',
+            requestId: rid,
+            payload: { timestamp: Date.now() },
+          })
+        );
         return;
       }
 
@@ -257,33 +273,43 @@ export class AcpWebSocketServer {
             mode: (payload?.mode as AcpRuntimeSessionMode) || 'persistent',
             cwd: payload?.cwd as string | undefined,
           });
-          client.send(JSON.stringify({
-            type: 'event',
-            requestId: rid,
-            payload: { handle: currentHandle },
-          }));
-          client.send(JSON.stringify({
-            type: 'done',
-            requestId: rid,
-            payload: { stopReason: 'success' },
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'event',
+              requestId: rid,
+              payload: { handle: currentHandle },
+            })
+          );
+          client.send(
+            JSON.stringify({
+              type: 'done',
+              requestId: rid,
+              payload: { stopReason: 'success' },
+            })
+          );
         } catch (error) {
-          client.send(JSON.stringify({
-            type: 'error',
-            requestId: rid,
-            payload: { message: error instanceof Error ? error.message : String(error) },
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'error',
+              requestId: rid,
+              payload: {
+                message: error instanceof Error ? error.message : String(error),
+              },
+            })
+          );
         }
         return;
       }
 
       if (type === 'run_turn') {
         if (!currentHandle) {
-          client.send(JSON.stringify({
-            type: 'error',
-            requestId: rid,
-            payload: { message: '会话未建立，请先调用 ensure_session' },
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'error',
+              requestId: rid,
+              payload: { message: '会话未建立，请先调用 ensure_session' },
+            })
+          );
           return;
         }
 
@@ -298,69 +324,83 @@ export class AcpWebSocketServer {
           for await (const event of iterable) {
             switch (event.type) {
               case 'text_delta':
-                client.send(JSON.stringify({
-                  type: 'event',
-                  requestId: rid,
-                  payload: {
-                    eventType: 'text_delta',
-                    text: event.text,
-                    stream: event.stream,
-                    tag: event.tag,
-                  },
-                }));
+                client.send(
+                  JSON.stringify({
+                    type: 'event',
+                    requestId: rid,
+                    payload: {
+                      eventType: 'text_delta',
+                      text: event.text,
+                      stream: event.stream,
+                      tag: event.tag,
+                    },
+                  })
+                );
                 break;
               case 'status':
-                client.send(JSON.stringify({
-                  type: 'event',
-                  requestId: rid,
-                  payload: {
-                    eventType: 'status',
-                    text: event.text,
-                    tag: event.tag,
-                    used: event.used,
-                    size: event.size,
-                  },
-                }));
+                client.send(
+                  JSON.stringify({
+                    type: 'event',
+                    requestId: rid,
+                    payload: {
+                      eventType: 'status',
+                      text: event.text,
+                      tag: event.tag,
+                      used: event.used,
+                      size: event.size,
+                    },
+                  })
+                );
                 break;
               case 'tool_call':
-                client.send(JSON.stringify({
-                  type: 'event',
-                  requestId: rid,
-                  payload: {
-                    eventType: 'tool_call',
-                    text: event.text,
-                    tag: event.tag,
-                    toolCallId: event.toolCallId,
-                    status: event.status,
-                    title: event.title,
-                  },
-                }));
+                client.send(
+                  JSON.stringify({
+                    type: 'event',
+                    requestId: rid,
+                    payload: {
+                      eventType: 'tool_call',
+                      text: event.text,
+                      tag: event.tag,
+                      toolCallId: event.toolCallId,
+                      status: event.status,
+                      title: event.title,
+                    },
+                  })
+                );
                 break;
               case 'error':
-                client.send(JSON.stringify({
-                  type: 'error',
-                  requestId: rid,
-                  payload: {
-                    message: event.message,
-                    code: event.code,
-                    retryable: event.retryable,
-                  },
-                }));
+                client.send(
+                  JSON.stringify({
+                    type: 'error',
+                    requestId: rid,
+                    payload: {
+                      message: event.message,
+                      code: event.code,
+                      retryable: event.retryable,
+                    },
+                  })
+                );
                 return;
             }
           }
 
-          client.send(JSON.stringify({
-            type: 'done',
-            requestId: rid,
-            payload: { stopReason: 'success' },
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'done',
+              requestId: rid,
+              payload: { stopReason: 'success' },
+            })
+          );
         } catch (error) {
-          client.send(JSON.stringify({
-            type: 'error',
-            requestId: rid,
-            payload: { message: error instanceof Error ? error.message : String(error) },
-          }));
+          client.send(
+            JSON.stringify({
+              type: 'error',
+              requestId: rid,
+              payload: {
+                message: error instanceof Error ? error.message : String(error),
+              },
+            })
+          );
         }
         return;
       }
@@ -372,11 +412,13 @@ export class AcpWebSocketServer {
             reason: payload?.reason as string | undefined,
           });
         }
-        client.send(JSON.stringify({
-          type: 'done',
-          requestId: rid,
-          payload: { stopReason: 'cancelled' },
-        }));
+        client.send(
+          JSON.stringify({
+            type: 'done',
+            requestId: rid,
+            payload: { stopReason: 'cancelled' },
+          })
+        );
         return;
       }
 
@@ -388,31 +430,39 @@ export class AcpWebSocketServer {
           });
           currentHandle = null;
         }
-        client.send(JSON.stringify({
-          type: 'done',
-          requestId: rid,
-          payload: { stopReason: 'success' },
-        }));
+        client.send(
+          JSON.stringify({
+            type: 'done',
+            requestId: rid,
+            payload: { stopReason: 'success' },
+          })
+        );
         client.close(1000, 'Session closed');
         return;
       }
 
-      client.send(JSON.stringify({
-        type: 'error',
-        requestId: rid,
-        payload: { message: `未知消息类型: ${type}` },
-      }));
+      client.send(
+        JSON.stringify({
+          type: 'error',
+          requestId: rid,
+          payload: { message: `未知消息类型: ${type}` },
+        })
+      );
     });
 
     client.onClose(() => {
       if (currentHandle) {
-        runtime.close({
-          handle: currentHandle,
-          reason: 'Client disconnected',
-        }).catch(() => {});
+        runtime
+          .close({
+            handle: currentHandle,
+            reason: 'Client disconnected',
+          })
+          .catch(() => {});
         currentHandle = null;
       }
-      logger.info(`[ACP] 客户端已断开: ${client.id} (剩余 ${this.clients.size} 个)`);
+      logger.info(
+        `[ACP] 客户端已断开: ${client.id} (剩余 ${this.clients.size} 个)`
+      );
     });
   }
 }
@@ -436,7 +486,11 @@ class AcpWsClient {
   private messageHandlers: Array<(text: string) => void> = [];
   private maxMessageSize: number;
 
-  constructor(id: string, socket: net.Socket | Duplex, onDisconnect: () => void) {
+  constructor(
+    id: string,
+    socket: net.Socket | Duplex,
+    onDisconnect: () => void
+  ) {
     this.id = id;
     this.socket = socket;
     this.onDisconnect = onDisconnect;
@@ -505,7 +559,9 @@ class AcpWsClient {
   close(code?: number, reason?: string): void {
     if (this.socket.destroyed) return;
 
-    const closePayload = Buffer.alloc(2 + (reason ? Buffer.byteLength(reason, 'utf-8') : 0));
+    const closePayload = Buffer.alloc(
+      2 + (reason ? Buffer.byteLength(reason, 'utf-8') : 0)
+    );
     closePayload.writeUInt16BE(code || 1000, 0);
     if (reason) {
       closePayload.write(reason, 2, 'utf-8');
@@ -535,9 +591,9 @@ class AcpWsClient {
 
       const firstByte = buffer[offset];
       const secondByte = buffer[offset + 1];
-      const opcode = firstByte & 0x0F;
+      const opcode = firstByte & 0x0f;
       const masked = (secondByte & 0x80) !== 0;
-      let payloadLength = secondByte & 0x7F;
+      let payloadLength = secondByte & 0x7f;
       let headerLength = 2;
 
       if (payloadLength === 126) {
@@ -573,7 +629,10 @@ class AcpWsClient {
         payloadOffset += 4;
       }
 
-      let payload = buffer.subarray(payloadOffset, payloadOffset + payloadLength);
+      let payload = buffer.subarray(
+        payloadOffset,
+        payloadOffset + payloadLength
+      );
 
       if (maskKey) {
         for (let i = 0; i < payload.length; i++) {
@@ -624,7 +683,6 @@ class AcpWsClient {
 
     return Buffer.concat([header, payload]);
   }
-
 }
 
 export interface AgentSideConnection {

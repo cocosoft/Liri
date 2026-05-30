@@ -29,7 +29,10 @@ const logger = new Logger({ level: LogLevel.INFO });
 /**
  * 内置主题目录（基于当前文件位置解析，独立于 CWD）
  */
-const BUILTIN_THEMES_DIR = join(dirname(fileURLToPath(import.meta.url)), 'builtin');
+const BUILTIN_THEMES_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'builtin'
+);
 
 /**
  * 用户主题目录

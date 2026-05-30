@@ -127,7 +127,7 @@ export class StartupChainProfiler {
     this.ongoingPhases.clear();
   }
 
-/** 获取版本号 */
+  /** 获取版本号 */
   getVersion(): string {
     return this.version;
   }

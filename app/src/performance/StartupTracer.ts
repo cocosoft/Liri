@@ -33,7 +33,7 @@ export class StartupTracer {
   traceStart(phase: string): void {
     if (this.ongoing.has(phase)) {
       const idx = this.points.findIndex(
-        p => p.phase === phase && p.endTime === null
+        (p) => p.phase === phase && p.endTime === null
       );
       if (idx !== -1) {
         this.points.splice(idx, 1);
@@ -59,7 +59,7 @@ export class StartupTracer {
     const duration = endTime - startTime;
 
     const point = this.points.find(
-      p => p.phase === phase && p.endTime === null
+      (p) => p.phase === phase && p.endTime === null
     );
     if (point) {
       point.endTime = endTime;
@@ -80,7 +80,7 @@ export class StartupTracer {
    * 获取指定阶段的耗时
    */
   getPhaseDuration(phase: string): number | null {
-    const point = this.points.find(p => p.phase === phase);
+    const point = this.points.find((p) => p.phase === phase);
     if (!point) return null;
     return point.duration ?? null;
   }
@@ -93,13 +93,13 @@ export class StartupTracer {
     totalDuration: number;
     phaseSummary: Array<{ phase: string; duration: number }>;
   } {
-    const completed = this.points.filter(p => p.duration !== null);
+    const completed = this.points.filter((p) => p.duration !== null);
     const totalDuration = completed.reduce(
       (sum, p) => sum + (p.duration ?? 0),
       0
     );
     const phaseSummary = [...completed]
-      .map(p => ({ phase: p.phase, duration: p.duration! }))
+      .map((p) => ({ phase: p.phase, duration: p.duration! }))
       .sort((a, b) => b.duration - a.duration);
     return {
       points: [...this.points],

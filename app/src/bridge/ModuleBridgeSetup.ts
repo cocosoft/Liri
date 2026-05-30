@@ -103,7 +103,9 @@ async function startAcpRemoteServer(runtime: AcpRuntime): Promise<void> {
     const server = createAcpWebSocketServer(runtime, config);
     await server.start();
 
-    logger.info(`[Bridge] ACP 远程 WebSocket 服务已启动: ws://${config.host}:${config.port}${config.path}`);
+    logger.info(
+      `[Bridge] ACP 远程 WebSocket 服务已启动: ws://${config.host}:${config.port}${config.path}`
+    );
   } catch (error) {
     logger.error('[Bridge] ACP 远程 WebSocket 服务启动失败', error as Error);
   }

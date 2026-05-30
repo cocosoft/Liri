@@ -67,7 +67,9 @@ export class DreamAgentExecutor extends EventEmitter implements ManagedProcess {
   }
 
   async healthCheck(): Promise<boolean> {
-    return this.child !== null && this.child.exitCode === null && !this.child.killed;
+    return (
+      this.child !== null && this.child.exitCode === null && !this.child.killed
+    );
   }
 
   async waitForResult(): Promise<DreamExecutionResult> {

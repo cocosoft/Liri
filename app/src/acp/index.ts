@@ -129,7 +129,12 @@ export {
 } from './session.js';
 export type { AcpSessionStore } from './session.js';
 
-export { createAcpGateway, AcpGateway, AcpWebSocketServer, createAcpWebSocketServer } from './server.js';
+export {
+  createAcpGateway,
+  AcpGateway,
+  AcpWebSocketServer,
+  createAcpWebSocketServer,
+} from './server.js';
 export type { AgentSideConnection, GatewayClient } from './server.js';
 export type { AcpWebSocketServerConfig } from './types.js';
 export { AcpGatewayAgent, createAcpGatewayAgent } from './translator.js';

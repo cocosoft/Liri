@@ -41,7 +41,7 @@ export interface ChannelInterface {
 
   plugin?: {
     outbound: {
-      sendText(target: string, message: string): { success: boolean };
+      sendText(target: string, message: string): Promise<{ success: boolean }>;
     };
   };
 }

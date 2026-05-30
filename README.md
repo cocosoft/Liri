@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="app/assets/logo.png" alt="Liri Logo" width="120" />
+
 # Liri · OpenLiri
 
 > 玲珑鸟 · 你的 AI 私人助手

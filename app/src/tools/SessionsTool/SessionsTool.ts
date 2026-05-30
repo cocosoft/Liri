@@ -160,6 +160,14 @@ export class SessionsTool extends BaseTool {
   private async ensureGatewayInitialized(): Promise<void> {
     if (!this.gatewayInitialized) {
       await this.gateway.initialize();
+      const existing = await this.gateway.getSession('sess_001');
+      if (!existing) {
+        await this.gateway.createSession({
+          id: 'sess_001',
+          title: '默认会话',
+          type: SessionType.LOCAL,
+        });
+      }
       this.gatewayInitialized = true;
     }
   }

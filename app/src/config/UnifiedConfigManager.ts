@@ -10,6 +10,7 @@
  */
 
 import { logger } from '../utils/log.js';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
 import {
   ConfigLoader,
   type ConfigSource,
@@ -255,9 +256,42 @@ export class UnifiedConfigManager {
   async reload(): Promise<void> {
     const loaded = await this.configLoader.load();
     const previous = this.mergedConfig;
+    const changedKeys = this.detectChangedKeys(previous, loaded);
+
     this.mergedConfig = loaded;
     this.versionController.snapshot(loaded, 'reload');
+
+    if (changedKeys.length > 0) {
+      globalEventBus.publish(SystemEvents.CONFIG_CHANGED, {
+        changedKeys,
+        timestamp: Date.now(),
+        source: 'manual',
+      });
+    }
+
     logger.info('Configuration reloaded');
+  }
+
+  /**
+   * 检测两个配置对象之间的差异键
+   */
+  private detectChangedKeys(
+    previous: Record<string, unknown>,
+    current: Record<string, unknown>
+  ): string[] {
+    const changedKeys: string[] = [];
+    const allKeys = new Set([
+      ...Object.keys(previous),
+      ...Object.keys(current),
+    ]);
+
+    for (const key of allKeys) {
+      if (previous[key] !== current[key]) {
+        changedKeys.push(key);
+      }
+    }
+
+    return changedKeys;
   }
 
   /**
@@ -274,6 +308,11 @@ export class UnifiedConfigManager {
     const result = this.versionController.rollback(version);
     if (result) {
       this.mergedConfig = result.config;
+      globalEventBus.publish(SystemEvents.CONFIG_RESET, {
+        version,
+        timestamp: Date.now(),
+        source: 'rollback',
+      });
       return result.config;
     }
     return null;
@@ -391,9 +430,19 @@ export class UnifiedConfigManager {
    * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
   rebuildMergedConfig(): void {
+    const previous = this.mergedConfig;
     this.configManager.loadSyncSources();
     this.mergedConfig = this.configManager.getMergedConfig();
     this.versionController.snapshot(this.mergedConfig, 'source_update');
+
+    const changedKeys = this.detectChangedKeys(previous, this.mergedConfig);
+    if (changedKeys.length > 0) {
+      globalEventBus.publish(SystemEvents.CONFIG_CHANGED, {
+        changedKeys,
+        timestamp: Date.now(),
+        source: 'rebuild',
+      });
+    }
   }
 }
 

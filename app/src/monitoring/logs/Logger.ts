@@ -24,6 +24,7 @@ export interface LoggerConfig {
   consoleOutput?: boolean;
   fileOutput?: boolean;
   module?: string;
+  format?: 'text' | 'json';
 }
 
 let defaultLogger: Logger | null = null;
@@ -34,6 +35,7 @@ export class Logger {
   private logFile: string | undefined;
   private consoleOutput: boolean;
   private fileOutput: boolean;
+  private format: 'text' | 'json';
 
   constructor(config: LoggerConfig = {}) {
     this.level = config.level ?? LogLevel.INFO;
@@ -41,6 +43,7 @@ export class Logger {
     this.logFile = config.logFile;
     this.consoleOutput = config.consoleOutput !== false;
     this.fileOutput = config.fileOutput ?? false;
+    this.format = config.format ?? 'text';
   }
 
   private shouldLog(level: LogLevel): boolean {
@@ -53,6 +56,20 @@ export class Logger {
     meta?: unknown
   ): string {
     const timestamp = new Date().toISOString();
+
+    if (this.format === 'json') {
+      const entry: Record<string, unknown> = {
+        timestamp,
+        level,
+        module: this.module,
+        message,
+      };
+      if (meta !== undefined) {
+        entry.meta = meta;
+      }
+      return JSON.stringify(entry);
+    }
+
     const metaStr =
       meta !== undefined
         ? ` ${typeof meta === 'string' ? meta : JSON.stringify(meta)}`
@@ -120,11 +137,11 @@ export class Logger {
 
 export function getLogger(): Logger {
   if (!defaultLogger) {
-    defaultLogger = new Logger({ level: LogLevel.INFO });
+    defaultLogger = new Logger({ level: LogLevel.INFO, format: 'json' });
   }
   return defaultLogger;
 }
 
 export function createLogger(config: LoggerConfig = {}): Logger {
-  return new Logger(config);
+  return new Logger({ format: 'json', ...config });
 }

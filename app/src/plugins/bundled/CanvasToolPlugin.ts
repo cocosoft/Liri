@@ -60,7 +60,13 @@ export class CanvasToolPlugin implements Plugin {
     logger.info(`[CanvasToolPlugin] 已激活`);
 
     if (this._api && this._canvasTool) {
-      this._api.tools.registerTool(this._canvasTool);
+      this._api.tools.registerTool({
+        id: this._canvasTool.name,
+        name: this._canvasTool.name,
+        description: this._canvasTool.description,
+        handler: this._canvasTool.execute.bind(this._canvasTool),
+        schema: this._canvasTool.schema,
+      });
 
       this._api.commands.registerCommand('canvas.help', async () => {
         return this.getHelpText();

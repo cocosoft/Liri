@@ -118,7 +118,12 @@ export function profilePhaseEnd(phase: string): number {
   const startMark = `${phase}_start`;
 
   perf.mark(endMark);
-  perf.measure(phase, startMark, endMark);
+
+  try {
+    perf.measure(phase, startMark, endMark);
+  } catch {
+    // 起始标记不存在时（如未调用 profilePhaseStart），忽略测量
+  }
 
   // 获取阶段时间
   const measures = perf.getEntriesByName(phase, 'measure');

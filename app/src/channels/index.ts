@@ -19,12 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export { createIrcChannel, ircChannelPlugin } from './irc/index.js';
-export {
-  SlackChannel,
-  slackChannel,
-  createSlackChannel,
-  slackChannelPlugin,
-} from './slack/index.js';
+export { createSlackChannel, slackChannelPlugin } from './slack/index.js';
 export { createLineChannel, lineChannelPlugin } from './line/index.js';
 export {
   NostrChannel,

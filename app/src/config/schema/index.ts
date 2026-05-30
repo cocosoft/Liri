@@ -23,3 +23,14 @@
  */
 export { ConfigSchema, configSchema } from './ConfigSchema.js';
 export type { ConfigItemDefinition, ConfigCategory } from './ConfigSchema.js';
+export {
+  ConfigDocGenerator,
+  generateConfigDocs,
+  generateConfigDocsToFile,
+} from './ConfigDocGenerator.js';
+export type { DocGenOptions } from './ConfigDocGenerator.js';
+import { registerDefaultSchemas as _registerSchemas } from './registerDefaultSchemas.js';
+export { _registerSchemas as registerDefaultSchemas };
+
+// 自动注册默认配置 Schema
+_registerSchemas();

@@ -57,6 +57,7 @@ export const STARTUP_PHASES: StartupPhase[] = [
 export class StartupChainProfiler {
   private checker: SprintPerformanceChecker;
   private version: string;
+  private ongoingPhases: Set<string> = new Set();
 
   constructor(version: string = '0.0.0') {
     this.version = version;
@@ -68,6 +69,7 @@ export class StartupChainProfiler {
    */
   markPhaseStart(phase: PerformancePhase): void {
     profilePhaseStart(phase);
+    this.ongoingPhases.add(phase);
   }
 
   /**
@@ -76,7 +78,17 @@ export class StartupChainProfiler {
   markPhaseEnd(phase: PerformancePhase): number {
     const elapsed = profilePhaseEnd(phase);
     this.checker.record(phase, elapsed);
+    this.ongoingPhases.delete(phase);
     return elapsed;
+  }
+
+  /** 获取当前持续中的阶段集合 */
+  getPhaseDurations(): Map<string, number> {
+    const durations = new Map<string, number>();
+    for (const phase of this.ongoingPhases) {
+      durations.set(phase, 0);
+    }
+    return durations;
   }
 
   /** 生成启动性能报告 */
@@ -112,9 +124,10 @@ export class StartupChainProfiler {
   /** 重置 */
   reset(): void {
     this.checker.clear();
+    this.ongoingPhases.clear();
   }
 
-  /** 获取版本号 */
+/** 获取版本号 */
   getVersion(): string {
     return this.version;
   }
@@ -135,4 +148,11 @@ export function getStartupChainProfiler(): StartupChainProfiler {
     globalProfiler = new StartupChainProfiler(version);
   }
   return globalProfiler;
+}
+
+/**
+ * 重置全局启动链路分析器实例（用于测试）
+ */
+export function resetStartupChainProfiler(): void {
+  globalProfiler = null;
 }

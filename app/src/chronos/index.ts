@@ -147,6 +147,12 @@ export type {
 export { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
 export type { CronFileChangeCallback } from './watcher/CronFileWatcher';
 
+// F-10: 任务结果投递
+export {
+  initializeTaskResultDelivery,
+  shutdownTaskResultDelivery,
+} from './TaskResultDeliverer';
+
 // 知识库维护
 export {
   runKnowledgeMaintenance,

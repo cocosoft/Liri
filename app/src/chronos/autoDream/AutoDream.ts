@@ -15,6 +15,7 @@ import {
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
+import { ProcessManager } from '@modules/daemon';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
@@ -411,6 +412,43 @@ export async function executeAutoDream(context?: any): Promise<void> {
   if (runner) {
     await runner(context || {});
   }
+}
+
+/**
+ * 将梦境进程注册到 ProcessManager
+ * 使梦境子进程可被守护进程统一管理和监控。
+ */
+export function registerDreamProcess(processManager: ProcessManager): void {
+  const executor = new DreamAgentExecutor({
+    prompt: '',
+    memoryRoot: '',
+    transcriptDir: '',
+  });
+  processManager.register(executor);
+
+  globalEventBus.subscribe(SystemEvents.DREAM_STARTED, () => {
+    const state = processManager['processes']?.get('dream-consolidation');
+    if (state) {
+      state.status = 'running';
+    }
+  });
+
+  globalEventBus.subscribe(SystemEvents.DREAM_COMPLETED, () => {
+    const state = processManager['processes']?.get('dream-consolidation');
+    if (state) {
+      state.status = 'stopped';
+    }
+  });
+
+  globalEventBus.subscribe(SystemEvents.DREAM_FAILED, () => {
+    const state = processManager['processes']?.get('dream-consolidation');
+    if (state && state.restartCount < 3) {
+      state.restartCount++;
+      state.status = 'stopped';
+    }
+  });
+
+  console.log('[AutoDream] dream process registered to ProcessManager');
 }
 
 export function abortAutoDream(): void {

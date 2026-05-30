@@ -1,6 +1,7 @@
 //
 import type { CommandContext } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager';
+import { ConfigDocGenerator, configSchema } from '@modules/config/schema';
 
 const listConfig = async (): Promise<{ type: 'text'; value: string }> => {
   try {
@@ -123,6 +124,45 @@ const setConfig = async (
   }
 };
 
+const docsConfig = async (
+  subCmd: string,
+  outputPath?: string
+): Promise<{ type: 'text'; value: string }> => {
+  const generator = new ConfigDocGenerator(configSchema);
+
+  if (subCmd === 'save' && outputPath) {
+    try {
+      const resolved = outputPath;
+      generator.generateToFile(resolved);
+      return {
+        type: 'text',
+        value: `配置文档已生成到: ${resolved}`,
+      };
+    } catch (error) {
+      return {
+        type: 'text',
+        value: `生成文档失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      };
+    }
+  }
+
+  if (subCmd === 'item' && outputPath) {
+    const detail = generator.generateItemDetail(outputPath);
+    if (detail) {
+      return { type: 'text', value: detail };
+    }
+    return { type: 'text', value: `未找到配置项: ${outputPath}` };
+  }
+
+  const summary = generator.generateSummary();
+  if (subCmd === 'full') {
+    const full = generator.generateMarkdown({ showExamples: true });
+    return { type: 'text', value: full };
+  }
+
+  return { type: 'text', value: summary };
+};
+
 const resetConfig = async (
   key: string
 ): Promise<{ type: 'text'; value: string }> => {
@@ -183,10 +223,12 @@ const call = async (
       return await setConfig(key, value);
     case 'reset':
       return await resetConfig(key);
+    case 'docs':
+      return await docsConfig(key, value);
     default:
       return {
         type: 'text',
-        value: `配置命令用法:\n\n/config list - 列出所有配置\n/config get <键> - 获取配置值\n/config set <键> <值> - 设置配置值\n/config reset <键> - 重置配置值`,
+        value: `配置命令用法:\n\n/config list - 列出所有配置\n/config get <键> - 获取配置值\n/config set <键> <值> - 设置配置值\n/config reset <键> - 重置配置值\n/config docs [full|save|item] - 配置文档`,
       };
   }
 };

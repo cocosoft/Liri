@@ -63,6 +63,28 @@ export abstract class BaseTool<
   version?: string;
 
   /**
+   * 沙箱级别
+   * 标识工具操作的安全风险等级，用于沙箱路由决策
+   * - 'none': 无风险，不需要沙箱隔离
+   * - 'readonly': 只读操作，可使用轻量沙箱
+   * - 'file-io': 文件 I/O 操作，需文件读写沙箱
+   * - 'execution': 代码执行操作，需完整 Docker 沙箱
+   * 默认值为 'none'
+   */
+  sandboxLevel?: 'none' | 'readonly' | 'file-io' | 'execution';
+
+  /**
+   * 检查是否应使用沙箱执行
+   * 子类可重写此方法实现自定义沙箱决策逻辑
+   *
+   * @param input 工具输入（可选）
+   * @returns 是否应使用沙箱
+   */
+  requiresSandbox(input?: Record<string, unknown>): boolean {
+    return this.sandboxLevel === 'execution' || this.sandboxLevel === 'file-io';
+  }
+
+  /**
    * 检查工具是否启用
    * 默认返回true
    * @returns 是否启用

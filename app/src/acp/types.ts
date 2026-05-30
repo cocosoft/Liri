@@ -85,3 +85,19 @@ export type AcpApprovalClass =
   | 'blocked'
   | 'auto_approve'
   | 'tool_fallback';
+
+/**
+ * ACP 远程 WebSocket 服务器配置
+ */
+export interface AcpWebSocketServerConfig {
+  /** 监听主机地址，默认 '127.0.0.1' */
+  host?: string;
+  /** 监听端口，0 表示禁用远程服务 */
+  port: number;
+  /** 路径过滤，默认 '/acp' */
+  path?: string;
+  /** 消息大小限制（字节），默认 1MB */
+  maxMessageSize?: number;
+  /** 认证 Token（可选），客户端需在 headers 中携带 */
+  authToken?: string;
+}

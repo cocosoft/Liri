@@ -59,9 +59,10 @@ export function loadTools(factory: ToolFactory, loaders: ToolLoader[]): Tool[] {
 }
 
 /**
- * 内置工具加载器列表
+ * 获取内置工具加载器列表（延迟初始化，避免与 ToolFactory 的循环依赖）
  */
-export const builtinToolLoaders: ToolLoader[] = [
+export function getBuiltinToolLoaders(): ToolLoader[] {
+  return [
   // 核心工具
   createToolLoader(ToolFactory.prototype.createBashTool),
   createToolLoader(ToolFactory.prototype.createFileReadTool),
@@ -219,11 +220,12 @@ export const builtinToolLoaders: ToolLoader[] = [
   createToolLoader(ToolFactory.prototype.createGatewayTool),
   createToolLoader(ToolFactory.prototype.createChannelManagerTool),
   createToolLoader(ToolFactory.prototype.createBroadcastTool),
-];
+  ];
+}
 
 /**
  * 加载所有内置工具
  */
 export function loadBuiltinTools(factory: ToolFactory): Tool[] {
-  return loadTools(factory, builtinToolLoaders);
+  return loadTools(factory, getBuiltinToolLoaders());
 }

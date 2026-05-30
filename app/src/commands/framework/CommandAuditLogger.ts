@@ -29,6 +29,7 @@ export interface AuditEntry {
   userId?: string;
   sessionId?: string;
   projectId?: string;
+  module?: string;
   duration?: number;
   success?: boolean;
   resultSummary?: string;
@@ -50,6 +51,8 @@ export interface AuditExportOptions {
   toDate?: number;
   eventTypes?: AuditEventType[];
   commands?: string[];
+  module?: string;
+  severity?: string;
 }
 
 /**
@@ -59,6 +62,8 @@ export interface AuditFilter {
   eventTypes?: AuditEventType[];
   commands?: string[];
   userId?: string;
+  module?: string;
+  severity?: string;
   fromDate?: number;
   toDate?: number;
   success?: boolean;
@@ -211,6 +216,16 @@ export class CommandAuditLogger {
       filtered = filtered.filter((e) => e.userId === filter.userId);
     }
 
+    if (filter.module) {
+      filtered = filtered.filter((e) => e.module === filter.module);
+    }
+
+    if (filter.severity) {
+      filtered = filtered.filter(
+        (e) => e.securityContext?.riskLevel === filter.severity
+      );
+    }
+
     if (filter.fromDate) {
       filtered = filtered.filter((e) => e.timestamp >= filter.fromDate!);
     }
@@ -256,6 +271,16 @@ export class CommandAuditLogger {
 
     if (options.commands && options.commands.length > 0) {
       filtered = filtered.filter((e) => options.commands!.includes(e.command));
+    }
+
+    if (options.module) {
+      filtered = filtered.filter((e) => e.module === options.module);
+    }
+
+    if (options.severity) {
+      filtered = filtered.filter(
+        (e) => e.securityContext?.riskLevel === options.severity
+      );
     }
 
     filtered.sort((a, b) => b.timestamp - a.timestamp);
@@ -364,7 +389,7 @@ export class CommandAuditLogger {
    */
   private toCSV(entries: AuditEntry[]): string {
     const header =
-      'ID,Timestamp,EventType,Command,Args,UserId,SessionId,Duration,Success,ResultSummary';
+      'ID,Timestamp,EventType,Command,Args,UserId,SessionId,Module,Severity,Duration,Success,ResultSummary';
     const rows = entries.map((e) =>
       [
         e.id,
@@ -374,6 +399,8 @@ export class CommandAuditLogger {
         this.escapeCSV(e.args.substring(0, 100)),
         e.userId || '',
         e.sessionId || '',
+        e.module || '',
+        e.securityContext?.riskLevel || '',
         e.duration || '',
         e.success !== undefined ? String(e.success) : '',
         this.escapeCSV((e.resultSummary || '').substring(0, 100)),
@@ -400,7 +427,11 @@ export class CommandAuditLogger {
     const lines = entries.map((e) => {
       const time = new Date(e.timestamp).toLocaleString();
       const status = e.success !== undefined ? (e.success ? '✅' : '❌') : '⬜';
-      return `  ${status} [${time}] ${e.eventType} | ${e.command} ${e.args.substring(0, 50)}${e.duration ? ` (${e.duration}ms)` : ''}`;
+      const mod = e.module ? ` [${e.module}]` : '';
+      const sev = e.securityContext?.riskLevel
+        ? ` (${e.securityContext.riskLevel})`
+        : '';
+      return `  ${status}${mod}${sev} [${time}] ${e.eventType} | ${e.command} ${e.args.substring(0, 50)}${e.duration ? ` (${e.duration}ms)` : ''}`;
     });
 
     return `审计日志 (${entries.length} 条)\n${lines.join('\n')}`;

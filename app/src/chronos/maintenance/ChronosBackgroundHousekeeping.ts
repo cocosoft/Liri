@@ -4,7 +4,11 @@
  */
 
 import { initAutoDream } from '../autoDream/AutoDream';
-import { initBuddyDreamIntegration } from '../../buddy/dreamIntegration';
+import {
+  initBuddyDreamIntegration,
+  initBuddyTaskGrowthIntegration,
+  initBuddyCronFeedbackIntegration,
+} from '../../buddy/dreamIntegration';
 import {
   cleanupOldMessageFilesInBackground,
   cleanupOldVersionsThrottled,
@@ -94,6 +98,8 @@ export function startBackgroundHousekeeping(): void {
   isRunning = true;
   initAutoDream();
   initBuddyDreamIntegration();
+  initBuddyTaskGrowthIntegration();
+  initBuddyCronFeedbackIntegration();
 
   setTimeout(
     runVerySlowOps,

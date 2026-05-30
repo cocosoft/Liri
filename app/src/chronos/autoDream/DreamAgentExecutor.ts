@@ -3,6 +3,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveProjectRoot } from '@modules/config/paths';
+import type { ManagedProcess } from '@modules/daemon';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -42,18 +43,38 @@ type WorkerMessage = WorkerProgress | WorkerResult;
 
 const DEFAULT_MAX_DURATION_MS = 120_000;
 
-export class DreamAgentExecutor extends EventEmitter {
+export class DreamAgentExecutor extends EventEmitter implements ManagedProcess {
+  readonly name = 'dream-consolidation';
+
   private child: ChildProcess | null = null;
-  private resultPromise: Promise<DreamExecutionResult>;
+  private resultPromise: Promise<DreamExecutionResult> | null = null;
   private filesTouched: string[] = [];
+  private started = false;
 
   constructor(private config: DreamExecutionConfig) {
     super();
+  }
+
+  async start(): Promise<void> {
+    if (this.started) return;
+    this.started = true;
     this.resultPromise = this.execute();
+    await this.resultPromise;
+  }
+
+  async stop(): Promise<void> {
+    this.kill();
+  }
+
+  async healthCheck(): Promise<boolean> {
+    return this.child !== null && this.child.exitCode === null && !this.child.killed;
   }
 
   async waitForResult(): Promise<DreamExecutionResult> {
-    return this.resultPromise;
+    if (!this.started) {
+      await this.start();
+    }
+    return this.resultPromise!;
   }
 
   kill(): void {

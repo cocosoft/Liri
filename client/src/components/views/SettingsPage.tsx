@@ -5,6 +5,8 @@ import { chatService } from '../../services/chatService';
 import { appConfigService } from '../../services/appConfigService';
 import { setBackendPort as setBackendUrlPort } from '../../services/backendUrl';
 import { http } from '../../services/httpClient';
+import { useAutoUpdate } from '../../hooks/useAutoUpdate';
+import AutoUpdatePanel from '../settings/AutoUpdatePanel';
 import type { BackendStatus } from '../../types';
 
 function SettingsPage() {
@@ -26,6 +28,31 @@ function SettingsPage() {
   const [migrateData, setMigrateData] = useState(true);
   const [migrationResult, setMigrationResult] = useState<{ copied: number; skipped: number; errors: string[] } | null>(null);
 
+  const [autoUpdateConfig, setAutoUpdateConfig] = useState<{
+    enabled: boolean;
+    checkIntervalMs: number;
+    channel: 'stable' | 'beta';
+    checkOnStartup: boolean;
+    verbose: boolean;
+  }>({
+    enabled: true,
+    checkIntervalMs: 86400000,
+    channel: 'stable',
+    checkOnStartup: true,
+    verbose: false,
+  });
+
+  const {
+    checking,
+    downloading,
+    result,
+    error: updateError,
+    check,
+    install,
+    startPeriodicCheck,
+    stopPeriodicCheck,
+  } = useAutoUpdate();
+
   const isDark = config.theme === 'dark';
 
   useEffect(() => {
@@ -35,6 +62,16 @@ function SettingsPage() {
     const interval = setInterval(checkBackendStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (autoUpdateConfig.enabled && autoUpdateConfig.checkOnStartup) {
+      check().catch(() => {});
+      startPeriodicCheck(autoUpdateConfig.checkIntervalMs);
+    } else {
+      stopPeriodicCheck();
+    }
+    return () => stopPeriodicCheck();
+  }, [autoUpdateConfig.enabled, autoUpdateConfig.checkIntervalMs, autoUpdateConfig.checkOnStartup]);
 
   interface DataDirectoryResponse {
     currentDirectory: string;
@@ -434,6 +471,60 @@ function SettingsPage() {
                 <span className="text-sm text-gray-700 dark:text-gray-300">权限管理</span>
               </button>
             </div>
+          </div>
+
+          {/* 自动更新 */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <AutoUpdatePanel
+              isDark={isDark}
+              autoUpdate={autoUpdateConfig}
+              onUpdate={(updates) =>
+                setAutoUpdateConfig((prev) => ({ ...prev, ...updates }))
+              }
+            />
+
+            {result?.available && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      发现新版本 {result.latestVersion}
+                    </p>
+                    {result.body && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 line-clamp-2">
+                        {result.body}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={install}
+                    disabled={downloading}
+                    className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded whitespace-nowrap"
+                  >
+                    {downloading ? '下载中...' : '立即更新'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!result?.available && !checking && (
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {result === null ? '尚未检查更新' : '已是最新版本'}
+                </span>
+                <button
+                  onClick={check}
+                  disabled={checking}
+                  className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded"
+                >
+                  {checking ? '检查中...' : '检查更新'}
+                </button>
+              </div>
+            )}
+
+            {updateError && (
+              <p className="mt-2 text-xs text-red-500">{updateError}</p>
+            )}
           </div>
 
           {/* 数据存储 */}

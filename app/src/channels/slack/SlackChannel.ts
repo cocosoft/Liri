@@ -1,8 +1,7 @@
 /**
- * SlackChannel Slack ??
- * ?? OpenClaw ? Slack ??
+ * SlackChannel Slack 通道
+ * 参考 OpenClaw 的 Slack 实现
  */
-import { EventEmitter } from 'node:events';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -14,109 +13,6 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-
-/**
- * Slack ??
- */
-export interface SlackConfig {
-  enabled: boolean;
-  botToken?: string;
-  appToken?: string;
-  signingSecret?: string;
-  channels: string[];
-}
-
-/**
- * Slack ??
- */
-export interface SlackMessage {
-  user: string;
-  channel: string;
-  text: string;
-  ts: string;
-  threadTs?: string;
-  timestamp: number;
-}
-
-/**
- * Slack ?? (?? EventEmitter ??????)
- */
-export class SlackChannel extends EventEmitter {
-  private config: SlackConfig;
-  private connected: boolean = false;
-
-  constructor(config?: Partial<SlackConfig>) {
-    super();
-
-    this.config = {
-      enabled: config?.enabled || false,
-      botToken: config?.botToken,
-      appToken: config?.appToken,
-      signingSecret: config?.signingSecret,
-      channels: config?.channels || [],
-    };
-  }
-
-  /**
-   * ??
-   */
-  async connect(): Promise<boolean> {
-    if (!this.config.enabled || !this.config.botToken) return false;
-
-    this.connected = true;
-    this.emit('connected', {});
-
-    return true;
-  }
-
-  /**
-   * ????
-   */
-  async disconnect(): Promise<void> {
-    this.connected = false;
-    this.emit('disconnected', {});
-  }
-
-  /**
-   * ????
-   */
-  async sendMessage(channel: string, text: string): Promise<boolean> {
-    if (!this.connected) return false;
-
-    this.emit('message:sent', { channel, text, timestamp: Date.now() });
-
-    return true;
-  }
-
-  /**
-   * ????
-   */
-  async sendReply(
-    channel: string,
-    threadTs: string,
-    text: string
-  ): Promise<boolean> {
-    if (!this.connected) return false;
-
-    this.emit('message:sent', {
-      channel,
-      threadTs,
-      text,
-      timestamp: Date.now(),
-    });
-
-    return true;
-  }
-
-  /**
-   * ????
-   */
-  getStatus(): { connected: boolean; channels: string[] } {
-    return { connected: this.connected, channels: [...this.config.channels] };
-  }
-}
-
-export const slackChannel = new SlackChannel();
 
 const SLACK_META: ChannelMeta = {
   id: 'slack',
@@ -180,11 +76,10 @@ class SlackChannelPlugin extends BaseChannelPlugin {
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
     this.botToken = (config['botToken'] as string) || '';
     this.appToken = (config['appToken'] as string) || '';
-    await slackChannel.connect();
   }
 
   protected override async onDisconnect(): Promise<void> {
-    await slackChannel.disconnect();
+    this.stopSocketMode();
   }
 
   private async slackApiCall(

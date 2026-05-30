@@ -62,6 +62,9 @@ export type { ToolFunction, FunctionToolConfig } from './FunctionTool';
 export { ToolGroup } from './ToolGroup';
 export { Toolkit } from './Toolkit';
 
+// 导出 E-08 沙箱路由组件
+export { ToolSandboxRouter, SandboxLevel } from './sandbox/ToolSandboxRouter';
+
 /**
  * 工具系统初始化函数
  */

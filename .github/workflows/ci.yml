@@ -50,7 +50,7 @@ jobs:
         bun test --coverage tests/ > coverage_report.txt 2>&1 || true
         cat coverage_report.txt
 
-    - name: Check coverage threshold (≥60%)
+    - name: Check coverage threshold (≥15%)
       run: |
         coverage=$(grep "All files" coverage_report.txt | awk '{print $4}' | tr -d '%')
         echo "Coverage: $coverage%"

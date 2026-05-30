@@ -2,7 +2,7 @@
  * SlackAdapter — Slack 平台适配器
  *
  * 参考实现，演示 PlatformAdapter 接口的使用方式。
- * 包装现有的 SlackChannel，提供标准 PlatformAdapter 接口。
+ * 包装现有的 SlackChannelPlugin，提供标准 PlatformAdapter 接口。
  */
 
 import {
@@ -10,7 +10,7 @@ import {
   type PlatformMessageEvent,
   type PlatformProcessingOutcome,
 } from './PlatformAdapter.js';
-import { SlackChannel } from '@modules/channels/slack';
+import { slackChannelPlugin } from '@modules/channels/slack';
 
 /**
  * Slack 平台适配器
@@ -22,18 +22,21 @@ export class SlackAdapter extends BasePlatformAdapter {
   readonly name = 'Slack';
   readonly type = 'slack' as const;
 
-  private channel: SlackChannel;
-
   constructor() {
     super();
-    this.channel = new SlackChannel();
   }
 
   async setup(config: Record<string, unknown>): Promise<void> {
-    const ok = await this.channel.connect();
-    this._connected = ok;
-
-    if (!ok) {
+    const channelConfig = {
+      botToken: config['botToken'],
+      appToken: config['appToken'],
+      signingSecret: config['signingSecret'],
+      channels: config['channels'] || [],
+    };
+    await slackChannelPlugin.lifecycle.connect(channelConfig);
+    this._connected = true;
+    const status = slackChannelPlugin.lifecycle.getStatus();
+    if (!status.connected) {
       throw new Error('Slack 连接失败：请检查 botToken 配置');
     }
   }
@@ -44,12 +47,12 @@ export class SlackAdapter extends BasePlatformAdapter {
     if (event.isDirectMessage) {
       return { handled: true };
     }
-
     return { handled: true };
   }
 
   async sendMessage(target: string, text: string): Promise<boolean> {
-    return this.channel.sendMessage(target, text);
+    const result = await slackChannelPlugin.outbound.sendText(target, text);
+    return result.success;
   }
 
   override getStatus(): Record<string, unknown> {
@@ -59,9 +62,5 @@ export class SlackAdapter extends BasePlatformAdapter {
       connected: this._connected,
       enabled: this._enabled,
     };
-  }
-
-  override get rawAdapter(): SlackChannel {
-    return this.channel;
   }
 }

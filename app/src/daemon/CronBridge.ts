@@ -3,6 +3,8 @@ import { getMonitoringService } from '../monitoring/MonitoringService';
 import { createCronScheduler } from '../chronos/CronScheduler';
 import { listAllCronTasks, setCronSqliteStore } from '../chronos/CronTasks';
 import { createSqliteCronStore } from '../chronos/service/SqliteCronStore';
+import { initializeTaskResultDelivery } from '../chronos/TaskResultDeliverer';
+import { startHealthServer, stopHealthServer } from './HealthServer';
 import type { ScheduledTask as ChronosTask } from '../chronos/types';
 import type { TaskQueue } from './TaskQueue';
 import { TaskPriority } from './TaskPriority';
@@ -80,6 +82,14 @@ export class CronBridge implements ManagedProcess {
       lockIdentity: this.config.lockIdentity,
     });
 
+    // F-10: 初始化任务结果投递
+    initializeTaskResultDelivery();
+
+    // O-02: 启动健康检查服务
+    startHealthServer().catch((error) => {
+      logger.warning('[O-02] 健康检查服务启动异常', { error });
+    });
+
     this.scheduler.start();
     logger.info('CronBridge 已启动，Chronos 定时任务调度已集成');
     this.reportMetrics(true);
@@ -88,6 +98,9 @@ export class CronBridge implements ManagedProcess {
   async stop(): Promise<void> {
     if (!this.running) return;
     this.running = false;
+
+    // O-02: 停止健康检查服务
+    stopHealthServer();
 
     if (this.scheduler) {
       this.scheduler.stop();

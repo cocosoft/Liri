@@ -22,13 +22,8 @@
  * channels/slack/index.ts - Slack 通道导出
  */
 
-export {
-  SlackChannel,
-  slackChannel,
-  createSlackChannel,
-  slackChannelPlugin,
-} from './SlackChannel.js';
-export type { SlackConfig, SlackMessage } from './SlackChannel.js';
+export { createSlackChannel, slackChannelPlugin } from './SlackChannel.js';
+export type { SlackConfig } from './config-schema.js';
 
 export { getDefaultSlackConfig, validateSlackConfig } from './config-schema.js';
 export type { SlackConfig as SlackChannelConfig } from './config-schema.js';

@@ -78,6 +78,13 @@ export function adaptPluginToInterface(
       ...plugin.lifecycle.getStatus(),
       type: plugin.id,
     }),
+    plugin: {
+      outbound: {
+        sendText: async (target: string, message: string) => {
+          return plugin.outbound.sendText(target, message);
+        },
+      },
+    },
   };
 }
 
@@ -379,6 +386,27 @@ export class ChannelRegistry extends EventEmitter {
     await channel.disconnect();
 
     return true;
+  }
+
+  /**
+   * 检查通道是否已连接
+   */
+  isConnected(name: string): boolean {
+    const channel = this.channels.get(name);
+    return channel ? channel.connected : false;
+  }
+
+  /**
+   * 断开所有已连接通道
+   */
+  async disconnectAll(): Promise<void> {
+    const promises: Promise<void>[] = [];
+    for (const channel of this.channels.values()) {
+      if (channel.connected) {
+        promises.push(channel.disconnect());
+      }
+    }
+    await Promise.allSettled(promises);
   }
 }
 

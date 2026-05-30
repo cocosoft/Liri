@@ -18,7 +18,7 @@ import {
 } from './utils/toolSearch.js';
 import { LazyModuleLoader } from '../core/utils/LazyModuleLoader';
 import { ToolLazyWrapper } from './utils/ToolLazyWrapper';
-import { builtinToolLoaders } from './utils/ToolManagerUtils.js';
+import { getBuiltinToolLoaders } from './utils/ToolManagerUtils.js';
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import type { ToolInfo } from './types/Tool';
 import type {
@@ -82,8 +82,8 @@ export class ToolManager extends EventEmitter {
     // 记录是否需要按需加载，但不立即执行
     this._loadDeferred = options.loadBuiltinTools !== false;
 
-    // 自动注入内置工具加载器
-    this._toolLoaders = builtinToolLoaders;
+    // 自动注入内置工具加载器（延迟获取，避免与 ToolFactory 的循环依赖）
+    this._toolLoaders = getBuiltinToolLoaders();
 
     // 初始化策略管道（默认使用 DefaultToolPolicy，允许所有工具）
     this._policyPipeline = new ToolPolicyPipeline([new DefaultToolPolicy()]);

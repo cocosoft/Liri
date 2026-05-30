@@ -49,6 +49,7 @@ export type {
 export {
   initAutoDream,
   executeAutoDream,
+  registerDreamProcess,
   getDreamTask,
   getAllDreamTasks,
   isDreamTask,

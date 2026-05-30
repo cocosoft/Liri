@@ -21,21 +21,14 @@ import {
   ThemeMetadata,
   validateThemeDefinition,
 } from './ThemeSchema';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 内置主题目录（相对于 src/ui/theme/）
+ * 内置主题目录（基于当前文件位置解析，独立于 CWD）
  */
-const BUILTIN_THEMES_DIR = join(
-  resolveProjectRoot(),
-  'app',
-  'src',
-  'ui',
-  'theme',
-  'builtin'
-);
+const BUILTIN_THEMES_DIR = join(import.meta.dir!, 'builtin');
 
 /**
  * 用户主题目录

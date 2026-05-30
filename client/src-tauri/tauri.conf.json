@@ -48,5 +48,16 @@
         "languages": ["SimpChinese", "English"]
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "windows": {
+        "installMode": "passive"
+      },
+      "endpoints": [
+        "https://github.com/{{owner}}/{{repo}}/releases/latest/download/update-proxy.json"
+      ]
+    }
   }
 }

@@ -9,6 +9,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils, checkPathAccessibility } from '../utils/ToolUtils';
 import { exec, execSync, ExecOptions } from 'child_process';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ToolSandboxRouter } from '../sandbox/ToolSandboxRouter';
 
 /**
  * Bash工具输入模式
@@ -333,12 +334,9 @@ export class BashTool {
       checkPermissions: async (input: unknown, context: ToolUseContext) => {
         const inputRecord = input as Record<string, unknown>;
         const command = inputRecord.command as string;
-        const isSafe = !BashTool.isDangerousCommand(command);
-        if (isSafe) {
-          return { behavior: 'allow' };
-        } else {
-          return { behavior: 'deny', message: 'Dangerous command not allowed' };
-        }
+
+        // 危险命令不再拒绝，而是由 execute() 路由到 Docker 沙箱执行（E-08）
+        return { behavior: 'allow' };
       },
       execute: async (input: unknown, context: ToolUseContext) => {
         const startTime = Date.now();
@@ -360,7 +358,44 @@ export class BashTool {
             );
           }
 
-          // 执行命令
+          // E-08: 危险命令路由到 Docker 沙箱执行
+          if (BashTool.isDangerousCommand(command)) {
+            const sandboxResult =
+              await ToolSandboxRouter.executeInDockerSandbox(command, {
+                cwd,
+                env,
+                timeout,
+              });
+            const executionTime = ToolUtils.calculateExecutionTime(startTime);
+
+            if (sandboxResult.exitCode === 0) {
+              return ToolUtils.createSuccessResult(sandboxResult.stdout, {
+                executionTime,
+                output: sandboxResult.stdout,
+                errorOutput: sandboxResult.stderr,
+                toolName: 'bash',
+                executionId: ToolUtils.generateExecutionId('bash'),
+                timestamp: Date.now(),
+                metadata: { sandboxed: true },
+              });
+            }
+
+            return ToolUtils.createFailureResult(
+              sandboxResult.stderr ||
+                `Command exited with code ${sandboxResult.exitCode}`,
+              {
+                executionTime,
+                output: sandboxResult.stdout,
+                errorOutput: sandboxResult.stderr,
+                toolName: 'bash',
+                executionId: ToolUtils.generateExecutionId('bash'),
+                timestamp: Date.now(),
+                metadata: { sandboxed: true },
+              }
+            );
+          }
+
+          // 安全命令本地执行
           const result = await BashTool.executeCommand(command, {
             cwd,
             env,

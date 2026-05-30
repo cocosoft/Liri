@@ -1,4 +1,7 @@
-# PY_APP — Backend
+# Liri — OpenLiri
+
+> 玲珑鸟 · 你的 AI 私人助手
+> 官网:https://openliri.com
 
 AI Agent 后端服务,基于 **TypeScript + Bun + Rust** 架构,提供交互式命令行智能助手。
 
@@ -336,7 +339,7 @@ bun run monitor           # 系统监控
 | 对标文档 | 内容概要 |
 |---------|---------|
 | [对标执行步骤](../dev_docs/四产品对标执行步骤.md) | 四阶段递进方法论 + 质量门禁标准 |
-| [模块清单 - BA](../dev_docs/20260516/inventory/backend-inventory.md) | PY_APP backend 68模块完整清单 |
+| [模块清单 - BA](../dev_docs/20260516/inventory/backend-inventory.md) | Liri (原 PY_APP) backend 68模块完整清单 |
 | [模块清单 - CC](../dev_docs/20260516/inventory/cc_code-inventory.md) | Claude Code 34模块清单 |
 | [模块清单 - OC](../dev_docs/20260516/inventory/openclaw-inventory.md) | OpenClaw 61模块清单 |
 | [模块清单 - HE](../dev_docs/20260516/inventory/hermes-inventory.md) | Hermes Agent 11模块清单 |
@@ -346,7 +349,7 @@ bun run monitor           # 系统监控
 
 ### 核心结论摘要
 
-在 60 个对标维度中,PY_APP backend 在 **35 个维度领先 (58.3%)**,整体综合评分四产品最高。
+在 60 个对标维度中,Liri backend 在 **35 个维度领先 (58.3%)**,整体综合评分四产品最高。
 
 | 最强领域 | 需关注的领域 |
 |---------|------------|
@@ -359,6 +362,16 @@ bun run monitor           # 系统监控
 > **注**:自对标分析以来,部分标注的短板已有进展。Docker 沙箱、向量记忆/知识库、LSP 集成均已实现。
 
 详细比对结果见 [完整分析报告](../dev_docs/20260516/report.md)。
+
+---
+
+## 致谢
+
+感谢我人生中遇到的每一个人——家人、朋友、同事、同学。
+
+你们的陪伴、启发、支持和包容,塑造了今天的我和这个项目。每一行代码背后,都有你们留下的痕迹。
+
+谢谢你们。
 
 ---
 

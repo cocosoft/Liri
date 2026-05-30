@@ -1,15 +1,19 @@
-# 版本自动发布步骤
+# 版本发布流程
+
+> 版本管理规则详见 [versioning.md](file:///E:/PY/CODES/PY_APP/.trae/rules/versioning.md)。
 
 ## 版本号约定
 
 | 组件 | 版本文件 | 当前版本 |
 |------|----------|---------|
-| 后端 (app/) | `app/package.json` | 1.0.0 |
+| 后端 (app/) | `app/package.json` | 0.1.0 |
 | 前端客户端 (client/) | `client/package.json` | 0.1.0 |
 | Tauri 配置 | `client/src-tauri/tauri.conf.json` | 0.1.0 |
 | Cargo 配置 | `client/src-tauri/Cargo.toml` | 0.1.0 |
 
-版本格式：`v<主版本>.<次版本>.<修订号>`（如 `v1.2.0`）
+版本格式：`v<主版本>.<次版本>.<修订号>`（如 `v0.1.0`）
+
+版本升级规则：日常每次提交递增修订号（patch），修订号满 100 进位次版本（minor），次版本满 10 进位主版本（major）。详见 [versioning.md](file:///E:/PY/CODES/PY_APP/.trae/rules/versioning.md)。
 
 ---
 
@@ -25,24 +29,34 @@
 
 ### 1.2 版本号对齐
 
-> 所有版本号必须统一更新
+> 所有组件版本号必须统一更新。
 
-运行以下命令统一提升版本：
+版本升级统一使用 `npm version patch` 自增修订号：
 
 ```bash
-# ========== 设置版本变量 ==========
-$version = "1.1.0"
+# ========== 获取当前版本并计算下一个修订号 ==========
+$version = node -e "const v=require('./app/package.json').version; const p=v.split('.').map(Number); p[2]++; console.log(p.join('.'))"
+echo "Bumping to: v$version"
 
 # ========== 更新后端版本 ==========
 cd app
 bunx json -I -f package.json -e "this.version='$version'"
+cd ..
 
 # ========== 更新前端版本 ==========
-cd ../client
+cd client
 npm version $version --no-git-tag-version
 npx json -I -f src-tauri/tauri.conf.json -e "this.version='$version'"
-npx json -I -f src-tauri/Cargo.toml -e "this.package.version='$version'"  # 手动改 Cargo.toml
+cd ..
+
+# ========== 更新 Cargo.toml ==========
+$cargoPath = "client/src-tauri/Cargo.toml"
+$content = Get-Content $cargoPath -Raw
+$content = $content -replace '^version = "[\d\.]+"', "version = `"$version`""
+Set-Content $cargoPath $content
 ```
+
+进位次版本/主版本时手动设置目标版本号，替换 `$version` 即可。
 
 ### 1.3 生成变更日志
 
@@ -90,7 +104,6 @@ git push origin "v$version"
 ### 3.1 后端独立编译
 
 ```powershell
-# 编译为 Windows 可执行文件
 cd app
 bun run build:win
 # 产物在 dist/py_app_coding.exe
@@ -99,13 +112,9 @@ bun run build:win
 ### 3.2 Tauri 桌面客户端打包
 
 ```powershell
-# 安装依赖
 cd client
 npm install
-
-# 构建 Tauri 桌面应用（自动执行前端构建 + Rust 编译）
 npm run tauri build
-
 # 产物在 client/src-tauri/target/release/bundle/
 # ├── msi/   — Windows 安装包
 # └── nsis/  — NSIS 安装包
@@ -114,10 +123,10 @@ npm run tauri build
 ### 3.3 发布物目录结构
 
 ```
-release-v1.1.0/
+release-v0.1.0/
 ├── py_app_coding.exe          # 后端独立可执行文件
-├── PY_APP_1.1.0_x64.msi      # Tauri MSI 安装包
-├── PY_APP_1.1.0_x64-setup.exe # Tauri NSIS 安装包
+├── PY_APP_0.1.0_x64.msi      # Tauri MSI 安装包
+├── PY_APP_0.1.0_x64-setup.exe # Tauri NSIS 安装包
 └── CHANGELOG.md               # 版本变更日志
 ```
 
@@ -151,30 +160,39 @@ release-v1.1.0/
 # 1. 确认当前分支（应在 main）
 git branch
 
-# 2. 从 develop 合并（如有）
-git pull origin develop
+# 2. 确保工作区干净
+git status
 
-# 3. 更新版本号
-$version = "1.1.0"
+# 3. 获取当前版本并计算下一个修订号
+$version = node -e "const v=require('./app/package.json').version; const p=v.split('.').map(Number); p[2]++; console.log(p.join('.'))"
+echo "Bumping to: v$version"
 
+# 4. 更新后端版本
 cd app
 bunx json -I -f package.json -e "this.version='$version'"
 cd ..
 
+# 5. 更新前端版本
 cd client
 npm version $version --no-git-tag-version
 npx json -I -f src-tauri/tauri.conf.json -e "this.version='$version'"
 cd ..
 
-# 4. 提交版本更新
+# 6. 更新 Cargo.toml
+$cargoPath = "client/src-tauri/Cargo.toml"
+$content = Get-Content $cargoPath -Raw
+$content = $content -replace '^version = "[\d\.]+"', "version = `"$version`""
+Set-Content $cargoPath $content
+
+# 7. 提交版本更新
 git add -A
 git commit -m "chore: bump version to v$version"
 
-# 5. 跑一遍验证
+# 8. 跑一遍验证
 cd app && bun run typecheck && bun test && cd ..
 cd client && npm run typecheck && npm run build && cd ..
 
-# 6. 打标签并推送
+# 9. 打标签并推送
 git tag -a "v$version" -m "Release v$version"
 git push origin main --tags
 ```

@@ -237,6 +237,12 @@ export class BuiltinCommandLoader implements CommandLoader {
         name: 'security-review',
         aliases: ['sec-review'],
       },
+      // Cron 定时作业管理命令
+      {
+        path: '../cron/index.js',
+        name: 'cron',
+        aliases: ['scheduler', 'scheduled'],
+      },
     ];
 
     const commands: Command[] = [];

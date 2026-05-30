@@ -495,6 +495,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T1_await_prefetch');
     profileCheckpoint('T1_await_prefetch_end');
 
+    // T1.75: 初始化 ACP 模块桥接（非阻塞，失败不影响主流程）
+    import('./bridge/ModuleBridgeSetup.js').then(({ setupModuleBridgeOnStartup }) => {
+      setupModuleBridgeOnStartup().catch((err) => {
+        logger.warning('ACP 模块桥接初始化异常（非致命）', { error: String(err) });
+      });
+    });
+
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
     profilePhaseStart('T2_dispatch');

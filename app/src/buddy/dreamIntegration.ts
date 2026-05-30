@@ -10,9 +10,9 @@
  */
 
 import type { DreamEvent } from '../chronos/autoDream/AutoDream';
-import { onDreamEvent, offDreamEvent } from '../chronos/autoDream/AutoDream';
+import { offDreamEvent } from '../chronos/autoDream/AutoDream';
 import type { EventBus } from '../core/events/EventBus';
-import { globalEventBus } from '../core/events/EventBus';
+import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import {
   createInfoNotification,
   createAchievementNotification,
@@ -39,6 +39,11 @@ export class DreamGrowthTracker {
   private lastCompletedDate = '';
   private consecutiveDays = 0;
   private unlockedAchievements = new Set<string>();
+
+  /** 任务完成次数计数器 */
+  private taskCompletionCount = 0;
+  /** 任务累计经验值 */
+  private totalTaskExp = 0;
 
   /**
    * 记录一次梦境完成，更新统计数据并检测里程碑
@@ -74,6 +79,27 @@ export class DreamGrowthTracker {
       totalSessions: this.totalSessions,
       totalInsights: this.totalInsights,
       consecutiveDays: this.consecutiveDays,
+    };
+  }
+
+  /**
+   * 记录一次任务完成（非梦境），累计经验值
+   *
+   * @param source 任务来源模块（cron / daemon / local_bash 等）
+   * @param exp    本次任务获得的经验值
+   */
+  recordTaskCompletion(source: string, exp: number): void {
+    this.taskCompletionCount++;
+    this.totalTaskExp += exp;
+  }
+
+  /**
+   * 获取任务完成统计
+   */
+  getTaskStats(): { taskCompletionCount: number; totalTaskExp: number } {
+    return {
+      taskCompletionCount: this.taskCompletionCount,
+      totalTaskExp: this.totalTaskExp,
     };
   }
 
@@ -292,22 +318,81 @@ function handleDreamEvent(event: DreamEvent): void {
 
 /**
  * 初始化 Buddy 梦境集成
- * 将 AutoDream 事件桥接到 EventBus，Buddy 通过 EventBus 接收反馈
+ * 通过标准 EventBus 事件接收 AutoDream 的生命周期通知，
+ * 同时保留对旧 DREAM_EVENT 通道的向后兼容。
  *
  * @param bus 可选的 EventBus 实例，默认使用 globalEventBus
  */
 export function initBuddyDreamIntegration(bus?: EventBus): void {
   const eventBus = bus || globalEventBus;
 
-  onDreamEvent((event: DreamEvent) => {
-    eventBus.publish(DREAM_EVENT, event);
+  /** 已处理的事件 ID 集合（用于新旧通道去重） */
+  const recentDreamIds = new Set<string>();
+
+  function markProcessed(taskId: string): void {
+    recentDreamIds.add(taskId);
+    setTimeout(() => recentDreamIds.delete(taskId), 3000);
+  }
+
+  function isAlreadyProcessed(taskId: string): boolean {
+    return recentDreamIds.has(taskId);
+  }
+
+  // 主路径：订阅标准 EventBus 事件
+  eventBus.subscribe(SystemEvents.DREAM_STARTED, (event: unknown) => {
+    const de = event as DreamEvent;
+    markProcessed(de.taskId);
+    handleDreamEvent(de);
+  });
+  eventBus.subscribe(SystemEvents.DREAM_COMPLETED, (event: unknown) => {
+    const de = event as DreamEvent;
+    markProcessed(de.taskId);
+    handleDreamEvent(de);
+  });
+  eventBus.subscribe(SystemEvents.DREAM_FAILED, (event: unknown) => {
+    const de = event as DreamEvent;
+    markProcessed(de.taskId);
+    handleDreamEvent(de);
   });
 
+  // 兼容路径：旧 DREAM_EVENT 通道（用于尚未迁移的发布者）
   eventBus.subscribe(DREAM_EVENT, (event: unknown) => {
-    handleDreamEvent(event as DreamEvent);
+    const de = event as DreamEvent;
+    if (isAlreadyProcessed(de.taskId)) return;
+    markProcessed(de.taskId);
+    handleDreamEvent(de);
   });
 
-  console.log('[BuddyDream] integration initialized via EventBus');
+  console.log('[BuddyDream] integration initialized via standard EventBus events');
+}
+
+/**
+ * 初始化 Buddy 与 Tasks 的成长联动
+ * 订阅 task:completed 事件，根据任务完成情况驱动伙伴成长统计。
+ * 梦境任务已在 dreamIntegration 中处理，此处跳过避免重复。
+ */
+export function initBuddyTaskGrowthIntegration(): void {
+  globalEventBus.subscribe(SystemEvents.TASK_COMPLETED, (event: unknown) => {
+    const payload = event as Record<string, unknown>;
+    if (payload.type === 'dream') {
+      return;
+    }
+
+    const expMap: Record<string, number> = {
+      cron: 5,
+      daemon: 10,
+      local_bash: 15,
+      local_agent: 25,
+    };
+    const source = String(payload.type || 'unknown');
+    const exp = expMap[source] || 10;
+
+    growthTracker.recordTaskCompletion(source, exp);
+
+    console.log(`[BuddyGrowth] task ${payload.taskId} completed: +${exp} exp (${source})`);
+  });
+
+  console.log('[BuddyGrowth] task-driven growth integration initialized');
 }
 
 /**
@@ -324,4 +409,38 @@ export function stopDreamIntegration(): void {
   offDreamEvent((event: DreamEvent) => {
     globalEventBus.publish(DREAM_EVENT, event);
   });
+}
+
+/**
+ * 初始化 Buddy 对 Cron 定时任务的反馈
+ * 订阅 BUDDY_GROWTH 事件，将 Cron 任务执行结果转化为 Buddy 通知。
+ */
+export function initBuddyCronFeedbackIntegration(): void {
+  globalEventBus.subscribe(SystemEvents.BUDDY_GROWTH, (event: unknown) => {
+    const payload = event as Record<string, unknown>;
+    if (payload.source !== 'cron') return;
+
+    const taskId = String(payload.taskId || '');
+    const prompt = String(payload.prompt || '');
+    const success = payload.success === true;
+
+    let message: string;
+    if (success) {
+      message = prompt
+        ? `⏰ 定时任务「${prompt.slice(0, 60)}」已完成`
+        : `⏰ 定时任务 ${taskId} 已完成`;
+    } else {
+      message = prompt
+        ? `⏰ 定时任务「${prompt.slice(0, 60)}」执行失败`
+        : `⏰ 定时任务 ${taskId} 执行失败`;
+    }
+
+    ifNotificationsEnabled(() => {
+      createInfoNotification('⏰ 定时任务', message);
+    });
+
+    console.log(`[BuddyCron] ${message}`);
+  });
+
+  console.log('[BuddyCron] cron feedback integration initialized');
 }

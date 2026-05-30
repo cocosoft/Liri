@@ -32,6 +32,10 @@ import {
 import { cronToHuman } from './cron';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
+import { taskRegistry } from '../tasks/TaskRegistry';
+import { BaseTask } from '../tasks/BaseTask';
+import { TaskType, TaskStatus } from '../tasks/types';
+import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -53,6 +57,23 @@ function isRecurringTaskAged(
 }
 
 /**
+ * 轻量级定时任务包装，用于将 cron 任务注册到 TaskRegistry
+ */
+class CronRegistryTask extends BaseTask {
+  readonly type = TaskType.CRON;
+
+  constructor(id: string, description: string) {
+    super(id, description, '', TaskType.CRON);
+  }
+
+  async spawn(): Promise<void> { /* no-op */ }
+  async kill(): Promise<void> { /* no-op */ }
+}
+
+/** cron task id → registryTaskId 映射 */
+const cronTaskMap: Map<string, string> = new Map();
+
+/**
  * 创建Cron调度器
  */
 export function createCronScheduler(
@@ -62,7 +83,7 @@ export function createCronScheduler(
     onFire,
     isLoading,
     assistantMode = false,
-    onFireTask,
+    onFireTask: rawOnFireTask,
     onMissed,
     dir,
     lockIdentity,
@@ -70,6 +91,42 @@ export function createCronScheduler(
     isKilled,
     filter,
   } = options;
+
+  /** 包装 onFireTask，集成 TaskRegistry 和 EventBus */
+  const onFireTask = rawOnFireTask
+    ? (t: ScheduledTask) => {
+        if (!cronTaskMap.has(t.id)) {
+          const registryTaskId = taskRegistry.register(
+            new CronRegistryTask(t.id, t.prompt || `Cron: ${t.cron}`)
+          );
+          cronTaskMap.set(t.id, registryTaskId);
+          globalEventBus.publish(SystemEvents.TASK_CREATED, {
+            taskId: registryTaskId,
+            cronTaskId: t.id,
+            cron: t.cron,
+          });
+        }
+        const registryTaskId = cronTaskMap.get(t.id);
+        if (registryTaskId) {
+          taskRegistry.updateState(registryTaskId, { status: TaskStatus.RUNNING });
+          globalEventBus.publish(SystemEvents.TASK_STARTED, {
+            taskId: registryTaskId,
+            cronTaskId: t.id,
+          });
+        }
+        rawOnFireTask(t);
+        if (registryTaskId && !t.recurring) {
+          taskRegistry.updateState(registryTaskId, {
+            status: TaskStatus.COMPLETED,
+            endTime: Date.now(),
+          });
+          globalEventBus.publish(SystemEvents.TASK_COMPLETED, {
+            taskId: registryTaskId,
+            cronTaskId: t.id,
+          });
+        }
+      }
+    : undefined;
 
   const lockOpts = dir || lockIdentity ? { dir, lockIdentity } : undefined;
 
@@ -498,6 +555,15 @@ export function createInMemoryScheduler(
         }
       }
     }
+
+    globalEventBus.publish(SystemEvents.BUDDY_GROWTH, {
+      source: 'cron',
+      taskId: task.id,
+      prompt: task.prompt,
+      cron: task.cron,
+      success: execResult.success,
+      timestamp: Date.now(),
+    });
   }
 
   async function processTask(task: ScheduledTask): Promise<void> {

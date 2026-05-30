@@ -34,6 +34,7 @@ import {
 } from '../services/voice/services/ttsProvider';
 import { OpenAITTSProvider } from '../services/voice/services/openAITTSProvider';
 import { CommandTTSProvider } from '../services/voice/services/commandTTSProvider';
+import { PiperTTSProvider } from '../services/voice/services/piperTTSProvider';
 import { STTRegistry } from '../services/voice/services/sttRegistry';
 import { LocalSTTProvider } from '../services/voice/services/localSTTProvider';
 import { CloudSTTProvider } from '../services/voice/services/cloudSTTProvider';
@@ -105,6 +106,13 @@ export interface VoiceBridgeConfig {
     openAIApiKey?: string;
     /** OpenAI TTS 模型 */
     openAITTSCModel?: 'tts-1' | 'tts-1-hd';
+    /** Piper 本地 TTS 配置 */
+    piper?: {
+      /** 模型文件所在目录 */
+      modelDir: string;
+      /** 默认语音 ID（默认 zh_CN-hf_female） */
+      defaultVoice?: string;
+    };
     /** STT 配置 */
     stt?: {
       /** OpenAI Whisper API 密钥（默认复用 openAIApiKey） */
@@ -364,6 +372,17 @@ export class VoiceServiceBridge {
             model: this.config.service?.openAITTSCModel ?? 'tts-1',
           })
         );
+      }
+
+      // 条件注册 Piper 本地 TTS（需要模型目录配置）
+      const piperConfig = this.config.service?.piper;
+      if (piperConfig?.modelDir) {
+        if (PiperTTSProvider.isAvailable()) {
+          TTSRegistry.register(new PiperTTSProvider({
+            modelDir: piperConfig.modelDir,
+            defaultVoice: piperConfig.defaultVoice ?? 'zh_CN-hf_female',
+          }));
+        }
       }
     }
 

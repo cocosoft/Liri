@@ -63,6 +63,8 @@ function taskStatusToDisplay(s: TaskStatus): DisplayStatus {
       return 'failed';
     case TaskStatus.KILLED:
       return 'cancelled';
+    case TaskStatus.LOST:
+      return 'cancelled';
   }
 }
 

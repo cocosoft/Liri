@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { randomBytes } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
@@ -25,6 +26,7 @@ const VALID_DISPLAY_STATUSES = [
   'completed',
   'failed',
   'cancelled',
+  'lost',
 ] as const;
 export type DisplayStatus = (typeof VALID_DISPLAY_STATUSES)[number];
 
@@ -44,6 +46,7 @@ export interface TaskStats {
   completed: number;
   failed: number;
   cancelled: number;
+  lost: number;
 }
 
 export function displayToTaskStatus(s: DisplayStatus): TaskStatus {
@@ -58,6 +61,8 @@ export function displayToTaskStatus(s: DisplayStatus): TaskStatus {
       return TaskStatus.FAILED;
     case 'cancelled':
       return TaskStatus.KILLED;
+    case 'lost':
+      return TaskStatus.LOST;
   }
 }
 
@@ -73,6 +78,8 @@ export function taskStatusToDisplay(s: TaskStatus): DisplayStatus {
       return 'failed';
     case TaskStatus.KILLED:
       return 'cancelled';
+    case TaskStatus.LOST:
+      return 'lost';
   }
 }
 
@@ -97,6 +104,8 @@ const TASK_ID_PREFIXES: Record<string, string> = {
   [TaskType.WORKFLOW]: 'w',
   [TaskType.MONITOR_MCP]: 'm',
   [TaskType.BACKGROUND_AGENT]: 'g',
+  [TaskType.CRON]: 'c',
+  [TaskType.DAEMON_PROCESS]: 'p',
 };
 
 export class TaskRegistry {
@@ -105,6 +114,12 @@ export class TaskRegistry {
   private listeners: Set<(event: TaskEvent) => void> = new Set();
   private persistDir: string | null = null;
   private sqliteStore: SqliteTaskStore | null = null;
+
+  private tasksByOwnerKey: Map<string, Set<string>> = new Map();
+  private tasksBySessionKey: Map<string, Set<string>> = new Map();
+  private tasksByType: Map<TaskType, Set<string>> = new Map();
+  private tasksByStatus: Map<TaskStatus, Set<string>> = new Map();
+  private taskCurrentStatus: Map<string, TaskStatus> = new Map();
 
   setPersistDir(dir: string): void {
     this.persistDir = dir;
@@ -185,14 +200,22 @@ export class TaskRegistry {
   register(task: BaseTask, existingTaskId?: string): string {
     const taskId = existingTaskId || this.generateTaskId(task.type);
     this.tasks.set(taskId, task);
-    // 如果使用现有 ID，将其写回 task.state.id 保持一致
     if (existingTaskId) {
       (task as any).state = { ...(task as any).state, id: existingTaskId };
     }
 
+    this.updateIndexes(task, taskId);
+
     task.on('stateChanged', (state: TaskState) => {
+      const prevStatus = this.taskCurrentStatus.get(taskId);
       this.stateHistory.push(state);
       this.notifyListeners({ type: 'stateChanged', taskId, state });
+
+      if (prevStatus !== undefined && prevStatus !== state.status) {
+        this.tasksByStatus.get(prevStatus)?.delete(taskId);
+      }
+      this.tasksByStatus.get(state.status)?.add(taskId);
+      this.taskCurrentStatus.set(taskId, state.status);
 
       if (isTerminalTaskStatus(state.status)) {
         this.notifyListeners({ type: 'taskEnded', taskId, state });
@@ -213,11 +236,50 @@ export class TaskRegistry {
     return taskId;
   }
 
+  private updateIndexes(task: BaseTask, taskId: string): void {
+    const keySet = <T>(map: Map<T, Set<string>>, key: T) => {
+      let set = map.get(key);
+      if (!set) {
+        set = new Set();
+        map.set(key, set);
+      }
+      set.add(taskId);
+    };
+
+    keySet(this.tasksByType, task.type);
+    keySet(this.tasksByStatus, task.status);
+    this.taskCurrentStatus.set(taskId, task.status);
+
+    const meta = task.taskState.metadata;
+    if (meta?.ownerKey) {
+      keySet(this.tasksByOwnerKey, meta.ownerKey as string);
+    }
+    if (meta?.sessionKey) {
+      keySet(this.tasksBySessionKey, meta.sessionKey as string);
+    }
+  }
+
+  private removeFromIndexes(taskId: string): void {
+    const removeFrom = <T>(map: Map<T, Set<string>>, key: T) => {
+      const set = map.get(key);
+      if (set) {
+        set.delete(taskId);
+        if (set.size === 0) map.delete(key);
+      }
+    };
+
+    for (const [, set] of this.tasksByOwnerKey) set.delete(taskId);
+    for (const [, set] of this.tasksBySessionKey) set.delete(taskId);
+    for (const [, set] of this.tasksByType) set.delete(taskId);
+    this.tasksByStatus.forEach((set) => set.delete(taskId));
+    this.taskCurrentStatus.delete(taskId);
+  }
+
   generateTaskId(type: TaskType): string {
     const prefix = TASK_ID_PREFIXES[type] || 'x';
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
-    return `${prefix}${timestamp}${random}`;
+    const rand = randomBytes(4).toString('hex');
+    return `${prefix}_${timestamp}_${rand}`;
   }
 
   async kill(taskId: string): Promise<void> {
@@ -237,6 +299,7 @@ export class TaskRegistry {
       await task.cleanup();
     }
     this.tasks.delete(taskId);
+    this.removeFromIndexes(taskId);
     await this.saveTasks();
   }
 
@@ -249,17 +312,55 @@ export class TaskRegistry {
   }
 
   getTaskByType(type: TaskType): BaseTask[] {
-    return this.getAllTasks().filter((task) => task.type === type);
+    const ids = this.tasksByType.get(type);
+    if (!ids || ids.size === 0) return [];
+    return Array.from(ids)
+      .map((id) => this.tasks.get(id))
+      .filter((t): t is BaseTask => t !== undefined);
   }
 
   getRunningTasks(): BaseTask[] {
-    return this.getAllTasks().filter(
-      (task) => task.status === TaskStatus.RUNNING
-    );
+    return this.getTasksByStatus(TaskStatus.RUNNING);
   }
 
   getTasksByStatus(status: TaskStatus): BaseTask[] {
-    return this.getAllTasks().filter((task) => task.status === status);
+    const ids = this.tasksByStatus.get(status);
+    if (!ids || ids.size === 0) return [];
+    return Array.from(ids)
+      .map((id) => this.tasks.get(id))
+      .filter((t): t is BaseTask => t !== undefined);
+  }
+
+  getTasksByOwnerKey(ownerKey: string): BaseTask[] {
+    const ids = this.tasksByOwnerKey.get(ownerKey);
+    if (!ids || ids.size === 0) return [];
+    return Array.from(ids)
+      .map((id) => this.tasks.get(id))
+      .filter((t): t is BaseTask => t !== undefined);
+  }
+
+  getTasksBySessionKey(sessionKey: string): BaseTask[] {
+    const ids = this.tasksBySessionKey.get(sessionKey);
+    if (!ids || ids.size === 0) return [];
+    return Array.from(ids)
+      .map((id) => this.tasks.get(id))
+      .filter((t): t is BaseTask => t !== undefined);
+  }
+
+  getTaskCountByType(): Record<TaskType, number> {
+    const result: Record<string, number> = {};
+    for (const [type, ids] of this.tasksByType) {
+      result[type] = ids.size;
+    }
+    return result as Record<TaskType, number>;
+  }
+
+  getTaskCountByStatus(): Record<TaskStatus, number> {
+    const result: Record<string, number> = {};
+    for (const [status, ids] of this.tasksByStatus) {
+      result[status] = ids.size;
+    }
+    return result as Record<TaskStatus, number>;
   }
 
   addListener(listener: (event: TaskEvent) => void): void {
@@ -355,6 +456,7 @@ export class TaskRegistry {
       completed: all.filter((t) => t.status === TaskStatus.COMPLETED).length,
       failed: all.filter((t) => t.status === TaskStatus.FAILED).length,
       cancelled: all.filter((t) => t.status === TaskStatus.KILLED).length,
+      lost: all.filter((t) => t.status === TaskStatus.LOST).length,
     };
   }
 

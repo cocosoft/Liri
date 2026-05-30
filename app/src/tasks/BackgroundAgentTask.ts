@@ -48,6 +48,8 @@ function mapToBgStatus(status: TaskStatus): BackgroundTaskStatus {
       return 'failed';
     case TaskStatus.KILLED:
       return 'aborted';
+    case TaskStatus.LOST:
+      return 'aborted';
   }
 }
 

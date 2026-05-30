@@ -232,6 +232,15 @@ export const SystemEvents = {
   TASK_STARTED: 'task:started',
   TASK_COMPLETED: 'task:completed',
   TASK_FAILED: 'task:failed',
+  TASK_CANCELLED: 'task:cancelled',
+  TASK_PROGRESS: 'task:progress',
+
+  DREAM_STARTED: 'dream:started',
+  DREAM_COMPLETED: 'dream:completed',
+  DREAM_FAILED: 'dream:failed',
+
+  BUDDY_GROWTH: 'buddy:growth',
+  BUDDY_ACHIEVEMENT: 'buddy:achievement',
 
   NOTIFICATION_SHOWN: 'notification:shown',
   NOTIFICATION_DISMISSED: 'notification:dismissed',

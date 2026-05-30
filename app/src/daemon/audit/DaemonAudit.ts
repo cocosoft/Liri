@@ -1,10 +1,11 @@
 /**
  * DaemonAudit 守护进程审计日志
- * 对标 CC 的 --daemon-audit 机制
+ * 事件类型已对齐 SystemEvents，通过 EventBus 发布标准化事件。
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/config/paths';
+import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
 
 /**
  * 审计事件类型
@@ -92,6 +93,8 @@ export class DaemonAudit {
     this.events.push(event);
     this.appendToFile(event);
 
+    this.publishToEventBus(event);
+
     if (this.events.length > 10000) {
       this.events = this.events.slice(-5000);
     }
@@ -147,6 +150,32 @@ export class DaemonAudit {
     }
 
     return summary;
+  }
+
+  /**
+   * 将审计事件发布到 EventBus（标准化事件通道）
+   * 将 DaemonAudit 的内部事件类型映射到 SystemEvents 常量，
+   * 使其他模块可通过 EventBus 统一订阅。
+   */
+  private publishToEventBus(event: AuditEvent): void {
+    const eventMap: Record<string, string> = {
+      'task:enqueue': SystemEvents.TASK_CREATED,
+      'task:dequeue': SystemEvents.TASK_STARTED,
+      'task:complete': SystemEvents.TASK_COMPLETED,
+      'task:fail': SystemEvents.TASK_FAILED,
+    };
+
+    const standardType = eventMap[event.type];
+    if (!standardType) return;
+
+    globalEventBus.publish(standardType, {
+      taskId: event.id,
+      source: 'daemon',
+      timestamp: event.timestamp,
+      message: event.message,
+      metadata: event.data,
+      pid: event.pid,
+    });
   }
 
   /**

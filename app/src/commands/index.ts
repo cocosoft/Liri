@@ -169,3 +169,6 @@ export { timerCommand } from './builtin/timer/index.js';
 
 // Gateway 通道管理命令
 export { gatewayCommand } from './builtin/gateway/index.js';
+
+// Cron 定时作业管理命令
+export { cronCommand } from './cron/index.js';

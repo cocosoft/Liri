@@ -15,6 +15,10 @@ import {
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
+import { taskRegistry } from '../../tasks/TaskRegistry';
+import { BaseTask } from '../../tasks/BaseTask';
+import { TaskType, TaskStatus } from '../../tasks/types';
+import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -70,6 +74,16 @@ export function offDreamEvent(callback: DreamEventCallback): void {
 
 function emitDreamEvent(event: DreamEvent): void {
   _dreamEventCallbacks.forEach((cb) => cb(event));
+
+  const eventMap: Record<string, string> = {
+    'dream:started': SystemEvents.DREAM_STARTED,
+    'dream:completed': SystemEvents.DREAM_COMPLETED,
+    'dream:failed': SystemEvents.DREAM_FAILED,
+  };
+  const systemEvent = eventMap[event.type];
+  if (systemEvent) {
+    globalEventBus.publish(systemEvent, event);
+  }
 }
 
 interface DreamProgress {
@@ -83,6 +97,23 @@ let lastSessionScanAt = 0;
 let currentAbortController: AbortController | null = null;
 
 const dreamTasks: Map<string, DreamTask> = new Map();
+
+/**
+ * 轻量级梦境任务包装，用于将梦境生命周期注册到 TaskRegistry
+ */
+class DreamRegistryTask extends BaseTask {
+  readonly type = TaskType.DREAM;
+
+  constructor(id: string, description: string) {
+    super(id, description, '', TaskType.DREAM);
+  }
+
+  async spawn(): Promise<void> { /* no-op */ }
+  async kill(): Promise<void> { /* no-op */ }
+}
+
+/** 内部 dreamTaskId → registryTaskId 映射 */
+const dreamTaskToRegistryMap: Map<string, string> = new Map();
 
 function generateTaskId(): string {
   return `dream_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -107,6 +138,15 @@ function registerDreamTask(
     createdAt: Date.now(),
   };
   dreamTasks.set(taskId, task);
+
+  const registryTaskId = taskRegistry.register(
+    new DreamRegistryTask(
+      taskId,
+      `梦境整合: ${options.sessionsReviewing} 条会话`
+    )
+  );
+  dreamTaskToRegistryMap.set(taskId, registryTaskId);
+
   return taskId;
 }
 
@@ -120,6 +160,11 @@ function addDreamTurn(
   if (task) {
     task.status = 'running';
     task.filesTouched.push(...touchedPaths);
+
+    const registryTaskId = dreamTaskToRegistryMap.get(taskId);
+    if (registryTaskId) {
+      taskRegistry.updateState(registryTaskId, { status: TaskStatus.RUNNING });
+    }
   }
 }
 
@@ -128,6 +173,14 @@ function completeDreamTask(taskId: string, setAppState: any): void {
   if (task) {
     task.status = 'completed';
     task.completedAt = Date.now();
+
+    const registryTaskId = dreamTaskToRegistryMap.get(taskId);
+    if (registryTaskId) {
+      taskRegistry.updateState(registryTaskId, {
+        status: TaskStatus.COMPLETED,
+        endTime: Date.now(),
+      });
+    }
   }
 }
 
@@ -137,6 +190,15 @@ function failDreamTask(taskId: string, setAppState: any, error?: string): void {
     task.status = 'failed';
     task.completedAt = Date.now();
     task.error = error;
+
+    const registryTaskId = dreamTaskToRegistryMap.get(taskId);
+    if (registryTaskId) {
+      taskRegistry.updateState(registryTaskId, {
+        status: TaskStatus.FAILED,
+        endTime: Date.now(),
+        error,
+      });
+    }
   }
 }
 

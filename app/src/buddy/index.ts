@@ -104,6 +104,8 @@ export {
   startDreamIntegration,
   stopDreamIntegration,
   initBuddyDreamIntegration,
+  initBuddyTaskGrowthIntegration,
+  initBuddyCronFeedbackIntegration,
   formatDreamMessage,
   formatGrowthDialogue,
   DreamGrowthTracker,

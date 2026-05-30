@@ -33,3 +33,9 @@ tsc-errors.txt
 
 # Failure logs (runtime generated)
 failure-logs/
+
+# Temp development scripts
+_check_*.ts
+_find_*.ts
+_list_*.ts
+_show_*.ts

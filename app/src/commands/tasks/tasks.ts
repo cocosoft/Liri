@@ -61,6 +61,7 @@ function showHelp(): CommandResult {
       '  /tasks active                显示活跃任务（运行中+等待中）',
       '  /tasks recent [n]            显示最近完成的任务（默认5条）',
       '  /tasks all                   显示所有任务（包括已完成的）',
+      '  /tasks type                  按任务类型分组显示',
       '  /tasks show <task-id>        查看任务详情',
       '  /tasks stop <task-id>        停止任务',
       '  /tasks clear [hours]         清理已完成的任务（默认清理所有，指定小时数只清理早于此时的）',
@@ -73,6 +74,7 @@ function showHelp(): CommandResult {
       '  /tasks',
       '  /tasks running',
       '  /tasks recent',
+      '  /tasks type',
       '  /tasks show bg-a1b2c3d4',
       '  /tasks stats --json',
       '  /tasks stop bg-a1b2c3d4',
@@ -176,6 +178,81 @@ function buildStatsHeader(tasks: BackgroundTaskInfo[]): string {
 }
 
 /**
+ * 按任务类型分组显示（新增 P3-3.3 增强）
+ */
+function formatTypeGroups(
+  tasks: BackgroundTaskInfo[],
+  limit?: number
+): string {
+  const typeMap = new Map<string, BackgroundTaskInfo[]>();
+  for (const task of tasks) {
+    const type = task.taskType || task.agentType || 'unknown';
+    if (!typeMap.has(type)) typeMap.set(type, []);
+    typeMap.get(type)!.push(task);
+  }
+
+  const lines: string[] = [];
+  let shown = 0;
+
+  for (const [type, typeTasks] of typeMap) {
+    if (limit !== undefined && shown >= limit) break;
+    lines.push(`\n  ${type} (${typeTasks.length}):`);
+    for (const task of typeTasks) {
+      if (limit !== undefined && shown >= limit) break;
+      const icon = statusIcon(task.status);
+      const color = statusColor(task.status);
+      const sid = task.taskId.substring(0, 8);
+      const desc = task.description || '无描述';
+      const age = formatAge(task.createdAt);
+
+      let extra = '';
+      if (task.ownerKey) extra += ` owner:${task.ownerKey}`;
+      if (task.sessionKey) {
+        const shortSess = task.sessionKey.substring(0, 12);
+        extra += ` sess:${shortSess}`;
+      }
+
+      let elapsed = '';
+      if (task.status === 'running' && task.startedAt) {
+        elapsed = ` ${formatDuration(Date.now() - task.startedAt)}`;
+      } else if (task.completedAt && task.startedAt) {
+        elapsed = ` ${formatDuration(task.completedAt - task.startedAt)}`;
+      }
+
+      lines.push(
+        `    ${color}${icon}${RESET} [${sid}] ${desc} (${age}${elapsed})${extra}`
+      );
+      shown++;
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * 处理 type 子命令（按类型分组显示）
+ */
+function handleType(showJson: boolean, limit: number): CommandResult {
+  const allTasks = getAllTasksFromRegistry();
+  if (allTasks.length === 0) {
+    return { success: true, message: '没有运行中的后台任务' };
+  }
+
+  if (showJson) {
+    return {
+      success: true,
+      message: JSON.stringify(tasksToJson(allTasks.slice(0, limit)), null, 2),
+    };
+  }
+
+  const header = buildStatsHeader(allTasks);
+  return {
+    success: true,
+    message: header + formatTypeGroups(allTasks, limit),
+  };
+}
+
+/**
  * 按状态分组显示任务列表
  */
 function formatTaskGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
@@ -251,6 +328,12 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
   );
   lines.push(` 描述:        ${task.description || '无'}`);
   lines.push(` 状态:        ${color}${task.status}${RESET}`);
+  if (task.ownerKey) {
+    lines.push(` 归属:        ${task.ownerKey}`);
+  }
+  if (task.sessionKey) {
+    lines.push(` 会话:        ${task.sessionKey}`);
+  }
   lines.push(
     ` 创建时间:    ${new Date(task.createdAt).toLocaleString()} (${formatAge(task.createdAt)}前)`
   );
@@ -410,6 +493,7 @@ function statsToJson(
  */
 function taskToBgInfo(task: BaseTask): BackgroundTaskInfo {
   const state = task.taskState;
+  const meta = state.metadata || {};
   return {
     taskId: state.id,
     agentName: state.type,
@@ -429,6 +513,9 @@ function taskToBgInfo(task: BaseTask): BackgroundTaskInfo {
       totalTokens: state.tokenCount,
     },
     durationMs: state.endTime ? state.endTime - state.startTime : undefined,
+    taskType: meta.taskType as string | undefined,
+    ownerKey: meta.ownerKey as string | undefined,
+    sessionKey: meta.sessionKey as string | undefined,
   };
 }
 
@@ -443,6 +530,8 @@ function mapTaskStatusToBg(status: TaskStatus): BackgroundTaskStatus {
     case TaskStatus.FAILED:
       return 'failed';
     case TaskStatus.KILLED:
+      return 'aborted';
+    case TaskStatus.LOST:
       return 'aborted';
   }
 }
@@ -798,6 +887,10 @@ const tasksCommand = {
 
       if (subcommand === 'recent') {
         return handleRecent(taskId, showJson);
+      }
+
+      if (subcommand === 'type') {
+        return handleType(showJson, limit);
       }
 
       const filterKeywords = [

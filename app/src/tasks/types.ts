@@ -31,6 +31,8 @@ export enum TaskType {
   WORKFLOW = 'local_workflow',
   MONITOR_MCP = 'monitor_mcp',
   BACKGROUND_AGENT = 'background_agent',
+  CRON = 'cron',
+  DAEMON_PROCESS = 'daemon_process',
 }
 
 export enum TaskStatus {
@@ -39,13 +41,15 @@ export enum TaskStatus {
   COMPLETED = 'completed',
   FAILED = 'failed',
   KILLED = 'killed',
+  LOST = 'lost',
 }
 
 export function isTerminalTaskStatus(status: TaskStatus): boolean {
   return (
     status === TaskStatus.COMPLETED ||
     status === TaskStatus.FAILED ||
-    status === TaskStatus.KILLED
+    status === TaskStatus.KILLED ||
+    status === TaskStatus.LOST
   );
 }
 
@@ -365,6 +369,12 @@ export interface BackgroundTaskInfo {
     totalTokens: number;
   };
   durationMs?: number;
+  /** 任务类型，用于类型分组显示 */
+  taskType?: string;
+  /** 归属用户 Key，用于 CLI 展示 */
+  ownerKey?: string;
+  /** 会话 Key，用于 CLI 展示 */
+  sessionKey?: string;
 }
 
 /** 后台任务事件 */

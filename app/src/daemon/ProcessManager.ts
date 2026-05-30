@@ -1,6 +1,10 @@
 import { Logger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
 import type { IPCService } from './IPCService';
+import { taskRegistry } from '../tasks/TaskRegistry';
+import { BaseTask } from '../tasks/BaseTask';
+import { TaskType, TaskStatus } from '../tasks/types';
+import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -48,6 +52,23 @@ const DEFAULT_CONFIG: ProcessConfig = {
   gracefulShutdownTimeout: 30000,
   healthCheckInterval: 15000,
 };
+
+/**
+ * 轻量级进程任务包装，用于将进程生命周期注册到 TaskRegistry
+ */
+class ProcessRegistryTask extends BaseTask {
+  readonly type = TaskType.DAEMON_PROCESS;
+
+  constructor(id: string, description: string) {
+    super(id, description, '', TaskType.DAEMON_PROCESS);
+  }
+
+  async spawn(): Promise<void> { /* no-op */ }
+  async kill(): Promise<void> { /* no-op */ }
+}
+
+/** process name → registryTaskId 映射 */
+const processTaskMap: Map<string, string> = new Map();
 
 export class ProcessManager {
   private processes: Map<string, ProcessState>;
@@ -120,6 +141,17 @@ export class ProcessManager {
       lastRestartTimestamps: [],
     });
     logger.info(`进程已注册: ${process.name}`);
+
+    const registryTaskId = taskRegistry.register(
+      new ProcessRegistryTask(process.name, `守护进程: ${process.name}`)
+    );
+    processTaskMap.set(process.name, registryTaskId);
+    globalEventBus.publish(SystemEvents.TASK_CREATED, {
+      taskId: registryTaskId,
+      name: process.name,
+      type: 'daemon_process',
+    });
+
     this.reportProcessCount();
   }
 
@@ -145,11 +177,36 @@ export class ProcessManager {
       logger.info(`进程已启动: ${name}`);
       this.recordRestart(state);
       this.startHealthCheck(state);
+
+      const registryTaskId = processTaskMap.get(name);
+      if (registryTaskId) {
+        taskRegistry.updateState(registryTaskId, { status: TaskStatus.RUNNING });
+        globalEventBus.publish(SystemEvents.TASK_STARTED, {
+          taskId: registryTaskId,
+          name,
+        });
+      }
+
       this.reportProcessCount();
     } catch (error) {
       state.status = 'stopped';
       this.lastError = `启动失败: ${error instanceof Error ? error.message : String(error)}`;
       logger.error(`进程启动失败: ${name}`, error as Error);
+
+      const registryTaskId = processTaskMap.get(name);
+      if (registryTaskId) {
+        taskRegistry.updateState(registryTaskId, {
+          status: TaskStatus.FAILED,
+          error: this.lastError,
+          endTime: Date.now(),
+        });
+        globalEventBus.publish(SystemEvents.TASK_FAILED, {
+          taskId: registryTaskId,
+          name,
+          error: this.lastError,
+        });
+      }
+
       throw error;
     }
   }
@@ -160,6 +217,8 @@ export class ProcessManager {
 
     state.status = 'stopping';
     this.stopHealthCheck(state);
+
+    let stopError: string | undefined;
 
     try {
       const timeoutPromise = new Promise<void>((_, reject) => {
@@ -173,8 +232,35 @@ export class ProcessManager {
       logger.info(`进程已停止: ${name}`);
     } catch (error) {
       state.status = 'stopped';
+      stopError = error instanceof Error ? error.message : String(error);
       logger.error(`进程停止失败: ${name}`, error as Error);
     }
+
+    const registryTaskId = processTaskMap.get(name);
+    if (registryTaskId) {
+      if (stopError) {
+        taskRegistry.updateState(registryTaskId, {
+          status: TaskStatus.FAILED,
+          endTime: Date.now(),
+          error: stopError,
+        });
+        globalEventBus.publish(SystemEvents.TASK_FAILED, {
+          taskId: registryTaskId,
+          name,
+          error: stopError,
+        });
+      } else {
+        taskRegistry.updateState(registryTaskId, {
+          status: TaskStatus.COMPLETED,
+          endTime: Date.now(),
+        });
+        globalEventBus.publish(SystemEvents.TASK_COMPLETED, {
+          taskId: registryTaskId,
+          name,
+        });
+      }
+    }
+
     this.reportProcessCount();
   }
 

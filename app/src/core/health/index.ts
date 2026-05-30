@@ -28,3 +28,11 @@ export type {
   DependencyType,
   HealthStatus,
 } from './DependencyHealthChecker';
+export {
+  ModuleHealthRegistry,
+  moduleHealthRegistry,
+} from './ModuleHealthRegistry';
+export type {
+  ModuleHealth,
+  ModuleHealthCheck,
+} from './ModuleHealthRegistry';

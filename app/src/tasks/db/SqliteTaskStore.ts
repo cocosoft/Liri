@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import type { DeliveryRecord } from '../TaskNotificationService';
 import type { TaskDeliveryConfig } from '../TaskDeliveryAdapter';
+import type { ITaskStore } from '../store/ITaskStore';
 
 export interface TaskRun {
   id: string;
@@ -99,7 +100,7 @@ function taskFlowRecordToRow(record: TaskFlowRecord): Record<string, unknown> {
   };
 }
 
-export class SqliteTaskStore {
+export class SqliteTaskStore implements ITaskStore {
   private db: Database | null = null;
   private dbPath: string;
 
@@ -676,6 +677,21 @@ export class SqliteTaskStore {
         });
       });
       this.db = null;
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    if (!this.db) return false;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.get('SELECT 1 AS ok', (err, row) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 }

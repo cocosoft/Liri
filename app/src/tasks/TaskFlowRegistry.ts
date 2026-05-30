@@ -1,3 +1,19 @@
+/**
+ * TaskFlowRegistry - 流程图级别编排器
+ *
+ * 职责：
+ * 1. 流程图管理：注册、更新、删除 DAG 流程图
+ * 2. 状态管理：维护流程状态（queued → running → completed/failed）
+ * 3. 步骤协调：管理 currentStep、blockedTaskId、waitJson
+ * 4. SQLite 持久化：通过 SqliteTaskStore 保存/加载流程记录
+ *
+ * 与 TaskOrchestrator 的区别：
+ * - TaskOrchestrator → Plan 级别编排（步骤顺序、状态管理、进度追踪）
+ *   适用场景：一次性多步骤工作流
+ * - TaskFlowRegistry → 流程图级别编排（DAG、条件分支、并行、等待）
+ *   适用场景：复杂流程图执行
+ */
+
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { TaskFlowStatus } from './types';
 import type { TaskFlowRecord, TaskFlowSyncMode } from './types';

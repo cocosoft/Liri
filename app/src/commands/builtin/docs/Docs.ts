@@ -410,6 +410,8 @@ const docsCommand = {
       'docs/ 目录文档:',
       ...fileDocs.map((d) => `  📄 ${d.title}`),
       '',
+      '官网: https://openliri.com',
+      '',
       '常用命令:',
       '  /docs list           - 查看所有文档章节',
       '  /docs <章节名>       - 查看具体章节',

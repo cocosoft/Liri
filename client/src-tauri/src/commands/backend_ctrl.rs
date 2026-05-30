@@ -81,12 +81,12 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
         .args(["repl", "--http-port", &port_str])
         .current_dir(&data_dir)
-        .env("PYAPP_HOME", &data_dir)
-        .env("PYAPP_DATA_DIR", format!("{}/data", data_dir))
-        .env("PYAPP_PROJECT_DIR", &data_dir);
+        .env("LIRI_HOME", &data_dir)
+        .env("LIRI_DATA_DIR", format!("{}/data", data_dir))
+        .env("LIRI_PROJECT_DIR", &data_dir);
 
     info!(
-        "Starting backend sidecar: Liri_coding repl --http-port={}, PYAPP_HOME={:?}",
+        "Starting backend sidecar: Liri_coding repl --http-port={}, LIRI_HOME={:?}",
         current_port,
         if config.data_dir.is_empty() {
             "(default)"

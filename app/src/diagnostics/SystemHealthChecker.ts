@@ -392,12 +392,12 @@ export class SystemHealthChecker extends EventEmitter {
     const issues: string[] = [];
     const suggestions: string[] = [];
 
-    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
     const pyappDir = resolvePyappHome();
 
-    if (!process.env.PYAPP_PROJECT_DIR) {
-      issues.push('PYAPP_PROJECT_DIR 未设置');
-      suggestions.push('设置 PYAPP_PROJECT_DIR 环境变量可优化路径解析');
+    if (!process.env.LIRI_PROJECT_DIR) {
+      issues.push('LIRI_PROJECT_DIR 未设置');
+      suggestions.push('设置 LIRI_PROJECT_DIR 环境变量可优化路径解析');
     }
 
     if (

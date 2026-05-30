@@ -16,9 +16,9 @@ import { existsSync, mkdirSync, readFileSync } from 'fs';
 
 // ─── 环境变量键名 ─────────────────────────────
 
-const ENV_PYAPP_HOME = 'PYAPP_HOME';
-const ENV_PYAPP_PROJECT_DIR = 'PYAPP_PROJECT_DIR';
-const ENV_PYAPP_DATA_DIR = 'PYAPP_DATA_DIR';
+const ENV_LIRI_HOME = 'LIRI_HOME';
+const ENV_LIRI_PROJECT_DIR = 'LIRI_PROJECT_DIR';
+const ENV_LIRI_DATA_DIR = 'LIRI_DATA_DIR';
 
 // ─── 全局配置存储 ─────────────────────────────
 
@@ -45,7 +45,7 @@ export function getUserDataDirOverride(): string | null {
  * 获取用户主目录
  * 优先级：
  * 1. 用户设置中配置的数据目录
- * 2. PYAPP_HOME 环境变量
+ * 2. LIRI_HOME 环境变量
  * 3. 默认：项目安装目录下的 app/data/pyapp（优先）或用户目录下的 .pyapp（备选）
  */
 export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
@@ -55,7 +55,7 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   }
 
   // 2. 环境变量覆盖
-  const override = env[ENV_PYAPP_HOME]?.trim();
+  const override = env[ENV_LIRI_HOME]?.trim();
   if (override) {
     return resolve(override);
   }
@@ -82,12 +82,12 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
 
 /**
  * 获取项目根目录
- * 可通过 PYAPP_PROJECT_DIR 环境变量覆盖
+ * 可通过 LIRI_PROJECT_DIR 环境变量覆盖
  * 默认使用 process.cwd()
  *
  * Bun 编译的独立 exe 中，process.cwd() 可能返回根路径（如 '\' 或 'D:\'），
  * 此时 fallback 链为：
- *   1. PYAPP_PROJECT_DIR 环境变量（启动脚本设置）
+ *   1. LIRI_PROJECT_DIR 环境变量（启动脚本设置）
  *   2. process.argv[0] → 编译 exe 的实际磁盘路径，推断项目根
  *   3. INIT_CWD 环境变量
  *   4. process.cwd()（原样返回）
@@ -96,7 +96,7 @@ export function resolveProjectRoot(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   // 1. 环境变量优先（启动脚本设置）
-  const override = env[ENV_PYAPP_PROJECT_DIR]?.trim();
+  const override = env[ENV_LIRI_PROJECT_DIR]?.trim();
   if (override) {
     return resolve(override);
   }
@@ -132,11 +132,11 @@ export function resolveProjectRoot(
 
 /**
  * 获取项目数据目录（第二层）
- * 可通过 PYAPP_DATA_DIR 环境变量覆盖
+ * 可通过 LIRI_DATA_DIR 环境变量覆盖
  * 默认：app/data/
  */
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env[ENV_PYAPP_DATA_DIR]?.trim();
+  const override = env[ENV_LIRI_DATA_DIR]?.trim();
   if (override) {
     return resolve(override);
   }
@@ -444,7 +444,7 @@ export function ensureDataDirectories(
 
 // ─── 常量（默认值） ───────────────────────────
 
-export const PYAPP_HOME = resolvePyappHome();
+export const LIRI_HOME = resolvePyappHome();
 export const PROJECT_ROOT = resolveProjectRoot();
 export const DATA_DIR = resolveDataDir();
 export const DB_PATH = resolveDbPath();

@@ -4,6 +4,8 @@
 
 基于 TypeScript + Rust 架构的 AI Agent 项目。
 
+> 官方网站：https://openliri.com
+
 ## 开发规范
 
 - 使用 TypeScript + Bun 进行开发

@@ -1,8 +1,8 @@
 import { parentPort } from 'node:worker_threads';
 
-const prompt = process.env.PYAPP_DREAM_PROMPT || '默认思考主题';
+const prompt = process.env.LIRI_DREAM_PROMPT || '默认思考主题';
 const maxDuration = parseInt(
-  process.env.PYAPP_DREAM_MAX_DURATION || '30000',
+  process.env.LIRI_DREAM_MAX_DURATION || '30000',
   10
 );
 

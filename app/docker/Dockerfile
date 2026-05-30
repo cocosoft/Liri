@@ -1,5 +1,6 @@
 # =============================================================================
-#  PY_APP — Docker 多阶段构建
+#  Liri — Docker 多阶段构建
+#  官网：https://openliri.com
 #  参考 Windows 版打包方式（bun build --compile），生成独立可执行文件
 # =============================================================================
 #  构建阶段 1：Rust 原生插件编译
@@ -104,9 +105,9 @@ RUN chown -R pyapp:pyapp /app
 USER pyapp
 
 # ── 环境变量 ──
-ENV PYAPP_PROJECT_DIR=/app \
-    PYAPP_HOME=/app/app/data \
-    PYAPP_DATA_DIR=/app/app/data \
+ENV LIRI_PROJECT_DIR=/app \
+    LIRI_HOME=/app/app/data \
+    LIRI_DATA_DIR=/app/app/data \
     NODE_ENV=production
 
 EXPOSE 3000

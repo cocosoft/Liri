@@ -56,8 +56,8 @@ export class IsolatedAgentExecutor {
         env: {
           ...process.env,
           ...config.envVars,
-          PYAPP_TASK_ID: config.taskId,
-          PYAPP_ISOLATED: 'true',
+          LIRI_TASK_ID: config.taskId,
+          LIRI_ISOLATED: 'true',
         },
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: config.timeout,

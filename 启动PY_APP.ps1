@@ -1,16 +1,17 @@
-# PY_APP 一键启动脚本 (PowerShell版)
+# Liri 一键启动脚本 (PowerShell版)
 # 双击运行即可，首次会自动创建 .env 配置文件
 
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Set environment variable so the compiled exe knows where the project is
-$env:PYAPP_PROJECT_DIR = $ProjectDir
+$env:LIRI_PROJECT_DIR = $ProjectDir
 
 $ExePath = Join-Path $ProjectDir "dist\py_app_coding.exe"
 $EnvFile = Join-Path $ProjectDir ".env"
 
 Write-Host "===================================="
-Write-Host "        PY_APP is starting..."
+Write-Host "        Liri is starting..."
+Write-Host "        官网: https://openliri.com"
 Write-Host "===================================="
 Write-Host ""
 
@@ -24,13 +25,13 @@ if (-not (Test-Path $ExePath)) {
 if (-not (Test-Path $EnvFile)) {
     Write-Host "[INFO] Creating .env config file..."
     @"
-# PY_APP Configuration
+# Liri Configuration
 # Get your API key from: https://platform.deepseek.com/api_keys
 DEEPSEEK_API_KEY=your_api_key_here
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 
-APP_NAME=PY_APP
+APP_NAME=Liri
 APP_VERSION=1.0.0
 
 JWT_SECRET=auto_generated_change_me

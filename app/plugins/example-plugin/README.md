@@ -202,5 +202,5 @@ system_info({})
 ## 版本
 
 - 当前版本: 1.0.0
-- 作者: Liri Team
+- 作者: Liri Team (https://openliri.com)
 - 描述: An example plugin for Liri with commands and tools

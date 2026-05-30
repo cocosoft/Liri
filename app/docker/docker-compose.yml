@@ -1,5 +1,6 @@
 # =============================================================================
 #  Liri — Docker Compose 配置
+#  官网：https://openliri.com
 #  参考 Windows 版：exe 直接运行，等同 docker-compose up 后进入交互界面
 # =============================================================================
 #  快速开始：
@@ -30,9 +31,9 @@ services:
     env_file:
       - ../.env
     environment:
-      - PYAPP_PROJECT_DIR=/app
-      - PYAPP_HOME=/app/app/data
-      - PYAPP_DATA_DIR=/app/app/data
+      - LIRI_PROJECT_DIR=/app
+      - LIRI_HOME=/app/app/data
+      - LIRI_DATA_DIR=/app/app/data
 
     # ── 持久化数据卷 ──
     # 数据库、会话、记忆等运行时数据通过卷持久化

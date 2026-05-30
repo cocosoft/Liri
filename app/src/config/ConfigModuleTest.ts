@@ -47,7 +47,7 @@ describe('ConfigLoader', () => {
     );
     writeFileSync(
       TEST_ENV_PATH,
-      'PYAPP_MODE=production\nPYAPP_PORT=3000\nPYAPP_DEBUG=false\n',
+      'LIRI_MODE=production\nLIRI_PORT=3000\nLIRI_DEBUG=false\n',
       'utf-8'
     );
     writeFileSync(
@@ -55,16 +55,16 @@ describe('ConfigLoader', () => {
       'app:\n  name: YamlApp\n  port: 8080\n',
       'utf-8'
     );
-    process.env['PYAPP_MODE'] = 'production';
-    process.env['PYAPP_PORT'] = '3000';
-    process.env['PYAPP_DEBUG'] = 'false';
+    process.env['LIRI_MODE'] = 'production';
+    process.env['LIRI_PORT'] = '3000';
+    process.env['LIRI_DEBUG'] = 'false';
   });
 
   afterAll(() => {
     cleanupTestDir();
-    delete process.env['PYAPP_MODE'];
-    delete process.env['PYAPP_PORT'];
-    delete process.env['PYAPP_DEBUG'];
+    delete process.env['LIRI_MODE'];
+    delete process.env['LIRI_PORT'];
+    delete process.env['LIRI_DEBUG'];
   });
 
   it('loads JSON config from file', async () => {
@@ -81,7 +81,7 @@ describe('ConfigLoader', () => {
   it('loads environment variables with prefix', async () => {
     const loader = new ConfigLoader();
     const config = await loader.load([
-      { type: 'env', prefix: 'PYAPP_', priority: 10 },
+      { type: 'env', prefix: 'LIRI_', priority: 10 },
     ]);
     expect(config.mode).toBe('production');
     expect(config.port).toBe(3000);
@@ -92,7 +92,7 @@ describe('ConfigLoader', () => {
     const loader = new ConfigLoader();
     const config = await loader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 20 },
-      { type: 'env', prefix: 'PYAPP_', priority: 10 },
+      { type: 'env', prefix: 'LIRI_', priority: 10 },
     ]);
     expect(config.appName).toBe('TestApp');
     expect(config.version).toBe(1);
@@ -161,7 +161,7 @@ describe('ConfigLoader', () => {
     );
     const config = await loader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 20 },
-      { type: 'env', prefix: 'PYAPP_DATABASE_', priority: 10 },
+      { type: 'env', prefix: 'LIRI_DATABASE_', priority: 10 },
     ]);
     expect(config.database).toBeDefined();
   });

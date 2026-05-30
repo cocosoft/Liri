@@ -325,7 +325,7 @@ export function checkPathAccessibility(
 
   const suggestions: string[] = [];
 
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.LIRI_PROJECT_DIR || process.cwd();
   const resolvedProject = path.resolve(projectDir);
 
   if (
@@ -340,7 +340,7 @@ export function checkPathAccessibility(
         `目标路径位于 ${path.dirname(resolved).charAt(0).toUpperCase()}: 盘，项目根目录位于 ${path.dirname(resolvedProject).charAt(0).toUpperCase()}: 盘`
       );
       suggestions.push(
-        '可尝试通过 --project-dir 或 PYAPP_PROJECT_DIR 指定正确路径'
+        '可尝试通过 --project-dir 或 LIRI_PROJECT_DIR 指定正确路径'
       );
     }
   }

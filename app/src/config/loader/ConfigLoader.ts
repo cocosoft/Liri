@@ -47,7 +47,7 @@ export class ConfigLoader implements IConfigLoader {
 
   private getDefaultSources(): ConfigSource[] {
     return [
-      { type: 'env', prefix: 'PYAPP_', priority: 10, format: 'env' },
+      { type: 'env', prefix: 'LIRI_', priority: 10, format: 'env' },
       {
         type: 'file',
         path: this.getDefaultConfigPath(),

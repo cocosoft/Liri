@@ -2,6 +2,7 @@
   "name": "openliri",
   "version": "0.1.0",
   "description": "Liri — 你的 AI 私人助手,基于 TypeScript + Rust 架构",
+  "homepage": "https://openliri.com",
   "license": "MIT",
   "type": "module",
   "main": "src/main.ts",

@@ -197,7 +197,7 @@ export class PluginDiscovery {
     this.scanPaths.set('user', [path.join(resolvePyappHome(), 'plugins')]);
     this.scanPaths.set('project', [path.join(cwd, '.pyapp', 'plugins')]);
     this.scanPaths.set('global', [
-      process.env.PYAPP_PLUGIN_PATH || path.join(cwd, 'plugins'),
+      process.env.LIRI_PLUGIN_PATH || path.join(cwd, 'plugins'),
     ]);
   }
 }

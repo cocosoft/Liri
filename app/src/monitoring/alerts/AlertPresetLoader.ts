@@ -75,7 +75,7 @@ export class AlertPresetLoader {
 
     const presetsDir = this.config.presetsDir;
     if (!presetsDir || !fs.existsSync(presetsDir)) {
-      const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+      const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
       const fallbackDir = path.join(
         projectRoot,
         'app',

@@ -1,7 +1,7 @@
 /**
  * LocalSkillStore
  * 本地技能存储管理，负责技能的持久化存储与索引维护。
- * 技能文件存储在 <PYAPP_HOME>/skills/ 目录下，通过 index.json 维护元数据索引。
+ * 技能文件存储在 <LIRI_HOME>/skills/ 目录下，通过 index.json 维护元数据索引。
  */
 
 import { join, basename, extname } from 'path';

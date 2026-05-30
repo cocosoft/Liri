@@ -330,6 +330,7 @@ function showHelp() {
   ui.showInfo('  profile             Show startup profile report');
   ui.showInfo('  (no command)        Run interactive CLI');
   ui.showSeparator();
+  ui.showInfo('Website: https://openliri.com');
   ui.cleanup();
 }
 

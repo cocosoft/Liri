@@ -25,7 +25,7 @@ import {
   resolveTranscriptFilePath,
   ensureDir,
   ensureDataDirectories,
-  PYAPP_HOME,
+  LIRI_HOME,
   PROJECT_ROOT,
 } from '../../src/config/paths.js';
 
@@ -62,8 +62,8 @@ describe('resolvePyappHome', () => {
     setUserDataDirOverride(null);
   });
 
-  it('should use PYAPP_HOME env var', () => {
-    const result = resolvePyappHome({ PYAPP_HOME: '/env/pyapp' });
+  it('should use LIRI_HOME env var', () => {
+    const result = resolvePyappHome({ LIRI_HOME: '/env/pyapp' });
     expect(result).toContain('env');
     expect(result).toContain('pyapp');
   });
@@ -78,8 +78,8 @@ describe('resolvePyappHome', () => {
 
 describe('resolveProjectRoot', () => {
 
-  it('should use PYAPP_PROJECT_DIR env var', () => {
-    const result = resolveProjectRoot({ PYAPP_PROJECT_DIR: '/project/path' });
+  it('should use LIRI_PROJECT_DIR env var', () => {
+    const result = resolveProjectRoot({ LIRI_PROJECT_DIR: '/project/path' });
     expect(result).toContain('project');
     expect(result).toContain('path');
   });
@@ -94,15 +94,15 @@ describe('resolveProjectRoot', () => {
 
 describe('resolveDataDir', () => {
 
-  it('should use PYAPP_DATA_DIR env var', () => {
-    const result = resolveDataDir({ PYAPP_DATA_DIR: '/data/path' });
+  it('should use LIRI_DATA_DIR env var', () => {
+    const result = resolveDataDir({ LIRI_DATA_DIR: '/data/path' });
     expect(result).toContain('data');
     expect(result).toContain('path');
   });
 
   it('should include app/data in path', () => {
     const result = resolveDataDir({
-      PYAPP_PROJECT_DIR: '/test/project',
+      LIRI_PROJECT_DIR: '/test/project',
     });
     expect(result).toContain('app');
     expect(result).toContain('data');
@@ -112,7 +112,7 @@ describe('resolveDataDir', () => {
 
 describe('path resolvers', () => {
 
-  const testEnv = { PYAPP_PROJECT_DIR: '/test/project' };
+  const testEnv = { LIRI_PROJECT_DIR: '/test/project' };
 
   it('should resolve docs dir under project/app/docs', () => {
     const result = resolveDocsDir(testEnv);
@@ -165,21 +165,21 @@ describe('path resolvers', () => {
 describe('user path resolvers', () => {
 
   it('should resolve user config path', () => {
-    const result = resolveUserConfigPath({ PYAPP_HOME: '/home/user/.pyapp' });
+    const result = resolveUserConfigPath({ LIRI_HOME: '/home/user/.pyapp' });
     expect(result).toContain('pyapp');
     expect(result).toContain('config.json');
   });
 
   it('should resolve user settings path', () => {
     const result = resolveUserSettingsPath({
-      PYAPP_HOME: '/home/user/.pyapp',
+      LIRI_HOME: '/home/user/.pyapp',
     });
     expect(result).toContain('pyapp');
     expect(result).toContain('settings.json');
   });
 
   it('should resolve soul path', () => {
-    const result = resolveSoulPath({ PYAPP_HOME: '/home/user/.pyapp' });
+    const result = resolveSoulPath({ LIRI_HOME: '/home/user/.pyapp' });
     expect(result).toContain('pyapp');
     expect(result).toContain('SOUL.md');
   });
@@ -188,7 +188,7 @@ describe('user path resolvers', () => {
 
 describe('convenience path constructors', () => {
 
-  const testEnv = { PYAPP_PROJECT_DIR: '/p' };
+  const testEnv = { LIRI_PROJECT_DIR: '/p' };
 
   it('resolveDataSubDir should join subdirectory', () => {
     const result = resolveDataSubDir('custom', testEnv);
@@ -242,9 +242,9 @@ describe('ensureDataDirectories', () => {
     const tmpDir = join(tmpdir(), `test-data-dirs-${Date.now()}`);
     try {
       ensureDataDirectories({
-        PYAPP_PROJECT_DIR: tmpDir,
-        PYAPP_HOME: join(tmpDir, 'home'),
-        PYAPP_DATA_DIR: join(tmpDir, 'app', 'data'),
+        LIRI_PROJECT_DIR: tmpDir,
+        LIRI_HOME: join(tmpDir, 'home'),
+        LIRI_DATA_DIR: join(tmpDir, 'app', 'data'),
       });
       expect(existsSync(tmpDir)).toBe(true);
     } finally {
@@ -256,9 +256,9 @@ describe('ensureDataDirectories', () => {
 
 describe('constants', () => {
 
-  it('should export PYAPP_HOME as a string', () => {
-    expect(typeof PYAPP_HOME).toBe('string');
-    expect(PYAPP_HOME.length).toBeGreaterThan(0);
+  it('should export LIRI_HOME as a string', () => {
+    expect(typeof LIRI_HOME).toBe('string');
+    expect(LIRI_HOME.length).toBeGreaterThan(0);
   });
 
   it('should export PROJECT_ROOT as a string', () => {

@@ -2,11 +2,11 @@ import { readdir, readFile, stat, writeFile, mkdir, unlink } from 'fs/promises';
 import { join, relative, resolve, normalize } from 'path';
 import { existsSync } from 'fs';
 
-const prompt = process.env.PYAPP_DREAM_PROMPT || '';
-const memoryRoot = process.env.PYAPP_DREAM_MEMORY_ROOT || '';
-const transcriptDir = process.env.PYAPP_DREAM_TRANSCRIPT_DIR || '';
+const prompt = process.env.LIRI_DREAM_PROMPT || '';
+const memoryRoot = process.env.LIRI_DREAM_MEMORY_ROOT || '';
+const transcriptDir = process.env.LIRI_DREAM_TRANSCRIPT_DIR || '';
 const maxDuration = parseInt(
-  process.env.PYAPP_DREAM_MAX_DURATION || '120000',
+  process.env.LIRI_DREAM_MAX_DURATION || '120000',
   10
 );
 

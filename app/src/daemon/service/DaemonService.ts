@@ -306,7 +306,7 @@ export class DaemonService {
    */
   private executeSchtasks(action: ServiceAction): ServiceActionResult {
     try {
-      const taskName = `PYAPP_${this.config.name}`;
+      const taskName = `LIRI_${this.config.name}`;
 
       switch (action) {
         case 'install': {
@@ -408,7 +408,7 @@ export class DaemonService {
   private getSchtasksStatus(): ServiceStatus {
     try {
       const output = execSync(
-        `schtasks /query /tn "PYAPP_${this.config.name}" /v /fo csv`,
+        `schtasks /query /tn "LIRI_${this.config.name}" /v /fo csv`,
         { stdio: 'pipe', encoding: 'utf-8', shell: 'cmd.exe' }
       ).toString();
       const running = output.includes('Running');

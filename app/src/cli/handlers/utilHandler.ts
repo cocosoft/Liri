@@ -170,6 +170,7 @@ export class UtilHandler {
       }
     }
     console.log(`Liri v${version}`);
+    console.log(`官网: https://openliri.com`);
   }
 
   async clearScreen() {

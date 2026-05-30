@@ -2,6 +2,7 @@
   "name": "liri-client",
   "version": "0.1.0",
   "description": "Liri Desktop Client",
+  "homepage": "https://openliri.com",
   "type": "module",
   "scripts": {
     "dev": "vite",

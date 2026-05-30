@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "Liri Desktop Client"
 authors = ["Pengyun"]
 license = "MIT"
-repository = ""
+homepage = "https://openliri.com"
+repository = "https://openliri.com"
 edition = "2021"
 rust-version = "1.77.2"
 

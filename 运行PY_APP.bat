@@ -13,6 +13,7 @@ set "EXE_PATH=%PROJECT_DIR%\dist\py_app_coding.exe"
 
 echo ====================================
 echo         Liri is starting...
+echo         官网: https://openliri.com
 echo ====================================
 echo.
 

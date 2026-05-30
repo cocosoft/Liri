@@ -103,10 +103,10 @@ export class DreamAgentExecutor extends EventEmitter implements ManagedProcess {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
         env: {
           ...process.env,
-          PYAPP_DREAM_PROMPT: this.config.prompt,
-          PYAPP_DREAM_MEMORY_ROOT: this.config.memoryRoot,
-          PYAPP_DREAM_TRANSCRIPT_DIR: this.config.transcriptDir,
-          PYAPP_DREAM_MAX_DURATION: String(maxDuration),
+          LIRI_DREAM_PROMPT: this.config.prompt,
+          LIRI_DREAM_MEMORY_ROOT: this.config.memoryRoot,
+          LIRI_DREAM_TRANSCRIPT_DIR: this.config.transcriptDir,
+          LIRI_DREAM_MAX_DURATION: String(maxDuration),
         },
       });
 

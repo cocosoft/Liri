@@ -2,6 +2,8 @@
 
 AI Agent 核心运行时，提供 CLI 接口和基础工具集。
 
+> 官方网站：https://openliri.com
+
 ## 安装
 
 ```bash
@@ -34,7 +36,7 @@ await app.start();
 通过环境变量控制功能集：
 
 ```bash
-PYAPP_BUILD_VARIANT=core bun run start
+LIRI_BUILD_VARIANT=core bun run start
 ```
 
 | 变体 | 说明 |

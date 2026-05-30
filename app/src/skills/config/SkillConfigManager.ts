@@ -51,7 +51,7 @@ export class SkillConfigManager {
       enableTelemetry: false,
       allowedSources: ['user', 'project', 'plugin', 'mcp', 'bundled'],
     };
-    const effectiveCwd = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    const effectiveCwd = process.env.LIRI_PROJECT_DIR || process.cwd();
     this.configPath = path.join(resolvePyappHome(), 'skill-config.json');
     this.loadDefaults();
   }
@@ -176,7 +176,7 @@ export class SkillConfigManager {
    * 加载默认配置
    */
   private loadDefaults(): void {
-    const effectiveCwd = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    const effectiveCwd = process.env.LIRI_PROJECT_DIR || process.cwd();
 
     this.registerSource({
       name: 'builtin',

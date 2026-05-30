@@ -50,8 +50,8 @@ export class ForkedDreamExecutor extends EventEmitter {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
         env: {
           ...process.env,
-          PYAPP_DREAM_PROMPT: this.config.thinkingPrompt,
-          PYAPP_DREAM_MAX_DURATION: String(this.config.maxDurationMs),
+          LIRI_DREAM_PROMPT: this.config.thinkingPrompt,
+          LIRI_DREAM_MAX_DURATION: String(this.config.maxDurationMs),
         },
       });
 

@@ -177,7 +177,7 @@ export class ProviderDiscovery {
     const results: DiscoveryResult[] = [];
 
     try {
-      const configPath = process.env.PYAPP_PROVIDER_CONFIG;
+      const configPath = process.env.LIRI_PROVIDER_CONFIG;
       if (!configPath) return results;
 
       const fs = require('node:fs');

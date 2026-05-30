@@ -61,6 +61,9 @@ function ChatArea() {
             </div>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">欢迎使用 Liri</h2>
             <p className="text-gray-500 dark:text-gray-400">
+              官网: https://openliri.com
+            </p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
               请从右侧选择一个会话或创建新会话开始聊天
             </p>
           </div>

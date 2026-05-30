@@ -1343,6 +1343,7 @@ MCP系统帮助:
   - 应用描述
   - Node.js 版本
   - 操作系统平台与架构
+  - 官网: https://openliri.com
 
 状态信息额外包含:
   - 进程 PID

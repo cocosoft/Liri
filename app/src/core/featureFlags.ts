@@ -32,10 +32,10 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
  * - 'coding': 编码版（Personal + LSP + Notebook + 代码分析）
  * - 'enterprise': 企业版（Coding + Slack/Discord + Auth + Audit）
  *
- * 可通过环境变量 PYAPP_BUILD_VARIANT 覆盖。
+ * 可通过环境变量 LIRI_BUILD_VARIANT 覆盖。
  */
 export const BUILD_VARIANT: BuildVariant =
-  (process.env['PYAPP_BUILD_VARIANT'] as BuildVariant) || 'coding';
+  (process.env['LIRI_BUILD_VARIANT'] as BuildVariant) || 'coding';
 
 export const FEATURE_FLAGS = {
   // ───── AI/Agent 功能 ─────

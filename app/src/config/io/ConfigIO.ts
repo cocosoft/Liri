@@ -270,7 +270,7 @@ export class ConfigIO {
       {
         scope: 'local',
         path: path.join(
-          process.env.PYAPP_PROJECT_DIR || process.cwd(),
+          process.env.LIRI_PROJECT_DIR || process.cwd(),
           '.pyapp.local.json'
         ),
         priority: 30,

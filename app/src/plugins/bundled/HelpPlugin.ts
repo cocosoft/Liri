@@ -90,6 +90,8 @@ Liri 帮助系统
 
 /clear - 清除聊天记录
 /exit - 退出应用
+
+官网: https://openliri.com
     `.trim();
   }
 

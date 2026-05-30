@@ -47,6 +47,7 @@
 
 ## 社区支持
 
+- 访问官网 [https://openliri.com](https://openliri.com) 获取最新信息
 - 查看文档中心获取详细文档
 - 搜索已有 Issue 寻找解决方案
 - 在已有 Issue 下参与讨论

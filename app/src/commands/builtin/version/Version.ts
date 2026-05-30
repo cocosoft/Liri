@@ -193,6 +193,7 @@ async function handleStatus() {
       `应用名称: ${info.appName}`,
       `版本号: ${info.version}`,
       `描述: ${info.description}`,
+      `官网: https://openliri.com`,
       `Node.js 版本: ${info.nodeVersion}`,
       `操作系统: ${info.platform} ${info.arch}`,
       `进程 PID: ${info.pid}`,

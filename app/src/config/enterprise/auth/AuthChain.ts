@@ -100,9 +100,9 @@ export class ApiKeyAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const validKey = process.env['PYAPP_ENTERPRISE_API_KEY'];
+    const validKey = process.env['LIRI_ENTERPRISE_API_KEY'];
     if (!validKey) {
-      logger.info('PYAPP_ENTERPRISE_API_KEY 未配置，跳过 API Key 认证');
+      logger.info('LIRI_ENTERPRISE_API_KEY 未配置，跳过 API Key 认证');
       return null;
     }
 
@@ -131,7 +131,7 @@ export class OAuthAuthenticator implements AuthStrategy {
     }
 
     try {
-      const tokenIntrospectUrl = process.env['PYAPP_OAUTH_INTROSPECT_URL'];
+      const tokenIntrospectUrl = process.env['LIRI_OAUTH_INTROSPECT_URL'];
       if (!tokenIntrospectUrl) {
         logger.info('OAUTH_INTROSPECT_URL 未配置，跳过 OAuth Token 校验');
         return null;
@@ -204,7 +204,7 @@ export class SamlAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const samlUrl = process.env['PYAPP_SAML_ACS_URL'];
+    const samlUrl = process.env['LIRI_SAML_ACS_URL'];
     if (!samlUrl) {
       logger.info('SAML ACS URL 未配置，跳过 SAML 认证');
       return null;
@@ -279,7 +279,7 @@ export class LdapAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const ldapUrl = process.env['PYAPP_LDAP_URL'];
+    const ldapUrl = process.env['LIRI_LDAP_URL'];
     if (!ldapUrl) {
       logger.info('LDAP URL 未配置，跳过 LDAP 认证');
       return null;
@@ -290,7 +290,7 @@ export class LdapAuthenticator implements AuthStrategy {
       const body = JSON.stringify({
         username: credentials.username,
         password: credentials.password,
-        baseDn: process.env['PYAPP_LDAP_BASE_DN'] || '',
+        baseDn: process.env['LIRI_LDAP_BASE_DN'] || '',
       });
 
       const response = await new Promise<Record<string, unknown>>(
@@ -355,7 +355,7 @@ export class JwtAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const jwtSecret = process.env['PYAPP_JWT_SECRET'];
+    const jwtSecret = process.env['LIRI_JWT_SECRET'];
     if (!jwtSecret) {
       logger.info('JWT_SECRET 未配置，使用简单 Base64 解码验证');
     }
@@ -417,7 +417,7 @@ export class MtlsAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const allowedFingerprints = process.env['PYAPP_MTLS_ALLOWED_FINGERPRINTS'];
+    const allowedFingerprints = process.env['LIRI_MTLS_ALLOWED_FINGERPRINTS'];
     if (!allowedFingerprints) {
       logger.info('MTLS_ALLOWED_FINGERPRINTS 未配置，跳过 mTLS 认证');
       return null;

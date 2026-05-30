@@ -1,5 +1,6 @@
 # 版本发布流程
 
+> 官方网站：https://openliri.com
 > 版本管理规则详见 [versioning.md](file:///E:/PY/CODES/PY_APP/.trae/rules/versioning.md)。
 
 ## 版本号约定

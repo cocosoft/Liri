@@ -870,6 +870,8 @@ ${this.getReleaseNotesContent()}
   displayFullHelp(): void {
     console.log('Liri 帮助系统');
     console.log('==============');
+    console.log('官网: https://openliri.com');
+    console.log('');
     this.getAllTopics().forEach((topic) => {
       console.log(`- ${topic.title}: ${topic.description}`);
     });

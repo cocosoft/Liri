@@ -474,6 +474,7 @@ export class AppCore {
     const stats: [string, string][] = [
       ['应用名称', this.config.name],
       ['版本', this.config.version],
+      ['官网', 'https://openliri.com'],
       ['启动时间', `${report.totalDuration.toFixed(2)}ms`],
       ['模块数量', this.moduleManager.getModules().length.toString()],
       ['插件数量', this.ecosystem.getAllPlugins().length.toString()],

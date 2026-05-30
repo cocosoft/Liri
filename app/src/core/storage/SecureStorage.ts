@@ -234,10 +234,10 @@ export class SecureStorage extends EventEmitter {
       return this.encryptionKey;
     }
 
-    const key = process.env.PYAPP_ENCRYPTION_KEY;
+    const key = process.env.LIRI_ENCRYPTION_KEY;
     if (!key) {
       throw new AppError(
-        'PYAPP_ENCRYPTION_KEY environment variable is required',
+        'LIRI_ENCRYPTION_KEY environment variable is required',
         ErrorCategory.CONFIGURATION,
         ErrorSeverity.HIGH
       );

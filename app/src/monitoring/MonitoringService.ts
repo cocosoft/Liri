@@ -124,7 +124,7 @@ export class MonitoringService {
    */
   private loadAlertPresets(): void {
     try {
-      const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+      const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
       const presetsDir = path.join(
         projectRoot,
         'app',

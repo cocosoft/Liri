@@ -64,7 +64,7 @@ function HomePage() {
             欢迎使用 Liri
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            快速访问常用功能，开始您的工作流程
+            官网: https://openliri.com · 快速访问常用功能，开始您的工作流程
           </p>
         </div>
 

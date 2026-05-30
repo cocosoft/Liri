@@ -18,7 +18,8 @@ EXE_PATH="$SCRIPT_DIR/dist/py_app_coding"
 ENV_FILE="$SCRIPT_DIR/.env"
 
 echo "===================================="
-echo "        PY_APP is starting..."
+echo "        Liri is starting..."
+echo "        官网: https://openliri.com"
 echo "===================================="
 echo ""
 
@@ -39,7 +40,7 @@ fi
 if [ ! -f "$ENV_FILE" ]; then
     echo "[INFO] Creating .env config file..."
     cat > "$ENV_FILE" << 'ENVEOF'
-# PY_APP Configuration
+# Liri Configuration
 # Get your API key from: https://platform.deepseek.com/api_keys
 DEEPSEEK_API_KEY=your_api_key_here
 DEEPSEEK_BASE_URL=https://api.deepseek.com

@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # 部署脚本
-# 用于部署和启动PY_APP应用
+# 用于部署和启动Liri应用
 
-echo "=== PY_APP 部署脚本 ==="
+echo "=== Liri 部署脚本 ==="
+echo "官网: https://openliri.com"
+echo ""
 
 # 检查Node.js是否安装
 if ! command -v node &> /dev/null; then

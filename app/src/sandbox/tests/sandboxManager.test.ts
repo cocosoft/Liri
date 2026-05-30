@@ -54,7 +54,10 @@ describe('Sandbox Module Tests', () => {
     });
 
     it('应该允许工作目录内的路径', () => {
-      const result = validatePathSafety('/workspace/project/src/main.ts', '/workspace/project');
+      const result = validatePathSafety(
+        '/workspace/project/src/main.ts',
+        '/workspace/project'
+      );
       expect(result.safe).toBe(true);
     });
   });

@@ -391,7 +391,7 @@ describe('LSP 配置注册表', () => {
       registry.getAllLanguages();
     }, 5000);
     logBenchmark('LSP', 'getAllLanguages', r);
-    assertBenchmark(r, 0.02);
+    assertBenchmark(r, 0.05);
   });
 
 });

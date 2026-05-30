@@ -158,6 +158,7 @@ describe('I18nTranslationRegistry', () => {
   it('注册翻译条目并获取', () => {
     const registry = new I18nTranslationRegistry();
 
+    registry.setLocale('zh');
     registry.register({ key: 'common.ok', zh: '确定', en: 'OK' });
     expect(registry.t('common.ok')).toBe('确定');
   });
@@ -188,6 +189,7 @@ describe('I18nTranslationRegistry', () => {
   it('批量注册翻译条目', () => {
     const registry = new I18nTranslationRegistry();
 
+    registry.setLocale('zh');
     registry.registerBatch([
       { key: 'common.ok', zh: '确定', en: 'OK' },
       { key: 'common.cancel', zh: '取消', en: 'Cancel' },
@@ -200,6 +202,7 @@ describe('I18nTranslationRegistry', () => {
   it('参数插值', () => {
     const registry = new I18nTranslationRegistry();
 
+    registry.setLocale('zh');
     registry.register({
       key: 'user.greeting',
       zh: '你好, {name}!',
@@ -235,6 +238,7 @@ describe('I18nTranslationRegistry', () => {
   it('从 JSON 加载翻译', () => {
     const registry = new I18nTranslationRegistry();
 
+    registry.setLocale('zh');
     registry.loadFromJSON({
       'common.ok': { zh: '确定', en: 'OK' },
       'common.cancel': { zh: '取消', en: 'Cancel' },
@@ -260,6 +264,7 @@ describe('I18nTranslationRegistry', () => {
   it('清除所有翻译', () => {
     const registry = new I18nTranslationRegistry();
 
+    registry.setLocale('zh');
     registry.register({ key: 'test', zh: '测试' });
     expect(registry.t('test')).toBe('测试');
 
@@ -274,6 +279,7 @@ describe('内置翻译初始化', () => {
   it('initializeBuiltinTranslations 注册常用翻译', () => {
     const registry = new I18nTranslationRegistry();
 
+    registry.setLocale('zh');
     initializeBuiltinTranslations(registry);
 
     expect(registry.t('common.ok')).toBe('确定');
@@ -325,6 +331,7 @@ describe('全局单例 i18n', () => {
   it('快捷函数 t 使用全局单例', () => {
     const registry = getI18nTranslationRegistry();
     registry.clear();
+    registry.setLocale('zh');
     initializeBuiltinTranslations(registry);
 
     const result = t('common.ok');

@@ -37,7 +37,7 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '@modules/monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome, ensureDataDirectories } from '@modules/config/paths';
 import { getStartupChainProfiler } from '@modules/bootstrap/StartupChainProfiler.js';
 import {
   loadStartupConfig,
@@ -122,7 +122,11 @@ export async function init(): Promise<void> {
   profileCheckpoint('load_settings_end');
   getStartupChainProfiler().markPhaseEnd('config_load');
 
-  // 2. 设置优雅关闭
+  // 2.1. 确保所有数据目录结构完整（第二层 + 第三层子目录）
+  // 此时 userDataDirOverride 已从设置加载，ensureDataDirectories 会使用正确路径
+  ensureDataDirectories();
+
+  // 2.2. 设置优雅关闭
   profileCheckpoint('setup_graceful_shutdown_start');
   setupGracefulShutdown();
   profileCheckpoint('setup_graceful_shutdown_end');

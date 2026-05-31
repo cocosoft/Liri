@@ -3283,21 +3283,36 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { resolvePyappHome, getUserDataDirOverride } =
+      const { resolvePyappHome, getUserDataDirOverride, resolveProjectRoot } =
         await import('@modules/config/paths');
+      const { homedir } = await import('node:os');
+      const { join } = await import('node:path');
 
       const currentDir = resolvePyappHome();
       const configuredDir = getUserDataDirOverride();
+      // 计算默认目录：与 resolvePyappHome() 的默认算法一致
+      // 优先使用项目目录下的 app/data/pyapp/，若不可写则回退到 ~/.pyapp/
+      const projectDataDir = join(resolveProjectRoot(), 'app', 'data', 'pyapp');
+      const { existsSync, mkdirSync, writeFileSync, unlinkSync } =
+        await import('node:fs');
+      let defaultDir = projectDataDir;
+      try {
+        if (!existsSync(projectDataDir)) {
+          mkdirSync(projectDataDir, { recursive: true });
+        }
+        const testFile = join(projectDataDir, '.write_test');
+        writeFileSync(testFile, '');
+        unlinkSync(testFile);
+      } catch {
+        defaultDir = join(homedir(), '.pyapp');
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           currentDirectory: currentDir,
           configuredDirectory: configuredDir || null,
-          defaultDirectory: require('path').join(
-            require('os').homedir(),
-            '.pyapp'
-          ),
+          defaultDirectory: defaultDir,
         })
       );
     } catch (error) {
@@ -3391,7 +3406,12 @@ export class LocalHTTPService {
   }
 
   /**
-   * 递归复制目录
+   * 递归复制目录（带回滚令牌）
+   * @param src 源目录
+   * @param dest 目标目录
+   * @param fs fs 模块
+   * @param path path 模块
+   * @returns 复制结果统计
    */
   private copyDirectory(
     src: string,
@@ -3414,6 +3434,10 @@ export class LocalHTTPService {
     const entries = fs.readdirSync(src, { withFileTypes: true });
 
     for (const entry of entries) {
+      // 跳过迁移标记文件本身，避免误复制
+      if (entry.name === '.migrating' || entry.name === '.migration_committed') {
+        continue;
+      }
       const srcPath = path.join(src, entry.name);
       const destPath = path.join(dest, entry.name);
 
@@ -3424,7 +3448,6 @@ export class LocalHTTPService {
           skipped += result.skipped;
           errors.push(...result.errors);
         } else {
-          // 仅在目标文件不存在时复制
           if (!fs.existsSync(destPath)) {
             fs.copyFileSync(srcPath, destPath);
             copied++;
@@ -3442,6 +3465,7 @@ export class LocalHTTPService {
 
   /**
    * 设置用户数据目录 PUT /v1/settings/data-directory
+   * 使用两阶段迁移：全部复制成功后才切换目录，复制失败则回滚清理
    * @param req
    * @param res
    * @param options.migrate 是否迁移现有数据（默认 true）
@@ -3498,14 +3522,49 @@ export class LocalHTTPService {
         await import('@modules/config/paths');
       const currentDir = resolvePyappHome();
 
-      // 执行数据迁移
+      // 执行数据迁移（两阶段：先复制，成功后再切换）
       let migrationResult: {
         copied: number;
         skipped: number;
         errors: string[];
       } | null = null;
       if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
+        // 阶段一：写迁移令牌，标记迁移进行中
+        try {
+          fs.writeFileSync(path.join(resolvedDir, '.migrating'), Date.now().toString(), 'utf-8');
+        } catch {
+          // 非致命：令牌写入失败不影响迁移
+        }
+
         migrationResult = this.copyDirectory(currentDir, resolvedDir, fs, path);
+
+        // 检查迁移是否出错，出错则执行回滚
+        if (migrationResult.errors.length > 0) {
+          this.rollbackMigration(resolvedDir, fs, path, currentDir);
+
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              success: false,
+              message: `数据迁移失败，已回滚，保留了 ${migrationResult.copied} 个已复制的文件作为备份参考`,
+              directory: resolvedDir,
+              migration: migrationResult,
+              rolledBack: true,
+              error: {
+                message: `迁移过程中出现 ${migrationResult.errors.length} 个错误，目录已回滚`,
+                type: 'migration_error',
+              },
+            })
+          );
+          return;
+        }
+
+        // 阶段二：写迁移完成标记
+        try {
+          fs.writeFileSync(path.join(resolvedDir, '.migration_committed'), Date.now().toString(), 'utf-8');
+        } catch {
+          // 非致命：标记写入失败不影响目录切换
+        }
       }
 
       // 设置全局覆盖
@@ -3529,6 +3588,42 @@ export class LocalHTTPService {
       );
     } catch (error) {
       this.sendError(res, error);
+    }
+  }
+
+  /**
+   * 回滚数据迁移：删除目标目录中的已复制内容
+   * @param destDir 目标目录（将被清理）
+   * @param fs fs 模块
+   * @param path path 模块
+   * @param oldDir 原数据目录（保留不动）
+   */
+  private rollbackMigration(
+    destDir: string,
+    fs: any,
+    path: any,
+    oldDir: string
+  ): void {
+    try {
+      // 清理目标目录中除 .migrating 令牌外的所有文件和子目录
+      if (fs.existsSync(destDir)) {
+        const entries = fs.readdirSync(destDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.name === '.migrating') continue;
+          const entryPath = path.join(destDir, entry.name);
+          try {
+            if (entry.isDirectory()) {
+              fs.rmSync(entryPath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(entryPath);
+            }
+          } catch {
+            // 静默忽略清理中的个别错误
+          }
+        }
+      }
+    } catch {
+      // 回滚清理失败不影响主流程，数据保留在原目录
     }
   }
 

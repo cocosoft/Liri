@@ -78,6 +78,12 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         format!("{}\\.pyapp", dirs::home_dir().unwrap_or_default().display())
     };
 
+    // 获取 Tauri 进程当前工作目录作为项目根目录
+    // 开发模式下为项目源代码根目录，确保第一层路径（app/docs/、app/config/ 等）解析正确
+    let project_root = std::env::current_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| data_dir.clone());
+
     // 生成随机共享密钥，防止未经授权的第三方访问后端 API
     let secret = uuid::Uuid::new_v4().to_string();
     {
@@ -93,7 +99,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .current_dir(&data_dir)
         .env("LIRI_HOME", &data_dir)
         .env("LIRI_DATA_DIR", format!("{}/data", data_dir))
-        .env("LIRI_PROJECT_DIR", &data_dir)
+        .env("LIRI_PROJECT_DIR", &project_root)
         .env("LIRI_API_SECRET", &secret);
 
     info!(

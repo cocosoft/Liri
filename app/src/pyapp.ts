@@ -189,6 +189,8 @@ try {
 
 // ── 策略 4: 预创建项目级目录 ──
 // 确保所有必要的目录在项目根目录下存在
+// 注意：这是启动引导阶段的子集，完整的目录列表由 paths.ts 的 ensureDataDirectories()
+// 在 init() 阶段创建（含第二层 app/data/ 和第三层 ~/.pyapp/ 的所有子目录）
 const PROJECT_DIRS = [
   'data', // 数据目录（OAuth token 等）
   'data/sessions',
@@ -203,6 +205,13 @@ const PROJECT_DIRS = [
   'app/data/governance',
   'app/data/governance/audit',
   'app/data/governance/strategies',
+  'app/data/oauth',
+  'app/data/logs',
+  'app/data/team-memory',
+  'app/data/permissions',
+  'app/data/snapshots',
+  'app/data/artifacts',
+  'app/data/pairings',
 ];
 
 {
@@ -223,19 +232,19 @@ const PROJECT_DIRS = [
 // ── 策略 5: 设置额外环境变量辅助路径解析 ──
 // 确保各模块的路径解析函数 fallback 到正确的项目根
 process.env.LIRI_PROJECT_DIR = projectRoot;
-process.env.LIRI_HOME = join(os.homedir(), '.liri');
+process.env.LIRI_HOME = join(os.homedir(), '.pyapp');
 process.env.LIRI_DATA_DIR = join(projectRoot, 'app', 'data');
 
-// ── 确保用户档案文件存在（~/.liri/SOUL.md 和 ~/.liri/USER.md）──
+// ── 确保用户档案文件存在（~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md）──
 // 在引导阶段尽早创建，不依赖首次运行引导流程
 try {
-  const soulPath = join(os.homedir(), '.liri', 'SOUL.md');
-  const userPath = join(os.homedir(), '.liri', 'USER.md');
+  const soulPath = join(os.homedir(), '.pyapp', 'SOUL.md');
+  const userPath = join(os.homedir(), '.pyapp', 'USER.md');
   const { existsSync, mkdirSync, writeFileSync } =
     require('fs') as typeof import('fs');
 
   if (!existsSync(soulPath)) {
-    const dir = join(os.homedir(), '.liri');
+    const dir = join(os.homedir(), '.pyapp');
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
@@ -247,7 +256,7 @@ try {
   }
 
   if (!existsSync(userPath)) {
-    const dir = join(os.homedir(), '.liri');
+    const dir = join(os.homedir(), '.pyapp');
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }

@@ -99,7 +99,7 @@ export class FilePermission {
       '/sys',
       '/dev',
       'C:\\Windows',
-      'C:\\System32',
+      'C:\\Windows\\System32',
     ];
     for (const sensitiveDir of sensitiveDirs) {
       if (filePath.includes(sensitiveDir)) {

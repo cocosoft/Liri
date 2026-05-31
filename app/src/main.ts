@@ -45,7 +45,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { resolveProjectRoot, resolveDataDir } from '@modules/config/paths';
+import { resolveProjectRoot, resolveDataDir, resolveOnboardedFlagPath } from '@modules/config/paths';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -66,9 +66,10 @@ const PLACEHOLDER_API_KEYS = new Set([
 
 /**
  * 获取首次运行标记文件路径
+ * 委托给 paths.ts 的集中管理函数
  */
 function getOnboardedFlagPath(): string {
-  return join(resolveProjectRoot(), 'app', 'data', '.onboarded');
+  return resolveOnboardedFlagPath();
 }
 
 /**

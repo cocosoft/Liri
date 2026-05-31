@@ -55,7 +55,7 @@ const DEFAULT_SCOPE_CONFIG: DirectoryScopeConfig = {
     '/sbin',
     '/lib',
     'C:\\Windows',
-    'C:\\System32',
+    'C:\\Windows\\System32',
     'C:\\Program Files',
     'C:\\Program Files (x86)',
     'C:\\SysWOW64',

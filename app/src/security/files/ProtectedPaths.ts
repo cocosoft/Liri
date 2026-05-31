@@ -71,7 +71,7 @@ export const PROTECTED_DIRECTORY_PREFIXES: string[] = (() => {
 
 /**
  * 跨平台的受保护文件路径映射
- * 将 Unix 风格路径转换 Windows 对应的路径（如果系统为 Windows）
+ * 在 Windows 上使用 Windows 原生关键文件替代 Unix /etc/ 路径
  */
 export function getCrossPlatformProtectedFiles(): string[] {
   const isWindows = process.platform === 'win32';
@@ -80,33 +80,43 @@ export function getCrossPlatformProtectedFiles(): string[] {
     return PROTECTED_FILES.map((p) => normalizePath(p));
   }
 
-  const windowsMappings: Record<string, string> = {
-    '/etc/passwd': 'C:\\Windows\\System32\\config\\SAM',
-    '/etc/shadow': 'C:\\Windows\\System32\\config\\SAM',
-    '/etc/group': 'C:\\Windows\\System32\\config\\SAM',
-    '/etc/sudoers': 'C:\\Windows\\System32\\drivers\\etc\\hosts',
-    '/etc/hosts': 'C:\\Windows\\System32\\drivers\\etc\\hosts',
-    '/etc/hostname': 'C:\\Windows\\System32\\drivers\\etc\\hosts',
-    '/etc/fstab': 'C:\\Windows\\System32\\config\\SYSTEM',
-    '/etc/crontab': 'C:\\Windows\\System32\\Tasks',
-    '/etc/ssl/': 'C:\\Windows\\System32\\certlm.msc',
-  };
-
   const home = homeDir();
+  const sysRoot = process.env.SystemRoot || 'C:\\Windows';
 
-  return PROTECTED_FILES.map((p) => {
-    const normalized = normalizePath(p);
+  // Windows 受保护文件列表：逐一映射，避免多个 Unix 路径指向同一 Windows 路径
+  const windowsProtected: string[] = [
+    // 保留跨平台通用的家目录配置文件
+    path.join(home, '.bashrc'),
+    path.join(home, '.bash_profile'),
+    path.join(home, '.profile'),
+    path.join(home, '.zshrc'),
+    path.join(home, '.zprofile'),
+    path.join(home, '.zshenv'),
+    path.join(home, '.config', 'fish', 'config.fish'),
+    path.join(home, '.ssh', 'authorized_keys'),
+    path.join(home, '.ssh', 'known_hosts'),
+    // Windows 系统注册表配置单元（替换 /etc/passwd、/etc/shadow、/etc/group）
+    path.join(sysRoot, 'System32', 'config', 'SAM'),
+    path.join(sysRoot, 'System32', 'config', 'SECURITY'),
+    path.join(sysRoot, 'System32', 'config', 'SOFTWARE'),
+    // Windows 系统配置（替换 /etc/sudoers）
+    path.join(sysRoot, 'System32', 'GroupPolicy', 'Machine', 'Registry.pol'),
+    // Windows hosts 文件（替换 /etc/hosts）
+    path.join(sysRoot, 'System32', 'drivers', 'etc', 'hosts'),
+    // Windows 计算机名/网络配置（替换 /etc/hostname）
+    path.join(sysRoot, 'System32', 'drivers', 'etc', 'networks'),
+    // Windows 注册表 SYSTEM 配置单元（替换 /etc/fstab）
+    path.join(sysRoot, 'System32', 'config', 'SYSTEM'),
+    // Windows 计划任务目录（替换 /etc/crontab）
+    path.join(sysRoot, 'System32', 'Tasks'),
+  ];
 
-    if (windowsMappings[normalized]) {
-      return normalizePath(windowsMappings[normalized]);
-    }
-
-    return normalized;
-  });
+  return windowsProtected.map((p) => normalizePath(p));
 }
 
 /**
  * 跨平台的受保护目录前缀映射
+ * 在 Windows 上使用 Windows 原生系统目录替代 Unix /etc/ 前缀
  */
 export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
   const isWindows = process.platform === 'win32';
@@ -116,23 +126,27 @@ export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
   }
 
   const home = homeDir();
+  const sysRoot = process.env.SystemRoot || 'C:\\Windows';
+  const programData = process.env.ProgramData || 'C:\\ProgramData';
 
-  const windowsMappings: Record<string, string> = {
-    '/etc/systemd/system/': 'C:\\Windows\\System32\\',
-    '/etc/init.d/': 'C:\\Windows\\System32\\',
-    '/etc/apt/': 'C:\\ProgramData\\',
-    '/etc/ssl/': 'C:\\Windows\\System32\\',
-  };
-
-  return PROTECTED_DIRECTORY_PREFIXES.map((p) => {
-    const normalized = normalizePath(p);
-
-    if (windowsMappings[normalized]) {
-      return normalizePath(windowsMappings[normalized]);
-    }
-
-    return normalized;
-  });
+  return [
+    // Windows 系统目录（替换 /etc/systemd/system/、/etc/init.d/）
+    normalizePath(path.join(sysRoot, 'System32', 'Tasks')) + '/',
+    normalizePath(path.join(sysRoot, 'System32', 'GroupPolicy')) + '/',
+    normalizePath(path.join(sysRoot, 'System32', 'config')) + '/',
+    // Windows 程序数据目录（替换 /etc/apt/）
+    normalizePath(path.join(programData)) + '/',
+    // Windows SSL 管理（替换 /etc/ssl/）
+    normalizePath(path.join(sysRoot, 'System32', 'certlm.msc')) + '/',
+    // Windows 服务配置（替换 /etc/systemd/system/）
+    normalizePath(path.join(sysRoot, 'System32', 'drivers', 'etc')) + '/',
+    // 保留跨平台通用的家目录前缀
+    normalizePath(path.join(home, '.ssh')) + '/',
+    normalizePath(path.join(home, '.gnupg')) + '/',
+    normalizePath(path.join(home, '.aws')) + '/',
+    normalizePath(path.join(home, '.config', 'gcloud')) + '/',
+    normalizePath(path.join(home, '.kube')) + '/',
+  ];
 }
 
 /**

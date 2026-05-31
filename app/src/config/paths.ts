@@ -395,6 +395,18 @@ export function resolveOutputDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolvePyappHome(env), 'output');
 }
 
+/** 用户临时文件目录（~/.pyapp/temp/）—— 临时文件的统一存放位置，启动时可清理 */
+export function resolveTempDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolvePyappHome(env), 'temp');
+}
+
+/** 首次运行标记文件路径（app/data/.onboarded） */
+export function resolveOnboardedFlagPath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDataDir(env), '.onboarded');
+}
+
 // ─── 初始化辅助 ───────────────────────────────
 
 /**
@@ -437,6 +449,9 @@ export function ensureDataDirectories(
     resolveOutputDir(env),
   ];
 
+  // 临时目录也加入创建列表
+  dirs.push(resolveTempDir(env));
+
   for (const dir of dirs) {
     ensureDir(dir);
   }
@@ -473,6 +488,7 @@ export const USER_PERMISSIONS_DIR = resolveUserPermissionsDir();
 export const USER_ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const OUTPUT_DIR = resolveOutputDir();
+export const TEMP_DIR = resolveTempDir();
 export const DOCS_DIR = resolveDocsDir();
 export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
 /** @deprecated 使用 resolveConfigDir() 或 CONFIG_DIR */

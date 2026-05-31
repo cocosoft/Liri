@@ -58,7 +58,7 @@ const PROTECTED_PATHS = [
   'C:\\Windows',
   'C:\\Program Files',
   'C:\\Program Files (x86)',
-  'C:\\System32',
+  'C:\\Windows\\System32',
   'C:\\SysWOW64',
 ];
 

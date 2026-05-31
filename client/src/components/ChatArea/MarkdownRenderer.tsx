@@ -176,6 +176,11 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
 
   const isLatexFormula = (text: string): boolean => {
     const hasChineseChars = /[\u4e00-\u9fa5]/.test(text);
+    const hasStraightQuotes = /(?<!\\)"./.test(text) || /(?<!\\)"$/.test(text);
+    
+    if (hasStraightQuotes) {
+      return false;
+    }
     
     const latexPatterns = [
       /\\frac/,

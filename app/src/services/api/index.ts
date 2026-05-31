@@ -48,7 +48,8 @@ export {
   logRequestError,
   consoleLogHandler,
 } from './logging';
-export type { LogLevel, LogHandler } from './logging';
+export type { LogHandler } from './logging';
+export { LogLevel } from '@modules/monitoring/logs/Logger.js';
 export type { ApiLogEntry, ApiLogStats } from './ApiLogging';
 
 export {

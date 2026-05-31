@@ -5,6 +5,8 @@
 
 import voiceService from './voice/index';
 
+export { createVoiceService } from './voice/index';
+
 export type {
   RecordingAvailability,
   VoiceAvailability,

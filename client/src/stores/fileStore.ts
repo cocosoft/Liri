@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { FileEntry } from '../types';
-import { fileService } from '../services/fileService';
+import { fileService, type FileDetectResult, type ConvertFileOptions } from '../services/fileService';
 
 interface FileStore {
   entries: FileEntry[];
@@ -8,10 +8,15 @@ interface FileStore {
   isLoading: boolean;
   error: string | null;
   uploading: boolean;
+  detectResult: FileDetectResult | null;
+  convertResult: unknown;
   loadDir: (path: string) => Promise<void>;
   navigateTo: (path: string) => void;
   goUp: () => void;
   uploadFile: (file: File) => Promise<void>;
+  detectFile: (filePath: string) => Promise<FileDetectResult | null>;
+  convertFile: (params: ConvertFileOptions) => Promise<unknown>;
+  clearFileAction: () => void;
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
@@ -20,6 +25,8 @@ export const useFileStore = create<FileStore>((set, get) => ({
   isLoading: false,
   error: null,
   uploading: false,
+  detectResult: null,
+  convertResult: null,
 
   loadDir: async (path: string) => {
     set({ isLoading: true, error: null });
@@ -51,5 +58,33 @@ export const useFileStore = create<FileStore>((set, get) => ({
     } finally {
       set({ uploading: false });
     }
+  },
+
+  detectFile: async (filePath: string) => {
+    set({ error: null, detectResult: null });
+    try {
+      const result = await fileService.detect(filePath);
+      set({ detectResult: result });
+      return result;
+    } catch (e) {
+      set({ error: String(e) });
+      return null;
+    }
+  },
+
+  convertFile: async (params: ConvertFileOptions) => {
+    set({ error: null, convertResult: null });
+    try {
+      const result = await fileService.convert(params);
+      set({ convertResult: result });
+      return result;
+    } catch (e) {
+      set({ error: String(e) });
+      return null;
+    }
+  },
+
+  clearFileAction: () => {
+    set({ detectResult: null, convertResult: null, error: null });
   },
 }));

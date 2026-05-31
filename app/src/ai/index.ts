@@ -165,13 +165,16 @@ export type {
   StreamResult,
 } from './interfaces/QueryInterfaces';
 
-export { AITelemetry, aiTelemetry } from './telemetry';
+export {
+  SessionSpanTracer,
+  getSessionSpanTracer,
+  SPAN_ATTRIBUTE_KEYS,
+} from './telemetry';
 export type {
-  APIUsageMetrics,
-  TelemetryConfig,
-  SpanContext,
-  AITraceData,
-  TraceEvent,
+  SessionSpanContext,
+  SessionSpanAttributes,
+  SpanRecord,
+  SpanEvent,
 } from './telemetry';
 
 export {

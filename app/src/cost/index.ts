@@ -150,6 +150,46 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     await repository.initDatabase();
     costTracker.setRecordRepository(repository);
 
+    // 初始化分析持久化服务（JSONL 文件）
+    const { getGlobalAnalyticsQueue } = await import(
+      '../analytics/AnalyticsEventQueue.js'
+    );
+    const { AnalyticsPersistenceService } = await import(
+      '../analytics/AnalyticsPersistenceService.js'
+    );
+    const analyticsPersistence = new AnalyticsPersistenceService();
+    await analyticsPersistence.initialize();
+    getGlobalAnalyticsQueue().attachSink({
+      logEvent: (eventName, metadata) => {
+        analyticsPersistence.persistEvent({
+          timestamp: Date.now(),
+          async: false,
+          schemaVersion: '1.0.0',
+          category: 'system' as any,
+          severity: 'info' as any,
+          eventName,
+          metadata: metadata,
+        });
+      },
+      logEventAsync: async (eventName, metadata) => {
+        await analyticsPersistence.persistEvent({
+          timestamp: Date.now(),
+          async: false,
+          schemaVersion: '1.0.0',
+          category: 'system' as any,
+          severity: 'info' as any,
+          eventName,
+          metadata: metadata,
+        });
+      },
+    });
+
+    // 确保 CostAnalyticsTracker 使用全局事件队列（含持久化 sink）
+    const { getCostAnalyticsTracker } = await import(
+      '../analytics/CostAnalyticsTracker.js'
+    );
+    getCostAnalyticsTracker(getGlobalAnalyticsQueue());
+
     logger.info('成本跟踪系统初始化完成');
   } catch (error) {
     logger.error(
@@ -170,9 +210,12 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
       await import('../analytics/CostAnalyticsTracker.js');
     const { getCostRecordRepository } =
       await import('./CostRecordRepository.js');
+    const { costTracker } =
+      await import('./CostTracker.js');
 
     const tracker = getCostAnalyticsTracker();
     const sessionSummary = tracker.getSessionCost();
+    const sessionState = costTracker.getSessionCostState();
 
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -181,10 +224,14 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
       totalOutputTokens += mc.outputTokens;
     }
 
+    await costPersistenceService.initialize();
+
     const sessionData = {
       totalCost: sessionSummary.totalCost,
       totalInputTokens,
       totalOutputTokens,
+      totalCacheReadTokens: sessionState.totalCacheReadInputTokens,
+      totalCacheCreationTokens: sessionState.totalCacheCreationInputTokens,
       totalRequests: sessionSummary.totalRequests,
       modelBreakdown: sessionSummary.modelBreakdown,
       successfulRequests: sessionSummary.totalRequests,

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppPage = 'home' | 'chat' | 'dashboard' | 'monitor' | 'logs' | 'memory' | 'skills' | 'cron' | 'files' | 'knowledge' | 'agent' | 'channels' | 'settings' | 'buddy';
+export type AppPage = 'home' | 'chat' | 'dashboard' | 'logs' | 'memory' | 'skills' | 'cron' | 'files' | 'knowledge' | 'agent' | 'channels' | 'settings' | 'buddy';
 
 type NavigateFn = (path: string) => void;
 

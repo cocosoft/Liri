@@ -36,6 +36,13 @@ function createMemoryAgentService() {
   };
 }
 
+export interface AgentProgress {
+  agentId: string;
+  state: string;
+  progress: number;
+  message: string;
+}
+
 export const agentService = {
   listTasks: async (): Promise<AgentTask[]> => {
     try {
@@ -44,6 +51,16 @@ export const agentService = {
       const result = await tryTauri<AgentTask[]>('list_agent_tasks');
       if (result) return result;
       return createMemoryAgentService().listTasks();
+    }
+  },
+
+  getTask: async (id: string): Promise<AgentProgress> => {
+    try {
+      return await http.get<AgentProgress>(`/v1/agents/tasks/${id}`);
+    } catch {
+      const result = await tryTauri<AgentProgress>('get_agent_progress', { id });
+      if (result) return result;
+      return { agentId: id, state: 'unknown', progress: 0, message: '' };
     }
   },
 

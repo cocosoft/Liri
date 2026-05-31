@@ -7,11 +7,6 @@
 import type { ApiLogEntry } from './ApiLogging';
 
 /**
- * API 请求日志级别
- */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-/**
  * 日志处理器回调
  */
 export type LogHandler = (entry: ApiLogEntry) => void;

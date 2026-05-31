@@ -12,6 +12,18 @@ async function getTauriCore() {
   }
 }
 
+export interface ConvertFileOptions {
+  filePath: string;
+  outputFormat: string;
+  options?: Record<string, unknown>;
+}
+
+export interface FileDetectResult {
+  type: string;
+  mime: string;
+  extension: string;
+}
+
 function createFallbackFileService() {
   return {
     listDir: async (_path: string): Promise<FileEntry[]> => {
@@ -22,6 +34,12 @@ function createFallbackFileService() {
     },
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
+    convert: async (params: ConvertFileOptions): Promise<unknown> => {
+      return http.post('/v1/files/convert', params);
+    },
+    detect: async (filePath: string): Promise<FileDetectResult> => {
+      return http.post<FileDetectResult>('/v1/files/detect', { filePath });
+    },
   };
 }
 
@@ -39,6 +57,12 @@ function createTauriFileService() {
     },
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
+    convert: async (params: ConvertFileOptions): Promise<unknown> => {
+      return http.post('/v1/files/convert', params);
+    },
+    detect: async (filePath: string): Promise<FileDetectResult> => {
+      return http.post<FileDetectResult>('/v1/files/detect', { filePath });
+    },
   };
 }
 

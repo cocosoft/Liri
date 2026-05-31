@@ -3,10 +3,7 @@
  * 对标 CC 的日志配置管理机制
  */
 
-/**
- * 日志级别
- */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+import { LogLevel } from '../Logger.js';
 
 /**
  * 日志输出目标
@@ -56,12 +53,12 @@ export class LogConfigManager {
 
   private constructor() {
     this.config = {
-      level: 'info',
+      level: LogLevel.INFO,
       targets: [
-        { type: 'console', level: 'info', format: 'pretty' },
+        { type: 'console', level: LogLevel.INFO, format: 'pretty' },
         {
           type: 'file',
-          level: 'debug',
+          level: LogLevel.DEBUG,
           path: 'data/logs/app.log',
           format: 'json',
           maxSize: 10485760,

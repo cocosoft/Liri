@@ -57,6 +57,10 @@ import type { Coordinator } from '@modules/core/Coordinator';
 import { coordinator as defaultCoordinator } from '@modules/core/Coordinator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
+import { costTracker } from '@modules/cost/CostTracker.js';
+import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
+import { recordCost } from '@modules/cost/CostMonitor.js';
+import { getCostMetricsBridge } from '@modules/cost/CostMetricsBridge.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -94,6 +98,7 @@ export class CoreAPIImpl implements CoreAPI {
   private coordinator: Coordinator;
   private converterEngine: ReturnType<typeof getConverterEngine>;
   private fileTypeDetector: FileTypeDetector;
+  private _modelName: string;
 
   constructor(options?: {
     chatManager?: ChatManager;
@@ -102,6 +107,7 @@ export class CoreAPIImpl implements CoreAPI {
     coordinator?: Coordinator;
     converterEngine?: ReturnType<typeof getConverterEngine>;
     fileTypeDetector?: FileTypeDetector;
+    modelName?: string;
   }) {
     this.chatManager = options?.chatManager ?? createChatManager();
     this.sessionManager =
@@ -110,6 +116,25 @@ export class CoreAPIImpl implements CoreAPI {
     this.coordinator = options?.coordinator ?? defaultCoordinator;
     this.converterEngine = options?.converterEngine ?? getConverterEngine();
     this.fileTypeDetector = options?.fileTypeDetector ?? new FileTypeDetector();
+    this._modelName =
+      options?.modelName ??
+      process.env.DEEPSEEK_MODEL ??
+      process.env.AI_MODEL ??
+      'deepseek-chat';
+  }
+
+  /**
+   * 设置当前模型名称
+   */
+  setModelName(modelName: string): void {
+    this._modelName = modelName;
+  }
+
+  /**
+   * 获取当前模型名称
+   */
+  getModelName(): string {
+    return this._modelName;
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -152,6 +177,7 @@ export class CoreAPIImpl implements CoreAPI {
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
     let finalMessageId = '';
+    let capturedUsage: { inputTokens: number; outputTokens: number; totalTokens: number; estimatedCostUsd?: number; cacheReadTokens?: number; cacheCreationTokens?: number } | undefined;
 
     yield {
       type: 'status',
@@ -165,6 +191,57 @@ export class CoreAPIImpl implements CoreAPI {
       const generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
         metadata: request.metadata,
+        onUsage: (usage) => {
+          capturedUsage = {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            totalTokens: usage.totalTokens,
+            estimatedCostUsd: usage.estimatedCostUsd,
+            cacheReadTokens: usage.cacheReadInputTokens ?? 0,
+            cacheCreationTokens: usage.cacheCreationInputTokens ?? 0,
+          };
+
+          // 持久化成本记录到 SQLite
+          costTracker.addCost(
+            this._modelName,
+            usage.inputTokens,
+            usage.outputTokens,
+            usage.cacheReadInputTokens ?? 0,
+            usage.cacheCreationInputTokens ?? 0
+          );
+
+          // 触发成本监控告警检测
+          recordCost(
+            usage.estimatedCostUsd ?? 0,
+            usage.inputTokens,
+            usage.outputTokens
+          );
+
+          // 桥接成本数据到 OTel Metrics
+          getCostMetricsBridge().record(
+            this._modelName,
+            {
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              cacheReadInputTokens: usage.cacheReadInputTokens,
+              cacheCreationInputTokens: usage.cacheCreationInputTokens,
+            },
+            usage.estimatedCostUsd ?? 0
+          );
+
+          // 记录分析日志到 JSONL
+          getCostAnalyticsTracker().trackModelUsage(
+            this._modelName,
+            {
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              totalTokens: usage.totalTokens,
+              cacheReadInputTokens: usage.cacheReadInputTokens,
+              cacheCreationInputTokens: usage.cacheCreationInputTokens,
+            },
+            { sessionId: finalSessionId }
+          );
+        },
         onToolCall: (phase, toolName, toolCallId, detail) => {
           console.log(
             `[CoreAPIImpl] onToolCall triggered: phase=${phase}, tool=${toolName}, id=${toolCallId}, detail=${detail}`
@@ -300,6 +377,7 @@ export class CoreAPIImpl implements CoreAPI {
       type: 'done',
       content: '',
       sessionId: finalSessionId,
+      usage: capturedUsage,
     } as ChatStreamChunk;
 
     return {
@@ -444,7 +522,7 @@ export class CoreAPIImpl implements CoreAPI {
           : Array.isArray(msg.content)
             ? msg.content
                 .filter((b) => b.type === 'text')
-                .map((b) => (b as { type: 'text'; text: string }).text)
+                .map((b) => (b as unknown as { type: 'text'; text: string }).text)
                 .join('')
             : '',
       timestamp:

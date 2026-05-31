@@ -171,6 +171,7 @@ export class DeepSeekProvider implements AIProvider {
       number,
       { id: string; name: string; arguments: string }
     > = new Map();
+    let lastUsage: ChatResponse['usage'] | undefined;
 
     try {
       while (true) {
@@ -188,6 +189,15 @@ export class DeepSeekProvider implements AIProvider {
 
           try {
             const parsed = JSON.parse(data) as Record<string, unknown>;
+
+            // 提取 usage 字段（通常在流式响应的最后一个 chunk 中出现）
+            const usage = parsed['usage'] as
+              | ChatResponse['usage']
+              | undefined;
+            if (usage) {
+              lastUsage = usage;
+            }
+
             const choices = parsed['choices'] as
               | Array<Record<string, unknown>>
               | undefined;
@@ -273,10 +283,15 @@ export class DeepSeekProvider implements AIProvider {
         content: fullContent,
         stop_reason: 'tool_calls',
         tool_calls: toolCalls,
+        usage: lastUsage,
       };
     }
 
-    return { content: fullContent, stop_reason: stopReason };
+    return {
+      content: fullContent,
+      stop_reason: stopReason,
+      usage: lastUsage,
+    };
   }
 
   async listModels(): Promise<string[]> {

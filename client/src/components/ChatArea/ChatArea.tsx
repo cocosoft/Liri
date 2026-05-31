@@ -131,14 +131,36 @@ function ChatArea() {
       ) : (
         /* 消息列表 - 原生滚动，所有消息直接渲染 */
         <div className="py-4">
-          {messages.map((message) => (
-            <div key={message.id}>
-              <ChatMessage
-                message={message}
-                isStreaming={isStreaming && message.role === 'assistant'}
-              />
-            </div>
-          ))}
+          {(() => {
+            const sessionUsage = (() => {
+              let inputTokens = 0;
+              let outputTokens = 0;
+              let totalTokens = 0;
+              let estimatedCostUsd = 0;
+              let cacheReadTokens = 0;
+              let cacheCreationTokens = 0;
+              for (const m of messages) {
+                if (m.usage) {
+                  inputTokens += m.usage.inputTokens || 0;
+                  outputTokens += m.usage.outputTokens || 0;
+                  totalTokens += m.usage.totalTokens || 0;
+                  estimatedCostUsd += m.usage.estimatedCostUsd || 0;
+                  cacheReadTokens += m.usage.cacheReadTokens || 0;
+                  cacheCreationTokens += m.usage.cacheCreationTokens || 0;
+                }
+              }
+              return totalTokens > 0 ? { inputTokens, outputTokens, totalTokens, estimatedCostUsd, cacheReadTokens, cacheCreationTokens } : undefined;
+            })();
+            return messages.map((message) => (
+              <div key={message.id}>
+                <ChatMessage
+                  message={message}
+                  isStreaming={isStreaming && message.role === 'assistant'}
+                  sessionUsage={sessionUsage}
+                />
+              </div>
+            ));
+          })()}
         </div>
       )}
     </div>

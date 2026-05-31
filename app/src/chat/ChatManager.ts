@@ -690,7 +690,7 @@ export class ChatManagerImpl implements ChatManager {
           updatedAt: new Date(m.timestamp),
           sessionId: stored.id,
           toolCallId: m.metadata?.toolCallId,
-          metadata: m.metadata,
+          metadata: m.metadata as Record<string, unknown> | undefined,
         }));
         const chatSession: ChatSession = {
           id: stored.id,
@@ -919,7 +919,7 @@ export class ChatManagerImpl implements ChatManager {
 
       // 对于助手消息，添加tool_calls（从metadata中读取）
       if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-        const toolCalls = msg.metadata.tool_calls;
+        const toolCalls = msg.metadata.tool_calls as Record<string, unknown>[];
         chatMessage.tool_calls = toolCalls.map(
           (tc: Record<string, unknown>) => {
             if (tc.type && tc.function) {
@@ -1427,9 +1427,9 @@ export class ChatManagerImpl implements ChatManager {
       inputTokens,
       outputTokens,
       cacheReadInputTokens:
-        usage.cache_read_input_tokens ?? usage.cacheReadInputTokens,
+        usage.prompt_cache_hit_tokens ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens ?? 0,
       cacheCreationInputTokens:
-        usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens,
+        usage.prompt_cache_miss_tokens ?? usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens ?? 0,
     });
   }
 
@@ -1814,7 +1814,7 @@ export class ChatManagerImpl implements ChatManager {
 
       // 对于助手消息，添加tool_calls（从metadata中读取）
       if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-        const toolCalls = msg.metadata.tool_calls;
+        const toolCalls = msg.metadata.tool_calls as Record<string, unknown>[];
         chatMessage.tool_calls = toolCalls.map(
           (tc: Record<string, unknown>) => {
             if (tc.type && tc.function) {
@@ -1923,6 +1923,22 @@ export class ChatManagerImpl implements ChatManager {
     finalResponse = result.value as unknown as ChatResponse;
 
     this.recordChatResponseUsage(session.id, finalResponse?.usage);
+
+    // 通知外部：本次 LLM 响应的词元用量
+    if (options?.onUsage && finalResponse?.usage) {
+      const u = finalResponse.usage as unknown as Record<string, number>;
+      const inputTokens = u.prompt_tokens ?? u.inputTokens ?? 0;
+      const outputTokens = u.completion_tokens ?? u.outputTokens ?? 0;
+      options.onUsage({
+        inputTokens,
+        outputTokens,
+        cacheReadInputTokens: u.prompt_cache_hit_tokens ?? u.cache_read_input_tokens ?? u.cacheReadInputTokens ?? 0,
+        cacheCreationInputTokens: u.prompt_cache_miss_tokens ?? u.cache_creation_input_tokens ?? u.cacheCreationInputTokens ?? 0,
+        totalTokens: u.total_tokens ?? u.totalTokens ?? (inputTokens + outputTokens),
+        estimatedCostUsd:
+          (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+      });
+    }
 
     // 创建助手消息
     assistantMessage = this.messageService.createAssistantMessage(
@@ -2124,6 +2140,22 @@ export class ChatManagerImpl implements ChatManager {
           toolResultIter.value as unknown as ChatResponse;
 
         this.recordChatResponseUsage(session.id, toolResultResponse?.usage);
+
+        // 通知外部：本次工具结果 LLM 响应的词元用量
+        if (options?.onUsage && toolResultResponse?.usage) {
+          const u = toolResultResponse.usage as unknown as Record<string, number>;
+          const inputTokens = u.prompt_tokens ?? u.inputTokens ?? 0;
+          const outputTokens = u.completion_tokens ?? u.outputTokens ?? 0;
+          options.onUsage({
+            inputTokens,
+            outputTokens,
+            cacheReadInputTokens: u.prompt_cache_hit_tokens ?? u.cache_read_input_tokens ?? u.cacheReadInputTokens ?? 0,
+            cacheCreationInputTokens: u.prompt_cache_miss_tokens ?? u.cache_creation_input_tokens ?? u.cacheCreationInputTokens ?? 0,
+            totalTokens: u.total_tokens ?? u.totalTokens ?? (inputTokens + outputTokens),
+            estimatedCostUsd:
+              (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+          });
+        }
 
         const toolResultAssistantMessage =
           this.messageService.createAssistantMessage(

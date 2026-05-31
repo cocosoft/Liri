@@ -43,6 +43,8 @@ export interface SessionCostData {
   totalCost: number;
   totalInputTokens: number;
   totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
   totalRequests: number;
   modelBreakdown: Record<
     string,
@@ -142,6 +144,8 @@ export class CostPersistenceService {
     this.accumulatedData.totalCostUSD += sessionData.totalCost;
     this.accumulatedData.totalInputTokens += sessionData.totalInputTokens;
     this.accumulatedData.totalOutputTokens += sessionData.totalOutputTokens;
+    this.accumulatedData.totalCacheReadTokens += sessionData.totalCacheReadTokens;
+    this.accumulatedData.totalCacheCreationTokens += sessionData.totalCacheCreationTokens;
     this.accumulatedData.totalRequests += sessionData.totalRequests;
     this.accumulatedData.successfulRequests += sessionData.successfulRequests;
     this.accumulatedData.failedRequests += sessionData.failedRequests;

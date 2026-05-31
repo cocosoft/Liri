@@ -29,9 +29,11 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
 
   toggleChannel: async (id, enabled) => {
     try {
-      const updated = await channelService.toggle(id, enabled);
+      await channelService.toggle(id, enabled);
       set({
-        channels: get().channels.map((c) => (c.id === id ? updated : c)),
+        channels: get().channels.map((c) =>
+          c.id === id ? { ...c, enabled } : c
+        ),
       });
     } catch (e) {
       set({ error: String(e) });

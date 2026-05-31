@@ -117,6 +117,16 @@ export const sessionService = {
     }
   },
 
+  get: async (id: string): Promise<Session | null> => {
+    try {
+      return await http.get<Session>(`/v1/sessions/${id}`);
+    } catch {
+      const result = await tryTauri<Session | null>('get_session', { id });
+      if (result !== null) return result;
+      return createMemorySessionService().list().then(sessions => sessions.find(s => s.id === id) || null);
+    }
+  },
+
   getMessages: async (sessionId: string): Promise<Message[]> => {
     try {
       return await http.get<Message[]>(`/v1/sessions/${sessionId}/messages`);

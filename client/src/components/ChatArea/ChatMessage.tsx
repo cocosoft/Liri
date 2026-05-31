@@ -9,9 +9,17 @@ import ToolExecutionGroup from './ToolExecutionGroup';
 interface ChatMessageProps {
   message: Message;
   isStreaming?: boolean;
+  sessionUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
 }
 
-function ChatMessage({ message, isStreaming }: ChatMessageProps) {
+function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const isUser = message.role === 'user';
 
@@ -90,7 +98,7 @@ function ChatMessage({ message, isStreaming }: ChatMessageProps) {
             />
           )}
 
-          {/* 消息底部：时间和 Token 用量 */}
+          {/* 消息底部：时间、Token 用量和预估成本 */}
           <div className={`flex items-center justify-end gap-3 mt-2 pt-2 border-t ${
             isUser ? 'border-blue-400/30' : 'border-gray-200 dark:border-gray-700'
           }`}>
@@ -101,17 +109,27 @@ function ChatMessage({ message, isStreaming }: ChatMessageProps) {
               {message.timestamp ? formatTime(message.timestamp) : ''}
             </span>
 
-            {/* Token 用量 */}
-            {message.usage && message.usage.totalTokens > 0 && (
+            {/* 会话累计 Token 和成本 */}
+            {sessionUsage && sessionUsage.totalTokens > 0 && (
               <div className={`flex items-center gap-2 text-xs ${
                 isUser ? 'text-blue-200' : 'text-gray-400'
               }`}>
-                <span>
-                  💬 {message.usage.inputTokens + message.usage.outputTokens} tokens
+                <span className="flex items-center gap-1">
+                  <span>💬</span>
+                  <span>{(sessionUsage.totalTokens).toLocaleString()} tokens</span>
                 </span>
-                {message.usage.estimatedCostUsd && message.usage.estimatedCostUsd > 0 && (
-                  <span className="text-green-400">
-                    💰 {formatCost(message.usage.estimatedCostUsd)}
+                {sessionUsage.cacheReadTokens != null && sessionUsage.cacheReadTokens > 0 && (
+                  <span className="text-cyan-500">📖CR {(sessionUsage.cacheReadTokens).toLocaleString()}</span>
+                )}
+                {sessionUsage.cacheCreationTokens != null && sessionUsage.cacheCreationTokens > 0 && (
+                  <span className="text-yellow-500">✏️CW {(sessionUsage.cacheCreationTokens).toLocaleString()}</span>
+                )}
+                {sessionUsage.estimatedCostUsd != null && sessionUsage.estimatedCostUsd > 0 && (
+                  <span className={`flex items-center gap-1 ${
+                    isUser ? 'text-green-300' : 'text-emerald-500 dark:text-emerald-400'
+                  }`}>
+                    <span>💰</span>
+                    <span>{formatCost(sessionUsage.estimatedCostUsd)}</span>
                   </span>
                 )}
               </div>

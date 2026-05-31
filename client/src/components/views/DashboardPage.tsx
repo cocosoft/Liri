@@ -1,43 +1,13 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsService, type DashboardStats } from '../../services/statsService';
-import { monitorService, type MonitorSummary } from '../../services/monitorService';
+import { monitorService, type MetricsData } from '../../services/monitorService';
+import type { Alert, SystemHealth } from '../../types';
 import { SkeletonCard } from '../common/Skeleton';
 import { SPECIES_MAP } from '../Buddy/buddySprites';
 import { sseService } from '../../services/sseService';
-
-interface ResourceBarProps {
-  label: string;
-  percent: number;
-  color: string;
-  icon: string;
-}
-
-const ResourceBar = memo(function ResourceBar({ label, percent, color, icon }: ResourceBarProps) {
-  const getColor = () => {
-    if (percent > 80) return 'bg-red-500';
-    if (percent > 60) return 'bg-yellow-500';
-    return color;
-  };
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span>{icon}</span>
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
-        </div>
-        <span className="text-sm font-bold text-gray-900 dark:text-white">{percent.toFixed(1)}%</span>
-      </div>
-      <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${getColor()}`}
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-});
+import { useConfigStore } from '../../stores/configStore';
+import MetricsChart from '../common/MetricsChart';
 
 interface StatCardProps {
   label: string;
@@ -70,40 +40,6 @@ const StatCard = memo(function StatCard({ label, value, icon, trend }: StatCardP
   );
 });
 
-const BackendCard = memo(function BackendCard({ stats }: { stats: DashboardStats }) {
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Backend 服务</h4>
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-          stats.backend.running
-            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-            : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-        }`}>
-          <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-            stats.backend.running ? 'bg-green-500' : 'bg-gray-400'
-          }`} />
-          {stats.backend.running ? '运行中' : '已停止'}
-        </span>
-      </div>
-      {stats.backend.running && (
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded p-2">
-            <span className="block text-gray-400">端口</span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{stats.backend.port}</span>
-          </div>
-          {stats.backend.pid && (
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded p-2">
-              <span className="block text-gray-400">PID</span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">{stats.backend.pid}</span>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-});
-
 const BuddyCard = memo(function BuddyCard({ buddy }: { buddy: NonNullable<DashboardStats['buddy']> }) {
   const speciesInfo = SPECIES_MAP[buddy.species as keyof typeof SPECIES_MAP];
   return (
@@ -131,22 +67,27 @@ const BuddyCard = memo(function BuddyCard({ buddy }: { buddy: NonNullable<Dashbo
 });
 
 function DashboardPage() {
+  const config = useConfigStore((s) => s.config);
+  const isDark = config.theme === 'dark';
+  const navigate = useNavigate();
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [summary, setSummary] = useState<MonitorSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+
+  const [showMonitor, setShowMonitor] = useState(false);
+  const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [timeRange, setTimeRange] = useState(3600000);
+  const [filterLevel, setFilterLevel] = useState<string>('all');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [statsData, monitorSummary] = await Promise.all([
-        statsService.getDashboardStats(),
-        monitorService.getSummary().catch(() => null),
-      ]);
+      const statsData = await statsService.getDashboardStats();
       setStats(statsData);
-      setSummary(monitorSummary);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载仪表盘数据失败');
     } finally {
@@ -164,25 +105,59 @@ function DashboardPage() {
     };
   }, [fetchData]);
 
-  const getUptime = (seconds: number) => {
-    const d = Math.floor(seconds / 86400);
-    const h = Math.floor((seconds % 86400) / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}天 ${h}小时`;
-    if (h > 0) return `${h}小时 ${m}分钟`;
-    return `${m}分钟`;
+  useEffect(() => {
+    if (!showMonitor) return;
+    const fetchMonitorData = async () => {
+      try {
+        const [metricsData, alertsData, healthData] = await Promise.all([
+          monitorService.getMetrics(timeRange),
+          monitorService.getAlerts(),
+          monitorService.getSystemHealth(),
+        ]);
+        setMetrics(metricsData);
+        setAlerts(alertsData);
+        setSystemHealth(healthData);
+      } catch {
+        // 静默失败
+      }
+    };
+    fetchMonitorData();
+    const interval = setInterval(fetchMonitorData, 30000);
+    return () => clearInterval(interval);
+  }, [showMonitor, timeRange]);
+
+  const filteredAlerts = filterLevel === 'all'
+    ? alerts.filter((a) => !a.acknowledged)
+    : alerts.filter((a) => a.level === filterLevel && !a.acknowledged);
+
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await monitorService.acknowledgeAlert(id);
+      setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, acknowledged: true } : a));
+    } catch {
+      // 静默失败
+    }
   };
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-5xl mx-auto">
-        {/* 页面标题 */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">仪表盘</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">系统概览与状态监控</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">系统概览</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowMonitor((v) => !v)}
+              className={`px-3 py-1.5 text-sm border rounded ${
+                showMonitor
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {showMonitor ? '收起监控' : '展开监控'}
+            </button>
             <button
               onClick={fetchData}
               disabled={loading}
@@ -205,30 +180,6 @@ function DashboardPage() {
           </div>
         )}
 
-        {/* 系统资源（带进度条） */}
-        {summary && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-              <span>📊</span> 系统资源
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ResourceBar
-                label="CPU 使用率"
-                percent={summary.cpuPercent}
-                color="bg-blue-500"
-                icon="🖥️"
-              />
-              <ResourceBar
-                label="内存使用率"
-                percent={summary.memoryPercent}
-                color="bg-purple-500"
-                icon="🧠"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* 统计卡片 */}
         {stats && (
           <div className="space-y-6">
             <div>
@@ -247,51 +198,17 @@ function DashboardPage() {
               </div>
             </div>
 
-            {/* 服务状态 + 伙伴 */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                <span>🔌</span> 服务状态
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <BackendCard stats={stats} />
-                {stats.buddy && <BuddyCard buddy={stats.buddy} />}
-              </div>
-            </div>
-
-            {/* 运行信息 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                <span>ℹ️</span> 运行信息
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="block text-gray-400">运行时间</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {summary ? getUptime(summary.uptime) : '--'}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-gray-400">请求总数</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {summary ? summary.requestCount.toLocaleString() : '--'}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-gray-400">错误数</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {summary ? summary.errorCount : '--'}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-gray-400">平均响应时间</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {summary ? `${summary.avgResponseTime.toFixed(0)}ms` : '--'}
-                  </span>
+            {stats.buddy && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>🦆</span> 伙伴
+                </h3>
+                <div className="max-w-sm">
+                  <BuddyCard buddy={stats.buddy} />
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 快捷入口 */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
               <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
                 <span>🚀</span> 快捷入口
@@ -301,10 +218,150 @@ function DashboardPage() {
                 <button onClick={() => navigate('/knowledge')} className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors">📚 知识库</button>
                 <button onClick={() => navigate('/cost')} className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors">💰 成本</button>
                 <button onClick={() => navigate('/cron')} className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors">🎯 任务</button>
-                <button onClick={() => navigate('/monitor')} className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors">📈 监控</button>
                 <button onClick={() => navigate('/settings')} className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors">⚙️ 设置</button>
               </div>
             </div>
+
+            {showMonitor && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-end">
+                  <select
+                    value={timeRange}
+                    onChange={(e) => setTimeRange(Number(e.target.value))}
+                    className={`px-3 py-1.5 text-sm rounded-lg border ${
+                      isDark ? 'bg-gray-800 border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-700'
+                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  >
+                    <option value={300000}>最近5分钟</option>
+                    <option value={1800000}>最近30分钟</option>
+                    <option value={3600000}>最近1小时</option>
+                    <option value={86400000}>最近24小时</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <MetricsChart
+                    title="请求量趋势"
+                    data={metrics?.requests ?? []}
+                    valueFormatter={(v) => `${v.toFixed(0)}`}
+                    color="#3B82F6"
+                    isDark={isDark}
+                  />
+                  <MetricsChart
+                    title="响应时间 (ms)"
+                    data={metrics?.responseTime ?? []}
+                    valueFormatter={(v) => `${v.toFixed(0)}ms`}
+                    color="#10B981"
+                    isDark={isDark}
+                  />
+                </div>
+
+                <div className={`rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                        🔴 告警列表
+                      </h2>
+                      <select
+                        value={filterLevel}
+                        onChange={(e) => setFilterLevel(e.target.value)}
+                        className={`px-3 py-1.5 text-sm rounded-lg border ${
+                          isDark ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-700'
+                        } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      >
+                        <option value="all">全部未确认</option>
+                        <option value="critical">严重</option>
+                        <option value="error">错误</option>
+                        <option value="warn">警告</option>
+                        <option value="info">信息</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredAlerts.length === 0 ? (
+                      <div className={`p-8 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        暂无未确认的告警
+                      </div>
+                    ) : (
+                      filteredAlerts.map((alert) => (
+                        <div key={alert.id} className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              alert.level === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                              alert.level === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' :
+                              alert.level === 'warn' ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                              'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                            }`}>
+                              {alert.level.toUpperCase()}
+                            </span>
+                            <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+                              {alert.message}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {new Date(alert.timestamp).toLocaleString('zh-CN')}
+                            </span>
+                            <button
+                              onClick={() => handleAcknowledge(alert.id)}
+                              className={`px-3 py-1 text-sm rounded-lg border ${
+                                isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              确认
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className={`rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                      🏥 系统健康报告
+                    </h2>
+                  </div>
+                  <div className="p-4">
+                    {systemHealth ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {systemHealth.components.map((component) => (
+                          <div
+                            key={component.name}
+                            className={`p-3 rounded-lg border ${
+                              component.status === 'ok'
+                                ? isDark ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'
+                                : component.status === 'warning'
+                                ? isDark ? 'bg-yellow-900/20 border-yellow-800' : 'bg-yellow-50 border-yellow-200'
+                                : isDark ? 'bg-red-900/20 border-red-800' : 'bg-red-50 border-red-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`w-2 h-2 rounded-full ${
+                                component.status === 'ok' ? 'bg-green-500' :
+                                component.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`} />
+                              <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {component.name}
+                              </span>
+                            </div>
+                            {component.message && (
+                              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                {component.message}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={`text-center py-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        加载中...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

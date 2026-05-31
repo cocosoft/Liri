@@ -1280,13 +1280,19 @@ export class LocalHTTPService {
       .map(([provider, usage]) => ({
         provider,
         cost: usage.costUSD,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.inputTokens + usage.outputTokens,
+        cacheReadTokens: usage.cacheReadInputTokens,
+        cacheCreationTokens: usage.cacheCreationInputTokens,
+        requests: usage.requestCount,
         percentage:
           totalModelCost > 0
             ? Math.round((usage.costUSD / totalModelCost) * 100)
             : 0,
       }))
       .sort((a, b) => b.cost - a.cost)
-      .slice(0, 4);
+      .slice(0, 8);
 
     const dailyBreakdown: { date: string; cost: number; tokens: number }[] = [];
     try {
@@ -1310,6 +1316,20 @@ export class LocalHTTPService {
       // 每日明细不可用时不返回
     }
 
+    const sessionState = costTracker.getSessionCostState();
+    const totalInputTokens = Object.values(modelUsage).reduce(
+      (sum, u) => sum + u.inputTokens, 0
+    );
+    const totalOutputTokens = Object.values(modelUsage).reduce(
+      (sum, u) => sum + u.outputTokens, 0
+    );
+    const totalCacheRead = Object.values(modelUsage).reduce(
+      (sum, u) => sum + u.cacheReadInputTokens, 0
+    );
+    const totalCacheCreation = Object.values(modelUsage).reduce(
+      (sum, u) => sum + u.cacheCreationInputTokens, 0
+    );
+
     const summary = {
       todayCost: today.cost,
       weeklyCost: weekly.cost,
@@ -1317,6 +1337,16 @@ export class LocalHTTPService {
       yearlyCost: yearly.cost,
       todayTokens: today.tokens,
       monthlyTokens: monthly.tokens,
+      totalInputTokens,
+      totalOutputTokens,
+      totalTokens: totalInputTokens + totalOutputTokens,
+      totalCacheReadTokens: totalCacheRead,
+      totalCacheCreationTokens: totalCacheCreation,
+      totalRequests: Object.keys(modelUsage).length,
+      sessionCost: sessionState.totalCostUSD,
+      sessionInputTokens: sessionState.totalInputTokens,
+      sessionOutputTokens: sessionState.totalOutputTokens,
+      sessionTokens: sessionState.totalInputTokens + sessionState.totalOutputTokens,
       topProviders,
       dailyBreakdown,
     };
@@ -1356,6 +1386,8 @@ export class LocalHTTPService {
         promptTokens: r.inputTokens,
         completionTokens: r.outputTokens,
         totalTokens: r.inputTokens + r.outputTokens,
+        cacheReadTokens: r.cacheReadTokens,
+        cacheCreationTokens: r.cacheCreationTokens,
         cost: r.costUSD,
         currency: 'USD',
       }));
@@ -1629,11 +1661,14 @@ export class LocalHTTPService {
 
       const generator = coreAPI.chatStream(chatRequest);
       let result = await generator.next();
+      let streamUsage: { inputTokens: number; outputTokens: number; totalTokens: number; estimatedCostUsd?: number; cacheReadInputTokens?: number; cacheCreationInputTokens?: number } | undefined;
 
       while (!result.done) {
         const chunk = result.value as ChatStreamChunk;
 
-        if (chunk.type === 'text' && chunk.content) {
+        if (chunk.type === 'done' && chunk.usage) {
+          streamUsage = chunk.usage;
+        } else if (chunk.type === 'text' && chunk.content) {
           const streamChunk: StreamChunk = {
             id: responseId,
             object: 'chat.completion.chunk',
@@ -1717,15 +1752,36 @@ export class LocalHTTPService {
         result = await generator.next();
       }
 
-      res.write(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: 'chat.completion.chunk',
-          created,
-          model,
-          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-        })}\n\n`
-      );
+      if (streamUsage) {
+        res.write(
+          `data: ${JSON.stringify({
+            id: responseId,
+            object: 'chat.completion.chunk',
+            created,
+            model,
+            __pyapp_type: 'usage',
+            usage: {
+              prompt_tokens: streamUsage.inputTokens,
+              completion_tokens: streamUsage.outputTokens,
+              total_tokens: streamUsage.totalTokens,
+              estimated_cost_usd: streamUsage.estimatedCostUsd,
+              cache_read_input_tokens: streamUsage.cacheReadInputTokens,
+              cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
+            },
+            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          })}\n\n`
+        );
+      } else {
+        res.write(
+          `data: ${JSON.stringify({
+            id: responseId,
+            object: 'chat.completion.chunk',
+            created,
+            model,
+            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          })}\n\n`
+        );
+      }
 
       res.write('data: [DONE]\n\n');
       res.end();
@@ -2473,7 +2529,7 @@ export class LocalHTTPService {
         '@modules/services/voice/services/ttsProvider'
       );
 
-      if (TTSRegistry.getProviders().length === 0) {
+      if (TTSRegistry.getProviderNames().length === 0) {
         TTSRegistry.register(new EdgeTTSProvider(), true);
       }
 
@@ -2531,7 +2587,7 @@ export class LocalHTTPService {
         '@modules/services/voice/services/ttsProvider'
       );
 
-      if (TTSRegistry.getProviders().length === 0) {
+      if (TTSRegistry.getProviderNames().length === 0) {
         TTSRegistry.register(new EdgeTTSProvider(), true);
       }
 

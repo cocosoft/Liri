@@ -19,6 +19,8 @@ export interface Message {
     outputTokens: number;
     totalTokens: number;
     estimatedCostUsd?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
   };
 }
 
@@ -97,6 +99,13 @@ export interface AgentTask {
   tokenUsed?: number;
 }
 
+export interface AgentProgress {
+  agentId: string;
+  state: string;
+  progress: number;
+  message?: string;
+}
+
 export type BuddySpecies =
   | 'duck' | 'goose' | 'blob' | 'cat' | 'dragon' | 'octopus'
   | 'owl' | 'penguin' | 'turtle' | 'snail' | 'ghost' | 'axolotl'
@@ -147,7 +156,8 @@ export interface Channel {
   name: string;
   type: 'qq' | 'feishu' | 'dingtalk' | 'wechat' | 'slack' | 'discord' | 'telegram' | 'whatsapp' | 'email' | 'webhook';
   enabled: boolean;
-  status: 'connected' | 'disconnected' | 'error';
+  connected: boolean;
+  config?: Record<string, unknown>;
   lastActive?: number;
 }
 

@@ -195,6 +195,14 @@ export class AppCore {
       await this.initializeCoreModules();
       this.profiler.checkpoint('core_modules_initialized');
 
+      // 初始化成本跟踪系统
+      await this.initializeCostTrackingSystem();
+      this.profiler.checkpoint('cost_tracking_initialized');
+
+      // 初始化 OpenTelemetry 观测系统（依赖核心模块完成）
+      await this.initializeOTelSystem();
+      this.profiler.checkpoint('otel_initialized');
+
       // 等待预加载完成
       const preloadResult = await preloader.ensureAllCompleted();
       this.profiler.checkpoint('preload_completed');
@@ -284,6 +292,106 @@ export class AppCore {
     }
 
     await this.moduleManager.initializeAll();
+  }
+
+  /**
+   * 初始化成本跟踪系统
+   */
+  private async initializeCostTrackingSystem(): Promise<void> {
+    try {
+      const { initializeCostTrackingSystem: initCostTracking } = await import(
+        '@modules/cost/index.js'
+      );
+      await initCostTracking();
+      logger.info('成本跟踪系统初始化完成');
+    } catch (error) {
+      logger.error(
+        '成本跟踪系统初始化失败',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
+   * 初始化 OpenTelemetry 观测系统
+   * 注册全局 MeterProvider/TracerProvider，创建 OTel 实例并连接桥接组件
+   */
+  private async initializeOTelSystem(): Promise<void> {
+    try {
+      const { initializeTelemetry } = await import(
+        '@modules/monitoring/instrumentation.js'
+      );
+
+      await initializeTelemetry();
+      logger.info('OTel 遥测初始化完成');
+
+      // 主动创建 OTel 指标实例（注册到全局 MeterProvider）
+      const { getOTelMetrics, getOTelTracing } = await import(
+        '@modules/monitoring/otel/index.js'
+      );
+
+      const otelMetrics = getOTelMetrics();
+      const otelTracing = getOTelTracing();
+
+      // 创建并启动 MetricsBridge（MetricsService → OTelMetrics）
+      const { getMetricsService, createMetricsBridge } = await import(
+        '@modules/monitoring/index.js'
+      );
+
+      const metricsService = getMetricsService();
+      const metricsBridge = createMetricsBridge(metricsService, otelMetrics);
+      metricsBridge.start();
+
+      // 创建 TraceBridge 供追踪使用
+      const { createTraceBridge } = await import(
+        '@modules/monitoring/otel/index.js'
+      );
+
+      const traceBridge = createTraceBridge(otelTracing);
+
+      // 初始化会话追踪
+      const { getSessionTracing } = await import(
+        '@modules/monitoring/tracing/SessionTracing.js'
+      );
+
+      getSessionTracing();
+
+      logger.info('OTel 桥接组件初始化完成');
+
+      // 初始化集中日志配置（LogConfigManager 注册到 Logger）
+      const { logConfigManager } = await import(
+        '@modules/monitoring/logs/config/LogConfig.js'
+      );
+      const { setGlobalConfigProvider } = await import(
+        '@modules/monitoring/logs/Logger.js'
+      );
+      setGlobalConfigProvider(() => {
+        const cfg = logConfigManager.get();
+        return {
+          level: cfg.level,
+          logFile: cfg.targets.find((t) => t.type === 'file')?.path,
+          fileOutput: cfg.targets.some((t) => t.type === 'file'),
+          format: cfg.format === 'pretty' ? 'text' : cfg.format,
+        };
+      });
+      logger.info('集中日志配置已注册');
+
+      // 创建 OTel 日志适配器（将 OTel Span 上下文注入日志）
+      const { createOTelLoggerAdapter } = await import(
+        '@modules/monitoring/otel/OTelLoggerAdapter.js'
+      );
+      createOTelLoggerAdapter(otelTracing, {
+        module: 'app',
+        traceEnabled: true,
+        jsonOutput: true,
+      });
+      logger.info('OTel 日志适配器已创建');
+    } catch (error) {
+      logger.error(
+        'OTel 系统初始化失败',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
   }
 
   /**

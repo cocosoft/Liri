@@ -2,7 +2,6 @@ import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 
 const DashboardPage = lazy(() => import('../components/views/DashboardPage'));
-const MonitorPage = lazy(() => import('../components/views/MonitorPage'));
 const LogViewerPage = lazy(() => import('../components/views/LogViewerPage'));
 const KnowledgePage = lazy(() => import('../components/views/KnowledgePage'));
 const AgentPage = lazy(() => import('../components/views/AgentPage'));
@@ -29,10 +28,6 @@ export const routes: RouteObject[] = [
   {
     path: '/dashboard',
     element: <DashboardPage />,
-  },
-  {
-    path: '/monitor',
-    element: <MonitorPage />,
   },
   {
     path: '/logs',

@@ -47,12 +47,23 @@ export interface ChatResponse {
 }
 
 /** 流式聊天数据块 */
+/** Token 用量信息 */
+export interface UsageInfo {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+}
+
 export interface ChatStreamChunk {
   type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done' | 'error';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
   status?: string;
+  usage?: UsageInfo;
 }
 
 /** 工具调用描述 */

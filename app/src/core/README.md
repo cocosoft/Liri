@@ -16,7 +16,7 @@
 - **auth/** — 认证与授权
 - **context/** — 上下文管理
 - **loop/TAORLoop** — TAOR 主循环驱动
-- **task/** — 任务管理
+- **tasks/** — 任务管理
 - **theme/** — 主题管理
 - **lazy/** — 懒加载工具
 

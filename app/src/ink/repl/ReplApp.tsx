@@ -5,6 +5,13 @@ import { InputArea } from './InputArea';
 import { StatusBar } from './StatusBar';
 import { Header } from './Header';
 import { Logger } from '@modules/monitoring/logs/Logger';
+import {
+  getTotalCostUSD,
+  getTotalInputTokens,
+  getTotalOutputTokens,
+  getTotalCacheReadInputTokens,
+  getTotalCacheCreationInputTokens,
+} from '@modules/cost/CostTracker.js';
 import type {
   DisplayMessage,
   StreamStats,
@@ -141,6 +148,14 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
       setStreamStats({ startTime: Date.now(), tokenCount: 0, currentSpeed: 0 });
       setActiveToolCalls([]);
 
+      const costBefore = {
+        cost: getTotalCostUSD(),
+        input: getTotalInputTokens(),
+        output: getTotalOutputTokens(),
+        cacheRead: getTotalCacheReadInputTokens(),
+        cacheCreation: getTotalCacheCreationInputTokens(),
+      };
+
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -221,6 +236,15 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               role: 'assistant',
               content: interruptedContent,
               timestamp: Date.now(),
+              tokenInfo: {
+                input: getTotalInputTokens() - costBefore.input,
+                output: getTotalOutputTokens() - costBefore.output,
+                total: (getTotalInputTokens() - costBefore.input) + (getTotalOutputTokens() - costBefore.output),
+                cacheRead: getTotalCacheReadInputTokens() - costBefore.cacheRead,
+                cacheCreation: getTotalCacheCreationInputTokens() - costBefore.cacheCreation,
+              },
+              costUsd: getTotalCostUSD() - costBefore.cost,
+              sessionCostUsd: getTotalCostUSD(),
             },
           ]);
           setStreamState('done');
@@ -261,6 +285,15 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           content: displayContent,
           timestamp: Date.now(),
           toolCalls: hasToolCalls ? completedToolCalls : undefined,
+          tokenInfo: {
+            input: getTotalInputTokens() - costBefore.input,
+            output: getTotalOutputTokens() - costBefore.output,
+            total: (getTotalInputTokens() - costBefore.input) + (getTotalOutputTokens() - costBefore.output),
+            cacheRead: getTotalCacheReadInputTokens() - costBefore.cacheRead,
+            cacheCreation: getTotalCacheCreationInputTokens() - costBefore.cacheCreation,
+          },
+          costUsd: getTotalCostUSD() - costBefore.cost,
+          sessionCostUsd: getTotalCostUSD(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } catch (err) {

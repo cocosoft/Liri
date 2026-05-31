@@ -1,4 +1,5 @@
 import { appendFileSync } from 'node:fs';
+import { logRedact } from './redact/LogRedact.js';
 
 export enum LogLevel {
   DEBUG = 'debug',
@@ -29,6 +30,18 @@ export interface LoggerConfig {
 
 let defaultLogger: Logger | null = null;
 
+/** 全局配置提供者（由 LogConfigManager 注册） */
+type GlobalConfigProvider = () => Partial<LoggerConfig>;
+let globalConfigProvider: GlobalConfigProvider | null = null;
+
+/**
+ * 设置全局配置提供者
+ * 用于 LogConfigManager 等集中配置系统注册默认配置
+ */
+export function setGlobalConfigProvider(provider: GlobalConfigProvider): void {
+  globalConfigProvider = provider;
+}
+
 export class Logger {
   private level: LogLevel;
   private module: string;
@@ -38,12 +51,16 @@ export class Logger {
   private format: 'text' | 'json';
 
   constructor(config: LoggerConfig = {}) {
-    this.level = config.level ?? LogLevel.INFO;
-    this.module = config.module ?? 'app';
-    this.logFile = config.logFile;
-    this.consoleOutput = config.consoleOutput !== false;
-    this.fileOutput = config.fileOutput ?? false;
-    this.format = config.format ?? 'text';
+    // 合并全局配置提供者的默认值
+    const globalDefaults = globalConfigProvider ? globalConfigProvider() : {};
+    const merged: LoggerConfig = { ...globalDefaults, ...config };
+
+    this.level = merged.level ?? LogLevel.INFO;
+    this.module = merged.module ?? 'app';
+    this.logFile = merged.logFile;
+    this.consoleOutput = merged.consoleOutput !== false;
+    this.fileOutput = merged.fileOutput ?? false;
+    this.format = merged.format ?? 'text';
   }
 
   private shouldLog(level: LogLevel): boolean {
@@ -81,29 +98,30 @@ export class Logger {
     if (!this.shouldLog(level)) return;
 
     const formatted = this.formatMessage(level, message, meta);
+    const sanitized = logRedact.redact(formatted);
 
     if (this.consoleOutput) {
       switch (level) {
         case LogLevel.DEBUG:
-          console.debug(formatted);
+          console.debug(sanitized);
           break;
         case LogLevel.INFO:
-          console.info(formatted);
+          console.info(sanitized);
           break;
         case LogLevel.WARN:
         case LogLevel.WARNING:
-          console.warn(formatted);
+          console.warn(sanitized);
           break;
         case LogLevel.ERROR:
         case LogLevel.FATAL:
-          console.error(formatted);
+          console.error(sanitized);
           break;
       }
     }
 
     if (this.fileOutput && this.logFile) {
       try {
-        appendFileSync(this.logFile, formatted + '\n', 'utf-8');
+        appendFileSync(this.logFile, sanitized + '\n', 'utf-8');
       } catch {
         // 文件写入失败时静默处理
       }

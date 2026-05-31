@@ -26,6 +26,15 @@ export interface DisplayMessage {
   content: string;
   timestamp: number;
   toolCalls?: ToolCallInfo[];
+
+  /** 本条消息消耗的 token 数（仅 assistant 消息有效） */
+  tokenInfo?: { input: number; output: number; total: number; cacheRead?: number; cacheCreation?: number };
+
+  /** 本条消息的成本（USD） */
+  costUsd?: number;
+
+  /** 截止到本条消息的会话累计成本（USD） */
+  sessionCostUsd?: number;
 }
 
 export interface ToolCallInfo {

@@ -162,3 +162,35 @@ export class OTelLoggerAdapter {
     spanCounters.clear();
   }
 }
+
+/** 模块级 OTelLoggerAdapter 实例 */
+let otelLoggerAdapter: OTelLoggerAdapter | null = null;
+
+/**
+ * 获取或创建 OTelLoggerAdapter 单例
+ */
+export function getOTelLoggerAdapter(
+  otelTracing?: OTelTracing,
+  config?: OTelLoggerAdapterConfig
+): OTelLoggerAdapter {
+  if (!otelLoggerAdapter) {
+    if (!otelTracing || !config) {
+      throw new Error(
+        'OTelLoggerAdapter 首次调用时必须传入 otelTracing 和 config'
+      );
+    }
+    otelLoggerAdapter = new OTelLoggerAdapter(otelTracing, config);
+  }
+  return otelLoggerAdapter;
+}
+
+/**
+ * 创建 OTelLoggerAdapter（仅在启动流程中调用）
+ */
+export function createOTelLoggerAdapter(
+  otelTracing: OTelTracing,
+  config: OTelLoggerAdapterConfig
+): OTelLoggerAdapter {
+  otelLoggerAdapter = new OTelLoggerAdapter(otelTracing, config);
+  return otelLoggerAdapter;
+}

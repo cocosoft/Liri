@@ -49,9 +49,39 @@ export type {
 } from './metrics/MetricsService.js';
 
 // 日志系统
-export { Logger, LogLevel, getLogger, createLogger } from './logs/Logger.js';
+export {
+  Logger,
+  LogLevel,
+  getLogger,
+  createLogger,
+  setGlobalConfigProvider,
+} from './logs/Logger.js';
 
 export type { LoggerConfig } from './logs/Logger.js';
+
+export { StructuredLogger } from './logs/StructuredLogger.js';
+export type { StructuredLogEntry } from './logs/StructuredLogger.js';
+
+export {
+  logConfigManager,
+  LogConfigManager,
+} from './logs/config/LogConfig.js';
+export type { LogTarget, LogConfiguration } from './logs/config/LogConfig.js';
+
+export { logRedact, LogRedact } from './logs/redact/LogRedact.js';
+export type { RedactPattern, LogRedactConfig } from './logs/redact/LogRedact.js';
+
+export { logFilter, LogFilter } from './logs/filter/LogFilter.js';
+export type { FilterRule, LogFilterConfig } from './logs/filter/LogFilter.js';
+
+export {
+  logDiagnostic,
+  LogDiagnostic,
+} from './logs/diagnostic/LogDiagnostic.js';
+export type { DiagnosticConfig, DiagnosticCheck, DiagnosticResult } from './logs/diagnostic/LogDiagnostic.js';
+
+export { LogTail } from './logs/tail/LogTail.js';
+export type { TailOptions, LogLine } from './logs/tail/LogTail.js';
 
 // OpenTelemetry集成
 export {
@@ -69,6 +99,8 @@ export {
   TraceBridge,
   createTraceBridge,
   OTelLoggerAdapter,
+  getOTelLoggerAdapter,
+  createOTelLoggerAdapter,
 } from './otel/index.js';
 
 export type {

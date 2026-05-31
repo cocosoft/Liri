@@ -101,6 +101,8 @@ interface StatsBarProps {
   durationMs?: number;
   modelName?: string;
   thinkingTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
   showExtended?: boolean;
 }
 
@@ -110,6 +112,8 @@ export function StatsBar({
   durationMs,
   modelName,
   thinkingTokens,
+  cacheReadTokens,
+  cacheCreationTokens,
   showExtended = false,
 }: StatsBarProps): React.ReactNode {
   const parts: string[] = [];
@@ -121,6 +125,20 @@ export function StatsBar({
         ? `${(tokenCount / 1000).toFixed(1)}k`
         : String(tokenCount);
     parts.push(`Tokens: ${display}`);
+  }
+  if (cacheReadTokens !== undefined && cacheReadTokens > 0) {
+    const display =
+      cacheReadTokens >= 1000
+        ? `${(cacheReadTokens / 1000).toFixed(1)}k`
+        : String(cacheReadTokens);
+    parts.push(`CR: ${display}`);
+  }
+  if (cacheCreationTokens !== undefined && cacheCreationTokens > 0) {
+    const display =
+      cacheCreationTokens >= 1000
+        ? `${(cacheCreationTokens / 1000).toFixed(1)}k`
+        : String(cacheCreationTokens);
+    parts.push(`CW: ${display}`);
   }
   if (thinkingTokens !== undefined && showExtended) {
     parts.push(`Thinking: ${thinkingTokens}`);

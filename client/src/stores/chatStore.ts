@@ -206,6 +206,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             const newBlocks = [...(msg.blocks || []), newBlock];
             updatedMsg = { ...msg, blocks: newBlocks };
           }
+        } else if (chunk.type === 'usage' && chunk.usage) {
+          updatedMsg = { ...msg, usage: chunk.usage };
         } else {
           updatedMsg = msg;
         }

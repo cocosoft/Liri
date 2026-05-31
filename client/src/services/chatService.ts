@@ -2,9 +2,17 @@ import type { Message, BackendStatus, ToolCall } from '../types';
 import { getBackendBaseUrl, getBackendPort, setApiSecret } from './backendUrl';
 
 export interface StreamChunk {
-  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done';
+  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'usage' | 'done';
   content: string;
   toolCall?: ToolCall;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
 }
 
 async function getTauriCore() {
@@ -207,6 +215,19 @@ export const chatService = {
                     },
                   };
                 }
+              } else if (pyappType === 'usage' && chunk.usage) {
+                yield {
+                  type: 'usage',
+                  content: '',
+                  usage: {
+                    inputTokens: chunk.usage.prompt_tokens || 0,
+                    outputTokens: chunk.usage.completion_tokens || 0,
+                    totalTokens: chunk.usage.total_tokens || 0,
+                    estimatedCostUsd: chunk.usage.estimated_cost_usd,
+                    cacheReadTokens: chunk.usage.cache_read_input_tokens,
+                    cacheCreationTokens: chunk.usage.cache_creation_input_tokens,
+                  },
+                };
               } else if (chunk.choices?.[0]?.delta?.content) {
                 yield {
                   type: 'text',

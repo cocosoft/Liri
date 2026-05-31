@@ -14,7 +14,6 @@ import KeyboardShortcutsHelp from './components/common/KeyboardShortcutsHelp';
 import AuthGuard from './components/common/AuthGuard';
 import LoginPage from './components/views/LoginPage';
 import ApiKeyPage from './components/views/ApiKeyPage';
-import MonitorPage from './components/views/MonitorPage';
 import LogViewerPage from './components/views/LogViewerPage';
 import MemoryPage from './components/views/MemoryPage';
 import SkillPage from './components/views/SkillPage';
@@ -22,8 +21,6 @@ import DashboardPage from './components/views/DashboardPage';
 import FileExplorerPage from './components/views/FileExplorerPage';
 import TerminalPage from './components/views/TerminalPage';
 import CostPage from './components/views/CostPage';
-import PluginsPage from './components/views/PluginsPage';
-import HelpPage from './components/views/HelpPage';
 import SandboxPage from './components/views/SandboxPage';
 import PermissionPage from './components/views/PermissionPage';
 import KnowledgePage from './components/views/KnowledgePage';
@@ -143,13 +140,10 @@ function App() {
             </main>
           } />
           <Route path="/dashboard" element={<AuthGuard><DashboardPage /></AuthGuard>} />
-          <Route path="/monitor" element={<AuthGuard><MonitorPage /></AuthGuard>} />
           <Route path="/logs" element={<AuthGuard><LogViewerPage /></AuthGuard>} />
           <Route path="/files" element={<AuthGuard><FileExplorerPage /></AuthGuard>} />
           <Route path="/terminal" element={<AuthGuard><TerminalPage /></AuthGuard>} />
           <Route path="/cost" element={<AuthGuard><CostPage /></AuthGuard>} />
-          <Route path="/plugins" element={<AuthGuard><PluginsPage /></AuthGuard>} />
-          <Route path="/help" element={<AuthGuard><HelpPage /></AuthGuard>} />
           <Route path="/sandbox" element={<AuthGuard><SandboxPage /></AuthGuard>} />
           <Route path="/permissions" element={<AuthGuard><PermissionPage /></AuthGuard>} />
           <Route path="/oauth" element={<AuthGuard><OAuthPage /></AuthGuard>} />

@@ -1,9 +1,8 @@
-//
 /**
  * OpenTelemetry  instrumentation 配置
  */
 
-import { DiagLogLevel, diag, trace } from '@opentelemetry/api';
+import { DiagLogLevel, diag, metrics, trace } from '@opentelemetry/api';
 import {
   envDetector,
   hostDetector,
@@ -369,6 +368,9 @@ export async function initializeTelemetry() {
     views: [],
     readers,
   });
+
+  // 注册 MeterProvider 到全局，否则 OTelMetrics 使用 no-op Meter
+  metrics.setGlobalMeterProvider(meterProvider);
 
   // 'beforeExit' is emitted when Node.js empties its event loop and has no additional work to schedule.
   process.on('beforeExit', async () => {

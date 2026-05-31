@@ -35,6 +35,8 @@ export interface ModelUsage {
   costUSD: number;
   /** 是否快速模式 */
   isFastMode: boolean;
+  /** 请求次数 */
+  requestCount: number;
 }
 
 /**
@@ -130,6 +132,7 @@ export class CostTracker {
       existingUsage.reasoningTokens += reasoningTokens;
       existingUsage.costUSD += cost;
       existingUsage.isFastMode = isFastMode || existingUsage.isFastMode;
+      existingUsage.requestCount += 1;
     } else {
       this.modelUsage.set(canonicalModelName, {
         inputTokens,
@@ -140,6 +143,7 @@ export class CostTracker {
         reasoningTokens,
         costUSD: cost,
         isFastMode,
+        requestCount: 1,
       });
     }
 

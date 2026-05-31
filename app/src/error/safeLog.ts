@@ -3,9 +3,9 @@
  * 提供安全的错误记录功能，自动清理敏感信息
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger();
 import {
   AppError,
   TelemetrySafeError,

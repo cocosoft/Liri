@@ -1,19 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAgentStore } from '../../stores/agentStore';
 import { useAppStore } from '../../stores/appStore';
 import { SkeletonCard } from '../common/Skeleton';
 
 function AgentPage() {
-  const { tasks, isLoading, error, loadTasks, executeTask, cancelTask } = useAgentStore();
+  const { tasks, isLoading, error, taskProgress, loadTasks, executeTask, cancelTask, getTaskProgress } = useAgentStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const [taskName, setTaskName] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const expandedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopExpandedPoll = () => {
+    if (expandedPollRef.current) {
+      clearInterval(expandedPollRef.current);
+      expandedPollRef.current = null;
+    }
+  };
 
   useEffect(() => {
     loadTasks();
     const interval = setInterval(loadTasks, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      stopExpandedPoll();
+    };
   }, []);
+
+  useEffect(() => {
+    stopExpandedPoll();
+    if (expandedId) {
+      getTaskProgress(expandedId);
+      expandedPollRef.current = setInterval(() => {
+        getTaskProgress(expandedId);
+      }, 2000);
+    }
+    return stopExpandedPoll;
+  }, [expandedId]);
 
   const handleExecute = async () => {
     if (!taskName.trim()) return;
@@ -199,6 +221,23 @@ function AgentPage() {
                               </p>
                             ))}
                           </div>
+                        </div>
+                      )}
+                      {expandedId === task.id && taskProgress && taskProgress.agentId === task.id && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                          <span className="text-xs font-medium text-blue-700 dark:text-blue-300">实时进度:</span>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                style={{ width: `${taskProgress.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">{taskProgress.progress}%</span>
+                          </div>
+                          <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                            {taskProgress.message || taskProgress.state}
+                          </p>
                         </div>
                       )}
                       <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 pt-1">

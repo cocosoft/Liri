@@ -27,6 +27,7 @@ export type {
   ChatRequest,
   ChatResponse,
   ChatStreamChunk,
+  UsageInfo,
   ToolCallSpec,
   ToolResult,
   ToolInfo,

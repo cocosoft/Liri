@@ -67,14 +67,12 @@ function ChannelsPage() {
                     </h3>
                     <span
                       className={`text-xs ${
-                        channel.status === 'connected'
+                        channel.connected
                           ? 'text-green-500'
-                          : channel.status === 'error'
-                          ? 'text-red-500'
                           : 'text-gray-400'
                       }`}
                     >
-                      {channel.status === 'connected' ? '已连接' : channel.status === 'error' ? '错误' : '未连接'}
+                      {channel.connected ? '已连接' : '未连接'}
                     </span>
                     {channel.lastActive && (
                       <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">

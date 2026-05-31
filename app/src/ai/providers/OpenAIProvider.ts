@@ -133,6 +133,8 @@ export class OpenAIProvider implements AIProvider {
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let fullContent = '';
+      let lastUsage: import('@modules/ai/models/types').ChatResponse['usage'] | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -151,10 +153,20 @@ export class OpenAIProvider implements AIProvider {
 
           try {
             const parsed = JSON.parse(data) as Record<string, unknown>;
+
+            // 提取 usage 字段（通常在流式响应的最后一个 chunk 中出现）
+            const usage = parsed['usage'] as
+              | import('@modules/ai/models/types').ChatResponse['usage']
+              | undefined;
+            if (usage) {
+              lastUsage = usage;
+            }
+
             const choice = (parsed.choices as Record<string, unknown>[])?.[0];
             const delta = choice?.delta as Record<string, unknown> | undefined;
             const content = delta?.content as string | undefined;
             if (content) {
+              fullContent += content;
               yield content;
             }
           } catch {
@@ -164,9 +176,10 @@ export class OpenAIProvider implements AIProvider {
       }
 
       return {
-        content: '',
+        content: fullContent,
         model: options?.model || 'gpt-4o',
         stop_reason: 'stop',
+        usage: lastUsage,
       };
     } catch (error) {
       if (error instanceof AppError) throw error;

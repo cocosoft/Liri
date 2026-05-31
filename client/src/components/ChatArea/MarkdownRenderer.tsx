@@ -174,7 +174,7 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
     }, renderText(content));
   };
 
-  const renderList = (content: string) => {
+  const renderList = (content: string, key: string) => {
     const lines = content.split('\n');
     const isOrdered = lines[0].match(/^\d+\.\s/) !== null;
     const items: JSX.Element[] = [];
@@ -199,12 +199,14 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
     });
 
     if (isOrdered) {
-      return <ol className="my-2 list-decimal">{items}</ol>;
+      return <ol key={key} className="my-2 list-decimal">{items}</ol>;
     }
-    return <ul className="my-2 list-disc">{items}</ul>;
+    return <ul key={key} className="my-2 list-disc">{items}</ul>;
   };
 
   const isLatexFormula = (text: string): boolean => {
+    const hasChineseChars = /[\u4e00-\u9fa5]/.test(text);
+    
     const latexPatterns = [
       /\\frac/,
       /\\sqrt/,
@@ -291,35 +293,28 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
       /\\left/,
       /\\right/,
       /\\sqrt\[/,
-      /_[a-zA-Z0-9]+/,
-      /\^[a-zA-Z0-9]+/,
-      /\^\{/,
-      /_\{/,
-      /&/,
-      /\\\\/,
-      /\\text/,
-      /\\mathrm/,
-      /\\mathbf/,
-      /\\mathit/,
-      /\\mathrm/,
-      /\\mathcal/,
-      /\\mathbb/,
-      /\\boldsymbol/,
-      /\\overline/,
-      /\\underline/,
-      /\\vec/,
-      /\\tilde/,
-      /\\hat/,
-      /\\bar/,
-      /\\dot/,
-      /\\ddot/,
+      /\\text\{/,
+      /\\mathrm\{/,
+      /\\mathbf\{/,
+      /\\mathit\{/,
+      /\\mathcal\{/,
+      /\\mathbb\{/,
+      /\\boldsymbol\{/,
+      /\\overline\{/,
+      /\\underline\{/,
+      /\\vec\{/,
+      /\\tilde\{/,
+      /\\hat\{/,
+      /\\bar\{/,
+      /\\dot\{/,
+      /\\ddot\{/,
       /\\prime/,
       /\\dagger/,
       /\\ddagger/,
       /\\quad/,
       /\\qquad/,
-      /\\hspace/,
-      /\\vspace/,
+      /\\hspace\{/,
+      /\\vspace\{/,
       /\\linebreak/,
       /\\newline/,
       /\\lbrace|\\rbrace/,
@@ -336,37 +331,26 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
       /\\#/,
       /\\&/,
       /\\_/,
-      /\\{/,
-      /\\}/,
-      /\\textbar/,
-      /\\textbackslash/,
-      /\\textasciicircum/,
-      /\\textunderscore/,
-      /\\textlangle/,
-      /\\textrangle/,
-      /\\textlbrackdbl/,
-      /\\textrbrackdbl/,
-      /\\textquotedblleft/,
-      /\\textquotedblright/,
-      /\\textquoteleft/,
-      /\\textquoteright/,
-      /\\textemdash/,
-      /\\textendash/,
-      /\\texttrademark/,
-      /\\textcopyright/,
-      /\\textregistered/,
-      /\\textbullet/,
-      /\\textperiodcentered/,
-      /\\textbackslash/,
+      /\\\{/,
+      /\\\}/,
     ];
 
     const hasLatexPattern = latexPatterns.some(pattern => pattern.test(text));
     
-    const hasMathSymbols = /[a-zA-Z]+\^[0-9]+|_[0-9]+|pi|theta|alpha|beta|gamma|delta|epsilon|zeta|eta|iota|kappa|lambda|mu|nu|xi|rho|sigma|tau|upsilon|phi|chi|psi|omega/i.test(text);
+    if (hasLatexPattern) {
+      return true;
+    }
     
-    const simpleMathPattern = /^[a-zA-Z]+(\s*=\s*[a-zA-Z0-9^+\-*/()\s]+)?$/;
+    if (hasChineseChars) {
+      return false;
+    }
     
-    return hasLatexPattern || hasMathSymbols || (simpleMathPattern.test(text) && text.includes('^'));
+    const simpleMathPattern = /^[a-zA-Z]\s*=\s*[a-zA-Z0-9^+\-*/()\s]+$/;
+    if (simpleMathPattern.test(text) && /\^/.test(text)) {
+      return true;
+    }
+    
+    return false;
   };
 
   const renderText = (text: string, autoDetectFormula: boolean = true) => {
@@ -556,7 +540,7 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
           case 'heading':
             return renderHeading(block.content, block.level || 1, String(block.id));
           case 'list':
-            return renderList(block.content);
+            return renderList(block.content, String(block.id));
           case 'hr':
             return <hr key={block.id} className="my-4 border-gray-300 dark:border-gray-600" />;
           case 'text':

@@ -40,6 +40,8 @@ import OAuthPage from './components/views/OAuthPage';
 import MediaPage from './components/views/MediaPage';
 import AutoReplyPage from './components/views/AutoReplyPage';
 import STTTestPage from './components/views/STTTestPage';
+import SkillMarketPage from './components/views/SkillMarketPage';
+import MCPMarketPage from './components/views/MCPMarketPage';
 import HomePage from './components/views/HomePage';
 import { FirstRunWizard } from './components/views/FirstRunWizard';
 import { useSessionStore } from './stores/sessionStore';
@@ -166,6 +168,8 @@ function App() {
           <Route path="/settings/deep" element={<AuthGuard><ConfigDeepPage /></AuthGuard>} />
           <Route path="/buddy" element={<AuthGuard><BuddyPage /></AuthGuard>} />
           <Route path="/voice-stt" element={<AuthGuard><STTTestPage /></AuthGuard>} />
+          <Route path="/skill-market" element={<AuthGuard><SkillMarketPage /></AuthGuard>} />
+          <Route path="/mcp-market" element={<AuthGuard><MCPMarketPage /></AuthGuard>} />
           </Routes>
         </div>
         <ToolPanel />

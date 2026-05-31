@@ -41,7 +41,7 @@ export interface SkillCreateData {
 
 const skillService = {
   async list(params?: SkillListParams): Promise<{ skills: Skill[]; total: number }> {
-    const url = new URL('/api/skills', 'http://localhost');
+    const url = new URL('/v1/skills', 'http://localhost');
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -54,36 +54,36 @@ const skillService = {
   },
 
   async get(id: string): Promise<Skill> {
-    const response = await http.get<Skill>(`/api/skills/${id}`);
+    const response = await http.get<Skill>(`/v1/skills/${id}`);
     return response;
   },
 
   async create(data: SkillCreateData): Promise<Skill> {
-    const response = await http.post<Skill>('/api/skills', data);
+    const response = await http.post<Skill>('/v1/skills', data);
     return response;
   },
 
   async update(id: string, updates: Partial<Skill>): Promise<Skill> {
-    const response = await http.put<Skill>(`/api/skills/${id}`, updates);
+    const response = await http.put<Skill>(`/v1/skills/${id}`, updates);
     return response;
   },
 
   async delete(id: string): Promise<void> {
-    await http.delete(`/api/skills/${id}`);
+    await http.delete(`/v1/skills/${id}`);
   },
 
   async enable(id: string): Promise<Skill> {
-    const response = await http.post<Skill>(`/api/skills/${id}/enable`);
+    const response = await http.post<Skill>(`/v1/skills/${id}/enable`);
     return response;
   },
 
   async disable(id: string): Promise<Skill> {
-    const response = await http.post<Skill>(`/api/skills/${id}/disable`);
+    const response = await http.post<Skill>(`/v1/skills/${id}/disable`);
     return response;
   },
 
   async getCategories(): Promise<string[]> {
-    const response = await http.get<string[]>('/api/skills/categories');
+    const response = await http.get<string[]>('/v1/skills/categories');
     return response;
   },
 };

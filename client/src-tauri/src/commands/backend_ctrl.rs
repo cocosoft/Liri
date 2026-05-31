@@ -32,6 +32,9 @@ static BACKEND_PROCESS: Lazy<Mutex<Option<BackendProcess>>> =
 
 static BACKEND_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(7890));
 
+static BACKEND_SECRET: Lazy<Mutex<Option<String>>> =
+    Lazy::new(|| Mutex::new(None));
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendStatus {
     pub running: bool,
@@ -75,6 +78,13 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         format!("{}\\.pyapp", dirs::home_dir().unwrap_or_default().display())
     };
 
+    // 生成随机共享密钥，防止未经授权的第三方访问后端 API
+    let secret = uuid::Uuid::new_v4().to_string();
+    {
+        let mut secret_guard = BACKEND_SECRET.lock().map_err(|e| e.to_string())?;
+        *secret_guard = Some(secret.clone());
+    }
+
     let mut command = app_handle
         .shell()
         .sidecar("Liri_coding")
@@ -83,7 +93,8 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .current_dir(&data_dir)
         .env("LIRI_HOME", &data_dir)
         .env("LIRI_DATA_DIR", format!("{}/data", data_dir))
-        .env("LIRI_PROJECT_DIR", &data_dir);
+        .env("LIRI_PROJECT_DIR", &data_dir)
+        .env("LIRI_API_SECRET", &secret);
 
     info!(
         "Starting backend sidecar: Liri_coding repl --http-port={}, LIRI_HOME={:?}",
@@ -123,6 +134,12 @@ pub async fn stop_backend() -> Result<(), String> {
             .child
             .kill()
             .map_err(|e| format!("Failed to kill backend process: {}", e))?;
+
+        // 清除共享密钥
+        if let Ok(mut secret_guard) = BACKEND_SECRET.lock() {
+            secret_guard.take();
+        }
+
         info!("Backend process killed");
     } else {
         info!("No backend process to stop");
@@ -144,6 +161,12 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
         port: if running { Some(current_port) } else { None },
         pid: None,
     })
+}
+
+#[tauri::command]
+pub async fn get_backend_secret() -> Result<Option<String>, String> {
+    let secret_guard = BACKEND_SECRET.lock().map_err(|e| e.to_string())?;
+    Ok(secret_guard.clone())
 }
 
 #[tauri::command]

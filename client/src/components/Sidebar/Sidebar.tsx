@@ -51,15 +51,15 @@ function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
   return (
     <button
       onClick={handleClick}
-      className={`flex flex-col items-center justify-center py-2 px-1 rounded transition-colors ${
+      className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
         isActive
           ? 'bg-blue-600 text-white'
-          : 'text-gray-400 hover:bg-gray-700 hover:text-white dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'
+          : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white'
       }`}
       title={item.label}
     >
-      <span className="text-lg">{item.icon}</span>
-      <span className="text-xs mt-0.5 truncate w-full text-center">{item.label}</span>
+      <span className="text-xl leading-none h-6 flex items-center justify-center">{item.icon}</span>
+      <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">{item.label}</span>
     </button>
   );
 }
@@ -74,7 +74,7 @@ function Sidebar() {
   };
 
   return (
-    <aside className="w-20 bg-gray-800 dark:bg-gray-800 text-white flex flex-col h-full">
+    <aside className="w-20 bg-gray-100 dark:bg-gray-900 flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-1">
         <div className="space-y-0.5">
           {HIGH_FREQUENCY_ITEMS.map((item) => (
@@ -82,7 +82,7 @@ function Sidebar() {
           ))}
         </div>
 
-        <div className="my-3 border-t border-gray-700 dark:border-gray-700" />
+        <div className="my-3 border-t border-gray-300 dark:border-gray-700" />
 
         <div className="space-y-0.5">
           {MEDIUM_FREQUENCY_ITEMS.map((item) => (
@@ -90,7 +90,7 @@ function Sidebar() {
           ))}
         </div>
 
-        <div className="my-3 border-t border-gray-700 dark:border-gray-700" />
+        <div className="my-3 border-t border-gray-300 dark:border-gray-700" />
 
         <div className="space-y-0.5">
           {SYSTEM_ITEMS.map((item) => (

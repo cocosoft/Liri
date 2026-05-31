@@ -66,32 +66,32 @@ export interface VoiceSettings {
 
 const voiceService = {
   async getSettings(): Promise<VoiceSettings> {
-    const response = await http.get<VoiceSettings>('/api/voice/settings');
+    const response = await http.get<VoiceSettings>('/v1/voice/settings');
     return response;
   },
 
   async updateSettings(settings: Partial<VoiceSettings>): Promise<VoiceSettings> {
-    const response = await http.put<VoiceSettings>('/api/voice/settings', settings);
+    const response = await http.put<VoiceSettings>('/v1/voice/settings', settings);
     return response;
   },
 
   async startSession(): Promise<VoiceSession> {
-    const response = await http.post<VoiceSession>('/api/voice/session/start');
+    const response = await http.post<VoiceSession>('/v1/voice/session/start');
     return response;
   },
 
   async endSession(sessionId: string): Promise<VoiceSession> {
-    const response = await http.post<VoiceSession>(`/api/voice/session/${sessionId}/end`);
+    const response = await http.post<VoiceSession>(`/v1/voice/session/${sessionId}/end`);
     return response;
   },
 
   async getSessions(limit: number = 20): Promise<{ sessions: VoiceSession[]; total: number }> {
-    const response = await http.get<{ sessions: VoiceSession[]; total: number }>(`/api/voice/sessions?limit=${limit}`);
+    const response = await http.get<{ sessions: VoiceSession[]; total: number }>(`/v1/voice/sessions?limit=${limit}`);
     return response;
   },
 
   async getSession(sessionId: string): Promise<VoiceSession> {
-    const response = await http.get<VoiceSession>(`/api/voice/session/${sessionId}`);
+    const response = await http.get<VoiceSession>(`/v1/voice/session/${sessionId}`);
     return response;
   },
 
@@ -100,7 +100,7 @@ const voiceService = {
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('sessionId', sessionId);
 
-    const response = await fetch(`${window.location.origin}/api/voice/upload`, {
+    const response = await fetch(`${window.location.origin}/v1/voice/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -113,7 +113,7 @@ const voiceService = {
   },
 
   async getAudioStream(sessionId: string): Promise<MediaStream> {
-    const response = await fetch(`/api/voice/stream/${sessionId}`);
+    const response = await fetch(`/v1/voice/stream/${sessionId}`);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -122,22 +122,22 @@ const voiceService = {
   },
 
   async synthesizeSpeech(text: string, voiceId?: string): Promise<string> {
-    const response = await http.post<{ audioUrl: string }>('/api/voice/tts', { text, voiceId });
+    const response = await http.post<{ audioUrl: string }>('/v1/voice/tts', { text, voiceId });
     return response.audioUrl;
   },
 
   async getProviders(): Promise<VoiceProvider[]> {
-    const response = await http.get<VoiceProvider[]>('/api/voice/providers');
+    const response = await http.get<VoiceProvider[]>('/v1/voice/providers');
     return response;
   },
 
   async getVoices(provider: VoiceProvider): Promise<{ id: string; name: string; language: string }[]> {
-    const response = await http.get<{ id: string; name: string; language: string }[]>(`/api/voice/voices?provider=${provider}`);
+    const response = await http.get<{ id: string; name: string; language: string }[]>(`/v1/voice/voices?provider=${provider}`);
     return response;
   },
 
   async testWakeWord(wakeWordId: string): Promise<boolean> {
-    const response = await http.post<{ detected: boolean }>(`/api/voice/wakeword/${wakeWordId}/test`);
+    const response = await http.post<{ detected: boolean }>(`/v1/voice/wakeword/${wakeWordId}/test`);
     return response.detected;
   },
 

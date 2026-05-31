@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useConfigStore } from '../../stores/configStore';
+import { useAuthStore } from '../../stores/authStore';
 import { chatService } from '../../services/chatService';
 import { appConfigService } from '../../services/appConfigService';
 import { setBackendPort as setBackendUrlPort } from '../../services/backendUrl';
@@ -12,6 +13,7 @@ import type { BackendStatus } from '../../types';
 function SettingsPage() {
   const navigate = useNavigate();
   const { config, setConfig } = useConfigStore();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuthStore();
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
     running: false,
     port: null,
@@ -234,6 +236,15 @@ function SettingsPage() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (e) {
+      console.error('登出失败', e);
+    }
+  };
+
   const toggleTheme = () => {
     setConfig('theme', isDark ? 'light' : 'dark');
   };
@@ -246,6 +257,68 @@ function SettingsPage() {
         </h2>
 
         <div className="space-y-6">
+          {/* 用户账户 */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              用户账户
+            </h3>
+            {isAuthenticated && user ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">用户名</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.username}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">角色</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    user.role === 'admin'
+                      ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                      : user.role === 'user'
+                      ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                  }`}>
+                    {user.role === 'admin' ? '管理员' : user.role === 'user' ? '普通用户' : '访客'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">信任等级</span>
+                  <span className="text-sm text-gray-900 dark:text-gray-100">Lv.{user.trustLevel}</span>
+                </div>
+                {user.email && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">邮箱</span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100">{user.email}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+                  >
+                    切换账户
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    disabled={authLoading}
+                    className="px-4 py-1.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded"
+                  >
+                    {authLoading ? '处理中...' : '登出'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">未登录</span>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+                >
+                  登录
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* 主题设置 */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -464,6 +537,13 @@ function SettingsPage() {
                 <span className="text-sm text-gray-700 dark:text-gray-300">消息渠道</span>
               </button>
               <button
+                onClick={() => navigate('/apikeys')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🗝️</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">API密钥</span>
+              </button>
+              <button
                 onClick={() => navigate('/permissions')}
                 className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
@@ -661,6 +741,13 @@ function SettingsPage() {
               >
                 <span>🤝</span>
                 <span className="text-sm text-gray-700 dark:text-gray-300">伙伴管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/terminal')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🛠️</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">工具终端</span>
               </button>
             </div>
           </div>

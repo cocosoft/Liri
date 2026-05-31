@@ -14,6 +14,14 @@ interface CommandResult {
   error: string;
 }
 
+interface BackendCommand {
+  name: string;
+  description: string;
+  aliases: string[];
+  argumentHint: string;
+  userInvocable: boolean;
+}
+
 function TerminalPage() {
   const [lines, setLines] = useState<TerminalLine[]>([]);
   const [input, setInput] = useState('');
@@ -21,14 +29,25 @@ function TerminalPage() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isExecuting, setIsExecuting] = useState(false);
   const [cwd, setCwd] = useState('~');
+  const [backendCommands, setBackendCommands] = useState<BackendCommand[]>([]);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    loadBackendCommands();
     addLine('欢迎使用 Liri 终端', 'output');
     addLine('输入 help 查看可用命令', 'output');
     addLine('', 'output');
   }, []);
+
+  const loadBackendCommands = async () => {
+    try {
+      const cmds = await http.get<BackendCommand[]>('/v1/commands');
+      setBackendCommands(cmds);
+    } catch {
+      // 静默失败，help 命令仍会展示本地帮助
+    }
+  };
 
   useEffect(() => {
     terminalRef.current?.scrollTo(0, terminalRef.current.scrollHeight);
@@ -106,6 +125,28 @@ function TerminalPage() {
     // 处理 whoami 命令
     if (trimmedCmd === 'whoami' || trimmedCmd === '/whoami') {
       addLine('user', 'output');
+      setIsExecuting(false);
+      return;
+    }
+
+    // 处理 help 命令：展示后端可用命令
+    if (trimmedCmd === 'help' || trimmedCmd === '/help') {
+      addLine('可用命令:', 'output');
+      addLine('  cd <目录>      切换工作目录', 'output');
+      addLine('  clear          清屏', 'output');
+      addLine('  pwd            显示当前目录', 'output');
+      addLine('  date           显示当前时间', 'output');
+      addLine('  whoami         显示当前用户', 'output');
+      addLine('  help           显示此帮助', 'output');
+      if (backendCommands.length > 0) {
+        addLine('', 'output');
+        addLine('后端命令:', 'output');
+        backendCommands.forEach((cmd) => {
+          const hint = cmd.argumentHint ? ` ${cmd.argumentHint}` : '';
+          addLine(`  ${cmd.name}${hint}    ${cmd.description}`, 'output');
+        });
+      }
+      addLine('', 'output');
       setIsExecuting(false);
       return;
     }

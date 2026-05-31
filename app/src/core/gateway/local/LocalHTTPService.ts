@@ -106,9 +106,11 @@ export class LocalHTTPService {
   private server: http.Server | null = null;
   private config: LocalHTTPConfig;
   private _isRunning = false;
+  private readonly apiSecret: string;
 
   constructor(config: LocalHTTPConfig) {
     this.config = config;
+    this.apiSecret = process.env.LIRI_API_SECRET || '';
   }
 
   /**
@@ -127,6 +129,20 @@ export class LocalHTTPService {
       return addr.port;
     }
     return undefined;
+  }
+
+  /**
+   * 校验请求是否携带有效的共享密钥
+   * 仅当环境变量 LIRI_API_SECRET 设置了值时，才启用校验
+   * /health 端点为免校验白名单，用于前端健康检查
+   */
+  private verifyRequestAuth(req: http.IncomingMessage): boolean {
+    if (!this.apiSecret) return true;
+    const url = req.url?.split('?')[0] || '';
+    if (req.method === 'GET' && url === '/health') return true;
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.replace('Bearer ', '');
+    return token === this.apiSecret;
   }
 
   /**
@@ -367,6 +383,13 @@ export class LocalHTTPService {
       return;
     }
 
+    // 共享密钥校验：确保请求来自被授权的 Tauri 客户端
+    if (!this.verifyRequestAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
+      return;
+    }
+
     const url = req.url?.split('?')[0] || '';
 
     // ---- SSE Event Bus ----
@@ -461,10 +484,72 @@ export class LocalHTTPService {
         url.match(/^\/v1\/agents\/tasks\/(.+)$/)![1]
       );
     }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/cancel$/)
+    ) {
+      return this.handleCancelAgentTask(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/cancel$/)![1]
+      );
+    }
 
     // ---- Voice ----
     if (req.method === 'POST' && url === '/v1/voice/transcribe') {
       return this.handleSTTTranscribe(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/voice/settings') {
+      return this.handleGetVoiceSettings(req, res);
+    }
+    if (req.method === 'PUT' && url === '/v1/voice/settings') {
+      return this.handleUpdateVoiceSettings(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/voice/session/start') {
+      return this.handleStartVoiceSession(req, res);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/voice\/session\/(.+)\/end$/)) {
+      return this.handleEndVoiceSession(
+        req,
+        res,
+        url.match(/^\/v1\/voice\/session\/(.+)\/end$/)![1]
+      );
+    }
+    if (req.method === 'GET' && url === '/v1/voice/sessions') {
+      return this.handleListVoiceSessions(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/voice\/session\/(.+)$/)) {
+      return this.handleGetVoiceSession(
+        req,
+        res,
+        url.match(/^\/v1\/voice\/session\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/voice/upload') {
+      return this.handleVoiceUpload(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/voice\/stream\/(.+)$/)) {
+      return this.handleVoiceStream(
+        req,
+        res,
+        url.match(/^\/v1\/voice\/stream\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/voice/tts') {
+      return this.handleTTSSynthesize(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/voice/providers') {
+      return this.handleListVoiceProviders(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/voice/voices') {
+      return this.handleListVoices(req, res);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)) {
+      return this.handleTestWakeWord(
+        req,
+        res,
+        url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)![1]
+      );
     }
 
     // ---- Files ----
@@ -574,6 +659,13 @@ export class LocalHTTPService {
         url.match(/^\/v1\/channels\/(.+)$/)![1]
       );
     }
+    if (req.method === 'PUT' && url.match(/^\/v1\/channels\/(.+)$/)) {
+      return this.handleUpdateChannel(
+        req,
+        res,
+        url.match(/^\/v1\/channels\/(.+)$/)![1]
+      );
+    }
 
     // ---- Config ----
     if (req.method === 'GET' && url === '/v1/config') {
@@ -644,6 +736,37 @@ export class LocalHTTPService {
         req,
         res,
         url.match(/^\/v1\/skills\/(.+)\/toggle$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/skills') {
+      return this.handleCreateSkill(req, res);
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/skills\/(.+)$/)) {
+      return this.handleUpdateSkillById(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/skills\/(.+)$/)) {
+      return this.handleDeleteSkill(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/enable$/)) {
+      return this.handleEnableSkill(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)\/enable$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/disable$/)) {
+      return this.handleDisableSkill(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/(.+)\/disable$/)![1]
       );
     }
 
@@ -741,6 +864,89 @@ export class LocalHTTPService {
         req,
         res,
         url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)![1]
+      );
+    }
+
+    // ---- Auth ----
+    if (req.method === 'POST' && url === '/v1/auth/login') {
+      return this.handleAuthLogin(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/auth/register') {
+      return this.handleAuthRegister(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/auth/logout') {
+      return this.handleAuthLogout(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/auth/me') {
+      return this.handleAuthMe(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/auth/permissions') {
+      return this.handleAuthPermissions(req, res);
+    }
+
+    // ---- API Keys ----
+    if (req.method === 'GET' && url === '/v1/apikeys') {
+      return this.handleListApiKeys(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/apikeys') {
+      return this.handleCreateApiKey(req, res);
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/apikeys\/(.+)$/)) {
+      return this.handleDeleteApiKey(
+        req,
+        res,
+        url.match(/^\/v1\/apikeys\/(.+)$/)![1]
+      );
+    }
+
+    // ---- Memory ----
+    if (req.method === 'GET' && url === '/v1/memory') {
+      return this.handleListMemories(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/memory/search') {
+      return this.handleSearchMemories(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/memory/weights') {
+      return this.handleGetMemoryWeights(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/memory/sync-status') {
+      return this.handleGetSyncStatus(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/memory\/(.+)\/summary$/)) {
+      return this.handleGetMemorySummary(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)\/summary$/)![1]
+      );
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/memory\/(.+)$/)) {
+      return this.handleGetMemory(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/memory') {
+      return this.handleCreateMemory(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/memory/sync') {
+      return this.handleSyncMemories(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/memory/consolidate') {
+      return this.handleConsolidateMemories(req, res);
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {
+      return this.handleUpdateMemory(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/memory\/(.+)$/)) {
+      return this.handleDeleteMemory(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)$/)![1]
       );
     }
 
@@ -2053,6 +2259,303 @@ export class LocalHTTPService {
           status: status.length > 0 ? status.join('；') : undefined,
         })
       );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取语音设置请求 GET /v1/voice/settings
+   */
+  private async handleGetVoiceSettings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { createVoiceService } = await import('@modules/services/voice');
+      const voiceService = createVoiceService();
+      const config = voiceService.getConfig();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          config: {
+            provider: 'default',
+            inputDeviceId: undefined,
+            outputDeviceId: undefined,
+            wakeWordEnabled: false,
+            wakeWord: '你好',
+            autoPlayTTS: true,
+            voiceId: 'zh-CN-XiaoxiaoNeural',
+            inputLanguage: config.language || 'zh-CN',
+            outputLanguage: config.language || 'zh-CN',
+          },
+          wakeWords: [],
+          hotkeys: {},
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理更新语音设置请求 PUT /v1/voice/settings
+   */
+  private async handleUpdateVoiceSettings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const settings = JSON.parse(body);
+
+      const { createVoiceService } = await import('@modules/services/voice');
+      const voiceService = createVoiceService();
+      voiceService.updateConfig({
+        language: settings.config?.inputLanguage || settings.config?.outputLanguage,
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, config: settings.config }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理开始语音会话请求 POST /v1/voice/session/start
+   */
+  private async handleStartVoiceSession(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const sessionId = `voice-${Date.now()}-${randomUUID()}`;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: sessionId,
+          startedAt: Date.now(),
+          endedAt: null,
+          duration: null,
+          transcript: '',
+          responseAudioUrl: null,
+          status: 'active',
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理结束语音会话请求 POST /v1/voice/session/:id/end
+   */
+  private async handleEndVoiceSession(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: sessionId,
+          startedAt: Date.now() - 60000,
+          endedAt: Date.now(),
+          duration: 60000,
+          transcript: '',
+          responseAudioUrl: null,
+          status: 'completed',
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理列出语音会话请求 GET /v1/voice/sessions
+   */
+  private async handleListVoiceSessions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          sessions: [],
+          total: 0,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取语音会话详情请求 GET /v1/voice/session/:id
+   */
+  private async handleGetVoiceSession(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: sessionId,
+          startedAt: Date.now() - 60000,
+          endedAt: null,
+          duration: null,
+          transcript: '',
+          responseAudioUrl: null,
+          status: 'active',
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理上传音频请求 POST /v1/voice/upload
+   */
+  private async handleVoiceUpload(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          transcript: '',
+          audioUrl: null,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取音频流请求 GET /v1/voice/stream/:id
+   */
+  private async handleVoiceStream(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Audio streaming not implemented' }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理TTS语音合成请求 POST /v1/voice/tts
+   */
+  private async handleTTSSynthesize(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { text, voiceId } = JSON.parse(body);
+
+      const { TTSRegistry, EdgeTTSProvider } = await import(
+        '@modules/services/voice/services/ttsProvider'
+      );
+
+      if (TTSRegistry.getProviders().length === 0) {
+        TTSRegistry.register(new EdgeTTSProvider(), true);
+      }
+
+      const result = await TTSRegistry.speak({
+        text,
+        voice: voiceId || 'zh-CN-XiaoxiaoNeural',
+      });
+
+      if (result.success && result.audioData) {
+        const audioBase64 = result.audioData.toString('base64');
+        const audioUrl = `data:audio/mp3;base64,${audioBase64}`;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ audioUrl }));
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: result.error || 'TTS synthesis failed',
+          })
+        );
+      }
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理列出语音提供商请求 GET /v1/voice/providers
+   */
+  private async handleListVoiceProviders(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(['gemini', 'openai', 'webapi']));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理列出语音列表请求 GET /v1/voice/voices
+   */
+  private async handleListVoices(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url || '', `http://localhost`);
+      const provider = urlObj.searchParams.get('provider') || 'edge';
+
+      const { TTSRegistry, EdgeTTSProvider } = await import(
+        '@modules/services/voice/services/ttsProvider'
+      );
+
+      if (TTSRegistry.getProviders().length === 0) {
+        TTSRegistry.register(new EdgeTTSProvider(), true);
+      }
+
+      const ttsProvider = TTSRegistry.getProvider();
+      const voices = ttsProvider ? ttsProvider.getVoices() : [];
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(voices));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理测试唤醒词请求 POST /v1/voice/wakeword/:id/test
+   */
+  private async handleTestWakeWord(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    wakeWordId: string
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ detected: false }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -3505,6 +4008,705 @@ export class LocalHTTPService {
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId, enabled }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Agent Handlers ==========
+
+  private async handleCancelAgentTask(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const { coordinator } = await import('@modules/core/Coordinator');
+      const success = coordinator.stopTask(taskId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success, taskId }));
+      this.broadcastEvent('agent:task-cancelled', { taskId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Skill CRUD Handlers ==========
+
+  private async handleCreateSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { skillId, sourceUrl } = JSON.parse(body);
+
+      if (!skillId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'skillId is required' } }));
+        return;
+      }
+
+      const adapter = await this.getClawHubAdapter();
+      const skill = await adapter.installSkill(skillId, sourceUrl);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(skill));
+      this.broadcastEvent('skill:created', { skill });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleUpdateSkillById(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      const skill = await adapter.updateSkill(skillId);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(skill));
+      this.broadcastEvent('skill:updated', { skill });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDeleteSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      await adapter.uninstallSkill(skillId);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({}));
+      this.broadcastEvent('skill:deleted', { skillId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleEnableSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      await adapter.enableSkill(skillId);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ id: skillId, status: 'enabled' }));
+      this.broadcastEvent('skill:enabled', { skillId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDisableSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      await adapter.disableSkill(skillId);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ id: skillId, status: 'disabled' }));
+      this.broadcastEvent('skill:disabled', { skillId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Channel Handlers ==========
+
+  private async handleUpdateChannel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    channelId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const parsedBody = body ? JSON.parse(body) : {};
+      const enabled = parsedBody.enabled;
+
+      if (enabled === undefined) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'enabled field is required (true/false)' },
+          })
+        );
+        return;
+      }
+
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
+      const channel = channelRegistry.get(channelId);
+      if (!channel) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
+        return;
+      }
+      if (enabled) {
+        await channelRegistry.connect(channelId);
+      } else {
+        await channelRegistry.disconnect(channelId);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, id: channelId, enabled }));
+      this.broadcastEvent('channel:toggled', { id: channelId, enabled });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Auth Handlers ==========
+
+  private users: Map<string, { username: string; password: string }> =
+    new Map();
+  private tokens: Map<string, { username: string; permissions: string[] }> =
+    new Map();
+
+  private async handleAuthLogin(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { username, password } = JSON.parse(body);
+
+      if (!username || !password) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'username and password are required' },
+          })
+        );
+        return;
+      }
+
+      const user = this.users.get(username);
+      if (!user || user.password !== password) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'Invalid username or password' },
+          })
+        );
+        return;
+      }
+
+      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      this.tokens.set(token, {
+        username,
+        permissions: ['read', 'write'],
+      });
+
+      const now = Date.now();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          token,
+          user: {
+            id: `user_${now}`,
+            username,
+            email: '',
+            role: 'user',
+            trustLevel: 2,
+            created_at: now,
+          },
+          expires_at: now + 86400000,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleAuthRegister(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { username, password } = JSON.parse(body);
+
+      if (!username || !password) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'username and password are required' },
+          })
+        );
+        return;
+      }
+
+      if (this.users.has(username)) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'Username already exists' },
+          })
+        );
+        return;
+      }
+
+      this.users.set(username, { username, password });
+      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      this.tokens.set(token, {
+        username,
+        permissions: ['read', 'write'],
+      });
+
+      const now = Date.now();
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          token,
+          user: {
+            id: `user_${now}`,
+            username,
+            email: '',
+            role: 'user',
+            trustLevel: 2,
+            created_at: now,
+          },
+          expires_at: now + 86400000,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleAuthLogout(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.replace('Bearer ', '');
+
+      if (token) {
+        this.tokens.delete(token);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({}));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleAuthMe(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.replace('Bearer ', '');
+
+      const session = this.tokens.get(token);
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
+        return;
+      }
+
+      const now = Date.now();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: `user_${now}`,
+          username: session.username,
+          email: '',
+          role: 'user',
+          trustLevel: 2,
+          created_at: now,
+          permissions: session.permissions,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleAuthPermissions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.replace('Bearer ', '');
+
+      const session = this.tokens.get(token);
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
+        return;
+      }
+
+      const permissionList = session.permissions.map((p: string) => ({
+        scope: p === 'read' ? 'read' : p === 'write' ? 'write' : 'admin',
+        description: p === 'read' ? '读取权限' : p === 'write' ? '写入权限' : '管理权限',
+        level: p as 'none' | 'read' | 'write' | 'admin',
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(permissionList));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== API Key Handlers ==========
+
+  private apiKeys: Map<string, { name: string; key: string; createdAt: number }> =
+    new Map();
+
+  private async handleListApiKeys(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const apiKeyList = Array.from(this.apiKeys.entries()).map(
+        ([id, data]) => ({
+          id,
+          name: data.name,
+          key_prefix: data.key.substring(0, 8),
+          created_at: data.createdAt,
+          permissions: ['read'],
+        })
+      );
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(apiKeyList));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleCreateApiKey(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { name } = JSON.parse(body);
+
+      if (!name) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'name is required' } })
+        );
+        return;
+      }
+
+      const id = `key_${Date.now()}`;
+      const key = `sk-${Math.random().toString(36).substr(2, 32)}`;
+
+      this.apiKeys.set(id, { name, key, createdAt: Date.now() });
+
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id,
+          name,
+          key,
+          key_prefix: key.substring(0, 8),
+          created_at: Date.now(),
+          permissions: ['read'],
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDeleteApiKey(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    keyId: string
+  ): Promise<void> {
+    try {
+      if (!this.apiKeys.has(keyId)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'API key not found' } })
+        );
+        return;
+      }
+
+      this.apiKeys.delete(keyId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({}));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Memory Handlers ==========
+
+  private memoryManagerInstance: import('@modules/memory/MemoryManager').MemoryManagerImpl | null =
+    null;
+
+  private async getMemoryManager(): Promise<
+    import('@modules/memory/MemoryManager').MemoryManagerImpl
+  > {
+    if (!this.memoryManagerInstance) {
+      const { MemoryManagerImpl } = await import(
+        '@modules/memory/MemoryManager'
+      );
+      this.memoryManagerInstance = new MemoryManagerImpl();
+    }
+    return this.memoryManagerInstance;
+  }
+
+  private async handleListMemories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const mm = await this.getMemoryManager();
+      const memories = await mm.getAllMemories();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, memories }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleSearchMemories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
+      const query = parsedUrl.searchParams.get('query') || '';
+      if (!query) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'query is required' } })
+        );
+        return;
+      }
+
+      const mm = await this.getMemoryManager();
+      const memories = await mm.getRelevantMemories(query);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, memories }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetMemory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    memoryId: string
+  ): Promise<void> {
+    try {
+      const mm = await this.getMemoryManager();
+      const memory = await mm.getMemory(memoryId);
+
+      if (!memory) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Memory not found' } })
+        );
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, memory }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleCreateMemory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const params = JSON.parse(body);
+
+      if (!params.content) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'content is required' } })
+        );
+        return;
+      }
+
+      const mm = await this.getMemoryManager();
+      const memory = await mm.createMemory({
+        content: params.content,
+        metadata: {
+          name: params.name || '',
+          description: params.description || '',
+          type: params.type || 'note',
+          tags: params.tags || [],
+          ...(params.metadata || {}),
+        },
+      });
+
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, memory }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleUpdateMemory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    memoryId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const updates = JSON.parse(body);
+
+      const mm = await this.getMemoryManager();
+      const memory = await mm.updateMemory(memoryId, updates);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, memory }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDeleteMemory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    memoryId: string
+  ): Promise<void> {
+    try {
+      const mm = await this.getMemoryManager();
+      await mm.deleteMemory(memoryId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetMemorySummary(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    memoryId: string
+  ): Promise<void> {
+    try {
+      const mm = await this.getMemoryManager();
+      const memory = await mm.getMemory(memoryId);
+
+      if (!memory) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Memory not found' } })
+        );
+        return;
+      }
+
+      const summary = {
+        id: memory.id,
+        contentPreview:
+          memory.content.length > 200
+            ? memory.content.slice(0, 200) + '...'
+            : memory.content,
+        type: memory.metadata.type || 'unknown',
+        tags: memory.metadata.tags || [],
+        createdAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, summary }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetMemoryWeights(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          weights: { semantic: 0.4, recency: 0.3, frequency: 0.3 },
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetSyncStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          status: {
+            lastSync: null,
+            pendingSync: [],
+            failedSync: [],
+            syncCount: 0,
+          },
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleSyncMemories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          message: 'Sync not yet implemented',
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleConsolidateMemories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          message: 'Consolidation not yet implemented',
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }

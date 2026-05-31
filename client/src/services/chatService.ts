@@ -1,5 +1,5 @@
 import type { Message, BackendStatus, ToolCall } from '../types';
-import { getBackendBaseUrl, getBackendPort } from './backendUrl';
+import { getBackendBaseUrl, getBackendPort, setApiSecret } from './backendUrl';
 
 export interface StreamChunk {
   type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done';
@@ -68,6 +68,11 @@ export const chatService = {
     const core = await getTauriCore();
     if (core) {
       const status = await core.invoke<BackendStatus>('start_backend');
+      // 获取共享密钥，后续所有 HTTP 请求将自动携带
+      try {
+        const secret = await core.invoke<string | null>('get_backend_secret');
+        if (secret) setApiSecret(secret);
+      } catch { /* Tauri 旧版本不支持此命令时忽略 */ }
       const healthy = await pollHealth();
       return { ...status, running: healthy };
     }

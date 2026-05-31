@@ -38,6 +38,9 @@ Desktop.ini
 # Python
 
 # Temporary / Scratch files
+messages.json
+messages2.json
+liri-website/
 app/errors.txt
 app/test_error.txt
 app/typecheck-errors*.txt

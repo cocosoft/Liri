@@ -143,6 +143,7 @@ pub fn run() {
             commands::backend_ctrl::start_backend,
             commands::backend_ctrl::stop_backend,
             commands::backend_ctrl::get_backend_status,
+            commands::backend_ctrl::get_backend_secret,
             commands::backend_ctrl::set_backend_port,
             commands::app_config::get_app_config,
             commands::app_config::set_app_config,

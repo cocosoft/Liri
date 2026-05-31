@@ -15,9 +15,9 @@ function NavCard({ icon, title, description, path }: NavCardProps) {
   return (
     <button
       onClick={() => navigate(path)}
-      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all hover:-translate-y-1 text-left"
+      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all hover:-translate-y-1 text-center"
     >
-      <div className="text-4xl mb-4">{icon}</div>
+      <div className="text-4xl mb-4 flex justify-center">{icon}</div>
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
         {title}
       </h3>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useConfigStore } from '../../stores/configStore';
+import { authService, type Permission } from '../../services/authService';
 
 interface UserPermission {
   id: string;
@@ -35,18 +36,40 @@ function PermissionPage() {
     { id: '3', username: 'guest', email: 'guest@example.com', role: 'guest', trustLevel: 0, permissions: ['read'], lastActive: '2026-05-28 10:00' },
   ]);
   const [selectedUser, setSelectedUser] = useState<UserPermission | null>(null);
-  const [systemPermissions, setSystemPermissions] = useState<PermissionItem[]>([
-    { id: 'network', name: '网络访问', description: '允许访问外部网络', enabled: true },
-    { id: 'filesystem', name: '文件系统', description: '允许读写本地文件', enabled: true },
-    { id: 'execute', name: '代码执行', description: '允许执行动态代码', enabled: false },
-    { id: 'memory', name: '内存访问', description: '允许访问系统内存', enabled: false },
-    { id: 'process', name: '进程管理', description: '允许创建和管理进程', enabled: false },
-    { id: 'admin', name: '管理员权限', description: '允许系统级操作', enabled: false },
-  ]);
+  const [systemPermissions, setSystemPermissions] = useState<PermissionItem[]>([]);
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
 
   useEffect(() => {
     loadConfig();
+    loadPermissions();
   }, [loadConfig]);
+
+  const loadPermissions = async () => {
+    setPermissionsLoading(true);
+    try {
+      const perms = await authService.getPermissions();
+      setSystemPermissions(
+        perms.map((p: Permission, idx: number) => ({
+          id: p.scope || `perm_${idx}`,
+          name: p.scope,
+          description: p.description || `${p.scope} 权限`,
+          enabled: p.level !== 'none',
+        }))
+      );
+    } catch (e) {
+      console.error('加载权限失败，使用默认配置', e);
+      setSystemPermissions([
+        { id: 'network', name: '网络访问', description: '允许访问外部网络', enabled: true },
+        { id: 'filesystem', name: '文件系统', description: '允许读写本地文件', enabled: true },
+        { id: 'execute', name: '代码执行', description: '允许执行动态代码', enabled: false },
+        { id: 'memory', name: '内存访问', description: '允许访问系统内存', enabled: false },
+        { id: 'process', name: '进程管理', description: '允许创建和管理进程', enabled: false },
+        { id: 'admin', name: '管理员权限', description: '允许系统级操作', enabled: false },
+      ]);
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
 
   const getTrustLevelInfo = (level: number) => {
     return TRUST_LEVELS.find((t) => t.level === level) || TRUST_LEVELS[0];
@@ -238,9 +261,23 @@ function PermissionPage() {
                 </div>
 
                 <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'} p-6`}>
-                  <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-                    用户权限
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                      用户权限
+                    </h3>
+                    <button
+                      onClick={loadPermissions}
+                      disabled={permissionsLoading}
+                      className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded"
+                    >
+                      {permissionsLoading ? '加载中...' : '刷新'}
+                    </button>
+                  </div>
+                  {permissionsLoading ? (
+                    <div className="text-center py-4">
+                      <span className="text-sm text-gray-400">权限加载中...</span>
+                    </div>
+                  ) : (
                   <div className="space-y-3">
                     {systemPermissions.map((perm) => (
                       <div
@@ -269,7 +306,8 @@ function PermissionPage() {
                         </button>
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

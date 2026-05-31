@@ -4,12 +4,19 @@ function Header() {
   const navigate = useNavigate();
 
   return (
-    <header className="h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+    <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">📱</span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Liri</h1>
-        </div>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <img
+            src="/liri_logo.png"
+            alt="Liri Logo"
+            className="h-7 w-7 object-contain"
+          />
+          <h1 className="text-[32px] font-bold text-gray-900 dark:text-white">Liri</h1>
+        </button>
       </div>
 
       <div className="flex items-center gap-2">

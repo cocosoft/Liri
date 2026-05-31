@@ -1,4 +1,4 @@
-import { getBackendBaseUrl } from './backendUrl';
+import { getBackendBaseUrl, getApiSecret } from './backendUrl';
 
 class HTTPClientError extends Error {
   constructor(
@@ -16,12 +16,26 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${getBackendBaseUrl()}${path}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  // 自动附加共享密钥，确保后端只接受来自当前 Tauri 客户端的请求
+  const apiSecret = getApiSecret();
+  if (apiSecret) {
+    headers['Authorization'] = `Bearer ${apiSecret}`;
+  }
+
+  // 合并自定义请求头（允许覆盖默认值）
+  const customHeaders = options.headers as Record<string, string> | undefined;
+  if (customHeaders) {
+    Object.assign(headers, customHeaders);
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {

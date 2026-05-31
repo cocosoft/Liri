@@ -183,7 +183,7 @@ function BackendControl() {
 function ConfigPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'backend' | 'config'>('config');
-  const { config, loadConfig } = useConfigStore();
+  const { config, setConfig, loadConfig } = useConfigStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -203,11 +203,14 @@ function ConfigPanel() {
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 w-12 h-12 bg-gray-700 hover:bg-gray-600 text-white rounded-full shadow-lg flex items-center justify-center text-xl"
-        title="设置"
+        onClick={() => {
+          const newTheme = config.theme === 'dark' ? 'light' : 'dark';
+          setConfig('theme', newTheme);
+        }}
+        className="fixed bottom-4 right-4 w-12 h-12 bg-gray-700 hover:bg-gray-600 text-white rounded-full shadow-lg flex items-center justify-center text-xl transition-colors"
+        title={config.theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
       >
-        ⚙
+        {config.theme === 'dark' ? '☀️' : '🌙'}
       </button>
 
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)}>

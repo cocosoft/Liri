@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import mermaid from 'mermaid';
 
 interface MarkdownRendererProps {
   content: string;
@@ -13,15 +14,6 @@ interface RenderedBlock {
   content: string;
   language?: string;
   level?: number;
-}
-
-declare global {
-  interface Window {
-    mermaid?: {
-      initialize: (config: { startOnLoad: boolean }) => void;
-      render: (id: string, code: string, callback: (svgCode: string) => void) => void;
-    };
-  }
 }
 
 function parseMarkdown(text: string, blockIdRef: { current: number }): RenderedBlock[] {
@@ -119,7 +111,6 @@ function parseMarkdown(text: string, blockIdRef: { current: number }): RenderedB
 }
 
 function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
-  const [mermaidLoaded, setMermaidLoaded] = useState(false);
   const blockIdRef = useRef(0);
 
   const blocks = useMemo(() => {
@@ -127,39 +118,18 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
   }, [content]);
 
   useEffect(() => {
-    const loadMermaid = async () => {
-      try {
-        const mermaidScript = document.createElement('script');
-        mermaidScript.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-        mermaidScript.onload = () => {
-          setMermaidLoaded(true);
-          if (window.mermaid) {
-            window.mermaid.initialize({ startOnLoad: false });
-          }
-        };
-        document.head.appendChild(mermaidScript);
-        return () => document.head.removeChild(mermaidScript);
-      } catch {
-        setMermaidLoaded(false);
+    mermaid.initialize({ startOnLoad: false });
+    const mermaidElements = document.querySelectorAll('.mermaid');
+    mermaidElements.forEach(async (el) => {
+      if (!el.classList.contains('rendered')) {
+        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const code = (el as HTMLElement).textContent || '';
+        const { svg } = await mermaid.render(id, code);
+        (el as HTMLElement).innerHTML = svg;
+        el.classList.add('rendered');
       }
-    };
-    loadMermaid();
-  }, []);
-
-  useEffect(() => {
-    if (mermaidLoaded && window.mermaid) {
-      const mermaid = window.mermaid;
-      const mermaidElements = document.querySelectorAll('.mermaid');
-      mermaidElements.forEach((el) => {
-        if (!el.classList.contains('rendered')) {
-          mermaid.render(`mermaid-${Date.now()}`, (el as HTMLElement).textContent || '', (svgCode) => {
-            (el as HTMLElement).innerHTML = svgCode;
-            el.classList.add('rendered');
-          });
-        }
-      });
-    }
-  }, [blocks, mermaidLoaded]);
+    });
+  }, [blocks]);
 
 
 

@@ -438,7 +438,15 @@ export class CoreAPIImpl implements CoreAPI {
     return (session.messages || []).map((msg) => ({
       id: msg.id,
       role: msg.role.toLowerCase(),
-      content: typeof msg.content === 'string' ? msg.content : '',
+      content:
+        typeof msg.content === 'string'
+          ? msg.content
+          : Array.isArray(msg.content)
+            ? msg.content
+                .filter((b) => b.type === 'text')
+                .map((b) => (b as { type: 'text'; text: string }).text)
+                .join('')
+            : '',
       timestamp:
         msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
       tool_calls: msg.tool_calls as Array<Record<string, unknown>> | undefined,

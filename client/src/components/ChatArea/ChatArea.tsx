@@ -1,15 +1,16 @@
+import { useRef, useEffect, useCallback } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useBackendStore } from '../../stores/backendStore';
 import ChatMessage from './ChatMessage';
-import { useVirtualList } from '../../hooks/useVirtualList';
-
-const ESTIMATED_ITEM_HEIGHT = 120;
 
 function ChatArea() {
   const { messages, error, isStreaming } = useChatStore();
   const { currentSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const prevMessageCountRef = useRef(0);
+  const isNearBottomRef = useRef(true);
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
@@ -21,16 +22,52 @@ function ChatArea() {
     ? '后端服务未运行。请点击左侧侧边栏底部的 "未连接" 按钮查看启动说明。'
     : error;
 
-  const {
-    containerRef,
-    visibleItems,
-    totalHeight,
-    offsetY,
-    measureItem,
-  } = useVirtualList(messages, {
-    itemHeight: ESTIMATED_ITEM_HEIGHT,
-    overscan: 5,
-  });
+  /**
+   * 检测用户是否在底部附近
+   */
+  const checkNearBottom = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return true;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+  }, []);
+
+  /**
+   * 自动滚动到底部
+   */
+  const scrollToBottom = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, []);
+
+  /**
+   * 监听滚动事件，记录用户是否在底部附近
+   */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      isNearBottomRef.current = checkNearBottom();
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [checkNearBottom]);
+
+  /**
+   * 消息数量变化时自动滚动到底部
+   */
+  useEffect(() => {
+    const prevCount = prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
+    if (messages.length > prevCount && isNearBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [messages.length, scrollToBottom]);
 
   return (
     <div
@@ -92,27 +129,16 @@ function ChatArea() {
           </div>
         </div>
       ) : (
-        /* 消息列表 */
+        /* 消息列表 - 原生滚动，所有消息直接渲染 */
         <div className="py-4">
-          <div style={{ height: totalHeight, position: 'relative' }}>
-            <div style={{ transform: `translateY(${offsetY}px)` }}>
-              {visibleItems.map((message) => (
-                <div
-                  key={message.id}
-                  ref={(el) => {
-                    if (el) {
-                      measureItem(messages.indexOf(message), el.offsetHeight);
-                    }
-                  }}
-                >
-                  <ChatMessage
-                    message={message}
-                    isStreaming={isStreaming && message.role === 'assistant'}
-                  />
-                </div>
-              ))}
+          {messages.map((message) => (
+            <div key={message.id}>
+              <ChatMessage
+                message={message}
+                isStreaming={isStreaming && message.role === 'assistant'}
+              />
             </div>
-          </div>
+          ))}
         </div>
       )}
     </div>

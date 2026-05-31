@@ -100,7 +100,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     try {
       const data = await fs.readFile(filePath, 'utf-8');
       const lines = data.split('\n').filter((l) => l.trim().length > 0);
-      const msgs: UnifiedMessage[] = lines.map((line) => JSON.parse(line));
+      const msgs: UnifiedMessage[] = [];
+      const seenIds = new Set<string>();
+      for (const line of lines) {
+        const msg: UnifiedMessage = JSON.parse(line);
+        if (!seenIds.has(msg.id)) {
+          seenIds.add(msg.id);
+          msgs.push(msg);
+        }
+      }
       this.messages.set(sessionId, msgs);
     } catch {
       this.messages.set(sessionId, []);

@@ -94,6 +94,7 @@ export interface MessageMetadata {
   completionTokens?: number;
   promptTokens?: number;
   finishReason?: string;
+  tool_calls?: Array<Record<string, unknown>>;
 }
 
 /**

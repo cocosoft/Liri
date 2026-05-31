@@ -74,7 +74,6 @@ export class TranscriptManager {
       return;
     }
 
-    await this.storage.addMessage(sessionId, message);
     await this.appendToTranscriptFile(sessionId, message);
   }
 

@@ -677,11 +677,20 @@ export class ChatManagerImpl implements ChatManager {
         const messages: Message[] = storedMessages.map((m) => ({
           id: m.id,
           role: m.role,
-          content: typeof m.content === 'string' ? m.content : '',
+          content:
+            typeof m.content === 'string'
+              ? m.content
+              : Array.isArray(m.content)
+                ? m.content
+                    .filter((b) => b.type === 'text')
+                    .map((b) => (b as { type: 'text'; text: string }).text)
+                    .join('')
+                : '',
           createdAt: new Date(m.timestamp),
           updatedAt: new Date(m.timestamp),
           sessionId: stored.id,
           toolCallId: m.metadata?.toolCallId,
+          metadata: m.metadata,
         }));
         const chatSession: ChatSession = {
           id: stored.id,
@@ -703,6 +712,29 @@ export class ChatManagerImpl implements ChatManager {
       logger.error('Failed to load sessions from gateway', {
         error: String(e),
       });
+    }
+  }
+
+  private _sanitizeApiMessages(apiMessages: Record<string, unknown>[]): void {
+    let lastAssistantHadToolCalls = false;
+
+    for (let i = 0; i < apiMessages.length; i++) {
+      const msg = apiMessages[i];
+
+      if (msg.role === 'assistant') {
+        lastAssistantHadToolCalls = !!(
+          msg.tool_calls &&
+          Array.isArray(msg.tool_calls) &&
+          (msg.tool_calls as Array<unknown>).length > 0
+        );
+      }
+
+      if (msg.role === 'tool') {
+        if (!lastAssistantHadToolCalls) {
+          apiMessages.splice(i, 1);
+          i--;
+        }
+      }
     }
   }
 
@@ -885,21 +917,14 @@ export class ChatManagerImpl implements ChatManager {
         chatMessage.tool_call_id = msg.toolCallId;
       }
 
-      // 对于助手消息，添加tool_calls
-      if (
-        msg.role === 'assistant' &&
-        (msg as unknown as Record<string, unknown>).tool_calls
-      ) {
-        const toolCalls = (msg as unknown as Record<string, unknown>)
-          .tool_calls as Array<Record<string, unknown>>;
-        // 转换 tool_calls 格式以符合 DeepSeek API 要求
+      // 对于助手消息，添加tool_calls（从metadata中读取）
+      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+        const toolCalls = msg.metadata.tool_calls;
         chatMessage.tool_calls = toolCalls.map(
           (tc: Record<string, unknown>) => {
-            // 如果已经是正确格式（有 type 和 function 字段），直接使用
             if (tc.type && tc.function) {
               return tc;
             }
-            // 否则转换为正确格式
             return {
               id: tc.id,
               type: 'function',
@@ -917,6 +942,9 @@ export class ChatManagerImpl implements ChatManager {
 
       return chatMessage;
     });
+
+    // 过滤孤立的 tool 消息（没有前置 tool_calls 的 assistant 消息）
+    this._sanitizeApiMessages(apiMessages);
 
     // 准备工具定义
 
@@ -1044,9 +1072,8 @@ export class ChatManagerImpl implements ChatManager {
     );
     let assistantMessage = assistantMsg;
     assistantMessage.sessionId = session.id;
-    // 将 tool_calls 附加到存储的助手消息上，确保后续重建 apiMessages 时格式正确
     if (response.tool_calls && response.tool_calls.length > 0) {
-      assistantMessage.tool_calls = response.tool_calls.map(
+      const toolCallsData = response.tool_calls.map(
         (tc: ParsedToolCall) => ({
           id: tc.id,
           type: 'function',
@@ -1059,6 +1086,10 @@ export class ChatManagerImpl implements ChatManager {
           },
         })
       );
+      assistantMessage.metadata = {
+        ...assistantMessage.metadata,
+        tool_calls: toolCallsData,
+      };
     }
     this._addAndPersistMessage(session.id, assistantMessage);
 
@@ -1280,8 +1311,8 @@ export class ChatManagerImpl implements ChatManager {
           toolResultResponse.tool_calls &&
           toolResultResponse.tool_calls.length > 0
         ) {
-          toolResultAssistantMessage.tool_calls =
-            toolResultResponse.tool_calls.map((tc: ParsedToolCall) => ({
+          const toolCallsData = toolResultResponse.tool_calls.map(
+            (tc: ParsedToolCall) => ({
               id: tc.id,
               type: 'function',
               function: {
@@ -1291,7 +1322,12 @@ export class ChatManagerImpl implements ChatManager {
                     ? tc.arguments
                     : JSON.stringify(tc.arguments || {}),
               },
-            }));
+            })
+          );
+          toolResultAssistantMessage.metadata = {
+            ...toolResultAssistantMessage.metadata,
+            tool_calls: toolCallsData,
+          };
         }
         this._addAndPersistMessage(session.id, toolResultAssistantMessage);
 
@@ -1419,17 +1455,13 @@ export class ChatManagerImpl implements ChatManager {
       if (msg.role === 'tool' && msg.toolCallId) {
         chatMessage.tool_call_id = msg.toolCallId;
       }
-      if (
-        msg.role === 'assistant' &&
-        (msg as unknown as Record<string, unknown>).tool_calls
-      ) {
-        chatMessage.tool_calls = (
-          msg as unknown as Record<string, unknown>
-        ).tool_calls;
+      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+        chatMessage.tool_calls = msg.metadata.tool_calls;
       }
       return chatMessage;
     });
     apiMessages.push({ role: 'user', content: prompt });
+    this._sanitizeApiMessages(apiMessages);
 
     const hasSystemMessage = apiMessages.some(
       (m: Record<string, unknown>) => m.role === 'system'
@@ -1465,17 +1497,20 @@ export class ChatManagerImpl implements ChatManager {
     });
     assistantMsg.sessionId = session.id;
     if (response.tool_calls?.length) {
-      assistantMsg.tool_calls = response.tool_calls.map((tc) => ({
-        id: tc.id,
-        type: 'function',
-        function: {
-          name: tc.name,
-          arguments:
-            typeof tc.arguments === 'string'
-              ? tc.arguments
-              : JSON.stringify(tc.arguments || {}),
-        },
-      }));
+      assistantMsg.metadata = {
+        ...assistantMsg.metadata,
+        tool_calls: response.tool_calls.map((tc) => ({
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments:
+              typeof tc.arguments === 'string'
+                ? tc.arguments
+                : JSON.stringify(tc.arguments || {}),
+          },
+        })),
+      };
     }
     this._addAndPersistMessage(session.id, assistantMsg);
 
@@ -1583,8 +1618,9 @@ export class ChatManagerImpl implements ChatManager {
       resultAssistantMsg.sessionId = session.id;
 
       if (toolResultResponse.tool_calls?.length) {
-        resultAssistantMsg.tool_calls = toolResultResponse.tool_calls.map(
-          (tc) => ({
+        resultAssistantMsg.metadata = {
+          ...resultAssistantMsg.metadata,
+          tool_calls: toolResultResponse.tool_calls.map((tc) => ({
             id: tc.id,
             type: 'function',
             function: {
@@ -1594,8 +1630,8 @@ export class ChatManagerImpl implements ChatManager {
                   ? tc.arguments
                   : JSON.stringify(tc.arguments || {}),
             },
-          })
-        );
+          })),
+        };
       }
       this._addAndPersistMessage(session.id, resultAssistantMsg);
 
@@ -1776,21 +1812,14 @@ export class ChatManagerImpl implements ChatManager {
         chatMessage.tool_call_id = msg.toolCallId;
       }
 
-      // 对于助手消息，添加tool_calls
-      if (
-        msg.role === 'assistant' &&
-        (msg as unknown as Record<string, unknown>).tool_calls
-      ) {
-        const toolCalls = (msg as unknown as Record<string, unknown>)
-          .tool_calls as Array<Record<string, unknown>>;
-        // 转换 tool_calls 格式以符合 DeepSeek API 要求
+      // 对于助手消息，添加tool_calls（从metadata中读取）
+      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+        const toolCalls = msg.metadata.tool_calls;
         chatMessage.tool_calls = toolCalls.map(
           (tc: Record<string, unknown>) => {
-            // 如果已经是正确格式（有 type 和 function 字段），直接使用
             if (tc.type && tc.function) {
               return tc;
             }
-            // 否则转换为正确格式
             return {
               id: tc.id,
               type: 'function',
@@ -1808,6 +1837,8 @@ export class ChatManagerImpl implements ChatManager {
 
       return chatMessage;
     });
+
+    this._sanitizeApiMessages(apiMessages);
 
     // 获取工具定义
     let toolDefinitions: Record<string, unknown>[] = [];
@@ -1904,8 +1935,9 @@ export class ChatManagerImpl implements ChatManager {
     // 添加助手消息到会话
     // 将 tool_calls 附加到存储的助手消息上，确保后续重建 apiMessages 时格式正确
     if (finalResponse?.tool_calls && finalResponse.tool_calls.length > 0) {
-      assistantMessage.tool_calls = finalResponse.tool_calls.map(
-        (tc: ParsedToolCall) => ({
+      assistantMessage.metadata = {
+        ...assistantMessage.metadata,
+        tool_calls: finalResponse.tool_calls.map((tc: ParsedToolCall) => ({
           id: tc.id,
           type: 'function',
           function: {
@@ -1915,8 +1947,8 @@ export class ChatManagerImpl implements ChatManager {
                 ? tc.arguments
                 : JSON.stringify(tc.arguments || {}),
           },
-        })
-      );
+        })),
+      };
     }
     this._addAndPersistMessage(session.id, assistantMessage);
 
@@ -2106,8 +2138,9 @@ export class ChatManagerImpl implements ChatManager {
           toolResultResponse?.tool_calls &&
           toolResultResponse.tool_calls.length > 0
         ) {
-          toolResultAssistantMessage.tool_calls =
-            toolResultResponse.tool_calls.map((tc: ParsedToolCall) => ({
+          toolResultAssistantMessage.metadata = {
+            ...toolResultAssistantMessage.metadata,
+            tool_calls: toolResultResponse.tool_calls.map((tc: ParsedToolCall) => ({
               id: tc.id,
               type: 'function',
               function: {
@@ -2117,7 +2150,8 @@ export class ChatManagerImpl implements ChatManager {
                     ? tc.arguments
                     : JSON.stringify(tc.arguments || {}),
               },
-            }));
+            })),
+          };
         }
         this._addAndPersistMessage(session.id, toolResultAssistantMessage);
 

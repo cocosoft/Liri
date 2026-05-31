@@ -11,7 +11,7 @@
  */
 
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { basename, join, resolve } from 'path';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 
 // ─── 环境变量键名 ─────────────────────────────
@@ -42,11 +42,12 @@ export function getUserDataDirOverride(): string | null {
 // ─── 基础目录解析（可注入 thunk 便于测试） ────
 
 /**
- * 获取用户主目录
+ * 获取用户数据目录（第三层）
  * 优先级：
  * 1. 用户设置中配置的数据目录
  * 2. LIRI_HOME 环境变量
- * 3. 默认：项目安装目录下的 app/data/pyapp（优先）或用户目录下的 .pyapp（备选）
+ * 3. 默认：用户主目录下的 .pyapp（优先）
+ * 4. 回退：项目安装目录下的 app/data/pyapp（仅当用户目录不可写时，便携模式）
  */
 export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   // 1. 优先使用运行时设置的目录
@@ -60,23 +61,20 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
     return resolve(override);
   }
 
-  // 3. 默认：优先使用项目目录下的 app/data/pyapp
-  const projectDataDir = join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
-
-  // 检查项目目录是否可写
+  // 3. 优先使用用户主目录下的 .pyapp
+  const userHomeDir = join(homedir(), '.pyapp');
   try {
-    if (!existsSync(projectDataDir)) {
-      mkdirSync(projectDataDir, { recursive: true });
+    if (!existsSync(userHomeDir)) {
+      mkdirSync(userHomeDir, { recursive: true });
     }
-    // 验证可写性
-    const testFile = join(projectDataDir, '.write_test');
+    const testFile = join(userHomeDir, '.write_test');
     const fs = require('fs');
     fs.writeFileSync(testFile, '');
     fs.unlinkSync(testFile);
-    return projectDataDir;
+    return userHomeDir;
   } catch {
-    // 项目目录不可写，回退到用户目录
-    return join(homedir(), '.pyapp');
+    // 用户目录不可写，回退到项目数据目录下的 pyapp（便携模式兜底）
+    return join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
   }
 }
 
@@ -127,7 +125,20 @@ export function resolveProjectRoot(
     }
   }
 
-  return resolve(cwd);
+  // 4. 检测：若当前目录末级为 'app'（即 package.json 所在目录），
+  //    且父级存在 app/package.json，说明当前是 app 子目录，
+  //    应返回父级作为项目根目录，避免下游拼接 'app/' 前缀后出现双重路径
+  const resolved = resolve(cwd);
+  const lastSegment = basename(resolved);
+  if (lastSegment === 'app') {
+    const parent = resolve(resolved, '..');
+    const parentAppPackage = join(parent, 'app', 'package.json');
+    if (existsSync(parentAppPackage)) {
+      return parent;
+    }
+  }
+
+  return resolved;
 }
 
 /**

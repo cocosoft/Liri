@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { Message, MessageBlock } from '../../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import ThinkingBlock from './ThinkingBlock';
 import StatusBlock from './StatusBlock';
 import ToolCallBlock from './ToolCallBlock';
+import ToolExecutionGroup from './ToolExecutionGroup';
 
 interface ChatMessageProps {
   message: Message;
@@ -142,15 +143,10 @@ function ChatMessage({ message, isStreaming }: ChatMessageProps) {
 
 function AssistantMessage({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
   if (message.blocks && message.blocks.length > 0) {
+    const renderedContent = renderBlocksWithGroups(message.blocks, isStreaming);
     return (
       <div className="text-sm break-words max-w-none space-y-3">
-        {message.blocks.map((block) => (
-          <BlockRenderer
-            key={block.id}
-            block={block}
-            isStreaming={isStreaming}
-          />
-        ))}
+        {renderedContent}
       </div>
     );
   }
@@ -171,6 +167,54 @@ function AssistantMessage({ message, isStreaming }: { message: Message; isStream
       )}
     </div>
   );
+}
+
+/**
+ * 判断 block 是否为工具执行相关类型
+ */
+function isToolRelatedBlock(block: MessageBlock): boolean {
+  return block.type === 'status' || block.type === 'tool_call';
+}
+
+/**
+ * 将 blocks 中的连续工具相关 blocks 组合成 ToolExecutionGroup
+ */
+function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): React.ReactNode[] {
+  const result: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < blocks.length) {
+    const block = blocks[i];
+
+    if (!isToolRelatedBlock(block)) {
+      result.push(
+        <BlockRenderer
+          key={block.id}
+          block={block}
+          isStreaming={isStreaming}
+        />
+      );
+      i++;
+      continue;
+    }
+
+    const toolBlocks: MessageBlock[] = [];
+
+    while (i < blocks.length && isToolRelatedBlock(blocks[i])) {
+      toolBlocks.push(blocks[i]);
+      i++;
+    }
+
+    result.push(
+      <ToolExecutionGroup
+        key={`tool-group-${toolBlocks[0]?.id || i}`}
+        blocks={toolBlocks}
+        isStreaming={isStreaming}
+      />
+    );
+  }
+
+  return result;
 }
 
 interface BlockRendererProps {

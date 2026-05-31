@@ -42,14 +42,31 @@ function Footer() {
   return (
     <footer className="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-600 dark:text-gray-400 select-none relative">
       <div className="flex items-center gap-3 flex-1">
-        <button
+        <div
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+          className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors cursor-pointer"
           title="点击展开详细状态"
         >
           <span>{getStatusIcon()}</span>
           <span>Backend {getStatusText()}</span>
-        </button>
+          {status.running ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleStop(); }}
+              disabled={actionLoading}
+              className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
+            >
+              {actionLoading ? '...' : '停止'}
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleStart(); }}
+              disabled={actionLoading}
+              className="ml-2 px-1.5 py-0.5 text-[10px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition-colors"
+            >
+              {actionLoading ? '...' : '启动'}
+            </button>
+          )}
+        </div>
 
         {status.running && status.port && (
           <>
@@ -66,24 +83,6 @@ function Footer() {
         )}
 
         <div className="flex-1" />
-
-        {status.running ? (
-          <button
-            onClick={handleStop}
-            disabled={actionLoading}
-            className="px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
-          >
-            {actionLoading ? '停止中...' : '停止'}
-          </button>
-        ) : (
-          <button
-            onClick={handleStart}
-            disabled={actionLoading}
-            className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition-colors"
-          >
-            {actionLoading ? '启动中...' : '启动'}
-          </button>
-        )}
       </div>
 
       {isExpanded && (

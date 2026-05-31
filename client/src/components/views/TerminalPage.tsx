@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { http } from '../../services/httpClient';
 
 interface TerminalLine {
   id: string;
@@ -44,14 +45,7 @@ function TerminalPage() {
 
   const executeBackendCommand = async (command: string): Promise<CommandResult> => {
     try {
-      const response = await fetch('http://localhost:1420/v1/commands/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ command }),
-      });
-      const result = await response.json();
+      const result = await http.post<CommandResult>('/v1/commands/execute', { command });
       return result;
     } catch (error) {
       return {

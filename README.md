@@ -197,6 +197,50 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 
 ---
 
+## ⚙️ 服务部署
+
+支持将 Liri 后端安装为系统自启服务，**开机自动运行、崩溃自动重启**，适合生产环境长期运行。
+
+### 三平台一键部署
+
+```bash
+# 1. 进入应用目录，编译为独立二进制
+cd app
+bun run build:win        # Windows
+bun run build:mac        # macOS
+bun run build:linux      # Linux
+
+# 2. 安装为系统服务（只需执行一次）
+bun run service:install
+
+# 3. 查看运行状态
+bun run service:status
+```
+
+### 底层机制
+
+| 平台 | 底层机制 | 自动启停 | 开机自启 |
+|------|---------|---------|---------|
+| **Windows** | `schtasks` 任务计划程序 | ✅ | ✅（BootTrigger） |
+| **macOS** | `launchd` LaunchAgent | ✅ | ✅（RunAtLoad + KeepAlive） |
+| **Linux** | `systemd` service | ✅ | ✅（WantedBy=multi-user.target） |
+
+### 服务管理
+
+```bash
+bun run service:start     # 启动服务
+bun run service:stop      # 停止服务
+bun run service:restart   # 重启服务
+bun run service:status    # 查看状态
+bun run service:uninstall # 卸载服务
+bun run service:dev       # 开发模式（无需编译，直接 bun run）
+```
+
+> 部署为服务后，Liri 将在后台持续运行，通过已配置的消息通道（Telegram、Discord、微信等）与你交互。
+> 详细部署文档：[守护进程模块](app/src/daemon/README.md)
+
+---
+
 ## 📖 文档
 
 完整文档位于 `app/docs/` 目录：

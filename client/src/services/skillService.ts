@@ -83,8 +83,14 @@ const skillService = {
   },
 
   async getCategories(): Promise<string[]> {
-    const response = await http.get<string[]>('/v1/skills/categories');
-    return response;
+    const response = await http.get<{ categories: Array<{ id: string; capability: string }>; sourceDistribution: Record<string, number> }>('/v1/skills/categories');
+    if (Array.isArray(response)) {
+      return response.map((c) => (typeof c === 'string' ? c : (c as any).id || (c as any).capability || ''));
+    }
+    if (response && Array.isArray(response.categories)) {
+      return response.categories.map((c) => c.id || c.capability);
+    }
+    return [];
   },
 };
 

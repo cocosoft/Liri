@@ -24,7 +24,6 @@ import CostPage from './components/views/CostPage';
 import SandboxPage from './components/views/SandboxPage';
 import PermissionPage from './components/views/PermissionPage';
 import KnowledgePage from './components/views/KnowledgePage';
-import KnowledgeEnhancedPage from './components/views/KnowledgeEnhancedPage';
 import AgentPage from './components/views/AgentPage';
 import AgentAdvancedPage from './components/views/AgentAdvancedPage';
 import CronPage from './components/views/CronPage';
@@ -39,6 +38,7 @@ import AutoReplyPage from './components/views/AutoReplyPage';
 import STTTestPage from './components/views/STTTestPage';
 import SkillMarketPage from './components/views/SkillMarketPage';
 import MCPMarketPage from './components/views/MCPMarketPage';
+import ModelPage from './components/views/ModelPage';
 import HomePage from './components/views/HomePage';
 import { FirstRunWizard } from './components/views/FirstRunWizard';
 import { useSessionStore } from './stores/sessionStore';
@@ -150,7 +150,7 @@ function App() {
           <Route path="/media" element={<AuthGuard><MediaPage /></AuthGuard>} />
           <Route path="/autoreply" element={<AuthGuard><AutoReplyPage /></AuthGuard>} />
           <Route path="/knowledge" element={<AuthGuard><KnowledgePage /></AuthGuard>} />
-          <Route path="/knowledge/enhanced" element={<AuthGuard><KnowledgeEnhancedPage /></AuthGuard>} />
+
           <Route path="/memory" element={<AuthGuard><MemoryPage /></AuthGuard>} />
           <Route path="/skills" element={<AuthGuard><SkillPage /></AuthGuard>} />
           <Route path="/agent" element={<AuthGuard><AgentPage /></AuthGuard>} />
@@ -164,6 +164,7 @@ function App() {
           <Route path="/voice-stt" element={<AuthGuard><STTTestPage /></AuthGuard>} />
           <Route path="/skill-market" element={<AuthGuard><SkillMarketPage /></AuthGuard>} />
           <Route path="/mcp-market" element={<AuthGuard><MCPMarketPage /></AuthGuard>} />
+          <Route path="/models" element={<AuthGuard><ModelPage /></AuthGuard>} />
           </Routes>
         </div>
         <ToolPanel />

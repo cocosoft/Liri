@@ -63,3 +63,14 @@ export type {
   IngestionResult,
   IngestionOptions,
 } from './ingestion/FileIngestionService';
+
+export {
+  KnowledgeBaseRegistry,
+  getDefaultKnowledgeBaseRegistry,
+} from './KnowledgeBaseRegistry';
+export type { KnowledgeBase, KnowledgeBaseMeta } from './KnowledgeBaseRegistry';
+
+export {
+  KnowledgeCompileScheduler,
+} from './KnowledgeCompileScheduler';
+export type { SchedulerConfig, SchedulerState } from './KnowledgeCompileScheduler';

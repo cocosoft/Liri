@@ -82,7 +82,7 @@ function MemoryPage() {
   };
 
   return (
-    <div className={`flex-1 overflow-hidden flex flex-col ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`flex-1 overflow-y-auto flex flex-col ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto w-full p-6">
         <div className="mb-6">
           <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>

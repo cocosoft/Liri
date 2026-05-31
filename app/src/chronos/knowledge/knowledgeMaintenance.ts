@@ -64,7 +64,11 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
 
     const rawFiles = await readdir(rawDir);
     const compileCandidates = rawFiles.filter(
-      (f) => f.endsWith('.txt') || f.endsWith('.md') || f.endsWith('.json')
+      (f) => {
+        if (f.endsWith('.meta.json')) return false;
+        const ext = f.slice(f.lastIndexOf('.')).toLowerCase();
+        return ['.txt', '.md', '.json', '.csv', '.tsv', '.xml', '.yaml', '.yml'].includes(ext);
+      }
     );
 
     if (compileCandidates.length === 0) {

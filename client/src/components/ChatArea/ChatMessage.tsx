@@ -5,6 +5,8 @@ import ThinkingBlock from './ThinkingBlock';
 import StatusBlock from './StatusBlock';
 import ToolCallBlock from './ToolCallBlock';
 import ToolExecutionGroup from './ToolExecutionGroup';
+import { knowledgeService } from '../../services/knowledgeService';
+import { useConfigStore } from '../../stores/configStore';
 
 interface ChatMessageProps {
   message: Message;
@@ -21,6 +23,12 @@ interface ChatMessageProps {
 
 function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   const [showActions, setShowActions] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveTitle, setSaveTitle] = useState('');
+  const [saveBase, setSaveBase] = useState('default');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const configTheme = useConfigStore((s) => s.config.theme);
+  const isDark = configTheme === 'dark';
   const isUser = message.role === 'user';
 
   const formatTime = (timestamp: number) => {
@@ -44,7 +52,39 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   };
 
   const handleRegenerate = () => {
-    // TODO: 实现重新生成功能
+    setShowActions(false);
+  };
+
+  const handleSaveToKnowledge = async () => {
+    if (!saveTitle.trim() || !message.content) return;
+    setSaveStatus('saving');
+    try {
+      const content = typeof message.content === 'string' ? message.content : '';
+      const title = saveTitle.trim();
+      await knowledgeService.saveFromChat({
+        base: saveBase,
+        title,
+        content,
+      });
+      setSaveStatus('saved');
+      setTimeout(() => {
+        setShowSaveModal(false);
+        setSaveStatus('idle');
+        setSaveTitle('');
+      }, 1500);
+    } catch {
+      setSaveStatus('error');
+    }
+  };
+
+  const openSaveModal = () => {
+    const firstLine = typeof message.content === 'string'
+      ? message.content.split('\n')[0].replace(/^#+\s*/, '').slice(0, 50)
+      : '对话内容';
+    setSaveTitle(firstLine || '对话内容');
+    setSaveBase('default');
+    setSaveStatus('idle');
+    setShowSaveModal(true);
     setShowActions(false);
   };
 
@@ -147,11 +187,85 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
               复制
             </button>
             <button
+              onClick={openSaveModal}
+              className="px-3 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
+            >
+              保存到知识库
+            </button>
+            <button
               onClick={handleRegenerate}
               className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             >
               重新生成
             </button>
+          </div>
+        )}
+
+        {/* 保存到知识库弹窗 */}
+        {showSaveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className={`w-96 p-5 rounded-xl shadow-xl ${
+              isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+            }`}>
+              <h3 className={`text-sm font-semibold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                保存到知识库
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    标题
+                  </label>
+                  <input
+                    type="text"
+                    value={saveTitle}
+                    onChange={(e) => setSaveTitle(e.target.value)}
+                    placeholder="文档标题"
+                    className={`w-full px-3 py-2 border rounded-md text-sm ${
+                      isDark
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    知识库
+                  </label>
+                  <input
+                    type="text"
+                    value={saveBase}
+                    onChange={(e) => setSaveBase(e.target.value)}
+                    placeholder="知识库名称 (默认: default)"
+                    className={`w-full px-3 py-2 border rounded-md text-sm ${
+                      isDark
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+                {saveStatus === 'error' && (
+                  <p className="text-xs text-red-500">保存失败，请重试</p>
+                )}
+                {saveStatus === 'saved' && (
+                  <p className="text-xs text-emerald-500">保存成功 ✓</p>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 mt-4">
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveToKnowledge}
+                  disabled={saveStatus === 'saving' || !saveTitle.trim()}
+                  className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-md"
+                >
+                  {saveStatus === 'saving' ? '保存中...' : '保存'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

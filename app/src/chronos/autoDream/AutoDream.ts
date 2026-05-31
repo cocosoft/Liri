@@ -4,7 +4,8 @@
  */
 
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
-import { resolveMemoryDir, resolvePyappHome } from '@modules/config/paths';
+import { resolveKnowledgeDir, resolvePyappHome } from '@modules/config/paths';
+import { join } from 'path';
 import {
   readLastConsolidatedAt,
   listSessionsTouchedSince,
@@ -290,7 +291,7 @@ export async function initAutoDream(): Promise<void> {
       `[autoDream] firing — ${hoursSince.toFixed(1)}h since last, ${sessionIds.length} sessions to review`
     );
 
-    const memoryRoot = process.env.AUTO_MEM_PATH || resolveMemoryDir();
+    const memoryRoot = process.env.AUTO_MEM_PATH || join(resolveKnowledgeDir(), 'default');
     const transcriptDir = process.cwd();
 
     const extra = `

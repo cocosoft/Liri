@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../../stores/sessionStore';
 import { cronService } from '../../services/cronService';
-import type { CronTask } from '../../types';
+import { knowledgeService } from '../../services/knowledgeService';
+import type { CronTask, KnowledgeBase } from '../../types';
 
 function ContextPanel() {
   const location = useLocation();
@@ -11,6 +12,7 @@ function ContextPanel() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [cronTasks, setCronTasks] = useState<CronTask[]>([]);
   const [cronLoading, setCronLoading] = useState(true);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -25,6 +27,14 @@ function ContextPanel() {
     });
     return () => { mounted = false; };
   }, [loadSessions]);
+
+  useEffect(() => {
+    let mounted = true;
+    knowledgeService.listBases().then((bases) => {
+      if (mounted) setKnowledgeBases(bases);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const currentRoute = location.pathname.replace('/', '') || 'chat';
 
@@ -105,20 +115,46 @@ function ContextPanel() {
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">快捷操作</h3>
         <div className="space-y-1">
           <button
-            onClick={() => navigate('/knowledge/enhanced')}
+            onClick={() => navigate('/knowledge')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm transition-colors"
+          >
+            <span>📚</span>
+            <span>浏览知识库</span>
+          </button>
+          <button
+            onClick={() => navigate('/knowledge')}
             className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors"
           >
             <span>🔍</span>
-            <span>RAG增强搜索</span>
+            <span>RAG 检索</span>
           </button>
         </div>
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">热门文档</h3>
-        <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
-          <p className="px-3 py-2">暂无热门文档</p>
-        </div>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          知识库
+          <span className="ml-1 text-xs text-gray-400">({knowledgeBases.length})</span>
+        </h3>
+        {knowledgeBases.length > 0 ? (
+          <div className="space-y-1">
+            {knowledgeBases.map((kb) => (
+              <div
+                key={kb.name}
+                className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors cursor-pointer"
+                onClick={() => navigate('/knowledge')}
+              >
+                <span>{kb.icon || '📁'}</span>
+                <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{kb.label}</span>
+                <span className="text-xs text-gray-400">{kb.docCount}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">
+            暂无知识库
+          </div>
+        )}
       </div>
     </div>
   );
@@ -290,7 +326,6 @@ function ContextPanel() {
       case '':
         return renderChatContext();
       case 'knowledge':
-      case 'knowledge/enhanced':
         return renderKnowledgeContext();
       case 'cost':
         return renderCostContext();

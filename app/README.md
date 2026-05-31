@@ -326,6 +326,35 @@ bun run monitor           # 系统监控
 
 ---
 
+## 服务部署
+
+支持将 Liri 后端安装为系统自启服务，开机自动运行、崩溃自动重启。
+
+```bash
+# 1. 编译为独立二进制
+bun run build:win        # Windows
+bun run build:mac        # macOS
+bun run build:linux      # Linux
+
+# 2. 安装为系统服务
+bun run service:install
+
+# 3. 查看服务状态
+bun run service:status
+```
+
+| 平台 | 底层机制 | 安装方式 | 开机自启 |
+|------|---------|---------|---------|
+| **Windows** | `schtasks` 任务计划程序 | `bun run service:install` | ✅ |
+| **macOS** | `launchd` LaunchAgent | `bun run service:install` | ✅ |
+| **Linux** | `systemd` service | `bun run service:install` | ✅ |
+
+> 开发测试可用 `bun run service:dev`（无需编译，直接 `bun run` 启动）。
+
+详细文档：[守护进程模块](src/daemon/README.md)
+
+---
+
 ## 文档
 
 完整文档位于 `docs/` 目录,建议新用户从 [📖 用户引导](docs/用户引导/guide.md) 开始。

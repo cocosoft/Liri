@@ -488,6 +488,19 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
+      // 启动 Chronos 后台维护（梦境定时任务 + 周期性清理）
+      (async () => {
+        try {
+          const { startBackgroundHousekeeping, stopBackgroundHousekeeping } =
+            await import('../chronos/maintenance/ChronosBackgroundHousekeeping.js');
+          startBackgroundHousekeeping();
+          registerShutdownHandler(() => stopBackgroundHousekeeping());
+          logger.info('Chronos 后台维护已启动（梦境定时任务 + 周期性清理）');
+        } catch (error) {
+          logger.debug('Chronos 后台维护启动失败（非关键）', { error });
+        }
+      })(),
+
       // 启动 SessionSupervisor 会话监管器（空闲检测 + 自动回收）
       (async () => {
         try {

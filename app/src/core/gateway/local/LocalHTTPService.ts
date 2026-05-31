@@ -6,8 +6,11 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
+import { ALL_MODEL_CONFIGS, type ModelKey } from '@modules/ai/models/ModelConfigs';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { attachmentManager } from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
@@ -89,16 +92,6 @@ interface StreamChunk {
 }
 
 /**
- * 模型列表项
- */
-interface Model {
-  id: string;
-  object: string;
-  created: number;
-  owned_by: string;
-}
-
-/**
  * LocalHTTPService 类
  * 提供本地 HTTP API 服务，对接 CoreAPI
  */
@@ -107,6 +100,11 @@ export class LocalHTTPService {
   private config: LocalHTTPConfig;
   private _isRunning = false;
   private readonly apiSecret: string;
+  private compileScheduler: any = null;
+  /** 模型启用/禁用状态记录 */
+  private modelEnabledMap = new Map<string, boolean>();
+  /** 已删除的模型 ID 集合 */
+  private deletedModelIds = new Set<string>();
 
   constructor(config: LocalHTTPConfig) {
     this.config = config;
@@ -290,6 +288,30 @@ export class LocalHTTPService {
   }
 
   /**
+   * 启动编译调度器
+   */
+  private async startCompileScheduler(): Promise<void> {
+    try {
+      const { aiService } = await import('@modules/ai/services/aiService');
+      const { runKnowledgeCompile } = await import(
+        '@modules/knowledge/KnowledgeCompiler'
+      );
+      const { KnowledgeCompileScheduler } = await import(
+        '@modules/knowledge/KnowledgeCompileScheduler'
+      );
+      this.compileScheduler = new KnowledgeCompileScheduler(
+        (force?: boolean) => runKnowledgeCompile(aiService, { force }),
+        { runOnStart: true }
+      );
+      this.compileScheduler.start();
+    } catch (err) {
+      logger.warning('知识库编译调度器初始化失败（非关键错误）', {
+        error: String(err),
+      });
+    }
+  }
+
+  /**
    * 启动 HTTP 服务
    */
   async start(): Promise<void> {
@@ -324,6 +346,11 @@ export class LocalHTTPService {
             error: String(err),
           })
         );
+        this.startCompileScheduler().catch((err) =>
+          logger.warning('编译调度器启动失败（非关键错误）', {
+            error: String(err),
+          })
+        );
         resolve();
       });
 
@@ -339,6 +366,10 @@ export class LocalHTTPService {
    * 停止 HTTP 服务
    */
   async stop(): Promise<void> {
+    if (this.compileScheduler) {
+      this.compileScheduler.stop();
+      this.compileScheduler = null;
+    }
     return new Promise((resolve, reject) => {
       if (!this.server) {
         logger.info('LocalHTTPService 未启动，无需停止');
@@ -392,6 +423,8 @@ export class LocalHTTPService {
 
     const url = req.url?.split('?')[0] || '';
 
+    logger.debug('收到请求', { method: req.method, url: req.url, parsedUrl: url });
+
     // ---- SSE Event Bus ----
     if (req.method === 'GET' && url === '/v1/events') {
       return this.handleEvents(req, res);
@@ -399,6 +432,18 @@ export class LocalHTTPService {
 
     if (req.method === 'GET' && url === '/v1/models') {
       return this.handleListModels(req, res);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/models\/([^/]+)\/enable$/)) {
+      return this.handleEnableModel(req, res, url.match(/^\/v1\/models\/([^/]+)\/enable$/)![1]);
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/models\/([^/]+)\/disable$/)) {
+      return this.handleDisableModel(req, res, url.match(/^\/v1\/models\/([^/]+)\/disable$/)![1]);
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/models\/([^/]+)$/)) {
+      return this.handleDeleteModel(req, res, url.match(/^\/v1\/models\/([^/]+)$/)![1]);
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/models\/([^/]+)$/)) {
+      return this.handleUpdateModel(req, res, url.match(/^\/v1\/models\/([^/]+)$/)![1]);
     }
 
     if (req.method === 'POST' && url === '/v1/chat/completions') {
@@ -573,18 +618,65 @@ export class LocalHTTPService {
     if (req.method === 'POST' && url === '/v1/knowledge') {
       return this.handleCreateKnowledge(req, res);
     }
-    if (req.method === 'PUT' && url.match(/^\/v1\/knowledge\/(.+)$/)) {
+    if (req.method === 'GET' && url === '/v1/knowledge/bases') {
+      return this.handleListKnowledgeBases(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/bases') {
+      return this.handleCreateKnowledgeBase(req, res);
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/knowledge\/bases\/(.+)$/)) {
+      return this.handleUpdateKnowledgeBase(
+        req,
+        res,
+        url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/knowledge\/bases\/(.+)$/)) {
+      return this.handleDeleteKnowledgeBase(
+        req,
+        res,
+        url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/save-from-chat') {
+      return this.handleSaveFromChat(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/upload') {
+      return this.handleKnowledgeUpload(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/compile') {
+      return this.handleKnowledgeCompile(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/knowledge/raw-files') {
+      return this.handleGetRawFiles(req, res);
+    }
+    if (req.method === 'PUT' && url === '/v1/knowledge/docs') {
+      return this.handleUpdateKnowledgeDoc(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/export-to-notebook') {
+      return this.handleExportToNotebook(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/import-from-file') {
+      return this.handleImportFromFile(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/batch-delete') {
+      return this.handleBatchDeleteKnowledge(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/batch-tag') {
+      return this.handleBatchTagKnowledge(req, res);
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)) {
       return this.handleUpdateKnowledge(
         req,
         res,
-        url.match(/^\/v1\/knowledge\/(.+)$/)![1]
+        url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)![1]
       );
     }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/knowledge\/(.+)$/)) {
+    if (req.method === 'DELETE' && url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)) {
       return this.handleDeleteKnowledge(
         req,
         res,
-        url.match(/^\/v1\/knowledge\/(.+)$/)![1]
+        url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)![1]
       );
     }
 
@@ -957,12 +1049,48 @@ export class LocalHTTPService {
       return;
     }
 
+    logger.warning('未匹配的路由', { method: req.method, url: req.url, parsedUrl: url });
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         error: { message: 'Not found', type: 'invalid_request_error' },
       })
     );
+  }
+
+  // CPU 使用率跟踪状态
+  private prevCpuUsage: NodeJS.CpuUsage | null = null;
+  private prevCpuTime: number = 0;
+
+  /**
+   * 计算当前 CPU 使用率（基于 process.cpuUsage 差值）
+   * 返回值为 0~100 的百分比（占系统总 CPU 容量的比例）
+   */
+  private calcCpuPercent(): number {
+    const currentCpu = process.cpuUsage();
+    const currentTime = Date.now();
+
+    if (!this.prevCpuUsage || this.prevCpuTime === 0) {
+      this.prevCpuUsage = currentCpu;
+      this.prevCpuTime = currentTime;
+      return 0;
+    }
+
+    const userDiff = currentCpu.user - this.prevCpuUsage.user;
+    const sysDiff = currentCpu.system - this.prevCpuUsage.system;
+    const cpuDiff = userDiff + sysDiff;
+    const timeDiff = currentTime - this.prevCpuTime;
+
+    this.prevCpuUsage = currentCpu;
+    this.prevCpuTime = currentTime;
+
+    if (timeDiff <= 0 || cpuDiff < 0) return 0;
+
+    const cpuCount = os.cpus().length;
+    // cpuDiff 单位微秒, timeDiff 单位毫秒, 需统一为微秒
+    const percent = (cpuDiff * 100) / (timeDiff * 1000 * cpuCount);
+
+    return Math.min(Math.round(percent * 10) / 10, 100);
   }
 
   /**
@@ -975,23 +1103,18 @@ export class LocalHTTPService {
     try {
       const service = getMonitoringService();
       const status = service.getSystemStatus();
-      const os = await import('node:os');
 
-      const cpuPercent =
-        status.loadAverage.length > 0
-          ? Math.round((status.loadAverage[0] / os.cpus().length) * 100)
-          : 0;
-      const heapUsedMB = Math.round(status.memory.heapUsed / 1024 / 1024);
-      const heapTotalMB = Math.round(status.memory.heapTotal / 1024 / 1024);
-      const memoryPercent =
-        heapTotalMB > 0 ? Math.round((heapUsedMB / heapTotalMB) * 100) : 0;
+      const cpuPercent = this.calcCpuPercent();
+      const rssMB = Math.round(status.memory.rss / 1024 / 1024);
+      const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
+      const memoryPercent = totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
 
       const summary = {
         uptime: Math.floor(status.uptime),
         cpuPercent,
         memoryPercent,
-        memoryUsedMB: heapUsedMB,
-        memoryTotalMB: heapTotalMB,
+        memoryUsedMB: rssMB,
+        memoryTotalMB: totalMemMB,
         requestCount: 0,
         errorCount: 0,
         avgResponseTime: 0,
@@ -1030,14 +1153,11 @@ export class LocalHTTPService {
 
       const cpuMetric = {
         timestamp: now,
-        value:
-          status.loadAverage.length > 0
-            ? Math.round(status.loadAverage[0] * 100) / 100
-            : 0,
+        value: this.calcCpuPercent(),
       };
       const memoryMetric = {
         timestamp: now,
-        value: Math.round((status.memory.heapUsed / 1024 / 1024) * 100) / 100,
+        value: Math.round((status.memory.rss / 1024 / 1024) * 100) / 100,
       };
 
       const metricsData = {
@@ -1117,15 +1237,44 @@ export class LocalHTTPService {
       const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
       const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
 
-      const logLevelFilter: number[] = [];
-      if (level === 'error') logLevelFilter.push(4);
-      else if (level === 'warn') logLevelFilter.push(3, 4);
-      else if (level === 'info') logLevelFilter.push(2, 3, 4);
-      else if (level === 'debug') logLevelFilter.push(1, 2, 3, 4);
-      else logLevelFilter.push(1, 2, 3, 4);
+      const levelMap: Record<string, LogLevel> = {
+        debug: LogLevel.DEBUG,
+        info: LogLevel.INFO,
+        warn: LogLevel.WARN,
+        error: LogLevel.ERROR,
+      };
+
+      const entries = StructuredLogger.queryLogs({
+        level: level && levelMap[level] ? levelMap[level] : undefined,
+        limit: 1000,
+      });
+
+      let filtered = entries;
+
+      if (search) {
+        const lowerSearch = search.toLowerCase();
+        filtered = filtered.filter((e) => {
+          const inMessage = e.message && e.message.toLowerCase().includes(lowerSearch);
+          const inData = e.data ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch) : false;
+          const inModule = e.module && e.module.toLowerCase().includes(lowerSearch);
+          return inMessage || inData || inModule;
+        });
+      }
+
+      const total = filtered.length;
+      const paginated = filtered.slice(offset, offset + limit);
+
+      const logs = paginated.map((entry, idx) => ({
+        id: `log-${idx}-${Date.now()}`,
+        level: entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
+        message: entry.message,
+        timestamp: new Date(entry.timestamp).getTime(),
+        source: entry.module,
+        details: entry.data ? JSON.stringify(entry.data) : (entry.error ? entry.error.message : undefined),
+      }));
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ logs: [], total: 0 }));
+      res.end(JSON.stringify({ logs, total }));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ logs: [], total: 0 }));
@@ -1454,17 +1603,122 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): void {
-    const models: Model[] = [
-      {
-        id: 'pyapp-default',
-        object: 'model',
-        created: Math.floor(Date.now() / 1000),
-        owned_by: 'pyapp',
-      },
-    ];
+    const providerDisplayMap: Record<string, string> = {
+      firstParty: 'anthropic',
+      openai: 'openai',
+      deepseek: 'deepseek',
+      google: 'google',
+      ollama: 'ollama',
+      grok: 'grok',
+      moonshot: 'moonshot',
+    };
+
+    const providerPriority = ['firstParty', 'openai', 'deepseek', 'google', 'ollama', 'grok', 'moonshot'];
+
+    const models: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      type: string;
+      context_length: number;
+      enabled: boolean;
+    }> = [];
+
+    for (const [key, config] of Object.entries(ALL_MODEL_CONFIGS)) {
+      let primaryProvider = 'unknown';
+      for (const p of providerPriority) {
+        if ((config as any)[p]) {
+          primaryProvider = providerDisplayMap[p] || p;
+          break;
+        }
+      }
+
+      const modelId = (config as any).firstParty || (config as any).openai || key;
+
+      if (this.deletedModelIds.has(modelId)) continue;
+
+      const enabled = this.modelEnabledMap.has(modelId)
+        ? this.modelEnabledMap.get(modelId)!
+        : true;
+
+      models.push({
+        id: modelId,
+        name: config.displayName,
+        provider: primaryProvider,
+        type: 'chat',
+        context_length: config.contextWindow,
+        enabled,
+      });
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ object: 'list', data: models }));
+  }
+
+  /**
+   * 处理启用模型请求
+   */
+  private handleEnableModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    modelId: string
+  ): void {
+    this.modelEnabledMap.set(modelId, true);
+    this.deletedModelIds.delete(modelId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  }
+
+  /**
+   * 处理禁用模型请求
+   */
+  private handleDisableModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    modelId: string
+  ): void {
+    this.modelEnabledMap.set(modelId, false);
+    this.deletedModelIds.delete(modelId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  }
+
+  /**
+   * 处理删除模型请求
+   */
+  private handleDeleteModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    modelId: string
+  ): void {
+    this.deletedModelIds.add(modelId);
+    this.modelEnabledMap.delete(modelId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  }
+
+  /**
+   * 处理更新模型请求
+   */
+  private async handleUpdateModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    modelId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const updates = JSON.parse(body);
+      if (typeof updates.enabled === 'boolean') {
+        this.modelEnabledMap.set(modelId, updates.enabled);
+        if (updates.enabled) {
+          this.deletedModelIds.delete(modelId);
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
   }
 
   /**
@@ -2621,7 +2875,7 @@ export class LocalHTTPService {
 
   /**
    * 处理列出知识条目请求
-   * 使用 knowledgeDocsProvider 读取真实知识文档列表
+   * 支持 ?base=<name> 过滤，返回真实文件元数据
    */
   private async handleListKnowledge(
     req: http.IncomingMessage,
@@ -2630,16 +2884,68 @@ export class LocalHTTPService {
     try {
       const { knowledgeDocsProvider } =
         await import('@modules/docs/FileDocsProvider');
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { stat } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { resolvePyappHome } = await import('@modules/config/paths');
+
+      const parsedUrl = new URL(req.url || '', 'http://localhost');
+      const baseFilter = parsedUrl.searchParams.get('base');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const knowledgeRoot = registry.getKnowledgeRoot();
+
       const docs = await knowledgeDocsProvider.buildIndex();
-      const result = docs.map((doc: any, idx: number) => ({
-        id: `knowledge-${idx}`,
-        title: doc.title,
-        content: doc.content?.slice(0, 500) || '',
-        category: doc.category || '根目录',
-        docPath: doc.relativePath,
-        created_at: 0,
-        updated_at: 0,
-      }));
+      const result = [];
+
+      for (let i = 0; i < docs.length; i++) {
+        const doc: any = docs[i];
+        const docPath = doc.relativePath || '';
+        const baseName = docPath.split(/[/\\]/)[0];
+
+        if (baseFilter && baseName !== baseFilter) continue;
+
+        let size = 0;
+        let updatedAt = 0;
+        let source = 'manual';
+
+        const fullPath = join(knowledgeRoot, docPath);
+        try {
+          const fileStat = await stat(fullPath);
+          size = fileStat.size;
+          updatedAt = fileStat.mtimeMs;
+        } catch {
+          // 文件可能已被移动，使用默认值
+        }
+
+        const content = doc.content || '';
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (fmMatch) {
+          const fmLines = fmMatch[1].split('\n');
+          for (const line of fmLines) {
+            if (line.startsWith('source:')) {
+              const val = line.split(':')[1]?.trim().replace(/"/g, '') || '';
+              if (val) source = val;
+            }
+          }
+        }
+
+        result.push({
+          id: docPath,
+          title: doc.title || '',
+          content: content.slice(0, 500) || '',
+          category: doc.category || '根目录',
+          tags: [],
+          docPath,
+          size,
+          updated_at: updatedAt,
+          created_at: 0,
+          source,
+          base: baseName,
+        });
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
@@ -2736,6 +3042,7 @@ export class LocalHTTPService {
 
   /**
    * 处理更新知识条目请求
+   * knowledgeId 为 docPath（相对路径），从知识库根目录查找文件
    */
   private async handleUpdateKnowledge(
     req: http.IncomingMessage,
@@ -2745,12 +3052,34 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { title, content } = JSON.parse(body);
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { writeFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const filePath = join(registry.getKnowledgeRoot(), knowledgeId);
+
+      let fileContent: string;
+      if (title && content) {
+        fileContent = `---\ntitle: "${title}"\nupdated_at: ${Date.now()}\n---\n\n${content}\n`;
+      } else if (content) {
+        fileContent = content;
+      } else {
+        fileContent = `# ${title}\n\n`;
+      }
+
+      await writeFile(filePath, fileContent, 'utf-8');
+      knowledgeDocsProvider.clearCache();
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           id: knowledgeId,
-          title,
-          content,
+          title: title || '',
+          content: content || '',
           updated_at: Date.now(),
         })
       );
@@ -2762,6 +3091,7 @@ export class LocalHTTPService {
 
   /**
    * 处理删除知识条目请求
+   * knowledgeId 为 docPath（相对路径），从知识库根目录删除文件
    */
   private async handleDeleteKnowledge(
     req: http.IncomingMessage,
@@ -2769,9 +3099,959 @@ export class LocalHTTPService {
     knowledgeId: string
   ): Promise<void> {
     try {
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { unlink } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { existsSync } = await import('node:fs');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const filePath = join(registry.getKnowledgeRoot(), knowledgeId);
+
+      if (existsSync(filePath)) {
+        await unlink(filePath);
+        knowledgeDocsProvider.clearCache();
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
       this.broadcastEvent('knowledge:deleted', { id: knowledgeId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理列出知识库请求 GET /v1/knowledge/bases
+   */
+  private async handleListKnowledgeBases(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const bases = await registry.listBases();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(bases));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理创建知识库请求 POST /v1/knowledge/bases
+   */
+  private async handleCreateKnowledgeBase(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { name, label, icon } = JSON.parse(body);
+
+      if (!name || !label) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'name and label are required' } })
+        );
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const base = await registry.createBase(name, label, icon);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(base));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('已存在')) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message } }));
+        return;
+      }
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理更新知识库请求 PUT /v1/knowledge/bases/:name
+   */
+  private async handleUpdateKnowledgeBase(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    baseName: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { label, enabled, icon } = JSON.parse(body);
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const base = await registry.updateBase(baseName, { label, enabled, icon });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(base));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('不存在')) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message } }));
+        return;
+      }
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理删除知识库请求 DELETE /v1/knowledge/bases/:name
+   */
+  private async handleDeleteKnowledgeBase(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    baseName: string
+  ): Promise<void> {
+    try {
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const registry = getDefaultKnowledgeBaseRegistry();
+      await registry.deleteBase(baseName);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('不存在')) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message } }));
+        return;
+      }
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理聊天保存到知识库请求 POST /v1/knowledge/save-from-chat
+   */
+  private async handleSaveFromChat(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { base, title, content, sessionId } = JSON.parse(body);
+
+      if (!title || !content) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'title and content are required' },
+          })
+        );
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { writeFile, mkdir } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const baseName = base || 'default';
+      const baseDir = join(registry.getKnowledgeRoot(), baseName);
+
+      await mkdir(baseDir, { recursive: true });
+
+      const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
+      const filePath = join(baseDir, fileName);
+
+      const now = new Date().toISOString();
+      const frontmatter = [
+        '---',
+        `title: "${title.replace(/"/g, '\\"')}"`,
+        `source: "chat-save"`,
+        sessionId ? `savedFrom: "${sessionId}"` : '',
+        `savedAt: "${now}"`,
+        '---',
+        '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const fileContent = `${frontmatter}${content}\n`;
+      await writeFile(filePath, fileContent, 'utf-8');
+      knowledgeDocsProvider.clearCache();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          docPath: join(baseName, fileName),
+          title,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Knowledge Upload & Compile Handlers ==========
+
+  /**
+   * 处理知识库文件上传请求 POST /v1/knowledge/upload
+   *
+   * 请求体: { baseName, filename, data (base64), tags?, category? }
+   * 处理逻辑:
+   *   - .md 文件直接写入目标知识库目录，补充 YAML frontmatter
+   *   - 可转换的二进制文件（.docx/.xlsx/.pdf 等）使用 ConverterEngine 提取文本，
+   *     保存原始文件 + 提取的 Markdown，并写入 knowledge/raw/ 供编译器消费
+   *   - 其他文本类非 .md 文件写入 raw/ 子目录，以触发后续 LLM 编译
+   */
+  private async handleKnowledgeUpload(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { baseName, filename, data, tags, category } = JSON.parse(body);
+
+      if (!baseName || !filename || !data) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'baseName, filename and data are required' },
+          })
+        );
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { writeFile, mkdir } = await import('node:fs/promises');
+      const { join, extname, basename } = await import('node:path');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const knowledgeRoot = registry.getKnowledgeRoot();
+
+      const safeName = filename.replace(/[\\/:*?"<>|]/g, '_');
+      const ext = extname(filename).toLowerCase();
+
+      const baseDir = join(knowledgeRoot, baseName);
+      const now = new Date().toISOString();
+      const tagList = Array.isArray(tags) ? tags : [];
+
+      /**
+       * 需要 ConverterEngine 转换的二进制文件扩展名
+       */
+      const BINARY_EXTENSIONS = new Set([
+        '.docx', '.xlsx', '.xls', '.pptx', '.pdf', '.epub',
+        '.ipynb', '.zip', '.msg', '.rss', '.atom',
+      ]);
+
+      let docRelativePath: string;
+      const rawBuffer = Buffer.from(data, 'base64');
+
+      if (ext === '.md') {
+        docRelativePath = join(baseName, safeName);
+        const fullPath = join(knowledgeRoot, docRelativePath);
+
+        await mkdir(baseDir, { recursive: true });
+
+        const rawContent = rawBuffer.toString('utf-8');
+        const frontmatter = [
+          '---',
+          `title: "${safeName.replace(/\.md$/i, '')}"`,
+          `source: "upload"`,
+          `uploadedAt: "${now}"`,
+          category ? `category: "${category}"` : '',
+          tagList.length > 0 ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]` : '',
+          '---',
+          '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        const fileContent = rawContent.startsWith('---')
+          ? rawContent
+          : `${frontmatter}${rawContent}\n`;
+
+        await writeFile(fullPath, fileContent, 'utf-8');
+      } else if (BINARY_EXTENSIONS.has(ext)) {
+        const nameStem = basename(safeName, ext);
+        const rawDir = join(baseDir, 'raw');
+        await mkdir(rawDir, { recursive: true });
+
+        // 1. 保存原始二进制文件到 {baseDir}/raw/original_*
+        const originalRawName = `original_${safeName}`;
+        await writeFile(join(rawDir, originalRawName), rawBuffer);
+
+        // 2. 使用 ConverterEngine 提取文本
+        const { getConverterEngine } =
+          await import('@modules/tools/converter/engine/ConverterEngine');
+        const engine = getConverterEngine();
+        const fileInfo = engine.getDetector().detect(filename, rawBuffer.length);
+        const result = await engine.convertContent(fileInfo, rawBuffer);
+        const extractedContent = result.markdown;
+
+        // 3. 保存提取的 Markdown 到 {baseDir}/raw/{stem}.md（伴侣文件）
+        const companionName = `${nameStem}.md`;
+        await writeFile(join(rawDir, companionName), extractedContent, 'utf-8');
+
+        // 4. 同时写入 knowledge/raw/ 顶层目录供编译器消费
+        const topRawDir = join(knowledgeRoot, 'raw');
+        await mkdir(topRawDir, { recursive: true });
+        const compilerFileName = `${baseName}_${nameStem}.txt`;
+        await writeFile(join(topRawDir, compilerFileName), extractedContent, 'utf-8');
+
+        // 5. 写 companion meta.json，记录原始文件路径
+        const metaPath = join(topRawDir, `${compilerFileName}.meta.json`);
+        await writeFile(metaPath, JSON.stringify({
+          originalFile: `${baseName}/raw/${originalRawName}`,
+          originalFormat: ext,
+          source: 'upload-extracted',
+          uploadedAt: now,
+          category: category || null,
+        }), 'utf-8');
+
+        // 6. 创建知识文档，frontmatter 包含 originalFile 追溯信息
+        docRelativePath = join(baseName, `${nameStem}.md`);
+        const fullPath = join(knowledgeRoot, docRelativePath);
+        const docContent = [
+          '---',
+          `title: "${nameStem}"`,
+          `source: "upload-extracted"`,
+          `uploadedAt: "${now}"`,
+          category ? `category: "${category}"` : '',
+          tagList.length > 0 ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]` : '',
+          `originalFile: "${baseName}/raw/${originalRawName}"`,
+          `originalFormat: "${ext}"`,
+          '---',
+          '',
+          extractedContent,
+        ].filter(Boolean).join('\n');
+        await writeFile(fullPath, docContent, 'utf-8');
+      } else {
+        // 其他文本类非 .md 文件（.txt/.json/.csv/.yaml 等）
+        const rawContent = rawBuffer.toString('utf-8');
+        const rawDir = join(baseDir, 'raw');
+        await mkdir(rawDir, { recursive: true });
+
+        const rawRelativePath = join(baseName, 'raw', safeName);
+        const fullRawPath = join(knowledgeRoot, rawRelativePath);
+        await writeFile(fullRawPath, rawContent, 'utf-8');
+
+        // 也写入 knowledge/raw/ 顶层，供编译器消费
+        const topRawDir = join(knowledgeRoot, 'raw');
+        await mkdir(topRawDir, { recursive: true });
+        const compilerFileName = `${baseName}_${safeName}.txt`;
+        await writeFile(join(topRawDir, compilerFileName), rawContent, 'utf-8');
+
+        docRelativePath = join(baseName, `${safeName}.md`);
+        const fullPath = join(knowledgeRoot, docRelativePath);
+
+        const frontmatter = [
+          '---',
+          `title: "${safeName}"`,
+          `source: "upload"`,
+          `uploadedAt: "${now}"`,
+          category ? `category: "${category}"` : '',
+          tagList.length > 0 ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]` : '',
+          `originalFormat: "${ext}"`,
+          `needsCompile: true`,
+          '---',
+          '',
+          `> 此文件来自 ${ext} 格式上传，尚未经过 LLM 编译。请触发「编译 raw」操作以生成结构化文档。`,
+          '',
+          '```',
+          rawContent.slice(0, 1000),
+          rawContent.length > 1000 ? '\n...（内容已截断）' : '',
+          '```',
+          '',
+        ].join('\n');
+
+        await writeFile(fullPath, frontmatter, 'utf-8');
+      }
+
+      knowledgeDocsProvider.clearCache();
+
+      if (ext !== '.md' && this.compileScheduler) {
+        this.compileScheduler.notifyFileChanged();
+      }
+
+      const size = rawBuffer.length;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          docPath: docRelativePath,
+          title: safeName.replace(/\.\w+$/, ''),
+          size,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理知识库编译请求 POST /v1/knowledge/compile
+   *
+   * 触发 KnowledgeCompiler 对 raw/ 目录中的原始文件进行 LLM 编译
+   */
+  private async handleKnowledgeCompile(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { force } = JSON.parse(body);
+
+      const { aiService } = await import('@modules/ai/services/aiService');
+      const { runKnowledgeCompile } =
+        await import('@modules/knowledge/KnowledgeCompiler');
+
+      const result = await runKnowledgeCompile(aiService, { force: !!force });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 获取待编译的 raw 文件列表 GET /v1/knowledge/raw-files
+   *
+   * 返回 raw/ 目录中所有未编译文件的详细信息（文件名、大小、修改时间、元数据）
+   */
+  private async handleGetRawFiles(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { readdir, stat } = await import('node:fs/promises');
+      const { join, extname } = await import('node:path');
+      const { readFileSync, existsSync } = await import('node:fs');
+      const { getDefaultKnowledgeBaseRegistry } = await import(
+        '@modules/knowledge/KnowledgeBaseRegistry'
+      );
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const rawDir = join(registry.getKnowledgeRoot(), 'raw');
+
+      if (!existsSync(rawDir)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ files: [], totalCount: 0 }));
+        return;
+      }
+
+      const entries = await readdir(rawDir);
+      const metaFiles = entries.filter((f) => f.endsWith('.meta.json'));
+      const dataFiles = entries.filter((f) => !f.endsWith('.meta.json'));
+
+      const files = [];
+      for (const file of dataFiles) {
+        const filePath = join(rawDir, file);
+        const fileStat = await stat(filePath);
+        const metaFile = `${file}.meta.json`;
+        let meta = null;
+
+        if (metaFiles.includes(metaFile)) {
+          try {
+            const metaContent = readFileSync(join(rawDir, metaFile), 'utf-8');
+            meta = JSON.parse(metaContent);
+          } catch {
+            // 元数据文件损坏，忽略
+          }
+        }
+
+        files.push({
+          fileName: file,
+          ext: extname(file).toLowerCase(),
+          size: fileStat.size,
+          modifiedAt: fileStat.mtimeMs,
+          createdAt: fileStat.birthtimeMs || fileStat.ctimeMs,
+          category: meta?.category || null,
+          source: meta?.source || null,
+        });
+      }
+
+      files.sort((a, b) => b.modifiedAt - a.modifiedAt);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          files,
+          totalCount: files.length,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 导出知识文档到 Notebook 兼容格式
+   * POST /v1/knowledge/export-to-notebook
+   *
+   * 将知识文档内容导出为 .md 文件，存放在 ~/.pyapp/output/notebooks/ 目录
+   */
+  private async handleExportToNotebook(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { docPath, title } = JSON.parse(body);
+
+      if (!docPath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'docPath is required' } }));
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } = await import(
+        '@modules/knowledge/KnowledgeBaseRegistry'
+      );
+      const { readFile, writeFile, mkdir } = await import(
+        'node:fs/promises'
+      );
+      const { join, extname } = await import('node:path');
+      const { resolveOutputDir } = await import('@modules/config/paths');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const sourcePath = join(registry.getKnowledgeRoot(), docPath);
+
+      const content = await readFile(sourcePath, 'utf-8');
+
+      const notebooksDir = join(resolveOutputDir(), 'notebooks');
+      await mkdir(notebooksDir, { recursive: true });
+
+      const safeName = (title || docPath.replace(/\.md$/i, '')).replace(
+        /[\\/:*?"<>|]/g,
+        '_'
+      );
+      const exportPath = join(
+        notebooksDir,
+        `${safeName}_${Date.now()}.md`
+      );
+
+      await writeFile(exportPath, content, 'utf-8');
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          exportPath,
+          fileName: `${safeName}_${Date.now()}.md`,
+          size: content.length,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 从外部文件导入知识文档
+   * POST /v1/knowledge/import-from-file
+   *
+   * 读取指定路径的 .md 文件，将其内容导入到知识库
+   */
+  private async handleImportFromFile(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { filePath, baseName, tags } = JSON.parse(body);
+
+      if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'filePath is required' } })
+        );
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } = await import(
+        '@modules/knowledge/KnowledgeBaseRegistry'
+      );
+      const { readFile, writeFile, mkdir } = await import(
+        'node:fs/promises'
+      );
+      const { join, basename, extname } = await import('node:path');
+      const { existsSync } = await import('node:fs');
+      const { knowledgeDocsProvider } = await import(
+        '@modules/docs/FileDocsProvider'
+      );
+
+      if (!existsSync(filePath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `File not found: ${filePath}` } })
+        );
+        return;
+      }
+
+      const originalName = basename(filePath);
+      const ext = extname(originalName).toLowerCase();
+
+      /**
+       * 需要 ConverterEngine 转换的二进制文件扩展名
+       */
+      const BINARY_EXTENSIONS = new Set([
+        '.docx', '.xlsx', '.xls', '.pptx', '.pdf', '.epub',
+        '.ipynb', '.zip', '.msg', '.rss', '.atom',
+      ]);
+
+      let rawContent: string;
+
+      if (BINARY_EXTENSIONS.has(ext)) {
+        const { getConverterEngine } =
+          await import('@modules/tools/converter/engine/ConverterEngine');
+        const engine = getConverterEngine();
+        const result = await engine.convertFile(filePath);
+        rawContent = result.markdown;
+      } else {
+        rawContent = await readFile(filePath, 'utf-8');
+      }
+
+      const targetBase = baseName || 'default';
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const knowledgeRoot = registry.getKnowledgeRoot();
+      const baseDir = join(knowledgeRoot, targetBase);
+
+      await mkdir(baseDir, { recursive: true });
+
+      const docPath = join(targetBase, originalName);
+      const fullPath = join(knowledgeRoot, docPath);
+
+      const tagList = Array.isArray(tags) ? tags : [];
+      const now = new Date().toISOString();
+
+      if (!rawContent.startsWith('---')) {
+        const frontmatter = [
+          '---',
+          `title: "${originalName.replace(/\.md$/i, '')}"`,
+          `source: "import"`,
+          `importedAt: "${now}"`,
+          tagList.length > 0
+            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
+            : '',
+          BINARY_EXTENSIONS.has(ext) ? `originalFormat: "${ext}"` : '',
+          BINARY_EXTENSIONS.has(ext) ? `originalFile: "${filePath}"` : '',
+          '---',
+          '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+        await writeFile(fullPath, `${frontmatter}${rawContent}\n`, 'utf-8');
+      } else {
+        await writeFile(fullPath, rawContent, 'utf-8');
+      }
+
+      knowledgeDocsProvider.clearCache();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          docPath,
+          title: originalName.replace(/\.\w+$/, ''),
+          size: rawContent.length,
+        })
+      );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理知识库文档内容更新请求 PUT /v1/knowledge/docs
+   *
+   * 请求体: { docPath, content, title? }
+   * 处理逻辑:
+   *   1. 读取原文件，解析 frontmatter
+   *   2. 保留或更新 frontmatter
+   *   3. 将新内容写入文件
+   *   4. 重建 DigestService 缓存
+   */
+  private async handleUpdateKnowledgeDoc(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { docPath, content, title, tags, category } = JSON.parse(body);
+
+      if (!docPath || !content) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'docPath and content are required' },
+          })
+        );
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { getDefaultDigestService } =
+        await import('@modules/knowledge/KnowledgeDigestService');
+      const { readFile, writeFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { existsSync } = await import('node:fs');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const filePath = join(registry.getKnowledgeRoot(), docPath);
+
+      let frontmatterLines: string[] = [];
+
+      if (existsSync(filePath)) {
+        const existingContent = await readFile(filePath, 'utf-8');
+        const lines = existingContent.split('\n');
+
+        if (lines[0]?.trim() === '---') {
+          const endIdx = lines.indexOf('---', 1);
+          if (endIdx !== -1) {
+            const fmLines = lines.slice(1, endIdx);
+
+            const hasTags = Array.isArray(tags);
+            const hasCategory = category !== undefined;
+
+            for (const line of fmLines) {
+              if (title && line.startsWith('title:')) {
+                const escapedTitle = title.replace(/"/g, '\\"');
+                frontmatterLines.push(`title: "${escapedTitle}"`);
+              } else if (hasTags && line.startsWith('tags:')) {
+                continue;
+              } else if (hasCategory && line.startsWith('category:')) {
+                continue;
+              } else {
+                frontmatterLines.push(line);
+              }
+            }
+
+            if (hasTags) {
+              const tagStr = tags.map((t: string) => `"${t}"`).join(', ');
+              frontmatterLines.push(`tags: [${tagStr}]`);
+            }
+            if (hasCategory) {
+              frontmatterLines.push(`category: "${category}"`);
+            }
+
+            const restLines = lines.slice(endIdx + 1);
+            const bodyContent = content || restLines.join('\n').trim();
+            const newContent = [
+              '---',
+              ...frontmatterLines,
+              '---',
+              '',
+              bodyContent,
+              '',
+            ].join('\n');
+
+            await writeFile(filePath, newContent, 'utf-8');
+            knowledgeDocsProvider.clearCache();
+
+            try {
+              const digestService = getDefaultDigestService();
+              await digestService.buildDigest();
+            } catch {
+              // 摘要重建失败不影响主流程
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(
+              JSON.stringify({
+                docPath,
+                updatedAt: new Date().toISOString(),
+              })
+            );
+            this.broadcastEvent('knowledge:updated', { id: docPath });
+            return;
+          }
+        }
+      }
+
+      const newContent = [
+        '---',
+        title ? `title: "${title.replace(/"/g, '\\"')}"` : 'title: "未命名文档"',
+        `updatedAt: "${new Date().toISOString()}"`,
+        '---',
+        '',
+        content,
+        '',
+      ].join('\n');
+
+      await writeFile(filePath, newContent, 'utf-8');
+      knowledgeDocsProvider.clearCache();
+
+      try {
+        const digestService = getDefaultDigestService();
+        await digestService.buildDigest();
+      } catch {
+        // 摘要重建失败不影响主流程
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          docPath,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+      this.broadcastEvent('knowledge:updated', { id: docPath });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理批量删除知识文档请求 POST /v1/knowledge/batch-delete
+   *
+   * 请求体: { ids: string[] }
+   * 批量删除指定的知识库文档文件
+   */
+  private async handleBatchDeleteKnowledge(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { ids } = JSON.parse(body);
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'ids array is required' } }));
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { unlink } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { existsSync } = await import('node:fs');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const knowledgeRoot = registry.getKnowledgeRoot();
+
+      let deleted = 0;
+      for (const id of ids) {
+        const filePath = join(knowledgeRoot, id);
+        if (existsSync(filePath)) {
+          await unlink(filePath);
+          deleted++;
+        }
+      }
+
+      knowledgeDocsProvider.clearCache();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ deleted }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理批量添加标签请求 POST /v1/knowledge/batch-tag
+   *
+   * 请求体: { ids: string[], tags: string[] }
+   * 为多个知识文档批量添加标签
+   */
+  private async handleBatchTagKnowledge(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { ids, tags } = JSON.parse(body);
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'ids array is required' } }));
+        return;
+      }
+
+      if (!Array.isArray(tags) || tags.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'tags array is required' } }));
+        return;
+      }
+
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { readFile, writeFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { existsSync } = await import('node:fs');
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
+
+      const registry = getDefaultKnowledgeBaseRegistry();
+      const knowledgeRoot = registry.getKnowledgeRoot();
+
+      let updated = 0;
+      for (const id of ids) {
+        const filePath = join(knowledgeRoot, id);
+        if (!existsSync(filePath)) continue;
+
+        const content = await readFile(filePath, 'utf-8');
+        const lines = content.split('\n');
+
+        if (lines[0]?.trim() !== '---') continue;
+
+        const endIdx = lines.indexOf('---', 1);
+        if (endIdx === -1) continue;
+
+        const fmLines = lines.slice(1, endIdx);
+
+        const existingTagLine = fmLines.find((l) => l.startsWith('tags:'));
+        const existingTags: string[] = [];
+
+        if (existingTagLine) {
+          const tagMatch = existingTagLine.match(/\[([^\]]*)\]/);
+          if (tagMatch) {
+            const rawTags = tagMatch[1].split(',').map((t) => t.trim().replace(/"/g, ''));
+            existingTags.push(...rawTags.filter(Boolean));
+          }
+        }
+
+        const mergedTags = [...new Set([...existingTags, ...tags])];
+        const tagStr = mergedTags.map((t) => `"${t}"`).join(', ');
+
+        const newFmLines = existingTagLine
+          ? fmLines.map((l) => (l.startsWith('tags:') ? `tags: [${tagStr}]` : l))
+          : [...fmLines, `tags: [${tagStr}]`];
+
+        const newContent = [
+          '---',
+          ...newFmLines,
+          '---',
+          ...lines.slice(endIdx + 1),
+        ].join('\n');
+
+        await writeFile(filePath, newContent, 'utf-8');
+        updated++;
+      }
+
+      knowledgeDocsProvider.clearCache();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ updated }));
     } catch (err) {
       this.sendError(res, err);
     }

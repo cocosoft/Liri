@@ -1,4 +1,4 @@
-import type { KnowledgeItem } from '../types';
+import type { KnowledgeItem, KnowledgeSearchResult, KnowledgeBase, KnowledgeFile } from '../types';
 import { http } from './httpClient';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
@@ -54,6 +54,22 @@ function createMemoryKnowledgeService() {
         (i.title && i.title.toLowerCase().includes(q)) ||
         (i.content && i.content.toLowerCase().includes(q))
       );
+    },
+    hybridSearch: async (_query: string): Promise<KnowledgeSearchResult[]> => {
+      const q = _query.toLowerCase();
+      const filtered = items.filter(i =>
+        (i.title && i.title.toLowerCase().includes(q)) ||
+        (i.content && i.content.toLowerCase().includes(q))
+      );
+      return filtered.map(i => ({
+        id: i.id,
+        title: i.title,
+        content: i.content,
+        category: '根目录',
+        score: 1.0,
+        matchType: 'keyword',
+        docPath: i.id,
+      }));
     },
   };
 }
@@ -116,6 +132,231 @@ export const knowledgeService = {
       const result = await tryTauri<KnowledgeItem[]>('search_knowledge', { query });
       if (result) return result;
       return createMemoryKnowledgeService().search(query);
+    }
+  },
+
+  hybridSearch: async (query: string, base?: string): Promise<KnowledgeSearchResult[]> => {
+    try {
+      const url = base ? `/v1/knowledge/search?base=${encodeURIComponent(base)}` : '/v1/knowledge/search';
+      return await http.post<KnowledgeSearchResult[]>(url, { query });
+    } catch {
+      const result = await tryTauri<KnowledgeSearchResult[]>('search_knowledge', { query });
+      if (result) return result;
+      return createMemoryKnowledgeService().hybridSearch(query);
+    }
+  },
+
+  /**
+   * 获取增强知识列表（支持按知识库过滤，返回完整文件元数据）
+   */
+  listFiles: async (base?: string): Promise<KnowledgeFile[]> => {
+    try {
+      const url = base ? `/v1/knowledge?base=${encodeURIComponent(base)}` : '/v1/knowledge';
+      return await http.get<KnowledgeFile[]>(url);
+    } catch {
+      const result = await tryTauri<KnowledgeFile[]>('list_knowledge', base ? { base } : {});
+      if (result) return result;
+      return createMemoryKnowledgeService().list() as unknown as KnowledgeFile[];
+    }
+  },
+
+  listBases: async (): Promise<KnowledgeBase[]> => {
+    try {
+      return await http.get<KnowledgeBase[]>('/v1/knowledge/bases');
+    } catch {
+      const result = await tryTauri<KnowledgeBase[]>('list_knowledge_bases');
+      if (result) return result;
+      return [];
+    }
+  },
+
+  createBase: async (name: string, label: string, icon?: string): Promise<KnowledgeBase> => {
+    try {
+      return await http.post<KnowledgeBase>('/v1/knowledge/bases', { name, label, icon });
+    } catch {
+      const result = await tryTauri<KnowledgeBase>('create_knowledge_base', { name, label, icon });
+      if (result) return result;
+      throw new Error('createBase failed');
+    }
+  },
+
+  updateBase: async (name: string, updates: Partial<KnowledgeBase>): Promise<KnowledgeBase> => {
+    try {
+      return await http.put<KnowledgeBase>(`/v1/knowledge/bases/${encodeURIComponent(name)}`, updates);
+    } catch {
+      const result = await tryTauri<KnowledgeBase>('update_knowledge_base', { name, updates });
+      if (result) return result;
+      throw new Error('updateBase failed');
+    }
+  },
+
+  deleteBase: async (name: string): Promise<void> => {
+    try {
+      await http.delete<void>(`/v1/knowledge/bases/${encodeURIComponent(name)}`);
+    } catch {
+      const result = await tryTauri<void>('delete_knowledge_base', { name });
+      if (result !== undefined) return;
+      throw new Error('deleteBase failed');
+    }
+  },
+
+  saveFromChat: async (params: { base?: string; title: string; content: string; sessionId?: string }): Promise<{ success: boolean; docPath: string; title: string }> => {
+    try {
+      return await http.post('/v1/knowledge/save-from-chat', params);
+    } catch {
+      const result = await tryTauri('save_from_chat', params);
+      if (result) return result as any;
+      throw new Error('saveFromChat failed');
+    }
+  },
+
+  /**
+   * 获取待编译的 raw 文件列表
+   */
+  getRawFiles: async (): Promise<{
+    files: Array<{
+      fileName: string;
+      ext: string;
+      size: number;
+      modifiedAt: number;
+      createdAt: number;
+      category: string | null;
+      source: string | null;
+    }>;
+    totalCount: number;
+  }> => {
+    try {
+      return await http.get('/v1/knowledge/raw-files');
+    } catch {
+      const result = await tryTauri('knowledge_raw_files', {});
+      if (result) return result as any;
+      return { files: [], totalCount: 0 };
+    }
+  },
+
+  /**
+   * 更新知识库文档内容（保留 frontmatter 元数据）
+   * @param docPath 文档路径（相对于知识库根目录）
+   * @param content 新的 Markdown 内容
+   * @param title 可选的新标题
+   */
+  updateDoc: async (
+    docPath: string,
+    content: string,
+    title?: string,
+    extra?: { tags?: string[]; category?: string }
+  ): Promise<{ docPath: string; updatedAt: string }> => {
+    const body: any = { docPath, content };
+    if (title !== undefined) body.title = title;
+    if (extra?.tags !== undefined) body.tags = extra.tags;
+    if (extra?.category !== undefined) body.category = extra.category;
+    try {
+      return await http.put('/v1/knowledge/docs', body);
+    } catch {
+      const result = await tryTauri('knowledge_update_doc', body);
+      if (result) return result as any;
+      throw new Error('updateDoc failed');
+    }
+  },
+
+  /**
+   * 上传文件到指定知识库
+   * @param baseName 目标知识库名称
+   * @param file 文件信息：name（文件名）、data（base64 编码的内容）
+   * @param tags 可选标签列表
+   */
+  uploadToBase: async (
+    baseName: string,
+    file: { name: string; data: string },
+    tags?: string[]
+  ): Promise<{ docPath: string; title: string; size: number }> => {
+    try {
+      return await http.post('/v1/knowledge/upload', { baseName, ...file, tags });
+    } catch {
+      const result = await tryTauri('knowledge_upload', { baseName, file, tags });
+      if (result) return result as any;
+      throw new Error('uploadToBase failed');
+    }
+  },
+
+  /**
+   * 触发知识库编译：将 raw/ 目录中的原始文件通过 LLM 编译为结构化文档
+   * @param force 是否强制重编译已编译的文件
+   */
+  triggerCompile: async (force?: boolean): Promise<{ compiled: number; skipped: number; errors: string[] }> => {
+    try {
+      return await http.post('/v1/knowledge/compile', { force });
+    } catch {
+      const result = await tryTauri('knowledge_compile', { force });
+      if (result) return result as any;
+      throw new Error('triggerCompile failed');
+    }
+  },
+
+  /**
+   * 将知识文档导出到 Notebook 兼容格式
+   * @param docPath 文档路径（相对于知识库根目录）
+   * @param title 可选标题
+   */
+  exportToNotebook: async (
+    docPath: string,
+    title?: string
+  ): Promise<{ exportPath: string; fileName: string; size: number }> => {
+    try {
+      return await http.post('/v1/knowledge/export-to-notebook', { docPath, title });
+    } catch {
+      const result = await tryTauri('knowledge_export_notebook', { docPath, title });
+      if (result) return result as any;
+      throw new Error('exportToNotebook failed');
+    }
+  },
+
+  /**
+   * 从外部文件导入知识文档
+   * @param filePath 源文件路径
+   * @param baseName 目标知识库名称
+   * @param tags 可选标签列表
+   */
+  importFromFile: async (
+    filePath: string,
+    baseName?: string,
+    tags?: string[]
+  ): Promise<{ docPath: string; title: string; size: number }> => {
+    try {
+      return await http.post('/v1/knowledge/import-from-file', { filePath, baseName, tags });
+    } catch {
+      const result = await tryTauri('knowledge_import_file', { filePath, baseName, tags });
+      if (result) return result as any;
+      throw new Error('importFromFile failed');
+    }
+  },
+
+  /**
+   * 批量删除知识文档
+   * @param ids 文档ID（docPath）数组
+   */
+  batchDelete: async (ids: string[]): Promise<{ deleted: number }> => {
+    try {
+      return await http.post('/v1/knowledge/batch-delete', { ids });
+    } catch {
+      const result = await tryTauri('knowledge_batch_delete', { ids });
+      if (result) return result as any;
+      throw new Error('batchDelete failed');
+    }
+  },
+
+  /**
+   * 批量添加标签到知识文档
+   * @param ids 文档ID（docPath）数组
+   * @param tags 要添加的标签列表
+   */
+  batchTag: async (ids: string[], tags: string[]): Promise<{ updated: number }> => {
+    try {
+      return await http.post('/v1/knowledge/batch-tag', { ids, tags });
+    } catch {
+      const result = await tryTauri('knowledge_batch_tag', { ids, tags });
+      if (result) return result as any;
+      throw new Error('batchTag failed');
     }
   },
 };

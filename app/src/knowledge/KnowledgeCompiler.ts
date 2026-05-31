@@ -6,6 +6,7 @@
  *   1. 读取 raw/ 目录的原始数据文件
  *   2. 通过 LLM 编译为结构化 Markdown wiki 文档
  *   3. 写入知识库目录并更新摘要缓存
+ *   4. 追踪原始文件来源（通过 companion .meta.json）
  */
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join } from 'path';
@@ -16,6 +17,13 @@ import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/** 可编译的文件扩展名（不含 .meta.json 伴侣文件） */
+const COMPILABLE_EXTENSIONS = new Set([
+  '.txt', '.md', '.json',
+  '.csv', '.tsv', '.xml',
+  '.yaml', '.yml',
+]);
 
 export interface CompileOptions {
   /** 是否强制重编译所有文件，默认 false（仅编译更新的文件） */
@@ -104,11 +112,11 @@ export class KnowledgeCompiler {
     const rawFiles = await readdir(this.rawDir);
 
     for (const file of rawFiles) {
-      if (
-        file.endsWith('.txt') ||
-        file.endsWith('.md') ||
-        file.endsWith('.json')
-      ) {
+      // 跳过伴侣元数据文件
+      if (file.endsWith('.meta.json')) continue;
+
+      const ext = file.slice(file.lastIndexOf('.')).toLowerCase();
+      if (COMPILABLE_EXTENSIONS.has(ext)) {
         files.push(join(this.rawDir, file));
       }
     }
@@ -138,7 +146,7 @@ export class KnowledgeCompiler {
    * 获取编译后的目标路径
    */
   private getWikiTargetPath(rawFile: string): string {
-    const baseName = rawFile.replace(/\.(txt|json)$/, '.md');
+    const baseName = rawFile.replace(/\.(txt|json|csv|tsv|xml|yaml|yml)$/, '.md');
     const fileName = baseName.split(/[\\/]/).pop() || 'untitled.md';
     return join(this.knowledgeRoot, fileName);
   }
@@ -154,7 +162,52 @@ export class KnowledgeCompiler {
 
     const wikiContent = await this.generateWikiContent(fileName, rawContent);
 
-    await writeFile(targetPath, wikiContent, 'utf-8');
+    // 读取 companion meta.json 注入原始文件追溯信息
+    const finalContent = await this.injectOriginalFileMeta(rawFile, wikiContent);
+
+    await writeFile(targetPath, finalContent, 'utf-8');
+  }
+
+  /**
+   * 从 companion .meta.json 读取原始文件信息并注入 frontmatter
+   */
+  private async injectOriginalFileMeta(
+    rawFile: string,
+    wikiContent: string
+  ): Promise<string> {
+    const metaFile = `${rawFile}.meta.json`;
+    if (!existsSync(metaFile)) return wikiContent;
+
+    try {
+      const metaContent = await readFile(metaFile, 'utf-8');
+      const meta = JSON.parse(metaContent);
+
+      if (meta.originalFile || meta.originalFormat) {
+        const lines = wikiContent.split('\n');
+        let fmEnd = -1;
+        if (lines[0]?.trim() === '---') {
+          fmEnd = lines.indexOf('---', 1);
+        }
+        if (fmEnd !== -1) {
+          const fmLines = lines.slice(1, fmEnd);
+          const hasOriginalFile = fmLines.some((l) => l.startsWith('originalFile:'));
+          const hasOriginalFormat = fmLines.some((l) => l.startsWith('originalFormat:'));
+
+          if (!hasOriginalFile && meta.originalFile) {
+            fmLines.splice(1, 0, `originalFile: "${meta.originalFile}"`);
+          }
+          if (!hasOriginalFormat && meta.originalFormat) {
+            fmLines.splice(2, 0, `originalFormat: "${meta.originalFormat}"`);
+          }
+
+          return ['---', ...fmLines, '---', ...lines.slice(fmEnd + 1)].join('\n');
+        }
+      }
+    } catch {
+      // 元数据文件损坏或缺失，忽略
+    }
+
+    return wikiContent;
   }
 
   /**

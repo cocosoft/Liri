@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { knowledgeService } from '../../services/knowledgeService';
+import { HTTPClientError } from '../../services/httpClient';
 
 interface FileUploadZoneProps {
   isDark: boolean;
@@ -69,6 +70,7 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
 
     let successCount = 0;
     let errorCount = 0;
+    let lastErrorMessage = '';
 
     for (let i = 0; i < fileArray.length; i++) {
       const file = fileArray[i];
@@ -83,8 +85,13 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
         const data = await readFileAsBase64(file);
         await knowledgeService.uploadToBase(baseName, { name: file.name, data });
         successCount++;
-      } catch {
+      } catch (err) {
         errorCount++;
+        if (err instanceof HTTPClientError) {
+          lastErrorMessage = err.message;
+        } else if (err instanceof Error) {
+          lastErrorMessage = err.message;
+        }
       }
 
       setUploadState({
@@ -104,9 +111,7 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
     } else {
       setUploadState({
         status: 'error',
-        message: errorCount > 0
-          ? '文件格式不支持，支持 Markdown/文本/Office/PDF 等常见文件格式'
-          : '上传失败',
+        message: lastErrorMessage || '上传失败，请检查文件是否正确或稍后重试',
         progress: 0,
       });
     }

@@ -1,5 +1,5 @@
 import type { KnowledgeItem, KnowledgeSearchResult, KnowledgeBase, KnowledgeFile } from '../types';
-import { http } from './httpClient';
+import { http, HTTPClientError } from './httpClient';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
@@ -272,7 +272,10 @@ export const knowledgeService = {
   ): Promise<{ docPath: string; title: string; size: number }> => {
     try {
       return await http.post('/v1/knowledge/upload', { baseName, ...file, tags });
-    } catch {
+    } catch (err) {
+      if (err instanceof HTTPClientError) {
+        throw err;
+      }
       const result = await tryTauri('knowledge_upload', { baseName, file, tags });
       if (result) return result as any;
       throw new Error('uploadToBase failed');

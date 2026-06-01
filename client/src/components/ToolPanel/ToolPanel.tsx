@@ -8,7 +8,7 @@ import type { CronTask, KnowledgeBase } from '../../types';
 function ContextPanel() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { sessions, currentSession, createSession, switchSession, loadSessions, deleteSession } = useSessionStore();
+  const { sessions, currentSession, createSession, switchSession, loadSessions, deleteSession, clearAllSessions } = useSessionStore();
   const [isExpanded, setIsExpanded] = useState(true);
   const [cronTasks, setCronTasks] = useState<CronTask[]>([]);
   const [cronLoading, setCronLoading] = useState(true);
@@ -67,7 +67,22 @@ function ContextPanel() {
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">最近会话</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">最近会话</h3>
+          {sessions.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('确定要清除所有会话记录吗？此操作不可恢复。')) {
+                  clearAllSessions();
+                }
+              }}
+              className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+              title="清除所有会话"
+            >
+              清除全部
+            </button>
+          )}
+        </div>
         <div className="space-y-1 h-full overflow-y-auto">
           {sessions.map((session) => {
             const isActive = currentSession?.id === session.id;

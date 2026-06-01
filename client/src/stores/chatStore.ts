@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Message, MessageBlock } from '../types';
+import type { ToolCall } from '../types';
 import { chatService } from '../services/chatService';
 import { useSessionStore } from './sessionStore';
 
@@ -17,24 +18,37 @@ interface ChatStore {
 
 import { sessionService } from '../services/sessionService';
 
+/**
+ * 判断是否需要自动重命名会话
+ * 优先从 currentSession 查找，若 sessionId 不匹配则降级到 sessions 列表中查找
+ */
 function shouldAutoRename(sessionId?: string): boolean {
   if (!sessionId) {
     console.log('[shouldAutoRename] sessionId is undefined');
     return false;
   }
-  const session = useSessionStore.getState().currentSession;
-  if (!session) {
-    console.log('[shouldAutoRename] currentSession is null');
-    return false;
+
+  const store = useSessionStore.getState();
+
+  // 优先从 currentSession 查找
+  if (store.currentSession?.id === sessionId) {
+    const title = store.currentSession.title || '';
+    const shouldRename = title.startsWith('新会话') || title.startsWith('New Session');
+    console.log('[shouldAutoRename] title:', title, 'shouldRename:', shouldRename);
+    return shouldRename;
   }
-  if (session.id !== sessionId) {
-    console.log('[shouldAutoRename] sessionId mismatch:', session.id, 'vs', sessionId);
-    return false;
+
+  // 降级：从 sessions 列表中按 sessionId 查找
+  const found = store.sessions.find((s) => s.id === sessionId);
+  if (found) {
+    const title = found.title || '';
+    const shouldRename = title.startsWith('新会话') || title.startsWith('New Session');
+    console.log('[shouldAutoRename] fallback found, title:', title, 'shouldRename:', shouldRename);
+    return shouldRename;
   }
-  const title = session.title || '';
-  const shouldRename = title.startsWith('新会话') || title.startsWith('New Session');
-  console.log('[shouldAutoRename] title:', title, 'shouldRename:', shouldRename);
-  return shouldRename;
+
+  console.log('[shouldAutoRename] session not found for id:', sessionId);
+  return false;
 }
 
 async function doAutoRename(sessionId: string, userMessage: string, assistantResponse: string): Promise<void> {
@@ -64,22 +78,182 @@ function generateBlockId(): string {
   return 'blk_' + crypto.randomUUID().slice(0, 8);
 }
 
-function findOrCreateBlock(
-  blocks: MessageBlock[],
-  type: MessageBlock['type'],
-  isStreaming: boolean
-): { blocks: MessageBlock[]; block: MessageBlock } {
-  let block = blocks.find((b) => b.type === type);
-  if (!block) {
-    block = {
-      id: generateBlockId(),
-      type,
-      content: '',
-      isStreaming,
-    };
-    blocks = [...blocks, block];
+/**
+ * 时序块构建器
+ * 按流顺序构建 MessageBlock[]，确保工具调用前后的文本正确分段。
+ * 对标 Cline 的 assistantMessageContent[] 顺序管理。
+ * 
+ * 设计原理：
+ *   1. text/thinking chunk → 写入当前活跃块
+ *   2. tool_call chunk → 冻结当前文本块，新建 tool_call 块
+ *   3. status chunk → 追加，标记工具调用的开始/结束
+ *   4. 工具调用后，新 text chunk → 新建 text 块
+ */
+class ChronologicalBlockBuilder {
+  private blocks: MessageBlock[] = [];
+  private activeTextBlock: MessageBlock | null = null;
+  private activeThinkingBlock: MessageBlock | null = null;
+  private hasToolCallSinceLastText = false;
+  private currentToolCallId: string | null = null;
+
+  /** 追加文本块，工具调用后自动新建 */
+  addText(content: string, isStreaming: boolean): void {
+    if (this.hasToolCallSinceLastText || !this.activeTextBlock) {
+      const newBlock: MessageBlock = {
+        id: generateBlockId(),
+        type: 'text',
+        content,
+        isStreaming,
+      };
+      this.blocks.push(newBlock);
+      this.activeTextBlock = newBlock;
+      this.hasToolCallSinceLastText = false;
+    } else {
+      this.activeTextBlock.content += content;
+      this.activeTextBlock.isStreaming = isStreaming;
+    }
   }
-  return { blocks, block };
+
+  /** 追加 thinking 块 */
+  addThinking(content: string, isStreaming: boolean): void {
+    if (!this.activeThinkingBlock) {
+      const newBlock: MessageBlock = {
+        id: generateBlockId(),
+        type: 'thinking',
+        content,
+        isStreaming,
+      };
+      this.blocks.push(newBlock);
+      this.activeThinkingBlock = newBlock;
+    } else {
+      this.activeThinkingBlock.content += content;
+      this.activeThinkingBlock.isStreaming = isStreaming;
+    }
+  }
+
+  /** 冻结 thinking 块（text 到来时调用） */
+  freezeThinking(): void {
+    if (this.activeThinkingBlock) {
+      this.activeThinkingBlock.isStreaming = false;
+      this.activeThinkingBlock = null;
+    }
+  }
+
+  /** 添加状态块，连续重复时去重 */
+  addStatus(status: string): void {
+    const lastBlock = this.blocks[this.blocks.length - 1];
+    if (lastBlock?.type === 'status' && lastBlock.content === status) {
+      return;
+    }
+    this.blocks.push({
+      id: generateBlockId(),
+      type: 'status',
+      content: status,
+      isStreaming: true,
+      toolCallId: this.currentToolCallId ?? undefined,
+    });
+  }
+
+  /** 添加工具调用块，冻结当前文本 */
+  addToolCall(toolCall: ToolCall): void {
+    this.currentToolCallId = toolCall.id;
+
+    if (this.activeTextBlock) {
+      this.activeTextBlock.isStreaming = false;
+    }
+    if (this.activeThinkingBlock) {
+      this.activeThinkingBlock.isStreaming = false;
+      this.activeThinkingBlock = null;
+    }
+
+    const existingIdx = this.blocks.findIndex(
+      (b) => b.type === 'tool_call' && b.toolCall?.id === toolCall.id
+    );
+
+    if (existingIdx !== -1) {
+      const existing = this.blocks[existingIdx];
+      existing.toolCall = { ...toolCall, status: toolCall.status || 'completed' as const };
+      existing.isStreaming = toolCall.status === 'running';
+    } else {
+      this.blocks.push({
+        id: generateBlockId(),
+        type: 'tool_call',
+        content: '',
+        toolCall,
+        isStreaming: true,
+        toolCallId: toolCall.id,
+      });
+      this.hasToolCallSinceLastText = true;
+    }
+  }
+
+  /** 更新已有工具调用的状态 */
+  updateToolCallStatus(toolCallId: string, status: 'running' | 'completed' | 'failed'): void {
+    const block = this.blocks.find(
+      (b) => b.type === 'tool_call' && b.toolCall?.id === toolCallId
+    );
+    if (block && block.toolCall) {
+      block.toolCall.status = status;
+      block.isStreaming = status === 'running';
+    }
+  }
+
+  /** 冻结所有块 */
+  freezeAll(): void {
+    for (const block of this.blocks) {
+      block.isStreaming = false;
+    }
+    this.activeTextBlock = null;
+    this.activeThinkingBlock = null;
+  }
+
+  /** 获取构建好的 blocks */
+  getBlocks(): MessageBlock[] {
+    return [...this.blocks];
+  }
+
+  /** 重置构建器 */
+  reset(): void {
+    this.blocks = [];
+    this.activeTextBlock = null;
+    this.activeThinkingBlock = null;
+    this.hasToolCallSinceLastText = false;
+    this.currentToolCallId = null;
+  }
+}
+
+// 防抖保存 blocks：流式传输中实时持久化，避免用户切换会话时丢失
+let _saveBlocksTimer: ReturnType<typeof setTimeout> | null = null;
+let _pendingSaveSessionId: string | null = null;
+let _pendingSaveMessageId: string | null = null;
+let _pendingSaveBlocks: MessageBlock[] | null = null;
+
+async function flushSaveBlocks(): Promise<void> {
+  if (_pendingSaveSessionId && _pendingSaveMessageId && _pendingSaveBlocks) {
+    const sid = _pendingSaveSessionId;
+    const mid = _pendingSaveMessageId;
+    const blk = _pendingSaveBlocks;
+    _pendingSaveSessionId = null;
+    _pendingSaveMessageId = null;
+    _pendingSaveBlocks = null;
+    try {
+      await chatService.updateMessageBlocks(sid, mid, blk as unknown as Array<Record<string, unknown>>);
+    } catch {
+      // 保存失败不影响主流程
+    }
+  }
+}
+
+function debouncedSaveBlocks(sessionId: string, messageId: string, blocks: MessageBlock[]): void {
+  _pendingSaveSessionId = sessionId;
+  _pendingSaveMessageId = messageId;
+  _pendingSaveBlocks = blocks;
+  if (_saveBlocksTimer) {
+    clearTimeout(_saveBlocksTimer);
+  }
+  _saveBlocksTimer = setTimeout(() => {
+    flushSaveBlocks();
+  }, 800);
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -144,6 +318,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     try {
       const generator = chatService.streamMessage(content, sessionId);
+      const blockBuilder = new ChronologicalBlockBuilder();
 
       for await (const chunk of generator) {
         const current = get().messages;
@@ -154,58 +329,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const msg = current[msgIdx];
         let updatedMsg: Message;
 
-        if (chunk.type === 'text') {
-          const { blocks, block } = findOrCreateBlock(msg.blocks || [], 'text', true);
-          const newBlock: MessageBlock = { ...block, content: block.content + chunk.content, isStreaming: true };
-          const newBlocks = blocks.map((b) => (b.id === block.id ? newBlock : b));
-          updatedMsg = { ...msg, content: msg.content + chunk.content, blocks: newBlocks };
-        } else if (chunk.type === 'thinking') {
-          const { blocks, block } = findOrCreateBlock(msg.blocks || [], 'thinking', true);
-          const newBlock: MessageBlock = { ...block, content: block.content + chunk.content, isStreaming: true };
-          const newBlocks = blocks.map((b) => (b.id === block.id ? newBlock : b));
-          updatedMsg = { ...msg, blocks: newBlocks };
+        if (chunk.type === 'thinking') {
+          blockBuilder.addThinking(chunk.content, true);
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === 'text') {
+          blockBuilder.freezeThinking();
+          blockBuilder.addText(chunk.content, true);
+          updatedMsg = { ...msg, content: msg.content + chunk.content, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === 'status') {
-          console.log(`[chatStore] Received status chunk: "${chunk.content}"`);
-          const blocks = msg.blocks || [];
-          
-          const hasSameStatus = blocks.some((b) => {
-            if (b.type !== 'status') return false;
-            return b.content === chunk.content;
-          });
-          
-          console.log(`[chatStore] hasSameStatus: ${hasSameStatus}`);
-          
-          if (hasSameStatus) {
-            updatedMsg = msg;
-          } else {
-            const logBlock: MessageBlock = {
-              id: generateBlockId(),
-              type: 'status',
-              content: chunk.content,
-              isStreaming: true,
-            };
-            updatedMsg = { ...msg, blocks: [...blocks, logBlock] };
-          }
+          blockBuilder.addStatus(chunk.content);
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-          const tc = chunk.toolCall;
-          const existingBlock = (msg.blocks || []).find(
-            (b) => b.type === 'tool_call' && b.toolCall?.id === tc.id
-          );
-          if (existingBlock) {
-            const updatedToolCall = { ...existingBlock, toolCall: { ...tc, status: tc.status || 'completed' as const } };
-            const newBlocks = (msg.blocks || []).map((b) => (b.id === existingBlock.id ? updatedToolCall : b));
-            updatedMsg = { ...msg, blocks: newBlocks };
-          } else {
-            const newBlock: MessageBlock = {
-              id: generateBlockId(),
-              type: 'tool_call',
-              content: '',
-              toolCall: tc,
-              isStreaming: true,
-            };
-            const newBlocks = [...(msg.blocks || []), newBlock];
-            updatedMsg = { ...msg, blocks: newBlocks };
-          }
+          blockBuilder.addToolCall(chunk.toolCall);
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === 'usage' && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
         } else {
@@ -215,19 +351,39 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const newMessages = [...current];
         newMessages[msgIdx] = updatedMsg;
         set({ messages: newMessages });
+
+        // 流式传输中实时防抖保存 blocks，避免用户提前切换会话时丢失
+        if (sessionId && updatedMsg.blocks && updatedMsg.blocks.length > 0) {
+          debouncedSaveBlocks(sessionId, assistantId, updatedMsg.blocks);
+        }
       }
+
+      // 清除防抖定时器，确保最终 blocks 被保存
+      if (_saveBlocksTimer) {
+        clearTimeout(_saveBlocksTimer);
+        _saveBlocksTimer = null;
+      }
+      await flushSaveBlocks();
+
+      // 流结束，冻结所有块
+      blockBuilder.freezeAll();
+      const finalBlocks = blockBuilder.getBlocks();
 
       const finalMessages = get().messages;
       const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
       if (finalMsgIdx !== -1) {
-        const finalMsg = finalMessages[finalMsgIdx];
-        const finalBlocks = (finalMsg.blocks || []).map((b) => ({
-          ...b,
-          isStreaming: false,
-        }));
         const newMessages = [...finalMessages];
-        newMessages[finalMsgIdx] = { ...finalMsg, blocks: finalBlocks };
+        newMessages[finalMsgIdx] = { ...finalMessages[finalMsgIdx], blocks: finalBlocks };
         set({ messages: newMessages });
+
+        // 将 blocks 结构保存到后端
+        if (sessionId && finalBlocks.length > 0) {
+          try {
+            await chatService.updateMessageBlocks(sessionId, assistantId, finalBlocks as unknown as Array<Record<string, unknown>>);
+          } catch (error) {
+            console.warn('[chatStore] Failed to update message blocks:', error);
+          }
+        }
       }
 
       set({ isLoading: false, isStreaming: false });
@@ -247,7 +403,47 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ messages: [], error: null });
   },
 
+  /**
+   * 加载历史消息时为 assistant 消息重建 blocks 结构
+   * 确保 AssistantMessage 组件能正确分组渲染（text / tool_call 等）
+   * 如果后端已保存 blocks，则直接使用，否则自动重建
+   */
   setMessages: (messages: Message[]) => {
-    set({ messages });
+    const enhancedMessages = messages.map((msg) => {
+      if (msg.role !== 'assistant') return msg;
+
+      // 如果后端已保存 blocks，直接使用
+      if (msg.blocks && msg.blocks.length > 0) {
+        return { ...msg, blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })) };
+      }
+
+      // 否则自动重建 blocks
+      const newBlocks: MessageBlock[] = [];
+
+      if (msg.content) {
+        newBlocks.push({
+          id: generateBlockId(),
+          type: 'text',
+          content: msg.content,
+          isStreaming: false,
+        });
+      }
+
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        msg.tool_calls.forEach((tc) => {
+          newBlocks.push({
+            id: generateBlockId(),
+            type: 'tool_call',
+            content: '',
+            toolCall: tc,
+            isStreaming: false,
+          });
+        });
+      }
+
+      return { ...msg, blocks: newBlocks };
+    });
+
+    set({ messages: enhancedMessages });
   },
 }));

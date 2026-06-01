@@ -13,6 +13,7 @@ interface SessionStore {
   switchSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => Promise<void>;
+  clearAllSessions: () => Promise<void>;
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -62,7 +63,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       const session = await sessionService.switch(id);
       const messages = await sessionService.getMessages(id);
-      useChatStore.getState().clearMessages();
+      // 直接原子替换所有消息，避免 clearMessages + setMessages 的中间空状态
       useChatStore.getState().setMessages(messages);
       set({ currentSession: session, isLoading: false });
     } catch (error) {
@@ -96,6 +97,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const updatedSession: Session | null =
         current?.id === id ? { ...current, title } : current;
       set({ sessions, currentSession: updatedSession, isLoading: false });
+    } catch (error) {
+      set({ error: String(error), isLoading: false });
+    }
+  },
+
+  clearAllSessions: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      await sessionService.clearAll();
+      useChatStore.getState().clearMessages();
+      set({ sessions: [], currentSession: null, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }

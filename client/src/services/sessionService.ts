@@ -136,4 +136,13 @@ export const sessionService = {
       return [];
     }
   },
+
+  clearAll: async (): Promise<void> => {
+    try {
+      await http.delete<void>('/v1/sessions');
+    } catch {
+      const result = await tryTauri<void>('clear_all_sessions');
+      if (result !== null) return;
+    }
+  },
 };

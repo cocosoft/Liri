@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsService, type DashboardStats } from '../../services/statsService';
-import { monitorService, type MetricsData } from '../../services/monitorService';
+import { monitorService, type MetricsData, type AnalyticsDashboardData, type MonitorSummary } from '../../services/monitorService';
 import type { Alert, SystemHealth } from '../../types';
 import { SkeletonCard } from '../common/Skeleton';
 import { SPECIES_MAP } from '../Buddy/buddySprites';
@@ -66,6 +66,15 @@ const BuddyCard = memo(function BuddyCard({ buddy }: { buddy: NonNullable<Dashbo
   );
 });
 
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}天${h}小时`;
+  if (h > 0) return `${h}小时${m}分`;
+  return `${m}分钟`;
+}
+
 function DashboardPage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === 'dark';
@@ -79,6 +88,8 @@ function DashboardPage() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsDashboardData | null>(null);
+  const [summary, setSummary] = useState<MonitorSummary | null>(null);
   const [timeRange, setTimeRange] = useState(3600000);
   const [filterLevel, setFilterLevel] = useState<string>('all');
 
@@ -109,14 +120,18 @@ function DashboardPage() {
     if (!showMonitor) return;
     const fetchMonitorData = async () => {
       try {
-        const [metricsData, alertsData, healthData] = await Promise.all([
+        const [metricsData, alertsData, healthData, analyticsData, summaryData] = await Promise.all([
           monitorService.getMetrics(timeRange),
           monitorService.getAlerts(),
           monitorService.getSystemHealth(),
+          monitorService.getAnalyticsDashboard(),
+          monitorService.getSummary(),
         ]);
         setMetrics(metricsData);
         setAlerts(alertsData);
         setSystemHealth(healthData);
+        setAnalytics(analyticsData);
+        setSummary(summaryData);
       } catch {
         // 静默失败
       }
@@ -224,7 +239,12 @@ function DashboardPage() {
 
             {showMonitor && (
               <div className="space-y-6">
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                      <span>🖥️</span> 系统资源
+                    </h3>
+                  </div>
                   <select
                     value={timeRange}
                     onChange={(e) => setTimeRange(Number(e.target.value))}
@@ -238,6 +258,79 @@ function DashboardPage() {
                     <option value={86400000}>最近24小时</option>
                   </select>
                 </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <MetricsChart
+                    title="CPU 使用率 (%)"
+                    data={metrics?.cpu ?? []}
+                    valueFormatter={(v) => `${v.toFixed(1)}%`}
+                    color="#3B82F6"
+                    isDark={isDark}
+                  />
+                  <MetricsChart
+                    title="内存使用 (MB)"
+                    data={metrics?.memory ?? []}
+                    valueFormatter={(v) => `${v.toFixed(0)} MB`}
+                    color="#10B981"
+                    isDark={isDark}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">磁盘总量</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {summary ? `${summary.diskTotalGB} GB` : '--'}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">磁盘已用</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {summary ? `${summary.diskUsedGB} GB` : '--'}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">磁盘使用率</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {summary ? `${summary.diskUsagePercent}%` : '--'}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">系统负载</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {summary && summary.loadAverage.length > 0 ? summary.loadAverage.map(l => l.toFixed(2)).join(', ') : '--'}
+                    </p>
+                  </div>
+                </div>
+
+                {summary && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">运行时间</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white" title={`${summary.uptime}秒`}>
+                        {formatUptime(summary.uptime)}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">CPU 使用率</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
+                        {summary.cpuPercent}%
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">内存使用</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
+                        {summary.memoryUsedMB} MB / {summary.memoryTotalMB} MB
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">内存使用率</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
+                        {summary.memoryPercent}%
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <MetricsChart
                     title="请求量趋势"
@@ -254,6 +347,224 @@ function DashboardPage() {
                     isDark={isDark}
                   />
                 </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <MetricsChart
+                    title="错误率趋势 (%)"
+                    data={metrics?.errorRate ?? []}
+                    valueFormatter={(v) => `${v.toFixed(2)}%`}
+                    color="#EF4444"
+                    isDark={isDark}
+                  />
+                </div>
+
+                <div className={`rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                      📊 分析面板
+                    </h2>
+                  </div>
+                  <div className="p-4">
+                    {analytics ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span>🪙</span> Token 用量
+                          </h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">总输入 Tokens</span>
+                              <span className="font-medium text-gray-900 dark:text-white">{analytics.tokens.totalInputTokens.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">总输出 Tokens</span>
+                              <span className="font-medium text-gray-900 dark:text-white">{analytics.tokens.totalOutputTokens.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-2">
+                              <span className="text-gray-500 dark:text-gray-400">合计 Tokens</span>
+                              <span className="font-bold text-blue-600 dark:text-blue-400">{analytics.tokens.totalTokens.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">LLM 请求次数</span>
+                              <span className="font-medium text-gray-900 dark:text-white">{analytics.tokens.totalLLMRequests.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span>🔧</span> 工具调用 Top 10
+                          </h3>
+                          {analytics.tools.topTools.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {analytics.tools.topTools.map((tool, idx) => {
+                                const maxCount = analytics.tools.topTools[0].count;
+                                const barWidth = maxCount > 0 ? (tool.count / maxCount) * 100 : 0;
+                                return (
+                                  <div key={tool.name} className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-400 w-5 text-right">{idx + 1}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">{tool.name}</span>
+                                    <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-blue-500 rounded-full transition-all"
+                                        style={{ width: `${barWidth}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10 text-right">{tool.count}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">暂无工具调用数据</p>
+                          )}
+                          <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <span>总调用: <strong className="text-gray-900 dark:text-white">{analytics.tools.totalToolCalls}</strong></span>
+                            <span>唯一工具: <strong className="text-gray-900 dark:text-white">{analytics.tools.uniqueToolsUsed}</strong></span>
+                          </div>
+                        </div>
+
+                        <div className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span>❌</span> 错误分析
+                          </h3>
+                          <div className="flex gap-4 mb-3">
+                            <div className="flex-1 text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">总错误</p>
+                              <p className="text-lg font-bold text-red-600 dark:text-red-400">{analytics.errors.totalErrors}</p>
+                            </div>
+                            <div className="flex-1 text-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">错误率</p>
+                              <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{analytics.errors.errorRate}%</p>
+                            </div>
+                          </div>
+                          {analytics.errors.topErrors.length > 0 ? (
+                            <div className="space-y-1">
+                              {analytics.errors.topErrors.slice(0, 5).map((err) => (
+                                <div key={err.type} className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-700 dark:text-gray-300 truncate flex-1">{err.type}</span>
+                                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-2">{err.count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">暂无错误记录</p>
+                          )}
+                        </div>
+
+                        <div className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span>⏱️</span> 延迟百分位
+                          </h3>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">平均延迟</p>
+                              <p className="text-base font-bold text-blue-600 dark:text-blue-400">{analytics.performance.averageLatencyMs}ms</p>
+                            </div>
+                            <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">P50</p>
+                              <p className="text-base font-bold text-green-600 dark:text-green-400">{analytics.performance.p50LatencyMs}ms</p>
+                            </div>
+                            <div className="text-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">P95</p>
+                              <p className="text-base font-bold text-yellow-600 dark:text-yellow-400">{analytics.performance.p95LatencyMs}ms</p>
+                            </div>
+                            <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">P99</p>
+                              <p className="text-base font-bold text-red-600 dark:text-red-400">{analytics.performance.p99LatencyMs}ms</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
+                            基于 {analytics.performance.totalMetrics} 个样本
+                          </p>
+                        </div>
+
+                        <div className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span>💬</span> 会话统计
+                          </h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">总事件数</span>
+                              <span className="font-medium text-gray-900 dark:text-white">{analytics.session.totalEvents.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">总会话数</span>
+                              <span className="font-medium text-gray-900 dark:text-white">{analytics.session.totalSessions.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-2">
+                              <span className="text-gray-500 dark:text-gray-400">活动会话</span>
+                              <span className="font-bold text-green-600 dark:text-green-400">{analytics.session.activeSessions.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span>💰</span> 成本概览
+                          </h3>
+                          <div className="flex items-center justify-center py-4">
+                            <div className="text-center">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">累计成本 (USD)</p>
+                              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                                ${analytics.cost.totalCostUSD.toFixed(4)}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                            数据更新于 {new Date(analytics.generatedAt).toLocaleString('zh-CN')}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`text-center py-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        加载分析数据...
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {systemHealth && (
+                  <div className={`rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                        🩺 系统健康
+                      </h2>
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          systemHealth.status === 'healthy' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          systemHealth.status === 'degraded' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          {systemHealth.status === 'healthy' ? '健康' : systemHealth.status === 'degraded' ? '降级' : '不健康'}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          检测时间: {new Date(systemHealth.timestamp).toLocaleString('zh-CN')}
+                        </span>
+                      </div>
+                      {systemHealth.components.length > 0 && (
+                        <div className="space-y-2">
+                          {systemHealth.components.map((comp, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${
+                                  comp.status === 'ok' ? 'bg-green-500' :
+                                  comp.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                                }`} />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">{comp.name}</span>
+                              </div>
+                              {comp.message && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{comp.message}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className={`rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                   <div className="p-4 border-b border-gray-200 dark:border-gray-700">

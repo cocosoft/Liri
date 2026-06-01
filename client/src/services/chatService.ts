@@ -211,7 +211,7 @@ export const chatService = {
                       arguments: typeof tc.function?.arguments === 'string'
                         ? JSON.parse(tc.function.arguments || '{}')
                         : (tc.function?.arguments || {}),
-                      status: 'running',
+                      status: chunk.__pyapp_tool_status || 'running',
                     },
                   };
                 }
@@ -255,5 +255,16 @@ export const chatService = {
     } catch {
       return [];
     }
+  },
+
+  updateMessageBlocks: async (
+    sessionId: string,
+    messageId: string,
+    blocks: Array<Record<string, unknown>>
+  ): Promise<void> => {
+    await fetchJSON<void>(`${getBackendBaseUrl()}/api/session/${sessionId}/message/${messageId}/blocks`, {
+      method: 'PUT',
+      body: JSON.stringify({ blocks }),
+    });
   },
 };

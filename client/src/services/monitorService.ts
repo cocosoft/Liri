@@ -15,9 +15,49 @@ export interface MonitorSummary {
   memoryPercent: number;
   memoryUsedMB: number;
   memoryTotalMB: number;
+  diskTotalGB: number;
+  diskUsedGB: number;
+  diskFreeGB: number;
+  diskUsagePercent: number;
+  loadAverage: number[];
   requestCount: number;
   errorCount: number;
   avgResponseTime: number;
+}
+
+export interface AnalyticsDashboardData {
+  tokens: {
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTokens: number;
+    totalLLMRequests: number;
+  };
+  tools: {
+    totalToolCalls: number;
+    uniqueToolsUsed: number;
+    topTools: Array<{ name: string; count: number }>;
+  };
+  errors: {
+    totalErrors: number;
+    errorRate: number;
+    topErrors: Array<{ type: string; count: number }>;
+  };
+  performance: {
+    averageLatencyMs: number;
+    p50LatencyMs: number;
+    p95LatencyMs: number;
+    p99LatencyMs: number;
+    totalMetrics: number;
+  };
+  cost: {
+    totalCostUSD: number;
+  };
+  session: {
+    totalEvents: number;
+    totalSessions: number;
+    activeSessions: number;
+  };
+  generatedAt: number;
 }
 
 export const monitorService = {
@@ -59,5 +99,9 @@ export const monitorService = {
 
   async getSystemHealth(): Promise<SystemHealth> {
     return http.get<SystemHealth>('/v1/health/report');
+  },
+
+  async getAnalyticsDashboard(): Promise<AnalyticsDashboardData> {
+    return http.get<AnalyticsDashboardData>('/v1/analytics/dashboard');
   },
 };

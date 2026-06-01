@@ -178,3 +178,4 @@ app/.document_versions/
 app/app/
 app/backend/
 client/scripts/
+app/minesweeper.html

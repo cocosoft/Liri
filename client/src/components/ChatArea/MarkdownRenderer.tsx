@@ -360,14 +360,23 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
         if (index > 0) {
           const beforeText = remaining.slice(0, index);
           if (autoDetectFormula && isLatexFormula(beforeText)) {
-            const renderedFormula = katex.renderToString(beforeText, { displayMode: false });
-            parts.push(
-              <span
-                key={key++}
-                className="inline-block"
-                dangerouslySetInnerHTML={{ __html: renderedFormula }}
-              />
-            );
+            let renderedFormula: string;
+            try {
+              renderedFormula = katex.renderToString(beforeText, { displayMode: false });
+            } catch {
+              renderedFormula = '';
+            }
+            if (renderedFormula) {
+              parts.push(
+                <span
+                  key={key++}
+                  className="inline-block"
+                  dangerouslySetInnerHTML={{ __html: renderedFormula }}
+                />
+              );
+            } else {
+              parts.push(<span key={key++}>{beforeText}</span>);
+            }
           } else {
             parts.push(<span key={key++}>{beforeText}</span>);
           }
@@ -385,14 +394,23 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
             </a>
           );
         } else if (pattern.tag === 'math') {
-          const renderedFormula = katex.renderToString(match[1], { displayMode: false });
-          parts.push(
-            <span
-              key={key++}
-              className="inline-block"
-              dangerouslySetInnerHTML={{ __html: renderedFormula }}
-            />
-          );
+          let renderedFormula: string;
+          try {
+            renderedFormula = katex.renderToString(match[1], { displayMode: false });
+          } catch {
+            renderedFormula = '';
+          }
+          if (renderedFormula) {
+            parts.push(
+              <span
+                key={key++}
+                className="inline-block"
+                dangerouslySetInnerHTML={{ __html: renderedFormula }}
+              />
+            );
+          } else {
+            parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
+          }
         } else {
           parts.push(
             React.createElement(pattern.tag, { key: key++ }, match[1])
@@ -404,14 +422,23 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
 
     if (remaining) {
       if (autoDetectFormula && isLatexFormula(remaining)) {
-        const renderedFormula = katex.renderToString(remaining, { displayMode: false });
-        parts.push(
-          <span
-            key={key}
-            className="inline-block"
-            dangerouslySetInnerHTML={{ __html: renderedFormula }}
-          />
-        );
+        let renderedFormula: string;
+        try {
+          renderedFormula = katex.renderToString(remaining, { displayMode: false });
+        } catch {
+          renderedFormula = '';
+        }
+        if (renderedFormula) {
+          parts.push(
+            <span
+              key={key}
+              className="inline-block"
+              dangerouslySetInnerHTML={{ __html: renderedFormula }}
+            />
+          );
+        } else {
+          parts.push(<span key={key}>{remaining}</span>);
+        }
       } else {
         parts.push(<span key={key}>{remaining}</span>);
       }
@@ -489,15 +516,30 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
               </pre>
             );
           case 'math': {
-            const renderedFormula = katex.renderToString(block.content, { displayMode: true });
+            let renderedFormula: string;
+            try {
+              renderedFormula = katex.renderToString(block.content, { displayMode: true });
+            } catch {
+              renderedFormula = '';
+            }
+            if (renderedFormula) {
+              return (
+                <div
+                  key={block.id}
+                  className="my-4 text-center"
+                  dangerouslySetInnerHTML={{
+                    __html: renderedFormula,
+                  }}
+                />
+              );
+            }
             return (
               <div
                 key={block.id}
-                className="my-4 text-center"
-                dangerouslySetInnerHTML={{
-                  __html: renderedFormula,
-                }}
-              />
+                className="my-4 text-center text-gray-500 dark:text-gray-400"
+              >
+                {block.content}
+              </div>
             );
           }
           case 'mermaid':

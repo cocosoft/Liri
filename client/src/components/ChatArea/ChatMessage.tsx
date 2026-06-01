@@ -5,6 +5,7 @@ import ThinkingBlock from './ThinkingBlock';
 import StatusBlock from './StatusBlock';
 import ToolCallBlock from './ToolCallBlock';
 import ToolExecutionGroup from './ToolExecutionGroup';
+import ToolResultMessage from './ToolResultMessage';
 import { knowledgeService } from '../../services/knowledgeService';
 import { useConfigStore } from '../../stores/configStore';
 
@@ -30,6 +31,7 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   const configTheme = useConfigStore((s) => s.config.theme);
   const isDark = configTheme === 'dark';
   const isUser = message.role === 'user';
+  const isTool = message.role === 'tool';
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -131,6 +133,8 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
             <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
               {message.content}
             </div>
+          ) : isTool ? (
+            <ToolResultMessage message={message} />
           ) : (
             <AssistantMessage
               message={message}
@@ -274,31 +278,47 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
 }
 
 function AssistantMessage({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
-  if (message.blocks && message.blocks.length > 0) {
-    const renderedContent = renderBlocksWithGroups(message.blocks, isStreaming);
-    return (
-      <div className="text-sm break-words max-w-none space-y-3">
-        {renderedContent}
-      </div>
-    );
-  }
+  // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
+  const blocks = message.blocks && message.blocks.length > 0
+    ? message.blocks
+    : buildFallbackBlocks(message);
 
+  const renderedContent = renderBlocksWithGroups(blocks, isStreaming);
   return (
     <div className="text-sm break-words max-w-none space-y-3">
-      <MarkdownRenderer content={message.content} isStreaming={isStreaming} />
-      {message.tool_calls && message.tool_calls.length > 0 && (
-        <div className="space-y-2">
-          {message.tool_calls.map((tc) => (
-            <ToolCallBlock
-              key={tc.id}
-              toolCall={tc}
-              isStreaming={isStreaming}
-            />
-          ))}
-        </div>
-      )}
+      {renderedContent}
     </div>
   );
+}
+
+/**
+ * 当消息没有 blocks 时，从 content 和 tool_calls 重建
+ */
+function buildFallbackBlocks(message: Message): MessageBlock[] {
+  const newBlocks: MessageBlock[] = [];
+
+  if (message.content) {
+    newBlocks.push({
+      id: 'fb_text_' + message.id,
+      type: 'text',
+      content: message.content,
+      isStreaming: false,
+    });
+  }
+
+  if (message.tool_calls && message.tool_calls.length > 0) {
+    message.tool_calls.forEach((tc) => {
+      newBlocks.push({
+        id: 'fb_tc_' + tc.id,
+        type: 'tool_call',
+        content: '',
+        toolCall: tc,
+        isStreaming: false,
+      });
+    });
+  }
+
+  return newBlocks;
 }
 
 /**
@@ -309,7 +329,7 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
 }
 
 /**
- * 将 blocks 中的连续工具相关 blocks 组合成 ToolExecutionGroup
+ * 将 blocks 中的连续工具相关 blocks 按 toolCallId 分组成 ToolExecutionGroup
  */
 function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): React.ReactNode[] {
   const result: React.ReactNode[] = [];
@@ -331,9 +351,19 @@ function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): 
     }
 
     const toolBlocks: MessageBlock[] = [];
+    let lastToolCallId: string | undefined;
 
     while (i < blocks.length && isToolRelatedBlock(blocks[i])) {
-      toolBlocks.push(blocks[i]);
+      const currentBlock = blocks[i];
+
+      if (currentBlock.type === 'tool_call' && currentBlock.toolCall?.id) {
+        if (lastToolCallId && currentBlock.toolCall.id !== lastToolCallId) {
+          break;
+        }
+        lastToolCallId = currentBlock.toolCall.id;
+      }
+
+      toolBlocks.push(currentBlock);
       i++;
     }
 

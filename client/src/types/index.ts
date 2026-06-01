@@ -8,12 +8,13 @@ export interface Session {
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   timestamp: number;
   session_id: string;
   tool_calls?: ToolCall[];
   blocks?: MessageBlock[];
+  toolCallId?: string;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -31,6 +32,7 @@ export interface MessageBlock {
   toolCall?: ToolCall;
   status?: string;
   isStreaming?: boolean;
+  toolCallId?: string;
 }
 
 export interface Tool {

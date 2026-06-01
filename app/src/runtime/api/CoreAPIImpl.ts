@@ -51,6 +51,7 @@ import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetect
 import type { ChatManager } from '@modules/chat/ChatManager';
 import { createChatManager } from '@modules/chat/ChatManager';
 import type { SessionManager } from '@modules/chat/types/session';
+import type { UnifiedMessage } from '@modules/session/types/Message';
 import type { ToolManager } from '@modules/tools/core/ToolManager';
 import { globalToolManager } from '@modules/tools/core/ToolManager';
 import type { Coordinator } from '@modules/core/Coordinator';
@@ -247,46 +248,49 @@ export class CoreAPIImpl implements CoreAPI {
             `[CoreAPIImpl] onToolCall triggered: phase=${phase}, tool=${toolName}, id=${toolCallId}, detail=${detail}`
           );
           if (phase === 'start') {
+            let toolArgs: Record<string, unknown> = {};
+            try {
+              toolArgs = JSON.parse(detail || '{}');
+            } catch {
+              // detail might not be valid JSON, use empty object
+            }
+
             pendingEvents.push({
               type: 'status',
               content: `🔧 Running tool: ${toolName}`,
               sessionId: finalSessionId,
             } as ChatStreamChunk);
-            if (detail && detail.length > 0) {
-              pendingEvents.push({
-                type: 'status',
-                content: `   └─ 参数: ${detail}`,
-                sessionId: finalSessionId,
-              } as ChatStreamChunk);
-            }
+
+            pendingEvents.push({
+              type: 'tool_call',
+              content: '',
+              sessionId: finalSessionId,
+              toolCall: {
+                id: toolCallId,
+                name: toolName,
+                arguments: toolArgs,
+                status: 'running' as const,
+              },
+            } as ChatStreamChunk);
           } else {
-            if (detail && detail.includes('失败')) {
-              pendingEvents.push({
-                type: 'status',
-                content: `❌ Tool ${toolName} failed`,
-                sessionId: finalSessionId,
-              } as ChatStreamChunk);
-              if (detail.length > 0) {
-                pendingEvents.push({
-                  type: 'status',
-                  content: `   └─ ${detail}`,
-                  sessionId: finalSessionId,
-                } as ChatStreamChunk);
-              }
-            } else {
-              pendingEvents.push({
-                type: 'status',
-                content: `✅ Tool ${toolName} completed successfully`,
-                sessionId: finalSessionId,
-              } as ChatStreamChunk);
-              if (detail && detail.length > 0 && !detail.includes('成功:')) {
-                pendingEvents.push({
-                  type: 'status',
-                  content: `   └─ ${detail}`,
-                  sessionId: finalSessionId,
-                } as ChatStreamChunk);
-              }
-            }
+            const isFailed = detail ? detail.includes('失败') : false;
+            pendingEvents.push({
+              type: 'status',
+              content: isFailed ? `❌ Tool ${toolName} failed` : `✅ Tool ${toolName} completed`,
+              sessionId: finalSessionId,
+            } as ChatStreamChunk);
+
+            pendingEvents.push({
+              type: 'tool_call',
+              content: '',
+              sessionId: finalSessionId,
+              toolCall: {
+                id: toolCallId,
+                name: toolName,
+                arguments: {},
+                status: isFailed ? ('failed' as const) : ('completed' as const),
+              },
+            } as ChatStreamChunk);
           }
         },
       });
@@ -331,36 +335,6 @@ export class CoreAPIImpl implements CoreAPI {
                 .join('');
 
         fullContent = finalContent || fullContent;
-
-        const toolCalls = (finalMessage as any).tool_calls;
-        if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
-          for (const tc of toolCalls) {
-            const fn = tc.function || tc;
-            const toolName = fn.name || '';
-            const toolArgs =
-              typeof fn.arguments === 'string'
-                ? JSON.parse(fn.arguments || '{}')
-                : fn.arguments || {};
-
-            yield {
-              type: 'status',
-              content: `📦 Tool result: ${toolName} — ${toolArgs && typeof toolArgs === 'object' ? JSON.stringify(toolArgs).slice(0, 80) : ''}`,
-              sessionId: finalSessionId,
-            } as ChatStreamChunk;
-
-            yield {
-              type: 'tool_call',
-              content: '',
-              sessionId: finalSessionId,
-              toolCall: {
-                id: tc.id || `tc_${Date.now()}`,
-                name: toolName,
-                arguments: toolArgs,
-                status: 'completed',
-              },
-            } as ChatStreamChunk;
-          }
-        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -506,29 +480,76 @@ export class CoreAPIImpl implements CoreAPI {
       content: string;
       timestamp: number;
       tool_calls?: Array<Record<string, unknown>>;
+      toolCallId?: string;
+      blocks?: Array<Record<string, unknown>>;
     }>
   > {
+    // 优先从持久化存储读取，确保 blocks 完整
+    try {
+      const gateway = this.chatManager.getSessionGateway();
+      if (gateway) {
+        const storedMessages = await gateway.getMessages(sessionId);
+        if (storedMessages && storedMessages.length > 0) {
+          return storedMessages.map((m: UnifiedMessage) => ({
+            id: m.id,
+            role: m.role.toLowerCase(),
+            content: typeof m.content === 'string' ? m.content : '',
+            timestamp: m.timestamp,
+            tool_calls: m.metadata?.tool_calls as Array<Record<string, unknown>> | undefined,
+            toolCallId: m.metadata?.toolCallId as string | undefined,
+            blocks: m.blocks as Array<Record<string, unknown>> | undefined,
+          }));
+        }
+      }
+    } catch {
+      // 持久化读取失败，降级到内存缓存
+    }
+
+    // fallback: 从内存缓存读取
     const session = this.sessionManager.getSession(sessionId);
     if (!session) {
       return [];
     }
 
-    return (session.messages || []).map((msg) => ({
-      id: msg.id,
-      role: msg.role.toLowerCase(),
-      content:
-        typeof msg.content === 'string'
-          ? msg.content
-          : Array.isArray(msg.content)
-            ? msg.content
-                .filter((b) => b.type === 'text')
-                .map((b) => (b as unknown as { type: 'text'; text: string }).text)
-                .join('')
-            : '',
-      timestamp:
-        msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
-      tool_calls: msg.tool_calls as Array<Record<string, unknown>> | undefined,
-    }));
+    return (session.messages || []).map((msg) => {
+      let content: string;
+      if (typeof msg.content === 'string') {
+        content = msg.content;
+      } else if (Array.isArray(msg.content)) {
+        const textBlocks = msg.content.filter((b) => b.type === 'text');
+        if (textBlocks.length > 0) {
+          content = textBlocks.map((b) => (b as unknown as { type: 'text'; text: string }).text).join('');
+        } else {
+          const toolResultBlock = msg.content.find((b) => b.type === 'tool_result');
+          if (toolResultBlock) {
+            content = (toolResultBlock as unknown as { type: 'tool_result'; content: string }).content || '';
+          } else {
+            content = '';
+          }
+        }
+      } else {
+        content = '';
+      }
+
+      return {
+        id: msg.id,
+        role: msg.role.toLowerCase(),
+        content,
+        timestamp:
+          msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
+        tool_calls: msg.tool_calls as Array<Record<string, unknown>> | undefined,
+        toolCallId: msg.toolCallId || (msg.metadata?.toolCallId as string | undefined),
+        blocks: msg.blocks,
+      };
+    });
+  }
+
+  async updateMessageBlocks(
+    sessionId: string,
+    messageId: string,
+    blocks: Array<Record<string, unknown>>
+  ): Promise<void> {
+    await this.chatManager.updateMessageBlocks(sessionId, messageId, blocks);
   }
 
   async listSessions(): Promise<SessionInfo[]> {
@@ -546,6 +567,10 @@ export class CoreAPIImpl implements CoreAPI {
 
   async deleteSession(sessionId: string): Promise<void> {
     this.sessionManager.deleteSession(sessionId);
+  }
+
+  async clearAllSessions(): Promise<void> {
+    await this.chatManager.clearAllSessions();
   }
 
   async switchSession(sessionId: string): Promise<void> {

@@ -87,7 +87,7 @@ import {
   SessionGateway,
   createSessionGateway,
 } from '@modules/session/SessionGateway';
-import type { UnifiedMessage } from '@modules/session/types/Message';
+import type { UnifiedMessage, FrontendMessageBlock, MessageMetadata } from '@modules/session/types/Message';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
 import { resolveProjectRoot } from '@modules/config/paths';
@@ -158,6 +158,11 @@ export interface ChatManager {
   deleteSession(sessionId: string): void;
 
   /**
+   * 清除所有会话
+   */
+  clearAllSessions(): Promise<void>;
+
+  /**
    * 保存会话
    * @param session 会话对象
    */
@@ -191,6 +196,18 @@ export interface ChatManager {
   getSessionMessages(sessionId: string): Message[];
 
   /**
+   * 更新消息的 blocks 结构
+   * @param sessionId 会话ID
+   * @param messageId 消息ID
+   * @param blocks blocks 结构
+   */
+  updateMessageBlocks(
+    sessionId: string,
+    messageId: string,
+    blocks: Array<Record<string, unknown>>
+  ): Promise<void>;
+
+  /**
    * 搜索消息
    * @param query 搜索查询
    * @param sessionId 会话ID（可选）
@@ -215,6 +232,12 @@ export interface ChatManager {
    * @returns 会话管理器
    */
   getSessionManager(): any;
+
+  /**
+   * 获取会话网关（持久化存储）
+   * @returns 会话网关
+   */
+  getSessionGateway(): SessionGateway;
 
   /**
    * 获取LLM客户端
@@ -585,12 +608,34 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 将 chat Message 持久化到 SessionGateway（FileSystemUnifiedStorage）
+   * 更新消息的 blocks 结构并持久化
+   * 使用 storage.updateMessage 按 ID 替换，避免重复追加
    */
-  private async persistMessage(
+  public async updateMessageBlocks(
     sessionId: string,
-    message: Message
+    messageId: string,
+    blocks: Array<Record<string, unknown>>
   ): Promise<void> {
+    const session = this._chatSessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const message = session.messages.find((m) => m.id === messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found`);
+    }
+
+    message.blocks = blocks;
+    session.updatedAt = new Date();
+    session.metadata.lastActivityAt = new Date();
+
+    const toolCalls = message.tool_calls || (message.metadata?.tool_calls as Array<Record<string, unknown>> | undefined);
+    const metadataObj: MessageMetadata = {
+      ...(message.metadata as MessageMetadata | undefined),
+      ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+      ...(toolCalls ? { tool_calls: toolCalls } : {}),
+    };
     const unifiedMessage: UnifiedMessage = {
       id: message.id,
       sessionId,
@@ -601,9 +646,41 @@ export class ChatManagerImpl implements ChatManager {
           ? message.content
           : JSON.stringify(message.content),
       timestamp: message.createdAt?.getTime() ?? Date.now(),
-      metadata: message.toolCallId
-        ? ({ toolCallId: message.toolCallId } as any)
-        : undefined,
+      metadata: metadataObj,
+      blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
+    };
+    try {
+      await this.sessionGateway.updateMessage(sessionId, messageId, unifiedMessage);
+    } catch {
+      // 更新失败不应影响主消息流
+    }
+  }
+
+  /**
+   * 将 chat Message 持久化到 SessionGateway（FileSystemUnifiedStorage）
+   */
+  private async persistMessage(
+    sessionId: string,
+    message: Message
+  ): Promise<void> {
+    const toolCalls = message.tool_calls || (message.metadata?.tool_calls as Array<Record<string, unknown>> | undefined);
+    const metadataObj: MessageMetadata = {
+      ...(message.metadata as MessageMetadata | undefined),
+      ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+      ...(toolCalls ? { tool_calls: toolCalls } : {}),
+    };
+    const unifiedMessage: UnifiedMessage = {
+      id: message.id,
+      sessionId,
+      type: this.toSessionMsgType(message),
+      role: message.role as unknown as SessionMessageRole,
+      content:
+        typeof message.content === 'string'
+          ? message.content
+          : JSON.stringify(message.content),
+      timestamp: message.createdAt?.getTime() ?? Date.now(),
+      metadata: metadataObj,
+      blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
     };
     try {
       await this.sessionGateway.sendMessage(sessionId, unifiedMessage);
@@ -614,12 +691,8 @@ export class ChatManagerImpl implements ChatManager {
 
   private toSessionMsgType(message: Message): SessionMessageType {
     if (message.role === MessageRole.USER) return SessionMessageType.USER;
-    if (message.role === MessageRole.ASSISTANT && message.tool_calls?.length)
-      return SessionMessageType.TOOL_USE;
-    if (message.role === MessageRole.ASSISTANT)
-      return SessionMessageType.ASSISTANT;
-    if (message.role === MessageRole.TOOL)
-      return SessionMessageType.TOOL_RESULT;
+    if (message.role === MessageRole.ASSISTANT) return SessionMessageType.ASSISTANT;
+    if (message.role === MessageRole.TOOL) return SessionMessageType.TOOL_RESULT;
     return SessionMessageType.SYSTEM;
   }
 
@@ -674,24 +747,41 @@ export class ChatManagerImpl implements ChatManager {
       for (const stored of storedSessions) {
         if (this._chatSessions.has(stored.id)) continue;
         const storedMessages = await this.sessionGateway.getMessages(stored.id);
-        const messages: Message[] = storedMessages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content:
-            typeof m.content === 'string'
-              ? m.content
-              : Array.isArray(m.content)
-                ? m.content
-                    .filter((b) => b.type === 'text')
-                    .map((b) => (b as { type: 'text'; text: string }).text)
-                    .join('')
-                : '',
-          createdAt: new Date(m.timestamp),
-          updatedAt: new Date(m.timestamp),
-          sessionId: stored.id,
-          toolCallId: m.metadata?.toolCallId,
-          metadata: m.metadata as Record<string, unknown> | undefined,
-        }));
+        const messages: Message[] = storedMessages.map((m) => {
+          let content: string;
+          if (typeof m.content === 'string') {
+            content = m.content;
+          } else if (Array.isArray(m.content)) {
+            const textBlocks = m.content.filter((b) => b.type === 'text');
+            if (textBlocks.length > 0) {
+              content = textBlocks.map((b) => (b as { type: 'text'; text: string }).text).join('');
+            } else {
+              const toolResultBlock = m.content.find((b) => b.type === 'tool_result');
+              content = toolResultBlock ? (toolResultBlock as { type: 'tool_result'; content: string }).content || '' : '';
+            }
+          } else {
+            content = '';
+          }
+
+          return {
+            id: m.id,
+            role: m.role,
+            content,
+            createdAt: new Date(m.timestamp),
+            updatedAt: new Date(m.timestamp),
+            sessionId: stored.id,
+            toolCallId: m.metadata?.toolCallId,
+            metadata: m.metadata as Record<string, unknown> | undefined,
+            blocks: m.blocks as unknown as Record<string, unknown>[] | undefined,
+            tool_calls: m.metadata?.tool_calls,
+          } as Message;
+        });
+        // 按消息 ID 去重（保留最后一份，它包含 blocks）
+        const dedupMap = new Map<string, Message>();
+        for (const msg of messages) {
+          dedupMap.set(msg.id, msg);
+        }
+        const dedupedMessages = Array.from(dedupMap.values());
         const chatSession: ChatSession = {
           id: stored.id,
           title: stored.title,
@@ -699,10 +789,10 @@ export class ChatManagerImpl implements ChatManager {
           metadata: {
             title: stored.title || '',
             ...stored.metadata,
-            totalMessages: messages.length,
+            totalMessages: dedupedMessages.length,
             lastActivityAt: new Date(stored.lastActivityAt),
           },
-          messages,
+          messages: dedupedMessages,
           createdAt: new Date(stored.createdAt),
           updatedAt: new Date(stored.updatedAt),
         };
@@ -2368,7 +2458,7 @@ export class ChatManagerImpl implements ChatManager {
       .createSession({
         id: session.id,
         title: params.title ?? session.title,
-        metadata: { sessionType: 'chat' as any },
+        metadata: {},
       })
       .catch((e) => {
         logger.error('Failed to persist session creation', {
@@ -2428,6 +2518,33 @@ export class ChatManagerImpl implements ChatManager {
     this._chatSessions.delete(sessionId);
     if (this._currentSessionId === sessionId) {
       this._currentSessionId = null;
+    }
+
+    // 同步删除持久化存储
+    this.sessionGateway.deleteSession(sessionId).catch((e) => {
+      logger.error('Failed to delete session from gateway', { error: String(e) });
+    });
+  }
+
+  /**
+   * 清除所有会话
+   */
+  async clearAllSessions(): Promise<void> {
+    const sessionIds = Array.from(this._chatSessions.keys());
+    for (const id of sessionIds) {
+      this.hookChainManager.execute('chat', {
+        event: 'chat.session-end',
+        data: { sessionId: id },
+        sessionId: id,
+      });
+    }
+    this._chatSessions.clear();
+    this._currentSessionId = null;
+
+    // 清理持久化存储
+    const storedSessions = await this.sessionGateway.listSessions();
+    for (const stored of storedSessions) {
+      await this.sessionGateway.deleteSession(stored.id).catch(() => {});
     }
   }
 
@@ -2511,6 +2628,14 @@ export class ChatManagerImpl implements ChatManager {
    */
   getStreamService(): StreamService {
     return this.streamService;
+  }
+
+  /**
+   * 获取会话网关（持久化存储）
+   * @returns 会话网关
+   */
+  getSessionGateway(): SessionGateway {
+    return this.sessionGateway;
   }
 
   /**

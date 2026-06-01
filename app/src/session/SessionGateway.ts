@@ -665,6 +665,17 @@ export class SessionGateway {
   }
 
   /**
+   * 更新消息（按 ID 替换，不追加）
+   */
+  async updateMessage(
+    sessionId: string,
+    messageId: string,
+    message: UnifiedMessage
+  ): Promise<void> {
+    await this.storage.updateMessage(sessionId, messageId, message);
+  }
+
+  /**
    * 加载Transcript
    */
   async loadTranscript(sessionId: string): Promise<Transcript | null> {

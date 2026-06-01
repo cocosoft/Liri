@@ -98,6 +98,24 @@ export interface MessageMetadata {
 }
 
 /**
+ * 前端消息块类型
+ */
+export interface FrontendMessageBlock {
+  id: string;
+  type: 'text' | 'thinking' | 'tool_call' | 'status';
+  content: string;
+  toolCall?: {
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    result?: unknown;
+    status?: 'running' | 'completed' | 'failed';
+  };
+  status?: string;
+  isStreaming?: boolean;
+}
+
+/**
  * 统一消息接口
  */
 export interface UnifiedMessage {
@@ -109,6 +127,7 @@ export interface UnifiedMessage {
   parentUuid?: string;
   timestamp: number;
   metadata?: MessageMetadata;
+  blocks?: FrontendMessageBlock[];
 }
 
 /**

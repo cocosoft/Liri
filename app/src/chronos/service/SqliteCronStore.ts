@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/config/paths';
 import { nextCronRunMs } from '../CronTasks';
 import type { ScheduledTask } from '../types';
 
@@ -62,7 +62,7 @@ export class SqliteCronStore {
   private dbPath: string;
 
   constructor(options: SqliteCronStoreOptions = {}) {
-    this.dbPath = options.dbPath ?? join(resolveDataDir(), 'py_copilot.db');
+    this.dbPath = options.dbPath ?? resolveDbPath();
   }
 
   async init(): Promise<void> {

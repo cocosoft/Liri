@@ -24,7 +24,7 @@ const SENSITIVE_PATHS = [
     severity: 'HIGH' as AuditSeverity,
   },
   {
-    path: 'data/oauth-tokens.json',
+    path: 'app/data/oauth-tokens.json',
     label: 'OAuth Token 存储',
     severity: 'HIGH' as AuditSeverity,
   },
@@ -101,9 +101,9 @@ function auditWorldWritableFiles(
   findings: SecurityAuditFinding[]
 ): void {
   const checkDirs = [
-    join(scanDir, 'config'),
-    join(scanDir, 'data'),
-    join(scanDir, 'configs'),
+    join(scanDir, 'app', 'config'),
+    join(scanDir, 'app', 'data'),
+    join(scanDir, 'app', 'configs'),
   ];
 
   for (const dir of checkDirs) {

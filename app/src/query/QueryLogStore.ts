@@ -8,7 +8,7 @@ import { Database } from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/config/paths';
 import type {
   QueryLogEntry,
   QueryLogFilter,
@@ -26,7 +26,7 @@ export class QueryLogStore {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = join(resolveDataDir(), 'query_logs.db')) {
+  constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 

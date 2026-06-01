@@ -10,7 +10,7 @@ import type {
   CronSchedule,
   CronJobFilter,
 } from '@modules/tasks/cron/types';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/config/paths';
 import { join } from 'path';
 
 const CRON_DATA_DIR = process.env.CRON_DATA_DIR || '';
@@ -19,7 +19,7 @@ function getStorePath(): string {
   if (CRON_DATA_DIR) {
     return `${CRON_DATA_DIR}/cron.db`;
   }
-  return join(resolveDataDir(), 'cron.db');
+  return resolveDbPath();
 }
 
 let storeInstance: CronJobStore | null = null;

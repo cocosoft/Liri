@@ -10,6 +10,7 @@ import type {
   DEFAULT_SUGGESTION_CONFIG,
 } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDbPath } from '@modules/config/paths';
 
 /**
  * PromptSuggestion数据库存储实现
@@ -18,7 +19,7 @@ export class PromptSuggestionDatabase {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
+  constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 

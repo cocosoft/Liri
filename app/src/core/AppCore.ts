@@ -473,11 +473,19 @@ export class AppCore {
 
     try {
       const { SessionFactory } = await import('../session/SessionFactory.js');
-      const { FileSystemStorage } =
-        await import('../session/storage/FileSystemStorage.js');
+      const { UnifiedStorageAdapter } =
+        await import('../session/storage/UnifiedStorageAdapter.js');
+      const { FileSystemUnifiedStorage } =
+        await import('../session/storage/FileSystemUnifiedStorage.js');
+      const { StorageType } = await import('../session/storage/UnifiedStorage.js');
 
       const storageDir = opts.storageDir ?? resolveSessionsDir();
-      const storage = new FileSystemStorage(storageDir);
+      const unifiedStorage = new FileSystemUnifiedStorage({
+        type: StorageType.FILESYSTEM,
+        basePath: storageDir,
+      });
+      await unifiedStorage.initialize();
+      const storage = new UnifiedStorageAdapter(unifiedStorage);
       this.sessionFactory = new SessionFactory(storage);
 
       if (opts.sessionId) {

@@ -5,6 +5,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 
 export interface HistoryOptions {
   maxItems?: number;
@@ -19,10 +20,7 @@ export class CommandHistory {
   constructor(options?: HistoryOptions) {
     this.options = {
       maxItems: 1000,
-      historyFile: join(
-        process.env.HOME || process.env.USERPROFILE || '',
-        '.pyapp_history'
-      ),
+      historyFile: join(resolvePyappHome(), 'history'),
       ...options,
     };
     this.historyFile = this.options.historyFile!;

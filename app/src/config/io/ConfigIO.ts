@@ -1,12 +1,11 @@
 /**
  * ConfigIO 配置读写管理
- * 对标 CC 的配置 I/O 机制
  * 提供文件锁、原子写入等 I/O 安全机制
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -269,10 +268,7 @@ export class ConfigIO {
       },
       {
         scope: 'local',
-        path: path.join(
-          process.env.LIRI_PROJECT_DIR || process.cwd(),
-          '.pyapp.local.json'
-        ),
+        path: path.join(resolveProjectRoot(), '.pyapp.local.json'),
         priority: 30,
         format: 'json',
         exists: false,

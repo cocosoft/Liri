@@ -4,6 +4,7 @@
  * 支持 LRU 淘汰、TTL 过期、磁盘持久化和下载即缓存
  */
 
+import { resolveDataSubDir } from '@modules/config/paths';
 import {
   mkdir,
   readFile,
@@ -70,7 +71,7 @@ export interface MediaCacheConfig {
 
 /** 默认配置 */
 const DEFAULT_CONFIG: Required<MediaCacheConfig> = {
-  cacheDir: 'data/cache/media',
+  cacheDir: resolveDataSubDir('cache/media'),
   maxDiskBytes: 500 * 1024 * 1024,
   maxMemoryItems: 100,
   defaultTTL: 24 * 60 * 60 * 1000,

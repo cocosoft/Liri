@@ -3,6 +3,8 @@
  * 对标 CC 的日志配置管理机制
  */
 
+import { resolveLogsDir } from '@modules/config/paths';
+import { join } from 'path';
 import { LogLevel } from '../Logger.js';
 
 /**
@@ -59,7 +61,7 @@ export class LogConfigManager {
         {
           type: 'file',
           level: LogLevel.DEBUG,
-          path: 'data/logs/app.log',
+          path: join(resolveLogsDir(), 'app.log'),
           format: 'json',
           maxSize: 10485760,
           maxFiles: 5,

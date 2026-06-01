@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Database } from 'sqlite3';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/config/paths';
 
 const logger = new Logger();
 
@@ -92,7 +92,7 @@ export class CostRecordRepository {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
+  constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 

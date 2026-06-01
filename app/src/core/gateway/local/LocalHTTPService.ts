@@ -16,6 +16,8 @@ import { attachmentManager } from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
 import { getMonitoringService } from '@modules/monitoring/MonitoringService';
+import { analyticsService } from '@modules/analytics/AnalyticsService';
+import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitorService';
 import type {
   ChatRequest,
   ChatStreamChunk,
@@ -467,6 +469,10 @@ export class LocalHTTPService {
         url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
       );
     }
+    if (req.method === 'PUT' && url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)) {
+      const match = url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/);
+      return this.handleUpdateMessageBlocks(req, res, match![1], match![2]);
+    }
     if (req.method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
       return this.handleGetSession(
         req,
@@ -501,6 +507,9 @@ export class LocalHTTPService {
         res,
         url.match(/^\/v1\/sessions\/(.+)$/)![1]
       );
+    }
+    if (req.method === 'DELETE' && url === '/v1/sessions') {
+      return this.handleClearAllSessions(req, res);
     }
 
     // ---- Tools ----
@@ -889,6 +898,11 @@ export class LocalHTTPService {
       return this.handleHealthReport(req, res);
     }
 
+    // ---- Analytics ----
+    if (req.method === 'GET' && url === '/v1/analytics/dashboard') {
+      return this.handleAnalyticsDashboard(req, res);
+    }
+
     // ---- Cost ----
     if (req.method === 'GET' && url === '/api/cost/summary') {
       return this.handleCostSummary(req, res);
@@ -1109,12 +1123,64 @@ export class LocalHTTPService {
       const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
       const memoryPercent = totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
 
+      // 收集磁盘信息
+      let diskTotalGB = 0, diskFreeGB = 0, diskUsedGB = 0, diskUsagePercent = 0;
+      try {
+        if (process.platform === 'win32') {
+          const { execSync } = require('child_process');
+          const output = execSync('wmic logicaldisk where DriveType=3 get Size,FreeSpace', { encoding: 'utf8', timeout: 3000 });
+          const lines = output.trim().split('\n').slice(1);
+          for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 2) {
+              const size = parseFloat(parts[0]);
+              const free = parseFloat(parts[1]);
+              if (!isNaN(size) && !isNaN(free)) {
+                diskTotalGB += size;
+                diskFreeGB += free;
+              }
+            }
+          }
+        } else {
+          const { execSync } = require('child_process');
+          const output = execSync('df -k --total 2>/dev/null || df -k', { encoding: 'utf8', timeout: 3000 });
+          const lines = output.trim().split('\n').slice(1);
+          for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 4 && parts[0] !== 'total') {
+              const total = parseFloat(parts[1]) * 1024;
+              const available = parseFloat(parts[3]) * 1024;
+              if (!isNaN(total) && !isNaN(available)) {
+                diskTotalGB += total;
+                diskFreeGB += available;
+              }
+            }
+          }
+        }
+        diskUsedGB = diskTotalGB - diskFreeGB;
+        diskUsagePercent = diskTotalGB > 0 ? Math.round((diskUsedGB / diskTotalGB) * 100) : 0;
+        diskTotalGB = Math.round(diskTotalGB / (1024 * 1024 * 1024) * 100) / 100;
+        diskFreeGB = Math.round(diskFreeGB / (1024 * 1024 * 1024) * 100) / 100;
+        diskUsedGB = Math.round(diskUsedGB / (1024 * 1024 * 1024) * 100) / 100;
+      } catch {
+        // 磁盘信息不可用时静默处理
+      }
+
+      const loadAverage = status.loadAverage.length > 0
+        ? status.loadAverage.map(l => Math.round(l * 100) / 100)
+        : [];
+
       const summary = {
         uptime: Math.floor(status.uptime),
         cpuPercent,
         memoryPercent,
         memoryUsedMB: rssMB,
         memoryTotalMB: totalMemMB,
+        diskTotalGB,
+        diskUsedGB,
+        diskFreeGB,
+        diskUsagePercent,
+        loadAverage,
         requestCount: 0,
         errorCount: 0,
         avgResponseTime: 0,
@@ -1131,6 +1197,11 @@ export class LocalHTTPService {
           memoryPercent: 0,
           memoryUsedMB: 0,
           memoryTotalMB: 0,
+          diskTotalGB: 0,
+          diskUsedGB: 0,
+          diskFreeGB: 0,
+          diskUsagePercent: 0,
+          loadAverage: [],
           requestCount: 0,
           errorCount: 0,
           avgResponseTime: 0,
@@ -1327,6 +1398,137 @@ export class LocalHTTPService {
           timestamp: Date.now(),
         })
       );
+    }
+  }
+
+  /**
+   * 处理分析面板请求 GET /v1/analytics/dashboard
+   * 返回 Token 用量、工具调用、错误分析、性能指标等聚合数据
+   */
+  private async handleAnalyticsDashboard(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const events = analyticsService.getEvents();
+      const stats = analyticsService.getStats();
+
+      // 按事件类型分类
+      const toolEvents = events.filter((e: any) => e.type === 'tool_call');
+      const errorEvents = events.filter((e: any) => e.type === 'error');
+      const perfEvents = events.filter((e: any) => e.type === 'performance');
+      const llmEvents = events.filter((e: any) => e.type === 'llm_request');
+
+      // 工具调用统计
+      const toolCounts = new Map<string, number>();
+      for (const e of toolEvents) {
+        const evt = e as Record<string, unknown>;
+        const name = (evt.metadata as Record<string, unknown>)?.toolName as string || evt.name as string || 'unknown';
+        toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
+      }
+      const topTools = Array.from(toolCounts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // 错误统计
+      const errorTypeCounts = new Map<string, number>();
+      for (const e of errorEvents) {
+        const evt = e as Record<string, unknown>;
+        const errType = (evt.metadata as Record<string, unknown>)?.errorType as string || evt.name as string || 'unknown';
+        errorTypeCounts.set(errType, (errorTypeCounts.get(errType) || 0) + 1);
+      }
+      const topErrors = Array.from(errorTypeCounts.entries())
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // 性能百分位延迟
+      const latencies = perfEvents
+        .map((e: any) => e.metadata?.metricValue)
+        .filter((v: any) => typeof v === 'number' && v > 0)
+        .sort((a: number, b: number) => a - b);
+
+      const calcPercentile = (sorted: number[], p: number): number => {
+        if (sorted.length === 0) return 0;
+        const idx = Math.ceil((p / 100) * sorted.length) - 1;
+        return Math.round(sorted[Math.max(0, Math.min(idx, sorted.length - 1))] * 100) / 100;
+      };
+
+      // 从 PerformanceMonitorService 补充延迟数据
+      const perfService = PerformanceMonitorService.getInstance();
+      const allPerfMetrics = perfService.getAllMetrics();
+      const perfDurations = allPerfMetrics
+        .map(m => m.duration)
+        .filter(d => d > 0)
+        .sort((a, b) => a - b);
+
+      if (perfDurations.length > 0) {
+        latencies.push(...perfDurations);
+        latencies.sort((a, b) => a - b);
+      }
+
+      // 从 costTracker 获取 Token 用量
+      const modelUsage = costTracker.getModelUsage();
+      let totalInputTokens = 0, totalOutputTokens = 0, totalCostUSD = 0;
+      for (const usage of Object.values(modelUsage)) {
+        totalInputTokens += usage.inputTokens;
+        totalOutputTokens += usage.outputTokens;
+        totalCostUSD += usage.costUSD;
+      }
+
+      const dashboardData = {
+        tokens: {
+          totalInputTokens,
+          totalOutputTokens,
+          totalTokens: totalInputTokens + totalOutputTokens,
+          totalLLMRequests: llmEvents.length,
+        },
+        tools: {
+          totalToolCalls: toolEvents.length,
+          uniqueToolsUsed: toolCounts.size,
+          topTools,
+        },
+        errors: {
+          totalErrors: errorEvents.length,
+          errorRate: events.length > 0
+            ? Math.round((errorEvents.length / events.length) * 10000) / 100
+            : 0,
+          topErrors,
+        },
+        performance: {
+          averageLatencyMs: latencies.length > 0
+            ? Math.round((latencies.reduce((a, b) => a + b, 0) / latencies.length) * 100) / 100
+            : 0,
+          p50LatencyMs: calcPercentile(latencies, 50),
+          p95LatencyMs: calcPercentile(latencies, 95),
+          p99LatencyMs: calcPercentile(latencies, 99),
+          totalMetrics: latencies.length,
+        },
+        cost: {
+          totalCostUSD: Math.round(totalCostUSD * 10000) / 10000,
+        },
+        session: {
+          totalEvents: stats.totalEvents,
+          totalSessions: stats.totalSessions,
+          activeSessions: stats.activeSessions,
+        },
+        generatedAt: Date.now(),
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(dashboardData));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        tokens: { totalInputTokens: 0, totalOutputTokens: 0, totalTokens: 0, totalLLMRequests: 0 },
+        tools: { totalToolCalls: 0, uniqueToolsUsed: 0, topTools: [] },
+        errors: { totalErrors: 0, errorRate: 0, topErrors: [] },
+        performance: { averageLatencyMs: 0, p50LatencyMs: 0, p95LatencyMs: 0, p99LatencyMs: 0, totalMetrics: 0 },
+        cost: { totalCostUSD: 0 },
+        session: { totalEvents: 0, totalSessions: 0, activeSessions: 0 },
+        generatedAt: Date.now(),
+      }));
     }
   }
 
@@ -1980,6 +2182,7 @@ export class LocalHTTPService {
               created,
               model,
               __pyapp_type: 'tool_call',
+              __pyapp_tool_status: chunk.toolCall.status || 'running',
               choices: [
                 {
                   index: 0,
@@ -2152,6 +2355,30 @@ export class LocalHTTPService {
   }
 
   /**
+   * 处理更新消息 blocks 请求
+   */
+  private async handleUpdateMessageBlocks(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string,
+    messageId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const data = JSON.parse(body);
+      const blocks = data.blocks || [];
+
+      const coreAPI = getCoreAPI();
+      await coreAPI.updateMessageBlocks(sessionId, messageId, blocks);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
    * 处理删除会话请求
    */
   private async handleDeleteSession(
@@ -2165,6 +2392,24 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
       this.broadcastEvent('session:deleted', { id: sessionId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理清除所有会话请求
+   */
+  private async handleClearAllSessions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const coreAPI = getCoreAPI();
+      await coreAPI.clearAllSessions();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+      this.broadcastEvent('session:cleared', {});
     } catch (err) {
       this.sendError(res, err);
     }
@@ -4619,29 +4864,12 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { resolvePyappHome, getUserDataDirOverride, resolveProjectRoot } =
+      const { resolvePyappHome, getUserDataDirOverride } =
         await import('@modules/config/paths');
-      const { homedir } = await import('node:os');
-      const { join } = await import('node:path');
 
       const currentDir = resolvePyappHome();
       const configuredDir = getUserDataDirOverride();
-      // 计算默认目录：与 resolvePyappHome() 的默认算法一致
-      // 优先使用项目目录下的 app/data/pyapp/，若不可写则回退到 ~/.pyapp/
-      const projectDataDir = join(resolveProjectRoot(), 'app', 'data', 'pyapp');
-      const { existsSync, mkdirSync, writeFileSync, unlinkSync } =
-        await import('node:fs');
-      let defaultDir = projectDataDir;
-      try {
-        if (!existsSync(projectDataDir)) {
-          mkdirSync(projectDataDir, { recursive: true });
-        }
-        const testFile = join(projectDataDir, '.write_test');
-        writeFileSync(testFile, '');
-        unlinkSync(testFile);
-      } catch {
-        defaultDir = join(homedir(), '.pyapp');
-      }
+      const defaultDir = resolvePyappHome();
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(

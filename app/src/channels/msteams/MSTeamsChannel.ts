@@ -13,6 +13,9 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import path from 'node:path';
+import { resolveDataDir } from '@modules/config/paths';
 
 const MICROSOFT_LOGIN_BASE = 'https://login.microsoftonline.com';
 const BOT_FRAMEWORK_BASE = 'https://smba.trafficmanager.net/amer';
@@ -183,13 +186,8 @@ class ConversationStore {
   }
 
   private getStorePath(): string {
-    const { app } =
-      (require('electron') as {
-        app?: { getPath: (name: string) => string };
-      }) || {};
-    const basePath = app?.getPath('userData') || process.cwd();
     const path = require('node:path') as typeof import('node:path');
-    return path.join(basePath, 'data', 'msteams-conversations.json');
+    return path.join(resolveDataDir(), 'msteams-conversations.json');
   }
 
   private async persist(): Promise<void> {

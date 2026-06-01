@@ -2,8 +2,7 @@
  * 环境变量工具函数
  */
 
-import { homedir } from 'os';
-import { join } from 'path';
+import { resolvePyappHome } from '@modules/config/paths';
 
 /**
  * 检查环境变量是否为真值
@@ -40,7 +39,8 @@ export function isProdMode(): boolean {
 
 /**
  * 获取配置文件的主目录
+ * 委托给 paths.ts 的统一路径管理
  */
 export function getConfigHomeDir(): string {
-  return join(homedir(), '.pyapp');
+  return resolvePyappHome();
 }

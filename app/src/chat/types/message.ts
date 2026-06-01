@@ -428,6 +428,11 @@ export interface Message {
   tool_calls?: Array<Record<string, unknown>>;
 
   /**
+   * 前端消息块结构（用于分组渲染 text/thinking/tool_call/status）
+   */
+  blocks?: Array<Record<string, unknown>>;
+
+  /**
    * 会话ID
    */
   sessionId?: string;

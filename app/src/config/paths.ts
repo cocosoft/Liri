@@ -411,6 +411,11 @@ export function resolveTempDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolvePyappHome(env), 'temp');
 }
 
+/** 用户下载目录（~/.pyapp/downloads/）—— AI 从互联网下载的材料的存放位置 */
+export function resolveDownloadsDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolvePyappHome(env), 'downloads');
+}
+
 /** 首次运行标记文件路径（app/data/.onboarded） */
 export function resolveOnboardedFlagPath(
   env: NodeJS.ProcessEnv = process.env
@@ -463,6 +468,9 @@ export function ensureDataDirectories(
   // 临时目录也加入创建列表
   dirs.push(resolveTempDir(env));
 
+  // 下载目录
+  dirs.push(resolveDownloadsDir(env));
+
   for (const dir of dirs) {
     ensureDir(dir);
   }
@@ -500,6 +508,7 @@ export const USER_ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const OUTPUT_DIR = resolveOutputDir();
 export const TEMP_DIR = resolveTempDir();
+export const DOWNLOADS_DIR = resolveDownloadsDir();
 export const DOCS_DIR = resolveDocsDir();
 export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
 /** @deprecated 使用 resolveConfigDir() 或 CONFIG_DIR */

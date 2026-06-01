@@ -45,7 +45,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { resolveProjectRoot, resolveDataDir, resolveOnboardedFlagPath } from '@modules/config/paths';
+import { resolveProjectRoot, resolveDataDir, resolveOnboardedFlagPath, resolveOutputDir, resolveDownloadsDir, ensureDataDirectories } from '@modules/config/paths';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -587,6 +587,21 @@ export async function main(): Promise<void> {
   if (projectDir) {
     process.env.LIRI_PROJECT_DIR = projectDir;
   }
+
+  // 统一工作目录到项目根路径
+  // 避免 tools（Bash/Glob/Grep 等）使用 process.cwd() 时指向 app/ 子目录
+  process.chdir(resolveProjectRoot());
+
+  // 设置 AI 生成文件的专用输出目录
+  // AI 通过 Bash/write_to_file 等工具生成的文件应写到此目录
+  process.env.OUTPUT_DIR = resolveOutputDir();
+
+  // 设置 AI 下载材料的存放目录
+  // AI 的 WebFetch/WebSearch 等工具下载的文件应存到此目录
+  process.env.DOWNLOADS_DIR = resolveDownloadsDir();
+
+  // 确保所有依赖路径的目录结构存在
+  ensureDataDirectories();
 
   let mode: LaunchMode;
   let args: string[];

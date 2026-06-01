@@ -81,7 +81,6 @@ export class SkillManager {
 
   constructor() {
     // 技能目录
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     this.skillsDir = resolveUserSkillsDir();
     this.builtinSkillsDir = path.join(
       resolveProjectRoot(),

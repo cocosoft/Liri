@@ -71,6 +71,7 @@ export interface ToolCallSpec {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  status?: 'running' | 'completed' | 'failed';
 }
 
 /** 工具执行结果 */
@@ -184,14 +185,25 @@ export interface CoreAPI {
       content: string;
       timestamp: number;
       tool_calls?: Array<Record<string, unknown>>;
+      blocks?: Array<Record<string, unknown>>;
     }>
   >;
+
+  /** 更新消息的 blocks 结构 */
+  updateMessageBlocks(
+    sessionId: string,
+    messageId: string,
+    blocks: Array<Record<string, unknown>>
+  ): Promise<void>;
 
   /** 列出所有会话 */
   listSessions(): Promise<SessionInfo[]>;
 
   /** 删除会话 */
   deleteSession(sessionId: string): Promise<void>;
+
+  /** 清除所有会话 */
+  clearAllSessions(): Promise<void>;
 
   /** 切换当前会话 */
   switchSession(sessionId: string): Promise<void>;

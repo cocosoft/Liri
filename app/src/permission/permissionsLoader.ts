@@ -62,7 +62,6 @@ export function loadPermissionsFromSettings(
 export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
   let context = getEmptyToolPermissionContext();
 
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
   const userSettings = path.join(resolvePyappHome(), 'settings.json');
   const projectSettings = path.join(
     resolveDataDir(),

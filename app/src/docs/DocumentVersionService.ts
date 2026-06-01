@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveDataSubDir } from '@modules/config/paths';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -79,7 +80,7 @@ export interface DocumentVersionConfig {
  * 默认配置
  */
 const DEFAULT_CONFIG: DocumentVersionConfig = {
-  storageDir: 'data/document_versions',
+  storageDir: resolveDataSubDir('document_versions'),
   maxVersions: 100,
   enableCompression: false,
   enableChecksum: true,

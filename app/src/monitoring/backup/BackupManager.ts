@@ -17,7 +17,7 @@ import {
 } from 'fs';
 import { join, basename, dirname, resolve, extname } from 'path';
 
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir, resolveDbPath } from '@modules/config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -473,16 +473,8 @@ export function createDefaultBackupManager(backupDir?: string): BackupManager {
 
   manager.registerDatabases([
     {
-      name: 'py_copilot',
-      dbPath: join(resolveDataDir(), 'py_copilot.db'),
-    },
-    {
-      name: 'sessions',
-      dbPath: join(resolveDataDir(), 'sessions.db'),
-    },
-    {
-      name: 'query_logs',
-      dbPath: join(resolveDataDir(), 'query_logs.db'),
+      name: 'app',
+      dbPath: resolveDbPath(),
     },
   ]);
 

@@ -2,7 +2,7 @@ import { join } from 'path';
 import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { DatabaseError } from '@modules/error';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/config/paths';
 import { SCHEMA, FTS5_SCHEMA, TABLE_NAMES } from './schema';
 import type { TaskState } from '../types';
 import type {
@@ -106,7 +106,7 @@ export class SqliteTaskStore implements ITaskStore {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
+  constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 

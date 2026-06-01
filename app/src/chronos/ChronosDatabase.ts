@@ -7,7 +7,7 @@ import type {
   TaskStatus,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/config/paths';
 
 /**
  * Chronos数据库存储实现
@@ -28,7 +28,7 @@ export class ChronosDatabase {
    * 构造函数
    * @param dbPath 数据库文件路径
    */
-  constructor(dbPath: string = join(resolveDataDir(), 'py_copilot.db')) {
+  constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 

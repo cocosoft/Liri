@@ -32,7 +32,7 @@ function matchesFilter(
 }
 
 function sessionDir(basePath: string, sessionId: string): string {
-  return path.join(basePath, 'sessions', sessionId);
+  return path.join(basePath, sessionId);
 }
 
 function sessionFilePath(basePath: string, sessionId: string): string {
@@ -59,7 +59,6 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
   async initialize(): Promise<void> {
     await fs.mkdir(this.basePath, { recursive: true });
-    await fs.mkdir(path.join(this.basePath, 'sessions'), { recursive: true });
     await this.loadAllSessions();
     this.initialized = true;
   }
@@ -71,10 +70,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   private async loadAllSessions(): Promise<void> {
-    const sessionsDir = path.join(this.basePath, 'sessions');
     let entries: Dirent[];
     try {
-      entries = await fs.readdir(sessionsDir, { withFileTypes: true });
+      entries = await fs.readdir(this.basePath, { withFileTypes: true });
     } catch {
       return;
     }

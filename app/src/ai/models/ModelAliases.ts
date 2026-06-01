@@ -2,16 +2,16 @@
  * 模型别名定义
  */
 
+import { ALL_MODEL_CONFIGS, getModelKeyByName } from './ModelConfigs.js';
+
 /**
  * 模型别名列表
  */
 export const MODEL_ALIASES = [
-  'sonnet',
-  'opus',
-  'haiku',
   'best',
-  'sonnet[1m]',
-  'opus[1m]',
+  'fast',
+  'pro',
+  'flash',
 ] as const;
 
 /**
@@ -22,7 +22,7 @@ export type ModelAlias = (typeof MODEL_ALIASES)[number];
 /**
  * 模型家族别名列表
  */
-export const MODEL_FAMILY_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
+export const MODEL_FAMILY_ALIASES = ['best', 'fast'] as const;
 
 /**
  * 模型家族别名类型
@@ -54,39 +54,32 @@ export function isModelFamilyAlias(model: string): boolean {
  */
 export function parseModelAlias(alias: ModelAlias): string {
   switch (alias) {
-    case 'sonnet':
-      return 'claude-sonnet-4-6';
-    case 'opus':
-      return 'claude-opus-4-6';
-    case 'haiku':
-      return 'claude-haiku-4-5-20251001';
     case 'best':
-      return 'claude-opus-4-6';
-    case 'sonnet[1m]':
-      return 'claude-sonnet-4-6';
-    case 'opus[1m]':
-      return 'claude-opus-4-6';
+      return 'deepseek-chat';
+    case 'fast':
+      return 'deepseek-v4-flash';
+    case 'pro':
+      return 'deepseek-v4-pro';
+    case 'flash':
+      return 'deepseek-v4-flash';
     default:
       return alias;
   }
 }
 
 /**
- * 获取模型家族
+ * 获取模型家族（基于提供商关键词匹配）
  * @param modelName 模型名称
  * @returns 模型家族
  */
 export function getModelFamily(modelName: string): ModelFamilyAlias | null {
   const lowerModel = modelName.toLowerCase();
 
-  if (lowerModel.includes('opus')) {
-    return 'opus';
+  if (lowerModel.includes('pro') || lowerModel.includes('reasoner')) {
+    return 'best';
   }
-  if (lowerModel.includes('sonnet')) {
-    return 'sonnet';
-  }
-  if (lowerModel.includes('haiku')) {
-    return 'haiku';
+  if (lowerModel.includes('flash') || lowerModel.includes('mini') || lowerModel.includes('turbo')) {
+    return 'fast';
   }
 
   return null;
@@ -94,12 +87,23 @@ export function getModelFamily(modelName: string): ModelFamilyAlias | null {
 
 /**
  * 检查模型是否支持1M上下文
+ * 优先从 ModelConfig 的 extendedContextWindows 读取，回退到旧版字符串匹配
  * @param modelName 模型名称
  * @returns 是否支持1M上下文
  */
 export function supports1MContext(modelName: string): boolean {
   const lowerModel = modelName.toLowerCase();
-  return lowerModel.includes('opus-4') || lowerModel.includes('sonnet-4');
+  if (!lowerModel.includes('opus-4') && !lowerModel.includes('sonnet-4')) {
+    return false;
+  }
+  const modelKey = getModelKeyByName(modelName);
+  if (modelKey) {
+    const config = ALL_MODEL_CONFIGS[modelKey];
+    if (config.extendedContextWindows) {
+      return config.extendedContextWindows.some((w) => w.suffix === '1m');
+    }
+  }
+  return true;
 }
 
 /**

@@ -19,6 +19,11 @@ import {
   type APIProvider,
   type ModelKey,
 } from './ModelConfigs.js';
+import { ModelRegistry } from './ModelRegistry.js';
+import {
+  ModelSelectionStrategy,
+  getModelSelectionStrategy,
+} from './ModelSelectionStrategy.js';
 
 /**
  * 用户订阅类型
@@ -48,19 +53,18 @@ export class ModelManager {
   private static instance: ModelManager;
   private config: ModelManagerConfig;
   private modelStrings: Record<ModelKey, string>;
+  private strategy: ModelSelectionStrategy;
 
   private constructor(config: Partial<ModelManagerConfig> = {}) {
     this.config = {
-      provider: config.provider || 'firstParty',
+      provider: config.provider || 'deepseek',
       subscriptionType: config.subscriptionType || 'free',
       enable1MContext: config.enable1MContext || false,
     };
     this.modelStrings = this.initializeModelStrings();
+    this.strategy = getModelSelectionStrategy(this.config.provider);
   }
 
-  /**
-   * 获取单例实例
-   */
   static getInstance(config?: Partial<ModelManagerConfig>): ModelManager {
     if (!ModelManager.instance) {
       ModelManager.instance = new ModelManager(config);
@@ -68,9 +72,6 @@ export class ModelManager {
     return ModelManager.instance;
   }
 
-  /**
-   * 初始化模型字符串
-   */
   private initializeModelStrings(): Record<ModelKey, string> {
     const strings: Record<ModelKey, string> = {} as Record<ModelKey, string>;
     for (const key of Object.keys(ALL_MODEL_CONFIGS) as ModelKey[]) {
@@ -79,79 +80,41 @@ export class ModelManager {
     return strings;
   }
 
-  /**
-   * 更新配置
-   */
   updateConfig(config: Partial<ModelManagerConfig>): void {
     this.config = { ...this.config, ...config };
     this.modelStrings = this.initializeModelStrings();
+    this.strategy = getModelSelectionStrategy(this.config.provider);
   }
 
-  /**
-   * 获取默认Opus模型
-   */
-  getDefaultOpusModel(): string {
-    if (process.env.ANTHROPIC_DEFAULT_OPUS_MODEL) {
-      return process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
-    }
-    return this.modelStrings.opus46;
-  }
-
-  /**
-   * 获取默认Sonnet模型
-   */
-  getDefaultSonnetModel(): string {
-    if (process.env.ANTHROPIC_DEFAULT_SONNET_MODEL) {
-      return process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
-    }
-    return this.modelStrings.sonnet46;
-  }
-
-  /**
-   * 获取默认Haiku模型
-   */
-  getDefaultHaikuModel(): string {
-    if (process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL) {
-      return process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
-    }
-    return this.modelStrings.haiku45;
-  }
-
-  /**
-   * 获取最佳模型
-   */
   getBestModel(): string {
-    return this.getDefaultOpusModel();
+    return this.strategy.getBestModel();
   }
 
-  /**
-   * 获取小型快速模型
-   */
   getSmallFastModel(): string {
-    return (
-      process.env.ANTHROPIC_SMALL_FAST_MODEL || this.getDefaultHaikuModel()
-    );
+    return this.strategy.getSmallFastModel();
   }
 
-  /**
-   * 获取默认主循环模型
-   */
   getDefaultMainLoopModel(): string {
     if (this.config.modelOverride) {
       return this.parseModel(this.config.modelOverride);
     }
+    return this.strategy.getDefaultMainLoopModel(this.config);
+  }
 
-    if (
-      this.config.subscriptionType === 'max' ||
-      this.config.subscriptionType === 'team_premium'
-    ) {
-      const opusModel = this.getDefaultOpusModel();
-      return this.config.enable1MContext && supports1MContext(opusModel)
-        ? `${opusModel}[1m]`
-        : opusModel;
-    }
+  getDefaultModel(): string {
+    return this.strategy.getDefaultModel();
+  }
 
-    return this.getDefaultSonnetModel();
+  getDefaultOpusModel(): string {
+    return process.env.ANTHROPIC_DEFAULT_OPUS_MODEL || this.modelStrings.opus46;
+  }
+
+  getDefaultSonnetModel(): string {
+    return process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || this.modelStrings.sonnet46;
+  }
+
+  getDefaultHaikuModel(): string {
+    return process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || this.modelStrings.haiku45;
   }
 
   /**
@@ -174,8 +137,13 @@ export class ModelManager {
 
   /**
    * 获取模型显示名称
+   * 优先从 ModelRegistry（用户配置/运行时发现）查询，回退到内置配置
    */
   getModelDisplayName(modelName: string): string {
+    const registry = ModelRegistry.getInstance();
+    const model = registry.getModel(modelName);
+    if (model) return model.displayName;
+
     const modelKey = getModelKeyByName(modelName);
     if (modelKey) {
       return ALL_MODEL_CONFIGS[modelKey].displayName;
@@ -187,6 +155,10 @@ export class ModelManager {
    * 获取模型上下文窗口大小
    */
   getModelContextWindow(modelName: string): number {
+    const registry = ModelRegistry.getInstance();
+    const model = registry.getModel(modelName);
+    if (model) return model.contextWindow;
+
     const modelKey = getModelKeyByName(modelName);
     if (modelKey) {
       return ALL_MODEL_CONFIGS[modelKey].contextWindow;
@@ -207,10 +179,15 @@ export class ModelManager {
 
   /**
    * 获取模型定价信息
+   * 优先从 ModelRegistry（用户覆盖/社区同步）查询，回退到内置配置
    */
   getModelPricing(
     modelName: string
   ): { inputPer1M: number; outputPer1M: number } | null {
+    const registry = ModelRegistry.getInstance();
+    const userPricing = registry.getModelPricing(modelName);
+    if (userPricing) return userPricing;
+
     const modelKey = getModelKeyByName(modelName);
     if (modelKey) {
       return ALL_MODEL_CONFIGS[modelKey].pricing || null;
@@ -238,9 +215,13 @@ export class ModelManager {
 
   /**
    * 获取所有可用模型
+   * 合并 ModelRegistry（用户配置/运行时发现）和内置模型
    */
   getAvailableModels(): string[] {
-    return Object.values(this.modelStrings).filter((s) => s.length > 0);
+    const registry = ModelRegistry.getInstance();
+    const registryModels = registry.getAllModels().map(m => m.firstParty).filter(Boolean);
+    const builtinModels = Object.values(this.modelStrings).filter((s) => s.length > 0);
+    return Array.from(new Set([...builtinModels, ...registryModels]));
   }
 
   /**
@@ -252,23 +233,68 @@ export class ModelManager {
 
   /**
    * 获取模型信息列表（供命令层展示）
+   * 合并 ModelRegistry 和内置模型
    */
   getModelInfoList(): Array<{ id: string; name: string; description: string }> {
-    const modelKeys = Object.keys(ALL_MODEL_CONFIGS) as ModelKey[];
-    return modelKeys
-      .filter((key) => ALL_MODEL_CONFIGS[key].firstParty.length > 0)
-      .map((key) => {
-        const config = ALL_MODEL_CONFIGS[key];
-        const id = config.firstParty;
-        const pricing = config.pricing
-          ? `(输入: $${config.pricing.inputPer1M}/1M, 输出: $${config.pricing.outputPer1M}/1M)`
-          : '';
-        return {
-          id,
-          name: config.displayName,
-          description: `${config.contextWindow.toLocaleString()} tokens 上下文, 最大输出 ${config.maxOutputTokens.toLocaleString()} tokens ${pricing}`,
-        };
+    const registry = ModelRegistry.getInstance();
+    const seen = new Set<string>();
+    const result: Array<{ id: string; name: string; description: string }> = [];
+
+    // 先添加 ModelRegistry 中的用户模型/运行时发现模型
+    for (const model of registry.getAllModels()) {
+      const id = model.firstParty;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const pricing = model.pricing
+        ? `(输入: $${model.pricing.inputPer1M}/1M, 输出: $${model.pricing.outputPer1M}/1M)`
+        : '';
+      result.push({
+        id,
+        name: model.displayName,
+        description: `${(model.contextWindow ?? 200000).toLocaleString()} tokens 上下文, 最大输出 ${(model.maxOutputTokens ?? 4096).toLocaleString()} tokens ${pricing}`,
       });
+    }
+
+    // 再添加内置模型中未出现的
+    const modelKeys = Object.keys(ALL_MODEL_CONFIGS) as ModelKey[];
+    for (const key of modelKeys) {
+      const config = ALL_MODEL_CONFIGS[key];
+      const id = config.firstParty;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const pricing = config.pricing
+        ? `(输入: $${config.pricing.inputPer1M}/1M, 输出: $${config.pricing.outputPer1M}/1M)`
+        : '';
+      result.push({
+        id,
+        name: config.displayName,
+        description: `${config.contextWindow.toLocaleString()} tokens 上下文, 最大输出 ${config.maxOutputTokens.toLocaleString()} tokens ${pricing}`,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * 获取配置中的降级模型
+   * 当主力模型不可用时自动回退
+   */
+  getFallbackModel(): string {
+    const fallback = process.env.Liri_FALLBACK_MODEL;
+    if (fallback) return fallback;
+    return this.getSmallFastModel();
+  }
+
+  /**
+   * 获取带降级的模型
+   * 如果后续检测到主力不可用，可以调用此方法获取备用
+   */
+  getModelWithFallback(primary?: string): { primary: string; fallback: string } {
+    const main = primary || this.getDefaultMainLoopModel();
+    return {
+      primary: main,
+      fallback: this.getFallbackModel(),
+    };
   }
 
   /**
@@ -301,17 +327,24 @@ export class ModelManager {
   }
 
   /**
-   * 检查模型是否有效（在配置中存在或为有效别名）
+   * 检查模型是否有效（在 ModelRegistry 或内置配置中存在，或为有效别名）
    */
   isValidModel(modelName: string): boolean {
-    if (getModelKeyByName(modelName)) {
-      return true;
-    }
+    const registry = ModelRegistry.getInstance();
+    if (registry.getModel(modelName)) return true;
+    if (getModelKeyByName(modelName)) return true;
+
     const lower = modelName.toLowerCase();
-    if (isModelAlias(lower)) {
-      return true;
-    }
+    if (isModelAlias(lower)) return true;
+
     return false;
+  }
+
+  /**
+   * 获取 ModelRegistry 实例（供外部使用）
+   */
+  getModelRegistry(): ModelRegistry {
+    return ModelRegistry.getInstance();
   }
 
   /**

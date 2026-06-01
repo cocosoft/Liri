@@ -22,6 +22,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -59,13 +60,18 @@ export class VertexAIProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('vertex-ai');
+
     this.projectId = (config.projectId ||
       process.env.GOOGLE_PROJECT_ID ||
       '') as string;
-    this.region = (config.region ||
+    this.region = (providerCfg?.baseUrl?.includes('region') ? providerCfg.baseUrl.split('.')[0] : '') ||
+      (config.region as string) ||
       process.env.GOOGLE_REGION ||
-      DEFAULT_REGION) as string;
-    this.defaultModel = (config.model ||
+      DEFAULT_REGION;
+    this.defaultModel = (providerCfg?.models?.[0] ||
+      config.model ||
       process.env.VERTEX_AI_MODEL ||
       'gemini-2.0-flash') as string;
     this.timeout =

@@ -4,6 +4,7 @@ import type {
   FlowConfigProvider,
   FlowOption,
 } from './types.js';
+import { modelManager } from '@modules/ai/models/ModelManager';
 
 export type ModelCatalogEntry = {
   id: string;
@@ -22,121 +23,63 @@ export type ModelPickerOptions = {
   filter?: (entry: ModelCatalogEntry) => boolean;
 };
 
-const DEFAULT_MODEL_CATALOG: ModelCatalogEntry[] = [
-  {
-    id: 'gpt-4o',
-    provider: 'openai',
-    name: 'GPT-4o',
-    contextWindow: 128000,
-    capabilities: ['text', 'vision'],
-  },
-  {
-    id: 'gpt-4o-mini',
-    provider: 'openai',
-    name: 'GPT-4o Mini',
-    contextWindow: 128000,
-    capabilities: ['text', 'vision'],
-  },
-  {
-    id: 'gpt-4-turbo',
-    provider: 'openai',
-    name: 'GPT-4 Turbo',
-    contextWindow: 128000,
-    capabilities: ['text', 'vision'],
-  },
-  {
-    id: 'claude-sonnet-4-20250514',
-    provider: 'anthropic',
-    name: 'Claude Sonnet 4',
-    contextWindow: 200000,
-    capabilities: ['text', 'vision'],
-  },
-  {
-    id: 'claude-haiku-3-5',
-    provider: 'anthropic',
-    name: 'Claude Haiku 3.5',
-    contextWindow: 200000,
-    capabilities: ['text', 'vision'],
-  },
-  {
-    id: 'gemini-2.0-flash',
-    provider: 'google',
-    name: 'Gemini 2.0 Flash',
-    contextWindow: 1000000,
-    capabilities: ['text', 'vision', 'audio'],
-  },
-  {
-    id: 'gemini-1.5-pro',
-    provider: 'google',
-    name: 'Gemini 1.5 Pro',
-    contextWindow: 2000000,
-    capabilities: ['text', 'vision', 'audio'],
-  },
-  {
-    id: 'deepseek-chat',
-    provider: 'deepseek',
-    name: 'DeepSeek Chat',
-    contextWindow: 64000,
-    capabilities: ['text'],
-  },
-  {
-    id: 'deepseek-reasoner',
-    provider: 'deepseek',
-    name: 'DeepSeek Reasoner',
-    contextWindow: 64000,
-    capabilities: ['text'],
-  },
-  {
-    id: 'llama-3.1-70b',
-    provider: 'meta',
-    name: 'Llama 3.1 70B',
-    contextWindow: 128000,
-    capabilities: ['text'],
-  },
-  {
-    id: 'llama-3.1-405b',
-    provider: 'meta',
-    name: 'Llama 3.1 405B',
-    contextWindow: 128000,
-    capabilities: ['text'],
-  },
-  {
-    id: 'mistral-large',
-    provider: 'mistral',
-    name: 'Mistral Large',
-    contextWindow: 128000,
-    capabilities: ['text'],
-  },
-  {
-    id: 'command-r-plus',
-    provider: 'cohere',
-    name: 'Command R+',
-    contextWindow: 128000,
-    capabilities: ['text'],
-  },
-];
-
-const modelCatalog: Map<string, ModelCatalogEntry> = new Map();
-
-for (const entry of DEFAULT_MODEL_CATALOG) {
-  modelCatalog.set(entry.id, entry);
-}
-
 /**
- * 向目录注册模型。
+ * 从 ModelManager 动态加载模型目录
  */
-export function registerModel(entry: ModelCatalogEntry): void {
-  modelCatalog.set(entry.id, entry);
-}
-
-/**
- * 批量注册模型。
- */
-export function registerModels(entries: ModelCatalogEntry[]): void {
-  for (const entry of entries) {
-    registerModel(entry);
+function loadModelCatalog(): Map<string, ModelCatalogEntry> {
+  const catalog = new Map<string, ModelCatalogEntry>();
+  try {
+    const registry = modelManager.getModelRegistry();
+    // 如果注册表为空，自动加载默认模型（测试等无启动流程的场景）
+    if (registry.getAllModels().length === 0) {
+      registry.loadDefaultModels();
+    }
+    const models = modelManager.getModelInfoList();
+    for (const info of models) {
+      const provider = extractProviderFromId(info.id);
+      catalog.set(info.id, {
+        id: info.id,
+        provider,
+        name: info.name,
+        contextWindow: parseContextWindow(info.description),
+        capabilities: ['text'],
+      });
+    }
+  } catch {
+    // ModelManager 不可用时使用空目录
   }
+  return catalog;
 }
+
+/**
+ * 从模型 ID 推断提供商
+ */
+function extractProviderFromId(modelId: string): string {
+  const lower = modelId.toLowerCase();
+  if (lower.startsWith('claude-') || lower.includes('opus') || lower.includes('sonnet') || lower.includes('haiku')) return 'anthropic';
+  if (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'openai';
+  if (lower.startsWith('gemini-')) return 'google';
+  if (lower.includes('deepseek')) return 'deepseek';
+  if (lower.includes('llama')) return 'meta';
+  if (lower.includes('mistral')) return 'mistral';
+  if (lower.includes('command')) return 'cohere';
+  if (lower.includes('moonshot')) return 'moonshot';
+  if (lower.includes('grok')) return 'grok';
+  return 'other';
+}
+
+/**
+ * 从描述文本解析上下文窗口大小
+ */
+function parseContextWindow(description: string): number {
+  const match = description.match(/([\d,]+)\s*tokens/);
+  if (match) {
+    return parseInt(match[1].replace(/,/g, ''), 10);
+  }
+  return 200000;
+}
+
+const modelCatalog: Map<string, ModelCatalogEntry> = loadModelCatalog();
 
 /**
  * 根据 ID 获取模型信息。

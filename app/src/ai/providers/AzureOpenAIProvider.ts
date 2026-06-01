@@ -13,6 +13,8 @@ import type {
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 export class AzureOpenAIProvider implements AIProvider {
   readonly id = 'azure-openai';
@@ -21,8 +23,12 @@ export class AzureOpenAIProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('azure-openai');
+
     this.config = {
       apiVersion: '2024-02-15-preview',
+      ...(providerCfg ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey } : {}),
       ...config,
     };
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());

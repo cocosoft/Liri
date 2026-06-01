@@ -447,6 +447,28 @@ export class LocalHTTPService {
     if (req.method === 'PUT' && url.match(/^\/v1\/models\/([^/]+)$/)) {
       return this.handleUpdateModel(req, res, url.match(/^\/v1\/models\/([^/]+)$/)![1]);
     }
+    if (req.method === 'POST' && url === '/v1/models/test') {
+      return this.handleTestModel(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/models/pricing/sync') {
+      return this.handleSyncPricing(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/models/current') {
+      return this.handleGetCurrentModel(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/models/switch') {
+      return this.handleSwitchModel(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/models/tasks') {
+      return this.handleGetTasks(req, res);
+    }
+    if (req.method === 'PUT' && url === '/v1/models/tasks') {
+      return this.handleSaveTasks(req, res);
+    }
+
+    if (req.method === 'POST' && url === '/v1/config/reload') {
+      return this.handleConfigReload(req, res);
+    }
 
     if (req.method === 'POST' && url === '/v1/chat/completions') {
       return this.handleChatCompletions(req, res);
@@ -1799,24 +1821,27 @@ export class LocalHTTPService {
   }
 
   /**
+   * 根据模型ID推断供应商
+   */
+  private inferProviderFromModelId(modelId: string): string {
+    const id = modelId.toLowerCase();
+    if (id.startsWith('deepseek-')) return 'deepseek';
+    if (id.startsWith('gpt-')) return 'openai';
+    if (id.startsWith('gemini-')) return 'google';
+    if (id.startsWith('qwen-')) return 'qwen';
+    if (id.startsWith('llama')) return 'ollama';
+    if (id.includes('-ollama')) return 'ollama';
+    if (id.startsWith('claude-')) return 'anthropic';
+    return 'unknown';
+  }
+
+  /**
    * 处理模型列表请求
    */
   private handleListModels(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): void {
-    const providerDisplayMap: Record<string, string> = {
-      firstParty: 'anthropic',
-      openai: 'openai',
-      deepseek: 'deepseek',
-      google: 'google',
-      ollama: 'ollama',
-      grok: 'grok',
-      moonshot: 'moonshot',
-    };
-
-    const providerPriority = ['firstParty', 'openai', 'deepseek', 'google', 'ollama', 'grok', 'moonshot'];
-
     const models: Array<{
       id: string;
       name: string;
@@ -1827,15 +1852,7 @@ export class LocalHTTPService {
     }> = [];
 
     for (const [key, config] of Object.entries(ALL_MODEL_CONFIGS)) {
-      let primaryProvider = 'unknown';
-      for (const p of providerPriority) {
-        if ((config as any)[p]) {
-          primaryProvider = providerDisplayMap[p] || p;
-          break;
-        }
-      }
-
-      const modelId = (config as any).firstParty || (config as any).openai || key;
+      const modelId = (config as any).deepseek || (config as any).firstParty || (config as any).openai || key;
 
       if (this.deletedModelIds.has(modelId)) continue;
 
@@ -1846,7 +1863,7 @@ export class LocalHTTPService {
       models.push({
         id: modelId,
         name: config.displayName,
-        provider: primaryProvider,
+        provider: this.inferProviderFromModelId(modelId),
         type: 'chat',
         context_length: config.contextWindow,
         enabled,
@@ -1917,6 +1934,184 @@ export class LocalHTTPService {
         }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理连接测试请求
+   */
+  private async handleTestModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { providerId, modelId } = JSON.parse(body);
+      if (!providerId || !modelId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Missing providerId or modelId' }));
+        return;
+      }
+
+      const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry');
+      const provider = providerRegistry.get(providerId);
+      if (!provider) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: `Provider '${providerId}' not found` }));
+        return;
+      }
+
+      const response = await provider.chat(
+        [{ role: 'user', content: 'Hi' }],
+        { model: modelId, maxTokens: 10 }
+      );
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, content: response.content?.slice(0, 100) }));
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
+
+  /**
+   * 处理定价同步请求
+   */
+  private async handleSyncPricing(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { ModelRegistry } = await import('@modules/ai/models/ModelRegistry');
+      const body = req.method === 'POST' ? await this.readRequestBody(req).catch(() => '{}') : '{}';
+      const { source } = JSON.parse(body);
+      const registry = ModelRegistry.getInstance();
+      const count = await registry.syncPricing(source || undefined);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, count }));
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
+
+  /**
+   * 处理配置热重载请求
+   */
+  private async handleConfigReload(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { ModelRegistry } = await import('@modules/ai/models/ModelRegistry');
+      const registry = ModelRegistry.getInstance();
+      registry.loadDefaultModels();
+      registry.loadUserConfigs();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
+
+  /**
+   * 获取当前模型状态
+   */
+  private async handleGetCurrentModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const envModel = process.env.Liri_MODEL || 'deepseek-chat';
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        modelId: envModel,
+        provider: 'anthropic',
+        taskType: 'chat',
+        costThisSession: 0,
+        availableTasks: [
+          { type: 'chat', label: '对话', icon: '💬' },
+          { type: 'coding', label: '编程', icon: '💻' },
+          { type: 'translation', label: '翻译', icon: '🌐' },
+          { type: 'quick', label: '快速', icon: '⚡' },
+        ],
+      }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 切换当前模型
+   */
+  private async handleSwitchModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { modelId } = JSON.parse(body);
+      if (modelId) {
+        process.env.Liri_MODEL = modelId;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, modelId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 获取任务分工策略
+   */
+  private async handleGetTasks(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const tasks = {
+        chat: process.env.Liri_TASK_CHAT || 'deepseek-chat',
+        coding: process.env.Liri_TASK_CODING || 'deepseek-v4-pro',
+        translation: process.env.Liri_TASK_TRANSLATION || 'gpt-4o-mini',
+        quick: process.env.Liri_TASK_QUICK || 'deepseek-v4-flash',
+        embedding: process.env.Liri_TASK_EMBEDDING || 'deepseek-chat',
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(tasks));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 保存任务分工策略
+   */
+  private async handleSaveTasks(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const tasks = JSON.parse(body);
+      if (tasks.chat) process.env.Liri_TASK_CHAT = tasks.chat;
+      if (tasks.coding) process.env.Liri_TASK_CODING = tasks.coding;
+      if (tasks.translation) process.env.Liri_TASK_TRANSLATION = tasks.translation;
+      if (tasks.quick) process.env.Liri_TASK_QUICK = tasks.quick;
+      if (tasks.embedding) process.env.Liri_TASK_EMBEDDING = tasks.embedding;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
       this.sendError(res, err);

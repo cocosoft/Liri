@@ -1,0 +1,244 @@
+description: Liri 内置默认模型配置 - DeepSeek 为主，轻量覆盖
+models:
+  # ==================== DeepSeek（主力供应商） ====================
+  deepseek-chat:
+    capabilities:
+      - streaming
+      - function_calling
+      - thinking
+      - context_caching
+      - structured_output
+      - parallel_tool_calls
+    contextWindow: 128000
+    displayName: DeepSeek Chat
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 0.5
+      outputPer1M: 2
+    providers:
+      deepseek: deepseek-chat
+      firstParty: deepseek-chat
+  deepseek-reasoner:
+    capabilities:
+      - streaming
+      - thinking
+      - tool_use
+    contextWindow: 128000
+    displayName: DeepSeek Reasoner
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 0.55
+      outputPer1M: 2.19
+    providers:
+      deepseek: deepseek-reasoner
+      firstParty: deepseek-reasoner
+  deepseek-v4-pro:
+    capabilities:
+      - streaming
+      - function_calling
+      - thinking
+      - context_caching
+      - structured_output
+    contextWindow: 128000
+    displayName: DeepSeek V4 Pro
+    maxOutputTokens: 16384
+    pricing:
+      inputPer1M: 1
+      outputPer1M: 4
+    providers:
+      deepseek: deepseek-v4-pro
+      firstParty: deepseek-v4-pro
+  deepseek-v4-flash:
+    capabilities:
+      - streaming
+      - function_calling
+      - context_caching
+    contextWindow: 128000
+    displayName: DeepSeek V4 Flash
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 0.3
+      outputPer1M: 1.2
+    providers:
+      deepseek: deepseek-v4-flash
+      firstParty: deepseek-v4-flash
+
+  # ==================== OpenAI GPT 系列 ====================
+  gpt-4o:
+    capabilities:
+      - streaming
+      - function_calling
+      - vision
+      - tool_use
+      - structured_output
+      - image_input
+    contextWindow: 128000
+    displayName: GPT-4o
+    maxOutputTokens: 16384
+    pricing:
+      cacheReadPer1M: 1.25
+      cacheWritePer1M: 10
+      inputPer1M: 2.5
+      outputPer1M: 10
+    providers:
+      firstParty: gpt-4o
+      openai: gpt-4o
+  gpt-4o-mini:
+    capabilities:
+      - streaming
+      - function_calling
+      - vision
+      - tool_use
+      - structured_output
+      - image_input
+    contextWindow: 128000
+    displayName: GPT-4o Mini
+    maxOutputTokens: 16384
+    pricing:
+      cacheReadPer1M: 0.075
+      cacheWritePer1M: 0.6
+      inputPer1M: 0.15
+      outputPer1M: 0.6
+    providers:
+      firstParty: gpt-4o-mini
+      openai: gpt-4o-mini
+
+  # ==================== Google Gemini 系列 ====================
+  gemini-2.5-pro:
+    capabilities:
+      - streaming
+      - function_calling
+      - vision
+      - tool_use
+      - code_execution
+      - image_input
+      - audio_input
+      - pdf_input
+      - context_caching
+    contextWindow: 1048576
+    displayName: Gemini 2.5 Pro
+    maxOutputTokens: 65536
+    pricing:
+      inputPer1M: 1.25
+      outputPer1M: 10
+    providers:
+      firstParty: gemini-2.5-pro
+      google: gemini-2.5-pro
+  gemini-2.5-flash:
+    capabilities:
+      - streaming
+      - function_calling
+      - vision
+      - tool_use
+      - code_execution
+      - image_input
+      - audio_input
+      - pdf_input
+      - context_caching
+    contextWindow: 1048576
+    displayName: Gemini 2.5 Flash
+    maxOutputTokens: 65536
+    pricing:
+      inputPer1M: 0.15
+      outputPer1M: 0.6
+    providers:
+      firstParty: gemini-2.5-flash
+      google: gemini-2.5-flash
+
+  # ==================== 阿里千问 Qwen 系列 ====================
+  qwen-max:
+    capabilities:
+      - streaming
+      - function_calling
+      - vision
+      - tool_use
+      - image_input
+    contextWindow: 131072
+    displayName: Qwen Max
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 2
+      outputPer1M: 6
+    providers:
+      firstParty: qwen-max
+      openai: qwen-max
+  qwen-plus:
+    capabilities:
+      - streaming
+      - function_calling
+      - vision
+      - tool_use
+      - image_input
+    contextWindow: 131072
+    displayName: Qwen Plus
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 0.8
+      outputPer1M: 2
+    providers:
+      firstParty: qwen-plus
+      openai: qwen-plus
+  qwen-turbo:
+    capabilities:
+      - streaming
+      - function_calling
+      - tool_use
+    contextWindow: 131072
+    displayName: Qwen Turbo
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 0.3
+      outputPer1M: 0.6
+    providers:
+      firstParty: qwen-turbo
+      openai: qwen-turbo
+  qwen2.5-coder:
+    capabilities:
+      - streaming
+      - function_calling
+      - tool_use
+    contextWindow: 128000
+    displayName: Qwen 2.5 Coder
+    maxOutputTokens: 8192
+    pricing:
+      inputPer1M: 0.5
+      outputPer1M: 1.5
+    providers:
+      firstParty: qwen2.5-coder
+      openai: qwen2.5-coder
+
+  # ==================== Ollama 本地模型 ====================
+  ollama-llama3:
+    capabilities:
+      - streaming
+      - function_calling
+      - tool_use
+    contextWindow: 8192
+    displayName: Llama 3 (Ollama)
+    maxOutputTokens: 4096
+    providers:
+      firstParty: llama3
+      ollama: llama3
+  ollama-deepseek:
+    capabilities:
+      - streaming
+      - function_calling
+      - tool_use
+    contextWindow: 16384
+    displayName: DeepSeek (Ollama)
+    maxOutputTokens: 8192
+    providers:
+      firstParty: deepseek-ollama
+      ollama: deepseek-ollama
+  ollama-qwen:
+    capabilities:
+      - streaming
+      - function_calling
+      - tool_use
+    contextWindow: 16384
+    displayName: Qwen (Ollama)
+    maxOutputTokens: 8192
+    providers:
+      firstParty: qwen-ollama
+      ollama: qwen-ollama
+version: 1.0.0

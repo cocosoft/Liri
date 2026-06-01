@@ -57,7 +57,7 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
 }
 
 import { createAssistantMessage } from '../utils/messages';
-import { getMainLoopModel } from '../utils/model/model';
+import { modelManager } from '@modules/ai/models/ModelManager';
 import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '../utils/slowOperations';
 import { getErrorParts } from '../utils/toolErrors';
@@ -192,7 +192,7 @@ export async function startMCPServer(
         options: {
           commands: MCP_COMMANDS,
           tools,
-          mainLoopModel: getMainLoopModel(),
+          mainLoopModel: modelManager.getDefaultMainLoopModel(),
           thinkingConfig: { type: 'disabled' },
           mcpClients: [],
           mcpResources: {},

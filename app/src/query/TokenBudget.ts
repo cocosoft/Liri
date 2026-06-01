@@ -114,7 +114,7 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
         config.enableCompression !== undefined
           ? config.enableCompression
           : true,
-      modelName: config.modelName || 'claude-sonnet-4-6',
+      modelName: config.modelName || 'deepseek-chat',
     };
     this.currentUsage = 0;
     this.currentOutputUsage = 0;

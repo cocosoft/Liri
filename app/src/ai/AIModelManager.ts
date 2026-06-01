@@ -23,13 +23,10 @@ import { modelManager } from './models/ModelManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export const MODEL_ALIASES = [
-  'sonnet',
-  'opus',
-  'haiku',
   'best',
-  'sonnet[1m]',
-  'opus[1m]',
-  'opusplan',
+  'pro',
+  'flash',
+  'fast',
 ] as const;
 
 export type ModelAlias = (typeof MODEL_ALIASES)[number];

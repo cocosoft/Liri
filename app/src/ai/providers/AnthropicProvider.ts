@@ -21,6 +21,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AnthropicMessagesTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -41,9 +42,12 @@ export class AnthropicProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('anthropic');
+
     const apiKey =
-      (config.apiKey as string) || process.env.ANTHROPIC_API_KEY || '';
-    const baseUrl = (config.baseUrl as string) || 'https://api.anthropic.com';
+      providerCfg?.apiKey || (config.apiKey as string) || process.env.ANTHROPIC_API_KEY || '';
+    const baseUrl = (providerCfg?.baseUrl || config.baseUrl as string) || 'https://api.anthropic.com';
 
     this.config = {
       apiKey,

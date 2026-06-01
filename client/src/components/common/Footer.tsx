@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useBackendStore } from '../../stores/backendStore';
+import { useModelSwitchStore } from '../../stores/modelSwitchStore';
 import { monitorService, type MonitorSummary } from '../../services/monitorService';
 import { costService, type CostSummary } from '../../services/costService';
+import ModelSwitcher from '../modelAdmin/ModelSwitcher';
 
 function Footer() {
   const { status, checkStatus, startBackend, stopBackend, error } = useBackendStore();
+  const { currentModelId, loadCurrent } = useModelSwitchStore();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showModelSwitcher, setShowModelSwitcher] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [summary, setSummary] = useState<MonitorSummary | null>(null);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
@@ -15,6 +19,12 @@ function Footer() {
     const interval = setInterval(checkStatus, 5000);
     return () => clearInterval(interval);
   }, [checkStatus]);
+
+  useEffect(() => {
+    loadCurrent();
+    const interval = setInterval(loadCurrent, 10000);
+    return () => clearInterval(interval);
+  }, [loadCurrent]);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -127,6 +137,21 @@ function Footer() {
             <span className={`flex items-center gap-1 ${getPercentColor(summary.memoryPercent)}`}>
               🧠{summary.memoryPercent.toFixed(0)}%
             </span>
+          </>
+        )}
+
+        {status.running && (
+          <>
+            <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <button
+              onClick={() => setShowModelSwitcher(true)}
+              className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+              title="点击切换模型"
+            >
+              <span className="text-purple-500">🧠</span>
+              <span className="text-gray-700 dark:text-gray-300 font-medium">{currentModelId}</span>
+              <span className="text-gray-400">▼</span>
+            </button>
           </>
         )}
 
@@ -243,6 +268,7 @@ function Footer() {
           </div>
         </div>
       )}
+      {showModelSwitcher && <ModelSwitcher onClose={() => setShowModelSwitcher(false)} />}
     </footer>
   );
 }

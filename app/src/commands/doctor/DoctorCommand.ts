@@ -175,9 +175,9 @@ function checkModelStatus(report: DoctorReport): void {
     if (existsSync(modelsConfigPath)) {
       report.model.health = 'ok';
       report.model.models = [
-        'claude-sonnet-4-6',
-        'claude-opus-4-6',
         'deepseek-chat',
+        'deepseek-v4-pro',
+        'deepseek-v4-flash',
       ];
     } else {
       report.model.health = 'unavailable';

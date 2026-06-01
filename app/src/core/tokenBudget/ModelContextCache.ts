@@ -172,14 +172,11 @@ export class ModelContextCache {
   /** 从 PriceManager 发现已知模型的上下文窗口 */
   discoverFromPriceManager(): number {
     const models = [
-      'claude-sonnet-4-6',
-      'claude-opus-4-6',
-      'claude-haiku-4-5',
       'deepseek-chat',
       'deepseek-reasoner',
       'gpt-4o',
-      'gpt-4',
-      'gpt-3.5-turbo',
+      'gpt-4o-mini',
+      'gemini-2.5-flash',
     ];
     let count = 0;
     for (const model of models) {

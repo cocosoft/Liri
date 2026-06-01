@@ -13,6 +13,7 @@ import type {
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 export class MoonshotProvider implements AIProvider {
   readonly id = 'moonshot';
@@ -21,8 +22,12 @@ export class MoonshotProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('moonshot');
+
     this.config = {
       baseUrl: 'https://api.moonshot.cn/v1',
+      ...(providerCfg ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey } : {}),
       ...config,
     };
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());

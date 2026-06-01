@@ -18,6 +18,7 @@ import type {
 import { BedrockTransport } from '../transports/BedrockTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 export class BedrockProvider implements AIProvider {
   readonly id = 'bedrock';
@@ -26,8 +27,12 @@ export class BedrockProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('bedrock');
+
     this.config = {
       region: 'us-east-1',
+      ...(providerCfg ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey } : {}),
       ...config,
     };
     this.adapter = new TransportProviderAdapter(new BedrockTransport());

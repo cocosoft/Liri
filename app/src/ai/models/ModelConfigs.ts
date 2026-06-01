@@ -1,5 +1,8 @@
 /**
- * 模型配置定义
+ * 模型配置定义（纯类型 + 运行时代理）
+ *
+ * ALL_MODEL_CONFIGS 不再包含硬编码数据，
+ * 改为 Proxy 代理到 ModelRegistry（数据源为 YAML 文件）
  */
 
 import { ModelCapability } from './types.js';
@@ -20,7 +23,7 @@ export type APIProvider =
   | 'moonshot';
 
 /**
- * 模型配置
+ * 模型配置接口
  */
 export interface ModelConfig {
   firstParty: string;
@@ -40,1150 +43,94 @@ export interface ModelConfig {
   pricing?: {
     inputPer1M: number;
     outputPer1M: number;
+    cacheReadPer1M?: number;
+    cacheWritePer1M?: number;
   };
+  extendedContextWindows?: Array<{
+    suffix: string;
+    windowSize: number;
+  }>;
 }
 
 /**
- * 模型键类型
+ * 模型键类型（字符串，不再枚举）
  */
-export type ModelKey =
-  | 'opus46'
-  | 'opus45'
-  | 'opus41'
-  | 'opus40'
-  | 'sonnet46'
-  | 'sonnet45'
-  | 'sonnet41'
-  | 'sonnet40'
-  | 'sonnet35'
-  | 'haiku45'
-  | 'haiku35'
-  | 'haiku30'
-  | 'deepseekChat'
-  | 'deepseekReasoner'
-  | 'gpt4o'
-  | 'gpt4oMini'
-  | 'gpt4Turbo'
-  | 'gpt4'
-  | 'o1'
-  | 'o1Mini'
-  | 'o3Mini'
-  | 'gpt41Nano'
-  | 'gpt35Turbo'
-  | 'gemini25Pro'
-  | 'gemini25Flash'
-  | 'gemini20Flash'
-  | 'gemini20FlashLite'
-  | 'gemini15Pro'
-  | 'gemini15Flash'
-  | 'grok4'
-  | 'grok4Mini'
-  | 'grok3'
-  | 'grok3Mini'
-  | 'moonshot8k'
-  | 'moonshot32k'
-  | 'moonshot128k'
-  | 'ollamaLlama3'
-  | 'ollamaMistral'
-  | 'amazonNovaPro'
-  | 'amazonNovaLite';
+export type ModelKey = string;
+
+function _getRegistry(): any {
+  try {
+    const mod = (globalThis as any).__ModelRegistryModule
+      ?? (() => {
+        try {
+          return require('./ModelRegistry.js');
+        } catch {
+          return null;
+        }
+      })();
+    (globalThis as any).__ModelRegistryModule = mod;
+    return mod;
+  } catch {
+    return null;
+  }
+}
+
+function _getAllFromRegistry(): Record<string, ModelConfig> {
+  try {
+    const mod = _getRegistry();
+    if (mod?.ModelRegistry) {
+      const reg = mod.ModelRegistry.getInstance();
+      return reg.getAllModelsAsRecord();
+    }
+  } catch {
+    // ModelRegistry 不可用
+  }
+  return {};
+}
 
 /**
- * 所有模型配置
+ * ALL_MODEL_CONFIGS - 运行时模型配置集合
+ *
+ * 由 Proxy 代理到 ModelRegistry，数据源为 YAML 文件
+ * 支持 ALL_MODEL_CONFIGS[key] 的读写方式，保持向后兼容
+ *
+ * @deprecated 推荐使用 ModelRegistry.getInstance() 替代直接访问
  */
-export const ALL_MODEL_CONFIGS: Record<ModelKey, ModelConfig> = {
-  opus46: {
-    firstParty: 'claude-opus-4-6',
-    bedrock: 'us.anthropic.claude-opus-4-6-v1',
-    vertex: 'claude-opus-4-6',
-    azure: 'claude-opus-4-6',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Opus 4.6',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.EXTENDED_THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.COMPUTER_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 15,
-      outputPer1M: 75,
+export const ALL_MODEL_CONFIGS: Record<ModelKey, ModelConfig> = new Proxy(
+  {} as Record<ModelKey, ModelConfig>,
+  {
+    get(_target, prop: string | symbol): any {
+      if (typeof prop === 'string' && prop !== 'then' && prop !== 'toJSON') {
+        const data = _getAllFromRegistry();
+        return data[prop];
+      }
+      return undefined;
     },
-  },
-  opus45: {
-    firstParty: 'claude-opus-4-5-20251101',
-    bedrock: 'us.anthropic.claude-opus-4-5-20251101-v1:0',
-    vertex: 'claude-opus-4-5@20251101',
-    azure: 'claude-opus-4-5-20251101',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Opus 4.5',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.EXTENDED_THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.COMPUTER_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 15,
-      outputPer1M: 75,
+    has(_target, prop: string | symbol): boolean {
+      if (typeof prop === 'string') {
+        const data = _getAllFromRegistry();
+        return prop in data;
+      }
+      return false;
     },
-  },
-  opus41: {
-    firstParty: 'claude-opus-4-1-20250805',
-    bedrock: 'us.anthropic.claude-opus-4-1-20250805-v1:0',
-    vertex: 'claude-opus-4-1@20250805',
-    azure: 'claude-opus-4-1-20250805',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Opus 4.1',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.EXTENDED_THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.COMPUTER_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 15,
-      outputPer1M: 75,
+    ownKeys(): (string | symbol)[] {
+      return Object.keys(_getAllFromRegistry());
     },
-  },
-  opus40: {
-    firstParty: 'claude-opus-4-20250514',
-    bedrock: 'us.anthropic.claude-opus-4-20250514-v1:0',
-    vertex: 'claude-opus-4@20250514',
-    azure: 'claude-opus-4-20250514',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Opus 4',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.EXTENDED_THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.COMPUTER_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 15,
-      outputPer1M: 75,
+    getOwnPropertyDescriptor(_target, prop: string | symbol): PropertyDescriptor | undefined {
+      const data = _getAllFromRegistry();
+      if (typeof prop === 'string' && prop in data) {
+        return { configurable: true, enumerable: true, value: data[prop] };
+      }
+      return undefined;
     },
-  },
-  sonnet46: {
-    firstParty: 'claude-sonnet-4-6',
-    bedrock: 'us.anthropic.claude-sonnet-4-6',
-    vertex: 'claude-sonnet-4-6',
-    azure: 'claude-sonnet-4-6',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Sonnet 4.6',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.EXTENDED_THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.COMPUTER_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 3,
-      outputPer1M: 15,
-    },
-  },
-  sonnet45: {
-    firstParty: 'claude-sonnet-4-5-20250929',
-    bedrock: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
-    vertex: 'claude-sonnet-4-5@20250929',
-    azure: 'claude-sonnet-4-5-20250929',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Sonnet 4.5',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 3,
-      outputPer1M: 15,
-    },
-  },
-  sonnet41: {
-    firstParty: 'claude-sonnet-4-1',
-    bedrock: 'us.anthropic.claude-sonnet-4-1',
-    vertex: 'claude-sonnet-4-1',
-    azure: 'claude-sonnet-4-1',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Sonnet 4.1',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 3,
-      outputPer1M: 15,
-    },
-  },
-  sonnet40: {
-    firstParty: 'claude-sonnet-4-20250514',
-    bedrock: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-    vertex: 'claude-sonnet-4@20250514',
-    azure: 'claude-sonnet-4-20250514',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Sonnet 4',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 3,
-      outputPer1M: 15,
-    },
-  },
-  sonnet35: {
-    firstParty: 'claude-3-5-sonnet-20241022',
-    bedrock: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
-    vertex: 'claude-3-5-sonnet-v2@20241022',
-    azure: 'claude-3-5-sonnet-20241022',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude 3.5 Sonnet',
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 3,
-      outputPer1M: 15,
-    },
-  },
-  haiku45: {
-    firstParty: 'claude-haiku-4-5-20251001',
-    bedrock: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-    vertex: 'claude-haiku-4-5@20251001',
-    azure: 'claude-haiku-4-5-20251001',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude Haiku 4.5',
-    contextWindow: 200000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 1,
-      outputPer1M: 5,
-    },
-  },
-  haiku35: {
-    firstParty: 'claude-3-5-haiku-20241022',
-    bedrock: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-    vertex: 'claude-3-5-haiku@20241022',
-    azure: 'claude-3-5-haiku-20241022',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude 3.5 Haiku',
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 0.8,
-      outputPer1M: 4,
-    },
-  },
-  haiku30: {
-    firstParty: 'claude-3-haiku-20240307',
-    bedrock: 'anthropic.claude-3-haiku-20240307-v1:0',
-    vertex: 'claude-3-haiku@20240307',
-    azure: 'claude-3-haiku-20240307',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Claude 3 Haiku',
-    contextWindow: 200000,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.IMAGE_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 0.25,
-      outputPer1M: 1.25,
-    },
-  },
-  deepseekChat: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: 'deepseek-chat',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'DeepSeek Chat',
-    contextWindow: 128000,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.THINKING,
-      ModelCapability.CONTEXT_CACHING,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-    ],
-    pricing: {
-      inputPer1M: 0.5,
-      outputPer1M: 2,
-    },
-  },
-  deepseekReasoner: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: 'deepseek-reasoner',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'DeepSeek Reasoner',
-    contextWindow: 128000,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 0.55,
-      outputPer1M: 2.19,
-    },
-  },
-  gpt4o: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'gpt-4o',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'GPT-4o',
-    contextWindow: 128000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 2.5,
-      outputPer1M: 10,
-    },
-  },
-  gpt4oMini: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'gpt-4o-mini',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'GPT-4o Mini',
-    contextWindow: 128000,
-    maxOutputTokens: 16384,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-      ModelCapability.IMAGE_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 0.15,
-      outputPer1M: 0.6,
-    },
-  },
-  gpt4Turbo: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'gpt-4-turbo',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'GPT-4 Turbo',
-    contextWindow: 128000,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.IMAGE_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 10,
-      outputPer1M: 30,
-    },
-  },
-  gpt4: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'gpt-4',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'GPT-4',
-    contextWindow: 8192,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 30,
-      outputPer1M: 60,
-    },
-  },
-  o1: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'o1',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'o1',
-    contextWindow: 200000,
-    maxOutputTokens: 100000,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 15,
-      outputPer1M: 60,
-    },
-  },
-  o1Mini: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'o1-mini',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'o1 Mini',
-    contextWindow: 128000,
-    maxOutputTokens: 65536,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 1.1,
-      outputPer1M: 4.4,
-    },
-  },
-  o3Mini: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'o3-mini',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'o3 Mini',
-    contextWindow: 200000,
-    maxOutputTokens: 100000,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.THINKING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 1.1,
-      outputPer1M: 4.4,
-    },
-  },
-  gpt41Nano: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'gpt-4.1-nano',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'GPT-4.1 Nano',
-    contextWindow: 1048576,
-    maxOutputTokens: 32768,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.PARALLEL_TOOL_CALLS,
-    ],
-    pricing: {
-      inputPer1M: 0.1,
-      outputPer1M: 0.4,
-    },
-  },
-  gpt35Turbo: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: 'gpt-3.5-turbo',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'GPT-3.5 Turbo',
-    contextWindow: 16385,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 1.5,
-      outputPer1M: 2,
-    },
-  },
-  gemini25Pro: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: 'gemini-2.5-pro',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Gemini 2.5 Pro',
-    contextWindow: 1048576,
-    maxOutputTokens: 65536,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.CODE_EXECUTION,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 1.25,
-      outputPer1M: 10,
-    },
-  },
-  gemini25Flash: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: 'gemini-2.5-flash',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Gemini 2.5 Flash',
-    contextWindow: 1048576,
-    maxOutputTokens: 65536,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.IMAGE_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 0.15,
-      outputPer1M: 0.6,
-    },
-  },
-  gemini20Flash: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: 'gemini-2.0-flash',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Gemini 2.0 Flash',
-    contextWindow: 1048576,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.STRUCTURED_OUTPUT,
-      ModelCapability.IMAGE_INPUT,
-    ],
-    pricing: {
-      inputPer1M: 0.1,
-      outputPer1M: 0.4,
-    },
-  },
-  gemini20FlashLite: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: 'gemini-2.0-flash-lite',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Gemini 2.0 Flash Lite',
-    contextWindow: 1048576,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-    pricing: {
-      inputPer1M: 0.075,
-      outputPer1M: 0.3,
-    },
-  },
-  gemini15Pro: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: 'gemini-1.5-pro',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Gemini 1.5 Pro',
-    contextWindow: 2097152,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.CODE_EXECUTION,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.PDF_INPUT,
-      ModelCapability.CONTEXT_CACHING,
-    ],
-    pricing: {
-      inputPer1M: 1.25,
-      outputPer1M: 5,
-    },
-  },
-  gemini15Flash: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: 'gemini-1.5-flash',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Gemini 1.5 Flash',
-    contextWindow: 1048576,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.VISION,
-      ModelCapability.TOOL_USE,
-      ModelCapability.IMAGE_INPUT,
-      ModelCapability.CONTEXT_CACHING,
-    ],
-    pricing: {
-      inputPer1M: 0.075,
-      outputPer1M: 0.3,
-    },
-  },
-  grok4: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: 'grok-4',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Grok 4',
-    contextWindow: 131072,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  grok4Mini: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: 'grok-4-mini',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Grok 4 Mini',
-    contextWindow: 131072,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  grok3: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: 'grok-3',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Grok 3',
-    contextWindow: 131072,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  grok3Mini: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: 'grok-3-mini',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Grok 3 Mini',
-    contextWindow: 131072,
-    maxOutputTokens: 8192,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  moonshot8k: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: 'moonshot-v1-8k',
-    ollama: '',
-    displayName: 'Moonshot v1 (8K)',
-    contextWindow: 8192,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  moonshot32k: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: 'moonshot-v1-32k',
-    ollama: '',
-    displayName: 'Moonshot v1 (32K)',
-    contextWindow: 32768,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  moonshot128k: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: 'moonshot-v1-128k',
-    ollama: '',
-    displayName: 'Moonshot v1 (128K)',
-    contextWindow: 128000,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  ollamaLlama3: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: 'llama3',
-    displayName: 'Llama 3',
-    contextWindow: 8192,
-    maxOutputTokens: 4096,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  ollamaMistral: {
-    firstParty: '',
-    bedrock: '',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: 'mistral',
-    displayName: 'Mistral',
-    contextWindow: 8192,
-    maxOutputTokens: 4096,
-    capabilities: [ModelCapability.STREAMING],
-  },
-  amazonNovaPro: {
-    firstParty: '',
-    bedrock: 'amazon.nova-pro-v1:0',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Amazon Nova Pro',
-    contextWindow: 300000,
-    maxOutputTokens: 5120,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-  amazonNovaLite: {
-    firstParty: '',
-    bedrock: 'amazon.nova-lite-v1:0',
-    vertex: '',
-    azure: '',
-    openai: '',
-    deepseek: '',
-    google: '',
-    grok: '',
-    moonshot: '',
-    ollama: '',
-    displayName: 'Amazon Nova Lite',
-    contextWindow: 300000,
-    maxOutputTokens: 5120,
-    capabilities: [
-      ModelCapability.STREAMING,
-      ModelCapability.FUNCTION_CALLING,
-      ModelCapability.TOOL_USE,
-    ],
-  },
-};
-
-/**
- * 规范化模型ID到键的映射
- */
-export const CANONICAL_ID_TO_KEY: Record<string, ModelKey> = {
-  'claude-opus-4-6': 'opus46',
-  'claude-opus-4-5-20251101': 'opus45',
-  'claude-opus-4-1-20250805': 'opus41',
-  'claude-opus-4-20250514': 'opus40',
-  'claude-sonnet-4-6': 'sonnet46',
-  'claude-sonnet-4-5-20250929': 'sonnet45',
-  'claude-sonnet-4-1': 'sonnet41',
-  'claude-sonnet-4-20250514': 'sonnet40',
-  'claude-3-5-sonnet-20241022': 'sonnet35',
-  'claude-haiku-4-5-20251001': 'haiku45',
-  'claude-3-5-haiku-20241022': 'haiku35',
-  'claude-3-haiku-20240307': 'haiku30',
-  'deepseek-chat': 'deepseekChat',
-  'deepseek-reasoner': 'deepseekReasoner',
-  'gpt-4o': 'gpt4o',
-  'gpt-4o-mini': 'gpt4oMini',
-  'gpt-4-turbo': 'gpt4Turbo',
-  'gpt-4': 'gpt4',
-  o1: 'o1',
-  'o1-mini': 'o1Mini',
-  'o3-mini': 'o3Mini',
-  'gpt-4.1-nano': 'gpt41Nano',
-  'gpt-3.5-turbo': 'gpt35Turbo',
-  'gemini-2.5-pro': 'gemini25Pro',
-  'gemini-2.5-flash': 'gemini25Flash',
-  'gemini-2.0-flash': 'gemini20Flash',
-  'gemini-2.0-flash-lite': 'gemini20FlashLite',
-  'gemini-1.5-pro': 'gemini15Pro',
-  'gemini-1.5-flash': 'gemini15Flash',
-  'grok-4': 'grok4',
-  'grok-4-mini': 'grok4Mini',
-  'grok-3': 'grok3',
-  'grok-3-mini': 'grok3Mini',
-  'moonshot-v1-8k': 'moonshot8k',
-  'moonshot-v1-32k': 'moonshot32k',
-  'moonshot-v1-128k': 'moonshot128k',
-  llama3: 'ollamaLlama3',
-  mistral: 'ollamaMistral',
-  'amazon.nova-pro-v1:0': 'amazonNovaPro',
-  'amazon.nova-lite-v1:0': 'amazonNovaLite',
-};
+  }
+) as Record<ModelKey, ModelConfig>;
 
 /**
  * 获取模型配置
  * @param modelKey 模型键
  * @returns 模型配置
  */
-export function getModelConfig(modelKey: ModelKey): ModelConfig {
+export function getModelConfig(modelKey: ModelKey): ModelConfig | undefined {
   return ALL_MODEL_CONFIGS[modelKey];
 }
 
@@ -1193,27 +140,20 @@ export function getModelConfig(modelKey: ModelKey): ModelConfig {
  * @returns 模型键或null
  */
 export function getModelKeyByName(modelName: string): ModelKey | null {
-  for (const [key, config] of Object.entries(ALL_MODEL_CONFIGS)) {
-    if (
-      config.firstParty === modelName ||
-      config.bedrock === modelName ||
-      config.vertex === modelName ||
-      config.azure === modelName ||
-      config.openai === modelName ||
-      config.deepseek === modelName ||
-      config.google === modelName ||
-      config.grok === modelName ||
-      config.moonshot === modelName ||
-      config.ollama === modelName
-    ) {
-      return key as ModelKey;
+  const data = _getAllFromRegistry();
+  for (const [key, config] of Object.entries(data)) {
+    const providerKeys: (keyof ModelConfig)[] = ['firstParty', 'bedrock', 'vertex', 'azure', 'openai', 'deepseek', 'google', 'grok', 'moonshot', 'ollama'];
+    for (const pk of providerKeys) {
+      if ((config as unknown as Record<string, string>)[pk as string] === modelName) {
+        return key;
+      }
     }
   }
   return null;
 }
 
 /**
- * 获取提供商特定的模型名称
+ * 获取模型在指定提供商的名称
  * @param modelKey 模型键
  * @param provider API提供商
  * @returns 模型名称
@@ -1223,17 +163,22 @@ export function getModelNameForProvider(
   provider: APIProvider
 ): string {
   const config = ALL_MODEL_CONFIGS[modelKey];
-  return config[provider];
+  if (!config) return '';
+  return (config as unknown as Record<string, string>)[provider] || '';
 }
 
 /**
  * 根据规范模型ID获取模型配置
  * @param id 规范模型ID
- * @returns 模型配置或undefined
+ * @returns 模型配置
  */
 export function getModelConfigById(id: string): ModelConfig | undefined {
-  const key = CANONICAL_ID_TO_KEY[id];
-  return key ? ALL_MODEL_CONFIGS[key] : undefined;
+  const data = _getAllFromRegistry();
+  for (const config of Object.values(data)) {
+    if (config.firstParty === id) return config;
+  }
+  const key = getModelKeyByName(id);
+  return key ? data[key] : undefined;
 }
 
 /**
@@ -1247,6 +192,72 @@ export function getModelsWithCapability(
   return (Object.entries(ALL_MODEL_CONFIGS) as [string, ModelConfig][])
     .filter(([_, config]) => config.capabilities?.includes(capability))
     .map(([key]) => key as ModelKey);
+}
+
+/**
+ * 获取模型支持的能力列表
+ * @param modelName 模型名称
+ * @returns 能力列表
+ */
+export function getModelCapabilities(modelName: string): ModelCapability[] {
+  const modelKey = getModelKeyByName(modelName);
+  if (modelKey) {
+    const config = ALL_MODEL_CONFIGS[modelKey];
+    return config.capabilities ?? [];
+  }
+  return [ModelCapability.STREAMING];
+}
+
+/**
+ * 检查模型是否支持指定能力
+ * @param modelName 模型名称
+ * @param capability 能力枚举
+ * @returns 是否支持
+ */
+export function modelSupportsCapability(
+  modelName: string,
+  capability: ModelCapability
+): boolean {
+  return getModelCapabilities(modelName).includes(capability);
+}
+
+/**
+ * 完整的模型定价（含缓存价格）
+ * @deprecated 迁移中，请使用 ModelRegistry.getModelPricing()
+ */
+export interface CompleteModelPricing {
+  inputPer1M: number;
+  outputPer1M: number;
+  cacheReadPer1M: number;
+  cacheWritePer1M: number;
+}
+
+/**
+ * 成本层级常量
+ */
+export const PRICING_TIER_SONNET = { inputPer1M: 3, outputPer1M: 15, cacheReadPer1M: 0.3, cacheWritePer1M: 3.75 };
+export const PRICING_TIER_OPUS = { inputPer1M: 15, outputPer1M: 75, cacheReadPer1M: 1.5, cacheWritePer1M: 18.75 };
+export const PRICING_TIER_OPUS45 = { inputPer1M: 5, outputPer1M: 25, cacheReadPer1M: 0.5, cacheWritePer1M: 6.25 };
+export const PRICING_TIER_HAIKU45 = { inputPer1M: 1, outputPer1M: 5, cacheReadPer1M: 0.1, cacheWritePer1M: 1.25 };
+export const PRICING_TIER_HAIKU35 = { inputPer1M: 0.8, outputPer1M: 4, cacheReadPer1M: 0.08, cacheWritePer1M: 1 };
+
+/**
+ * 获取模型的完整定价（含缓存）
+ * 优先从 ModelRegistry 获取，回退到内置值
+ */
+export function getModelCompletePricing(
+  modelName: string
+): CompleteModelPricing | null {
+  const config = getModelConfigById(modelName);
+  if (config?.pricing) {
+    return {
+      inputPer1M: config.pricing.inputPer1M,
+      outputPer1M: config.pricing.outputPer1M,
+      cacheReadPer1M: config.pricing.cacheReadPer1M ?? 0,
+      cacheWritePer1M: config.pricing.cacheWritePer1M ?? 0,
+    };
+  }
+  return null;
 }
 
 /**

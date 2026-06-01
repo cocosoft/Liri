@@ -23,5 +23,4 @@
  */
 
 export * from './IPriceProvider';
-export * from './BuiltinPriceProvider';
 export * from './ConfigPriceProvider';

@@ -486,6 +486,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 
+    // T1.25: 加载模型配置（从 YAML + 用户覆盖）
+    try {
+      const { ModelRegistry } = await import('@modules/ai/models/ModelRegistry');
+      const registry = ModelRegistry.getInstance();
+      registry.loadDefaultModels();
+      registry.loadUserConfigs();
+    } catch (e) {
+      logger.warning('加载模型配置失败（非致命）', e as Error);
+    }
+
     // T1.5: 等待关键预读取完成
     profileCheckpoint('T1_await_prefetch_start');
     profilePhaseStart('T1_await_prefetch');

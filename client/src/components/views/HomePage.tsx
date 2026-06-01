@@ -183,7 +183,7 @@ function HomePage() {
             💡 提示
           </h3>
           <p className="text-sm text-blue-700 dark:text-blue-400">
-            点击右下角的 ⚙️ 按钮可以快速切换主题和管理 Backend 服务
+            点击右下角的主题切换按钮可以快速切换主题
           </p>
         </div>
       </div>

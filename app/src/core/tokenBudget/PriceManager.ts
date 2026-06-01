@@ -1,11 +1,10 @@
 /**
  * 价格管理器
- * 统一管理多个价格提供者
+ * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
-import { BuiltinPriceProvider } from './providers/BuiltinPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPricing } from './types';
 
@@ -20,13 +19,25 @@ export interface CostCalculationResult {
   };
 }
 
+const DEFAULT_PRICING_RESULT: PricingResult = {
+  model: '',
+  pricing: {
+    inputPer1M: 3,
+    outputPer1M: 15,
+    cacheWritePer1M: 3.75,
+    cacheReadPer1M: 0.3,
+  },
+  contextWindow: 200000,
+  supportsPromptCache: true,
+  source: 'builtin',
+};
+
 export class PriceManager {
   private providers: IPriceProvider[] = [];
-  private defaultProvider: IPriceProvider;
   private priceCache: Map<string, PricingResult> = new Map();
 
   constructor() {
-    this.defaultProvider = new BuiltinPriceProvider();
+    // 不再使用 BuiltinPriceProvider，由 ModelRegistry 替代
   }
 
   registerProvider(provider: IPriceProvider): void {
@@ -43,6 +54,33 @@ export class PriceManager {
     return [...this.providers];
   }
 
+  private getPricingFromRegistry(model: string): PricingResult | null {
+    try {
+      // 延迟加载避免循环依赖
+      const mod = require('@modules/ai/models/ModelRegistry');
+      if (!mod?.ModelRegistry) return null;
+      const registry = mod.ModelRegistry.getInstance();
+      const pricing = registry.getModelPricing(model);
+      if (pricing) {
+        return {
+          model,
+          pricing: {
+            inputPer1M: pricing.inputPer1M,
+            outputPer1M: pricing.outputPer1M,
+            cacheWritePer1M: 0,
+            cacheReadPer1M: 0,
+          },
+          contextWindow: 200000,
+          supportsPromptCache: true,
+          source: 'builtin',
+        };
+      }
+    } catch {
+      // ModelRegistry 不可用时忽略
+    }
+    return null;
+  }
+
   getPriceSync(model: string): PricingResult {
     const cached = this.priceCache.get(model);
     if (cached) {
@@ -56,77 +94,17 @@ export class PriceManager {
           result.then((r) => {
             if (r) this.priceCache.set(model, r);
           });
-          const idx = model.toLowerCase().indexOf('claude');
-          if (idx >= 0) {
-            return {
-              model,
-              pricing: {
-                inputPer1M: 3,
-                outputPer1M: 15,
-                cacheWritePer1M: 3.75,
-                cacheReadPer1M: 0.3,
-              },
-              contextWindow: 200000,
-              supportsPromptCache: true,
-              source: 'builtin',
-            };
-          }
-          if (model.toLowerCase().indexOf('deepseek') >= 0) {
-            return {
-              model,
-              pricing: {
-                inputPer1M: 0.27,
-                outputPer1M: 1.1,
-                cacheWritePer1M: 0,
-                cacheReadPer1M: 0,
-              },
-              contextWindow: 100000,
-              supportsPromptCache: false,
-              source: 'builtin',
-            };
-          }
-          if (model.toLowerCase().indexOf('gpt-4o') >= 0) {
-            return {
-              model,
-              pricing: {
-                inputPer1M: 2.5,
-                outputPer1M: 10,
-                cacheWritePer1M: 10,
-                cacheReadPer1M: 1.25,
-              },
-              contextWindow: 128000,
-              supportsPromptCache: true,
-              source: 'builtin',
-            };
-          }
-          return {
-            model,
-            pricing: {
-              inputPer1M: 3,
-              outputPer1M: 15,
-              cacheWritePer1M: 3.75,
-              cacheReadPer1M: 0.3,
-            },
-            contextWindow: 200000,
-            supportsPromptCache: true,
-            source: 'builtin',
-          };
         }
       }
     }
 
-    return {
-      model,
-      pricing: {
-        inputPer1M: 3,
-        outputPer1M: 15,
-        cacheWritePer1M: 3.75,
-        cacheReadPer1M: 0.3,
-      },
-      contextWindow: 200000,
-      supportsPromptCache: true,
-      source: 'builtin',
-    };
+    const fromRegistry = this.getPricingFromRegistry(model);
+    if (fromRegistry) {
+      this.priceCache.set(model, fromRegistry);
+      return fromRegistry;
+    }
+
+    return { ...DEFAULT_PRICING_RESULT, model };
   }
 
   async getPrice(model: string): Promise<PricingResult> {
@@ -145,17 +123,15 @@ export class PriceManager {
       }
     }
 
-    const defaultResult = await this.defaultProvider.getPricing(model);
-    if (defaultResult) {
-      this.priceCache.set(model, defaultResult);
-      return defaultResult;
+    const fromRegistry = this.getPricingFromRegistry(model);
+    if (fromRegistry) {
+      this.priceCache.set(model, fromRegistry);
+      return fromRegistry;
     }
 
-    throw new AppError(
-      `No pricing found for model: ${model}`,
-      ErrorCategory.EXECUTION,
-      ErrorSeverity.MEDIUM
-    );
+    const result = { ...DEFAULT_PRICING_RESULT, model };
+    this.priceCache.set(model, result);
+    return result;
   }
 
   clearCache(): void {

@@ -16,6 +16,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -32,7 +34,11 @@ export class OllamaProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('ollama');
+
     this.baseUrl = (
+      providerCfg?.baseUrl ||
       config.baseUrl ||
       process.env.OLLAMA_BASE_URL ||
       DEFAULT_BASE_URL

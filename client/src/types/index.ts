@@ -60,6 +60,40 @@ export interface ModelInfo {
   enabled: boolean;
 }
 
+/** 提供商配置（用于客户端管理） */
+export interface ProviderInfo {
+  id: string;
+  api: string;
+  baseUrl: string;
+  modelIds: string[];
+  sources: string[];
+}
+
+/** 提供商编辑表单 */
+export interface ProviderFormData {
+  id: string;
+  api: string;
+  baseUrl: string;
+  apiKey: string;
+  models: string;
+  inputPrice?: string;
+  outputPrice?: string;
+  cacheReadPrice?: string;
+  cacheWritePrice?: string;
+}
+
+/** 变更预览 */
+export interface ChangePreview {
+  providerId: string;
+  hasChanges: boolean;
+  warnings: string[];
+  apiDiff?: { before: string; after: string; changed: boolean };
+  baseUrlDiff?: { before: string; after: string; changed: boolean };
+  modelDiff?: { changed: boolean; beforeCount: number; afterCount: number; added: string[]; removed: string[] };
+  inferredPrimary?: string | null;
+  pricingDiff?: { changed: boolean; inputPrice?: string; outputPrice?: string };
+}
+
 export interface Config {
   [key: string]: unknown;
 }
@@ -76,6 +110,24 @@ export interface FileEntry {
   type: 'file' | 'directory';
   size?: number;
   modified_at?: number;
+}
+
+/** 当前模型状态（用于状态栏） */
+export interface CurrentModelInfo {
+  modelId: string;
+  provider: string;
+  taskType: string;
+  costThisSession: number;
+  availableTasks: Array<{ type: string; label: string; icon: string }>;
+}
+
+/** 任务分工策略 */
+export interface TaskModelConfig {
+  chat?: string;
+  coding?: string;
+  translation?: string;
+  quick?: string;
+  embedding?: string;
 }
 
 export interface KnowledgeItem {

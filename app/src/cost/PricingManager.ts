@@ -5,7 +5,8 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
-import { ModelPricing, MODEL_PRICING } from './ModelPricing.js';
+import { ModelPricing } from './ModelPricing.js';
+import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
 
 /**
  * 定价版本信息
@@ -82,7 +83,7 @@ export class PricingManager {
   private listeners: Set<(version: string) => void> = new Set();
 
   constructor() {
-    this.currentPricing = { ...MODEL_PRICING };
+    this.currentPricing = {};
     this.updateHistory = new PricingUpdateHistory();
     this.updateHistory.addUpdate({
       version: this.version,
@@ -102,9 +103,30 @@ export class PricingManager {
 
   /**
    * 获取模型定价
+   * 优先查询本地定价，回退到 ModelRegistry
    */
   getModelPricing(modelName: string): ModelPricing | undefined {
-    return this.currentPricing[modelName];
+    const local = this.currentPricing[modelName];
+    if (local) return local;
+
+    try {
+      const registry = ModelRegistry.getInstance();
+      const pricing = registry.getModelPricing(modelName);
+      if (pricing) {
+        const fullPricing = registry.getModel(modelName)?.pricing;
+        return {
+          inputPricePerMillion: pricing.inputPer1M,
+          outputPricePerMillion: pricing.outputPer1M,
+          cacheReadPricePerMillion: fullPricing?.cacheReadPer1M ?? 0,
+          cacheCreationPricePerMillion: fullPricing?.cacheWritePer1M ?? 0,
+          webSearchPricePerRequest: 0.01,
+        };
+      }
+    } catch {
+      // ModelRegistry 不可用时忽略
+    }
+
+    return undefined;
   }
 
   /**

@@ -20,6 +20,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -42,11 +43,13 @@ export class DeepSeekProvider implements AIProvider {
    * @param config - 提供者配置对象，包含可选的 apiKey、baseUrl 和 model 字段。
    */
   constructor(config: ProviderConfig) {
-    // 按优先级确定 API 密钥：配置参数 > 环境变量 > 空字符串
-    this.apiKey = config.apiKey || process.env.DEEPSEEK_API_KEY || '';
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('deepseek');
 
-    // 按优先级确定基础 URL 并移除末尾斜杠：配置参数 > 环境变量 > 默认值
+    this.apiKey = providerCfg?.apiKey || config.apiKey || process.env.DEEPSEEK_API_KEY || '';
+
     this.baseUrl = (
+      providerCfg?.baseUrl ||
       config.baseUrl ||
       process.env.DEEPSEEK_BASE_URL ||
       DEFAULT_BASE_URL

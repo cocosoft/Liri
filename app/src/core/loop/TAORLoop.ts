@@ -42,7 +42,7 @@ export class TAORLoop {
     this.config = {
       systemPrompt: config.systemPrompt || 'You are a helpful AI assistant.',
       maxTurns: config.maxTurns || 50,
-      model: config.model || 'claude-sonnet-4-6',
+      model: config.model || 'deepseek-chat',
     };
     this.toolRegistry = toolRegistry;
     this.llmClient = llmClient;

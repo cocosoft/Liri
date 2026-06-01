@@ -13,6 +13,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -26,8 +27,11 @@ export class OpenAIProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
-    this.apiKey = config.apiKey || process.env.OPENAI_API_KEY || '';
-    this.baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('openai');
+
+    this.apiKey = providerCfg?.apiKey || config.apiKey || process.env.OPENAI_API_KEY || '';
+    this.baseUrl = (providerCfg?.baseUrl || config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 

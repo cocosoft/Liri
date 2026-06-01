@@ -14,6 +14,7 @@ import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ModelRegistry } from '../models/ModelRegistry';
 
 export class GrokProvider implements AIProvider {
   readonly id = 'grok';
@@ -22,8 +23,12 @@ export class GrokProvider implements AIProvider {
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
+    const registry = ModelRegistry.getInstance();
+    const providerCfg = registry.getProviderConfig('grok');
+
     this.config = {
       baseUrl: 'https://api.x.ai/v1',
+      ...(providerCfg ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey } : {}),
       ...config,
     };
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());

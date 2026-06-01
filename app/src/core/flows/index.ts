@@ -56,8 +56,6 @@ export {
 export type { HealthCheck } from './doctor-health.js';
 
 export {
-  registerModel,
-  registerModels,
   getModel,
   listModels,
   listModelsByProvider,

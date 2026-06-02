@@ -93,15 +93,19 @@ function ChatArea() {
       {!currentSession ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-center px-8">
-            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-4xl shadow-lg">
-              🤖
+            <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <img
+                src="/liri_logo.png"
+                alt="Liri Logo"
+                className="w-20 h-20 object-contain"
+              />
             </div>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">欢迎使用 Liri</h2>
             <p className="text-gray-500 dark:text-gray-400">
               官网: https://openliri.com
             </p>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              请从右侧选择一个会话或创建新会话开始聊天
+              请从左侧选择一个会话或创建新会话开始聊天
             </p>
           </div>
         </div>

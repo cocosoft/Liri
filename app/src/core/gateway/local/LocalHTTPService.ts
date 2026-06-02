@@ -1070,6 +1070,9 @@ export class LocalHTTPService {
         url.match(/^\/v1\/memory\/(.+)$/)![1]
       );
     }
+    if (req.method === 'DELETE' && url === '/v1/memory') {
+      return this.handleDeleteAllMemories(req, res);
+    }
     if (req.method === 'DELETE' && url.match(/^\/v1\/memory\/(.+)$/)) {
       return this.handleDeleteMemory(
         req,
@@ -6509,6 +6512,21 @@ export class LocalHTTPService {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDeleteAllMemories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const mm = await this.getMemoryManager();
+      const count = await mm.deleteAllMemories();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, deletedCount: count }));
     } catch (err) {
       this.sendError(res, err);
     }

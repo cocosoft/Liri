@@ -337,28 +337,46 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
     let key = 0;
 
     // Helper: scan plain text for known file paths and render as FileLink
+    const winPathPattern = /[A-Za-z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]+\.[a-zA-Z0-9]{1,10}/;
+
     const tryRenderFilePathLinks = (text: string): JSX.Element | null => {
-      if (!knownFilePaths || knownFilePaths.length === 0 || text.length === 0) return null;
+      if (text.length === 0) return null;
 
       let earliestIdx = -1;
       let earliestFullPath = '';
       let earliestMatchLen = 0;
-      for (const fp of knownFilePaths) {
-        let idx = text.indexOf(fp);
-        let matchLen = fp.length;
 
-        if (idx === -1) {
-          const basename = fp.replace(/^.*[\\/]/, '');
-          if (basename && basename !== fp && basename.length > 0) {
-            idx = text.indexOf(basename);
-            matchLen = basename.length;
+      // 第一级：从已知 sessionFiles 中匹配（完整路径 + basename）
+      if (knownFilePaths && knownFilePaths.length > 0) {
+        for (const fp of knownFilePaths) {
+          let idx = text.indexOf(fp);
+          let matchLen = fp.length;
+
+          if (idx === -1) {
+            const basename = fp.replace(/^.*[\\/]/, '');
+            if (basename && basename !== fp && basename.length > 0) {
+              idx = text.indexOf(basename);
+              matchLen = basename.length;
+            }
+          }
+
+          if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
+            earliestIdx = idx;
+            earliestFullPath = fp;
+            earliestMatchLen = matchLen;
           }
         }
+      }
 
-        if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
+      // 第二级：不依赖 sessionFiles，直接从文本中扫描 Windows 绝对路径（兜底）
+      let match;
+      while ((match = winPathPattern.exec(text)) !== null) {
+        const idx = match.index;
+        const fp = match[0];
+        if (earliestIdx === -1 || idx < earliestIdx) {
           earliestIdx = idx;
           earliestFullPath = fp;
-          earliestMatchLen = matchLen;
+          earliestMatchLen = fp.length;
         }
       }
 

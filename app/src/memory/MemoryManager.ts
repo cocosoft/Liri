@@ -316,6 +316,27 @@ export class MemoryManagerImpl {
   }
 
   /**
+   * 删除所有记忆
+   * @returns 删除的记忆数量
+   */
+  async deleteAllMemories(): Promise<number> {
+    const allMemories = await this.getAllMemories();
+    const count = allMemories.length;
+
+    for (const memory of allMemories) {
+      await this.store.deleteMemory(memory.id);
+      this.retriever.removeFromIndex(memory.id);
+    }
+
+    if (count > 0) {
+      await this.retriever.saveIndex();
+      await this.saveRelationGraph();
+    }
+
+    return count;
+  }
+
+  /**
    * 检索相关记忆
    * 使用混合搜索（关键词+语义），优先利用 EmbeddingService 提升检索准确度，
    * 同时利用关联图扩展关联记忆（联想记忆）

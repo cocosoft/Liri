@@ -134,6 +134,11 @@ const memoryService = {
     await http.delete<{ success: boolean }>(`/v1/memory/${id}`);
   },
 
+  async deleteAll(): Promise<number> {
+    const response = await http.delete<{ success: boolean; deletedCount: number }>('/v1/memory');
+    return response.deletedCount;
+  },
+
   async search(params: MemorySearchParams): Promise<{ results: MemorySearchResult[]; total: number }> {
     const url = new URL('/v1/memory/search', 'http://localhost');
     if (params.query) url.searchParams.set('query', params.query);

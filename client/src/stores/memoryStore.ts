@@ -18,6 +18,7 @@ interface MemoryStore {
   createMemory: (memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateMemory: (id: string, updates: Partial<Memory>) => Promise<void>;
   deleteMemory: (id: string) => Promise<void>;
+  deleteAllMemories: () => Promise<number>;
   loadWeights: () => Promise<void>;
   loadSyncStatus: () => Promise<void>;
   triggerSync: () => Promise<void>;
@@ -105,6 +106,20 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       await memoryService.delete(id);
     } catch (e) {
       set({ error: e instanceof Error ? e.message : '删除记忆失败' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteAllMemories: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const count = await memoryService.deleteAll();
+      set({ memories: [], total: 0, selectedMemory: null });
+      return count;
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : '清除全部记忆失败' });
+      return 0;
     } finally {
       set({ isLoading: false });
     }

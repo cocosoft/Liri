@@ -555,7 +555,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const current = get().sessionFiles;
     const exists = current.some(f => f.path === file.path);
     if (!exists) {
+      console.log('[addSessionFile] adding:', file.path, 'total after:', current.length + 1);
       set({ sessionFiles: [...current, file] });
+    } else {
+      console.log('[addSessionFile] already exists:', file.path);
     }
   },
 
@@ -568,7 +571,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const resolvedPath = await resolveFilePath(filePath);
 
       const existing = get().sessionFiles.find(f => f.path === resolvedPath);
-      if (existing) {
+      if (existing && existing.content) {
         set({ previewFile: existing });
         return;
       }

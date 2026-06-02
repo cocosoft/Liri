@@ -67,6 +67,11 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 let _coreApiInstance: CoreAPIImpl | null = null;
 
+function countConversationMessages(messages: Array<{ role: string }> | undefined): number {
+  if (!messages) return 0;
+  return messages.filter(m => m.role === 'user' || m.role === 'assistant').length;
+}
+
 /**
  * 创建 CoreAPIImpl 实例
  * 支持传入可选依赖覆盖，未传入时使用全局默认实例
@@ -283,7 +288,7 @@ export class CoreAPIImpl implements CoreAPI {
             const isFileWritingTool = ['file_write', 'file_edit', 'file_create', 'write', 'create_file', 'edit_file'].includes(toolName);
             if (isFileWritingTool && detail && !isFailed) {
               const normalized = detail.replace(/\\\\/g, '\\');
-              const winPathMatch = normalized.match(/([A-Za-z]:\\(?:[^\s"\\]+\\)*[^\s"\\]+\.[a-zA-Z0-9]{1,10})/);
+              const winPathMatch = normalized.match(/([A-Za-z]:\\(?:[^"\\]+\\)*[^"\\]+\.[a-zA-Z0-9]{1,10})/);
               if (winPathMatch) {
                 extractedArgs = { file_path: winPathMatch[1] };
               }
@@ -461,7 +466,7 @@ export class CoreAPIImpl implements CoreAPI {
       title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      messageCount: session.messages?.length || 0,
+      messageCount: countConversationMessages(session.messages),
       metadata: session.metadata,
     };
   }
@@ -477,7 +482,7 @@ export class CoreAPIImpl implements CoreAPI {
       title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      messageCount: session.messages?.length || 0,
+      messageCount: countConversationMessages(session.messages),
       metadata: session.metadata,
     };
   }
@@ -569,7 +574,7 @@ export class CoreAPIImpl implements CoreAPI {
       title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      messageCount: session.messages?.length || 0,
+      messageCount: countConversationMessages(session.messages),
       metadata: session.metadata,
     }));
   }
@@ -628,7 +633,7 @@ export class CoreAPIImpl implements CoreAPI {
       title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      messageCount: session.messages?.length || 0,
+      messageCount: countConversationMessages(session.messages),
       metadata: session.metadata,
     };
   }

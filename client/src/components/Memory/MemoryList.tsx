@@ -5,6 +5,8 @@ interface MemoryListProps {
   isDark: boolean;
   onSelect: (memory: Memory) => void;
   selectedId?: string | null;
+  onDelete: (id: string) => void;
+  onEdit: (memory: Memory) => void;
 }
 
 const TYPE_LABELS: Record<Memory['type'], string> = {
@@ -23,7 +25,7 @@ const TYPE_COLORS: Record<Memory['type'], string> = {
   system: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };
 
-function MemoryList({ memories, isDark, onSelect, selectedId }: MemoryListProps) {
+function MemoryList({ memories, isDark, onSelect, selectedId, onDelete, onEdit }: MemoryListProps) {
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
       month: '2-digit',
@@ -55,8 +57,7 @@ function MemoryList({ memories, isDark, onSelect, selectedId }: MemoryListProps)
       {memories.map((memory) => (
         <div
           key={memory.id}
-          onClick={() => onSelect(memory)}
-          className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+          className={`group relative p-4 rounded-lg border transition-colors ${
             selectedId === memory.id
               ? isDark
                 ? 'bg-blue-900/30 border-blue-500'
@@ -66,36 +67,62 @@ function MemoryList({ memories, isDark, onSelect, selectedId }: MemoryListProps)
               : 'bg-white border-gray-200 hover:bg-gray-50'
           }`}
         >
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${TYPE_COLORS[memory.type]}`}>
-                {TYPE_LABELS[memory.type]}
-              </span>
-              <span className={`text-xs ${getWeightColor(memory.weight)} font-medium`}>
-                权重: {memory.weight}
-              </span>
-            </div>
-            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              {formatDate(memory.updatedAt)}
-            </span>
-          </div>
-          <p className={`text-sm line-clamp-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            {memory.summary || memory.content.substring(0, 100)}...
-          </p>
-          {memory.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {memory.tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className={`px-1.5 py-0.5 rounded text-xs ${
-                    isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {tag}
+          <div
+            onClick={() => onSelect(memory)}
+            className="cursor-pointer"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${TYPE_COLORS[memory.type]}`}>
+                  {TYPE_LABELS[memory.type]}
                 </span>
-              ))}
+                <span className={`text-xs ${getWeightColor(memory.weight)} font-medium`}>
+                  权重: {memory.weight}
+                </span>
+              </div>
+              <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                {formatDate(memory.updatedAt)}
+              </span>
             </div>
-          )}
+            <p className={`text-sm line-clamp-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              {memory.summary || memory.content.substring(0, 100)}...
+            </p>
+            {memory.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {memory.tags.slice(0, 3).map((tag) => (
+                  <span
+                    key={tag}
+                    className={`px-1.5 py-0.5 rounded text-xs ${
+                      isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(memory); }}
+              className={`p-1 rounded text-xs ${isDark ? 'hover:bg-gray-600 text-gray-400 hover:text-blue-400' : 'hover:bg-gray-100 text-gray-400 hover:text-blue-600'}`}
+              title="编辑"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(memory.id); }}
+              className={`p-1 rounded text-xs ${isDark ? 'hover:bg-gray-600 text-gray-400 hover:text-red-400' : 'hover:bg-gray-100 text-gray-400 hover:text-red-600'}`}
+              title="删除"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
         </div>
       ))}
     </div>

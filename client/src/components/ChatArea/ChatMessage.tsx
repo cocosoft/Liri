@@ -100,15 +100,17 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
       onMouseLeave={() => setShowActions(false)}
     >
       {/* 头像 */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium overflow-hidden">
         {isUser ? (
           <div className="bg-blue-500 text-white">
             👤
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-purple-500 to-blue-500 text-white">
-            🤖
-          </div>
+          <img
+            src="/liri_logo.png"
+            alt="Liri"
+            className="w-8 h-8 object-contain"
+          />
         )}
       </div>
 

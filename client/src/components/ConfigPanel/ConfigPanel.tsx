@@ -183,7 +183,7 @@ function BackendControl() {
 function ConfigPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'backend' | 'config'>('config');
-  const { config, setConfig, loadConfig } = useConfigStore();
+  const { config, loadConfig } = useConfigStore();
   const navigate = useNavigate();
 
   useEffect(() => {

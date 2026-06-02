@@ -60,20 +60,6 @@ function extractFileName(filePath: string): string {
 }
 
 /**
- * 从 AI 返回的文本内容中提取 Windows 绝对文件路径
- * 后端 SSE 可能不传 tool_call arguments，此函数作为兜底方案
- */
-function extractFilePathsFromText(text: string): string[] {
-  const paths: string[] = [];
-  const winPathRegex = /[A-Za-z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]+\.[a-zA-Z0-9]{1,10}/g;
-  let match;
-  while ((match = winPathRegex.exec(text)) !== null) {
-    paths.push(match[0]);
-  }
-  return paths;
-}
-
-/**
  * 扫描 blocks 中的工具调用，提取文件路径并添加到会话文件列表
  */
 function addFilePathsFromBlocks(
@@ -508,13 +494,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         newMessages[finalMsgIdx] = { ...finalMessages[finalMsgIdx], blocks: finalBlocks };
         set({ messages: newMessages });
 
-        // 从 AI 返回的文本中提取文件路径，补入 sessionFiles
-        const assistantContent = finalMessages[finalMsgIdx].content;
-        const textPaths = extractFilePathsFromText(assistantContent);
-        for (const tp of textPaths) {
-          const name = extractFileName(tp);
-          get().addSessionFile({ path: tp, name, content: '', type: 'text' });
-        }
+        addFilePathsFromBlocks(finalBlocks, (file) => get().addSessionFile(file));
 
         // 将 blocks 结构保存到后端
         if (sessionId && finalBlocks.length > 0) {
@@ -724,18 +704,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             sessionFilesList.push(file);
           }
         });
-      }
-
-      // 从 AI 回复的纯文本中提取文件路径（兜底）
-      if (msg.role === 'assistant') {
-        const content = typeof msg.content === 'string' ? msg.content : '';
-        const textPaths = extractFilePathsFromText(content);
-        for (const tp of textPaths) {
-          if (!addedPaths.has(tp)) {
-            addedPaths.add(tp);
-            sessionFilesList.push({ path: tp, name: extractFileName(tp), content: '', type: 'text' });
-          }
-        }
       }
     }
 

@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
 import FileLink from './FileLink';
+import { getBackendBaseUrl } from '../../services/backendUrl';
 
 interface MarkdownRendererProps {
   content: string;
@@ -17,6 +18,58 @@ interface RenderedBlock {
   content: string;
   language?: string;
   level?: number;
+}
+
+/**
+ * 渐进式文件路径链接组件
+ * 对标 cline InlineCodeWithFileCheck：
+ * 1. 同步：如果 codeContent 匹配 knownFilePaths → 立即渲染 FileLink
+ * 2. 异步：否则先渲染 code 样式，后台验证文件存在后升级为 FileLink
+ * 3. 始终非阻塞，主线程零卡顿
+ */
+function InlineCodeLink({
+  codeContent,
+  knownFilePaths,
+  onPreviewFile,
+}: {
+  codeContent: string;
+  knownFilePaths: string[] | undefined;
+  onPreviewFile: ((path: string) => void) | undefined;
+}) {
+  const [confirmedPath, setConfirmedPath] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (!knownFilePaths || knownFilePaths.length === 0) return;
+
+    for (const fp of knownFilePaths) {
+      if (fp === codeContent || fp.endsWith('/' + codeContent) || fp.endsWith('\\' + codeContent)) {
+        setConfirmedPath(fp);
+        return;
+      }
+    }
+
+    const pathLike = /^(?:[A-Za-z]:)?[\\/]?(?:[\w\-.]+\\)*[\w\-.]+\.[a-zA-Z0-9]{1,10}$/;
+    if (pathLike.test(codeContent) && !checking) {
+      setChecking(true);
+      const baseUrl = getBackendBaseUrl();
+      const encodedPath = encodeURIComponent(codeContent);
+      fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data?.resolvedPath) {
+            setConfirmedPath(data.resolvedPath);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [codeContent, knownFilePaths, checking]);
+
+  if (confirmedPath) {
+    return <FileLink filePath={confirmedPath} onPreview={onPreviewFile || (() => {})} />;
+  }
+
+  return <code>{codeContent}</code>;
 }
 
 function parseMarkdown(text: string, blockIdRef: { current: number }): RenderedBlock[] {
@@ -150,14 +203,36 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
   const renderList = (content: string, key: string) => {
     const lines = content.split('\n');
     const isOrdered = lines[0].match(/^\d+\.\s/) !== null;
+    const isTaskList = !isOrdered && lines.some((l) => /^\s*[-*+]\s+\[[ x]\]/.test(l));
     const items: JSX.Element[] = [];
 
     lines.forEach((line, idx) => {
       const trimmed = line.trim();
       if (!trimmed) return;
 
+      // GFM 任务列表: - [ ] 或 - [x]
+      const taskMatch = line.match(/^(\s*)[-*+]\s+\[([ x])\]\s*(.*)/);
+      if (taskMatch) {
+        const checked = taskMatch[2] === 'x';
+        const indent = taskMatch[1].length;
+        items.push(
+          <li key={idx} className="flex items-center gap-2 my-1" style={{ marginLeft: `${indent * 0.5}rem`, listStyle: 'none' }}>
+            <input
+              type="checkbox"
+              checked={checked}
+              readOnly
+              className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500 cursor-default"
+            />
+            <span className={checked ? 'line-through text-gray-400 dark:text-gray-500' : ''}>
+              {renderText(taskMatch[3])}
+            </span>
+          </li>
+        );
+        return;
+      }
+
       let itemContent = '';
-      
+
       if (line.startsWith('  ')) {
         itemContent = line.trim();
       } else {
@@ -173,6 +248,9 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
 
     if (isOrdered) {
       return <ol key={key} className="my-2 list-decimal">{items}</ol>;
+    }
+    if (isTaskList) {
+      return <ul key={key} className="my-2" style={{ listStyle: 'none', paddingLeft: 0 }}>{items}</ul>;
     }
     return <ul key={key} className="my-2 list-disc">{items}</ul>;
   };
@@ -331,76 +409,52 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
     return false;
   };
 
+  /**
+   * 将纯文本中的裸 URL 转换为可点击链接
+   * 对标 cline remarkUrlToLink
+   */
+  const renderPlainTextWithUrls = (text: string, startKey: number): JSX.Element[] => {
+    const urlRegex = /(https?:\/\/[^\s<>)\]]+)/;
+    const parts: JSX.Element[] = [];
+    let remaining = text;
+    let key = startKey;
+    let match;
+    while ((match = urlRegex.exec(remaining)) !== null) {
+      if (match.index > 0) {
+        parts.push(<span key={key++}>{remaining.slice(0, match.index)}</span>);
+      }
+      parts.push(
+        <a
+          key={key++}
+          href={match[1]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:underline"
+        >
+          {match[1]}
+        </a>
+      );
+      remaining = remaining.slice(match.index + match[1].length);
+    }
+    if (remaining) {
+      parts.push(<span key={key++}>{remaining}</span>);
+    }
+    return parts;
+  };
+
   const renderText = (text: string, autoDetectFormula: boolean = true) => {
     const parts: JSX.Element[] = [];
     let remaining = text;
     let key = 0;
 
-    // Helper: scan plain text for known file paths and render as FileLink
-    const winPathPattern = /[A-Za-z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]+\.[a-zA-Z0-9]{1,10}/;
-
-    const tryRenderFilePathLinks = (text: string): JSX.Element | null => {
-      if (text.length === 0) return null;
-
-      let earliestIdx = -1;
-      let earliestFullPath = '';
-      let earliestMatchLen = 0;
-
-      // 第一级：从已知 sessionFiles 中匹配（完整路径 + basename）
-      if (knownFilePaths && knownFilePaths.length > 0) {
-        for (const fp of knownFilePaths) {
-          let idx = text.indexOf(fp);
-          let matchLen = fp.length;
-
-          if (idx === -1) {
-            const basename = fp.replace(/^.*[\\/]/, '');
-            if (basename && basename !== fp && basename.length > 0) {
-              idx = text.indexOf(basename);
-              matchLen = basename.length;
-            }
-          }
-
-          if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
-            earliestIdx = idx;
-            earliestFullPath = fp;
-            earliestMatchLen = matchLen;
-          }
-        }
-      }
-
-      // 第二级：不依赖 sessionFiles，直接从文本中扫描 Windows 绝对路径（兜底）
-      let match;
-      while ((match = winPathPattern.exec(text)) !== null) {
-        const idx = match.index;
-        const fp = match[0];
-        if (earliestIdx === -1 || idx < earliestIdx) {
-          earliestIdx = idx;
-          earliestFullPath = fp;
-          earliestMatchLen = fp.length;
-        }
-      }
-
-      if (earliestIdx === -1) return null;
-
-      const elements: JSX.Element[] = [];
-      if (earliestIdx > 0) {
-        elements.push(<span key={key++}>{text.slice(0, earliestIdx)}</span>);
-      }
-      elements.push(
-        <FileLink key={key++} filePath={earliestFullPath} onPreview={onPreviewFile || (() => {})} />
-      );
-      if (earliestIdx + earliestMatchLen < text.length) {
-        elements.push(<span key={key++}>{text.slice(earliestIdx + earliestMatchLen)}</span>);
-      }
-      return <React.Fragment key={key++}>{elements}</React.Fragment>;
-    };
-
     const patterns = [
       { regex: /\*\*(.+?)\*\*/g, tag: 'strong' as const },
       { regex: /\*(.+?)\*/g, tag: 'em' as const },
+      { regex: /~~(.+?)~~/g, tag: 'del' as const },
       { regex: /`([^`]+)`/g, tag: 'code' as const },
       { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: 'link' as const },
       { regex: /\$([^$]+)\$/g, tag: 'math' as const },
+      { regex: /https?:\/\/[^\s<>)\]]+/g, tag: 'url' as const },
     ];
 
     let hasMatch = true;
@@ -437,12 +491,10 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
                 />
               );
             } else {
-              const fileLinked = tryRenderFilePathLinks(beforeText);
-              parts.push(fileLinked || <span key={key++}>{beforeText}</span>);
+              parts.push(<span key={key++}>{beforeText}</span>);
             }
           } else {
-            const fileLinked = tryRenderFilePathLinks(beforeText);
-            parts.push(fileLinked || <span key={key++}>{beforeText}</span>);
+            parts.push(<span key={key++}>{beforeText}</span>);
           }
         }
         if (pattern.tag === 'link') {
@@ -455,6 +507,19 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               className="text-blue-500 hover:underline"
             >
               {match[1]}
+            </a>
+          );
+        } else if (pattern.tag === 'url') {
+          const url = match[0];
+          parts.push(
+            <a
+              key={key++}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              {url}
             </a>
           );
         } else if (pattern.tag === 'math') {
@@ -475,14 +540,24 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           } else {
             parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
           }
-        } else if (pattern.tag === 'code' && knownFilePaths?.includes(match[1])) {
+        } else if (pattern.tag === 'code') {
           parts.push(
-            <FileLink
+            <InlineCodeLink
               key={key++}
-              filePath={match[1]}
-              onPreview={onPreviewFile || (() => {})}
+              codeContent={match[1]}
+              knownFilePaths={knownFilePaths}
+              onPreviewFile={onPreviewFile}
             />
           );
+        } else if (pattern.tag === 'strong') {
+          const remainderAfterStrong = remaining.slice(index + match[0].length);
+          if (/^[a-zA-Z0-9_-]+$/.test(match[1]) && /^\.[a-zA-Z0-9]+/.test(remainderAfterStrong)) {
+            parts.push(<span key={key++}>**{match[1]}**</span>);
+          } else {
+            parts.push(React.createElement('strong', { key: key++ }, match[1]));
+          }
+        } else if (pattern.tag === 'del') {
+          parts.push(React.createElement('del', { key: key++ }, match[1]));
         } else {
           parts.push(
             React.createElement(pattern.tag, { key: key++ }, match[1])
@@ -509,12 +584,10 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
             />
           );
         } else {
-          const fileLinked = tryRenderFilePathLinks(remaining);
-          parts.push(fileLinked || <span key={key}>{remaining}</span>);
+          parts.push(...renderPlainTextWithUrls(remaining, key));
         }
       } else {
-        const fileLinked = tryRenderFilePathLinks(remaining);
-        parts.push(fileLinked || <span key={key}>{remaining}</span>);
+        parts.push(...renderPlainTextWithUrls(remaining, key));
       }
     }
 
@@ -578,77 +651,95 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
 
   return (
     <div className="prose prose-sm max-w-none">
-      {blocks.map((block) => {
-        switch (block.type) {
-          case 'code':
-            return (
-              <pre
-                key={block.id}
-                className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm my-2"
-              >
-                <code>{block.content}</code>
-              </pre>
-            );
-          case 'math': {
-            let renderedFormula: string;
-            try {
-              renderedFormula = katex.renderToString(block.content, { displayMode: true });
-            } catch {
-              renderedFormula = '';
-            }
-            if (renderedFormula) {
-              return (
-                <div
-                  key={block.id}
-                  className="my-4 text-center"
-                  dangerouslySetInnerHTML={{
-                    __html: renderedFormula,
-                  }}
-                />
-              );
-            }
-            return (
-              <div
-                key={block.id}
-                className="my-4 text-center text-gray-500 dark:text-gray-400"
-              >
-                {block.content}
-              </div>
-            );
-          }
-          case 'mermaid':
-            return (
-              <div
-                key={block.id}
-                className="mermaid my-4"
-                style={{ backgroundColor: '#1a1a1a', padding: '1rem', borderRadius: '8px' }}
-              >
-                {block.content}
-              </div>
-            );
-          case 'table':
-            return <div key={block.id} className="overflow-x-auto">{renderTable(block.content, !isStreaming)}</div>;
-          case 'heading':
-            return renderHeading(block.content, block.level || 1, String(block.id));
-          case 'list':
-            return renderList(block.content, String(block.id));
-          case 'hr':
-            return <hr key={block.id} className="my-4 border-gray-300 dark:border-gray-600" />;
-          case 'text':
-            return (
-              <p key={block.id} className="my-2 whitespace-pre-wrap">
-                {renderText(block.content, !isStreaming)}
-              </p>
-            );
-          default:
-            return null;
-        }
-      })}
+      {blocks.map((block) => (
+        <BlockContent
+          key={block.id}
+          block={block}
+          isStreaming={isStreaming}
+          renderText={renderText}
+          renderHeading={renderHeading}
+          renderList={renderList}
+          renderTable={renderTable}
+        />
+      ))}
       {isStreaming && (
         <span className="animate-pulse">▌</span>
       )}
     </div>
   );
 }
+
+interface BlockContentProps {
+  block: RenderedBlock;
+  isStreaming?: boolean;
+  renderText: (text: string, autoDetectFormula?: boolean) => JSX.Element[];
+  renderHeading: (content: string, level: number, key: string) => React.ReactElement;
+  renderList: (content: string, key: string) => React.ReactElement;
+  renderTable: (content: string, autoDetectFormula?: boolean) => React.ReactElement | null;
+}
+
+const BlockContent = React.memo(
+  function BlockContent({ block, isStreaming, renderText, renderHeading, renderList, renderTable }: BlockContentProps) {
+    switch (block.type) {
+      case 'code':
+        return (
+          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm my-2">
+            <code>{block.content}</code>
+          </pre>
+        );
+      case 'math': {
+        let renderedFormula: string;
+        try {
+          renderedFormula = katex.renderToString(block.content, { displayMode: true });
+        } catch {
+          renderedFormula = '';
+        }
+        if (renderedFormula) {
+          return (
+            <div
+              className="my-4 text-center"
+              dangerouslySetInnerHTML={{
+                __html: renderedFormula,
+              }}
+            />
+          );
+        }
+        return (
+          <div className="my-4 text-center text-gray-500 dark:text-gray-400">
+            {block.content}
+          </div>
+        );
+      }
+      case 'mermaid':
+        return (
+          <div
+            className="mermaid my-4"
+            style={{ backgroundColor: '#1a1a1a', padding: '1rem', borderRadius: '8px' }}
+          >
+            {block.content}
+          </div>
+        );
+      case 'table':
+        return <div className="overflow-x-auto">{renderTable(block.content, !isStreaming)}</div>;
+      case 'heading':
+        return renderHeading(block.content, block.level || 1, String(block.id));
+      case 'list':
+        return renderList(block.content, String(block.id));
+      case 'hr':
+        return <hr className="my-4 border-gray-300 dark:border-gray-600" />;
+      case 'text':
+        return (
+          <p className="my-2 whitespace-pre-wrap">
+            {renderText(block.content, !isStreaming)}
+          </p>
+        );
+      default:
+        return null;
+    }
+  },
+  (prevProps, nextProps) => prevProps.block.content === nextProps.block.content && prevProps.block.type === nextProps.block.type && prevProps.isStreaming === nextProps.isStreaming
+);
+
+BlockContent.displayName = 'BlockContent';
 
 export default MarkdownRenderer;

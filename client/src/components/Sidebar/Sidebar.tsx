@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/appStore';
 import { useConfigStore } from '../../stores/configStore';
@@ -76,82 +75,6 @@ function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
       <span className="text-xl leading-none h-6 flex items-center justify-center">{item.icon}</span>
       <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">{item.label}</span>
     </button>
-  );
-}
-
-function CollapsibleGroup({
-  items,
-  icon,
-  label,
-  isAnyActive,
-  activeRoute,
-}: {
-  items: MenuItem[];
-  icon: string;
-  label: string;
-  isAnyActive: boolean;
-  activeRoute: string;
-}) {
-  const [expanded, setExpanded] = useState(isAnyActive);
-  const navigate = useNavigate();
-  const setActivePage = useAppStore((s) => s.setActivePage);
-
-  const isItemActive = (item: MenuItem): boolean => {
-    const normalizedPath = (item.path || '').replace('/', '') || 'home';
-    return activeRoute === normalizedPath || activeRoute.startsWith(normalizedPath + '/');
-  };
-
-  if (!expanded) {
-    return (
-      <button
-        onClick={() => setExpanded(true)}
-        className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
-          isAnyActive
-            ? 'bg-blue-600 text-white'
-            : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white'
-        }`}
-        title={label}
-      >
-        <span className="text-xl leading-none h-6 flex items-center justify-center">{icon}</span>
-        <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">{label}</span>
-      </button>
-    );
-  }
-
-  const handleItemClick = (item: MenuItem) => {
-    if (item.path) {
-      const pageId = item.path.replace('/', '') || 'chat';
-      setActivePage(pageId as any);
-      navigate(item.path);
-    }
-  };
-
-  return (
-    <div className="space-y-0.5">
-      <button
-        onClick={() => setExpanded(false)}
-        className="flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400"
-        title={`收起 ${label}`}
-      >
-        <span className="text-xl leading-none h-6 flex items-center justify-center">{icon}</span>
-        <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">{label}</span>
-      </button>
-      {items.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => handleItemClick(item)}
-          className={`flex flex-col items-center justify-center py-1.5 px-2 rounded transition-colors h-12 w-full flex-shrink-0 ${
-            isItemActive(item)
-              ? 'bg-blue-500 text-white'
-              : 'text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700'
-          }`}
-          title={item.label}
-        >
-          <span className="text-lg leading-none h-5 flex items-center justify-center">{item.icon}</span>
-          <span className="text-[10px] mt-0.5 truncate w-full text-center h-3 flex items-center justify-center">{item.label}</span>
-        </button>
-      ))}
-    </div>
   );
 }
 

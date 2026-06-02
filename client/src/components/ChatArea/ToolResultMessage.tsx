@@ -1,5 +1,6 @@
 import type { Message } from '../../types';
 import MarkdownRenderer from './MarkdownRenderer';
+import { useChatStore } from '../../stores/chatStore';
 
 interface ToolResultMessageProps {
   message: Message;
@@ -10,6 +11,10 @@ interface ToolResultMessageProps {
  * 解析并显示工具执行的结果
  */
 function ToolResultMessage({ message }: ToolResultMessageProps) {
+  const { readFileToPreview } = useChatStore();
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const knownFilePaths = sessionFiles.map(f => f.path);
+
   // 直接使用 message.content 作为工具结果值
   // message.toolCallId 从后端获取工具调用 ID
   const result = {
@@ -41,7 +46,7 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
         )}
       </div>
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-        <MarkdownRenderer content={formatValue(result.value)} />
+        <MarkdownRenderer content={formatValue(result.value)} onPreviewFile={readFileToPreview} knownFilePaths={knownFilePaths} />
       </div>
     </div>
   );

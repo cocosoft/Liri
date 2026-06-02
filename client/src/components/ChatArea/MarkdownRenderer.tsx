@@ -2,10 +2,13 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
+import FileLink from './FileLink';
 
 interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
+  onPreviewFile?: (path: string) => void;
+  knownFilePaths?: string[];
 }
 
 interface RenderedBlock {
@@ -110,7 +113,7 @@ function parseMarkdown(text: string, blockIdRef: { current: number }): RenderedB
   return result;
 }
 
-function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
+function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths }: MarkdownRendererProps) {
   const blockIdRef = useRef(0);
 
   const blocks = useMemo(() => {
@@ -333,6 +336,47 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
     let remaining = text;
     let key = 0;
 
+    // Helper: scan plain text for known file paths and render as FileLink
+    const tryRenderFilePathLinks = (text: string): JSX.Element | null => {
+      if (!knownFilePaths || knownFilePaths.length === 0 || text.length === 0) return null;
+
+      let earliestIdx = -1;
+      let earliestFullPath = '';
+      let earliestMatchLen = 0;
+      for (const fp of knownFilePaths) {
+        let idx = text.indexOf(fp);
+        let matchLen = fp.length;
+
+        if (idx === -1) {
+          const basename = fp.replace(/^.*[\\/]/, '');
+          if (basename && basename !== fp && basename.length > 0) {
+            idx = text.indexOf(basename);
+            matchLen = basename.length;
+          }
+        }
+
+        if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
+          earliestIdx = idx;
+          earliestFullPath = fp;
+          earliestMatchLen = matchLen;
+        }
+      }
+
+      if (earliestIdx === -1) return null;
+
+      const elements: JSX.Element[] = [];
+      if (earliestIdx > 0) {
+        elements.push(<span key={key++}>{text.slice(0, earliestIdx)}</span>);
+      }
+      elements.push(
+        <FileLink key={key++} filePath={earliestFullPath} onPreview={onPreviewFile || (() => {})} />
+      );
+      if (earliestIdx + earliestMatchLen < text.length) {
+        elements.push(<span key={key++}>{text.slice(earliestIdx + earliestMatchLen)}</span>);
+      }
+      return <React.Fragment key={key++}>{elements}</React.Fragment>;
+    };
+
     const patterns = [
       { regex: /\*\*(.+?)\*\*/g, tag: 'strong' as const },
       { regex: /\*(.+?)\*/g, tag: 'em' as const },
@@ -375,10 +419,12 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
                 />
               );
             } else {
-              parts.push(<span key={key++}>{beforeText}</span>);
+              const fileLinked = tryRenderFilePathLinks(beforeText);
+              parts.push(fileLinked || <span key={key++}>{beforeText}</span>);
             }
           } else {
-            parts.push(<span key={key++}>{beforeText}</span>);
+            const fileLinked = tryRenderFilePathLinks(beforeText);
+            parts.push(fileLinked || <span key={key++}>{beforeText}</span>);
           }
         }
         if (pattern.tag === 'link') {
@@ -411,6 +457,14 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
           } else {
             parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
           }
+        } else if (pattern.tag === 'code' && knownFilePaths?.includes(match[1])) {
+          parts.push(
+            <FileLink
+              key={key++}
+              filePath={match[1]}
+              onPreview={onPreviewFile || (() => {})}
+            />
+          );
         } else {
           parts.push(
             React.createElement(pattern.tag, { key: key++ }, match[1])
@@ -437,10 +491,12 @@ function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
             />
           );
         } else {
-          parts.push(<span key={key}>{remaining}</span>);
+          const fileLinked = tryRenderFilePathLinks(remaining);
+          parts.push(fileLinked || <span key={key}>{remaining}</span>);
         }
       } else {
-        parts.push(<span key={key}>{remaining}</span>);
+        const fileLinked = tryRenderFilePathLinks(remaining);
+        parts.push(fileLinked || <span key={key}>{remaining}</span>);
       }
     }
 

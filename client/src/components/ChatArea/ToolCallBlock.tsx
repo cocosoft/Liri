@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ToolCall } from '../../types';
 import MarkdownRenderer from './MarkdownRenderer';
+import { useChatStore } from '../../stores/chatStore';
 
 interface ToolCallBlockProps {
   toolCall: ToolCall;
@@ -178,19 +179,34 @@ function formatValue(key: string, value: unknown): string {
 
 /**
  * 以自然语言格式展示参数
+ * 文件路径类参数渲染为可点击预览链接
  */
-function formatArgumentsNatural(args: Record<string, unknown>): React.ReactNode[] {
+function formatArgumentsNatural(
+  args: Record<string, unknown>,
+  onPreviewFile?: (path: string) => void
+): React.ReactNode[] {
   const entries = Object.entries(args);
   if (entries.length === 0) return [];
 
   return entries.map(([key, value]) => {
     const label = formatKey(key);
     const formattedValue = formatValue(key, value);
+    const isFilePathKey = key === 'file_path' || key === 'path' || key === 'filePath';
 
     return (
       <div key={key} style={styles.argLine}>
         <span style={styles.argLabel}>{label}:</span>
-        <span style={styles.argValue}>{formattedValue}</span>
+        {isFilePathKey && onPreviewFile && typeof value === 'string' ? (
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); onPreviewFile(value); }}
+            style={{ ...styles.argValue, color: '#7aa2f7', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            {formattedValue}
+          </a>
+        ) : (
+          <span style={styles.argValue}>{formattedValue}</span>
+        )}
       </div>
     );
   });
@@ -199,6 +215,9 @@ function formatArgumentsNatural(args: Record<string, unknown>): React.ReactNode[
 function ToolCallBlock({ toolCall, isStreaming }: ToolCallBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const prevStreaming = useRef(isStreaming);
+  const { readFileToPreview } = useChatStore();
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const knownFilePaths = sessionFiles.map(f => f.path);
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
@@ -258,7 +277,7 @@ function ToolCallBlock({ toolCall, isStreaming }: ToolCallBlockProps) {
             <div style={styles.section}>
               <div style={styles.sectionTitle}>参数:</div>
               <div style={styles.argsContainer}>
-                {formatArgumentsNatural(toolCall.arguments as Record<string, unknown>)}
+                {formatArgumentsNatural(toolCall.arguments as Record<string, unknown>, readFileToPreview)}
               </div>
             </div>
           )}
@@ -266,7 +285,7 @@ function ToolCallBlock({ toolCall, isStreaming }: ToolCallBlockProps) {
             <div style={styles.section}>
               <div style={styles.sectionTitle}>结果:</div>
               {typeof toolCall.result === 'string' ? (
-                <MarkdownRenderer content={toolCall.result} />
+                <MarkdownRenderer content={toolCall.result} onPreviewFile={readFileToPreview} knownFilePaths={knownFilePaths} />
               ) : (
                 <pre style={styles.pre}>
                   {JSON.stringify(toolCall.result, null, 2)}

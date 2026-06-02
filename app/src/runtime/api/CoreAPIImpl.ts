@@ -244,9 +244,6 @@ export class CoreAPIImpl implements CoreAPI {
           );
         },
         onToolCall: (phase, toolName, toolCallId, detail) => {
-          console.log(
-            `[CoreAPIImpl] onToolCall triggered: phase=${phase}, tool=${toolName}, id=${toolCallId}, detail=${detail}`
-          );
           if (phase === 'start') {
             let toolArgs: Record<string, unknown> = {};
             try {
@@ -280,6 +277,18 @@ export class CoreAPIImpl implements CoreAPI {
               sessionId: finalSessionId,
             } as ChatStreamChunk);
 
+            // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）
+            // detail 格式: 成功: "File written successfully: E:\\PY\\CODES\\...\\xxx.md"（JSON.stringify 导致双斜杠）
+            let extractedArgs: Record<string, unknown> = {};
+            const isFileWritingTool = ['file_write', 'file_edit', 'file_create', 'write', 'create_file', 'edit_file'].includes(toolName);
+            if (isFileWritingTool && detail && !isFailed) {
+              const normalized = detail.replace(/\\\\/g, '\\');
+              const winPathMatch = normalized.match(/([A-Za-z]:\\(?:[^\s"\\]+\\)*[^\s"\\]+\.[a-zA-Z0-9]{1,10})/);
+              if (winPathMatch) {
+                extractedArgs = { file_path: winPathMatch[1] };
+              }
+            }
+
             pendingEvents.push({
               type: 'tool_call',
               content: '',
@@ -287,7 +296,7 @@ export class CoreAPIImpl implements CoreAPI {
               toolCall: {
                 id: toolCallId,
                 name: toolName,
-                arguments: {},
+                arguments: extractedArgs,
                 status: isFailed ? ('failed' as const) : ('completed' as const),
               },
             } as ChatStreamChunk);

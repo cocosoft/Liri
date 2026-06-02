@@ -5,7 +5,6 @@ import { useConfigStore } from '../../stores/configStore';
 import { useAppStore } from '../../stores/appStore';
 import { fileService } from '../../services/fileService';
 import VoiceInputButton from '../VoiceInputButton';
-import ModelSelector from './ModelSelector';
 import type { Message } from '../../types';
 
 interface FileAttachment {
@@ -103,10 +102,8 @@ function ChatInput() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, isLoading, clearMessages } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
-  const { config, setConfig } = useConfigStore();
+  const { config } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
-
-  const selectedModel = (config.model as string) || '';
 
   useEffect(() => {
     const unsubscribe = useChatStore.subscribe((state) => {
@@ -350,12 +347,38 @@ function ChatInput() {
       onDragLeave={handleDragLeave}
     >
       <div className="max-w-4xl mx-auto">
-        {/* 模型选择器 */}
-        <div className="flex items-center gap-2 mb-3">
-          <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={(modelId) => setConfig('model', modelId)}
+        {/* 工具栏：文件上传 + 表情 */}
+        <div className="flex items-center gap-1 mb-2">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!currentSession || isSending}
+            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors"
+            title="上传文件"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
           />
+          <button
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            disabled={!currentSession || isSending}
+            className={`p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors ${
+              showEmojiPicker ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-500' : ''
+            }`}
+            title="选择表情"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+          <div className="flex-1" />
         </div>
 
         {/* 附件列表 */}
@@ -444,41 +467,6 @@ function ChatInput() {
 
           {/* 输入框 */}
           <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-xl p-1.5">
-            {/* 左侧按钮 */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!currentSession || isSending}
-                className="p-2 text-gray-500 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-400 dark:disabled:text-gray-600 rounded-lg transition-colors"
-                title="上传文件"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-              
-              {/* Emoji 选择器按钮 */}
-              <button
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                disabled={!currentSession || isSending}
-                className={`p-2 text-gray-500 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-400 dark:disabled:text-gray-600 rounded-lg transition-colors ${
-                  showEmojiPicker ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-500' : ''
-                }`}
-                title="选择表情"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
-            </div>
-
             {/* 文本输入 */}
             <div className="flex-1 relative">
               <textarea

@@ -6,7 +6,7 @@ interface StatusBlockProps {
 }
 
 function StatusBlock({ content, isStreaming }: StatusBlockProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isStreaming);
   const prevStreaming = useRef(isStreaming);
 
   useEffect(() => {

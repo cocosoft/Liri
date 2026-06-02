@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/appStore';
+import { useConfigStore } from '../../stores/configStore';
 
 interface MenuItem {
   id: string;
@@ -13,24 +14,22 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'home', label: '首页', icon: '🏠', path: '/' },
   { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
+  { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
   { id: 'knowledge', label: '知识库', icon: '📚', path: '/knowledge' },
   { id: 'dashboard', label: '仪表盘', icon: '📊', path: '/dashboard' },
 ];
 
-const MEDIUM_FREQUENCY_ITEMS: MenuItem[] = [
-  { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
-];
-
 const SYSTEM_ITEMS: MenuItem[] = [
-  { id: 'theme', label: '主题', icon: '🌙', action: () => {} },
+  { id: 'theme', label: '主题', icon: '🌙' },
   { id: 'settings', label: '设置', icon: '⚙️', path: '/settings' },
 ];
 
 function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
   const navigate = useNavigate();
   const setActivePage = useAppStore((s) => s.setActivePage);
-  const toggleTheme = useAppStore((s) => s.toggleTheme);
-  const isDark = useAppStore((s) => s.isDark);
+  const config = useConfigStore((s) => s.config);
+  const setConfig = useConfigStore((s) => s.setConfig);
+  const isDark = config.theme === 'dark';
 
   const handleClick = () => {
     if (item.path) {
@@ -41,10 +40,9 @@ function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
         setActivePage(pageId as any);
       }
       navigate(item.path);
-    } else if (item.action) {
-      item.action();
     } else if (item.id === 'theme') {
-      toggleTheme();
+      const newTheme = isDark ? 'light' : 'dark';
+      setConfig('theme', newTheme);
     }
   };
 
@@ -171,14 +169,6 @@ function Sidebar() {
       <div className="flex-1 overflow-y-auto p-1">
         <div className="space-y-0.5">
           {HIGH_FREQUENCY_ITEMS.map((item) => (
-            <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />
-          ))}
-        </div>
-
-        <div className="my-3 border-t border-gray-300 dark:border-gray-700" />
-
-        <div className="space-y-0.5">
-          {MEDIUM_FREQUENCY_ITEMS.map((item) => (
             <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />
           ))}
         </div>

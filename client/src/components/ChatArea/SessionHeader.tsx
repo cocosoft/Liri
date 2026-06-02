@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSessionStore } from '../../stores/sessionStore';
 
 function SessionHeader() {
-  const { currentSession, renameSession, createSession } = useSessionStore();
+  const { currentSession, renameSession } = useSessionStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
 
@@ -26,10 +26,6 @@ function SessionHeader() {
     } else if (e.key === 'Escape') {
       setIsEditing(false);
     }
-  };
-
-  const handleNewSession = () => {
-    createSession(`新会话 ${Date.now()}`);
   };
 
   return (
@@ -62,15 +58,6 @@ function SessionHeader() {
         ) : (
           <span className="text-sm text-gray-500 dark:text-gray-400">选择会话或创建新会话</span>
         )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleNewSession}
-          className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          + 新建会话
-        </button>
       </div>
     </header>
   );

@@ -8,6 +8,8 @@ import ChatArea from './components/ChatArea/ChatArea';
 import ChatInput from './components/ChatArea/ChatInput';
 import SessionHeader from './components/ChatArea/SessionHeader';
 import ToolPanel from './components/ToolPanel/ToolPanel';
+import FilePreviewPanel from './components/ChatArea/FilePreviewPanel';
+import SessionHistorySidebar from './components/ChatArea/SessionHistorySidebar';
 import ConfigPanel from './components/ConfigPanel/ConfigPanel';
 import ToastContainer from './components/common/ToastContainer';
 import KeyboardShortcutsHelp from './components/common/KeyboardShortcutsHelp';
@@ -134,11 +136,14 @@ function App() {
           <Route path="/apikeys" element={<ApiKeyPage />} />
           <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} />
           <Route path="/chat" element={
-            <main className="flex-1 flex flex-col page-transition-enter">
-              <SessionHeader />
-              <ChatArea />
-              <ChatInput />
-            </main>
+            <div className="flex flex-1 page-transition-enter overflow-hidden">
+              <SessionHistorySidebar />
+              <main className="flex-1 flex flex-col min-w-0">
+                <SessionHeader />
+                <ChatArea />
+                <ChatInput />
+              </main>
+            </div>
           } />
           <Route path="/dashboard" element={<AuthGuard><DashboardPage /></AuthGuard>} />
           <Route path="/logs" element={<AuthGuard><LogViewerPage /></AuthGuard>} />
@@ -169,7 +174,11 @@ function App() {
           <Route path="/models" element={<AuthGuard><ModelPage /></AuthGuard>} />
           </Routes>
         </div>
-        <ToolPanel />
+        {location.pathname === '/chat' || location.pathname === '/' ? (
+          <FilePreviewPanel />
+        ) : (
+          <ToolPanel />
+        )}
       </div>
       <Footer />
       <ConfigPanel />

@@ -207,15 +207,18 @@ export const chatService = {
               } else if (pyappType === 'tool_call') {
                 const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
                 if (tc) {
+                  const rawArgs = tc.function?.arguments;
+                  let parsedArgs: Record<string, unknown> = {};
+                  try {
+                    parsedArgs = typeof rawArgs === 'string' ? JSON.parse(rawArgs || '{}') : (rawArgs || {});
+                  } catch { }
                   yield {
                     type: 'tool_call',
                     content: '',
                     toolCall: {
                       id: tc.id,
                       name: tc.function?.name || '',
-                      arguments: typeof tc.function?.arguments === 'string'
-                        ? JSON.parse(tc.function.arguments || '{}')
-                        : (tc.function?.arguments || {}),
+                      arguments: parsedArgs,
                       status: chunk.__pyapp_tool_status || 'running',
                     },
                   };

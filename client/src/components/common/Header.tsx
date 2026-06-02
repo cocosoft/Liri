@@ -35,6 +35,22 @@ function Header() {
       </div>
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={() => navigate('/terminal')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+        >
+          <span>💻</span>
+          <span>终端</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/apikeys')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+        >
+          <span>👤</span>
+          <span>用户中心</span>
+        </button>
+
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowHelpMenu(!showHelpMenu)}
@@ -55,22 +71,6 @@ function Header() {
             </div>
           )}
         </div>
-
-        <button
-          onClick={() => navigate('/terminal')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
-        >
-          <span>💻</span>
-          <span>终端</span>
-        </button>
-
-        <button
-          onClick={() => navigate('/apikeys')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
-        >
-          <span>👤</span>
-          <span>用户中心</span>
-        </button>
       </div>
     </header>
   );

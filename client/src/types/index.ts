@@ -374,3 +374,19 @@ export interface SystemHealth {
   }[];
   timestamp: number;
 }
+
+/** 文件预览接口 */
+export interface FilePreview {
+  /** 文件路径(相对或绝对) */
+  path: string;
+  /** 文件名 */
+  name: string;
+  /** 文件内容 */
+  content: string;
+  /** 文件类型 */
+  type: 'code' | 'markdown' | 'json' | 'yaml' | 'image' | 'text';
+  /** 语言(代码文件) */
+  language?: string;
+  /** 文件大小 */
+  size?: number;
+}

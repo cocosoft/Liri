@@ -410,6 +410,9 @@ interface BlockRendererProps {
 }
 
 function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const readFileToPreview = useChatStore((s) => s.readFileToPreview);
+  const knownFilePaths = sessionFiles.map(f => f.path);
   switch (block.type) {
     case 'thinking':
       return (
@@ -433,6 +436,8 @@ function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
         <MarkdownRenderer
           content={block.content}
           isStreaming={block.isStreaming || isStreaming}
+          onPreviewFile={readFileToPreview}
+          knownFilePaths={knownFilePaths}
         />
       );
   }

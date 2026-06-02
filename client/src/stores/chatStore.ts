@@ -1,8 +1,99 @@
 import { create } from 'zustand';
-import { Message, MessageBlock } from '../types';
+import { Message, MessageBlock, FilePreview } from '../types';
 import type { ToolCall } from '../types';
 import { chatService } from '../services/chatService';
+import { getBackendBaseUrl } from '../services/backendUrl';
+import { resolveFilePath } from '../services/filePathResolver';
 import { useSessionStore } from './sessionStore';
+
+/**
+ * 已知的文件写入/编辑类工具名称集合
+ * 这些工具的 arguments 中包含 file_path/path 字段
+ */
+const FILE_WRITING_TOOLS = new Set([
+  'file_write',
+  'file_edit',
+  'file_create',
+  'write',
+  'create_file',
+  'edit_file',
+]);
+
+/**
+ * 从工具调用中提取文件路径
+ * @returns 文件路径字符串，若当前工具非文件写入类则返回 null
+ */
+function extractFilePathFromToolCall(toolCall: ToolCall): string | null {
+  if (!FILE_WRITING_TOOLS.has(toolCall.name)) return null;
+
+  const args = toolCall.arguments as Record<string, unknown> | undefined;
+  if (!args) return null;
+
+  const filePath = (args.file_path as string) || (args.path as string) || (args.filePath as string);
+  if (filePath && typeof filePath === 'string') return filePath;
+
+  return null;
+}
+
+/**
+ * 从工具调用结果中提取最精确的文件路径
+ * 优先取 result 中的路径，fallback 到 arguments 中的路径
+ */
+function resolveFilePathFromResult(toolCall: ToolCall): string | null {
+  const argPath = extractFilePathFromToolCall(toolCall);
+  if (!argPath) return null;
+
+  if (toolCall.result && typeof toolCall.result === 'object') {
+    const result = toolCall.result as Record<string, unknown>;
+    const resultPath = (result.filePath as string) || (result.path as string) || (result.file_path as string);
+    if (resultPath && typeof resultPath === 'string') return resultPath;
+  }
+  return argPath;
+}
+
+/**
+ * 从路径字符串中提取文件名
+ */
+function extractFileName(filePath: string): string {
+  const parts = filePath.split(/[/\\]/);
+  return parts[parts.length - 1] || filePath;
+}
+
+/**
+ * 从 AI 返回的文本内容中提取 Windows 绝对文件路径
+ * 后端 SSE 可能不传 tool_call arguments，此函数作为兜底方案
+ */
+function extractFilePathsFromText(text: string): string[] {
+  const paths: string[] = [];
+  const winPathRegex = /[A-Za-z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]+\.[a-zA-Z0-9]{1,10}/g;
+  let match;
+  while ((match = winPathRegex.exec(text)) !== null) {
+    paths.push(match[0]);
+  }
+  return paths;
+}
+
+/**
+ * 扫描 blocks 中的工具调用，提取文件路径并添加到会话文件列表
+ */
+function addFilePathsFromBlocks(
+  blocks: MessageBlock[],
+  addFile: (file: FilePreview) => void
+): void {
+  for (const block of blocks) {
+    if (block.type === 'tool_call' && block.toolCall) {
+      const filePath = resolveFilePathFromResult(block.toolCall);
+      if (filePath) {
+        addFile({
+          path: filePath,
+          name: extractFileName(filePath),
+          content: '',
+          type: 'text',
+        });
+      }
+    }
+  }
+}
 
 interface ChatStore {
   messages: Message[];
@@ -10,12 +101,24 @@ interface ChatStore {
   isStreaming: boolean;
   error: string | null;
   replyMessage: Message | null;
+  /** 当前预览的文件 */
+  previewFile: FilePreview | null;
+  /** 当前会话中生成的文件列表 */
+  sessionFiles: FilePreview[];
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
   streamMessage: (content: string, sessionId?: string) => Promise<void>;
   clearMessages: () => void;
   setMessages: (messages: Message[]) => void;
   setReplyMessage: (message: Message | null) => void;
+  /** 设置预览文件 */
+  setPreviewFile: (file: FilePreview | null) => void;
+  /** 添加生成的文件到列表 */
+  addSessionFile: (file: FilePreview) => void;
+  /** 清除会话文件列表 */
+  clearSessionFiles: () => void;
+  /** 读取文件内容并添加到预览 */
+  readFileToPreview: (filePath: string) => Promise<void>;
   flushPendingSaves: () => Promise<void>;
 }
 
@@ -276,6 +379,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isStreaming: false,
   error: null,
   replyMessage: null,
+  previewFile: null,
+  sessionFiles: [],
 
   addMessage: (message: Message) => {
     set({ messages: [...get().messages, message] });
@@ -356,6 +461,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === 'tool_call' && chunk.toolCall) {
           blockBuilder.addToolCall(chunk.toolCall);
+
+          const filePath = extractFilePathFromToolCall(chunk.toolCall);
+          if (filePath) {
+            const name = extractFileName(filePath);
+            get().addSessionFile({
+              path: filePath,
+              name,
+              content: '',
+              type: 'text',
+            });
+          }
+
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === 'usage' && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
@@ -391,6 +508,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         newMessages[finalMsgIdx] = { ...finalMessages[finalMsgIdx], blocks: finalBlocks };
         set({ messages: newMessages });
 
+        // 从 AI 返回的文本中提取文件路径，补入 sessionFiles
+        const assistantContent = finalMessages[finalMsgIdx].content;
+        const textPaths = extractFilePathsFromText(assistantContent);
+        for (const tp of textPaths) {
+          const name = extractFileName(tp);
+          get().addSessionFile({ path: tp, name, content: '', type: 'text' });
+        }
+
         // 将 blocks 结构保存到后端
         if (sessionId && finalBlocks.length > 0) {
           try {
@@ -420,6 +545,60 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   setReplyMessage: (replyMessage: Message | null) => {
     set({ replyMessage });
+  },
+
+  setPreviewFile: (file) => {
+    set({ previewFile: file });
+  },
+
+  addSessionFile: (file) => {
+    const current = get().sessionFiles;
+    const exists = current.some(f => f.path === file.path);
+    if (!exists) {
+      set({ sessionFiles: [...current, file] });
+    }
+  },
+
+  clearSessionFiles: () => {
+    set({ sessionFiles: [], previewFile: null });
+  },
+
+  readFileToPreview: async (filePath: string) => {
+    try {
+      const resolvedPath = await resolveFilePath(filePath);
+
+      const existing = get().sessionFiles.find(f => f.path === resolvedPath);
+      if (existing) {
+        set({ previewFile: existing });
+        return;
+      }
+
+      const baseUrl = getBackendBaseUrl();
+      const encodedPath = encodeURIComponent(resolvedPath);
+      const res = await fetch(`${baseUrl}/api/file/read?path=${encodedPath}`);
+      if (!res.ok) throw new Error(`读取文件失败: ${res.statusText}`);
+      const data = await res.json();
+      const filePreview: FilePreview = {
+        path: resolvedPath,
+        name: resolvedPath.split('/').pop() || resolvedPath.split('\\').pop() || resolvedPath,
+        content: data.content,
+        type: data.type || 'text',
+        language: data.language,
+        size: data.size,
+      };
+      get().addSessionFile(filePreview);
+      set({ previewFile: filePreview });
+    } catch (err) {
+      console.error('读取文件失败:', err);
+      set({
+        previewFile: {
+          path: filePath,
+          name: filePath.split('/').pop() || filePath.split('\\').pop() || filePath,
+          content: `错误: ${err instanceof Error ? err.message : String(err)}`,
+          type: 'text',
+        },
+      });
+    }
   },
 
   /**
@@ -530,7 +709,45 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return { ...msg, blocks: newBlocks };
     });
 
-    set({ messages: enhancedMessages });
+    // Phase 4: 从历史消息中的 tool_call 块 + AI 回复文本中提取文件路径
+    const sessionFilesList: FilePreview[] = [];
+    const addedPaths = new Set<string>();
+
+    for (const msg of enhancedMessages) {
+      if (msg.role === 'assistant' && msg.blocks) {
+        addFilePathsFromBlocks(msg.blocks, (file) => {
+          if (!addedPaths.has(file.path)) {
+            addedPaths.add(file.path);
+            sessionFilesList.push(file);
+          }
+        });
+      }
+
+      // 从 AI 回复的纯文本中提取文件路径（兜底）
+      if (msg.role === 'assistant') {
+        const content = typeof msg.content === 'string' ? msg.content : '';
+        const textPaths = extractFilePathsFromText(content);
+        for (const tp of textPaths) {
+          if (!addedPaths.has(tp)) {
+            addedPaths.add(tp);
+            sessionFilesList.push({ path: tp, name: extractFileName(tp), content: '', type: 'text' });
+          }
+        }
+      }
+    }
+
+    if (sessionFilesList.length > 0) {
+      const currentFiles = get().sessionFiles;
+      const merged = [...currentFiles];
+      for (const file of sessionFilesList) {
+        if (!merged.some(f => f.path === file.path)) {
+          merged.push(file);
+        }
+      }
+      set({ messages: enhancedMessages, sessionFiles: merged });
+    } else {
+      set({ messages: enhancedMessages });
+    }
   },
 }));
 

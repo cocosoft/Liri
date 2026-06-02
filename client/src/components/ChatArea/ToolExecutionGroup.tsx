@@ -3,6 +3,7 @@ import type { MessageBlock } from '../../types';
 import StatusBlock from './StatusBlock';
 import ToolCallBlock from './ToolCallBlock';
 import MarkdownRenderer from './MarkdownRenderer';
+import { useChatStore } from '../../stores/chatStore';
 
 interface ToolExecutionGroupProps {
   blocks: MessageBlock[];
@@ -10,10 +11,11 @@ interface ToolExecutionGroupProps {
 }
 
 function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isStreaming);
   const [innerCollapsed, setInnerCollapsed] = useState(true);
   const prevStreaming = useRef(isStreaming);
-  const hasStreamEnded = useRef(false);
+  const hasStreamEnded = useRef(!isStreaming);
+  const { readFileToPreview } = useChatStore();
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
@@ -149,6 +151,7 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
                   key={block.id}
                   block={block}
                   isStreaming={isStreaming}
+                  onPreviewFile={readFileToPreview}
                 />
               ))}
             </div>
@@ -159,7 +162,10 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
   );
 }
 
-function BlockItem({ block, isStreaming }: { block: MessageBlock; isStreaming?: boolean }) {
+function BlockItem({ block, isStreaming, onPreviewFile }: { block: MessageBlock; isStreaming?: boolean; onPreviewFile?: (path: string) => void }) {
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const knownFilePaths = sessionFiles.map(f => f.path);
+
   switch (block.type) {
     case 'status':
       return <StatusBlock content={block.content} isStreaming={block.isStreaming || isStreaming} />;
@@ -176,6 +182,8 @@ function BlockItem({ block, isStreaming }: { block: MessageBlock; isStreaming?: 
         <MarkdownRenderer
           content={block.content}
           isStreaming={block.isStreaming || isStreaming}
+          onPreviewFile={onPreviewFile}
+          knownFilePaths={knownFilePaths}
         />
       );
   }

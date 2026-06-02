@@ -43,6 +43,24 @@ export interface AgentProgress {
   message: string;
 }
 
+export interface AgentTaskCreateParams {
+  name: string;
+  description?: string;
+  prompt?: string;
+  priority?: 'high' | 'medium' | 'low';
+  subagentType?: string;
+  runInBackground?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentTaskUpdateParams {
+  name?: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type AgentTaskCreateParamsRecord = Record<string, unknown> & AgentTaskCreateParams;
+
 export const agentService = {
   listTasks: async (): Promise<AgentTask[]> => {
     try {
@@ -64,13 +82,63 @@ export const agentService = {
     }
   },
 
+  getTaskLogs: async (id: string): Promise<string[]> => {
+    try {
+      return await http.get<string[]>(`/v1/agents/tasks/${id}/logs`);
+    } catch {
+      const result = await tryTauri<string[]>('get_agent_task_logs', { id });
+      if (result) return result;
+      return [];
+    }
+  },
+
+  createTask: async (params: AgentTaskCreateParams): Promise<AgentTask> => {
+    try {
+      return await http.post<AgentTask>('/v1/agents/tasks', params as unknown as Record<string, unknown>);
+    } catch {
+      const result = await tryTauri<AgentTask>('create_agent_task', params as unknown as Record<string, unknown>);
+      if (result) return result;
+      const task: AgentTask = {
+        id: `local-${Date.now()}`,
+        name: params.name,
+        status: 'pending',
+        created_at: Date.now(),
+      };
+      if (params.description) {
+        task.description = params.description;
+      }
+      return task;
+    }
+  },
+
   executeTask: async (name: string, params?: Record<string, unknown>): Promise<AgentTask> => {
     try {
-      return await http.post<AgentTask>('/v1/agents/tasks', { name, ...params });
+      return await http.post<AgentTask>('/v1/agents/tasks/execute', { name, ...params });
     } catch {
       const result = await tryTauri<AgentTask>('execute_agent_task', { name, params });
       if (result) return result;
       return createMemoryAgentService().executeTask(name, params);
+    }
+  },
+
+  updateTask: async (id: string, params: AgentTaskUpdateParams): Promise<AgentTask> => {
+    try {
+      return await http.put<AgentTask>(`/v1/agents/tasks/${id}`, params);
+    } catch {
+      const result = await tryTauri<AgentTask>('update_agent_task', { id, ...params });
+      if (result) return result;
+      const tasks = await agentService.listTasks();
+      const task = tasks.find(t => t.id === id);
+      return task ? { ...task, ...params } : task!;
+    }
+  },
+
+  deleteTask: async (id: string): Promise<void> => {
+    try {
+      await http.delete<void>(`/v1/agents/tasks/${id}`);
+    } catch {
+      const result = await tryTauri<void>('delete_agent_task', { id });
+      if (result !== null) return;
     }
   },
 
@@ -81,6 +149,16 @@ export const agentService = {
       const result = await tryTauri<void>('cancel_agent_task', { id });
       if (result !== null) return;
       return createMemoryAgentService().cancelTask(id);
+    }
+  },
+
+  listTaskHistory: async (): Promise<AgentTask[]> => {
+    try {
+      return await http.get<AgentTask[]>('/v1/agents/tasks/history');
+    } catch {
+      const result = await tryTauri<AgentTask[]>('list_agent_task_history');
+      if (result) return result;
+      return [];
     }
   },
 };

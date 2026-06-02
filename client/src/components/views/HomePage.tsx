@@ -183,7 +183,7 @@ function HomePage() {
             💡 提示
           </h3>
           <p className="text-sm text-blue-700 dark:text-blue-400">
-            点击右下角的主题切换按钮可以快速切换主题
+            点击左下角的主题切换按钮可以快速切换主题
           </p>
         </div>
       </div>

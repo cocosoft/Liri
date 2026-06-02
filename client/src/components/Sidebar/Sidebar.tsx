@@ -14,28 +14,23 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'home', label: '首页', icon: '🏠', path: '/' },
   { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
   { id: 'knowledge', label: '知识库', icon: '📚', path: '/knowledge' },
-  { id: 'cost', label: '成本', icon: '💰', path: '/cost' },
   { id: 'dashboard', label: '仪表盘', icon: '📊', path: '/dashboard' },
 ];
 
 const MEDIUM_FREQUENCY_ITEMS: MenuItem[] = [
-  { id: 'cron', label: '任务', icon: '🎯', path: '/cron' },
-  { id: 'models', label: '模型', icon: '🧠', path: '/models' },
-];
-
-const TOOL_GROUP_ITEMS: MenuItem[] = [
-  { id: 'files', label: '文件', icon: '📁', path: '/files' },
-  { id: 'skillMarket', label: '技能市场', icon: '🧩', path: '/skill-market' },
-  { id: 'mcpMarket', label: 'MCP 市场', icon: '🔌', path: '/mcp-market' },
+  { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
+  { id: 'theme', label: '主题', icon: '🌙', action: () => {} },
   { id: 'settings', label: '设置', icon: '⚙️', path: '/settings' },
 ];
 
 function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
   const navigate = useNavigate();
   const setActivePage = useAppStore((s) => s.setActivePage);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const isDark = useAppStore((s) => s.isDark);
 
   const handleClick = () => {
     if (item.path) {
@@ -48,8 +43,27 @@ function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
       navigate(item.path);
     } else if (item.action) {
       item.action();
+    } else if (item.id === 'theme') {
+      toggleTheme();
     }
   };
+
+  if (item.id === 'theme') {
+    return (
+      <button
+        onClick={handleClick}
+        className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
+          isDark
+            ? 'text-yellow-400 hover:bg-gray-700'
+            : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
+        }`}
+        title={isDark ? '切换到浅色模式' : '切换到深色模式'}
+      >
+        <span className="text-xl leading-none h-6 flex items-center justify-center">{isDark ? '☀️' : '🌙'}</span>
+        <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">{item.label}</span>
+      </button>
+    );
+  }
 
   return (
     <button
@@ -152,11 +166,6 @@ function Sidebar() {
     return activeRoute === normalizedPath || activeRoute.startsWith(normalizedPath + '/');
   };
 
-  const isAnyToolActive = TOOL_GROUP_ITEMS.some((item) => {
-    const normalizedPath = (item.path || '').replace('/', '') || 'home';
-    return activeRoute === normalizedPath || activeRoute.startsWith(normalizedPath + '/');
-  });
-
   return (
     <aside className="w-20 bg-gray-100 dark:bg-gray-900 flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-1">
@@ -173,21 +182,9 @@ function Sidebar() {
             <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />
           ))}
         </div>
+      </div>
 
-        <div className="my-3 border-t border-gray-300 dark:border-gray-700" />
-
-        <div className="space-y-0.5">
-          <CollapsibleGroup
-            items={TOOL_GROUP_ITEMS}
-            icon="🔧"
-            label="工具"
-            isAnyActive={isAnyToolActive}
-            activeRoute={activeRoute}
-          />
-        </div>
-
-        <div className="my-3 border-t border-gray-300 dark:border-gray-700" />
-
+      <div className="p-1 border-t border-gray-300 dark:border-gray-700">
         <div className="space-y-0.5">
           {SYSTEM_ITEMS.map((item) => (
             <MenuButton key={item.id} item={item} isActive={isActive(item.path || '')} />

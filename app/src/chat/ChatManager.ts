@@ -621,9 +621,25 @@ export class ChatManagerImpl implements ChatManager {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    const message = session.messages.find((m) => m.id === messageId);
+    let message = session.messages.find((m) => m.id === messageId);
+
     if (!message) {
-      throw new Error(`Message ${messageId} not found`);
+      message = session.messages
+        .filter((m) => m.role === 'assistant')
+        .pop();
+    }
+
+    if (!message) {
+      message = this.messageService.createAssistantMessage('', {
+        sessionId,
+      });
+      message.id = messageId;
+      message.blocks = blocks;
+      message.createdAt = new Date();
+      message.updatedAt = new Date();
+      session.messages.push(message);
+      await this.persistMessage(sessionId, message);
+      return;
     }
 
     message.blocks = blocks;

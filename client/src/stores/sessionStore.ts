@@ -61,9 +61,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   switchSession: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
+      // 先 flush 当前会话未持久化的 blocks，避免切走时丢失
+      await useChatStore.getState().flushPendingSaves();
       const session = await sessionService.switch(id);
       const messages = await sessionService.getMessages(id);
-      // 直接原子替换所有消息，避免 clearMessages + setMessages 的中间空状态
       useChatStore.getState().setMessages(messages);
       set({ currentSession: session, isLoading: false });
     } catch (error) {

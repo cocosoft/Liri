@@ -1,5 +1,10 @@
 import type { Message, BackendStatus, ToolCall } from '../types';
 import { getBackendBaseUrl, getBackendPort, setApiSecret } from './backendUrl';
+import { useConfigStore } from '../stores/configStore';
+
+function getModelFromConfig(): string {
+  return useConfigStore.getState().config.model as string || 'pyapp-default';
+}
 
 export interface StreamChunk {
   type: 'text' | 'thinking' | 'tool_call' | 'status' | 'usage' | 'done';
@@ -114,7 +119,7 @@ export const chatService = {
 
   sendMessage: async (content: string, sessionId?: string): Promise<Message> => {
     const body: Record<string, unknown> = {
-      model: 'pyapp-default',
+      model: getModelFromConfig(),
       messages: [{ role: 'user', content }],
       max_tokens: 2000,
     };
@@ -143,7 +148,7 @@ export const chatService = {
 
   streamMessage: async function* (content: string, sessionId?: string): AsyncGenerator<StreamChunk, void, unknown> {
     const body: Record<string, unknown> = {
-      model: 'pyapp-default',
+      model: getModelFromConfig(),
       messages: [{ role: 'user', content }],
       max_tokens: 2000,
       stream: true,

@@ -2744,12 +2744,34 @@ export class LocalHTTPService {
    * 处理列出 Agent 任务请求
    */
   private async handleListAgentTasks(
-    req: http.IncomingMessage,
+    _req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
+      const { SqliteTaskStore } = await import(
+        '@modules/tasks/db/SqliteTaskStore'
+      );
+      const store = new SqliteTaskStore();
+      await store.init();
+      const taskStates = await store.loadTaskStates();
+
+      const tasks = taskStates.map((state) => ({
+        id: state.id,
+        name: state.description || state.id,
+        status: state.status,
+        priority: (state.metadata?.priority as string) || 'medium',
+        progress: state.status === 'completed' ? 100 : state.status === 'running' ? 50 : 0,
+        result: state.status === 'completed' ? state.outputFile || undefined : undefined,
+        error: state.error,
+        created_at: state.startTime,
+        type: state.type,
+        tokenUsed: state.tokenCount,
+        description: state.description,
+        metadata: state.metadata,
+      }));
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify([]));
+      res.end(JSON.stringify(tasks));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -4626,25 +4648,40 @@ export class LocalHTTPService {
    * 处理列出定时任务请求
    */
   private async handleListCron(
-    req: http.IncomingMessage,
+    _req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { listAllCronTasks } = await import('@modules/chronos/CronTasks');
-      const tasks = await listAllCronTasks();
-      const result = tasks.map((t: any) => ({
-        id: t.id,
-        cron: t.cron,
-        prompt: t.prompt,
-        recurring: t.recurring,
-        durable: t.durable,
-        agentId: t.agentId,
-        taskType: t.taskType || 'prompt',
-        createdAt: t.createdAt,
-        lastFiredAt: t.lastFiredAt,
-        metadata: t.metadata || {},
-        enabled: t.durable !== false,
-      }));
+      const { SqliteCronStore } = await import(
+        '@modules/chronos/service/SqliteCronStore'
+      );
+      const { nextCronRunMs } = await import('@modules/chronos/CronTasks');
+      const store = new SqliteCronStore();
+      await store.init();
+      const tasks = await store.listTasks();
+      const now = Date.now();
+      const result = tasks.map((t) => {
+        const nextRun = nextCronRunMs(t.cron, now);
+        return {
+          id: t.id,
+          name: t.prompt || t.id,
+          expression: t.cron,
+          description: t.prompt || '',
+          cron: t.cron,
+          prompt: t.prompt,
+          recurring: t.recurring,
+          durable: t.durable,
+          agentId: t.agentId,
+          taskType: t.taskType || 'prompt',
+          createdAt: t.createdAt,
+          lastFiredAt: t.lastFiredAt,
+          lastRun: t.lastFiredAt,
+          nextRun,
+          metadata: t.metadata || {},
+          enabled: t.durable !== false,
+          status: 'idle',
+        };
+      });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {

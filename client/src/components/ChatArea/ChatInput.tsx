@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useConfigStore } from '../../stores/configStore';
@@ -6,6 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 import { fileService } from '../../services/fileService';
 import VoiceInputButton from '../VoiceInputButton';
 import ModelSelector from './ModelSelector';
+import type { Message } from '../../types';
 
 interface FileAttachment {
   name: string;
@@ -21,6 +22,58 @@ interface SlashCommand {
 }
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
+const EMOJI_CATEGORIES = [
+  { name: '笑脸', icons: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔'] },
+  { name: '动物', icons: ['🐵', '🐒', '🦍', '🦧', '🐶', '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱', '🐈', '🐈‍⬛', '🦁', '🐯', '🐅', '🐆', '🐴', '🫎', '🦄', '🐮', '🐂', '🐃', '🐄', '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🦙', '🦒', '🐘', '🦣', '🦏', '🦛', '🐭', '🐁', '🐀', '🐹', '🐰', '🐇', '🐿️', '🦫', '🦔', '🦇', '🐻', '🐻‍❄️', '🐨', '🐼', '🦘', '🦥', '🦦', '🦨', '🦘'] },
+  { name: '食物', icons: ['🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🥭', '🍎', '🍏', '🍐', '🍑', '🍒', '🍓', '🫐', '🥝', '🍅', '🫒', '🥑', '🍆', '🥔', '🥕', '🌽', '🌶️', '🫑', '🥒', '🥬', '🥦', '🧅', '🧄', '🥜', '🌰', '🫘', '🍞', '🥐', '🥖', '🫓', '🧀', '🍕', '🍔', '🍟', '🌭', '🍿', '🧈', '🥚', '🍳', '🥞', '🧇', '🍩', '🍪', '🎂', '🍰', '🧁', '🍫', '🍬', '🍭', '🍮', '🍦', '🍧', '🍨', '☕', '🍵', '🍶', '🍾', '🍷', '🍸', '🍹', '🧋', '🥤', '🍼'] },
+  { name: '庆祝', icons: ['🎉', '🎊', '🎈', '🎁', '🎀', '🏆', '🎯', '🎰', '🎲', '🎮', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🎻', '🥁', '🎷', '🎸', '🎺', '🎻', '🎹', '🎤', '🎧', '🎼', '🎵', '🎶', '🎹', '🎸', '🎹', '🎺', '🎻', '🎷', '🥁', '🎸', '🎹', '🎧', '🎤'] },
+  { name: '旅行', icons: ['✈️', '🚀', '🚂', '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🚚', '🚛', '🚜', '⛵', '🚢', '🚤', '🚣', '🛶', '🚲', '🛵', '🏍️', '🛺', '🚡', '🚠', '🚟', '🚃', '🚋', '🚌', '🚐', '🚑', '🚒', '🚓', '🚔', '🚨', '🚀', '🛸', '🚁', '🛩️', '✈️', '🛫', '🛬', '🚀', '🛸'] },
+  { name: '物品', icons: ['💎', '👑', '🎁', '🎈', '🎀', '🏆', '🎯', '🎰', '🎲', '🎮', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🎻', '🥁', '🎷', '🎸', '🎺', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '📡', '🔌', '💾', '💿', '📀', '📺', '📷', '📸', '📹', '🎥', '🎞️', '📼', '📟', '📠', '📡', '🔭', '🔬', '🧪', '⚗️', '🔩', '⚙️', '🛠️', '🔧', '🗡️', '⚔️', '🔫', '💣', '🎯', '🏹', '🛡️', '🚨', '🚦', '🚧', '⛔', '🚫', '⚠️', '⛈️', '🌡️', '🔥', '💧', '🌊', '🌈', '⭐', '🌙', '☀️', '⛅', '❄️', '🌨️', '🌀', '🌪️', '🌈', '🌟', '✨', '💫', '⚡', '💥', '💢', '💨', '👁️', '👀', '👂', '👃', '👄', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'] },
+];
+
+function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+  const [activeCategory, setActiveCategory] = useState(0);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-10" onClick={onClose} />
+      <div className="absolute bottom-full left-0 mb-2 z-20 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+        <div className="flex border-b border-gray-100 dark:border-gray-700">
+          {EMOJI_CATEGORIES.map((cat, idx) => (
+            <button
+              key={cat.name}
+              onClick={() => setActiveCategory(idx)}
+              className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                activeCategory === idx
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+        <div className="p-2 max-h-64 overflow-y-auto">
+          <div className="grid grid-cols-8 gap-1">
+            {EMOJI_CATEGORIES[activeCategory].icons.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => {
+                  onSelect(emoji);
+                  onClose();
+                }}
+                className="w-8 h-8 flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 /**
  * 将 File 对象读取为 Base64 字符串
@@ -44,6 +97,8 @@ function ChatInput() {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [replyMessage, setReplyMessage] = useState<Message | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamMessage, isLoading, clearMessages } = useChatStore();
@@ -52,6 +107,19 @@ function ChatInput() {
   const setActivePage = useAppStore((s) => s.setActivePage);
 
   const selectedModel = (config.model as string) || '';
+
+  useEffect(() => {
+    const unsubscribe = useChatStore.subscribe((state) => {
+      if (state.replyMessage !== replyMessage) {
+        setReplyMessage(state.replyMessage);
+        if (state.replyMessage) {
+          const textarea = textareaRef.current;
+          if (textarea) textarea.focus();
+        }
+      }
+    });
+    return unsubscribe;
+  }, [replyMessage]);
 
   const slashCommands: SlashCommand[] = [
     { key: '/dashboard', label: '/dashboard', description: '打开仪表盘', action: () => setActivePage('dashboard') },
@@ -145,6 +213,25 @@ function ChatInput() {
   };
 
   /**
+   * 插入 emoji 到输入框
+   */
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue = input.substring(0, start) + emoji + input.substring(end);
+      setInput(newValue);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      }, 0);
+    } else {
+      setInput(input + emoji);
+    }
+  };
+
+  /**
    * 发送消息，先上传附件
    */
   const handleSubmit = async () => {
@@ -177,6 +264,12 @@ function ChatInput() {
       }
 
       let messageContent = trimmed;
+      if (replyMessage) {
+        const replyContent = typeof replyMessage.content === 'string' 
+          ? replyMessage.content.slice(0, 100) + (replyMessage.content.length > 100 ? '...' : '')
+          : '[复杂内容]';
+        messageContent = `回复：${replyContent}\n\n${messageContent}`;
+      }
       if (uploadedPaths.length > 0) {
         const fileRefs = uploadedPaths
           .map((p, i) => `[${attachments[i].name}](${p})`)
@@ -193,6 +286,8 @@ function ChatInput() {
       setInput('');
       setShowCommands(false);
       setAttachments([]);
+      setReplyMessage(null);
+      useChatStore.getState().setReplyMessage(null);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       alert(`文件上传失败: ${errorMsg}\n\n可能原因：\n• 系统安全策略限制了对用户目录的访问\n• 磁盘空间不足\n\n系统会自动尝试使用项目目录作为备选存储位置。`);
@@ -225,7 +320,13 @@ function ChatInput() {
       }
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Escape') {
+      setShowCommands(false);
+      setShowEmojiPicker(false);
+      return;
+    }
+
+    if ((e.key === 'Enter' && !e.shiftKey) || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
       e.preventDefault();
       handleSubmit();
     }
@@ -311,6 +412,36 @@ function ChatInput() {
             </div>
           )}
 
+          {/* Emoji 选择器 */}
+          {showEmojiPicker && (
+            <EmojiPicker
+              onSelect={handleEmojiSelect}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          )}
+
+          {/* 回复消息预览 */}
+          {replyMessage && (
+            <div className="mb-2 flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">回复 Liri:</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
+                {typeof replyMessage.content === 'string' 
+                  ? (replyMessage.content.length > 50 ? replyMessage.content.slice(0, 50) + '...' : replyMessage.content)
+                  : '[复杂内容]'}
+              </span>
+              <button
+                onClick={() => {
+                  setReplyMessage(null);
+                  useChatStore.getState().setReplyMessage(null);
+                }}
+                className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
+                title="取消回复"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* 输入框 */}
           <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-xl p-1.5">
             {/* 左侧按钮 */}
@@ -332,6 +463,20 @@ function ChatInput() {
                 className="hidden"
                 onChange={handleFileSelect}
               />
+              
+              {/* Emoji 选择器按钮 */}
+              <button
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                disabled={!currentSession || isSending}
+                className={`p-2 text-gray-500 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-400 dark:disabled:text-gray-600 rounded-lg transition-colors ${
+                  showEmojiPicker ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-500' : ''
+                }`}
+                title="选择表情"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </button>
             </div>
 
             {/* 文本输入 */}

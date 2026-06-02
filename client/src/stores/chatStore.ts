@@ -9,11 +9,14 @@ interface ChatStore {
   isLoading: boolean;
   isStreaming: boolean;
   error: string | null;
+  replyMessage: Message | null;
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
   streamMessage: (content: string, sessionId?: string) => Promise<void>;
   clearMessages: () => void;
   setMessages: (messages: Message[]) => void;
+  setReplyMessage: (message: Message | null) => void;
+  flushPendingSaves: () => Promise<void>;
 }
 
 import { sessionService } from '../services/sessionService';
@@ -78,6 +81,10 @@ function generateBlockId(): string {
   return 'blk_' + crypto.randomUUID().slice(0, 8);
 }
 
+function generateGroupId(): string {
+  return 'grp_' + crypto.randomUUID().slice(0, 8);
+}
+
 /**
  * 时序块构建器
  * 按流顺序构建 MessageBlock[]，确保工具调用前后的文本正确分段。
@@ -95,15 +102,18 @@ class ChronologicalBlockBuilder {
   private activeThinkingBlock: MessageBlock | null = null;
   private hasToolCallSinceLastText = false;
   private currentToolCallId: string | null = null;
+  private currentGroupId: string = generateGroupId();
 
-  /** 追加文本块，工具调用后自动新建 */
+  /** 追加文本块，工具调用后自动新建（同时分配新 groupId） */
   addText(content: string, isStreaming: boolean): void {
     if (this.hasToolCallSinceLastText || !this.activeTextBlock) {
+      this.currentGroupId = generateGroupId();
       const newBlock: MessageBlock = {
         id: generateBlockId(),
         type: 'text',
         content,
         isStreaming,
+        groupId: this.currentGroupId,
       };
       this.blocks.push(newBlock);
       this.activeTextBlock = newBlock;
@@ -122,6 +132,7 @@ class ChronologicalBlockBuilder {
         type: 'thinking',
         content,
         isStreaming,
+        groupId: this.currentGroupId,
       };
       this.blocks.push(newBlock);
       this.activeThinkingBlock = newBlock;
@@ -151,6 +162,7 @@ class ChronologicalBlockBuilder {
       content: status,
       isStreaming: true,
       toolCallId: this.currentToolCallId ?? undefined,
+      groupId: this.currentGroupId,
     });
   }
 
@@ -182,6 +194,7 @@ class ChronologicalBlockBuilder {
         toolCall,
         isStreaming: true,
         toolCallId: toolCall.id,
+        groupId: this.currentGroupId,
       });
       this.hasToolCallSinceLastText = true;
     }
@@ -219,6 +232,7 @@ class ChronologicalBlockBuilder {
     this.activeThinkingBlock = null;
     this.hasToolCallSinceLastText = false;
     this.currentToolCallId = null;
+    this.currentGroupId = generateGroupId();
   }
 }
 
@@ -261,6 +275,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isLoading: false,
   isStreaming: false,
   error: null,
+  replyMessage: null,
 
   addMessage: (message: Message) => {
     set({ messages: [...get().messages, message] });
@@ -403,47 +418,269 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ messages: [], error: null });
   },
 
+  setReplyMessage: (replyMessage: Message | null) => {
+    set({ replyMessage });
+  },
+
+  /**
+   * 立即 flush 待保存的 blocks（用于切换会话前）
+   * 避免防抖窗口内的 blocks 丢失导致下次进入历史时出现块割裂
+   */
+  flushPendingSaves: async (): Promise<void> => {
+    if (_saveBlocksTimer) {
+      clearTimeout(_saveBlocksTimer);
+      _saveBlocksTimer = null;
+      await flushSaveBlocks();
+    }
+  },
+
   /**
    * 加载历史消息时为 assistant 消息重建 blocks 结构
    * 确保 AssistantMessage 组件能正确分组渲染（text / tool_call 等）
    * 如果后端已保存 blocks，则直接使用，否则自动重建
+   *
+   * Fallback 重建策略（当后端未持久化 blocks 时）：
+   *   1. 按 tool_calls 的顺序，在 content 字符串中查找对应的工具调用标记
+   *   2. 工具调用前的文本 → 独立 text 块
+   *   3. 每个 tool_call → tool_call 块
+   *   4. 工具调用后到下一个 tool_call 之间的文本 → 独立 text 块
+   *   5. 兜底：当无法定位边界时，按等分方式拆分
    */
   setMessages: (messages: Message[]) => {
-    const enhancedMessages = messages.map((msg) => {
+    // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
+    // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
+    const toolResultsByCallId = new Map<string, string>();
+    const filteredMessages: Message[] = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'tool' && msg.toolCallId) {
+        toolResultsByCallId.set(msg.toolCallId, msg.content);
+      } else {
+        filteredMessages.push(msg);
+      }
+    }
+
+    // Phase 2: 合并连续的 assistant 消息
+    // 多轮工具调用时，后端将每轮 LLM 回复存为独立 assistant 消息，
+    // 导致加载历史后出现多个"🤖 Liri"气泡。此处合并为一条消息，与流式体验一致。
+    const mergedMessages: Message[] = [];
+    for (const msg of filteredMessages) {
+      if (msg.role !== 'assistant') {
+        mergedMessages.push(msg);
+        continue;
+      }
+
+      const lastIdx = mergedMessages.length - 1;
+      const lastMsg = mergedMessages[lastIdx];
+      if (lastMsg && lastMsg.role === 'assistant') {
+        mergedMessages[lastIdx] = {
+          ...lastMsg,
+          content: (lastMsg.content || '') + (msg.content || ''),
+          timestamp: lastMsg.timestamp || msg.timestamp,
+          blocks: [
+            ...(lastMsg.blocks || []),
+            ...(msg.blocks || []).map((b) => ({ ...b, isStreaming: false })),
+          ],
+          tool_calls: [
+            ...(lastMsg.tool_calls || []),
+            ...(msg.tool_calls || []),
+          ],
+        };
+      } else {
+        mergedMessages.push({ ...msg });
+      }
+    }
+
+    // Phase 3: 处理合并后的消息，将工具结果合并到对应 assistant 消息的 tool_call 块中
+    const enhancedMessages = mergedMessages.map((msg) => {
       if (msg.role !== 'assistant') return msg;
 
-      // 如果后端已保存 blocks，直接使用
       if (msg.blocks && msg.blocks.length > 0) {
-        return { ...msg, blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })) };
-      }
-
-      // 否则自动重建 blocks
-      const newBlocks: MessageBlock[] = [];
-
-      if (msg.content) {
-        newBlocks.push({
-          id: generateBlockId(),
-          type: 'text',
-          content: msg.content,
-          isStreaming: false,
+        // 先处理已有 blocks：合并工具结果 + 迁移 groupId
+        let hasMergedResult = false;
+        const mergedBlocks = msg.blocks.map((b) => {
+          const block = { ...b, isStreaming: false };
+          if (block.type === 'tool_call' && block.toolCall?.id && toolResultsByCallId.has(block.toolCall.id)) {
+            const resultContent = toolResultsByCallId.get(block.toolCall.id)!;
+            hasMergedResult = true;
+            block.toolCall = { ...block.toolCall, result: resultContent };
+          }
+          return block;
         });
-      }
 
-      if (msg.tool_calls && msg.tool_calls.length > 0) {
-        msg.tool_calls.forEach((tc) => {
-          newBlocks.push({
-            id: generateBlockId(),
-            type: 'tool_call',
-            content: '',
-            toolCall: tc,
-            isStreaming: false,
-          });
+        if (hasMergedResult) {
+          return { ...msg, blocks: mergedBlocks };
+        }
+
+        // 无匹配工具结果时，执行 groupId 迁移（旧 blocks 兼容）
+        const oldBlocksHaveGroupId = msg.blocks.some((b) => b.groupId);
+        if (oldBlocksHaveGroupId) {
+          return { ...msg, blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })) };
+        }
+        const lastToolCallId = findLastToolCallId(msg);
+        const enhancedBlocks = msg.blocks.map((b) => {
+          if (b.groupId) return { ...b, isStreaming: false };
+          const id = b.toolCallId || b.toolCall?.id || lastToolCallId || generateGroupId();
+          return { ...b, isStreaming: false, groupId: 'migrate_' + id };
         });
+        return { ...msg, blocks: enhancedBlocks };
       }
 
+      const newBlocks = rebuildBlocksFromContent(msg);
       return { ...msg, blocks: newBlocks };
     });
 
     set({ messages: enhancedMessages });
   },
 }));
+
+/**
+ * 查找消息中最后一个 tool_call 的 id
+ */
+function findLastToolCallId(msg: Message): string | undefined {
+  if (msg.tool_calls && msg.tool_calls.length > 0) {
+    return msg.tool_calls[msg.tool_calls.length - 1].id;
+  }
+  if (msg.blocks) {
+    for (let i = msg.blocks.length - 1; i >= 0; i--) {
+      const b = msg.blocks[i];
+      if (b.toolCallId) return b.toolCallId;
+      if (b.toolCall?.id) return b.toolCall.id;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 智能重建 blocks：基于 content + tool_calls 还原时序
+ * 对标流式 ChronologicalBlockBuilder 的输出结构，分配 groupId 确保分组正确
+ */
+function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
+  const newBlocks: MessageBlock[] = [];
+  const toolCalls = msg.tool_calls || [];
+  const fullText = typeof msg.content === 'string' ? msg.content : '';
+
+  if (toolCalls.length === 0) {
+    if (fullText) {
+      newBlocks.push({
+        id: generateBlockId(),
+        type: 'text',
+        content: fullText,
+        isStreaming: false,
+        groupId: generateGroupId(),
+      });
+    }
+    return newBlocks;
+  }
+
+  const boundaries: number[] = toolCalls.map((tc) => {
+    const name = tc.name;
+    if (!name) return -1;
+    const candidates = [name, `\`${name}\``, `「${name}」`, `${name} 工具`, `${name}工具`];
+    for (const c of candidates) {
+      const idx = fullText.indexOf(c);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  });
+
+  const allUnknown = boundaries.every((b) => b === -1);
+  if (allUnknown) {
+    const segment = Math.floor(fullText.length / (toolCalls.length + 1));
+    let cursor = 0;
+    for (let i = 0; i < toolCalls.length; i++) {
+      const gid = generateGroupId();
+      const slice = fullText.slice(cursor, cursor + segment);
+
+      if (slice && slice.trim()) {
+        newBlocks.push({
+          id: generateBlockId(),
+          type: 'text',
+          content: slice,
+          isStreaming: false,
+          groupId: gid,
+        });
+      }
+      newBlocks.push({
+        id: generateBlockId(),
+        type: 'tool_call',
+        content: '',
+        toolCall: toolCalls[i],
+        isStreaming: false,
+        toolCallId: toolCalls[i].id,
+        groupId: gid,
+      });
+      cursor += segment;
+    }
+    const tail = fullText.slice(cursor);
+    if (tail && tail.trim()) {
+      newBlocks.push({
+        id: generateBlockId(),
+        type: 'text',
+        content: tail,
+        isStreaming: false,
+        groupId: generateGroupId(),
+      });
+    }
+    return newBlocks;
+  }
+
+  const indexedBoundaries = boundaries
+    .map((b, idx) => ({ b, idx }))
+    .filter((x) => x.b !== -1)
+    .sort((a, b) => a.b - b.b);
+
+  let cursor = 0;
+  for (const { b, idx } of indexedBoundaries) {
+    const gid = generateGroupId();
+    const before = fullText.slice(cursor, b);
+
+    if (before && before.trim()) {
+      newBlocks.push({
+        id: generateBlockId(),
+        type: 'text',
+        content: before,
+        isStreaming: false,
+        groupId: gid,
+      });
+    }
+    newBlocks.push({
+      id: generateBlockId(),
+      type: 'tool_call',
+      content: '',
+      toolCall: toolCalls[idx],
+      isStreaming: false,
+      toolCallId: toolCalls[idx].id,
+      groupId: gid,
+    });
+    const nameLen = toolCalls[idx].name?.length || 0;
+    cursor = b + nameLen;
+  }
+
+  const tail = fullText.slice(cursor);
+  if (tail && tail.trim()) {
+    newBlocks.push({
+      id: generateBlockId(),
+      type: 'text',
+      content: tail,
+      isStreaming: false,
+      groupId: generateGroupId(),
+    });
+  }
+
+  for (let i = 0; i < toolCalls.length; i++) {
+    if (boundaries[i] === -1) {
+      newBlocks.push({
+        id: generateBlockId(),
+        type: 'tool_call',
+        content: '',
+        toolCall: toolCalls[i],
+        isStreaming: false,
+        toolCallId: toolCalls[i].id,
+        groupId: generateGroupId(),
+      });
+    }
+  }
+
+  return newBlocks;
+}

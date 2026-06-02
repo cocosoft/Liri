@@ -33,6 +33,7 @@ export interface MessageBlock {
   status?: string;
   isStreaming?: boolean;
   toolCallId?: string;
+  groupId?: string;
 }
 
 export interface Tool {
@@ -185,6 +186,7 @@ export interface AgentTask {
   id: string;
   name: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
+  priority?: 'high' | 'medium' | 'low';
   progress?: number;
   result?: string;
   error?: string;
@@ -192,6 +194,40 @@ export interface AgentTask {
   type?: string;
   subTasks?: AgentTask[];
   logs?: string[];
+  tokenUsed?: number;
+  description?: string;
+  metadata?: Record<string, unknown>;
+  templateId?: string;
+  scheduleConfig?: ScheduleConfig;
+  executionHistory?: ExecutionRecord[];
+}
+
+export interface AgentTaskTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  prompt: string;
+  priority?: 'high' | 'medium' | 'low';
+  tags?: string[];
+  createdAt: number;
+}
+
+export interface ScheduleConfig {
+  type: 'cron' | 'interval' | 'once';
+  cronExpression?: string;
+  intervalMinutes?: number;
+  scheduledTime?: number;
+  enabled: boolean;
+}
+
+export interface ExecutionRecord {
+  id: string;
+  taskId: string;
+  startTime: number;
+  endTime?: number;
+  status: 'completed' | 'failed';
+  result?: string;
+  error?: string;
   tokenUsed?: number;
 }
 

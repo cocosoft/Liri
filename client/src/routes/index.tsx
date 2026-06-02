@@ -6,6 +6,7 @@ const LogViewerPage = lazy(() => import('../components/views/LogViewerPage'));
 const KnowledgePage = lazy(() => import('../components/views/KnowledgePage'));
 const AgentPage = lazy(() => import('../components/views/AgentPage'));
 const CronPage = lazy(() => import('../components/views/CronPage'));
+const TaskCenterPage = lazy(() => import('../components/views/TaskCenterPage'));
 const ChannelsPage = lazy(() => import('../components/views/ChannelsPage'));
 const SettingsPage = lazy(() => import('../components/views/SettingsPage'));
 const BuddyPage = lazy(() => import('../components/views/BuddyPage'));
@@ -48,6 +49,10 @@ export const routes: RouteObject[] = [
   {
     path: '/cron',
     element: <CronPage />,
+  },
+  {
+    path: '/tasks',
+    element: <TaskCenterPage />,
   },
   {
     path: '/channels',

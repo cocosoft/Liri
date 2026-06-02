@@ -8,6 +8,7 @@ import ToolExecutionGroup from './ToolExecutionGroup';
 import ToolResultMessage from './ToolResultMessage';
 import { knowledgeService } from '../../services/knowledgeService';
 import { useConfigStore } from '../../stores/configStore';
+import { useChatStore } from '../../stores/chatStore';
 
 interface ChatMessageProps {
   message: Message;
@@ -20,9 +21,11 @@ interface ChatMessageProps {
     cacheReadTokens?: number;
     cacheCreationTokens?: number;
   };
+  onReply?: (message: Message) => void;
 }
 
 function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
+  const setReplyMessage = useChatStore((s) => s.setReplyMessage);
   const [showActions, setShowActions] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
@@ -185,6 +188,15 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
         {showActions && !isUser && (
           <div className="flex items-center gap-2 mt-2 opacity-70">
             <button
+              onClick={() => {
+                setReplyMessage(message);
+                setShowActions(false);
+              }}
+              className="px-3 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+            >
+              回复
+            </button>
+            <button
               onClick={handleCopy}
               className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             >
@@ -292,10 +304,13 @@ function AssistantMessage({ message, isStreaming }: { message: Message; isStream
 }
 
 /**
- * 当消息没有 blocks 时，从 content 和 tool_calls 重建
+ * 当消息没有 blocks 时，从 content 和 tool_calls 重建（兜底方案）
+ * 每次 rebuildBlocksFromContent 已在 chatStore 中处理，此处仅作为最后防线
  */
 function buildFallbackBlocks(message: Message): MessageBlock[] {
   const newBlocks: MessageBlock[] = [];
+
+  const groupId = 'fb_' + message.id;
 
   if (message.content) {
     newBlocks.push({
@@ -303,6 +318,7 @@ function buildFallbackBlocks(message: Message): MessageBlock[] {
       type: 'text',
       content: message.content,
       isStreaming: false,
+      groupId,
     });
   }
 
@@ -314,6 +330,7 @@ function buildFallbackBlocks(message: Message): MessageBlock[] {
         content: '',
         toolCall: tc,
         isStreaming: false,
+        groupId,
       });
     });
   }
@@ -329,11 +346,19 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
 }
 
 /**
- * 将 blocks 中的连续工具相关 blocks 按 toolCallId 分组成 ToolExecutionGroup
+ * 将 blocks 中的连续工具相关 blocks 按 groupId 分组成 ToolExecutionGroup
+ * groupId 由 ChronologicalBlockBuilder 在流式构建时分配，
+ * 或由 rebuildBlocksFromContent 在重建时分配，
+ * 确保同一逻辑组（文本→工具调用→状态）始终共享相同 groupId，避免割裂。
+ * 向后兼容：旧数据无 groupId 时回退到 toolCallId 分组。
  */
 function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
+
+  const getGroupKey = (b: MessageBlock): string | undefined => {
+    return b.groupId || b.toolCallId || b.toolCall?.id;
+  };
 
   while (i < blocks.length) {
     const block = blocks[i];
@@ -351,25 +376,25 @@ function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): 
     }
 
     const toolBlocks: MessageBlock[] = [];
-    let lastToolCallId: string | undefined;
+    const groupKey = getGroupKey(block);
 
     while (i < blocks.length && isToolRelatedBlock(blocks[i])) {
       const currentBlock = blocks[i];
+      const currentKey = getGroupKey(currentBlock);
 
-      if (currentBlock.type === 'tool_call' && currentBlock.toolCall?.id) {
-        if (lastToolCallId && currentBlock.toolCall.id !== lastToolCallId) {
-          break;
-        }
-        lastToolCallId = currentBlock.toolCall.id;
+      if (groupKey && currentKey && currentKey !== groupKey) {
+        break;
       }
 
       toolBlocks.push(currentBlock);
       i++;
     }
 
+    // key 优先用第一个 block 的唯一 id，避免无 groupId 时多个 group 因相同 toolCallId 产生 key 冲突
+    const firstBlockId = toolBlocks[0]?.id;
     result.push(
       <ToolExecutionGroup
-        key={`tool-group-${toolBlocks[0]?.id || i}`}
+        key={`tool-group-${firstBlockId || groupKey || i}`}
         blocks={toolBlocks}
         isStreaming={isStreaming}
       />

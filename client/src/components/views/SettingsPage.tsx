@@ -550,6 +550,44 @@ function SettingsPage() {
                 <span>🔐</span>
                 <span className="text-sm text-gray-700 dark:text-gray-300">权限管理</span>
               </button>
+              <button
+                onClick={() => navigate('/models')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🧠</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">模型管理</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => navigate('/files')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>📁</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">文件管理</span>
+              </button>
+              <button
+                onClick={() => navigate('/skill-market')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🧩</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">技能市场</span>
+              </button>
+              <button
+                onClick={() => navigate('/mcp-market')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🔌</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">MCP市场</span>
+              </button>
+              <button
+                onClick={() => navigate('/cost')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>💰</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">成本统计</span>
+              </button>
             </div>
           </div>
 

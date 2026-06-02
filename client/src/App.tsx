@@ -27,6 +27,7 @@ import KnowledgePage from './components/views/KnowledgePage';
 import AgentPage from './components/views/AgentPage';
 import AgentAdvancedPage from './components/views/AgentAdvancedPage';
 import CronPage from './components/views/CronPage';
+import TaskCenterPage from './components/views/TaskCenterPage';
 import ChannelsPage from './components/views/ChannelsPage';
 import ChannelsDeepPage from './components/views/ChannelsDeepPage';
 import SettingsPage from './components/views/SettingsPage';
@@ -156,6 +157,7 @@ function App() {
           <Route path="/agent" element={<AuthGuard><AgentPage /></AuthGuard>} />
           <Route path="/agent/advanced" element={<AuthGuard><AgentAdvancedPage /></AuthGuard>} />
           <Route path="/cron" element={<AuthGuard><CronPage /></AuthGuard>} />
+          <Route path="/tasks" element={<AuthGuard><TaskCenterPage /></AuthGuard>} />
           <Route path="/channels" element={<AuthGuard><ChannelsPage /></AuthGuard>} />
           <Route path="/channels/deep" element={<AuthGuard><ChannelsDeepPage /></AuthGuard>} />
           <Route path="/settings" element={<AuthGuard><SettingsPage /></AuthGuard>} />

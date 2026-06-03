@@ -239,7 +239,7 @@ async function handleEdit(args: string): Promise<CommandResult> {
 示例:
   /provider edit abc-123 name="New Name"
   /provider edit abc-123 baseUrl=https://new.api.com apiKey=sk-new
-  /provider edit abc-123 requiresAuth=false   # 设为本地供应商
+  /provider edit abc-123 requiresAuth=false   # 设为本地供应商`,
     };
   }
 

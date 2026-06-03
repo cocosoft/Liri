@@ -7,25 +7,17 @@ interface ConfigSectionProps {
 
 function ConfigSection({ title, description, isDark, children }: ConfigSectionProps) {
   return (
-    <div className={`rounded-lg border ${
-      isDark
-        ? 'bg-gray-800 border-gray-700'
-        : 'bg-white border-gray-200'
-    }`}>
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 className={`text-base font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-          {title}
-        </h3>
-        {description && (
-          <p className={`mt-0.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            {description}
-          </p>
-        )}
-      </div>
-      <div className="p-4">
-        {children}
-      </div>
-    </div>
+    <section className={`px-6 py-5 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+      <h3 className="text-base font-semibold mb-1">
+        {title}
+      </h3>
+      {description && (
+        <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          {description}
+        </p>
+      )}
+      {children}
+    </section>
   );
 }
 

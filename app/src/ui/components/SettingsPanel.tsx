@@ -1,153 +1,117 @@
 /**
- * 设置面板组件
- * 用于显示和管理应用设置
+ * 设置面板组件（重构版）
+ * Tab 导航 + 子组件拆分架构，对标 P2 hermes-web-ui
  */
 
 import React, { useState } from 'react';
+import { AppearanceSettings } from './settings/AppearanceSettings';
+import { AISettings } from './settings/AISettings';
+import { AgentSettings } from './settings/AgentSettings';
+import { FeatureSettings } from './settings/FeatureSettings';
+import { ChannelSettings } from './settings/ChannelSettings';
+import { CompanionSettings } from './settings/CompanionSettings';
+import { NotificationSettings } from './settings/NotificationSettings';
+import { SystemSettings } from './settings/SystemSettings';
 
-export interface SettingItem {
+/**
+ * Tab 定义
+ */
+interface SettingsTab {
+  /** 唯一标识 */
   id: string;
+  /** 显示标题 */
   label: string;
-  type: 'toggle' | 'select' | 'input' | 'slider';
-  value: boolean | string | number;
-  options?: { value: string; label: string }[];
-  min?: number;
-  max?: number;
-  step?: number;
-  description?: string;
+  /** 对应面板组件 */
+  component: React.FC;
 }
 
+/**
+ * 所有设置 Tab
+ */
+const SETTINGS_TABS: SettingsTab[] = [
+  { id: 'appearance', label: '外观', component: AppearanceSettings },
+  { id: 'ai', label: 'AI 模型', component: AISettings },
+  { id: 'agent', label: 'Agent', component: AgentSettings },
+  { id: 'features', label: '功能开关', component: FeatureSettings },
+  { id: 'channels', label: '渠道', component: ChannelSettings },
+  { id: 'companion', label: '伙伴', component: CompanionSettings },
+  { id: 'notifications', label: '通知', component: NotificationSettings },
+  { id: 'system', label: '系统', component: SystemSettings },
+];
+
+/**
+ * 设置面板属性
+ */
 export interface SettingsPanelProps {
-  settings: SettingItem[];
-  onSettingChange: (id: string, value: boolean | string | number) => void;
+  /** 面板是否打开 */
   isOpen: boolean;
+  /** 关闭面板回调 */
   onClose: () => void;
+  /** 默认激活的 Tab */
+  defaultTab?: string;
 }
 
+/**
+ * 设置面板组件
+ * 对标 P2 hermes-web-ui SettingsView
+ */
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
-  settings,
-  onSettingChange,
   isOpen,
   onClose,
+  defaultTab = 'appearance',
 }) => {
-  const [localSettings, setLocalSettings] = useState<SettingItem[]>(settings);
-
-  const handleChange = (id: string, value: boolean | string | number) => {
-    setLocalSettings((prev) =>
-      prev.map((setting) =>
-        setting.id === id ? { ...setting, value } : setting
-      )
-    );
-    onSettingChange(id, value);
-  };
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   if (!isOpen) return null;
 
+  const ActiveComponent = SETTINGS_TABS.find((t) => t.id === activeTab)?.component;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+        {/* 头部 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+            设置
+          </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-xl leading-none"
+            aria-label="关闭设置"
           >
-            ×
+            &times;
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
-          <div className="space-y-4">
-            {localSettings.map((setting) => (
-              <div key={setting.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      {setting.label}
-                    </label>
-                    {setting.description && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {setting.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {setting.type === 'toggle' && (
-                    <button
-                      onClick={() =>
-                        handleChange(setting.id, !(setting.value as boolean))
-                      }
-                      className={`relative w-12 h-6 rounded-full transition-colors ${
-                        setting.value ? 'bg-blue-500' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                          setting.value ? 'translate-x-7' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  )}
-
-                  {setting.type === 'select' && setting.options && (
-                    <select
-                      value={setting.value as string}
-                      onChange={(e) => handleChange(setting.id, e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {setting.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {setting.type === 'input' && (
-                    <input
-                      type="text"
-                      value={setting.value as string}
-                      onChange={(e) => handleChange(setting.id, e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  )}
-
-                  {setting.type === 'slider' && (
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min={setting.min}
-                        max={setting.max}
-                        step={setting.step}
-                        value={setting.value as number}
-                        onChange={(e) =>
-                          handleChange(setting.id, parseFloat(e.target.value))
-                        }
-                        className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <span className="text-sm text-gray-600 w-12 text-right">
-                        {setting.value}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Tab 导航 */}
+        <div className="flex px-4 pt-3 gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          {SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-2 text-sm font-medium rounded-t-md transition-colors whitespace-nowrap border-b-2 -mb-[1px] ${
+                activeTab === tab.id
+                  ? 'text-blue-600 dark:text-blue-400 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-          <button
-            onClick={() => setLocalSettings(settings.map((s) => ({ ...s })))}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            Reset
-          </button>
+        {/* 内容区 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 max-h-[calc(80vh-180px)]">
+          {ActiveComponent ? <ActiveComponent /> : null}
+        </div>
+
+        {/* 底部操作栏 */}
+        <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
           >
-            Done
+            完成
           </button>
         </div>
       </div>
@@ -157,6 +121,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
 /**
  * 创建设置面板组件
+ * @deprecated 使用 <SettingsPanel> JSX 代替
  */
 export function createSettingsPanel(
   props: SettingsPanelProps

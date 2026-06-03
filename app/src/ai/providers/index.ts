@@ -37,15 +37,9 @@ export { AzureOpenAIProvider } from './AzureOpenAIProvider';
 export { MoonshotProvider } from './MoonshotProvider';
 export { GrokProvider } from './GrokProvider';
 export {
-  registerDefaultProviders,
-  registerAnthropicProvider,
-  registerOpenAIProvider,
-  registerGoogleProvider,
-  registerOllamaProvider,
-  registerVertexAIProvider,
-  registerDeepSeekProvider,
-  registerBedrockProvider,
-  registerAzureOpenAIProvider,
-  registerMoonshotProvider,
-  registerGrokProvider,
-} from './registerProviders';
+  syncDBProvidersToRegistry,
+  registerProviderFromDB,
+  unregisterProviderFromRegistry,
+  getRegistryId,
+  ProviderSyncService,
+} from './ProviderSyncService';

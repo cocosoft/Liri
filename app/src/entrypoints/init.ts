@@ -225,22 +225,23 @@ export async function init(): Promise<void> {
         }
       })(),
 
-      // 注册 AI Provider
+      // 初始化模型管理服务（DB Provider 创建 + 环境变量种子 + 同步到 Registry）
       (async () => {
         profileCheckpoint('load_providers_start');
         getStartupChainProfiler().markPhaseStart('provider_init');
         const startTime = Date.now();
         try {
-          const { registerDefaultProviders } =
-            await import('../ai/providers/registerProviders.js');
-          registerDefaultProviders();
+          const { initializeModelManagementServices } = await import(
+            '../ai/ModelManagementBootstrap.js'
+          );
+          await initializeModelManagementServices();
           const duration = Date.now() - startTime;
           if (duration > 50) {
-            logger.warning(`AI Provider 注册较慢: ${duration}ms`);
+            logger.warning(`模型管理服务初始化较慢: ${duration}ms`);
           }
           return { success: true, duration };
         } catch (error) {
-          logger.warning('AI Provider 注册失败', { error });
+          logger.warning('模型管理服务初始化失败', { error });
           return { success: false, error };
         } finally {
           profileCheckpoint('load_providers_end');
@@ -423,18 +424,6 @@ async function startDeferredPrefetches(): Promise<void> {
           await import('../ai/providers/DeepSeekProvider.js');
         } catch (error) {
           // 忽略预加载错�?
-        }
-      })(),
-
-      // 初始化模型管理新增服务（DB表创建等，非阻塞）
-      (async () => {
-        try {
-          const { initializeModelManagementServices } = await import(
-            '../ai/ModelManagementBootstrap.js'
-          );
-          await initializeModelManagementServices();
-        } catch (error) {
-          // 非关键路径，静默忽略
         }
       })(),
 

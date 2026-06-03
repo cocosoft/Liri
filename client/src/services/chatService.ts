@@ -247,6 +247,7 @@ export const chatService = {
           }
         }
       }
+    } catch {
     } finally {
       reader.releaseLock();
     }

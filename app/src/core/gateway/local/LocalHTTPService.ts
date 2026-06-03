@@ -2344,6 +2344,7 @@ export class LocalHTTPService {
 
     try {
       const coreAPI = getCoreAPI();
+      const chatStartTime = Date.now();
       const chatRequest: ChatRequest = {
         content: userMessage.content,
         stream: false,
@@ -2351,6 +2352,14 @@ export class LocalHTTPService {
       };
 
       const response = await coreAPI.chat(chatRequest);
+      const chatDurationMs = Date.now() - chatStartTime;
+
+      logger.info('Chat completed', {
+        model: request.model || 'pyapp-default',
+        durationMs: chatDurationMs,
+        contentLength: response.content?.length ?? 0,
+        sessionId: request.session_id,
+      });
 
       const completionResponse: ChatCompletionResponse = {
         id: `chatcmpl-${randomUUID().slice(0, 8)}`,
@@ -2588,6 +2597,12 @@ export class LocalHTTPService {
       }
 
       res.write('data: [DONE]\n\n');
+
+      logger.info('Stream chat completed', {
+        model: request.model || 'pyapp-default',
+        sessionId: request.session_id,
+      });
+
       res.end();
     } catch (err) {
       logger.error('流式聊天请求失败', {

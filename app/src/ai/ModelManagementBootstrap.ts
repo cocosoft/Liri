@@ -22,18 +22,132 @@
 /**
  * 模型管理模块启动引导
  *
- * 负责在应用启动时初始化所有新增服务（DB 表创建）。
- * 被 entrypoints/init.ts 调用，零初始化失败不影响核心流程。
+ * 统一接管所有 AI Provider 的初始化流程：
+ *   1. 创建 DB 表（ProviderManager / UsageStatsService / ModelPricingService）
+ *   2. 从环境变量读取 API Key，写入 DB（seed）
+ *   3. 从 DB 同步活跃 Provider 到 ProviderRegistry（chat 可用）
+ *
+ * 此后 chat 调用完全走 DB Provider → Registry 链路，
+ * 不再依赖 registerDefaultProviders。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
+/** 环境变量 → Provider 映射 */
+interface EnvPreset {
+  key: string;
+  baseUrlKey: string;
+  defaultBaseUrl: string;
+  name: string;
+  providerType: string;
+}
+
+const ENV_PRESETS: EnvPreset[] = [
+  {
+    key: 'DEEPSEEK_API_KEY',
+    baseUrlKey: 'DEEPSEEK_BASE_URL',
+    defaultBaseUrl: 'https://api.deepseek.com',
+    name: 'DeepSeek',
+    providerType: 'deepseek',
+  },
+  {
+    key: 'OPENAI_API_KEY',
+    baseUrlKey: 'OPENAI_BASE_URL',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    name: 'OpenAI',
+    providerType: 'openai',
+  },
+  {
+    key: 'ANTHROPIC_API_KEY',
+    baseUrlKey: '',
+    defaultBaseUrl: 'https://api.anthropic.com',
+    name: 'Anthropic',
+    providerType: 'anthropic',
+  },
+  {
+    key: 'GOOGLE_API_KEY',
+    baseUrlKey: 'GOOGLE_AI_BASE_URL',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com',
+    name: 'Google Gemini',
+    providerType: 'google',
+  },
+  // GOOGLE_API_KEY 的别名
+  {
+    key: 'GEMINI_API_KEY',
+    baseUrlKey: 'GOOGLE_AI_BASE_URL',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com',
+    name: 'Google Gemini',
+    providerType: 'google',
+  },
+  {
+    key: 'SILICONFLOW_API_KEY',
+    baseUrlKey: '',
+    defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+    name: 'SiliconFlow',
+    providerType: 'custom',
+  },
+];
+
+/**
+ * 从环境变量检测并写入 DB
+ * 已存在的供应商（按 name + providerType 去重）跳过
+ */
+async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
+  try {
+    const { providerManager } = await import(
+      '@modules/ai/providers/ProviderManager.js'
+    );
+    await providerManager.initialize();
+
+    let seeded = 0;
+
+    for (const preset of ENV_PRESETS) {
+      const apiKey = process.env[preset.key];
+      if (!apiKey) continue;
+
+      const dedupKey = `${preset.name}:${preset.providerType}`;
+      if (dedupNames.has(dedupKey)) continue;
+
+      const baseUrl =
+        (preset.baseUrlKey ? process.env[preset.baseUrlKey] : undefined) ||
+        preset.defaultBaseUrl;
+
+      try {
+        await providerManager.createProvider({
+          name: preset.name,
+          providerType: preset.providerType as any,
+          baseUrl,
+          apiKey,
+        });
+        dedupNames.add(dedupKey);
+        seeded++;
+      } catch (err) {
+        logger.debug(`seed provider 跳过: ${preset.name}`, {
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    return seeded;
+  } catch (err) {
+    logger.warning('环境变量 seed 失败', {
+      error: (err as Error).message,
+    });
+    return 0;
+  }
+}
+
 /**
  * 初始化所有模型管理新增服务
  *
- * 非关键路径：任何服务初始化失败只记录 warning，不抛出异常。
+ * 完整流程:
+ *   1. 创建 DB 表
+ *   2. 从环境变量 seed Provider 到 DB
+ *   3. 从 DB 同步活跃 Provider 到 ProviderRegistry
+ *
+ * 非关键路径：任何步骤失败只记录 warning，不抛出异常。
  */
 export async function initializeModelManagementServices(): Promise<void> {
   const services: Array<{ name: string; init: () => Promise<void> }> = [];
@@ -80,7 +194,7 @@ export async function initializeModelManagementServices(): Promise<void> {
     });
   } catch {}
 
-  // 逐个初始化，失败不影响后续
+  // 逐个初始化 DB 表
   let initialized = 0;
 
   for (const svc of services) {
@@ -95,15 +209,33 @@ export async function initializeModelManagementServices(): Promise<void> {
     }
   }
 
-  // 同步 DB 供应商到 ProviderRegistry（在 registry 已有默认Provider后执行）
+  // 从环境变量 seed Provider 到 DB
+  let seeded = 0;
+  try {
+    const { providerManager } = await import(
+      '@modules/ai/providers/ProviderManager.js'
+    );
+    await providerManager.initialize();
+    const existing = await providerManager.listProviders();
+    const dedupNames = new Set(
+      existing.map((p) => `${p.name}:${p.providerType}`),
+    );
+    seeded = await seedEnvProvidersToDB(dedupNames);
+  } catch (err) {
+    logger.warning('seed 流程失败（非关键）', {
+      error: (err as Error).message,
+    });
+  }
+
+  // 同步 DB Provider 到 ProviderRegistry（chat 可用）
+  let synced = 0;
   try {
     const { syncDBProvidersToRegistry } = await import(
       '@modules/ai/providers/ProviderSyncService.js'
     );
-    const synced = await syncDBProvidersToRegistry();
+    synced = await syncDBProvidersToRegistry();
     if (synced > 0) {
-      initialized++;
-      logger.debug(`已同步 ${synced} 个 DB 供应商到 ProviderRegistry`);
+      logger.info(`已同步 ${synced} 个 DB 供应商到 ProviderRegistry`);
     }
   } catch (err) {
     logger.warning('DB供应商同步失败（非关键）', {
@@ -111,7 +243,9 @@ export async function initializeModelManagementServices(): Promise<void> {
     });
   }
 
-  if (initialized > 0) {
-    logger.info(`模型管理模块: ${initialized}/${services.length + 1} 服务已就绪`);
+  if (initialized > 0 || synced > 0) {
+    logger.info(
+      `模型管理模块: ${initialized} DB服务, ${seeded} seed, ${synced} 已同步`,
+    );
   }
 }

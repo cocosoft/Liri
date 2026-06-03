@@ -57,19 +57,6 @@ export { OpenAIProvider } from './providers/OpenAIProvider';
 export { GoogleProvider } from './providers/GoogleProvider';
 export { OllamaProvider } from './providers/OllamaProvider';
 export { DeepSeekProvider } from './providers/DeepSeekProvider';
-export {
-  registerDefaultProviders,
-  registerAnthropicProvider,
-  registerOpenAIProvider,
-  registerGoogleProvider,
-  registerOllamaProvider,
-  registerVertexAIProvider,
-  registerDeepSeekProvider,
-  registerBedrockProvider,
-  registerAzureOpenAIProvider,
-  registerMoonshotProvider,
-  registerGrokProvider,
-} from './providers/registerProviders';
 
 // transports/ — 统一传输抽象层（对标 Hermes ProviderTransport）
 export { BaseTransport } from './transports/BaseTransport';

@@ -90,6 +90,7 @@ export class ProviderRegistry {
         return this.providers.get(providerId);
       }
     }
+    logger.debug(`模型未匹配到 Provider: ${model}`);
     return undefined;
   }
 

@@ -13,14 +13,9 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'home', label: '首页', icon: '🏠', path: '/' },
   { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
-  { id: 'models', label: '模型', icon: '🧠', path: '/models' },
   { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
   { id: 'cron', label: '定时', icon: '⏰', path: '/cron' },
-  { id: 'channels', label: '渠道', icon: '📡', path: '/channels' },
-  { id: 'skills', label: '技能', icon: '🔧', path: '/skills' },
-  { id: 'skill-market', label: '市场', icon: '🛒', path: '/skill-market' },
   { id: 'knowledge', label: '知识库', icon: '📚', path: '/knowledge' },
-  { id: 'dashboard', label: '仪表盘', icon: '📊', path: '/dashboard' },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [

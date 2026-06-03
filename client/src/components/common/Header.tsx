@@ -36,6 +36,14 @@ function Header() {
 
       <div className="flex items-center gap-2">
         <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+        >
+          <span>📊</span>
+          <span>仪表盘</span>
+        </button>
+
+        <button
           onClick={() => navigate('/terminal')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
         >

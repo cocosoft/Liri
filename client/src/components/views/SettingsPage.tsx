@@ -498,8 +498,15 @@ function SettingsPage() {
                 onClick={() => navigate('/plugins')}
                 className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
-                <span>🔌</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">插件管理</span>
+                <span>🛒</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">技能市场</span>
+              </button>
+              <button
+                onClick={() => navigate('/skills')}
+                className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <span>🔧</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">技能管理</span>
               </button>
               <button
                 onClick={() => navigate('/oauth')}

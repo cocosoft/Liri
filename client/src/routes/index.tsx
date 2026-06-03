@@ -17,6 +17,8 @@ const STTTestPage = lazy(() => import('../components/views/STTTestPage'));
 const SkillMarketPage = lazy(() => import('../components/views/SkillMarketPage'));
 const MCPMarketPage = lazy(() => import('../components/views/MCPMarketPage'));
 const ModelPage = lazy(() => import('../components/views/ModelPage'));
+const OAuthPage = lazy(() => import('../components/views/OAuthPage'));
+const SkillPage = lazy(() => import('../components/views/SkillPage'));
 
 export const routes: RouteObject[] = [
   {
@@ -80,8 +82,20 @@ export const routes: RouteObject[] = [
     element: <MCPMarketPage />,
   },
   {
+    path: '/skills',
+    element: <SkillPage />,
+  },
+  {
     path: '/models',
     element: <ModelPage />,
+  },
+  {
+    path: '/plugins',
+    element: <SkillMarketPage />,
+  },
+  {
+    path: '/oauth',
+    element: <OAuthPage />,
   },
 ];
 

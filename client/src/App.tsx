@@ -153,6 +153,7 @@ function App() {
           <Route path="/sandbox" element={<AuthGuard><SandboxPage /></AuthGuard>} />
           <Route path="/permissions" element={<AuthGuard><PermissionPage /></AuthGuard>} />
           <Route path="/oauth" element={<AuthGuard><OAuthPage /></AuthGuard>} />
+          <Route path="/plugins" element={<AuthGuard><SkillMarketPage /></AuthGuard>} />
           <Route path="/media" element={<AuthGuard><MediaPage /></AuthGuard>} />
           <Route path="/autoreply" element={<AuthGuard><AutoReplyPage /></AuthGuard>} />
           <Route path="/knowledge" element={<AuthGuard><KnowledgePage /></AuthGuard>} />

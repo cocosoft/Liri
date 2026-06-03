@@ -10,7 +10,6 @@ import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
-import { ALL_MODEL_CONFIGS, type ModelKey } from '@modules/ai/models/ModelConfigs';
 import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { attachmentManager } from '@modules/components/attachments';
@@ -104,10 +103,6 @@ export class LocalHTTPService {
   private _isRunning = false;
   private readonly apiSecret: string;
   private compileScheduler: any = null;
-  /** 模型启用/禁用状态记录 */
-  private modelEnabledMap = new Map<string, boolean>();
-  /** 已删除的模型 ID 集合 */
-  private deletedModelIds = new Set<string>();
 
   constructor(config: LocalHTTPConfig) {
     this.config = config;
@@ -436,23 +431,8 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/models') {
       return this.handleListModels(req, res);
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/models\/([^/]+)\/enable$/)) {
-      return this.handleEnableModel(req, res, url.match(/^\/v1\/models\/([^/]+)\/enable$/)![1]);
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/models\/([^/]+)\/disable$/)) {
-      return this.handleDisableModel(req, res, url.match(/^\/v1\/models\/([^/]+)\/disable$/)![1]);
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/models\/([^/]+)$/)) {
-      return this.handleDeleteModel(req, res, url.match(/^\/v1\/models\/([^/]+)$/)![1]);
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/models\/([^/]+)$/)) {
-      return this.handleUpdateModel(req, res, url.match(/^\/v1\/models\/([^/]+)$/)![1]);
-    }
     if (req.method === 'POST' && url === '/v1/models/test') {
       return this.handleTestModel(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/models/pricing/sync') {
-      return this.handleSyncPricing(req, res);
     }
     if (req.method === 'GET' && url === '/v1/models/current') {
       return this.handleGetCurrentModel(req, res);
@@ -465,10 +445,6 @@ export class LocalHTTPService {
     }
     if (req.method === 'PUT' && url === '/v1/models/tasks') {
       return this.handleSaveTasks(req, res);
-    }
-
-    if (req.method === 'POST' && url === '/v1/config/reload') {
-      return this.handleConfigReload(req, res);
     }
 
     if (req.method === 'POST' && url === '/v1/chat/completions') {
@@ -1915,125 +1891,97 @@ export class LocalHTTPService {
   }
 
   /**
-   * 根据模型ID推断供应商
+   * 模型列表 — DB 驱动（ProviderManager + ModelPricingService）
    */
-  private inferProviderFromModelId(modelId: string): string {
-    const id = modelId.toLowerCase();
-    if (id.startsWith('deepseek-')) return 'deepseek';
-    if (id.startsWith('gpt-')) return 'openai';
-    if (id.startsWith('gemini-')) return 'google';
-    if (id.startsWith('qwen-')) return 'qwen';
-    if (id.startsWith('llama')) return 'ollama';
-    if (id.includes('-ollama')) return 'ollama';
-    if (id.startsWith('claude-')) return 'anthropic';
-    return 'unknown';
-  }
-
-  /**
-   * 处理模型列表请求
-   */
-  private handleListModels(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): void {
-    const models: Array<{
-      id: string;
-      name: string;
-      provider: string;
-      type: string;
-      context_length: number;
-      enabled: boolean;
-    }> = [];
-
-    for (const [key, config] of Object.entries(ALL_MODEL_CONFIGS)) {
-      const modelId = (config as any).deepseek || (config as any).firstParty || (config as any).openai || key;
-
-      if (this.deletedModelIds.has(modelId)) continue;
-
-      const enabled = this.modelEnabledMap.has(modelId)
-        ? this.modelEnabledMap.get(modelId)!
-        : true;
-
-      models.push({
-        id: modelId,
-        name: config.displayName,
-        provider: this.inferProviderFromModelId(modelId),
-        type: 'chat',
-        context_length: config.contextWindow,
-        enabled,
-      });
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ object: 'list', data: models }));
-  }
-
-  /**
-   * 处理启用模型请求
-   */
-  private handleEnableModel(
-    req: http.IncomingMessage,
+  private async handleListModels(
+    _req: http.IncomingMessage,
     res: http.ServerResponse,
-    modelId: string
-  ): void {
-    this.modelEnabledMap.set(modelId, true);
-    this.deletedModelIds.delete(modelId);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true }));
-  }
-
-  /**
-   * 处理禁用模型请求
-   */
-  private handleDisableModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    modelId: string
-  ): void {
-    this.modelEnabledMap.set(modelId, false);
-    this.deletedModelIds.delete(modelId);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true }));
-  }
-
-  /**
-   * 处理删除模型请求
-   */
-  private handleDeleteModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    modelId: string
-  ): void {
-    this.deletedModelIds.add(modelId);
-    this.modelEnabledMap.delete(modelId);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true }));
-  }
-
-  /**
-   * 处理更新模型请求
-   */
-  private async handleUpdateModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    modelId: string
   ): Promise<void> {
     try {
-      const body = await this.readRequestBody(req);
-      const updates = JSON.parse(body);
-      if (typeof updates.enabled === 'boolean') {
-        this.modelEnabledMap.set(modelId, updates.enabled);
-        if (updates.enabled) {
-          this.deletedModelIds.delete(modelId);
+      const { providerManager } = await import('@modules/ai/providers/ProviderManager.js');
+      const { modelPricingService } = await import('@modules/ai/models/ModelPricingService.js');
+      await providerManager.initialize();
+      await modelPricingService.initialize();
+
+      const providers = await providerManager.listProviders();
+      const pricingList = await modelPricingService.getAllPricing();
+      const pricingByModel = new Map(pricingList.map((pr: { modelId: string; inputCostPerMillion: number; outputCostPerMillion: number; cacheReadCostPerMillion: number; cacheWriteCostPerMillion: number; displayName: string }) => [pr.modelId, pr]));
+
+      const models: Array<{
+        id: string;
+        name: string;
+        provider: string;
+        providerId: string;
+        type: string;
+        context_length: number;
+        enabled: boolean;
+        pricing?: Record<string, number>;
+      }> = [];
+      const addedModelIds = new Set<string>();
+
+      for (const pr of pricingList) {
+        const matchingProvider = providers.find((p) =>
+          pr.modelId.startsWith(p.providerType) ||
+          p.name.toLowerCase().includes(pr.modelId.split('-')[0]),
+        );
+        addedModelIds.add(pr.modelId);
+        models.push({
+          id: pr.modelId,
+          name: pr.displayName || pr.modelId,
+          provider: matchingProvider?.name || pr.modelId.split('-')[0],
+          providerId: matchingProvider?.id || '',
+          type: 'chat',
+          context_length: 65536,
+          enabled: matchingProvider ? matchingProvider.isActive : true,
+          pricing: {
+            inputPer1M: pr.inputCostPerMillion,
+            outputPer1M: pr.outputCostPerMillion,
+            cacheReadPer1M: pr.cacheReadCostPerMillion || undefined,
+            cacheWritePer1M: pr.cacheWriteCostPerMillion || undefined,
+          } as Record<string, number>,
+        });
+      }
+
+      for (const p of providers) {
+        if (!p.isActive) continue;
+        const fallbackId = `${p.providerType}-${p.name.toLowerCase().replace(/\\s+/g, '-')}`;
+        if (!addedModelIds.has(fallbackId)) {
+          models.push({
+            id: fallbackId,
+            name: p.name,
+            provider: p.name,
+            providerId: p.id,
+            type: 'chat',
+            context_length: 65536,
+            enabled: true,
+          });
+          addedModelIds.add(fallbackId);
         }
       }
+
+      if (models.length === 0) {
+        models.push({
+          id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp',
+          providerId: '', type: 'chat', context_length: 65536, enabled: true,
+        });
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true }));
+      res.end(JSON.stringify({ object: 'list', data: models }));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error('获取模型列表失败', { error: (err as Error).message });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        object: 'list',
+        data: [{
+          id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp',
+          providerId: '', type: 'chat', context_length: 65536, enabled: true,
+        }],
+      }));
     }
   }
 
+  /**
   /**
    * 处理获取系统技能关联文件内容 GET /v1/skills/system/:id/files/content?path=...
    */
@@ -2133,65 +2081,18 @@ export class LocalHTTPService {
   }
 
   /**
-   * 处理定价同步请求
+   * 获取当前模型状态（从 configStore 读取）
    */
-  private async handleSyncPricing(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { ModelRegistry } = await import('@modules/ai/models/ModelRegistry');
-      const body = req.method === 'POST' ? await this.readRequestBody(req).catch(() => '{}') : '{}';
-      const { source } = JSON.parse(body);
-      const registry = ModelRegistry.getInstance();
-      const count = await registry.syncPricing(source || undefined);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, count }));
-    } catch (err) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      }));
-    }
-  }
-
-  /**
-   * 处理配置热重载请求
-   */
-  private async handleConfigReload(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { ModelRegistry } = await import('@modules/ai/models/ModelRegistry');
-      const registry = ModelRegistry.getInstance();
-      registry.loadDefaultModels();
-      registry.loadUserConfigs();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-    } catch (err) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      }));
-    }
-  }
-
-  /**
-   * 获取当前模型状态
-   */
-  private async handleGetCurrentModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
+  private handleGetCurrentModel(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): void {
     try {
       const envModel = process.env.Liri_MODEL || 'deepseek-chat';
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         modelId: envModel,
-        provider: 'anthropic',
+        provider: 'deepseek',
         taskType: 'chat',
         costThisSession: 0,
         availableTasks: [
@@ -2207,17 +2108,18 @@ export class LocalHTTPService {
   }
 
   /**
-   * 切换当前模型
+   * 切换当前模型（写入 Liri_MODEL 环境变量，前端 configStore 同步）
    */
   private async handleSwitchModel(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
     try {
       const body = await this.readRequestBody(req);
       const { modelId } = JSON.parse(body);
       if (modelId) {
         process.env.Liri_MODEL = modelId;
+        logger.info(`模型已切换: ${modelId}`);
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, modelId }));

@@ -56,9 +56,16 @@ export interface ModelInfo {
   id: string;
   name: string;
   provider: string;
+  providerId?: string;
   type: 'chat' | 'embedding' | 'image';
   context_length: number;
   enabled: boolean;
+  pricing?: {
+    inputPer1M?: number;
+    outputPer1M?: number;
+    cacheReadPer1M?: number;
+    cacheWritePer1M?: number;
+  };
 }
 
 /** 提供商配置（DB 驱动，对齐后端 ProviderRecord） */

@@ -25,7 +25,7 @@ function formatDate(ts: number): string {
 }
 
 function ProviderPage() {
-  const { models, isLoading: modelsLoading, loadModels, toggleModel, deleteModel } = useModelStore();
+  const { models, isLoading: modelsLoading, loadModels } = useModelStore();
   const store = useModelAdminStore();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === 'dark';
@@ -340,17 +340,18 @@ function ProviderPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4 shrink-0">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" checked={model.enabled} onChange={() => toggleModel(model.id, !model.enabled)} className="sr-only peer" />
-                          <div className="w-9 h-5 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
-                        </label>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${model.enabled ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                          {model.enabled ? '可用' : '停用'}
+                        </span>
+                        {model.providerId && (
+                          <button onClick={() => setActiveTab('providers')}
+                            className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                            管理 Provider
+                          </button>
+                        )}
                         <button onClick={() => setEditMetaId(model.id)}
                           className="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded">
                           元数据
-                        </button>
-                        <button onClick={() => deleteModel(model.id)}
-                          className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded">
-                          删除
                         </button>
                       </div>
                     </div>

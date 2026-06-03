@@ -13,6 +13,7 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'home', label: '首页', icon: '🏠', path: '/' },
   { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
+  { id: 'models', label: '模型', icon: '🧠', path: '/models' },
   { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
   { id: 'cron', label: '定时', icon: '⏰', path: '/cron' },
   { id: 'channels', label: '渠道', icon: '📡', path: '/channels' },

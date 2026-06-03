@@ -19,6 +19,7 @@ import { providerRegistry } from '../providers/ProviderRegistry';
 import type { AIProvider } from '../providers/AIProvider';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
+import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;
@@ -77,13 +78,24 @@ export class AIServiceImpl implements AIService {
   ): Promise<AIResponse> {
     const client = this.getClientForModel(model);
     const chatMessages = this.convertToChatMessages(messages);
+    const resolvedModel = options.model || model;
+    const startTime = Date.now();
 
     const chatResponse = await client.chat(chatMessages, {
-      model: options.model || model,
+      model: resolvedModel,
       maxTokens: options.max_tokens,
       temperature: options.temperature,
       tools: options.tools,
     });
+
+    const latencyMs = Date.now() - startTime;
+
+    // 记录使用量（异步，不阻塞响应）
+    trackUsage(chatResponse, {
+      model: extractModelFromResponse(chatResponse, resolvedModel),
+      providerId: (client as AIProvider).id,
+      latencyMs,
+    }).catch(() => {});
 
     if (this.scrubberPipeline) {
       const scrubbed = this.scrubberPipeline.scrub({
@@ -109,9 +121,11 @@ export class AIServiceImpl implements AIService {
   ): AsyncGenerator<AIResponse> {
     const client = this.getClientForModel(model);
     const chatMessages = this.convertToChatMessages(messages);
+    const resolvedModel = options.model || model;
+    const startTime = Date.now();
 
     const gen = client.chatStream(chatMessages, {
-      model: options.model || model,
+      model: resolvedModel,
       maxTokens: options.max_tokens,
       temperature: options.temperature,
       tools: options.tools,
@@ -165,6 +179,15 @@ export class AIServiceImpl implements AIService {
       { ...finalResponse, content: finalContent },
       model
     );
+
+    // 记录使用量（异步，不阻塞响应）
+    const latencyMs = Date.now() - startTime;
+    trackUsage(finalResponse, {
+      model: extractModelFromResponse(finalResponse, resolvedModel),
+      providerId: (client as AIProvider).id,
+      latencyMs,
+      isStreaming: true,
+    }).catch(() => {});
   }
 
   setDefaultModel(model: AIModelType): void {

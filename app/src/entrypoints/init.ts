@@ -426,6 +426,18 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
+      // 初始化模型管理新增服务（DB表创建等，非阻塞）
+      (async () => {
+        try {
+          const { initializeModelManagementServices } = await import(
+            '../ai/ModelManagementBootstrap.js'
+          );
+          await initializeModelManagementServices();
+        } catch (error) {
+          // 非关键路径，静默忽略
+        }
+      })(),
+
       // 预加载治理管理器
       (async () => {
         try {

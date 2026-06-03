@@ -238,6 +238,59 @@ export type { AIMiddleware, AIMiddlewareContext } from './middleware';
 export * from './credentials';
 export * from './cost';
 
+// models/ — 模型管理增强（对标 CC 供应商管理）
+export {
+  ProviderManager,
+  providerManager,
+} from './providers/ProviderManager';
+export type {
+  ProviderRecord,
+  ProviderType,
+  CreateProviderParams,
+  UpdateProviderParams,
+  ProviderListFilter,
+} from './providers/ProviderManager';
+
+export { BalanceChecker } from './providers/BalanceChecker';
+export type { BalanceResult, BalanceData } from './providers/BalanceChecker';
+
+export { ModelFetcher } from './providers/ModelFetcher';
+export type { FetchedModel } from './providers/ModelFetcher';
+
+export { SpeedTestService } from './providers/SpeedTestService';
+export type { EndpointLatency } from './providers/SpeedTestService';
+
+export { UsageStatsService, usageStatsService } from './models/UsageStatsService';
+export type {
+  UsageSummary,
+  DailyStats,
+  ModelStats,
+  ProviderStats,
+  UsageLogRecord,
+  CreateUsageLogParams,
+  UsageLogFilter,
+  PaginatedLogs,
+} from './models/UsageStatsService';
+
+export { ModelPricingService, modelPricingService } from './models/ModelPricingService';
+export type { ModelPricingRecord, UpsertPricingParams } from './models/ModelPricingService';
+
+export { AppModelRouter, appModelRouter } from './models/AppModelRouter';
+export type { AppModelConfig, AppModelTarget } from './models/AppModelRouter';
+
+export { UsageTracker } from './UsageTracker';
+export type { TrackUsageParams } from './UsageTracker';
+
+export {
+  PriorityBasedFailover,
+  priorityFailover,
+} from './providers/PriorityBasedFailover';
+export type { FailoverConfig, FailoverEvent } from './providers/PriorityBasedFailover';
+
+export { ProviderSyncService } from './providers/ProviderSyncService';
+
+export { tryHandleRoute } from './ModelManagementAPI';
+
 // embedding/ — 嵌入模型支持（可选依赖，零启动开销）
 export {
   EmbeddingBase,

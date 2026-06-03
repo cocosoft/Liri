@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { modelAdminService } from '../../services/modelAdminService';
+import { configService } from '../../services/configService';
 
 interface ModelMetaEditorProps {
   modelId: string;
@@ -45,6 +46,52 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  // 加载已有的模型覆盖配置
+  useEffect(() => {
+    const loadOverrides = async () => {
+      try {
+        const baseKey = `models.overrides.${modelId}`;
+        const all = await configService.list();
+        const prefix = `${baseKey}.`;
+        const existing: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(all)) {
+          if (k.startsWith(prefix)) {
+            existing[k.slice(prefix.length)] = v;
+          }
+        }
+        if (Object.keys(existing).length > 0) {
+          setForm((prev) => ({
+            ...prev,
+            displayName: (existing.displayName as string) || prev.displayName,
+            contextWindow: String(existing.contextWindow || prev.contextWindow),
+            maxOutputTokens: String(existing.maxOutputTokens || prev.maxOutputTokens),
+            inputPrice: typeof existing.pricing === 'object' && existing.pricing
+              ? String((existing.pricing as Record<string, number>).inputPer1M || '')
+              : '',
+            outputPrice: typeof existing.pricing === 'object' && existing.pricing
+              ? String((existing.pricing as Record<string, number>).outputPer1M || '')
+              : '',
+            cacheReadPrice: typeof existing.pricing === 'object' && existing.pricing
+              ? String((existing.pricing as Record<string, number>).cacheReadPer1M || '')
+              : '',
+            cacheWritePrice: typeof existing.pricing === 'object' && existing.pricing
+              ? String((existing.pricing as Record<string, number>).cacheWritePer1M || '')
+              : '',
+            capabilities: Array.isArray(existing.capabilities)
+              ? (existing.capabilities as string[])
+              : prev.capabilities,
+          }));
+        }
+      } catch {
+        // 加载失败使用默认值
+      } finally {
+        setLoaded(true);
+      }
+    };
+    loadOverrides();
+  }, [modelId]);
 
   const handleChange = (field: keyof FormState, value: string | string[]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -104,10 +151,14 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-          编辑模型: {modelId}
-        </h3>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">修改后将覆盖内置默认值</p>
+        {!loaded ? (
+          <div className="py-8 text-center text-gray-400 text-sm">加载中...</div>
+        ) : (
+          <>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+            编辑模型: {modelId}
+          </h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">修改后将覆盖内置默认值</p>
 
         {error && (
           <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-xs">
@@ -197,6 +248,8 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
             </button>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

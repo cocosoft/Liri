@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 import { ALL_MODEL_CONFIGS, type ModelKey } from '@modules/ai/models/ModelConfigs';
+import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { attachmentManager } from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
@@ -819,6 +820,13 @@ export class LocalHTTPService {
         url.match(/^\/v1\/config\/(.+)$/)![1]
       );
     }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/config\/(.+)$/)) {
+      return this.handleDeleteConfig(
+        req,
+        res,
+        url.match(/^\/v1\/config\/(.+)$/)![1]
+      );
+    }
 
     // ---- Settings ----
     if (req.method === 'GET' && url === '/v1/settings/data-directory') {
@@ -1166,6 +1174,10 @@ export class LocalHTTPService {
       res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService' }));
       return;
     }
+
+    // ---- Model Management API (Providers / Usage / Balance / Pricing) ----
+    const handled = await tryHandleRoute(req, res);
+    if (handled) return;
 
     logger.warning('未匹配的路由', { method: req.method, url: req.url, parsedUrl: url });
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -5183,6 +5195,27 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, key, value }));
       this.broadcastEvent('config:updated', { key, value });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDeleteConfig(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    key: string
+  ): Promise<void> {
+    try {
+      const { configManager } = await import('@modules/config/ConfigManager');
+      // ConfigManager 没有 deleteConfigValue，通过 saveGlobalConfig 移除 key
+      const { getConfig } = await import('@modules/config');
+      const current = { ...(getConfig() as Record<string, unknown>) };
+      delete current[key];
+      configManager.setConfigValue(key, undefined as unknown);
+      // 广播变更
+      this.broadcastEvent('config:deleted', { key });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, key }));
     } catch (err) {
       this.sendError(res, err);
     }

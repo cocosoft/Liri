@@ -218,6 +218,7 @@ export class ModelRegistry {
     return (config as unknown as Record<string, string>)[provider] || '';
   }
 
+  /** 同步获取模型定价（用户YAML > 社区同步 > 内置YAML） */
   getModelPricing(modelName: string): { inputPer1M: number; outputPer1M: number } | null {
     const user = this.userPricing.get(modelName);
     if (user) return { inputPer1M: user.inputPer1M, outputPer1M: user.outputPer1M };
@@ -229,6 +230,31 @@ export class ModelRegistry {
     if (model?.pricing) return model.pricing;
 
     return null;
+  }
+
+  /** 异步获取模型定价（DB > 用户YAML > 社区同步 > 内置YAML，含 DB 用户自定义定价） */
+  async getModelPricingAsync(
+    modelName: string,
+  ): Promise<{ inputPer1M: number; outputPer1M: number } | null> {
+    // 1. DB 用户自定义定价（最高优先级）
+    try {
+      const { modelPricingService } = await import(
+        '@modules/ai/models/ModelPricingService.js'
+      );
+      await modelPricingService.initialize();
+      const dbPricing = await modelPricingService.getPricing(modelName);
+      if (dbPricing) {
+        return {
+          inputPer1M: dbPricing.inputCostPerMillion,
+          outputPer1M: dbPricing.outputCostPerMillion,
+        };
+      }
+    } catch {
+      // DB 不可用时回退
+    }
+
+    // 2-4. 同步定价链
+    return this.getModelPricing(modelName);
   }
 
   async syncPricing(sourceUrl?: string): Promise<number> {

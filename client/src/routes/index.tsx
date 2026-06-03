@@ -16,6 +16,7 @@ const ApiKeyPage = lazy(() => import('../components/views/ApiKeyPage'));
 const STTTestPage = lazy(() => import('../components/views/STTTestPage'));
 const SkillMarketPage = lazy(() => import('../components/views/SkillMarketPage'));
 const MCPMarketPage = lazy(() => import('../components/views/MCPMarketPage'));
+const ModelPage = lazy(() => import('../components/views/ModelPage'));
 
 export const routes: RouteObject[] = [
   {
@@ -77,6 +78,10 @@ export const routes: RouteObject[] = [
   {
     path: '/mcp-market',
     element: <MCPMarketPage />,
+  },
+  {
+    path: '/models',
+    element: <ModelPage />,
   },
 ];
 

@@ -1,7 +1,6 @@
 /**
  * Model 命令实现
  * 设置 AI 模型
- * 对标 CC 源码 cc_code/backend/commands/model/model.tsx 实现
  * 使用 ModelManager 作为唯一数据源
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
@@ -47,6 +46,7 @@ function showHelp(): CommandResult {
   /model <model-id|alias>      切换到指定模型（支持别名）
   /model info <model-id>       查看模型详细信息
   /model all                   列出所有提供商下的可用模型
+  /model providers             列出当前已配置的供应商
   /model --json                以 JSON 格式输出模型列表
   /model help                  显示此帮助
 
@@ -172,6 +172,52 @@ function handleAll(): CommandResult {
 }
 
 /**
+ * 处理 providers 子命令 - 显示当前已配置的供应商
+ */
+async function handleProviders(): Promise<CommandResult> {
+  try {
+    const { providerManager } = await import(
+      '@modules/ai/providers/ProviderManager.js'
+    );
+    await providerManager.initialize();
+    const providers = await providerManager.listProviders();
+
+    if (providers.length === 0) {
+      return {
+        success: true,
+        message: `暂无供应商配置。
+
+使用 /provider add 添加供应商，或 /provider seed 从环境变量预置。`,
+      };
+    }
+
+    const lines = ['当前已配置的供应商:', '─'.repeat(80)];
+
+    for (const p of providers) {
+      const status = p.isActive ? '✓' : '✗';
+      const keyInfo = p.apiKey ? '(已配置 Key)' : '(未配置 Key)';
+      lines.push(
+        `  ${status} ${p.name.padEnd(18)} | ${p.providerType.padEnd(10)} | ${keyInfo.padEnd(15)} | ${p.baseUrl}`,
+      );
+    }
+
+    lines.push('─'.repeat(80));
+    lines.push(
+      `共 ${providers.length} 个供应商（${providers.filter((p) => p.isActive).length} 激活）`,
+    );
+    lines.push('');
+    lines.push('使用 /model <model-id> 切换模型，使用 /provider toggle <id> 切换供应商状态。');
+
+    return { success: true, message: lines.join('\n') };
+  } catch (err) {
+    return {
+      success: false,
+      message: `查询供应商失败: ${(err as Error).message}`,
+    };
+  }
+}
+
+/**
  * 显示当前模型和可用模型列表
  */
 function showCurrentModel(showJson: boolean): CommandResult {
@@ -259,6 +305,8 @@ const modelCommand = {
       if (subcommand === 'info') return handleInfo(modelArg);
 
       if (subcommand === 'all') return handleAll();
+
+      if (subcommand === 'providers') return handleProviders();
 
       if (subcommand === 'list') return showCurrentModel(showJson);
 

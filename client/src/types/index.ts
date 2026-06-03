@@ -61,38 +61,96 @@ export interface ModelInfo {
   enabled: boolean;
 }
 
-/** 提供商配置（用于客户端管理） */
+/** 提供商配置（DB 驱动，对齐后端 ProviderRecord） */
 export interface ProviderInfo {
   id: string;
-  api: string;
+  name: string;
+  providerType: string;
   baseUrl: string;
-  modelIds: string[];
-  sources: string[];
+  apiKey?: string;
+  modelsUrl?: string;
+  isActive: boolean;
+  sortIndex: number;
+  requiresAuth: boolean;
+  notes?: string;
+  icon?: string;
+  iconColor?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
-/** 提供商编辑表单 */
+/** 提供商创建/编辑表单 */
 export interface ProviderFormData {
-  id: string;
-  api: string;
+  name: string;
+  providerType: string;
   baseUrl: string;
   apiKey: string;
-  models: string;
-  inputPrice?: string;
-  outputPrice?: string;
-  cacheReadPrice?: string;
-  cacheWritePrice?: string;
+  modelsUrl: string;
+  notes: string;
+  requiresAuth: boolean;
 }
 
-/** 变更预览 */
-export interface ChangePreview {
+/** 端点测速结果 */
+export interface EndpointLatency {
+  url: string;
+  latency?: number;
+  status?: number;
+  error?: string;
+}
+
+/** 余额查询结果 */
+export interface BalanceResult {
+  success: boolean;
+  provider: string;
+  data: Array<{ planName?: string; remaining?: number; total?: number; used?: number; unit?: string }>;
+  error?: string;
+}
+
+/** 使用量概览 */
+export interface UsageSummary {
+  totalRequests: number;
+  totalCost: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
+  successRate: number;
+}
+
+/** 每日趋势 */
+export interface DailyUsageStats {
+  date: string;
+  requestCount: number;
+  totalCost: number;
+  totalTokens: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+}
+
+/** 模型使用统计 */
+export interface ModelUsageStats {
+  model: string;
+  requestCount: number;
+  totalTokens: number;
+  totalCost: number;
+  avgLatencyMs: number;
+}
+
+/** 供应商使用统计 */
+export interface ProviderUsageStats {
   providerId: string;
-  hasChanges: boolean;
-  warnings: string[];
-  apiDiff?: { before: string; after: string; changed: boolean };
-  baseUrlDiff?: { before: string; after: string; changed: boolean };
-  modelDiff?: { changed: boolean; beforeCount: number; afterCount: number; added: string[]; removed: string[] };
-  inferredPrimary?: string | null;
-  pricingDiff?: { changed: boolean; inputPrice?: string; outputPrice?: string };
+  providerName: string;
+  requestCount: number;
+  totalTokens: number;
+  totalCost: number;
+  successRate: number;
+  avgLatencyMs: number;
+}
+
+/** 获取的模型信息 */
+export interface FetchedModel {
+  id: string;
+  ownedBy?: string;
 }
 
 export interface Config {

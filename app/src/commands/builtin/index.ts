@@ -147,5 +147,14 @@ export { demoCommand } from './demo/index.js';
 // 模型命令（来自 commands/model）
 export { modelCommand } from '../model/index.js';
 
+// 供应商管理命令（来自 commands/provider）
+export { providerCommand } from '../provider/index.js';
+
+// 余额查询命令（来自 commands/balance）
+export { balanceCommand } from '../balance/index.js';
+
+// 使用量统计命令（来自 commands/usagestats）
+export { usagestatsCommand } from '../usagestats/index.js';
+
 // 通道命令（来自 commands/channel）
 export { channelCmd } from '../channel/index.js';

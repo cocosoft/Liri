@@ -263,7 +263,7 @@ async function handleEdit(args: string): Promise<CommandResult> {
 
   await providerManager.initialize();
 
-  const params: Record<string, string | undefined> = {};
+  const params: Record<string, string | boolean | undefined> = {};
 
   if (updates['name']) params.name = updates['name'];
   if (updates['type']) {
@@ -585,7 +585,7 @@ async function handleSync(): Promise<CommandResult> {
 async function handleSeed(): Promise<CommandResult> {
   const presets: Array<{
     name: string;
-    type: ProviderType;
+    providerType: ProviderType;
     baseUrl: string;
     apiKey?: string;
   }> = [];
@@ -594,7 +594,7 @@ async function handleSeed(): Promise<CommandResult> {
   if (dsKey) {
     presets.push({
       name: 'DeepSeek',
-      type: 'deepseek',
+      providerType: 'deepseek',
       baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
       apiKey: dsKey,
     });
@@ -604,7 +604,7 @@ async function handleSeed(): Promise<CommandResult> {
   if (oaiKey) {
     presets.push({
       name: 'OpenAI',
-      type: 'openai',
+      providerType: 'openai',
       baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
       apiKey: oaiKey,
     });
@@ -614,7 +614,7 @@ async function handleSeed(): Promise<CommandResult> {
   if (anthKey) {
     presets.push({
       name: 'Anthropic',
-      type: 'anthropic',
+      providerType: 'anthropic',
       baseUrl: 'https://api.anthropic.com',
       apiKey: anthKey,
     });
@@ -624,7 +624,7 @@ async function handleSeed(): Promise<CommandResult> {
   if (googKey) {
     presets.push({
       name: 'Google Gemini',
-      type: 'google',
+      providerType: 'google',
       baseUrl: process.env.GOOGLE_AI_BASE_URL || 'https://generativelanguage.googleapis.com',
       apiKey: googKey,
     });
@@ -634,7 +634,7 @@ async function handleSeed(): Promise<CommandResult> {
   if (sfKey) {
     presets.push({
       name: 'SiliconFlow',
-      type: 'custom',
+      providerType: 'custom',
       baseUrl: 'https://api.siliconflow.cn/v1',
       apiKey: sfKey,
     });

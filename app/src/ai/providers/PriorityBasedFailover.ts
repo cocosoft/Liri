@@ -32,8 +32,6 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   AIProvider,
   ChatOptions,
-  ChatMessage,
-  ChatResponse,
 } from './AIProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderRecord } from './ProviderManager';

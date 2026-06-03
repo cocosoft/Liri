@@ -148,7 +148,7 @@ export class AppModelRouter {
     // 从 ModelManager 获取当前默认模型
     let defaultModel = 'deepseek-chat';
     try {
-      const { modelManager } = await import('./models/ModelManager.js');
+      const { modelManager } = await import('./ModelManager.js');
       defaultModel = modelManager.getCurrentModel();
     } catch {
       // fallback

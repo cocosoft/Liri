@@ -414,12 +414,6 @@ export async function executeAutoDream(context?: any): Promise<void> {
   }
 }
 
-export async function executeAutoDream(context?: any): Promise<void> {
-  if (runner) {
-    await runner(context || {});
-  }
-}
-
 export function abortAutoDream(): void {
   if (currentAbortController) {
     currentAbortController.abort();

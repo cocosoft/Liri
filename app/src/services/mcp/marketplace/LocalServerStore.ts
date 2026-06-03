@@ -34,18 +34,25 @@ export class LocalServerStore {
         version: STORE_VERSION,
         updatedAt: new Date().toISOString(),
         servers: {},
+        disabledTools: [],
       };
     }
 
     try {
       const content = fs.readFileSync(this.storePath, 'utf8');
-      return JSON.parse(content) as MCPLocalStoreData;
+      const data = JSON.parse(content) as MCPLocalStoreData;
+      // 兼容旧数据无 disabledTools 字段
+      if (!Array.isArray(data.disabledTools)) {
+        data.disabledTools = [];
+      }
+      return data;
     } catch (error) {
       logger.error('读取 MCP 本地存储失败，使用空数据', error as Error);
       return {
         version: STORE_VERSION,
         updatedAt: new Date().toISOString(),
         servers: {},
+        disabledTools: [],
       };
     }
   }
@@ -97,6 +104,26 @@ export class LocalServerStore {
 
   toggleServer(name: string, enabled: boolean): void {
     this.updateServer(name, { enabled });
+  }
+
+  /**
+   * 切换工具启用/禁用状态
+   */
+  toggleTool(serverName: string, toolName: string, enabled: boolean): void {
+    const key = `${serverName}:${toolName}`;
+    if (enabled) {
+      this.data.disabledTools = this.data.disabledTools.filter((t) => t !== key);
+    } else if (!this.data.disabledTools.includes(key)) {
+      this.data.disabledTools.push(key);
+    }
+    this.saveStore();
+  }
+
+  /**
+   * 判断工具是否被禁用
+   */
+  isToolDisabled(serverName: string, toolName: string): boolean {
+    return this.data.disabledTools.includes(`${serverName}:${toolName}`);
   }
 
   isInstalled(name: string): boolean {

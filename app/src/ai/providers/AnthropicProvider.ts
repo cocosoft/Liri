@@ -6,6 +6,7 @@ import type {
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
+  ThinkingProviderChunk,
 } from './AIProvider';
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import {
@@ -170,7 +171,7 @@ export class AnthropicProvider implements AIProvider {
   async *chatStream(
     messages: ChatMessage[],
     options?: ChatOptions
-  ): AsyncGenerator<string, ChatResponse, unknown> {
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     const model = options?.model || this.config.model || 'claude-sonnet-4-6';
     const { systemPrompt } = this.adapter.splitMessages(messages);
 
@@ -189,7 +190,7 @@ export class AnthropicProvider implements AIProvider {
       stream: true,
     } as Anthropic.MessageCreateParams)) as unknown as AsyncIterable<{
       type: string;
-      delta?: { type: string; text: string };
+      delta?: { type: string; text: string; thinking: string };
     }>;
 
     let fullContent = '';
@@ -201,6 +202,12 @@ export class AnthropicProvider implements AIProvider {
       ) {
         fullContent += event.delta.text;
         yield event.delta.text;
+      } else if (
+        event.type === 'content_block_delta' &&
+        event.delta?.type === 'thinking_delta' &&
+        event.delta.thinking
+      ) {
+        yield { type: 'thinking', content: event.delta.thinking };
       }
     }
 

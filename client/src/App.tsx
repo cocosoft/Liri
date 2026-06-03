@@ -29,9 +29,9 @@ import KnowledgePage from './components/views/KnowledgePage';
 import AgentPage from './components/views/AgentPage';
 import AgentAdvancedPage from './components/views/AgentAdvancedPage';
 import CronPage from './components/views/CronPage';
+import DreamPage from './components/views/DreamPage';
 import TaskCenterPage from './components/views/TaskCenterPage';
 import ChannelsPage from './components/views/ChannelsPage';
-import ChannelsDeepPage from './components/views/ChannelsDeepPage';
 import SettingsPage from './components/views/SettingsPage';
 import ConfigDeepPage from './components/views/ConfigDeepPage';
 import BuddyPage from './components/views/BuddyPage';
@@ -162,14 +162,15 @@ function App() {
           <Route path="/agent" element={<AuthGuard><AgentPage /></AuthGuard>} />
           <Route path="/agent/advanced" element={<AuthGuard><AgentAdvancedPage /></AuthGuard>} />
           <Route path="/cron" element={<AuthGuard><CronPage /></AuthGuard>} />
+          <Route path="/dream" element={<AuthGuard><DreamPage /></AuthGuard>} />
           <Route path="/tasks" element={<AuthGuard><TaskCenterPage /></AuthGuard>} />
           <Route path="/channels" element={<AuthGuard><ChannelsPage /></AuthGuard>} />
-          <Route path="/channels/deep" element={<AuthGuard><ChannelsDeepPage /></AuthGuard>} />
           <Route path="/settings" element={<AuthGuard><SettingsPage /></AuthGuard>} />
           <Route path="/settings/deep" element={<AuthGuard><ConfigDeepPage /></AuthGuard>} />
           <Route path="/buddy" element={<AuthGuard><BuddyPage /></AuthGuard>} />
           <Route path="/voice-stt" element={<AuthGuard><STTTestPage /></AuthGuard>} />
           <Route path="/skill-market" element={<AuthGuard><SkillMarketPage /></AuthGuard>} />
+          <Route path="/mcp" element={<AuthGuard><MCPMarketPage /></AuthGuard>} />
           <Route path="/mcp-market" element={<AuthGuard><MCPMarketPage /></AuthGuard>} />
           <Route path="/models" element={<AuthGuard><ModelPage /></AuthGuard>} />
           </Routes>

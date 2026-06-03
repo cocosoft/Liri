@@ -6,6 +6,9 @@
 
 import https from 'node:https';
 import http from 'node:http';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { resolvePyappHome } from '@modules/config/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { ClawHubSkillMeta, SkillSearchResult } from './ClawHubAdapter';
 
@@ -67,6 +70,8 @@ export class SearchEngine {
   private apiBaseUrl: string;
   private timeout: number;
   private sources: Map<string, SearchSource> = new Map();
+  private customSources: Map<string, string> = new Map(); // name → apiBaseUrl
+  private readonly customSourcesPath: string;
 
   /**
    * 构造函数
@@ -75,8 +80,10 @@ export class SearchEngine {
   constructor(config: SearchEngineConfig = {}) {
     this.apiBaseUrl = config.apiBaseUrl || 'https://api.clawhub.com/v1';
     this.timeout = config.timeout || 10000;
+    this.customSourcesPath = join(resolvePyappHome(), 'config', 'skill-market-sources.json');
 
     this.registerDefaultSources();
+    this.loadCustomSources();
   }
 
   /**
@@ -88,6 +95,9 @@ export class SearchEngine {
       new ClawHubSearchSource(this.apiBaseUrl, this.timeout)
     );
     this.sources.set('github', new GitHubSearchSource(this.timeout));
+    this.sources.set('hermes', new HermesSearchSource(this.timeout));
+    this.sources.set('gitee', new GiteeSearchSource(this.timeout));
+    this.sources.set('skillhub', new SkillHubSearchSource(this.timeout));
   }
 
   /**
@@ -121,6 +131,82 @@ export class SearchEngine {
   }
 
   /**
+   * 获取自定义源配置列表
+   */
+  getCustomSources(): Array<{ name: string; apiBaseUrl: string }> {
+    return Array.from(this.customSources.entries()).map(([name, url]) => ({
+      name,
+      apiBaseUrl: url,
+    }));
+  }
+
+  /**
+   * 添加用户自定义搜索源
+   */
+  addCustomSource(name: string, apiBaseUrl: string): void {
+    if (this.sources.has(name)) {
+      throw new Error(`搜索源 "${name}" 已存在`);
+    }
+    const source = new ConfigurableClawHubSource(name, apiBaseUrl, this.timeout);
+    this.sources.set(name, source);
+    this.customSources.set(name, apiBaseUrl);
+    this.saveCustomSources();
+    logger.info(`已添加自定义搜索源: ${name} → ${apiBaseUrl}`);
+  }
+
+  /**
+   * 移除用户自定义搜索源
+   */
+  removeCustomSource(name: string): void {
+    if (!this.customSources.has(name)) {
+      throw new Error(`自定义源 "${name}" 不存在`);
+    }
+    this.sources.delete(name);
+    this.customSources.delete(name);
+    this.saveCustomSources();
+    logger.info(`已移除自定义搜索源: ${name}`);
+  }
+
+  /**
+   * 从配置文件加载自定义源
+   */
+  private loadCustomSources(): void {
+    try {
+      if (!existsSync(this.customSourcesPath)) return;
+      const data = JSON.parse(readFileSync(this.customSourcesPath, 'utf-8'));
+      if (!data || typeof data !== 'object') return;
+      const sources = data.sources as Array<{ name: string; apiBaseUrl: string }> | undefined;
+      if (!Array.isArray(sources)) return;
+      for (const s of sources) {
+        if (s.name && s.apiBaseUrl && typeof s.name === 'string' && typeof s.apiBaseUrl === 'string') {
+          try {
+            const source = new ConfigurableClawHubSource(s.name, s.apiBaseUrl, this.timeout);
+            this.sources.set(s.name, source);
+            this.customSources.set(s.name, s.apiBaseUrl);
+          } catch { /* skip invalid */ }
+        }
+      }
+      logger.info(`已加载 ${this.customSources.size} 个自定义搜索源`);
+    } catch (err) {
+      logger.warn('加载自定义搜索源失败', err as Error);
+    }
+  }
+
+  /**
+   * 持久化自定义源配置
+   */
+  private saveCustomSources(): void {
+    try {
+      const dir = dirname(this.customSourcesPath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      const data = { sources: this.getCustomSources() };
+      writeFileSync(this.customSourcesPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      logger.warn('保存自定义搜索源失败', err as Error);
+    }
+  }
+
+  /**
    * 搜索远程技能
    * 聚合所有已注册搜索源的结果
    * @param query 搜索关键词
@@ -129,11 +215,17 @@ export class SearchEngine {
    */
   async searchRemote(
     query: string,
-    options?: { category?: string; tags?: string[] }
+    options?: { category?: string; tags?: string[]; source?: string }
   ): Promise<SkillSearchResult[]> {
-    const sources = Array.from(this.sources.values());
+    const allSources = Array.from(this.sources.entries());
+
+    // 来源过滤
+    const sources = options?.source
+      ? allSources.filter(([name]) => name === options.source)
+      : allSources;
+
     const results = await Promise.allSettled(
-      sources.map((source) => source.search(query, options))
+      sources.map(([, source]) => source.search(query, options))
     );
 
     const merged: SkillSearchResult[] = [];
@@ -141,7 +233,7 @@ export class SearchEngine {
 
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      const sourceName = sources[i].name;
+      const sourceName = sources[i][0];
 
       if (result.status === 'fulfilled') {
         for (const item of result.value) {
@@ -166,54 +258,12 @@ export class SearchEngine {
   async getSkillDetail(skillId: string): Promise<ClawHubSkillMeta | null> {
     try {
       const url = `${this.apiBaseUrl}/skills/${encodeURIComponent(skillId)}`;
-      const data = await this.httpGet(url);
+      const data = await GitHubSearchSource.httpRequest(this.timeout, url);
       return this.mapToSkillMeta(data);
     } catch (error) {
       logger.error(`获取技能详情失败: ${skillId}`, error as Error);
       return null;
     }
-  }
-
-  /**
-   * 发起 HTTP GET 请求
-   * @param url 请求地址
-   * @returns 解析后的 JSON 数据
-   */
-  private httpGet(url: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const isHttps = url.startsWith('https');
-      const client = isHttps ? https : http;
-
-      const req = client.get(url, { timeout: this.timeout }, (res) => {
-        const chunks: Buffer[] = [];
-
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks).toString('utf-8');
-            if (
-              res.statusCode &&
-              res.statusCode >= 200 &&
-              res.statusCode < 300
-            ) {
-              resolve(JSON.parse(body));
-            } else {
-              reject(
-                new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
-              );
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`请求超时: ${url}`));
-      });
-    });
   }
 
   /**
@@ -279,7 +329,7 @@ class ClawHubSearchSource implements SearchSource {
 
     try {
       const url = `${this.apiBaseUrl}/skills/search?${params.toString()}`;
-      const response = await this.httpGet(url);
+      const response = await GitHubSearchSource.httpRequest(this.timeout, url);
 
       const data = response as ClawHubSearchResponse;
       return (data.skills || []).map((item) => ({
@@ -307,44 +357,247 @@ class ClawHubSearchSource implements SearchSource {
     }
   }
 
-  /**
-   * 发起 HTTP GET 请求
-   */
-  private httpGet(url: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const isHttps = url.startsWith('https');
-      const client = isHttps ? https : http;
+}
 
-      const req = client.get(url, { timeout: this.timeout }, (res) => {
-        const chunks: Buffer[] = [];
+/**
+ * Hermes / OpenClaw 生态搜索源
+ * 搜索 GitHub 上带有 openclaw-skill 或 hermes-skill 主题的仓库
+ */
+class HermesSearchSource implements SearchSource {
+  readonly name = 'hermes';
 
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks).toString('utf-8');
-            if (
-              res.statusCode &&
-              res.statusCode >= 200 &&
-              res.statusCode < 300
-            ) {
-              resolve(JSON.parse(body));
-            } else {
-              reject(
-                new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
-              );
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
+  private timeout: number;
+  private cache: Map<string, CacheEntry> = new Map();
+  private cacheTTL = 5 * 60 * 1000;
 
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`请求超时: ${url}`));
-      });
-    });
+  constructor(timeout: number) {
+    this.timeout = timeout;
+  }
+
+  async search(
+    query: string,
+    _options?: { category?: string; tags?: string[] }
+  ): Promise<SkillSearchResult[]> {
+    const cacheKey = query || '__all__';
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+      return cached.data;
+    }
+
+    try {
+      const topics = ['topic:openclaw-skill', 'topic:hermes-skill'];
+      const baseQuery = topics.join('+');
+      const searchQuery = query
+        ? `${encodeURIComponent(query)}+${baseQuery}`
+        : baseQuery;
+      const searchUrl = `https://api.github.com/search/repositories?q=${searchQuery}&sort=updated&per_page=20`;
+      const data = await GitHubSearchSource.httpRequest(this.timeout, searchUrl);
+
+      const items = (data as any)?.items || [];
+      const results = items.map((item: any) => ({
+        skill: {
+          id: `hermes:${item.full_name}`,
+          name: item.name,
+          version: '1.0.0',
+          description: item.description || '',
+          author: item.owner?.login || 'unknown',
+          license: item.license?.spdx_id || undefined,
+          category: 'community',
+          tags: item.topics || [],
+          icon: item.owner?.avatar_url,
+          readme: item.html_url ? `${item.html_url}/blob/main/README.md` : undefined,
+          dependencies: [],
+          permissions: [],
+          manifestVersion: '1.0',
+          source: 'third_party',
+        },
+        source: 'hermes',
+        score: item.score || 0,
+      }));
+
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch (error) {
+      logger.warn('Hermes 搜索失败', error as Error);
+      return [];
+    }
+  }
+}
+
+/**
+ * Gitee 生态搜索源
+ * 搜索 Gitee（码云）上带有 openclaw-skill 或 py-app-skill 主题的仓库
+ * Gitee API: https://gitee.com/api/v5
+ */
+class GiteeSearchSource implements SearchSource {
+  readonly name = 'gitee';
+
+  private timeout: number;
+  private cache: Map<string, CacheEntry> = new Map();
+  private cacheTTL = 5 * 60 * 1000;
+
+  constructor(timeout: number) {
+    this.timeout = timeout;
+  }
+
+  async search(
+    query: string,
+    _options?: { category?: string; tags?: string[] }
+  ): Promise<SkillSearchResult[]> {
+    const cacheKey = `gitee:${query || '__all__'}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+      return cached.data;
+    }
+
+    try {
+      const searchQuery = query
+        ? `${encodeURIComponent(query)}+topic:openclaw-skill+topic:py-app-skill`
+        : 'topic:openclaw-skill+topic:py-app-skill';
+      const searchUrl = `https://gitee.com/api/v5/search/repositories?q=${searchQuery}&sort=updated&per_page=20`;
+      const data = await GitHubSearchSource.httpRequest(this.timeout, searchUrl);
+
+      const items = (data as any)?.items || (data as any) || [];
+      const results = (Array.isArray(items) ? items : (items.data || [])).map((item: any) => ({
+        skill: {
+          id: `gitee:${item.full_name || item.path_with_namespace || item.id}`,
+          name: item.name || item.path || 'unknown',
+          version: '1.0.0',
+          description: item.description || '',
+          author: item.owner?.login || item.owner?.name || 'unknown',
+          license: item.license || undefined,
+          category: 'community',
+          tags: [],
+          icon: item.owner?.avatar_url,
+          readme: item.html_url ? `${item.html_url}/blob/main/README.md` : undefined,
+          dependencies: [],
+          permissions: [],
+          manifestVersion: '1.0',
+          source: 'third_party',
+        },
+        source: 'gitee',
+        score: 0,
+      }));
+
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch (error) {
+      logger.warn('Gitee 搜索失败', error as Error);
+      return [];
+    }
+  }
+}
+
+/**
+ * SkillHub.cn 搜索源
+ * 国内技能市场 https://www.skillhub.cn，按 ClawHub 兼容 API 格式请求
+ */
+class SkillHubSearchSource implements SearchSource {
+  readonly name = 'skillhub';
+
+  private apiBaseUrl = 'https://www.skillhub.cn/api/v1';
+  private timeout: number;
+
+  constructor(timeout: number) {
+    this.timeout = timeout;
+  }
+
+  async search(
+    query: string,
+    options?: { category?: string; tags?: string[] }
+  ): Promise<SkillSearchResult[]> {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (options?.category) params.set('category', options.category);
+    if (options?.tags?.length) params.set('tags', options.tags.join(','));
+    params.set('pageSize', '50');
+
+    try {
+      const url = `${this.apiBaseUrl}/skills/search?${params.toString()}`;
+      const response = await GitHubSearchSource.httpRequest(this.timeout, url);
+      const data = response as any;
+      const items = data.skills || data.results || data.items || [];
+
+      return (Array.isArray(items) ? items : []).map((item: any) => ({
+        skill: {
+          id: item.id,
+          name: item.name,
+          version: item.version || '1.0.0',
+          description: item.description || '',
+          author: item.author || '',
+          license: item.license,
+          category: item.category,
+          tags: item.tags || [],
+          icon: item.icon,
+          readme: item.readme,
+          dependencies: item.dependencies,
+          permissions: item.permissions,
+          manifestVersion: item.manifestVersion || '1.0',
+          source: 'third_party',
+        },
+        source: 'skillhub',
+      }));
+    } catch (error) {
+      logger.warn('SkillHub.cn 搜索失败', error as Error);
+      return [];
+    }
+  }
+}
+
+/**
+ * 用户自定义的 ClawHub 兼容搜索源
+ * 接收一个名称和 API 基础地址，按 ClawHub API 格式请求
+ */
+export class ConfigurableClawHubSource implements SearchSource {
+  readonly name: string;
+  private apiBaseUrl: string;
+  private timeout: number;
+
+  constructor(name: string, apiBaseUrl: string, timeout = 10000) {
+    this.name = name;
+    this.apiBaseUrl = apiBaseUrl.replace(/\/+$/, '');
+    this.timeout = timeout;
+  }
+
+  async search(
+    query: string,
+    options?: { category?: string; tags?: string[] }
+  ): Promise<SkillSearchResult[]> {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (options?.category) params.set('category', options.category);
+    if (options?.tags?.length) params.set('tags', options.tags.join(','));
+    params.set('pageSize', '50');
+
+    try {
+      const url = `${this.apiBaseUrl}/skills/search?${params.toString()}`;
+      const response = await GitHubSearchSource.httpRequest(this.timeout, url);
+      const data = response as any;
+      const items = data.skills || data.results || data.items || [];
+
+      return items.map((item: any) => ({
+        skill: {
+          id: item.id,
+          name: item.name,
+          version: item.version || '1.0.0',
+          description: item.description || '',
+          author: item.author || '',
+          license: item.license,
+          category: item.category,
+          tags: item.tags || [],
+          icon: item.icon,
+          readme: item.readme,
+          dependencies: item.dependencies,
+          permissions: item.permissions,
+          manifestVersion: item.manifestVersion || '1.0',
+          source: 'third_party',
+        },
+        source: this.name,
+      }));
+    } catch (error) {
+      logger.warn(`自定义源 ${this.name} 搜索失败`, error as Error);
+      return [];
+    }
   }
 }
 
@@ -396,7 +649,7 @@ class GitHubSearchSource implements SearchSource {
     try {
       const searchQuery = this.buildSearchQuery(query);
       const searchUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=updated&per_page=20`;
-      const data = await this.httpGet(searchUrl);
+      const data = await GitHubSearchSource.httpRequest(this.timeout, searchUrl);
       const results = this.parseGitHubResponse(data);
 
       this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
@@ -459,10 +712,8 @@ class GitHubSearchSource implements SearchSource {
 
   /**
    * 发起 HTTP GET 请求（带 User-Agent）
-   * @param url 请求地址
-   * @returns 解析后的 JSON 数据
    */
-  private httpGet(url: string): Promise<any> {
+  static async httpRequest(timeout: number, url: string): Promise<any> {
     return new Promise((resolve, reject) => {
       const isHttps = url.startsWith('https');
       const client = isHttps ? https : http;
@@ -470,7 +721,7 @@ class GitHubSearchSource implements SearchSource {
       const req = client.get(
         url,
         {
-          timeout: this.timeout,
+          timeout,
           headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
         },
         (res) => {

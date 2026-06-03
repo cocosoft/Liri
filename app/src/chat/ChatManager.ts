@@ -68,6 +68,8 @@ import type {
   ParsedToolCall,
   ToolDefinition,
 } from '@modules/ai/models/types.js';
+import type { ThinkingProviderChunk } from '@modules/ai/providers/index.js';
+import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -117,7 +119,7 @@ export interface ChatManager {
   streamMessage(
     content: string,
     options?: StreamMessageOptions
-  ): AsyncGenerator<string, Message, unknown>;
+  ): AsyncGenerator<string | ChatStreamChunk, Message, unknown>;
 
   /**
    * 执行工具
@@ -1840,7 +1842,7 @@ export class ChatManagerImpl implements ChatManager {
   async *streamMessage(
     content: string,
     options?: StreamMessageOptions
-  ): AsyncGenerator<string, Message, unknown> {
+  ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
     // 清理用户输入，防止XSS和隐藏字符攻击
     content = recursivelySanitizeUnicode(content) as string;
 
@@ -2020,10 +2022,19 @@ export class ChatManagerImpl implements ChatManager {
 
     let result = await gen.next();
     while (!result.done) {
-      const chunk = result.value as string;
-      accumulatedContent += chunk;
-      options?.onStream?.(chunk);
-      yield chunk;
+      const chunk = result.value as string | ThinkingProviderChunk;
+      if (typeof chunk === 'string') {
+        accumulatedContent += chunk;
+        options?.onStream?.(chunk);
+        yield chunk;
+      } else if (chunk?.type === 'thinking') {
+        const thinkingChunk: ChatStreamChunk = {
+          type: 'thinking',
+          content: chunk.content,
+          sessionId: session.id,
+        };
+        yield thinkingChunk;
+      }
       result = await gen.next();
     }
     finalResponse = result.value as unknown as ChatResponse;
@@ -2468,6 +2479,8 @@ export class ChatManagerImpl implements ChatManager {
 
     this._chatSessions.set(session.id, session);
     this._currentSessionId = session.id;
+
+    this.tokenTracker?.clearSession(session.id);
 
     // 持久化会话到 FileSystemUnifiedStorage
     this.sessionGateway

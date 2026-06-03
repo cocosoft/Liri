@@ -119,7 +119,14 @@ export class AIServiceImpl implements AIService {
 
     let result = await gen.next();
     while (!result.done) {
-      let content = result.value;
+      const rawValue = result.value;
+
+      if (typeof rawValue !== 'string') {
+        result = await gen.next();
+        continue;
+      }
+
+      let content = rawValue;
 
       if (this.scrubberPipeline) {
         const scrubbed = this.scrubberPipeline.scrub({

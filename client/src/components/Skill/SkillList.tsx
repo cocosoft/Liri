@@ -1,4 +1,4 @@
-import type { Skill, SkillStatus } from '../../services/skillService';
+import type { Skill, SkillStatus, SkillSource } from '../../services/skillService';
 
 interface SkillListProps {
   skills: Skill[];
@@ -17,6 +17,16 @@ const STATUS_COLORS: Record<SkillStatus, string> = {
   enabled: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   disabled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
   draft: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+};
+
+// 来源配置：颜色圆点 + 标签
+const SOURCE_CONFIG: Record<SkillSource, { label: string; dotColor: string; tagColor: string }> = {
+  builtin:  { label: '内置', dotColor: 'bg-blue-500', tagColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+  user:     { label: '用户', dotColor: 'bg-green-500', tagColor: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+  project:  { label: '项目', dotColor: 'bg-purple-500', tagColor: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
+  plugin:   { label: '插件', dotColor: 'bg-orange-500', tagColor: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
+  mcp:      { label: 'MCP', dotColor: 'bg-cyan-500', tagColor: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' },
+  bundled:  { label: '捆绑', dotColor: 'bg-gray-500', tagColor: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' },
 };
 
 function SkillList({ skills, isDark, onSelect, selectedId }: SkillListProps) {
@@ -57,10 +67,18 @@ function SkillList({ skills, isDark, onSelect, selectedId }: SkillListProps) {
           }`}
         >
           <div className="flex items-start justify-between mb-2">
-            <h3 className={`font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              {skill.name}
-            </h3>
-            <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[skill.status]}`}>
+            <div className="flex items-center gap-2 min-w-0">
+              {skill.source && (
+                <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${SOURCE_CONFIG[skill.source].dotColor}`} title={SOURCE_CONFIG[skill.source].label} />
+              )}
+              <h3 className={`font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                {skill.name}
+                {skill.modified && (
+                  <span className="ml-1 text-xs text-yellow-500" title="已修改">✎</span>
+                )}
+              </h3>
+            </div>
+            <span className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${STATUS_COLORS[skill.status]}`}>
               {STATUS_LABELS[skill.status]}
             </span>
           </div>
@@ -69,14 +87,21 @@ function SkillList({ skills, isDark, onSelect, selectedId }: SkillListProps) {
           </p>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {skill.source && (
+                <span className={`px-2 py-0.5 rounded text-xs ${SOURCE_CONFIG[skill.source].tagColor}`}>
+                  {SOURCE_CONFIG[skill.source].label}
+                </span>
+              )}
               <span className={`px-2 py-0.5 rounded text-xs ${
                 isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'
               }`}>
                 {skill.category}
               </span>
-              <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                {skill.parameters.length} 个参数
-              </span>
+              {skill.version && (
+                <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  v{skill.version}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>

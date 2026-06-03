@@ -575,7 +575,7 @@ function SettingsPage() {
                 <span className="text-sm text-gray-700 dark:text-gray-300">技能市场</span>
               </button>
               <button
-                onClick={() => navigate('/mcp-market')}
+                onClick={() => navigate('/mcp')}
                 className="flex items-center gap-2 px-3 py-2 rounded bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
                 <span>🔌</span>

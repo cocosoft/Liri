@@ -14,11 +14,16 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'home', label: '首页', icon: '🏠', path: '/' },
   { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
   { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
+  { id: 'cron', label: '定时', icon: '⏰', path: '/cron' },
+  { id: 'channels', label: '渠道', icon: '📡', path: '/channels' },
+  { id: 'skills', label: '技能', icon: '🔧', path: '/skills' },
+  { id: 'skill-market', label: '市场', icon: '🛒', path: '/skill-market' },
   { id: 'knowledge', label: '知识库', icon: '📚', path: '/knowledge' },
   { id: 'dashboard', label: '仪表盘', icon: '📊', path: '/dashboard' },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
+  { id: 'buddy', label: '伙伴', icon: '🤝', path: '/buddy' },
   { id: 'theme', label: '主题', icon: '🌙' },
   { id: 'settings', label: '设置', icon: '⚙️', path: '/settings' },
 ];
@@ -57,7 +62,9 @@ function MenuButton({ item, isActive }: { item: MenuItem; isActive: boolean }) {
         title={isDark ? '切换到浅色模式' : '切换到深色模式'}
       >
         <span className="text-xl leading-none h-6 flex items-center justify-center">{isDark ? '☀️' : '🌙'}</span>
-        <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">{item.label}</span>
+        <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
+          {isDark ? '浅色' : '深色'}
+        </span>
       </button>
     );
   }

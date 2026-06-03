@@ -96,6 +96,11 @@ export interface ProviderCapabilities {
   visionAnalysis?: boolean;
 }
 
+export interface ThinkingProviderChunk {
+  type: 'thinking';
+  content: string;
+}
+
 export interface AIProvider {
   readonly id: string;
   readonly displayName: string;
@@ -105,7 +110,7 @@ export interface AIProvider {
   chatStream(
     messages: ChatMessage[],
     options?: ChatOptions
-  ): AsyncGenerator<string, ChatResponse, unknown>;
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown>;
 
   listModels(): Promise<string[]>;
 

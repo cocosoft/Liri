@@ -1,4 +1,4 @@
-import type { AIProvider, ChatOptions } from '@modules/ai/providers';
+import type { AIProvider, ChatOptions, ThinkingProviderChunk } from '@modules/ai/providers';
 import type { ChatMessage, ChatResponse } from '@modules/ai/models/types';
 import type {
   IToolExecutor,
@@ -35,7 +35,7 @@ export class ToolAwareClient {
   chatStream(
     messages: ChatMessage[],
     options?: ChatOptions
-  ): AsyncGenerator<string, ChatResponse> {
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse> {
     return this.provider.chatStream(messages, options);
   }
 
@@ -49,7 +49,7 @@ export class ToolAwareClient {
   streamMessage(
     messages: ChatMessage[],
     options?: ChatOptions
-  ): AsyncGenerator<string, ChatResponse> {
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse> {
     return this.provider.chatStream(messages, options);
   }
 

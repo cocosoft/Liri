@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useConfigStore } from '../../stores/configStore';
 import { useSkillStore } from '../../stores/skillStore';
-import type { Skill, SkillCreateData, SkillStatus } from '../../services/skillService';
+import type { Skill, SkillCreateData, SkillStatus, SkillSource, SkillContent } from '../../services/skillService';
+import { skillService } from '../../services/skillService';
+import SearchInput from '../common/SearchInput';
+import ConfirmDialog from '../common/ConfirmDialog';
 import SkillList from '../Skill/SkillList';
 import SkillDetail from '../Skill/SkillDetail';
 import SkillEditor from '../Skill/SkillEditor';
@@ -30,18 +33,61 @@ function SkillPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<SkillStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<SkillSource | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Skill | null>(null);
+  const [skillContent, setSkillContent] = useState<SkillContent | null>(null);
 
   useEffect(() => {
     loadSkills({ sortBy, sortOrder, category: categoryFilter || undefined, status: statusFilter === 'all' ? undefined : statusFilter });
     loadCategories();
   }, [loadSkills, loadCategories, sortBy, sortOrder, categoryFilter, statusFilter]);
 
+  // 搜索 + 来源过滤后的技能列表
+  const filteredSkills = useMemo(() => {
+    let result = skills;
+
+    // 来源过滤
+    if (sourceFilter) {
+      result = result.filter((s) => s.source === sourceFilter);
+    }
+
+    // 搜索过滤
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.description.toLowerCase().includes(q) ||
+          s.category.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [skills, searchQuery, sourceFilter]);
+
+  // 统计面板数据
+  const stats = useMemo(() => ({
+    total: skills.length,
+    enabled: skills.filter((s) => s.status === 'enabled').length,
+    disabled: skills.filter((s) => s.status === 'disabled').length,
+    draft: skills.filter((s) => s.status === 'draft').length,
+  }), [skills]);
+
   const handleSelectSkill = (skill: Skill) => {
     setSelectedSkill(skill);
     setShowEditor(false);
     setEditingSkill(null);
+
+    // 异步加载技能内容
+    setSkillContent(null);
+    skillService.getContent(skill.id).then((content) => {
+      setSkillContent(content);
+    }).catch(() => {
+      setSkillContent(null);
+    });
   };
 
   const handleCreate = () => {
@@ -68,9 +114,16 @@ function SkillPage() {
     loadSkills({ sortBy, sortOrder });
   };
 
-  const handleDelete = async () => {
-    if (selectedSkill && confirm('确定要删除这个技能吗？')) {
-      await deleteSkill(selectedSkill.id);
+  const handleDelete = () => {
+    if (selectedSkill) {
+      setDeleteTarget(selectedSkill);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteTarget) {
+      await deleteSkill(deleteTarget.id);
+      setDeleteTarget(null);
       setSelectedSkill(null);
       loadSkills({ sortBy, sortOrder });
     }
@@ -123,7 +176,67 @@ function SkillPage() {
           </div>
         )}
 
+        {/* 统计面板 */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          {[
+            { label: '总数', value: stats.total, color: 'text-blue-600 dark:text-blue-400' },
+            { label: '已启用', value: stats.enabled, color: 'text-green-600 dark:text-green-400' },
+            { label: '已禁用', value: stats.disabled, color: 'text-gray-600 dark:text-gray-400' },
+            { label: '草稿', value: stats.draft, color: 'text-yellow-600 dark:text-yellow-400' },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={`p-3 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+            >
+              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{item.label}</div>
+              <div className={`text-xl font-bold mt-1 ${item.color}`}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="搜索技能名称、描述或分类..."
+            isDark={isDark}
+            className="flex-1 min-w-[200px]"
+          />
+        </div>
+
+        {/* 来源过滤按钮组 */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {([
+            { source: null, label: '全部', dotColor: '' },
+            { source: 'builtin' as SkillSource, label: '内置', dotColor: 'bg-blue-500' },
+            { source: 'user' as SkillSource, label: '用户', dotColor: 'bg-green-500' },
+            { source: 'project' as SkillSource, label: '项目', dotColor: 'bg-purple-500' },
+            { source: 'plugin' as SkillSource, label: '插件', dotColor: 'bg-orange-500' },
+            { source: 'bundled' as SkillSource, label: '捆绑', dotColor: 'bg-gray-500' },
+          ]).map((opt) => (
+            <button
+              key={String(opt.source)}
+              onClick={() => setSourceFilter(opt.source)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                sourceFilter === opt.source
+                  ? isDark
+                    ? 'bg-blue-900/50 text-blue-300 border border-blue-600'
+                    : 'bg-blue-100 text-blue-700 border border-blue-300'
+                  : isDark
+                  ? 'text-gray-400 hover:text-gray-200 border border-gray-700'
+                  : 'text-gray-600 hover:text-gray-900 border border-gray-200'
+              }`}
+            >
+              {opt.dotColor && (
+                <span className={`inline-block w-2 h-2 rounded-full ${opt.dotColor}`} />
+              )}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-wrap items-center gap-3 mb-4">
+
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -189,7 +302,7 @@ function SkillPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <SkillList
-                skills={skills}
+                skills={filteredSkills}
                 isDark={isDark}
                 onSelect={handleSelectSkill}
                 selectedId={selectedSkill?.id}
@@ -198,13 +311,34 @@ function SkillPage() {
 
             <div>
               {selectedSkill ? (
-                <SkillDetail
-                  skill={selectedSkill}
-                  isDark={isDark}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onToggleStatus={handleToggleStatus}
-                />
+                <>
+                  {/* 移动端返回列表按钮 */}
+                  <button
+                    onClick={() => setSelectedSkill(null)}
+                    className={`lg:hidden mb-3 flex items-center gap-1 text-sm ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'}`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    返回列表
+                  </button>
+                  <SkillDetail
+                    skill={selectedSkill}
+                    isDark={isDark}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onToggleStatus={handleToggleStatus}
+                    content={skillContent?.content}
+                    frontmatter={skillContent?.frontmatter}
+                    linkedFiles={skillContent?.linkedFiles}
+                    onViewFile={async (filePath) => {
+                      try {
+                        const fc = await skillService.getFileContent(selectedSkill.id, filePath);
+                        setSkillContent(prev => prev ? { ...prev, content: fc } : null);
+                      } catch { /* ignore */ }
+                    }}
+                  />
+                </>
               ) : (
                 <div className={`h-full flex items-center justify-center rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                   <div className={`text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -219,6 +353,17 @@ function SkillPage() {
           </div>
         )}
       </div>
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除技能"
+        message={`确定要删除技能「${deleteTarget?.name ?? ''}」吗？此操作不可撤销。`}
+        confirmText="删除"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

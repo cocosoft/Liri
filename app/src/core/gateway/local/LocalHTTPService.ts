@@ -790,7 +790,18 @@ export class LocalHTTPService {
       );
     }
 
+    // ---- Channel Plugins ----
+    if (req.method === 'GET' && url === '/v1/channels/plugins') {
+      return this.handleListChannelPlugins(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/channels/plugins/install') {
+      return this.handleInstallChannelPlugin(req, res);
+    }
+
     // ---- Config ----
+    if (req.method === 'GET' && url === '/favicon.ico') {
+      return this.handleFavicon(req, res);
+    }
     if (req.method === 'GET' && url === '/v1/config') {
       return this.handleListConfig(req, res);
     }
@@ -821,6 +832,15 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/skills') {
       return this.handleListSkills(req, res);
     }
+    if (req.method === 'GET' && url === '/v1/skills/system') {
+      return this.handleListSystemSkills(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/skills\/system\/(.+)\/content$/)) {
+      return this.handleSystemSkillContent(req, res, url.match(/^\/v1\/skills\/system\/(.+)\/content$/)![1]);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)) {
+      return this.handleSystemSkillFileContent(req, res, url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)![1]);
+    }
     if (req.method === 'GET' && url === '/v1/skills/search') {
       return this.handleSearchSkills(req, res);
     }
@@ -829,6 +849,15 @@ export class LocalHTTPService {
     }
     if (req.method === 'GET' && url === '/v1/skills/categories') {
       return this.handleSkillCategories(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/skills/sources') {
+      return this.handleSkillSources(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/skills/sources') {
+      return this.handleAddSkillSource(req, res);
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/skills\/sources\/(.+)$/)) {
+      return this.handleRemoveSkillSource(req, res, url.match(/^\/v1\/skills\/sources\/(.+)$/)![1]);
     }
     if (req.method === 'GET' && url.match(/^\/v1\/skills\/(.+)$/)) {
       return this.handleGetSkillDetail(
@@ -948,6 +977,9 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/mcp/marketplace/search') {
       return this.handleMCPMarketplaceSearch(req, res);
     }
+    if (req.method === 'GET' && url === '/v1/mcp/marketplace/registries') {
+      return this.handleMCPMarketplaceRegistries(req, res);
+    }
     if (req.method === 'GET' && url === '/v1/mcp/marketplace/categories') {
       return this.handleMCPMarketplaceCategories(req, res);
     }
@@ -992,6 +1024,33 @@ export class LocalHTTPService {
         req,
         res,
         url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)![1]
+      );
+    }
+
+    // ---- MCP Server Verify ----
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)
+    ) {
+      return this.handleMCPVerifyServer(
+        req,
+        res,
+        url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)![1]
+      );
+    }
+
+    // ---- MCP Tools ----
+    if (req.method === 'GET' && url === '/v1/mcp/tools') {
+      return this.handleMCPListTools(req, res);
+    }
+    if (
+      req.method === 'PATCH' &&
+      url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)
+    ) {
+      return this.handleMCPToggleTool(
+        req,
+        res,
+        url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)![1]
       );
     }
 
@@ -1958,6 +2017,64 @@ export class LocalHTTPService {
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取系统技能关联文件内容 GET /v1/skills/system/:id/files/content?path=...
+   */
+  private async handleSystemSkillFileContent(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const filePath = urlObj.searchParams.get('path');
+      if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'path 参数必填' } }));
+        return;
+      }
+
+      const { readFile } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const { resolveProjectRoot, resolvePyappHome } =
+        await import('@modules/config/paths');
+      const pathMod = await import('node:path');
+
+      const candidateDirs = [
+        pathMod.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills', decodeURIComponent(skillId)),
+        pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
+      ];
+
+      let skillDir = '';
+      for (const dir of candidateDirs) {
+        const candidate = pathMod.join(dir, 'SKILL.md');
+        if (existsSync(candidate)) {
+          skillDir = dir;
+          break;
+        }
+      }
+
+      if (!skillDir) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: '技能未找到' } }));
+        return;
+      }
+
+      const fullPath = pathMod.join(skillDir, filePath);
+      if (!existsSync(fullPath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: '文件未找到' } }));
+        return;
+      }
+
+      const content = await readFile(fullPath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ content }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -4866,15 +4983,49 @@ export class LocalHTTPService {
     try {
       const { channelRegistry } =
         await import('@modules/channels/registry/ChannelRegistry');
-      const channels = channelRegistry.getAll();
-      const result = channels.map((ch: any) => ({
-        id: ch.name,
-        name: ch.name,
-        type: ch.type,
-        enabled: ch.enabled,
-        connected: ch.connected,
-        config: ch.config || {},
-      }));
+      const { ALL_CHANNEL_DEFS } =
+        await import('@modules/channels/setupChannels');
+
+      // 已注册通道 → map
+      const registeredMap = new Map<string, any>();
+      for (const ch of channelRegistry.getAll()) {
+        const cfg = channelRegistry.getConfig(ch.name);
+        registeredMap.set(ch.name, {
+          id: ch.name,
+          name: ch.name,
+          type: ch.type,
+          enabled: ch.enabled,
+          connected: (ch as any).connected ?? false,
+          config: cfg?.options || {},
+        });
+      }
+
+      // 合并：全部候选 + 已注册数据
+      const result = ALL_CHANNEL_DEFS.map((def) => {
+        const registered = registeredMap.get(def.type);
+        if (registered) {
+          // 已注册的保留实际数据，但名使用定义中的显示名
+          return { ...registered, name: def.name, registered: true };
+        }
+        // 未注册的显示为已知但未配置
+        return {
+          id: def.type,
+          name: def.name,
+          type: def.type,
+          enabled: false,
+          connected: false,
+          registered: false,
+          config: {},
+        };
+      });
+
+      // 追加注册了但不在候选表中的通道（如有）
+      for (const [name, reg] of registeredMap) {
+        if (!ALL_CHANNEL_DEFS.some((d) => d.type === name)) {
+          result.push(reg);
+        }
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
@@ -4967,6 +5118,17 @@ export class LocalHTTPService {
   }
 
   // ========== Config Handlers ==========
+
+  /**
+   * 处理 favicon 请求 — 返回 204 避免 404 控制台噪声
+   */
+  private handleFavicon(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
+    res.writeHead(204);
+    res.end();
+  }
 
   /**
    * 处理列出所有配置请求
@@ -5485,7 +5647,173 @@ export class LocalHTTPService {
   }
 
   /**
-   * 处理搜索技能请求 GET /v1/skills/search?q=...&category=...&tags=...
+   * 处理列出系统内置技能请求 GET /v1/skills/system
+   * 扫描 builtin/skills 和用户技能目录中的 SKILL.md 文件，
+   * 返回与前端 SkillPage 兼容的技能列表
+   */
+  private async handleListSystemSkills(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { resolveProjectRoot, resolvePyappHome } =
+        await import('@modules/config/paths');
+      const { scanSkillsFromDirectory } =
+        await import('@modules/services/skillSearch');
+      const { readFile, stat } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const pathMod = await import('node:path');
+
+      const skills: Record<string, any>[] = [];
+      const seen = new Set<string>();
+
+      const scanDir = async (dir: string, source: string) => {
+        if (!existsSync(dir)) return;
+        const results = await scanSkillsFromDirectory(dir);
+        for (const s of results) {
+          if (seen.has(s.name)) continue;
+          seen.add(s.name);
+
+          // 提取 SKILL.md frontmatter 中的更多字段
+          let version = '1.0.0';
+          let author = '';
+          let category = '';
+          try {
+            const content = await readFile(s.filePath, 'utf-8');
+            const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+            if (fmMatch) {
+              const lines = fmMatch[1].split('\n');
+              for (const line of lines) {
+                const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
+                if (m) {
+                  if (m[1] === 'version') version = m[2].trim();
+                  if (m[1] === 'author') author = m[2].trim();
+                  if (m[1] === 'category') category = m[2].trim();
+                }
+              }
+            }
+          } catch { /* use defaults */ }
+
+          let createdAt = 0;
+          let updatedAt = 0;
+          try {
+            const st = await stat(s.filePath);
+            createdAt = st.birthtimeMs;
+            updatedAt = st.mtimeMs;
+          } catch { /* use defaults */ }
+
+          skills.push({
+            id: s.name,
+            name: s.name,
+            description: s.description || '',
+            status: 'enabled',
+            category: category || 'general',
+            parameters: [],
+            createdAt,
+            updatedAt,
+            usageCount: 0,
+            lastUsedAt: null,
+            source,
+            version,
+            filePath: s.filePath,
+            frontmatter: { author, version, category },
+          });
+        }
+      };
+
+      // 扫描内置技能
+      const projectRoot = resolveProjectRoot();
+      const builtinDir = pathMod.join(projectRoot, 'app', 'src', 'builtin', 'skills');
+      await scanDir(builtinDir, 'builtin');
+
+      // 扫描用户技能
+      const userSkillsDir = pathMod.join(resolvePyappHome(), 'skills');
+      await scanDir(userSkillsDir, 'user');
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ skills, total: skills.length }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理获取系统技能内容 GET /v1/skills/system/:id/content
+   * 读取 SKILL.md 文件返回原始内容及 frontmatter
+   */
+  private async handleSystemSkillContent(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const { readFile, stat } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const { resolveProjectRoot, resolvePyappHome } =
+        await import('@modules/config/paths');
+      const pathMod = await import('node:path');
+
+      const candidateDirs = [
+        pathMod.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills', decodeURIComponent(skillId)),
+        pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
+      ];
+
+      let skillFile = '';
+      for (const dir of candidateDirs) {
+        const candidate = pathMod.join(dir, 'SKILL.md');
+        if (existsSync(candidate)) {
+          skillFile = candidate;
+          break;
+        }
+      }
+
+      if (!skillFile) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: '技能未找到' } }));
+        return;
+      }
+
+      const rawContent = await readFile(skillFile, 'utf-8');
+      let content = rawContent;
+      const frontmatter: Record<string, unknown> = {};
+      const linkedFiles: string[] = [];
+
+      const fmMatch = rawContent.match(/^---\n([\s\S]*?)\n---\n/);
+      if (fmMatch) {
+        content = rawContent.slice(fmMatch[0].length);
+        const lines = fmMatch[1].split('\n');
+        for (const line of lines) {
+          const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
+          if (m) frontmatter[m[1]] = m[2].trim();
+        }
+      }
+
+      // 收集关联文件
+      const skillDir = pathMod.dirname(skillFile);
+      try {
+        const entries = await (await import('fs/promises')).readdir(skillDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile() && entry.name !== 'SKILL.md') {
+            linkedFiles.push(entry.name);
+          }
+        }
+      } catch { /* ignore */ }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        content,
+        rawContent,
+        frontmatter,
+        linkedFiles,
+      }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理搜索技能请求 GET /v1/skills/search?q=...&category=...&tags=...&source=...
+   * source: 限定搜索源（clawhub / github），不传则搜索全部
    */
   private async handleSearchSkills(
     req: http.IncomingMessage,
@@ -5499,9 +5827,14 @@ export class LocalHTTPService {
       const tags = tagsStr
         ? tagsStr.split(',').map((t) => t.trim())
         : undefined;
+      const source = urlObj.searchParams.get('source') || undefined;
 
       const adapter = await this.getClawHubAdapter();
-      const results = await adapter.searchSkills(query, { category, tags });
+      const results = await adapter.searchSkills(query, {
+        category,
+        tags,
+        source,
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ results }));
@@ -5573,6 +5906,77 @@ export class LocalHTTPService {
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ categories, sourceDistribution: sourceMap }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理技能来源列表请求 GET /v1/skills/sources
+   * 返回 SearchEngine 中注册的所有搜索源名称
+   */
+  private async handleSkillSources(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      const searchEngine = adapter.getSearchEngine();
+      const sources = searchEngine.getSourceNames() as string[];
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ sources }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 添加自定义技能搜索源 POST /v1/skills/sources
+   * Body: { name: string, apiBaseUrl: string }
+   */
+  private async handleAddSkillSource(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { name, apiBaseUrl } = JSON.parse(body || '{}');
+
+      if (!name || !apiBaseUrl || typeof name !== 'string' || typeof apiBaseUrl !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: '需要 name 和 apiBaseUrl 字段' } }));
+        return;
+      }
+
+      const adapter = await this.getClawHubAdapter();
+      const searchEngine = adapter.getSearchEngine();
+      searchEngine.addCustomSource(name.trim(), apiBaseUrl.trim());
+
+      const sources = searchEngine.getSourceNames() as string[];
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, sources }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 移除自定义技能搜索源 DELETE /v1/skills/sources/:name
+   */
+  private async handleRemoveSkillSource(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    name: string
+  ): Promise<void> {
+    try {
+      const adapter = await this.getClawHubAdapter();
+      const searchEngine = adapter.getSearchEngine();
+      searchEngine.removeCustomSource(decodeURIComponent(name));
+
+      const sources = searchEngine.getSourceNames() as string[];
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, sources }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5787,6 +6191,32 @@ export class LocalHTTPService {
   }
 
   /**
+   * 处理获取 MCP 市场注册表列表 GET /v1/mcp/marketplace/registries
+   * 返回可用第三方注册表源（GitHub/NPM/Smithery 等）
+   */
+  private async handleMCPMarketplaceRegistries(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const adapters = mcpSystem.marketplace.registryHub.getAdapters();
+      const registries = adapters
+        .filter((a) => a.registryType === 'third_party')
+        .map((a) => ({
+          id: a.sourceRegistry || a.id,
+          name: a.displayName,
+          sourceRegistry: a.sourceRegistry,
+        }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ registries }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
    * 处理获取 MCP 市场分类请求 GET /v1/mcp/marketplace/categories
    */
   private async handleMCPMarketplaceCategories(
@@ -5927,6 +6357,141 @@ export class LocalHTTPService {
     }
   }
 
+  /**
+   * 处理验证 MCP 服务器连接 POST /v1/mcp/servers/:serverId/verify
+   */
+  private async handleMCPVerifyServer(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    serverId: string
+  ): Promise<void> {
+    try {
+      const { getMCPServerManager } = await import('@modules/services/mcp/MCPServerManager');
+      const { mcpSystem } = await import('@modules/services/mcp');
+
+      const manager = getMCPServerManager();
+      const detail = mcpSystem.marketplace.getInstalledServerDetail(serverId);
+
+      if (!detail.metadata) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: `服务器 "${serverId}" 未安装` }));
+        return;
+      }
+
+      const server = manager.getServer(serverId);
+      if (!server) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, connected: false, status: 'not_found' }));
+        return;
+      }
+
+      // 尝试连接
+      const wasConnected = detail.connected;
+      const success = await server.connect();
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          success,
+          connected: success,
+          status: success ? 'connected' : 'failed',
+          wasConnected,
+        })
+      );
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          connected: false,
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
+  }
+
+  /**
+   * 处理列出所有 MCP 工具 GET /v1/mcp/tools
+   */
+  private async handleMCPListTools(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { getMCPServerManager } = await import('@modules/services/mcp/MCPServerManager');
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const manager = getMCPServerManager();
+      const serverInfos = manager.getServerInfos();
+
+      const tools: Array<{
+        name: string;
+        description: string;
+        server: string;
+        inputSchema: Record<string, unknown>;
+        enabled: boolean;
+      }> = [];
+
+      for (const info of serverInfos) {
+        for (const tool of info.tools || []) {
+          const enabled = !mcpSystem.marketplace.isToolDisabled(info.name, tool.name);
+          tools.push({
+            name: tool.name,
+            description: tool.description || '',
+            server: info.name,
+            inputSchema: (tool.inputSchema as Record<string, unknown>) || {},
+            enabled,
+          });
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ tools, total: tools.length }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理切换 MCP 工具启用状态 PATCH /v1/mcp/tools/:toolName/toggle
+   * body: { enabled: boolean, server?: string }
+   */
+  private async handleMCPToggleTool(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    toolName: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const parsedBody = body ? JSON.parse(body) : {};
+      const enabled = parsedBody.enabled;
+      const serverName = parsedBody.server as string | undefined;
+
+      if (enabled === undefined) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'enabled field is required (true/false)' },
+          })
+        );
+        return;
+      }
+
+      // 工具级启用/禁用通过 marketplace 的 tool toggle 实现
+      const { mcpSystem } = await import('@modules/services/mcp');
+      await mcpSystem.marketplace.toggleTool(
+        serverName || toolName,
+        toolName,
+        enabled
+      );
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, tool: toolName, enabled }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
   // ========== Agent Handlers ==========
 
   private async handleCancelAgentTask(
@@ -6045,13 +6610,14 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const parsedBody = body ? JSON.parse(body) : {};
-      const enabled = parsedBody.enabled;
+      const { enabled, name, config } = parsedBody;
 
-      if (enabled === undefined) {
+      // 仅切换启用/禁用
+      if (enabled === undefined && name === undefined && config === undefined) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
-            error: { message: 'enabled field is required (true/false)' },
+            error: { message: 'At least one of enabled/name/config is required' },
           })
         );
         return;
@@ -6065,14 +6631,120 @@ export class LocalHTTPService {
         res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
         return;
       }
-      if (enabled) {
-        await channelRegistry.connect(channelId);
-      } else {
-        await channelRegistry.disconnect(channelId);
+
+      // 更新配置
+      const updated = channelRegistry.updateConfig(channelId, {
+        name: name,
+        enabled: enabled,
+        options: config as Record<string, unknown> | undefined,
+      });
+
+      // 如果 enabled 有变化，执行连接/断开
+      if (enabled !== undefined) {
+        if (enabled) {
+          await channelRegistry.connect(channelId);
+        } else {
+          await channelRegistry.disconnect(channelId);
+        }
       }
+
+      // 读取最新状态
+      const latestConfig = channelRegistry.getConfig(channelId);
+      const latestChannel = channelRegistry.get(channelId);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, id: channelId, enabled }));
-      this.broadcastEvent('channel:toggled', { id: channelId, enabled });
+      res.end(
+        JSON.stringify({
+          id: channelId,
+          name: name || channel.name,
+          type: channel.type,
+          enabled: enabled !== undefined ? enabled : channel.enabled,
+          connected: latestChannel?.connected ?? channel.connected,
+          config: latestConfig?.options || {},
+        })
+      );
+
+      this.broadcastEvent('channel:updated', { id: channelId, enabled, name });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Channel Plugin Handlers ==========
+
+  /**
+   * 列出已安装的渠道插件
+   */
+  private async handleListChannelPlugins(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { NpmDistributor } = await import(
+        '@modules/plugins/distribution/NpmDistributor'
+      );
+      const distributor = new NpmDistributor();
+      const installed = await distributor.listInstalled();
+
+      const result = installed.map((p) => ({
+        name: p.name,
+        version: p.version,
+        installed: true,
+        installedAt: p.installedAt,
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 安装渠道插件（通过 npm）
+   */
+  private async handleInstallChannelPlugin(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const parsed = body ? JSON.parse(body) : {};
+      const packageName = parsed.package as string | undefined;
+
+      if (!packageName || typeof packageName !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: '"package" field is required' } })
+        );
+        return;
+      }
+
+      const { NpmDistributor } = await import(
+        '@modules/plugins/distribution/NpmDistributor'
+      );
+      const distributor = new NpmDistributor();
+      const result = await distributor.install(packageName);
+
+      if (result.success) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: true,
+            name: result.name,
+            version: result.version,
+            path: result.path,
+          })
+        );
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: result.error || 'Install failed',
+          })
+        );
+      }
     } catch (err) {
       this.sendError(res, err);
     }

@@ -151,6 +151,27 @@ export class MCPMarketplace {
   }
 
   /**
+   * 切换工具启用/禁用
+   */
+  toggleTool(
+    serverName: string,
+    toolName: string,
+    enabled: boolean
+  ): void {
+    this.store.toggleTool(serverName, toolName, enabled);
+    logger.info(
+      `MCP 工具 ${enabled ? '启用' : '禁用'}: ${serverName}/${toolName}`
+    );
+  }
+
+  /**
+   * 判断工具是否禁用
+   */
+  isToolDisabled(serverName: string, toolName: string): boolean {
+    return this.store.isToolDisabled(serverName, toolName);
+  }
+
+  /**
    * 更新服务器配置信息
    */
   async updateConfig(

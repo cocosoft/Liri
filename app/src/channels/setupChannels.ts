@@ -13,6 +13,39 @@ import type { IChannelPlugin, MessageContext } from './types/IChannel';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
+ * 全部支持的通道类型清单（含显示名称）
+ * 用于前端列表展示，即使通道未注册也能显示在 UI 中
+ */
+export const ALL_CHANNEL_DEFS: Array<{ type: string; name: string }> = [
+  { type: 'telegram', name: 'Telegram' },
+  { type: 'discord', name: 'Discord' },
+  { type: 'qq', name: 'QQ' },
+  { type: 'dingtalk', name: '钉钉' },
+  { type: 'feishu', name: '飞书' },
+  { type: 'wechat', name: '微信' },
+  { type: 'slack', name: 'Slack' },
+  { type: 'line', name: 'Line' },
+  { type: 'irc', name: 'IRC' },
+  { type: 'nostr', name: 'Nostr' },
+  { type: 'email', name: '邮件' },
+  { type: 'sms', name: '短信' },
+  { type: 'webhook', name: 'Webhook' },
+  { type: 'wecom', name: '企业微信' },
+  { type: 'googlechat', name: 'Google Chat' },
+  { type: 'msteams', name: 'MS Teams' },
+  { type: 'zalo', name: 'Zalo' },
+  { type: 'yuanbao', name: '元宝' },
+  { type: 'whatsapp', name: 'WhatsApp' },
+  { type: 'signal', name: 'Signal' },
+  { type: 'matrix', name: 'Matrix' },
+  { type: 'facebook', name: 'Facebook Messenger' },
+  { type: 'twitter', name: 'Twitter/X' },
+  { type: 'claude', name: 'Claude' },
+  { type: 'mattermost', name: 'Mattermost' },
+  { type: 'bluebubbles', name: 'iMessage' },
+];
+
+/**
  * 根据配置自动注册 IChannelPlugin 通道
  * 读取环境变量确定哪些通道已启用，仅导入已启用的通道模块
  */

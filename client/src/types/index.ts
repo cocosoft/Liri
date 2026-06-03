@@ -283,14 +283,59 @@ export interface CronTask {
   status: 'idle' | 'running' | 'error';
 }
 
+export type ChannelType =
+  | 'wecom' | 'feishu' | 'dingtalk' | 'wechat' | 'qq'
+  | 'telegram' | 'discord' | 'slack' | 'line'
+  | 'whatsapp' | 'signal' | 'matrix'
+  | 'irc' | 'nostr' | 'email' | 'sms' | 'webhook'
+  | 'googlechat' | 'msteams' | 'zalo' | 'yuanbao'
+  | 'facebook' | 'twitter' | 'mattermost' | 'bluebubbles';
+
 export interface Channel {
   id: string;
   name: string;
-  type: 'qq' | 'feishu' | 'dingtalk' | 'wechat' | 'slack' | 'discord' | 'telegram' | 'whatsapp' | 'email' | 'webhook';
+  type: ChannelType;
   enabled: boolean;
   connected: boolean;
+  registered: boolean;
+  status?: 'online' | 'offline' | 'error';
+  messageCount?: number;
+  errorCount?: number;
   config?: Record<string, unknown>;
   lastActive?: number;
+}
+
+/** 渠道编辑表单数据 */
+export interface ChannelFormData {
+  name?: string;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+/** 更新渠道请求 */
+export interface UpdateChannelRequest {
+  name?: string;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+/** 渠道健康信息 */
+export interface ChannelHealth {
+  channelId: string;
+  connected: boolean;
+  healthy: boolean;
+  latencyMs?: number;
+  messageCount: number;
+  errorCount: number;
+  lastHeartbeatAt?: number;
+}
+
+/** 渠道插件信息 */
+export interface ChannelPluginInfo {
+  name: string;
+  version: string;
+  installed: boolean;
+  installedAt?: number;
 }
 
 export interface DreamLogEntry {

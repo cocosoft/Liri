@@ -13,7 +13,7 @@
  *   const response = await pipeline.execute(provider, messages, options);
  */
 
-import type { AIProvider, ChatOptions } from '../providers/AIProvider';
+import type { AIProvider, ChatOptions, ThinkingProviderChunk } from '../providers/AIProvider';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -146,7 +146,7 @@ export class AIPipeline {
     provider: AIProvider,
     messages: ChatMessage[],
     options?: ChatOptions
-  ): AsyncGenerator<string, ChatResponse, unknown> {
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     const ctx: AIMiddlewareContext = {
       providerId: provider.id,
       model: options?.model || 'unknown',

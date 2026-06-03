@@ -31,6 +31,8 @@ export interface InstalledSkill {
   enabled: boolean;
   files: string[];
   sourceUrl?: string;
+  /** 是否有可用更新 */
+  hasUpdate?: boolean;
 }
 
 /**
@@ -87,12 +89,14 @@ class SkillMarketService {
   async search(
     query: string,
     category?: string,
-    tags?: string[]
+    tags?: string[],
+    source?: string
   ): Promise<SkillSearchResult[]> {
     const params: Record<string, unknown> = {};
     if (query) params.q = query;
     if (category) params.category = category;
     if (tags?.length) params.tags = tags.join(',');
+    if (source) params.source = source;
 
     const res = await http.get<{ results: SkillSearchResult[] }>(
       '/v1/skills/search',
@@ -187,13 +191,51 @@ class SkillMarketService {
 
   /**
    * 切换技能启用状态
-   * @param skillId 技能 ID
-   * @param enabled 是否启用
    */
   async toggleEnabled(skillId: string, enabled: boolean): Promise<void> {
-    await http.post(`/v1/skills/${encodeURIComponent(skillId)}/toggle`, {
-      enabled,
-    });
+    await http.post(`/v1/skills/${encodeURIComponent(skillId)}/toggle`, { enabled });
+  }
+
+  /** 导出所有已安装技能为 JSON */
+  async exportAll(): Promise<InstalledSkill[]> {
+    const res = await http.get<{ skills: InstalledSkill[] }>('/v1/skills/export');
+    return res.skills || [];
+  }
+
+  /** 获取可用技能市场来源列表 */
+  async getSources(): Promise<string[]> {
+    const res = await http.get<{ sources: string[] }>('/v1/skills/sources');
+    return res.sources || [];
+  }
+
+  /** 添加自定义技能市场来源 */
+  async addSource(name: string, apiBaseUrl: string): Promise<string[]> {
+    const res = await http.post<{ success: boolean; sources: string[] }>(
+      '/v1/skills/sources',
+      { name, apiBaseUrl }
+    );
+    return res.sources || [];
+  }
+
+  /** 移除自定义技能市场来源 */
+  async removeSource(name: string): Promise<string[]> {
+    const res = await http.delete<{ success: boolean; sources: string[] }>(
+      `/v1/skills/sources/${encodeURIComponent(name)}`
+    );
+    return res.sources || [];
+  }
+
+  /** 批量导入技能（JSON 格式） */
+  async importSkills(skills: Array<{ name: string; description?: string; category?: string }>): Promise<void> {
+    await http.post('/v1/skills/import', { skills });
+  }
+
+  /** 克隆技能 */
+  async clone(skillId: string): Promise<InstalledSkill> {
+    const res = await http.post<{ skill: InstalledSkill }>(
+      `/v1/skills/${encodeURIComponent(skillId)}/clone`
+    );
+    return res.skill;
   }
 }
 

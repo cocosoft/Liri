@@ -265,6 +265,29 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
+   * 更新通道配置（合并模式）
+   * 支持更新 name / enabled / options
+   */
+  updateConfig(
+    name: string,
+    changes: { name?: string; enabled?: boolean; options?: Record<string, unknown> }
+  ): boolean {
+    const config = this.configs.get(name);
+    if (!config) return false;
+
+    if (changes.name !== undefined) {
+      config.name = changes.name;
+    }
+    if (changes.enabled !== undefined) {
+      config.enabled = changes.enabled;
+    }
+    if (changes.options !== undefined) {
+      config.options = { ...config.options, ...changes.options };
+    }
+    return true;
+  }
+
+  /**
    * 获取所有配置
    */
   getAllConfigs(): ChannelConfig[] {

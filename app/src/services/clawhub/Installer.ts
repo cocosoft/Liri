@@ -83,6 +83,15 @@ export class Installer {
   }
 
   /**
+   * 根据 skillId 前缀判断是否为仓库源（GitHub/Hermes/Gitee）
+   * @returns { prefix, repo } 或 null
+   */
+  private parseRepoId(skillId: string): { prefix: string; repo: string } | null {
+    const match = skillId.match(/^(github|hermes|gitee):(.+)$/);
+    return match ? { prefix: match[1], repo: match[2] } : null;
+  }
+
+  /**
    * 安装技能
    * 从 ClawHub 市场下载并安装指定的技能
    * @param skillId 技能 ID
@@ -105,9 +114,19 @@ export class Installer {
 
     let metaData: ClawHubSkillMeta;
 
-    if (sourceUrl) {
+    // 检测仓库源（github:/hermes:/gitee: 前缀）
+    const repoInfo = this.parseRepoId(skillId);
+
+    if (repoInfo) {
+      // 仓库源：从 GitHub/Gitee raw 内容下载 SKILL.md
+      metaData = await this.installFromRepo(
+        skillId, repoInfo.prefix, repoInfo.repo, installPath
+      );
+    } else if (sourceUrl) {
+      // 自定义 URL：期望返回 JSON
       metaData = await this.downloadFromUrl(skillId, sourceUrl, installPath);
     } else {
+      // 默认市场下载
       metaData = await this.downloadFromMarket(skillId, installPath);
     }
 
@@ -127,6 +146,196 @@ export class Installer {
 
     logger.info(`技能安装完成: ${metaData.name}@${metaData.version}`);
     return installed;
+  }
+
+  /**
+   * 从 GitHub/Gitee 仓库安装技能
+   * 尝试获取 SKILL.md 原始文件，解析 frontmatter 构建元数据
+   */
+  private async installFromRepo(
+    skillId: string,
+    prefix: string,
+    repo: string,
+    installPath: string
+  ): Promise<ClawHubSkillMeta> {
+    let skillContent = '';
+    let rawUrl = '';
+
+    if (prefix === 'github' || prefix === 'hermes') {
+      // 尝试 main 分支，失败则试 master
+      for (const branch of ['main', 'master']) {
+        rawUrl = `https://raw.githubusercontent.com/${repo}/${branch}/SKILL.md`;
+        try {
+          skillContent = await this.httpGetText(rawUrl);
+          break;
+        } catch {
+          continue;
+        }
+      }
+    } else if (prefix === 'gitee') {
+      for (const branch of ['main', 'master']) {
+        rawUrl = `https://gitee.com/${repo}/raw/${branch}/SKILL.md`;
+        try {
+          skillContent = await this.httpGetText(rawUrl);
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    if (!skillContent) {
+      throw new Error(
+        `无法从仓库获取 SKILL.md: ${repo}。请确保仓库根目录包含 SKILL.md 文件。`
+      );
+    }
+
+    // 解析 frontmatter
+    const meta = this.parseSkillFrontmatter(skillContent, skillId, prefix, repo);
+
+    // 写入文件到安装目录
+    if (!existsSync(installPath)) {
+      mkdirSync(installPath, { recursive: true });
+    }
+
+    writeFileSync(join(installPath, 'SKILL.md'), skillContent, 'utf-8');
+    writeFileSync(
+      join(installPath, MANIFEST_JSON),
+      JSON.stringify(
+        {
+          claw: '1.0',
+          skill: {
+            id: meta.id,
+            name: meta.name,
+            version: meta.version,
+            description: meta.description,
+            author: meta.author,
+            license: meta.license,
+            category: meta.category,
+            tags: meta.tags,
+            source: prefix,
+          },
+        },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+
+    return meta;
+  }
+
+  /**
+   * 解析 SKILL.md frontmatter 提取技能元数据
+   */
+  private parseSkillFrontmatter(
+    content: string,
+    skillId: string,
+    source: string,
+    repo: string
+  ): ClawHubSkillMeta {
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const fm: Record<string, string> = {};
+
+    if (fmMatch) {
+      const lines = fmMatch[1].split('\n');
+      for (const line of lines) {
+        const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
+        if (m) fm[m[1]] = m[2].trim();
+      }
+    }
+
+    // 提取第一行非空 markdown 标题作为 description fallback
+    const body = fmMatch ? content.slice(fmMatch[0].length) : content;
+    const descMatch = body.match(/^#\s+(.+)/m);
+    const fallbackDesc = descMatch ? descMatch[1] : '';
+
+    return {
+      id: skillId,
+      name: fm.name || repo.split('/').pop() || skillId,
+      version: fm.version || '1.0.0',
+      description: fm.description || fallbackDesc,
+      author: fm.author || repo.split('/')[0] || 'unknown',
+      license: fm.license || undefined,
+      category: fm.category || 'community',
+      tags: fm.tags ? fm.tags.split(',').map((t) => t.trim()) : [],
+      icon: undefined,
+      readme: undefined,
+      dependencies: undefined,
+      permissions: undefined,
+      manifestVersion: fm['manifest-version'] || fm.version || '1.0',
+      source: 'third_party',
+    };
+  }
+
+  /**
+   * 发起 HTTP GET 请求，返回 JSON 解析结果
+   */
+  private httpGetJson(url: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const isHttps = url.startsWith('https');
+      const client = isHttps ? https : http;
+
+      const req = client.get(url, { timeout: this.timeout, headers: { 'User-Agent': 'Liri-ClawHub/1.0' } }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          try {
+            const body = Buffer.concat(chunks).toString('utf-8');
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(JSON.parse(body));
+            } else {
+              reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error(`请求超时: ${url}`)); });
+    });
+  }
+
+  /**
+   * 发起 HTTP GET 请求，返回纯文本
+   */
+  private httpGetText(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const isHttps = url.startsWith('https');
+      const client = isHttps ? https : http;
+
+      const req = client.get(url, { timeout: this.timeout, headers: { 'User-Agent': 'Liri-ClawHub/1.0' } }, (res) => {
+        // 处理重定向
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          const redirectUrl = res.headers.location;
+          if (redirectUrl) {
+            this.httpGetText(redirectUrl).then(resolve).catch(reject);
+            return;
+          }
+        }
+
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf-8');
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(body);
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
+          }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error(`请求超时: ${url}`)); });
+    });
+  }
+
+  /**
+   * @deprecated 请使用 httpGetJson 或 httpGetText
+   */
+  private httpGet(url: string): Promise<any> {
+    return this.httpGetJson(url);
   }
 
   /**
@@ -421,43 +630,4 @@ export class Installer {
     return 0;
   }
 
-  /**
-   * 发起 HTTP GET 请求
-   */
-  private httpGet(url: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const isHttps = url.startsWith('https');
-      const client = isHttps ? https : http;
-
-      const req = client.get(url, { timeout: this.timeout }, (res) => {
-        const chunks: Buffer[] = [];
-
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks).toString('utf-8');
-            if (
-              res.statusCode &&
-              res.statusCode >= 200 &&
-              res.statusCode < 300
-            ) {
-              resolve(JSON.parse(body));
-            } else {
-              reject(
-                new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
-              );
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`请求超时: ${url}`));
-      });
-    });
-  }
 }

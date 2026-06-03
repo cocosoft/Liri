@@ -94,6 +94,8 @@ export interface MCPLocalStoreData {
   version: number;
   updatedAt: string;
   servers: Record<string, InstalledMCPServer>;
+  /** 已禁用的工具标识，格式: "serverName:toolName" */
+  disabledTools: string[];
 }
 
 /**

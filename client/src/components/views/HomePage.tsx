@@ -148,7 +148,13 @@ function HomePage() {
           <NavCard
             icon="🎯"
             title="任务"
-            description="管理和执行定时任务"
+            description="Agent 任务管理，AI 多步推理执行"
+            path="/tasks"
+          />
+          <NavCard
+            icon="⏰"
+            title="定时任务"
+            description="Cron 定时调度，自动化执行"
             path="/cron"
           />
           <NavCard

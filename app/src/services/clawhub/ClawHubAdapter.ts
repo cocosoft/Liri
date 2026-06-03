@@ -195,7 +195,7 @@ export class ClawHubAdapter extends EventEmitter {
    */
   async searchSkills(
     query: string,
-    options?: { category?: string; tags?: string[] }
+    options?: { category?: string; tags?: string[]; source?: string }
   ): Promise<SkillSearchResult[]> {
     const [localResults, remoteResults] = await Promise.all([
       this.localStore.searchLocal(query, options),

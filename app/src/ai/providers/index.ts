@@ -23,6 +23,7 @@ export type {
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
+  ThinkingProviderChunk,
 } from './AIProvider';
 export { ProviderRegistry, providerRegistry } from './ProviderRegistry';
 export { AnthropicProvider } from './AnthropicProvider';

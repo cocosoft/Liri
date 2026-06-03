@@ -43,6 +43,8 @@ export interface SearchResult {
   score?: number;
 }
 
+export type MCPTransport = 'http' | 'stdio' | 'unknown';
+
 export interface InstalledMCPServer {
   name: string;
   title: string;
@@ -55,6 +57,8 @@ export interface InstalledMCPServer {
   autoUpdate: boolean;
   connected?: boolean;
   configInFile?: boolean;
+  transport?: MCPTransport;
+  toolCount?: number;
 }
 
 export interface MCPCategory {
@@ -108,6 +112,46 @@ class MCPMarketplaceService {
       `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/toggle`,
       { enabled }
     );
+  }
+
+  /**
+   * 验证服务器连接
+   */
+  async verifyServer(serverId: string): Promise<{ success: boolean; connected: boolean; status: string; error?: string }> {
+    return http.post<{ success: boolean; connected: boolean; status: string; error?: string }>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/verify`
+    );
+  }
+
+  /**
+   * 获取所有服务器工具列表
+   */
+  async listTools(): Promise<{
+    tools: Array<{ name: string; description: string; server: string; inputSchema: Record<string, unknown>; enabled: boolean }>;
+    total: number;
+  }> {
+    return http.get<{
+      tools: Array<{ name: string; description: string; server: string; inputSchema: Record<string, unknown>; enabled: boolean }>;
+      total: number;
+    }>('/v1/mcp/tools');
+  }
+
+  /**
+   * 切换工具启用/禁用
+   */
+  async toggleTool(toolName: string, enabled: boolean, server?: string): Promise<{ success: boolean; tool: string; enabled: boolean }> {
+    return http.patch<{ success: boolean; tool: string; enabled: boolean }>(
+      `/v1/mcp/tools/${encodeURIComponent(toolName)}/toggle`,
+      { enabled, server }
+    );
+  }
+
+  /** 获取可用第三方注册表源列表 */
+  async getRegistries(): Promise<Array<{ id: string; name: string; sourceRegistry: string }>> {
+    const res = await http.get<{ registries: Array<{ id: string; name: string; sourceRegistry: string }> }>(
+      '/v1/mcp/marketplace/registries'
+    );
+    return res.registries || [];
   }
 }
 

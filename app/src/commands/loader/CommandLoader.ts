@@ -256,6 +256,7 @@ export class BuiltinCommandLoader implements CommandLoader {
         // 构建完整的绝对路径
         const absolutePath = join(
           projectRoot,
+          'app',
           'src',
           'commands',
           normalizedPath

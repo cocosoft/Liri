@@ -368,6 +368,10 @@ export class CoreAPIImpl implements CoreAPI {
       usage: capturedUsage,
     } as ChatStreamChunk;
 
+    if (fullContent && finalSessionId) {
+      this.autoGenerateTitle(finalSessionId, request.content, fullContent);
+    }
+
     return {
       content: fullContent,
       sessionId: finalSessionId,
@@ -621,6 +625,29 @@ export class CoreAPIImpl implements CoreAPI {
       logger.warning('Failed to generate session title', error);
       return null;
     }
+  }
+
+  private autoGenerateTitle(
+    sessionId: string,
+    userMessage: string,
+    assistantResponse: string
+  ): void {
+    // 后台 fire-and-forget：不影响流式响应速度
+    setImmediate(async () => {
+      try {
+        const title = await this.generateSessionTitle(
+          sessionId,
+          userMessage,
+          assistantResponse
+        );
+        if (title) {
+          await this.renameSession(sessionId, title);
+          logger.info('Auto-generated session title', { sessionId, title });
+        }
+      } catch (error) {
+        logger.debug('Auto title generation skipped', { sessionId });
+      }
+    });
   }
 
   async getCurrentSession(): Promise<SessionInfo | undefined> {

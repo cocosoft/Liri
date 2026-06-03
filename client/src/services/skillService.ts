@@ -2,12 +2,29 @@ import { http } from './httpClient';
 
 export type SkillStatus = 'enabled' | 'disabled' | 'draft';
 
+export type SkillSource = 'builtin' | 'user' | 'project' | 'plugin' | 'mcp' | 'bundled';
+
 export interface SkillParameter {
   name: string;
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
   required: boolean;
   default?: unknown;
   description?: string;
+}
+
+/** 技能内容数据（SKILL.md 解析结果） */
+export interface SkillContent {
+  content: string;
+  rawContent: string;
+  frontmatter: Record<string, unknown>;
+  linkedFiles: string[];
+}
+
+/** 关联文件条目 */
+export interface SkillFileEntry {
+  path: string;
+  name: string;
+  isDir: boolean;
 }
 
 export interface Skill {
@@ -21,6 +38,19 @@ export interface Skill {
   updatedAt: number;
   usageCount: number;
   lastUsedAt: number | null;
+  source?: SkillSource;
+  version?: string;
+  modified?: boolean;
+  /** SKILL.md 正文（去除 frontmatter） */
+  content?: string;
+  /** 含 frontmatter 的原始文本 */
+  rawContent?: string;
+  /** YAML frontmatter 解析结果 */
+  frontmatter?: Record<string, unknown>;
+  /** 技能文件路径 */
+  filePath?: string;
+  /** 关联文件列表 */
+  linkedFiles?: string[];
 }
 
 export interface SkillListParams {
@@ -41,7 +71,7 @@ export interface SkillCreateData {
 
 const skillService = {
   async list(params?: SkillListParams): Promise<{ skills: Skill[]; total: number }> {
-    const url = new URL('/v1/skills', 'http://localhost');
+    const url = new URL('/v1/skills/system', 'http://localhost');
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -91,6 +121,26 @@ const skillService = {
       return response.categories.map((c) => c.id || c.capability);
     }
     return [];
+  },
+
+  /** 获取技能的 SKILL.md 内容 */
+  async getContent(id: string): Promise<SkillContent> {
+    const response = await http.get<SkillContent>(`/v1/skills/system/${encodeURIComponent(id)}/content`);
+    return response;
+  },
+
+  /** 获取技能关联文件列表 */
+  async getFiles(id: string): Promise<SkillFileEntry[]> {
+    const response = await http.get<{ files: SkillFileEntry[] }>(`/v1/skills/${id}/files`);
+    return response.files ?? [];
+  },
+
+  /** 获取关联文件内容 */
+  async getFileContent(skillId: string, filePath: string): Promise<string> {
+    const response = await http.get<{ content: string }>(
+      `/v1/skills/system/${encodeURIComponent(skillId)}/files/content?path=${encodeURIComponent(filePath)}`
+    );
+    return response.content;
   },
 };
 

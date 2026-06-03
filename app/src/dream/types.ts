@@ -19,49 +19,44 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * AutoDream模块导出
+ * 梦境引擎类型定义
  */
 
-export {
-  getAutoDreamConfig,
-  isAutoDreamEnabled,
-  resetAutoDreamConfigCache,
-} from './AutoDreamConfig';
-export {
-  readLastConsolidatedAt,
-  tryAcquireConsolidationLock,
-  rollbackConsolidationLock,
-  listSessionsTouchedSince,
-  recordConsolidation,
-  setAutoMemPath,
-  getAutoMemPath,
-} from './ConsolidationLock';
-export {
-  buildConsolidationPrompt,
-  getMaxEntrypointLines,
-  getEntrypointName,
-} from './ConsolidationPrompt';
-export { DreamAgentExecutor } from './DreamAgentExecutor';
-export type {
-  DreamExecutionConfig,
-  DreamExecutionResult,
-} from './DreamAgentExecutor';
-export {
-  initAutoDream,
-  executeAutoDream,
-  getDreamTask,
-  getAllDreamTasks,
-  isDreamTask,
-  registerDreamTask,
-  completeDreamTask,
-  failDreamTask,
-  addDreamTurn,
-  onDreamEvent,
-  offDreamEvent,
-} from './AutoDream';
-export type {
-  DreamTask,
-  DreamEvent,
-  DreamEventType,
-  DreamEventCallback,
-} from './AutoDream';
+/** 梦境阶段 */
+export type DreamPhase = 'light' | 'deep' | 'rem';
+
+/** 梦境触发源 */
+export type DreamTriggerSource = 'idle' | 'cron' | 'manual';
+
+/** 梦境调度器配置 */
+export interface DreamSchedulerConfig {
+  /** 空闲检测阈值（毫秒），连续无用户交互后触发 */
+  idleThresholdMs: number;
+  /** 最短梦境间隔（毫秒） */
+  minIntervalMs: number;
+  /** 定时触发 cron 表达式（可选） */
+  cronTrigger: string;
+  /** 空闲检测轮询间隔（毫秒） */
+  idleCheckIntervalMs: number;
+}
+
+/** 梦境持久化记录 */
+export interface DreamRecord {
+  id: string;
+  startedAt: number;
+  completedAt: number;
+  triggerSource: DreamTriggerSource;
+  phase: DreamPhase;
+  sessionsCount: number;
+  insightsGenerated: number;
+  success: boolean;
+  error?: string;
+}
+
+/** 默认调度器配置 */
+export const DEFAULT_DREAM_SCHEDULER_CONFIG: DreamSchedulerConfig = {
+  idleThresholdMs: 15 * 60 * 1000, // 15 分钟
+  minIntervalMs: 6 * 60 * 60 * 1000, // 6 小时
+  cronTrigger: '0 2 * * *',
+  idleCheckIntervalMs: 60_000, // 每分钟检查一次
+};

@@ -245,6 +245,8 @@ export const SystemEvents = {
   NOTIFICATION_SHOWN: 'notification:shown',
   NOTIFICATION_DISMISSED: 'notification:dismissed',
 
+  USER_INTERACTION: 'user:interaction',
+
   CONFIG_CHANGED: 'config:changed',
   CONFIG_RESET: 'config:reset',
 

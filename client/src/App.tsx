@@ -42,6 +42,7 @@ import STTTestPage from './components/views/STTTestPage';
 import SkillMarketPage from './components/views/SkillMarketPage';
 import MCPMarketPage from './components/views/MCPMarketPage';
 import ModelPage from './components/views/ModelPage';
+import CodingPage from './components/views/CodingPage';
 import HomePage from './components/views/HomePage';
 import { FirstRunWizard } from './components/views/FirstRunWizard';
 import { useSessionStore } from './stores/sessionStore';
@@ -157,6 +158,7 @@ function App() {
           <Route path="/media" element={<AuthGuard><MediaPage /></AuthGuard>} />
           <Route path="/autoreply" element={<AuthGuard><AutoReplyPage /></AuthGuard>} />
           <Route path="/knowledge" element={<AuthGuard><KnowledgePage /></AuthGuard>} />
+          <Route path="/coding" element={<AuthGuard><CodingPage /></AuthGuard>} />
 
           <Route path="/memory" element={<AuthGuard><MemoryPage /></AuthGuard>} />
           <Route path="/skills" element={<AuthGuard><SkillPage /></AuthGuard>} />

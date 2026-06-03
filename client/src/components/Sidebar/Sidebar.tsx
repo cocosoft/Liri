@@ -14,6 +14,7 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: 'home', label: '首页', icon: '🏠', path: '/' },
   { id: 'chat', label: '聊天', icon: '💬', path: '/chat' },
   { id: 'tasks', label: '任务', icon: '🎯', path: '/tasks' },
+  { id: 'coding', label: '编码', icon: '⌨️', path: '/coding' },
   { id: 'cron', label: '定时', icon: '⏰', path: '/cron' },
   { id: 'knowledge', label: '知识库', icon: '📚', path: '/knowledge' },
 ];

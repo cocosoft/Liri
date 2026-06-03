@@ -654,7 +654,7 @@ async function handleSeed(): Promise<CommandResult> {
   const existingKeys = new Set(existing.map((p) => `${p.name}:${p.providerType}`));
 
   const newPresets = presets.filter(
-    (p) => !existingKeys.has(`${p.name}:${p.type}`),
+    (p) => !existingKeys.has(`${p.name}:${p.providerType}`),
   );
 
   if (newPresets.length === 0) {

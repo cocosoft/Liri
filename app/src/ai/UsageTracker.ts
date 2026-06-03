@@ -69,7 +69,7 @@ export async function trackUsage(
     model?: string;
     error?: Error | string;
   },
-  params: TrackUsageParams,
+  params: TrackUsageParams
 ): Promise<void> {
   try {
     const { usageStatsService } = await import('./models/UsageStatsService.js');
@@ -78,14 +78,16 @@ export async function trackUsage(
     const inputTokens = response.usage?.prompt_tokens ?? 0;
     const outputTokens = response.usage?.completion_tokens ?? 0;
     const cacheReadTokens = response.usage?.cache_read_input_tokens ?? 0;
-    const cacheCreationTokens = response.usage?.cache_creation_input_tokens ?? 0;
+    const cacheCreationTokens =
+      response.usage?.cache_creation_input_tokens ?? 0;
 
     // 估算成本（优先 DB 定价 > registry > 兜底）
     let costUSD = 0;
     try {
       // 1. 优先从 ModelPricingService (DB) 获取
       try {
-        const { modelPricingService } = await import('./models/ModelPricingService.js');
+        const { modelPricingService } =
+          await import('./models/ModelPricingService.js');
         await modelPricingService.initialize();
         const dbPricing = await modelPricingService.getPricing(params.model);
         if (dbPricing) {
@@ -127,7 +129,9 @@ export async function trackUsage(
       statusCode,
       isStreaming: params.isStreaming ?? false,
       errorMessage: isError
-        ? (typeof response.error === 'string' ? response.error : (response.error as Error)?.message)
+        ? typeof response.error === 'string'
+          ? response.error
+          : (response.error as Error)?.message
         : undefined,
     });
   } catch (err) {
@@ -143,7 +147,7 @@ export async function trackUsage(
  */
 export function extractModelFromResponse(
   response: { model?: string },
-  fallback: string,
+  fallback: string
 ): string {
   return response.model || fallback;
 }

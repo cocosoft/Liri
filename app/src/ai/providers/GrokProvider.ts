@@ -28,7 +28,9 @@ export class GrokProvider implements AIProvider {
 
     this.config = {
       baseUrl: 'https://api.x.ai/v1',
-      ...(providerCfg ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey } : {}),
+      ...(providerCfg
+        ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey }
+        : {}),
       ...config,
     };
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());

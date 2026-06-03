@@ -225,9 +225,7 @@ export function initHooksCommand(program: Command): void {
     console.log(chalk.cyan('═'.repeat(80)));
     console.log();
     console.log(chalk.green('Available commands:'));
-    console.log(
-      chalk.gray('  Liri hooks list    - List all configured hooks')
-    );
+    console.log(chalk.gray('  Liri hooks list    - List all configured hooks'));
     console.log(chalk.gray('  Liri hooks add     - Add a new hook'));
     console.log(chalk.gray('  Liri hooks remove  - Remove a hook by index'));
     console.log(chalk.gray('  Liri hooks enable  - Enable a hook by index'));

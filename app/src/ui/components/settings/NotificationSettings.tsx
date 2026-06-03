@@ -51,32 +51,32 @@ export const NotificationSettings: React.FC = () => {
   return (
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 通知渠道 */}
-      <SettingRow
-        label="通知渠道"
-        hint="选择系统通知的发送方式"
-      >
+      <SettingRow label="通知渠道" hint="选择系统通知的发送方式">
         <div className="flex gap-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           {(['auto', 'native', 'none'] as const).map((channel) => (
             <button
               key={channel}
-              onClick={() => handleNotificationChange('preferredChannel', channel)}
+              onClick={() =>
+                handleNotificationChange('preferredChannel', channel)
+              }
               className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
                 (notifications.preferredChannel || 'auto') === channel
                   ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
-              {channel === 'auto' ? '自动' : channel === 'native' ? '系统通知' : '关闭'}
+              {channel === 'auto'
+                ? '自动'
+                : channel === 'native'
+                  ? '系统通知'
+                  : '关闭'}
             </button>
           ))}
         </div>
       </SettingRow>
 
       {/* 任务完成通知 */}
-      <SettingRow
-        label="任务完成通知"
-        hint="AI 任务执行完成后发送通知"
-      >
+      <SettingRow label="任务完成通知" hint="AI 任务执行完成后发送通知">
         <Toggle
           value={notifications.taskCompleteEnabled !== false}
           onChange={(v) => handleNotificationChange('taskCompleteEnabled', v)}
@@ -84,10 +84,7 @@ export const NotificationSettings: React.FC = () => {
       </SettingRow>
 
       {/* 输入请求通知 */}
-      <SettingRow
-        label="输入请求通知"
-        hint="AI 需要用户输入时发送通知"
-      >
+      <SettingRow label="输入请求通知" hint="AI 需要用户输入时发送通知">
         <Toggle
           value={notifications.inputNeededEnabled !== false}
           onChange={(v) => handleNotificationChange('inputNeededEnabled', v)}
@@ -95,10 +92,7 @@ export const NotificationSettings: React.FC = () => {
       </SettingRow>
 
       {/* Agent 推送通知 */}
-      <SettingRow
-        label="Agent 推送通知"
-        hint="后台 Agent 有新消息时发送通知"
-      >
+      <SettingRow label="Agent 推送通知" hint="后台 Agent 有新消息时发送通知">
         <Toggle
           value={notifications.agentPushEnabled !== false}
           onChange={(v) => handleNotificationChange('agentPushEnabled', v)}
@@ -106,16 +100,16 @@ export const NotificationSettings: React.FC = () => {
       </SettingRow>
 
       {/* 空闲通知阈值 */}
-      <SettingRow
-        label="空闲通知阈值"
-        hint="消息空闲多久后发送通知（毫秒）"
-      >
+      <SettingRow label="空闲通知阈值" hint="消息空闲多久后发送通知（毫秒）">
         <div className="flex items-center gap-2">
           <input
             type="number"
             value={notifications.idleThresholdMs ?? 60000}
             onChange={(e) =>
-              handleNotificationChange('idleThresholdMs', parseInt(e.target.value, 10) || 0)
+              handleNotificationChange(
+                'idleThresholdMs',
+                parseInt(e.target.value, 10) || 0
+              )
             }
             min={1000}
             step={1000}

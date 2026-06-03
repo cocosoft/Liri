@@ -8,9 +8,7 @@ import { isEnvTruthy } from './envUtils.js';
  * 检查是否启用了调试模式
  */
 export function isDebugMode(): boolean {
-  return (
-    isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.Liri_DEBUG)
-  );
+  return isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.Liri_DEBUG);
 }
 
 /**

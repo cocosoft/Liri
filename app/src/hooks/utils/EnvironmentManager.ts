@@ -59,9 +59,8 @@ export class EnvironmentManager {
     // 添加插件选项
     if (options.pluginOptions) {
       for (const [key, value] of Object.entries(options.pluginOptions)) {
-        env[
-          `Liri_PLUGIN_${key.toUpperCase().replace(/[^a-zA-Z0-9_]/g, '_')}`
-        ] = value;
+        env[`Liri_PLUGIN_${key.toUpperCase().replace(/[^a-zA-Z0-9_]/g, '_')}`] =
+          value;
       }
     }
 

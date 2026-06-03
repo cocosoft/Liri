@@ -1,30 +1,27 @@
-import { getBackendBaseUrl, getApiSecret } from './backendUrl';
+import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 
 class HTTPClientError extends Error {
   constructor(
     message: string,
     public status: number,
-    public body?: unknown
+    public body?: unknown,
   ) {
     super(message);
-    this.name = 'HTTPClientError';
+    this.name = "HTTPClientError";
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${getBackendBaseUrl()}${path}`;
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
 
   // 自动附加共享密钥，确保后端只接受来自当前 Tauri 客户端的请求
   const apiSecret = getApiSecret();
   if (apiSecret) {
-    headers['Authorization'] = `Bearer ${apiSecret}`;
+    headers["Authorization"] = `Bearer ${apiSecret}`;
   }
 
   // 合并自定义请求头（允许覆盖默认值）
@@ -43,7 +40,7 @@ async function request<T>(
     throw new HTTPClientError(
       body?.error?.message || `HTTP ${response.status}`,
       response.status,
-      body
+      body,
     );
   }
 
@@ -67,24 +64,23 @@ export const http = {
 
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
-      method: 'POST',
+      method: "POST",
       body: body ? JSON.stringify(body) : undefined,
     }),
 
   put: <T>(path: string, body: unknown) =>
     request<T>(path, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(body),
     }),
 
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, {
-      method: 'PATCH',
+      method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
     }),
 
-  delete: <T>(path: string) =>
-    request<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
 export { HTTPClientError };

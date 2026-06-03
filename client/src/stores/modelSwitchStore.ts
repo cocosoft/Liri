@@ -3,15 +3,15 @@
  * 管理当前模型状态、切换、任务分工
  */
 
-import { create } from 'zustand';
-import { modelSwitchService } from '../services/modelSwitchService';
-import type { CurrentModelInfo, TaskModelConfig } from '../types';
+import { create } from "zustand";
+import { modelSwitchService } from "../services/modelSwitchService";
+import type { CurrentModelInfo, TaskModelConfig } from "../types";
 
 interface ModelSwitchState {
   currentModelId: string;
   currentProvider: string;
   costThisSession: number;
-  availableTasks: CurrentModelInfo['availableTasks'];
+  availableTasks: CurrentModelInfo["availableTasks"];
   tasks: TaskModelConfig;
   isLoading: boolean;
   error: string | null;
@@ -23,8 +23,8 @@ interface ModelSwitchState {
 }
 
 export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
-  currentModelId: 'deepseek-chat',
-  currentProvider: 'deepseek',
+  currentModelId: "deepseek-chat",
+  currentProvider: "deepseek",
   costThisSession: 0,
   availableTasks: [],
   tasks: {},
@@ -43,7 +43,10 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
         isLoading: false,
       });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取当前模型失败', isLoading: false });
+      set({
+        error: e instanceof Error ? e.message : "获取当前模型失败",
+        isLoading: false,
+      });
     }
   },
 
@@ -53,7 +56,7 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
       await modelSwitchService.switch(modelId);
       set({ currentModelId: modelId });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '切换模型失败' });
+      set({ error: e instanceof Error ? e.message : "切换模型失败" });
     }
   },
 
@@ -62,7 +65,7 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
       const tasks = await modelSwitchService.getTasks();
       set({ tasks });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取任务策略失败' });
+      set({ error: e instanceof Error ? e.message : "获取任务策略失败" });
     }
   },
 
@@ -72,7 +75,7 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
       await modelSwitchService.saveTasks(tasks);
       set({ tasks });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '保存任务策略失败' });
+      set({ error: e instanceof Error ? e.message : "保存任务策略失败" });
     }
   },
 }));

@@ -1,9 +1,17 @@
-import { useState, useRef, useEffect } from 'react';
-import { useBackendStore } from '../../stores/backendStore';
+import { useState, useRef, useEffect } from "react";
+import { useBackendStore } from "../../stores/backendStore";
 
 function BackendStatusBadge() {
-  const { status, isChecking, error, isBrowserMode, checkStatus, startBackend, stopBackend, clearError } =
-    useBackendStore();
+  const {
+    status,
+    isChecking,
+    error,
+    isBrowserMode,
+    checkStatus,
+    startBackend,
+    stopBackend,
+    clearError,
+  } = useBackendStore();
   const [expanded, setExpanded] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -14,9 +22,9 @@ function BackendStatusBadge() {
       }
     };
     if (expanded) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [expanded]);
 
   const isRunning = status.running;
@@ -26,28 +34,35 @@ function BackendStatusBadge() {
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-gray-700/50 transition-colors w-full"
-        title={isRunning ? '后端运行中' : '后端未连接'}
+        title={isRunning ? "后端运行中" : "后端未连接"}
       >
         <span
           className={`w-2 h-2 rounded-full flex-shrink-0 ${
             isRunning
-              ? 'bg-green-400 shadow-sm shadow-green-400/50'
-              : 'bg-red-400'
+              ? "bg-green-400 shadow-sm shadow-green-400/50"
+              : "bg-red-400"
           }`}
         />
         <span className="text-gray-300 truncate">
-          {isRunning ? `运行中${status.port ? ` :${status.port}` : ''}` : '未连接'}
+          {isRunning
+            ? `运行中${status.port ? ` :${status.port}` : ""}`
+            : "未连接"}
         </span>
         {isChecking && (
           <span className="w-2 h-2 border border-gray-400 border-t-transparent rounded-full animate-spin ml-auto" />
         )}
         <svg
-          className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${expanded ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
@@ -58,9 +73,9 @@ function BackendStatusBadge() {
 
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <span
-                className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-green-400' : 'bg-red-400'}`}
+                className={`w-1.5 h-1.5 rounded-full ${isRunning ? "bg-green-400" : "bg-red-400"}`}
               />
-              <span>{isRunning ? '运行中' : '未运行'}</span>
+              <span>{isRunning ? "运行中" : "未运行"}</span>
               {status.port && (
                 <span className="text-gray-500">端口 {status.port}</span>
               )}
@@ -110,7 +125,7 @@ function BackendStatusBadge() {
                   className="flex-1 px-2 py-1 text-xs bg-green-500/80 hover:bg-green-500 text-white rounded transition-colors"
                   disabled={isChecking}
                 >
-                  {isChecking ? '检查中...' : '启动'}
+                  {isChecking ? "检查中..." : "启动"}
                 </button>
               )}
               <button

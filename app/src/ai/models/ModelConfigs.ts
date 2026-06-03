@@ -59,8 +59,9 @@ export type ModelKey = string;
 
 function _getRegistry(): any {
   try {
-    const mod = (globalThis as any).__ModelRegistryModule
-      ?? (() => {
+    const mod =
+      (globalThis as any).__ModelRegistryModule ??
+      (() => {
         try {
           return require('./ModelRegistry.js');
         } catch {
@@ -115,7 +116,10 @@ export const ALL_MODEL_CONFIGS: Record<ModelKey, ModelConfig> = new Proxy(
     ownKeys(): (string | symbol)[] {
       return Object.keys(_getAllFromRegistry());
     },
-    getOwnPropertyDescriptor(_target, prop: string | symbol): PropertyDescriptor | undefined {
+    getOwnPropertyDescriptor(
+      _target,
+      prop: string | symbol
+    ): PropertyDescriptor | undefined {
       const data = _getAllFromRegistry();
       if (typeof prop === 'string' && prop in data) {
         return { configurable: true, enumerable: true, value: data[prop] };
@@ -142,9 +146,23 @@ export function getModelConfig(modelKey: ModelKey): ModelConfig | undefined {
 export function getModelKeyByName(modelName: string): ModelKey | null {
   const data = _getAllFromRegistry();
   for (const [key, config] of Object.entries(data)) {
-    const providerKeys: (keyof ModelConfig)[] = ['firstParty', 'bedrock', 'vertex', 'azure', 'openai', 'deepseek', 'google', 'grok', 'moonshot', 'ollama'];
+    const providerKeys: (keyof ModelConfig)[] = [
+      'firstParty',
+      'bedrock',
+      'vertex',
+      'azure',
+      'openai',
+      'deepseek',
+      'google',
+      'grok',
+      'moonshot',
+      'ollama',
+    ];
     for (const pk of providerKeys) {
-      if ((config as unknown as Record<string, string>)[pk as string] === modelName) {
+      if (
+        (config as unknown as Record<string, string>)[pk as string] ===
+        modelName
+      ) {
         return key;
       }
     }
@@ -235,11 +253,36 @@ export interface CompleteModelPricing {
 /**
  * 成本层级常量
  */
-export const PRICING_TIER_SONNET = { inputPer1M: 3, outputPer1M: 15, cacheReadPer1M: 0.3, cacheWritePer1M: 3.75 };
-export const PRICING_TIER_OPUS = { inputPer1M: 15, outputPer1M: 75, cacheReadPer1M: 1.5, cacheWritePer1M: 18.75 };
-export const PRICING_TIER_OPUS45 = { inputPer1M: 5, outputPer1M: 25, cacheReadPer1M: 0.5, cacheWritePer1M: 6.25 };
-export const PRICING_TIER_HAIKU45 = { inputPer1M: 1, outputPer1M: 5, cacheReadPer1M: 0.1, cacheWritePer1M: 1.25 };
-export const PRICING_TIER_HAIKU35 = { inputPer1M: 0.8, outputPer1M: 4, cacheReadPer1M: 0.08, cacheWritePer1M: 1 };
+export const PRICING_TIER_SONNET = {
+  inputPer1M: 3,
+  outputPer1M: 15,
+  cacheReadPer1M: 0.3,
+  cacheWritePer1M: 3.75,
+};
+export const PRICING_TIER_OPUS = {
+  inputPer1M: 15,
+  outputPer1M: 75,
+  cacheReadPer1M: 1.5,
+  cacheWritePer1M: 18.75,
+};
+export const PRICING_TIER_OPUS45 = {
+  inputPer1M: 5,
+  outputPer1M: 25,
+  cacheReadPer1M: 0.5,
+  cacheWritePer1M: 6.25,
+};
+export const PRICING_TIER_HAIKU45 = {
+  inputPer1M: 1,
+  outputPer1M: 5,
+  cacheReadPer1M: 0.1,
+  cacheWritePer1M: 1.25,
+};
+export const PRICING_TIER_HAIKU35 = {
+  inputPer1M: 0.8,
+  outputPer1M: 4,
+  cacheReadPer1M: 0.08,
+  cacheWritePer1M: 1,
+};
 
 /**
  * 获取模型的完整定价（含缓存）

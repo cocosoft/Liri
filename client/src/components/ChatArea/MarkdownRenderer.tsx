@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
-import mermaid from 'mermaid';
-import FileLink from './FileLink';
-import { getBackendBaseUrl } from '../../services/backendUrl';
+import React, { useEffect, useRef, useMemo, useState } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+import mermaid from "mermaid";
+import FileLink from "./FileLink";
+import { getBackendBaseUrl } from "../../services/backendUrl";
 
 interface MarkdownRendererProps {
   content: string;
@@ -14,7 +14,15 @@ interface MarkdownRendererProps {
 
 interface RenderedBlock {
   id: number;
-  type: 'text' | 'code' | 'math' | 'mermaid' | 'table' | 'heading' | 'list' | 'hr';
+  type:
+    | "text"
+    | "code"
+    | "math"
+    | "mermaid"
+    | "table"
+    | "heading"
+    | "list"
+    | "hr";
   content: string;
   language?: string;
   level?: number;
@@ -43,19 +51,24 @@ function InlineCodeLink({
     if (!knownFilePaths || knownFilePaths.length === 0) return;
 
     for (const fp of knownFilePaths) {
-      if (fp === codeContent || fp.endsWith('/' + codeContent) || fp.endsWith('\\' + codeContent)) {
+      if (
+        fp === codeContent ||
+        fp.endsWith("/" + codeContent) ||
+        fp.endsWith("\\" + codeContent)
+      ) {
         setConfirmedPath(fp);
         return;
       }
     }
 
-    const pathLike = /^(?:[A-Za-z]:)?[\\/]?(?:[\w\-.]+\\)*[\w\-.]+\.[a-zA-Z0-9]{1,10}$/;
+    const pathLike =
+      /^(?:[A-Za-z]:)?[\\/]?(?:[\w\-.]+\\)*[\w\-.]+\.[a-zA-Z0-9]{1,10}$/;
     if (pathLike.test(codeContent) && !checking) {
       setChecking(true);
       const baseUrl = getBackendBaseUrl();
       const encodedPath = encodeURIComponent(codeContent);
       fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`)
-        .then((res) => res.ok ? res.json() : null)
+        .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.resolvedPath) {
             setConfirmedPath(data.resolvedPath);
@@ -66,107 +79,157 @@ function InlineCodeLink({
   }, [codeContent, knownFilePaths, checking]);
 
   if (confirmedPath) {
-    return <FileLink filePath={confirmedPath} onPreview={onPreviewFile || (() => {})} />;
+    return (
+      <FileLink
+        filePath={confirmedPath}
+        onPreview={onPreviewFile || (() => {})}
+      />
+    );
   }
 
   return <code>{codeContent}</code>;
 }
 
-function parseMarkdown(text: string, blockIdRef: { current: number }): RenderedBlock[] {
+function parseMarkdown(
+  text: string,
+  blockIdRef: { current: number },
+): RenderedBlock[] {
   const result: RenderedBlock[] = [];
-  const lines = text.split('\n');
+  const lines = text.split("\n");
   let i = 0;
 
   while (i < lines.length) {
     const line = lines[i];
 
-    if (line.startsWith('```')) {
+    if (line.startsWith("```")) {
       const match = line.match(/```(\w+)?/);
-      const language = match?.[1] || 'text';
-      let codeContent = '';
+      const language = match?.[1] || "text";
+      let codeContent = "";
       i++;
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeContent += lines[i] + '\n';
+      while (i < lines.length && !lines[i].startsWith("```")) {
+        codeContent += lines[i] + "\n";
         i++;
       }
       i++;
       blockIdRef.current++;
-      if (language === 'mermaid') {
-        result.push({ id: blockIdRef.current, type: 'mermaid', content: codeContent.trim() });
+      if (language === "mermaid") {
+        result.push({
+          id: blockIdRef.current,
+          type: "mermaid",
+          content: codeContent.trim(),
+        });
       } else {
-        result.push({ id: blockIdRef.current, type: 'code', content: codeContent.trim(), language });
+        result.push({
+          id: blockIdRef.current,
+          type: "code",
+          content: codeContent.trim(),
+          language,
+        });
       }
-    } else if (line.startsWith('$$')) {
+    } else if (line.startsWith("$$")) {
       let mathContent = line.slice(2);
-      if (line.endsWith('$$')) {
+      if (line.endsWith("$$")) {
         mathContent = line.slice(2, -2);
         blockIdRef.current++;
-        result.push({ id: blockIdRef.current, type: 'math', content: mathContent.trim() });
+        result.push({
+          id: blockIdRef.current,
+          type: "math",
+          content: mathContent.trim(),
+        });
         i++;
       } else {
         i++;
-        while (i < lines.length && !lines[i].endsWith('$$')) {
-          mathContent += '\n' + lines[i];
+        while (i < lines.length && !lines[i].endsWith("$$")) {
+          mathContent += "\n" + lines[i];
           i++;
         }
         if (i < lines.length) {
-          mathContent += '\n' + lines[i].slice(0, -2);
+          mathContent += "\n" + lines[i].slice(0, -2);
           i++;
         }
         blockIdRef.current++;
-        result.push({ id: blockIdRef.current, type: 'math', content: mathContent.trim() });
+        result.push({
+          id: blockIdRef.current,
+          type: "math",
+          content: mathContent.trim(),
+        });
       }
     } else if (line.match(/^\|.+\|$/)) {
-      let tableContent = line + '\n';
+      let tableContent = line + "\n";
       i++;
       while (i < lines.length && lines[i].match(/^\|.+\|$/)) {
-        tableContent += lines[i] + '\n';
+        tableContent += lines[i] + "\n";
         i++;
       }
       blockIdRef.current++;
-      result.push({ id: blockIdRef.current, type: 'table', content: tableContent.trim() });
+      result.push({
+        id: blockIdRef.current,
+        type: "table",
+        content: tableContent.trim(),
+      });
     } else if (line.match(/^#{1,6}\s/)) {
       const level = line.match(/^#{1,6}/)?.[0].length || 1;
-      const content = line.replace(/^#{1,6}\s/, '').trim();
+      const content = line.replace(/^#{1,6}\s/, "").trim();
       blockIdRef.current++;
-      result.push({ id: blockIdRef.current, type: 'heading', content, level });
+      result.push({ id: blockIdRef.current, type: "heading", content, level });
       i++;
     } else if (line.match(/^[-*+]\s/) || line.match(/^\d+\.\s/)) {
-      let listContent = line + '\n';
+      let listContent = line + "\n";
       i++;
-      while (i < lines.length && (lines[i].match(/^[-*+]\s/) || lines[i].match(/^\d+\.\s/) || lines[i].startsWith('  ') || lines[i].startsWith('\t'))) {
-        listContent += lines[i] + '\n';
+      while (
+        i < lines.length &&
+        (lines[i].match(/^[-*+]\s/) ||
+          lines[i].match(/^\d+\.\s/) ||
+          lines[i].startsWith("  ") ||
+          lines[i].startsWith("\t"))
+      ) {
+        listContent += lines[i] + "\n";
         i++;
       }
       blockIdRef.current++;
-      result.push({ id: blockIdRef.current, type: 'list', content: listContent.trim() });
+      result.push({
+        id: blockIdRef.current,
+        type: "list",
+        content: listContent.trim(),
+      });
     } else if (line.match(/^---*$/)) {
       blockIdRef.current++;
-      result.push({ id: blockIdRef.current, type: 'hr', content: '' });
+      result.push({ id: blockIdRef.current, type: "hr", content: "" });
       i++;
     } else {
       let textContent = line;
       i++;
-      while (i < lines.length && 
-             !lines[i].startsWith('```') && 
-             !lines[i].startsWith('$$') && 
-             !lines[i].match(/^\|.+\|$/) &&
-             !lines[i].match(/^#{1,6}\s/) &&
-             !lines[i].match(/^[-*+]\s/) && 
-             !lines[i].match(/^\d+\.\s/) &&
-             !lines[i].match(/^---*$/)) {
-        textContent += '\n' + lines[i];
+      while (
+        i < lines.length &&
+        !lines[i].startsWith("```") &&
+        !lines[i].startsWith("$$") &&
+        !lines[i].match(/^\|.+\|$/) &&
+        !lines[i].match(/^#{1,6}\s/) &&
+        !lines[i].match(/^[-*+]\s/) &&
+        !lines[i].match(/^\d+\.\s/) &&
+        !lines[i].match(/^---*$/)
+      ) {
+        textContent += "\n" + lines[i];
         i++;
       }
       blockIdRef.current++;
-      result.push({ id: blockIdRef.current, type: 'text', content: textContent.trim() });
+      result.push({
+        id: blockIdRef.current,
+        type: "text",
+        content: textContent.trim(),
+      });
     }
   }
 
   return result;
 }
 
-function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths }: MarkdownRendererProps) {
+function MarkdownRenderer({
+  content,
+  isStreaming,
+  onPreviewFile,
+  knownFilePaths,
+}: MarkdownRendererProps) {
   const blockIdRef = useRef(0);
 
   const blocks = useMemo(() => {
@@ -175,35 +238,45 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
 
   useEffect(() => {
     mermaid.initialize({ startOnLoad: false });
-    const mermaidElements = document.querySelectorAll('.mermaid');
+    const mermaidElements = document.querySelectorAll(".mermaid");
     mermaidElements.forEach(async (el) => {
-      if (!el.classList.contains('rendered')) {
+      if (!el.classList.contains("rendered")) {
         const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const code = (el as HTMLElement).textContent || '';
+        const code = (el as HTMLElement).textContent || "";
         const { svg } = await mermaid.render(id, code);
         (el as HTMLElement).innerHTML = svg;
-        el.classList.add('rendered');
+        el.classList.add("rendered");
       }
     });
   }, [blocks]);
 
-
-
   const renderHeading = (content: string, level: number, key: string) => {
     const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
-    const sizes = ['text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm', 'text-xs'];
-    const margins = ['my-4', 'my-3', 'my-2', 'my-2', 'my-1', 'my-1'];
-    
-    return React.createElement(HeadingTag, { 
-      key,
-      className: `${sizes[level - 1]} font-bold text-gray-900 dark:text-white ${margins[level - 1]}` 
-    }, renderText(content));
+    const sizes = [
+      "text-2xl",
+      "text-xl",
+      "text-lg",
+      "text-base",
+      "text-sm",
+      "text-xs",
+    ];
+    const margins = ["my-4", "my-3", "my-2", "my-2", "my-1", "my-1"];
+
+    return React.createElement(
+      HeadingTag,
+      {
+        key,
+        className: `${sizes[level - 1]} font-bold text-gray-900 dark:text-white ${margins[level - 1]}`,
+      },
+      renderText(content),
+    );
   };
 
   const renderList = (content: string, key: string) => {
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     const isOrdered = lines[0].match(/^\d+\.\s/) !== null;
-    const isTaskList = !isOrdered && lines.some((l) => /^\s*[-*+]\s+\[[ x]\]/.test(l));
+    const isTaskList =
+      !isOrdered && lines.some((l) => /^\s*[-*+]\s+\[[ x]\]/.test(l));
     const items: JSX.Element[] = [];
 
     lines.forEach((line, idx) => {
@@ -213,56 +286,80 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
       // GFM 任务列表: - [ ] 或 - [x]
       const taskMatch = line.match(/^(\s*)[-*+]\s+\[([ x])\]\s*(.*)/);
       if (taskMatch) {
-        const checked = taskMatch[2] === 'x';
+        const checked = taskMatch[2] === "x";
         const indent = taskMatch[1].length;
         items.push(
-          <li key={idx} className="flex items-center gap-2 my-1" style={{ marginLeft: `${indent * 0.5}rem`, listStyle: 'none' }}>
+          <li
+            key={idx}
+            className="flex items-center gap-2 my-1"
+            style={{ marginLeft: `${indent * 0.5}rem`, listStyle: "none" }}
+          >
             <input
               type="checkbox"
               checked={checked}
               readOnly
               className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500 cursor-default"
             />
-            <span className={checked ? 'line-through text-gray-400 dark:text-gray-500' : ''}>
+            <span
+              className={
+                checked ? "line-through text-gray-400 dark:text-gray-500" : ""
+              }
+            >
               {renderText(taskMatch[3])}
             </span>
-          </li>
+          </li>,
         );
         return;
       }
 
-      let itemContent = '';
+      let itemContent = "";
 
-      if (line.startsWith('  ')) {
+      if (line.startsWith("  ")) {
         itemContent = line.trim();
       } else {
-        itemContent = line.replace(/^[-*+]\s/, '').replace(/^\d+\.\s/, '');
+        itemContent = line.replace(/^[-*+]\s/, "").replace(/^\d+\.\s/, "");
       }
 
       items.push(
         <li key={idx} className="ml-4 my-1">
           {renderText(itemContent)}
-        </li>
+        </li>,
       );
     });
 
     if (isOrdered) {
-      return <ol key={key} className="my-2 list-decimal">{items}</ol>;
+      return (
+        <ol key={key} className="my-2 list-decimal">
+          {items}
+        </ol>
+      );
     }
     if (isTaskList) {
-      return <ul key={key} className="my-2" style={{ listStyle: 'none', paddingLeft: 0 }}>{items}</ul>;
+      return (
+        <ul
+          key={key}
+          className="my-2"
+          style={{ listStyle: "none", paddingLeft: 0 }}
+        >
+          {items}
+        </ul>
+      );
     }
-    return <ul key={key} className="my-2 list-disc">{items}</ul>;
+    return (
+      <ul key={key} className="my-2 list-disc">
+        {items}
+      </ul>
+    );
   };
 
   const isLatexFormula = (text: string): boolean => {
     const hasChineseChars = /[\u4e00-\u9fa5]/.test(text);
     const hasStraightQuotes = /(?<!\\)"./.test(text) || /(?<!\\)"$/.test(text);
-    
+
     if (hasStraightQuotes) {
       return false;
     }
-    
+
     const latexPatterns = [
       /\\frac/,
       /\\sqrt/,
@@ -391,21 +488,21 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
       /\\\}/,
     ];
 
-    const hasLatexPattern = latexPatterns.some(pattern => pattern.test(text));
-    
+    const hasLatexPattern = latexPatterns.some((pattern) => pattern.test(text));
+
     if (hasLatexPattern) {
       return true;
     }
-    
+
     if (hasChineseChars) {
       return false;
     }
-    
+
     const simpleMathPattern = /^[a-zA-Z]\s*=\s*[a-zA-Z0-9^+\-*/()\s]+$/;
     if (simpleMathPattern.test(text) && /\^/.test(text)) {
       return true;
     }
-    
+
     return false;
   };
 
@@ -413,7 +510,10 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
    * 将纯文本中的裸 URL 转换为可点击链接
    * 对标 cline remarkUrlToLink
    */
-  const renderPlainTextWithUrls = (text: string, startKey: number): JSX.Element[] => {
+  const renderPlainTextWithUrls = (
+    text: string,
+    startKey: number,
+  ): JSX.Element[] => {
     const urlRegex = /(https?:\/\/[^\s<>)\]]+)/;
     const parts: JSX.Element[] = [];
     let remaining = text;
@@ -432,7 +532,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           className="text-blue-500 hover:underline"
         >
           {match[1]}
-        </a>
+        </a>,
       );
       remaining = remaining.slice(match.index + match[1].length);
     }
@@ -448,19 +548,23 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
     let key = 0;
 
     const patterns = [
-      { regex: /\*\*(.+?)\*\*/g, tag: 'strong' as const },
-      { regex: /\*(.+?)\*/g, tag: 'em' as const },
-      { regex: /~~(.+?)~~/g, tag: 'del' as const },
-      { regex: /`([^`]+)`/g, tag: 'code' as const },
-      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: 'link' as const },
-      { regex: /\$([^$]+)\$/g, tag: 'math' as const },
-      { regex: /https?:\/\/[^\s<>)\]]+/g, tag: 'url' as const },
+      { regex: /\*\*(.+?)\*\*/g, tag: "strong" as const },
+      { regex: /\*(.+?)\*/g, tag: "em" as const },
+      { regex: /~~(.+?)~~/g, tag: "del" as const },
+      { regex: /`([^`]+)`/g, tag: "code" as const },
+      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: "link" as const },
+      { regex: /\$([^$]+)\$/g, tag: "math" as const },
+      { regex: /https?:\/\/[^\s<>)\]]+/g, tag: "url" as const },
     ];
 
     let hasMatch = true;
     while (hasMatch) {
       hasMatch = false;
-      let earliestMatch: { index: number; pattern: typeof patterns[0]; match: RegExpExecArray } | null = null;
+      let earliestMatch: {
+        index: number;
+        pattern: (typeof patterns)[0];
+        match: RegExpExecArray;
+      } | null = null;
 
       for (const pattern of patterns) {
         pattern.regex.lastIndex = 0;
@@ -478,9 +582,11 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           if (autoDetectFormula && isLatexFormula(beforeText)) {
             let renderedFormula: string;
             try {
-              renderedFormula = katex.renderToString(beforeText, { displayMode: false });
+              renderedFormula = katex.renderToString(beforeText, {
+                displayMode: false,
+              });
             } catch {
-              renderedFormula = '';
+              renderedFormula = "";
             }
             if (renderedFormula) {
               parts.push(
@@ -488,7 +594,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
                   key={key++}
                   className="inline-block"
                   dangerouslySetInnerHTML={{ __html: renderedFormula }}
-                />
+                />,
               );
             } else {
               parts.push(<span key={key++}>{beforeText}</span>);
@@ -497,7 +603,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
             parts.push(<span key={key++}>{beforeText}</span>);
           }
         }
-        if (pattern.tag === 'link') {
+        if (pattern.tag === "link") {
           parts.push(
             <a
               key={key++}
@@ -507,9 +613,9 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               className="text-blue-500 hover:underline"
             >
               {match[1]}
-            </a>
+            </a>,
           );
-        } else if (pattern.tag === 'url') {
+        } else if (pattern.tag === "url") {
           const url = match[0];
           parts.push(
             <a
@@ -520,14 +626,16 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               className="text-blue-500 hover:underline"
             >
               {url}
-            </a>
+            </a>,
           );
-        } else if (pattern.tag === 'math') {
+        } else if (pattern.tag === "math") {
           let renderedFormula: string;
           try {
-            renderedFormula = katex.renderToString(match[1], { displayMode: false });
+            renderedFormula = katex.renderToString(match[1], {
+              displayMode: false,
+            });
           } catch {
-            renderedFormula = '';
+            renderedFormula = "";
           }
           if (renderedFormula) {
             parts.push(
@@ -535,32 +643,35 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
                 key={key++}
                 className="inline-block"
                 dangerouslySetInnerHTML={{ __html: renderedFormula }}
-              />
+              />,
             );
           } else {
             parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
           }
-        } else if (pattern.tag === 'code') {
+        } else if (pattern.tag === "code") {
           parts.push(
             <InlineCodeLink
               key={key++}
               codeContent={match[1]}
               knownFilePaths={knownFilePaths}
               onPreviewFile={onPreviewFile}
-            />
+            />,
           );
-        } else if (pattern.tag === 'strong') {
+        } else if (pattern.tag === "strong") {
           const remainderAfterStrong = remaining.slice(index + match[0].length);
-          if (/^[a-zA-Z0-9_-]+$/.test(match[1]) && /^\.[a-zA-Z0-9]+/.test(remainderAfterStrong)) {
+          if (
+            /^[a-zA-Z0-9_-]+$/.test(match[1]) &&
+            /^\.[a-zA-Z0-9]+/.test(remainderAfterStrong)
+          ) {
             parts.push(<span key={key++}>**{match[1]}**</span>);
           } else {
-            parts.push(React.createElement('strong', { key: key++ }, match[1]));
+            parts.push(React.createElement("strong", { key: key++ }, match[1]));
           }
-        } else if (pattern.tag === 'del') {
-          parts.push(React.createElement('del', { key: key++ }, match[1]));
+        } else if (pattern.tag === "del") {
+          parts.push(React.createElement("del", { key: key++ }, match[1]));
         } else {
           parts.push(
-            React.createElement(pattern.tag, { key: key++ }, match[1])
+            React.createElement(pattern.tag, { key: key++ }, match[1]),
           );
         }
         remaining = remaining.slice(index + match[0].length);
@@ -571,9 +682,11 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
       if (autoDetectFormula && isLatexFormula(remaining)) {
         let renderedFormula: string;
         try {
-          renderedFormula = katex.renderToString(remaining, { displayMode: false });
+          renderedFormula = katex.renderToString(remaining, {
+            displayMode: false,
+          });
         } catch {
-          renderedFormula = '';
+          renderedFormula = "";
         }
         if (renderedFormula) {
           parts.push(
@@ -581,7 +694,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               key={key}
               className="inline-block"
               dangerouslySetInnerHTML={{ __html: renderedFormula }}
-            />
+            />,
           );
         } else {
           parts.push(...renderPlainTextWithUrls(remaining, key));
@@ -595,19 +708,22 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
   };
 
   const renderTable = (content: string, autoDetectFormula: boolean = true) => {
-    const rows = content.split('\n');
+    const rows = content.split("\n");
     if (rows.length < 2) return null;
 
-    const headers = rows[0].split('|').filter((cell) => cell.trim());
+    const headers = rows[0].split("|").filter((cell) => cell.trim());
     const separator = rows[1];
     const dataRows = rows.slice(2);
 
-    const alignments = separator.split('|').filter((cell) => cell.trim()).map((cell) => {
-      if (cell.startsWith(':') && cell.endsWith(':')) return 'center';
-      if (cell.startsWith(':')) return 'left';
-      if (cell.endsWith(':')) return 'right';
-      return 'left';
-    });
+    const alignments = separator
+      .split("|")
+      .filter((cell) => cell.trim())
+      .map((cell) => {
+        if (cell.startsWith(":") && cell.endsWith(":")) return "center";
+        if (cell.startsWith(":")) return "left";
+        if (cell.endsWith(":")) return "right";
+        return "left";
+      });
 
     return (
       <table className="w-full border-collapse my-4">
@@ -617,7 +733,9 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               <th
                 key={idx}
                 className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left"
-                style={{ textAlign: alignments[idx] as 'left' | 'center' | 'right' }}
+                style={{
+                  textAlign: alignments[idx] as "left" | "center" | "right",
+                }}
               >
                 <span>{renderText(header.trim(), autoDetectFormula)}</span>
               </th>
@@ -626,17 +744,26 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
         </thead>
         <tbody>
           {dataRows.map((row, rowIdx) => {
-            const cells = row.split('|').filter((cell) => cell.trim());
+            const cells = row.split("|").filter((cell) => cell.trim());
             return (
               <tr
                 key={rowIdx}
-                className={rowIdx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}
+                className={
+                  rowIdx % 2 === 0
+                    ? "bg-white dark:bg-gray-800"
+                    : "bg-gray-50 dark:bg-gray-750"
+                }
               >
                 {cells.map((cell, cellIdx) => (
                   <td
                     key={cellIdx}
                     className="border border-gray-300 dark:border-gray-600 px-4 py-2"
-                    style={{ textAlign: alignments[cellIdx] as 'left' | 'center' | 'right' }}
+                    style={{
+                      textAlign: alignments[cellIdx] as
+                        | "left"
+                        | "center"
+                        | "right",
+                    }}
                   >
                     <span>{renderText(cell.trim(), autoDetectFormula)}</span>
                   </td>
@@ -662,9 +789,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           renderTable={renderTable}
         />
       ))}
-      {isStreaming && (
-        <span className="animate-pulse">▌</span>
-      )}
+      {isStreaming && <span className="animate-pulse">▌</span>}
     </div>
   );
 }
@@ -673,26 +798,42 @@ interface BlockContentProps {
   block: RenderedBlock;
   isStreaming?: boolean;
   renderText: (text: string, autoDetectFormula?: boolean) => JSX.Element[];
-  renderHeading: (content: string, level: number, key: string) => React.ReactElement;
+  renderHeading: (
+    content: string,
+    level: number,
+    key: string,
+  ) => React.ReactElement;
   renderList: (content: string, key: string) => React.ReactElement;
-  renderTable: (content: string, autoDetectFormula?: boolean) => React.ReactElement | null;
+  renderTable: (
+    content: string,
+    autoDetectFormula?: boolean,
+  ) => React.ReactElement | null;
 }
 
 const BlockContent = React.memo(
-  function BlockContent({ block, isStreaming, renderText, renderHeading, renderList, renderTable }: BlockContentProps) {
+  function BlockContent({
+    block,
+    isStreaming,
+    renderText,
+    renderHeading,
+    renderList,
+    renderTable,
+  }: BlockContentProps) {
     switch (block.type) {
-      case 'code':
+      case "code":
         return (
           <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm my-2">
             <code>{block.content}</code>
           </pre>
         );
-      case 'math': {
+      case "math": {
         let renderedFormula: string;
         try {
-          renderedFormula = katex.renderToString(block.content, { displayMode: true });
+          renderedFormula = katex.renderToString(block.content, {
+            displayMode: true,
+          });
         } catch {
-          renderedFormula = '';
+          renderedFormula = "";
         }
         if (renderedFormula) {
           return (
@@ -710,24 +851,32 @@ const BlockContent = React.memo(
           </div>
         );
       }
-      case 'mermaid':
+      case "mermaid":
         return (
           <div
             className="mermaid my-4"
-            style={{ backgroundColor: '#1a1a1a', padding: '1rem', borderRadius: '8px' }}
+            style={{
+              backgroundColor: "#1a1a1a",
+              padding: "1rem",
+              borderRadius: "8px",
+            }}
           >
             {block.content}
           </div>
         );
-      case 'table':
-        return <div className="overflow-x-auto">{renderTable(block.content, !isStreaming)}</div>;
-      case 'heading':
+      case "table":
+        return (
+          <div className="overflow-x-auto">
+            {renderTable(block.content, !isStreaming)}
+          </div>
+        );
+      case "heading":
         return renderHeading(block.content, block.level || 1, String(block.id));
-      case 'list':
+      case "list":
         return renderList(block.content, String(block.id));
-      case 'hr':
+      case "hr":
         return <hr className="my-4 border-gray-300 dark:border-gray-600" />;
-      case 'text':
+      case "text":
         return (
           <p className="my-2 whitespace-pre-wrap">
             {renderText(block.content, !isStreaming)}
@@ -737,9 +886,12 @@ const BlockContent = React.memo(
         return null;
     }
   },
-  (prevProps, nextProps) => prevProps.block.content === nextProps.block.content && prevProps.block.type === nextProps.block.type && prevProps.isStreaming === nextProps.isStreaming
+  (prevProps, nextProps) =>
+    prevProps.block.content === nextProps.block.content &&
+    prevProps.block.type === nextProps.block.type &&
+    prevProps.isStreaming === nextProps.isStreaming,
 );
 
-BlockContent.displayName = 'BlockContent';
+BlockContent.displayName = "BlockContent";
 
 export default MarkdownRenderer;

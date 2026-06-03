@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useBackendStore } from '../../stores/backendStore';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useBackendStore } from "../../stores/backendStore";
 
 interface NavCardProps {
   icon: string;
@@ -21,9 +21,7 @@ function NavCard({ icon, title, description, path }: NavCardProps) {
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
         {title}
       </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        {description}
-      </p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
     </button>
   );
 }
@@ -34,13 +32,13 @@ function HomePage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const getStatusColor = () => {
-    if (status.running) return 'text-green-600 dark:text-green-400';
-    return 'text-red-600 dark:text-red-400';
+    if (status.running) return "text-green-600 dark:text-green-400";
+    return "text-red-600 dark:text-red-400";
   };
 
   const getStatusIcon = () => {
-    if (status.running) return '🟢';
-    return '🔴';
+    if (status.running) return "🟢";
+    return "🔴";
   };
 
   const handleStart = async () => {
@@ -78,7 +76,7 @@ function HomePage() {
                   Backend 服务
                 </h3>
                 <p className={`text-sm ${getStatusColor()}`}>
-                  {status.running ? '运行中' : '已停止'}
+                  {status.running ? "运行中" : "已停止"}
                   {status.running && status.port && ` · 端口 ${status.port}`}
                 </p>
               </div>
@@ -90,7 +88,7 @@ function HomePage() {
                   disabled={actionLoading}
                   className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
                 >
-                  {actionLoading ? '停止中...' : '停止'}
+                  {actionLoading ? "停止中..." : "停止"}
                 </button>
               ) : (
                 <button
@@ -98,11 +96,11 @@ function HomePage() {
                   disabled={actionLoading}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
                 >
-                  {actionLoading ? '启动中...' : '启动'}
+                  {actionLoading ? "启动中..." : "启动"}
                 </button>
               )}
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => navigate("/settings")}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition-colors"
               >
                 高级设置

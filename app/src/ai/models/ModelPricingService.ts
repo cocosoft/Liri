@@ -110,14 +110,15 @@ export class ModelPricingService {
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'PRICING_INIT_FAILED',
-        { cause: error },
+        { cause: error }
       );
     }
   }
 
   private async createTable(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`
+      this.db!.run(
+        `
         CREATE TABLE IF NOT EXISTS ${PRICING_TABLE} (
           id TEXT PRIMARY KEY,
           model_id TEXT NOT NULL UNIQUE,
@@ -130,15 +131,20 @@ export class ModelPricingService {
           created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
           updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
         )
-      `, (err) => {
-        if (err) reject(err);
-        else {
-          this.db!.run(
-            `CREATE INDEX IF NOT EXISTS idx_model_pricing_model_id ON ${PRICING_TABLE}(model_id)`,
-            (err2) => { if (err2) reject(err2); else resolve(); },
-          );
+      `,
+        (err) => {
+          if (err) reject(err);
+          else {
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_model_pricing_model_id ON ${PRICING_TABLE}(model_id)`,
+              (err2) => {
+                if (err2) reject(err2);
+                else resolve();
+              }
+            );
+          }
         }
-      });
+      );
     });
 
     logger.info('model_pricing 表创建/验证完成');
@@ -150,13 +156,15 @@ export class ModelPricingService {
         'ModelPricingService not initialized',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        'PRICING_NOT_INIT',
+        'PRICING_NOT_INIT'
       );
     }
   }
 
   /** 获取或更新模型定价 */
-  async upsertPricing(params: UpsertPricingParams): Promise<ModelPricingRecord> {
+  async upsertPricing(
+    params: UpsertPricingParams
+  ): Promise<ModelPricingRecord> {
     this.ensureInitialized();
 
     const now = Math.floor(Date.now() / 1000);
@@ -187,7 +195,7 @@ export class ModelPricingService {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     } else {
@@ -213,7 +221,7 @@ export class ModelPricingService {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     }
@@ -241,13 +249,14 @@ export class ModelPricingService {
               inputCostPerMillion: r.input_cost_per_million as number,
               outputCostPerMillion: r.output_cost_per_million as number,
               cacheReadCostPerMillion: r.cache_read_cost_per_million as number,
-              cacheWriteCostPerMillion: r.cache_write_cost_per_million as number,
+              cacheWriteCostPerMillion:
+                r.cache_write_cost_per_million as number,
               isCustom: (r.is_custom as number) === 1,
               createdAt: r.created_at as number,
               updatedAt: r.updated_at as number,
             });
           }
-        },
+        }
       );
     });
   }
@@ -269,15 +278,17 @@ export class ModelPricingService {
                 displayName: r.display_name as string,
                 inputCostPerMillion: r.input_cost_per_million as number,
                 outputCostPerMillion: r.output_cost_per_million as number,
-                cacheReadCostPerMillion: r.cache_read_cost_per_million as number,
-                cacheWriteCostPerMillion: r.cache_write_cost_per_million as number,
+                cacheReadCostPerMillion:
+                  r.cache_read_cost_per_million as number,
+                cacheWriteCostPerMillion:
+                  r.cache_write_cost_per_million as number,
                 isCustom: (r.is_custom as number) === 1,
                 createdAt: r.created_at as number,
                 updatedAt: r.updated_at as number,
-              })),
+              }))
             );
           }
-        },
+        }
       );
     });
   }
@@ -293,7 +304,7 @@ export class ModelPricingService {
         function (err) {
           if (err) reject(err);
           else resolve(this.changes > 0);
-        },
+        }
       );
     });
   }

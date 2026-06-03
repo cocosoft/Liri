@@ -1,13 +1,16 @@
-import { create } from 'zustand';
-import { Tool } from '../types';
-import { toolService } from '../services/toolService';
+import { create } from "zustand";
+import { Tool } from "../types";
+import { toolService } from "../services/toolService";
 
 interface ToolStore {
   tools: Tool[];
   isLoading: boolean;
   error: string | null;
   loadTools: () => Promise<void>;
-  executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
+  executeTool: (
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => Promise<unknown>;
 }
 
 export const useToolStore = create<ToolStore>((set) => ({

@@ -1,5 +1,10 @@
-import { create } from 'zustand';
-import { skillService, type Skill, type SkillCreateData, type SkillListParams } from '../services/skillService';
+import { create } from "zustand";
+import {
+  skillService,
+  type Skill,
+  type SkillCreateData,
+  type SkillListParams,
+} from "../services/skillService";
 
 interface SkillStore {
   skills: Skill[];
@@ -35,7 +40,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
       const result = await skillService.list(params);
       set({ skills: result.skills, total: result.total });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取技能列表失败' });
+      set({ error: e instanceof Error ? e.message : "获取技能列表失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -47,7 +52,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
       const skill = await skillService.get(id);
       set({ selectedSkill: skill });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取技能详情失败' });
+      set({ error: e instanceof Error ? e.message : "获取技能详情失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -58,7 +63,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
     try {
       await skillService.create(data);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '创建技能失败' });
+      set({ error: e instanceof Error ? e.message : "创建技能失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -69,7 +74,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
     try {
       await skillService.update(id, updates);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '更新技能失败' });
+      set({ error: e instanceof Error ? e.message : "更新技能失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -80,7 +85,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
     try {
       await skillService.delete(id);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '删除技能失败' });
+      set({ error: e instanceof Error ? e.message : "删除技能失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -91,7 +96,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
     try {
       await skillService.enable(id);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '启用技能失败' });
+      set({ error: e instanceof Error ? e.message : "启用技能失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -102,7 +107,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
     try {
       await skillService.disable(id);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '禁用技能失败' });
+      set({ error: e instanceof Error ? e.message : "禁用技能失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -113,7 +118,7 @@ export const useSkillStore = create<SkillStore>((set) => ({
       const categories = await skillService.getCategories();
       set({ categories });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取技能分类失败' });
+      set({ error: e instanceof Error ? e.message : "获取技能分类失败" });
     }
   },
 
@@ -122,4 +127,4 @@ export const useSkillStore = create<SkillStore>((set) => ({
   clearError: () => set({ error: null }),
 }));
 
-export { skillService } from '../services/skillService';
+export { skillService } from "../services/skillService";

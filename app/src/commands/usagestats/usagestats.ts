@@ -61,7 +61,7 @@ function getLastNDaysRange(days: number): { start: number; end: number } {
 const usagestatsCommand = {
   async execute(
     args: string,
-    _context: CommandContext,
+    _context: CommandContext
   ): Promise<CommandResult> {
     const trimmed = args.trim();
     const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
@@ -78,7 +78,10 @@ const usagestatsCommand = {
 
         case 'summary': {
           const range = getTodayRange();
-          const summary = await usageStatsService.getUsageSummary(range.start, range.end);
+          const summary = await usageStatsService.getUsageSummary(
+            range.start,
+            range.end
+          );
 
           if (showJson) {
             return { success: true, message: JSON.stringify(summary, null, 2) };
@@ -100,7 +103,10 @@ const usagestatsCommand = {
 
         case 'trend': {
           const range = getLastNDaysRange(7);
-          const trends = await usageStatsService.getDailyTrends(range.start, range.end);
+          const trends = await usageStatsService.getDailyTrends(
+            range.start,
+            range.end
+          );
 
           if (showJson) {
             return { success: true, message: JSON.stringify(trends, null, 2) };
@@ -113,7 +119,7 @@ const usagestatsCommand = {
           const lines = ['每日趋势（最近7天）', '─'.repeat(60)];
           for (const t of trends) {
             lines.push(
-              `  ${t.date} | ${String(t.requestCount).padStart(5)} 请求 | ${fmtUSD(t.totalCost).padStart(10)} | ${fmtTokens(t.totalTokens).padStart(8)} tokens`,
+              `  ${t.date} | ${String(t.requestCount).padStart(5)} 请求 | ${fmtUSD(t.totalCost).padStart(10)} | ${fmtTokens(t.totalTokens).padStart(8)} tokens`
             );
           }
 
@@ -122,7 +128,10 @@ const usagestatsCommand = {
 
         case 'models': {
           const range = getLastNDaysRange(30);
-          const stats = await usageStatsService.getModelStats(range.start, range.end);
+          const stats = await usageStatsService.getModelStats(
+            range.start,
+            range.end
+          );
 
           if (showJson) {
             return { success: true, message: JSON.stringify(stats, null, 2) };
@@ -133,12 +142,14 @@ const usagestatsCommand = {
           }
 
           const lines = ['按模型统计（最近30天）', '─'.repeat(80)];
-          lines.push(`${'模型'.padEnd(30)} | ${'请求数'.padStart(8)} | ${'Tokens'.padStart(10)} | ${'成本'.padStart(10)} | ${'均延迟'.padStart(8)}`);
+          lines.push(
+            `${'模型'.padEnd(30)} | ${'请求数'.padStart(8)} | ${'Tokens'.padStart(10)} | ${'成本'.padStart(10)} | ${'均延迟'.padStart(8)}`
+          );
           lines.push('─'.repeat(80));
 
           for (const s of stats) {
             lines.push(
-              `${(s.model || '').padEnd(30)} | ${String(s.requestCount).padStart(8)} | ${fmtTokens(s.totalTokens).padStart(10)} | ${fmtUSD(s.totalCost).padStart(10)} | ${String(s.avgLatencyMs + 'ms').padStart(8)}`,
+              `${(s.model || '').padEnd(30)} | ${String(s.requestCount).padStart(8)} | ${fmtTokens(s.totalTokens).padStart(10)} | ${fmtUSD(s.totalCost).padStart(10)} | ${String(s.avgLatencyMs + 'ms').padStart(8)}`
             );
           }
 
@@ -147,7 +158,10 @@ const usagestatsCommand = {
 
         case 'providers': {
           const range = getLastNDaysRange(30);
-          const stats = await usageStatsService.getProviderStats(range.start, range.end);
+          const stats = await usageStatsService.getProviderStats(
+            range.start,
+            range.end
+          );
 
           if (showJson) {
             return { success: true, message: JSON.stringify(stats, null, 2) };
@@ -158,12 +172,14 @@ const usagestatsCommand = {
           }
 
           const lines = ['按供应商统计（最近30天）', '─'.repeat(80)];
-          lines.push(`${'供应商'.padEnd(36)} | ${'请求数'.padStart(8)} | ${'Tokens'.padStart(10)} | ${'成本'.padStart(10)} | ${'成功率'.padStart(8)}`);
+          lines.push(
+            `${'供应商'.padEnd(36)} | ${'请求数'.padStart(8)} | ${'Tokens'.padStart(10)} | ${'成本'.padStart(10)} | ${'成功率'.padStart(8)}`
+          );
           lines.push('─'.repeat(80));
 
           for (const s of stats) {
             lines.push(
-              `${s.providerId.substring(0, 34).padEnd(36)} | ${String(s.requestCount).padStart(8)} | ${fmtTokens(s.totalTokens).padStart(10)} | ${fmtUSD(s.totalCost).padStart(10)} | ${String(s.successRate + '%').padStart(8)}`,
+              `${s.providerId.substring(0, 34).padEnd(36)} | ${String(s.requestCount).padStart(8)} | ${fmtTokens(s.totalTokens).padStart(10)} | ${fmtUSD(s.totalCost).padStart(10)} | ${String(s.successRate + '%').padStart(8)}`
             );
           }
 
@@ -174,7 +190,11 @@ const usagestatsCommand = {
           const page = parseInt(parts[1]) || 1;
           const pageSize = parseInt(parts[2]) || 20;
 
-          const result = await usageStatsService.getRequestLogs({}, page, pageSize);
+          const result = await usageStatsService.getRequestLogs(
+            {},
+            page,
+            pageSize
+          );
 
           if (showJson) {
             return { success: true, message: JSON.stringify(result, null, 2) };
@@ -184,13 +204,19 @@ const usagestatsCommand = {
             return { success: true, message: '暂无日志' };
           }
 
-          const lines = [`请求日志 (第${result.page}页, 共${result.total}条)`, '─'.repeat(100)];
+          const lines = [
+            `请求日志 (第${result.page}页, 共${result.total}条)`,
+            '─'.repeat(100),
+          ];
 
           for (const log of result.data) {
             const time = new Date(log.timestamp * 1000).toLocaleString('zh-CN');
-            const status = log.statusCode >= 400 ? `❌${log.statusCode}` : `✅${log.statusCode}`;
+            const status =
+              log.statusCode >= 400
+                ? `❌${log.statusCode}`
+                : `✅${log.statusCode}`;
             lines.push(
-              `${time} | ${log.model.padEnd(25)} | ${String(log.inputTokens + log.outputTokens).padStart(8)}t | ${fmtUSD(log.costUSD).padStart(8)} | ${status} | ${log.latencyMs}ms`,
+              `${time} | ${log.model.padEnd(25)} | ${String(log.inputTokens + log.outputTokens).padStart(8)}t | ${fmtUSD(log.costUSD).padStart(8)} | ${status} | ${log.latencyMs}ms`
             );
           }
 

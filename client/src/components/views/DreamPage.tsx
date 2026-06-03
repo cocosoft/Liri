@@ -1,4 +1,4 @@
-import DreamLogTab from '../Buddy/DreamLogTab';
+import DreamLogTab from "../Buddy/DreamLogTab";
 
 function DreamPage() {
   return (

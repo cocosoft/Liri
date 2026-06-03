@@ -30,8 +30,13 @@ export class OpenAIProvider implements AIProvider {
     const registry = ModelRegistry.getInstance();
     const providerCfg = registry.getProviderConfig('openai');
 
-    this.apiKey = providerCfg?.apiKey || config.apiKey || process.env.OPENAI_API_KEY || '';
-    this.baseUrl = (providerCfg?.baseUrl || config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.apiKey =
+      providerCfg?.apiKey || config.apiKey || process.env.OPENAI_API_KEY || '';
+    this.baseUrl = (
+      providerCfg?.baseUrl ||
+      config.baseUrl ||
+      DEFAULT_BASE_URL
+    ).replace(/\/+$/, '');
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 
@@ -138,7 +143,9 @@ export class OpenAIProvider implements AIProvider {
       const decoder = new TextDecoder();
       let buffer = '';
       let fullContent = '';
-      let lastUsage: import('@modules/ai/models/types').ChatResponse['usage'] | undefined;
+      let lastUsage:
+        | import('@modules/ai/models/types').ChatResponse['usage']
+        | undefined;
 
       while (true) {
         const { done, value } = await reader.read();

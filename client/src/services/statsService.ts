@@ -1,11 +1,11 @@
-import { chatService } from './chatService';
-import { toolService } from './toolService';
-import { sessionService } from './sessionService';
-import { knowledgeService } from './knowledgeService';
-import { cronService } from './cronService';
-import { channelService } from './channelService';
-import { buddyService } from './buddyService';
-import { agentService } from './agentService';
+import { chatService } from "./chatService";
+import { toolService } from "./toolService";
+import { sessionService } from "./sessionService";
+import { knowledgeService } from "./knowledgeService";
+import { cronService } from "./cronService";
+import { channelService } from "./channelService";
+import { buddyService } from "./buddyService";
+import { agentService } from "./agentService";
 
 export interface DashboardStats {
   backend: {
@@ -31,17 +31,25 @@ export interface DashboardStats {
 
 export const statsService = {
   async getDashboardStats(): Promise<DashboardStats> {
-    const [backendStatus, tools, sessions, knowledge, cronTasks, channels, agentTasks, buddy] =
-      await Promise.all([
-        chatService.getBackendStatus(),
-        toolService.list().catch(() => []),
-        sessionService.list().catch(() => []),
-        knowledgeService.list().catch(() => []),
-        cronService.list().catch(() => []),
-        channelService.list().catch(() => []),
-        agentService.listTasks().catch(() => []),
-        buddyService.getBuddy().catch(() => null),
-      ]);
+    const [
+      backendStatus,
+      tools,
+      sessions,
+      knowledge,
+      cronTasks,
+      channels,
+      agentTasks,
+      buddy,
+    ] = await Promise.all([
+      chatService.getBackendStatus(),
+      toolService.list().catch(() => []),
+      sessionService.list().catch(() => []),
+      knowledgeService.list().catch(() => []),
+      cronService.list().catch(() => []),
+      channelService.list().catch(() => []),
+      agentService.listTasks().catch(() => []),
+      buddyService.getBuddy().catch(() => null),
+    ]);
 
     return {
       backend: backendStatus,

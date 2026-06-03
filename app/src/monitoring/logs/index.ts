@@ -25,7 +25,11 @@ export { logFilter, LogFilter } from './filter/LogFilter.js';
 export type { FilterRule, LogFilterConfig } from './filter/LogFilter.js';
 
 export { logDiagnostic, LogDiagnostic } from './diagnostic/LogDiagnostic.js';
-export type { DiagnosticConfig, DiagnosticCheck, DiagnosticResult } from './diagnostic/LogDiagnostic.js';
+export type {
+  DiagnosticConfig,
+  DiagnosticCheck,
+  DiagnosticResult,
+} from './diagnostic/LogDiagnostic.js';
 
 export { LogTail } from './tail/LogTail.js';
 export type { TailOptions, LogLine } from './tail/LogTail.js';

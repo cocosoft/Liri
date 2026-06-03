@@ -5,9 +5,9 @@
 
 /** 对密钥值进行脱敏显示：前段固定 8 个 •，末尾保留 4 位 */
 export function maskSecretValue(value: unknown): string {
-  if (!value || typeof value !== 'string') return '';
-  if (value.length <= 8) return '\u2022'.repeat(8);
-  return '\u2022'.repeat(8) + value.slice(-4);
+  if (!value || typeof value !== "string") return "";
+  if (value.length <= 8) return "\u2022".repeat(8);
+  return "\u2022".repeat(8) + value.slice(-4);
 }
 
 /**
@@ -19,7 +19,7 @@ export function isSecretChanged(
   currentInput: string,
 ): boolean {
   if (!currentInput) return false;
-  if (!originalValue || typeof originalValue !== 'string') return true;
+  if (!originalValue || typeof originalValue !== "string") return true;
   return currentInput !== originalValue;
 }
 

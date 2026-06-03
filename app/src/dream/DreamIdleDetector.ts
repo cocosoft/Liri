@@ -60,12 +60,9 @@ export class DreamIdleDetector {
    */
   start(onIdle: (duration: number) => void): void {
     // 订阅用户交互事件
-    globalEventBus.subscribe(
-      SystemEvents.USER_INTERACTION,
-      () => {
-        this.lastActivity = Date.now();
-      }
-    );
+    globalEventBus.subscribe(SystemEvents.USER_INTERACTION, () => {
+      this.lastActivity = Date.now();
+    });
 
     // 独立的检测循环，低频轮询
     this.checkTimer = setInterval(() => {

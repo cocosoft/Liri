@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { modelService } from '../services/modelService';
-import type { ModelInfo } from '../types';
+import { create } from "zustand";
+import { modelService } from "../services/modelService";
+import type { ModelInfo } from "../types";
 
 interface ModelStore {
   models: ModelInfo[];
@@ -22,7 +22,10 @@ export const useModelStore = create<ModelStore>((set) => ({
       const models = await modelService.list();
       set({ models, isLoading: false });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取模型列表失败', isLoading: false });
+      set({
+        error: e instanceof Error ? e.message : "获取模型列表失败",
+        isLoading: false,
+      });
     }
   },
 

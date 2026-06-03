@@ -36,10 +36,7 @@ export const AISettings: React.FC = () => {
   return (
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* AI 提供商 */}
-      <SettingRow
-        label="AI 提供商"
-        hint="选择默认的 AI 服务提供商"
-      >
+      <SettingRow label="AI 提供商" hint="选择默认的 AI 服务提供商">
         <select
           value={provider}
           onChange={(e) => handleProviderChange(e.target.value)}

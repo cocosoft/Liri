@@ -29,10 +29,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type {
-  AIProvider,
-  ChatOptions,
-} from './AIProvider';
+import type { AIProvider, ChatOptions } from './AIProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderRecord } from './ProviderManager';
 import { UsageTracker } from '../UsageTracker.js';
@@ -104,7 +101,8 @@ export class PriorityBasedFailover {
     const record = this.getOrCreateHealthRecord(providerId);
     record.consecutiveFailures++;
     record.isHealthy = false;
-    record.cooldownUntil = Date.now() + this.calculateBackoff(record.consecutiveFailures);
+    record.cooldownUntil =
+      Date.now() + this.calculateBackoff(record.consecutiveFailures);
   }
 
   /** 为供应商记录一次成功 */
@@ -140,7 +138,7 @@ export class PriorityBasedFailover {
   private calculateBackoff(failures: number): number {
     const base = Math.min(
       this.config.backoffMs * Math.pow(2, failures - 1),
-      this.config.maxBackoffMs,
+      this.config.maxBackoffMs
     );
     const jitter = base * this.config.jitterFactor * (Math.random() * 2 - 1);
     return Math.round(base + jitter);
@@ -176,7 +174,7 @@ export class PriorityBasedFailover {
     /** 调用函数：(providerId, model) → 结果 */
     fn: (providerId: string, model: string) => Promise<T>,
     model: string,
-    primaryProviderId?: string,
+    primaryProviderId?: string
   ): Promise<{ result: T; providerId: string }> {
     const activeIds = await this.getActiveProviderIds();
 
@@ -199,10 +197,7 @@ export class PriorityBasedFailover {
       throw new Error('没有可用的供应商');
     }
 
-    const maxAttempts = Math.min(
-      candidates.length,
-      this.config.maxRetries + 1,
-    );
+    const maxAttempts = Math.min(candidates.length, this.config.maxRetries + 1);
 
     let lastError: Error | undefined;
 
@@ -252,7 +247,7 @@ export class PriorityBasedFailover {
     }
 
     throw new Error(
-      `所有供应商均调用失败 (${maxAttempts} 次尝试): ${lastError?.message}`,
+      `所有供应商均调用失败 (${maxAttempts} 次尝试): ${lastError?.message}`
     );
   }
 

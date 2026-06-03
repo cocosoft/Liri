@@ -276,9 +276,12 @@ export class ChatSession {
       model: this.options.model,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
-      messageCount: this.history.getMessages().filter(
-        m => m.role === AIMessageRole.USER || m.role === AIMessageRole.ASSISTANT
-      ).length,
+      messageCount: this.history
+        .getMessages()
+        .filter(
+          (m) =>
+            m.role === AIMessageRole.USER || m.role === AIMessageRole.ASSISTANT
+        ).length,
     };
   }
 

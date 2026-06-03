@@ -13,7 +13,11 @@
  *   const response = await pipeline.execute(provider, messages, options);
  */
 
-import type { AIProvider, ChatOptions, ThinkingProviderChunk } from '../providers/AIProvider';
+import type {
+  AIProvider,
+  ChatOptions,
+  ThinkingProviderChunk,
+} from '../providers/AIProvider';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 

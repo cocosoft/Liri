@@ -56,8 +56,20 @@ function loadModelCatalog(): Map<string, ModelCatalogEntry> {
  */
 function extractProviderFromId(modelId: string): string {
   const lower = modelId.toLowerCase();
-  if (lower.startsWith('claude-') || lower.includes('opus') || lower.includes('sonnet') || lower.includes('haiku')) return 'anthropic';
-  if (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'openai';
+  if (
+    lower.startsWith('claude-') ||
+    lower.includes('opus') ||
+    lower.includes('sonnet') ||
+    lower.includes('haiku')
+  )
+    return 'anthropic';
+  if (
+    lower.startsWith('gpt-') ||
+    lower.startsWith('o1') ||
+    lower.startsWith('o3') ||
+    lower.startsWith('o4')
+  )
+    return 'openai';
   if (lower.startsWith('gemini-')) return 'google';
   if (lower.includes('deepseek')) return 'deepseek';
   if (lower.includes('llama')) return 'meta';

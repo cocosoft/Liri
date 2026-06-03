@@ -427,9 +427,7 @@ export async function flushTelemetry(): Promise<void> {
     return;
   }
 
-  const timeoutMs = parseInt(
-    process.env.Liri_OTEL_FLUSH_TIMEOUT_MS || '5000'
-  );
+  const timeoutMs = parseInt(process.env.Liri_OTEL_FLUSH_TIMEOUT_MS || '5000');
 
   try {
     const flushPromises = [meterProvider.forceFlush()];

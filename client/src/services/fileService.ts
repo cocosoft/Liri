@@ -1,12 +1,12 @@
-import type { FileEntry } from '../types';
-import { http } from './httpClient';
+import type { FileEntry } from "../types";
+import { http } from "./httpClient";
 
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
 
 async function getTauriCore() {
   if (!isTauri) return null;
   try {
-    return await import('@tauri-apps/api/core');
+    return await import("@tauri-apps/api/core");
   } catch {
     return null;
   }
@@ -30,15 +30,15 @@ function createFallbackFileService() {
       return [];
     },
     readFile: async (_path: string): Promise<string> => {
-      throw new Error('File operations unavailable outside Tauri');
+      throw new Error("File operations unavailable outside Tauri");
     },
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
     convert: async (params: ConvertFileOptions): Promise<unknown> => {
-      return http.post('/v1/files/convert', params);
+      return http.post("/v1/files/convert", params);
     },
     detect: async (filePath: string): Promise<FileDetectResult> => {
-      return http.post<FileDetectResult>('/v1/files/detect', { filePath });
+      return http.post<FileDetectResult>("/v1/files/detect", { filePath });
     },
   };
 }
@@ -48,48 +48,55 @@ function createTauriFileService() {
     listDir: async (path: string): Promise<FileEntry[]> => {
       const core = await getTauriCore();
       if (!core) return createFallbackFileService().listDir(path);
-      return core.invoke<FileEntry[]>('list_files', { path });
+      return core.invoke<FileEntry[]>("list_files", { path });
     },
     readFile: async (path: string): Promise<string> => {
       const core = await getTauriCore();
       if (!core) return createFallbackFileService().readFile(path);
-      return core.invoke<string>('read_file', { path });
+      return core.invoke<string>("read_file", { path });
     },
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
     convert: async (params: ConvertFileOptions): Promise<unknown> => {
-      return http.post('/v1/files/convert', params);
+      return http.post("/v1/files/convert", params);
     },
     detect: async (filePath: string): Promise<FileDetectResult> => {
-      return http.post<FileDetectResult>('/v1/files/detect', { filePath });
+      return http.post<FileDetectResult>("/v1/files/detect", { filePath });
     },
   };
 }
 
-async function uploadViaHttp(file: File): Promise<{ path: string; size: number }> {
+async function uploadViaHttp(
+  file: File,
+): Promise<{ path: string; size: number }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      const base64 = result.split(',')[1];
+      const base64 = result.split(",")[1];
       http
-        .post<{ path: string; size: number }>('/v1/files/upload', {
+        .post<{ path: string; size: number }>("/v1/files/upload", {
           filename: file.name,
           data: base64,
         })
         .then(resolve)
         .catch(reject);
     };
-    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 }
 
-async function uploadBase64ViaHttp(filename: string, base64Data: string): Promise<{ path: string; size: number }> {
-  return http.post<{ path: string; size: number }>('/v1/files/upload', {
+async function uploadBase64ViaHttp(
+  filename: string,
+  base64Data: string,
+): Promise<{ path: string; size: number }> {
+  return http.post<{ path: string; size: number }>("/v1/files/upload", {
     filename,
     data: base64Data,
   });
 }
 
-export const fileService = isTauri ? createTauriFileService() : createFallbackFileService();
+export const fileService = isTauri
+  ? createTauriFileService()
+  : createFallbackFileService();

@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { configService } from '../services/configService';
+import { create } from "zustand";
+import { configService } from "../services/configService";
 
 interface ConfigStore {
   config: Record<string, unknown>;

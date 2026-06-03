@@ -1,8 +1,8 @@
 /**
  * 模型定价工具
  * 提供成本计算、格式化等工具函数
- * 
- * 注意：定价数据（COST_TIER_*、MODEL_PRICING、MODEL_ALIASES）已迁移到 
+ *
+ * 注意：定价数据（COST_TIER_*、MODEL_PRICING、MODEL_ALIASES）已迁移到
  * ModelConfigs.ts 和 ModelRegistry，此文件仅保留工具函数。
  */
 
@@ -99,7 +99,8 @@ export function calculateModelCost(
   cost += (inputTokens / 1_000_000) * pricing.inputPricePerMillion;
   cost += (outputTokens / 1_000_000) * pricing.outputPricePerMillion;
   cost += (cacheReadTokens / 1_000_000) * pricing.cacheReadPricePerMillion;
-  cost += (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
+  cost +=
+    (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
   cost += webSearchRequests * pricing.webSearchPricePerRequest;
 
   return cost;
@@ -117,7 +118,8 @@ export function calculateCostFromTokens(
   cost += (inputTokens / 1_000_000) * pricing.inputPricePerMillion;
   cost += (outputTokens / 1_000_000) * pricing.outputPricePerMillion;
   cost += (cacheReadTokens / 1_000_000) * pricing.cacheReadPricePerMillion;
-  cost += (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
+  cost +=
+    (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
   cost += webSearchRequests * pricing.webSearchPricePerRequest;
   return cost;
 }

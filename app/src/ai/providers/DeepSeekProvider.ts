@@ -46,7 +46,11 @@ export class DeepSeekProvider implements AIProvider {
     const registry = ModelRegistry.getInstance();
     const providerCfg = registry.getProviderConfig('deepseek');
 
-    this.apiKey = providerCfg?.apiKey || config.apiKey || process.env.DEEPSEEK_API_KEY || '';
+    this.apiKey =
+      providerCfg?.apiKey ||
+      config.apiKey ||
+      process.env.DEEPSEEK_API_KEY ||
+      '';
 
     this.baseUrl = (
       providerCfg?.baseUrl ||
@@ -194,9 +198,7 @@ export class DeepSeekProvider implements AIProvider {
             const parsed = JSON.parse(data) as Record<string, unknown>;
 
             // 提取 usage 字段（通常在流式响应的最后一个 chunk 中出现）
-            const usage = parsed['usage'] as
-              | ChatResponse['usage']
-              | undefined;
+            const usage = parsed['usage'] as ChatResponse['usage'] | undefined;
             if (usage) {
               lastUsage = usage;
             }

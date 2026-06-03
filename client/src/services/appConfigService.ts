@@ -4,12 +4,13 @@ export interface AppConfig {
   firstRunCompleted: boolean;
 }
 
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
 
 function defaultConfig(): AppConfig {
-  const homeDir = typeof process !== 'undefined' && process.env?.USERPROFILE
-    ? process.env.USERPROFILE
-    : 'C:\\Users\\Default';
+  const homeDir =
+    typeof process !== "undefined" && process.env?.USERPROFILE
+      ? process.env.USERPROFILE
+      : "C:\\Users\\Default";
 
   return {
     dataDir: `${homeDir}\\.pyapp`,
@@ -18,18 +19,21 @@ function defaultConfig(): AppConfig {
   };
 }
 
-async function invoke<T>(method: string, args?: Record<string, unknown>): Promise<T> {
+async function invoke<T>(
+  method: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
   if (!isTauri) {
-    throw new Error('Not in Tauri environment');
+    throw new Error("Not in Tauri environment");
   }
-  const core = await import('@tauri-apps/api/core');
+  const core = await import("@tauri-apps/api/core");
   return await core.invoke<T>(method, args);
 }
 
 export const appConfigService = {
   async get(): Promise<AppConfig> {
     try {
-      const config = await invoke<AppConfig>('get_app_config');
+      const config = await invoke<AppConfig>("get_app_config");
 
       if (!config.dataDir) {
         const def = defaultConfig();
@@ -44,7 +48,7 @@ export const appConfigService = {
 
   async set(config: AppConfig): Promise<void> {
     if (!isTauri) return;
-    await invoke('set_app_config', { config });
+    await invoke("set_app_config", { config });
   },
 
   async isFirstRun(): Promise<boolean> {

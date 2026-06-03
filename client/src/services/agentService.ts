@@ -1,18 +1,21 @@
-import type { AgentTask } from '../types';
-import { http } from './httpClient';
+import type { AgentTask } from "../types";
+import { http } from "./httpClient";
 
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
 
 async function getTauriCore() {
   if (!isTauri) return null;
   try {
-    return await import('@tauri-apps/api/core');
+    return await import("@tauri-apps/api/core");
   } catch {
     return null;
   }
 }
 
-async function tryTauri<T>(method: string, args?: Record<string, unknown>): Promise<T | null> {
+async function tryTauri<T>(
+  method: string,
+  args?: Record<string, unknown>,
+): Promise<T | null> {
   const core = await getTauriCore();
   if (!core) return null;
   try {
@@ -25,11 +28,14 @@ async function tryTauri<T>(method: string, args?: Record<string, unknown>): Prom
 function createMemoryAgentService() {
   return {
     listTasks: async (): Promise<AgentTask[]> => [],
-    executeTask: async (name: string, _params?: Record<string, unknown>): Promise<AgentTask> => ({
+    executeTask: async (
+      name: string,
+      _params?: Record<string, unknown>,
+    ): Promise<AgentTask> => ({
       id: `local-${Date.now()}`,
       name,
-      status: 'completed',
-      result: 'Agent execution unavailable',
+      status: "completed",
+      result: "Agent execution unavailable",
       created_at: Date.now(),
     }),
     cancelTask: async (_id: string): Promise<void> => {},
@@ -47,7 +53,7 @@ export interface AgentTaskCreateParams {
   name: string;
   description?: string;
   prompt?: string;
-  priority?: 'high' | 'medium' | 'low';
+  priority?: "high" | "medium" | "low";
   subagentType?: string;
   runInBackground?: boolean;
   metadata?: Record<string, unknown>;
@@ -59,14 +65,15 @@ export interface AgentTaskUpdateParams {
   metadata?: Record<string, unknown>;
 }
 
-export type AgentTaskCreateParamsRecord = Record<string, unknown> & AgentTaskCreateParams;
+export type AgentTaskCreateParamsRecord = Record<string, unknown> &
+  AgentTaskCreateParams;
 
 export const agentService = {
   listTasks: async (): Promise<AgentTask[]> => {
     try {
-      return await http.get<AgentTask[]>('/v1/agents/tasks');
+      return await http.get<AgentTask[]>("/v1/agents/tasks");
     } catch {
-      const result = await tryTauri<AgentTask[]>('list_agent_tasks');
+      const result = await tryTauri<AgentTask[]>("list_agent_tasks");
       if (result) return result;
       return createMemoryAgentService().listTasks();
     }
@@ -76,9 +83,11 @@ export const agentService = {
     try {
       return await http.get<AgentProgress>(`/v1/agents/tasks/${id}`);
     } catch {
-      const result = await tryTauri<AgentProgress>('get_agent_progress', { id });
+      const result = await tryTauri<AgentProgress>("get_agent_progress", {
+        id,
+      });
       if (result) return result;
-      return { agentId: id, state: 'unknown', progress: 0, message: '' };
+      return { agentId: id, state: "unknown", progress: 0, message: "" };
     }
   },
 
@@ -86,7 +95,7 @@ export const agentService = {
     try {
       return await http.get<string[]>(`/v1/agents/tasks/${id}/logs`);
     } catch {
-      const result = await tryTauri<string[]>('get_agent_task_logs', { id });
+      const result = await tryTauri<string[]>("get_agent_task_logs", { id });
       if (result) return result;
       return [];
     }
@@ -94,14 +103,20 @@ export const agentService = {
 
   createTask: async (params: AgentTaskCreateParams): Promise<AgentTask> => {
     try {
-      return await http.post<AgentTask>('/v1/agents/tasks', params as unknown as Record<string, unknown>);
+      return await http.post<AgentTask>(
+        "/v1/agents/tasks",
+        params as unknown as Record<string, unknown>,
+      );
     } catch {
-      const result = await tryTauri<AgentTask>('create_agent_task', params as unknown as Record<string, unknown>);
+      const result = await tryTauri<AgentTask>(
+        "create_agent_task",
+        params as unknown as Record<string, unknown>,
+      );
       if (result) return result;
       const task: AgentTask = {
         id: `local-${Date.now()}`,
         name: params.name,
-        status: 'pending',
+        status: "pending",
         created_at: Date.now(),
       };
       if (params.description) {
@@ -111,24 +126,39 @@ export const agentService = {
     }
   },
 
-  executeTask: async (name: string, params?: Record<string, unknown>): Promise<AgentTask> => {
+  executeTask: async (
+    name: string,
+    params?: Record<string, unknown>,
+  ): Promise<AgentTask> => {
     try {
-      return await http.post<AgentTask>('/v1/agents/tasks/execute', { name, ...params });
+      return await http.post<AgentTask>("/v1/agents/tasks/execute", {
+        name,
+        ...params,
+      });
     } catch {
-      const result = await tryTauri<AgentTask>('execute_agent_task', { name, params });
+      const result = await tryTauri<AgentTask>("execute_agent_task", {
+        name,
+        params,
+      });
       if (result) return result;
       return createMemoryAgentService().executeTask(name, params);
     }
   },
 
-  updateTask: async (id: string, params: AgentTaskUpdateParams): Promise<AgentTask> => {
+  updateTask: async (
+    id: string,
+    params: AgentTaskUpdateParams,
+  ): Promise<AgentTask> => {
     try {
       return await http.put<AgentTask>(`/v1/agents/tasks/${id}`, params);
     } catch {
-      const result = await tryTauri<AgentTask>('update_agent_task', { id, ...params });
+      const result = await tryTauri<AgentTask>("update_agent_task", {
+        id,
+        ...params,
+      });
       if (result) return result;
       const tasks = await agentService.listTasks();
-      const task = tasks.find(t => t.id === id);
+      const task = tasks.find((t) => t.id === id);
       return task ? { ...task, ...params } : task!;
     }
   },
@@ -137,7 +167,7 @@ export const agentService = {
     try {
       await http.delete<void>(`/v1/agents/tasks/${id}`);
     } catch {
-      const result = await tryTauri<void>('delete_agent_task', { id });
+      const result = await tryTauri<void>("delete_agent_task", { id });
       if (result !== null) return;
     }
   },
@@ -146,7 +176,7 @@ export const agentService = {
     try {
       await http.post<void>(`/v1/agents/tasks/${id}/cancel`);
     } catch {
-      const result = await tryTauri<void>('cancel_agent_task', { id });
+      const result = await tryTauri<void>("cancel_agent_task", { id });
       if (result !== null) return;
       return createMemoryAgentService().cancelTask(id);
     }
@@ -154,9 +184,9 @@ export const agentService = {
 
   listTaskHistory: async (): Promise<AgentTask[]> => {
     try {
-      return await http.get<AgentTask[]>('/v1/agents/tasks/history');
+      return await http.get<AgentTask[]>("/v1/agents/tasks/history");
     } catch {
-      const result = await tryTauri<AgentTask[]>('list_agent_task_history');
+      const result = await tryTauri<AgentTask[]>("list_agent_task_history");
       if (result) return result;
       return [];
     }

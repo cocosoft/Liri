@@ -38,8 +38,10 @@ export class AnthropicSelectionStrategy implements ModelSelectionStrategy {
 
   constructor() {
     this.opusModel = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL || this.opusModel;
-    this.sonnetModel = process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || this.sonnetModel;
-    this.haikuModel = process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || this.haikuModel;
+    this.sonnetModel =
+      process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || this.sonnetModel;
+    this.haikuModel =
+      process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || this.haikuModel;
   }
 
   getBestModel(): string {
@@ -180,11 +182,15 @@ export class FallbackSelectionStrategy implements ModelSelectionStrategy {
  */
 const strategyRegistry = new Map<string, ModelSelectionStrategy>();
 
-export function registerModelSelectionStrategy(strategy: ModelSelectionStrategy): void {
+export function registerModelSelectionStrategy(
+  strategy: ModelSelectionStrategy
+): void {
   strategyRegistry.set(strategy.providerId, strategy);
 }
 
-export function getModelSelectionStrategy(providerId: string): ModelSelectionStrategy {
+export function getModelSelectionStrategy(
+  providerId: string
+): ModelSelectionStrategy {
   return strategyRegistry.get(providerId) || new FallbackSelectionStrategy();
 }
 

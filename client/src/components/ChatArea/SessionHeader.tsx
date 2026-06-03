@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { useSessionStore } from '../../stores/sessionStore';
+import { useState } from "react";
+import { useSessionStore } from "../../stores/sessionStore";
 
 function SessionHeader() {
   const { currentSession, renameSession } = useSessionStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
+  const [editTitle, setEditTitle] = useState("");
 
   const handleDoubleClick = () => {
     if (currentSession) {
@@ -14,16 +14,20 @@ function SessionHeader() {
   };
 
   const handleBlur = () => {
-    if (editTitle.trim() && currentSession && editTitle !== currentSession.title) {
+    if (
+      editTitle.trim() &&
+      currentSession &&
+      editTitle !== currentSession.title
+    ) {
       renameSession(currentSession.id, editTitle.trim());
     }
     setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleBlur();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       setIsEditing(false);
     }
   };
@@ -43,7 +47,7 @@ function SessionHeader() {
                 onKeyDown={handleKeyDown}
                 autoFocus
                 className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ width: '200px' }}
+                style={{ width: "200px" }}
               />
             ) : (
               <h2
@@ -56,7 +60,9 @@ function SessionHeader() {
             )}
           </div>
         ) : (
-          <span className="text-sm text-gray-500 dark:text-gray-400">选择会话或创建新会话</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            选择会话或创建新会话
+          </span>
         )}
       </div>
     </header>

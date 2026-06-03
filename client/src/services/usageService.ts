@@ -3,13 +3,13 @@
  * 对接后端 /v1/usage/* 端点
  */
 
-import { http } from './httpClient';
+import { http } from "./httpClient";
 import type {
   UsageSummary,
   DailyUsageStats,
   ModelUsageStats,
   ProviderUsageStats,
-} from '../types';
+} from "../types";
 
 export const usageService = {
   /** 使用量概览 */
@@ -19,7 +19,9 @@ export const usageService = {
     model?: string;
     providerId?: string;
   }): Promise<UsageSummary> {
-    const resp = await http.get<{ data: UsageSummary }>('/v1/usage/summary', { params: params as Record<string, unknown> });
+    const resp = await http.get<{ data: UsageSummary }>("/v1/usage/summary", {
+      params: params as Record<string, unknown>,
+    });
     return resp.data;
   },
 
@@ -29,7 +31,10 @@ export const usageService = {
     endDate?: number;
     model?: string;
   }): Promise<DailyUsageStats[]> {
-    const resp = await http.get<{ data: DailyUsageStats[] }>('/v1/usage/trend', { params: params as Record<string, unknown> });
+    const resp = await http.get<{ data: DailyUsageStats[] }>(
+      "/v1/usage/trend",
+      { params: params as Record<string, unknown> },
+    );
     return resp.data;
   },
 
@@ -38,7 +43,10 @@ export const usageService = {
     startDate?: number;
     endDate?: number;
   }): Promise<ModelUsageStats[]> {
-    const resp = await http.get<{ data: ModelUsageStats[] }>('/v1/usage/models', { params: params as Record<string, unknown> });
+    const resp = await http.get<{ data: ModelUsageStats[] }>(
+      "/v1/usage/models",
+      { params: params as Record<string, unknown> },
+    );
     return resp.data;
   },
 
@@ -47,7 +55,10 @@ export const usageService = {
     startDate?: number;
     endDate?: number;
   }): Promise<ProviderUsageStats[]> {
-    const resp = await http.get<{ data: ProviderUsageStats[] }>('/v1/usage/providers', { params: params as Record<string, unknown> });
+    const resp = await http.get<{ data: ProviderUsageStats[] }>(
+      "/v1/usage/providers",
+      { params: params as Record<string, unknown> },
+    );
     return resp.data;
   },
 
@@ -57,11 +68,15 @@ export const usageService = {
     providerId?: string;
     page?: number;
     pageSize?: number;
-  }): Promise<{ data: unknown[]; total: number; page: number; pageSize: number }> {
-    const resp = await http.get<{ data: { data: unknown[]; total: number; page: number; pageSize: number } }>(
-      '/v1/usage/logs',
-      { params: params as Record<string, unknown> },
-    );
+  }): Promise<{
+    data: unknown[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const resp = await http.get<{
+      data: { data: unknown[]; total: number; page: number; pageSize: number };
+    }>("/v1/usage/logs", { params: params as Record<string, unknown> });
     return resp.data;
   },
 };

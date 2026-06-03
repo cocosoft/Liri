@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useConfigStore } from '../../stores/configStore';
+import { useState, useEffect } from "react";
+import { useConfigStore } from "../../stores/configStore";
 
 interface RetryPolicy {
   taskId: string;
@@ -13,11 +13,35 @@ interface RetryPolicy {
 
 function CronRetryConfig() {
   const { config, loadConfig } = useConfigStore();
-  const isDark = config.theme === 'dark';
+  const isDark = config.theme === "dark";
   const [policies, setPolicies] = useState<RetryPolicy[]>([
-    { taskId: '1', taskName: '数据备份', enabled: true, maxRetries: 3, retryDelay: 60, backoffMultiplier: 2, retryableErrors: ['network', 'timeout'] },
-    { taskId: '2', taskName: '日志清理', enabled: false, maxRetries: 1, retryDelay: 30, backoffMultiplier: 1.5, retryableErrors: ['permission'] },
-    { taskId: '3', taskName: '健康检查', enabled: true, maxRetries: 5, retryDelay: 10, backoffMultiplier: 2, retryableErrors: ['network', 'timeout', 'service'] },
+    {
+      taskId: "1",
+      taskName: "数据备份",
+      enabled: true,
+      maxRetries: 3,
+      retryDelay: 60,
+      backoffMultiplier: 2,
+      retryableErrors: ["network", "timeout"],
+    },
+    {
+      taskId: "2",
+      taskName: "日志清理",
+      enabled: false,
+      maxRetries: 1,
+      retryDelay: 30,
+      backoffMultiplier: 1.5,
+      retryableErrors: ["permission"],
+    },
+    {
+      taskId: "3",
+      taskName: "健康检查",
+      enabled: true,
+      maxRetries: 5,
+      retryDelay: 10,
+      backoffMultiplier: 2,
+      retryableErrors: ["network", "timeout", "service"],
+    },
   ]);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
 
@@ -27,13 +51,15 @@ function CronRetryConfig() {
 
   const updatePolicy = (taskId: string, updates: Partial<RetryPolicy>) => {
     setPolicies((prev) =>
-      prev.map((p) => (p.taskId === taskId ? { ...p, ...updates } : p))
+      prev.map((p) => (p.taskId === taskId ? { ...p, ...updates } : p)),
     );
   };
 
   const toggleRetry = (taskId: string) => {
     setPolicies((prev) =>
-      prev.map((p) => (p.taskId === taskId ? { ...p, enabled: !p.enabled } : p))
+      prev.map((p) =>
+        p.taskId === taskId ? { ...p, enabled: !p.enabled } : p,
+      ),
     );
   };
 
@@ -41,9 +67,12 @@ function CronRetryConfig() {
     setPolicies((prev) =>
       prev.map((p) =>
         p.taskId === taskId
-          ? { ...p, retryableErrors: p.retryableErrors.filter((e) => e !== error) }
-          : p
-      )
+          ? {
+              ...p,
+              retryableErrors: p.retryableErrors.filter((e) => e !== error),
+            }
+          : p,
+      ),
     );
   };
 
@@ -52,8 +81,8 @@ function CronRetryConfig() {
       prev.map((p) =>
         p.taskId === taskId && !p.retryableErrors.includes(error)
           ? { ...p, retryableErrors: [...p.retryableErrors, error] }
-          : p
-      )
+          : p,
+      ),
     );
   };
 
@@ -64,8 +93,12 @@ function CronRetryConfig() {
       <h3 className="text-sm font-medium mb-4">重试策略配置</h3>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className={`rounded-lg border ${isDark ? 'bg-gray-700/30 border-gray-700' : 'bg-gray-50 border-gray-200'} p-3`}>
-          <h4 className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+        <div
+          className={`rounded-lg border ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-200"} p-3`}
+        >
+          <h4
+            className={`text-xs font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+          >
             任务列表
           </h4>
           <div className="space-y-2">
@@ -75,16 +108,18 @@ function CronRetryConfig() {
                 onClick={() => setSelectedTask(policy.taskId)}
                 className={`w-full text-left p-2 rounded text-sm transition-colors ${
                   selectedTask === policy.taskId
-                    ? 'bg-blue-600 text-white'
+                    ? "bg-blue-600 text-white"
                     : isDark
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-white hover:bg-gray-100 text-gray-700'
+                      ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                      : "bg-white hover:bg-gray-100 text-gray-700"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span>{policy.taskName}</span>
-                  <span className={`text-xs ${policy.enabled ? 'text-green-400' : 'text-gray-500'}`}>
-                    {policy.enabled ? 'ON' : 'OFF'}
+                  <span
+                    className={`text-xs ${policy.enabled ? "text-green-400" : "text-gray-500"}`}
+                  >
+                    {policy.enabled ? "ON" : "OFF"}
                   </span>
                 </div>
               </button>
@@ -92,69 +127,93 @@ function CronRetryConfig() {
           </div>
         </div>
 
-        <div className={`col-span-2 rounded-lg border ${isDark ? 'bg-gray-700/30 border-gray-700' : 'bg-gray-50 border-gray-200'} p-3`}>
+        <div
+          className={`col-span-2 rounded-lg border ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-200"} p-3`}
+        >
           {selectedPolicy ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                <h4
+                  className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                >
                   {selectedPolicy.taskName} - 重试策略
                 </h4>
                 <button
                   onClick={() => toggleRetry(selectedPolicy.taskId)}
                   className={`px-3 py-1 text-xs rounded-full transition-colors ${
                     selectedPolicy.enabled
-                      ? 'bg-green-600 text-white'
+                      ? "bg-green-600 text-white"
                       : isDark
-                      ? 'bg-gray-600 text-gray-300'
-                      : 'bg-gray-300 text-gray-700'
+                        ? "bg-gray-600 text-gray-300"
+                        : "bg-gray-300 text-gray-700"
                   }`}
                 >
-                  {selectedPolicy.enabled ? '已启用' : '已禁用'}
+                  {selectedPolicy.enabled ? "已启用" : "已禁用"}
                 </button>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <label
+                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                  >
                     最大重试次数
                   </label>
                   <input
                     type="number"
                     value={selectedPolicy.maxRetries}
-                    onChange={(e) => updatePolicy(selectedPolicy.taskId, { maxRetries: parseInt(e.target.value, 10) || 0 })}
+                    onChange={(e) =>
+                      updatePolicy(selectedPolicy.taskId, {
+                        maxRetries: parseInt(e.target.value, 10) || 0,
+                      })
+                    }
                     disabled={!selectedPolicy.enabled}
-                    className={`w-full px-2 py-1 text-sm border rounded ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'} disabled:opacity-50`}
+                    className={`w-full px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <label
+                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                  >
                     重试延迟 (秒)
                   </label>
                   <input
                     type="number"
                     value={selectedPolicy.retryDelay}
-                    onChange={(e) => updatePolicy(selectedPolicy.taskId, { retryDelay: parseInt(e.target.value, 10) || 0 })}
+                    onChange={(e) =>
+                      updatePolicy(selectedPolicy.taskId, {
+                        retryDelay: parseInt(e.target.value, 10) || 0,
+                      })
+                    }
                     disabled={!selectedPolicy.enabled}
-                    className={`w-full px-2 py-1 text-sm border rounded ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'} disabled:opacity-50`}
+                    className={`w-full px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <label
+                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                  >
                     退避倍数
                   </label>
                   <input
                     type="number"
                     step="0.1"
                     value={selectedPolicy.backoffMultiplier}
-                    onChange={(e) => updatePolicy(selectedPolicy.taskId, { backoffMultiplier: parseFloat(e.target.value) || 1 })}
+                    onChange={(e) =>
+                      updatePolicy(selectedPolicy.taskId, {
+                        backoffMultiplier: parseFloat(e.target.value) || 1,
+                      })
+                    }
                     disabled={!selectedPolicy.enabled}
-                    className={`w-full px-2 py-1 text-sm border rounded ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'} disabled:opacity-50`}
+                    className={`w-full px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className={`block text-xs mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <label
+                  className={`block text-xs mb-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                >
                   可重试的错误类型
                 </label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -162,12 +221,16 @@ function CronRetryConfig() {
                     <span
                       key={error}
                       className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
-                        isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'
+                        isDark
+                          ? "bg-blue-900/30 text-blue-400"
+                          : "bg-blue-100 text-blue-700"
                       }`}
                     >
                       {error}
                       <button
-                        onClick={() => removeRetryableError(selectedPolicy.taskId, error)}
+                        onClick={() =>
+                          removeRetryableError(selectedPolicy.taskId, error)
+                        }
                         disabled={!selectedPolicy.enabled}
                         className="hover:text-red-400 disabled:opacity-50"
                       >
@@ -181,10 +244,10 @@ function CronRetryConfig() {
                   onChange={(e) => {
                     if (e.target.value) {
                       addRetryableError(selectedPolicy.taskId, e.target.value);
-                      e.target.value = '';
+                      e.target.value = "";
                     }
                   }}
-                  className={`px-2 py-1 text-sm border rounded ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'} disabled:opacity-50`}
+                  className={`px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                 >
                   <option value="">添加错误类型...</option>
                   <option value="network">网络错误</option>
@@ -195,28 +258,46 @@ function CronRetryConfig() {
                 </select>
               </div>
 
-              <div className={`p-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-                <h5 className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <div
+                className={`p-3 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"}`}
+              >
+                <h5
+                  className={`text-xs font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                >
                   重试时间线示例
                 </h5>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span>失败</span>
-                  {Array.from({ length: selectedPolicy.maxRetries }).map((_, i) => {
-                    const delay = selectedPolicy.retryDelay * Math.pow(selectedPolicy.backoffMultiplier, i);
-                    return (
-                      <span key={i} className="flex items-center gap-2">
-                        <span className={`${isDark ? 'text-gray-600' : 'text-gray-300'}`}>→</span>
-                        <span className="text-blue-500">{delay}秒</span>
-                        <span className={`${isDark ? 'text-gray-600' : 'text-gray-300'}`}>→</span>
-                        <span>重试{i + 1}</span>
-                      </span>
-                    );
-                  })}
+                  {Array.from({ length: selectedPolicy.maxRetries }).map(
+                    (_, i) => {
+                      const delay =
+                        selectedPolicy.retryDelay *
+                        Math.pow(selectedPolicy.backoffMultiplier, i);
+                      return (
+                        <span key={i} className="flex items-center gap-2">
+                          <span
+                            className={`${isDark ? "text-gray-600" : "text-gray-300"}`}
+                          >
+                            →
+                          </span>
+                          <span className="text-blue-500">{delay}秒</span>
+                          <span
+                            className={`${isDark ? "text-gray-600" : "text-gray-300"}`}
+                          >
+                            →
+                          </span>
+                          <span>重试{i + 1}</span>
+                        </span>
+                      );
+                    },
+                  )}
                 </div>
               </div>
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-8 text-sm">请从左侧选择一个任务</p>
+            <p className="text-center text-gray-400 py-8 text-sm">
+              请从左侧选择一个任务
+            </p>
           )}
         </div>
       </div>

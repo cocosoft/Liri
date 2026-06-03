@@ -8,7 +8,7 @@ export interface Session {
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
   timestamp: number;
   session_id: string;
@@ -27,7 +27,7 @@ export interface Message {
 
 export interface MessageBlock {
   id: string;
-  type: 'text' | 'thinking' | 'tool_call' | 'status';
+  type: "text" | "thinking" | "tool_call" | "status";
   content: string;
   toolCall?: ToolCall;
   status?: string;
@@ -49,7 +49,7 @@ export interface ToolCall {
   name: string;
   arguments: Record<string, unknown>;
   result?: unknown;
-  status?: 'running' | 'completed' | 'failed';
+  status?: "running" | "completed" | "failed";
 }
 
 export interface ModelInfo {
@@ -57,7 +57,7 @@ export interface ModelInfo {
   name: string;
   provider: string;
   providerId?: string;
-  type: 'chat' | 'embedding' | 'image';
+  type: "chat" | "embedding" | "image";
   context_length: number;
   enabled: boolean;
   pricing?: {
@@ -109,7 +109,13 @@ export interface EndpointLatency {
 export interface BalanceResult {
   success: boolean;
   provider: string;
-  data: Array<{ planName?: string; remaining?: number; total?: number; used?: number; unit?: string }>;
+  data: Array<{
+    planName?: string;
+    remaining?: number;
+    total?: number;
+    used?: number;
+    unit?: string;
+  }>;
   error?: string;
 }
 
@@ -173,7 +179,7 @@ export interface BackendStatus {
 export interface FileEntry {
   name: string;
   path: string;
-  type: 'file' | 'directory';
+  type: "file" | "directory";
   size?: number;
   modified_at?: number;
 }
@@ -216,12 +222,12 @@ export interface KnowledgeSearchResult {
 }
 
 export type KnowledgeSource =
-  | 'manual'
-  | 'auto-memory'
-  | 'upload'
-  | 'chat-save'
-  | 'dream'
-  | 'compiled';
+  | "manual"
+  | "auto-memory"
+  | "upload"
+  | "chat-save"
+  | "dream"
+  | "compiled";
 
 export interface KnowledgeBase {
   name: string;
@@ -230,7 +236,7 @@ export interface KnowledgeBase {
   docCount: number;
   icon: string;
   createdAt: number;
-  source: 'system' | 'user';
+  source: "system" | "user";
 }
 
 export interface KnowledgeFile {
@@ -250,8 +256,8 @@ export interface KnowledgeFile {
 export interface AgentTask {
   id: string;
   name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  priority?: 'high' | 'medium' | 'low';
+  status: "pending" | "running" | "completed" | "failed";
+  priority?: "high" | "medium" | "low";
   progress?: number;
   result?: string;
   error?: string;
@@ -272,13 +278,13 @@ export interface AgentTaskTemplate {
   name: string;
   description?: string;
   prompt: string;
-  priority?: 'high' | 'medium' | 'low';
+  priority?: "high" | "medium" | "low";
   tags?: string[];
   createdAt: number;
 }
 
 export interface ScheduleConfig {
-  type: 'cron' | 'interval' | 'once';
+  type: "cron" | "interval" | "once";
   cronExpression?: string;
   intervalMinutes?: number;
   scheduledTime?: number;
@@ -290,7 +296,7 @@ export interface ExecutionRecord {
   taskId: string;
   startTime: number;
   endTime?: number;
-  status: 'completed' | 'failed';
+  status: "completed" | "failed";
   result?: string;
   error?: string;
   tokenUsed?: number;
@@ -304,17 +310,40 @@ export interface AgentProgress {
 }
 
 export type BuddySpecies =
-  | 'duck' | 'goose' | 'blob' | 'cat' | 'dragon' | 'octopus'
-  | 'owl' | 'penguin' | 'turtle' | 'snail' | 'ghost' | 'axolotl'
-  | 'capybara' | 'cactus' | 'robot' | 'rabbit' | 'mushroom' | 'chonk';
+  | "duck"
+  | "goose"
+  | "blob"
+  | "cat"
+  | "dragon"
+  | "octopus"
+  | "owl"
+  | "penguin"
+  | "turtle"
+  | "snail"
+  | "ghost"
+  | "axolotl"
+  | "capybara"
+  | "cactus"
+  | "robot"
+  | "rabbit"
+  | "mushroom"
+  | "chonk";
 
-export type BuddyRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export type BuddyRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
-export type BuddyStat = 'DEBUGGING' | 'PATIENCE' | 'CHAOS' | 'WISDOM' | 'SNARK';
+export type BuddyStat = "DEBUGGING" | "PATIENCE" | "CHAOS" | "WISDOM" | "SNARK";
 
-export type BuddyEye = '·' | '✦' | '×' | '◉' | '@' | '°';
+export type BuddyEye = "·" | "✦" | "×" | "◉" | "@" | "°";
 
-export type BuddyHat = 'none' | 'crown' | 'tophat' | 'propeller' | 'halo' | 'wizard' | 'beanie' | 'tinyduck';
+export type BuddyHat =
+  | "none"
+  | "crown"
+  | "tophat"
+  | "propeller"
+  | "halo"
+  | "wizard"
+  | "beanie"
+  | "tinyduck";
 
 export interface BuddyCompanion {
   name: string;
@@ -345,16 +374,35 @@ export interface CronTask {
   enabled: boolean;
   lastRun?: number;
   nextRun?: number;
-  status: 'idle' | 'running' | 'error';
+  status: "idle" | "running" | "error";
 }
 
 export type ChannelType =
-  | 'wecom' | 'feishu' | 'dingtalk' | 'wechat' | 'qq'
-  | 'telegram' | 'discord' | 'slack' | 'line'
-  | 'whatsapp' | 'signal' | 'matrix'
-  | 'irc' | 'nostr' | 'email' | 'sms' | 'webhook'
-  | 'googlechat' | 'msteams' | 'zalo' | 'yuanbao'
-  | 'facebook' | 'twitter' | 'mattermost' | 'bluebubbles';
+  | "wecom"
+  | "feishu"
+  | "dingtalk"
+  | "wechat"
+  | "qq"
+  | "telegram"
+  | "discord"
+  | "slack"
+  | "line"
+  | "whatsapp"
+  | "signal"
+  | "matrix"
+  | "irc"
+  | "nostr"
+  | "email"
+  | "sms"
+  | "webhook"
+  | "googlechat"
+  | "msteams"
+  | "zalo"
+  | "yuanbao"
+  | "facebook"
+  | "twitter"
+  | "mattermost"
+  | "bluebubbles";
 
 export interface Channel {
   id: string;
@@ -363,7 +411,7 @@ export interface Channel {
   enabled: boolean;
   connected: boolean;
   registered: boolean;
-  status?: 'online' | 'offline' | 'error';
+  status?: "online" | "offline" | "error";
   messageCount?: number;
   errorCount?: number;
   config?: Record<string, unknown>;
@@ -405,7 +453,7 @@ export interface ChannelPluginInfo {
 
 export interface DreamLogEntry {
   id: string;
-  type: 'dream:started' | 'dream:completed' | 'dream:failed';
+  type: "dream:started" | "dream:completed" | "dream:failed";
   taskId: string;
   summary: string;
   sessionsCount: number;
@@ -429,7 +477,7 @@ export interface User {
   id: string;
   username: string;
   email?: string;
-  role: 'admin' | 'user' | 'guest';
+  role: "admin" | "user" | "guest";
   trustLevel: 1 | 2 | 3 | 4 | 5;
   created_at: number;
   last_login_at?: number;
@@ -448,7 +496,7 @@ export interface ApiKey {
 export interface Permission {
   scope: string;
   description: string;
-  level: 'none' | 'read' | 'write' | 'admin';
+  level: "none" | "read" | "write" | "admin";
 }
 
 export interface MetricPoint {
@@ -459,7 +507,7 @@ export interface MetricPoint {
 
 export interface Alert {
   id: string;
-  level: 'info' | 'warn' | 'error' | 'critical';
+  level: "info" | "warn" | "error" | "critical";
   message: string;
   timestamp: number;
   acknowledged: boolean;
@@ -468,7 +516,7 @@ export interface Alert {
 
 export interface LogEntry {
   id: string;
-  level: 'debug' | 'info' | 'warn' | 'error';
+  level: "debug" | "info" | "warn" | "error";
   message: string;
   timestamp: number;
   source?: string;
@@ -476,10 +524,10 @@ export interface LogEntry {
 }
 
 export interface SystemHealth {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   components: {
     name: string;
-    status: 'ok' | 'warning' | 'error';
+    status: "ok" | "warning" | "error";
     message?: string;
   }[];
   timestamp: number;
@@ -494,7 +542,7 @@ export interface FilePreview {
   /** 文件内容 */
   content: string;
   /** 文件类型 */
-  type: 'code' | 'markdown' | 'json' | 'yaml' | 'image' | 'text';
+  type: "code" | "markdown" | "json" | "yaml" | "image" | "text";
   /** 语言(代码文件) */
   language?: string;
   /** 文件大小 */

@@ -58,7 +58,7 @@ const KNOWN_COMPAT_SUFFIXES: string[] = [
  */
 function buildCandidates(
   baseUrl: string,
-  modelsUrlOverride?: string,
+  modelsUrlOverride?: string
 ): string[] {
   if (modelsUrlOverride) {
     return [modelsUrlOverride];
@@ -99,7 +99,7 @@ function buildCandidates(
 export async function fetchModels(
   baseUrl: string,
   apiKey: string,
-  modelsUrlOverride?: string,
+  modelsUrlOverride?: string
 ): Promise<{ models: FetchedModel[]; usedUrl: string } | { error: string }> {
   if (!apiKey) {
     return { error: 'API Key is required to fetch models' };
@@ -123,8 +123,8 @@ export async function fetchModels(
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'application/json',
         },
         signal: controller.signal,
       });
@@ -140,7 +140,7 @@ export async function fetchModels(
         return { error: `HTTP ${response.status}: ${body.substring(0, 200)}` };
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         data?: Array<{ id: string; owned_by?: string }>;
       };
 

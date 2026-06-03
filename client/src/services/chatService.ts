@@ -1,13 +1,13 @@
-import type { Message, BackendStatus, ToolCall } from '../types';
-import { getBackendBaseUrl, getBackendPort, setApiSecret } from './backendUrl';
-import { useConfigStore } from '../stores/configStore';
+import type { Message, BackendStatus, ToolCall } from "../types";
+import { getBackendBaseUrl, getBackendPort, setApiSecret } from "./backendUrl";
+import { useConfigStore } from "../stores/configStore";
 
 function getModelFromConfig(): string {
-  return useConfigStore.getState().config.model as string || 'pyapp-default';
+  return (useConfigStore.getState().config.model as string) || "pyapp-default";
 }
 
 export interface StreamChunk {
-  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'usage' | 'done';
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done";
   content: string;
   toolCall?: ToolCall;
   usage?: {
@@ -21,15 +21,15 @@ export interface StreamChunk {
 }
 
 async function getTauriCore() {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return null;
   }
-  if (!('__TAURI__' in window)) {
+  if (!("__TAURI__" in window)) {
     return null;
   }
   try {
-    const core = await import('@tauri-apps/api/core');
-    if (core && typeof core.invoke === 'function') {
+    const core = await import("@tauri-apps/api/core");
+    if (core && typeof core.invoke === "function") {
       return core;
     }
     return null;
@@ -42,13 +42,15 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options?.headers,
     },
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -57,14 +59,17 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function checkHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${getBackendBaseUrl()}/health`, { method: 'GET' });
+    const res = await fetch(`${getBackendBaseUrl()}/health`, { method: "GET" });
     return res.ok;
   } catch {
     return false;
   }
 }
 
-async function pollHealth(maxRetries = 10, intervalMs = 1000): Promise<boolean> {
+async function pollHealth(
+  maxRetries = 10,
+  intervalMs = 1000,
+): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
     if (await checkHealth()) {
       return true;
@@ -80,12 +85,14 @@ export const chatService = {
   startBackend: async (): Promise<BackendStatus> => {
     const core = await getTauriCore();
     if (core) {
-      const status = await core.invoke<BackendStatus>('start_backend');
+      const status = await core.invoke<BackendStatus>("start_backend");
       // 获取共享密钥，后续所有 HTTP 请求将自动携带
       try {
-        const secret = await core.invoke<string | null>('get_backend_secret');
+        const secret = await core.invoke<string | null>("get_backend_secret");
         if (secret) setApiSecret(secret);
-      } catch { /* Tauri 旧版本不支持此命令时忽略 */ }
+      } catch {
+        /* Tauri 旧版本不支持此命令时忽略 */
+      }
       const healthy = await pollHealth();
       return { ...status, running: healthy };
     }
@@ -97,7 +104,7 @@ export const chatService = {
   stopBackend: async (): Promise<void> => {
     const core = await getTauriCore();
     if (core) {
-      await core.invoke<void>('stop_backend');
+      await core.invoke<void>("stop_backend");
       return;
     }
   },
@@ -105,7 +112,7 @@ export const chatService = {
   getBackendStatus: async (): Promise<BackendStatus> => {
     const core = await getTauriCore();
     if (core) {
-      const status = await core.invoke<BackendStatus>('get_backend_status');
+      const status = await core.invoke<BackendStatus>("get_backend_status");
       if (status.running) {
         const healthy = await checkHealth();
         return { ...status, running: healthy };
@@ -117,10 +124,13 @@ export const chatService = {
     return { running: healthy, port: healthy ? getBackendPort() : null };
   },
 
-  sendMessage: async (content: string, sessionId?: string): Promise<Message> => {
+  sendMessage: async (
+    content: string,
+    sessionId?: string,
+  ): Promise<Message> => {
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
-      messages: [{ role: 'user', content }],
+      messages: [{ role: "user", content }],
       max_tokens: 2000,
     };
     if (sessionId) body.session_id = sessionId;
@@ -132,33 +142,36 @@ export const chatService = {
         finish_reason: string;
       }>;
     }>(`${getBackendBaseUrl()}/v1/chat/completions`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(body),
     });
 
     const choice = response.choices[0];
     return {
       id: response.id,
-      role: choice.message.role as 'user' | 'assistant' | 'system',
+      role: choice.message.role as "user" | "assistant" | "system",
       content: choice.message.content,
       timestamp: Date.now(),
-      session_id: sessionId || 'default',
+      session_id: sessionId || "default",
     };
   },
 
-  streamMessage: async function* (content: string, sessionId?: string): AsyncGenerator<StreamChunk, void, unknown> {
+  streamMessage: async function* (
+    content: string,
+    sessionId?: string,
+  ): AsyncGenerator<StreamChunk, void, unknown> {
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
-      messages: [{ role: 'user', content }],
+      messages: [{ role: "user", content }],
       max_tokens: 2000,
       stream: true,
     };
     if (sessionId) body.session_id = sessionId;
 
     const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
     });
@@ -168,12 +181,12 @@ export const chatService = {
     }
 
     if (!response.body) {
-      throw new Error('No response body');
+      throw new Error("No response body");
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
+    let buffer = "";
 
     try {
       while (true) {
@@ -181,69 +194,72 @@ export const chatService = {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (!trimmed || trimmed === "data: [DONE]") continue;
 
-          if (trimmed.startsWith('data: ')) {
+          if (trimmed.startsWith("data: ")) {
             const data = trimmed.slice(6);
             try {
               const chunk = JSON.parse(data);
 
               const pyappType = chunk.__pyapp_type;
-              if (pyappType === 'thinking') {
+              if (pyappType === "thinking") {
                 yield {
-                  type: 'thinking',
-                  content: chunk.choices?.[0]?.delta?.content || '',
+                  type: "thinking",
+                  content: chunk.choices?.[0]?.delta?.content || "",
                 };
-              } else if (pyappType === 'status') {
+              } else if (pyappType === "status") {
                 yield {
-                  type: 'status',
-                  content: chunk.choices?.[0]?.delta?.content || '',
+                  type: "status",
+                  content: chunk.choices?.[0]?.delta?.content || "",
                 };
-              } else if (pyappType === 'tool_call') {
+              } else if (pyappType === "tool_call") {
                 const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
                 if (tc) {
                   const rawArgs = tc.function?.arguments;
                   let parsedArgs: Record<string, unknown> = {};
                   try {
-                    parsedArgs = typeof rawArgs === 'string' ? JSON.parse(rawArgs || '{}') : (rawArgs || {});
-                  } catch { }
+                    parsedArgs =
+                      typeof rawArgs === "string"
+                        ? JSON.parse(rawArgs || "{}")
+                        : rawArgs || {};
+                  } catch {}
                   yield {
-                    type: 'tool_call',
-                    content: '',
+                    type: "tool_call",
+                    content: "",
                     toolCall: {
                       id: tc.id,
-                      name: tc.function?.name || '',
+                      name: tc.function?.name || "",
                       arguments: parsedArgs,
-                      status: chunk.__pyapp_tool_status || 'running',
+                      status: chunk.__pyapp_tool_status || "running",
                     },
                   };
                 }
-              } else if (pyappType === 'usage' && chunk.usage) {
+              } else if (pyappType === "usage" && chunk.usage) {
                 yield {
-                  type: 'usage',
-                  content: '',
+                  type: "usage",
+                  content: "",
                   usage: {
                     inputTokens: chunk.usage.prompt_tokens || 0,
                     outputTokens: chunk.usage.completion_tokens || 0,
                     totalTokens: chunk.usage.total_tokens || 0,
                     estimatedCostUsd: chunk.usage.estimated_cost_usd,
                     cacheReadTokens: chunk.usage.cache_read_input_tokens,
-                    cacheCreationTokens: chunk.usage.cache_creation_input_tokens,
+                    cacheCreationTokens:
+                      chunk.usage.cache_creation_input_tokens,
                   },
                 };
               } else if (chunk.choices?.[0]?.delta?.content) {
                 yield {
-                  type: 'text',
+                  type: "text",
                   content: chunk.choices[0].delta.content,
                 };
               }
-            } catch {
-            }
+            } catch {}
           }
         }
       }
@@ -253,13 +269,17 @@ export const chatService = {
     }
   },
 
-  fetchModels: async (): Promise<Array<{ id: string; name: string; provider: string }>> => {
+  fetchModels: async (): Promise<
+    Array<{ id: string; name: string; provider: string }>
+  > => {
     try {
-      const response = await fetchJSON<{ data: Array<{ id: string; owned_by?: string }> }>(`${getBackendBaseUrl()}/v1/models`);
+      const response = await fetchJSON<{
+        data: Array<{ id: string; owned_by?: string }>;
+      }>(`${getBackendBaseUrl()}/v1/models`);
       return response.data.map((m) => ({
         id: m.id,
         name: m.id,
-        provider: m.owned_by || 'pyapp',
+        provider: m.owned_by || "pyapp",
       }));
     } catch {
       return [];
@@ -269,11 +289,14 @@ export const chatService = {
   updateMessageBlocks: async (
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
   ): Promise<void> => {
-    await fetchJSON<void>(`${getBackendBaseUrl()}/api/session/${sessionId}/message/${messageId}/blocks`, {
-      method: 'PUT',
-      body: JSON.stringify({ blocks }),
-    });
+    await fetchJSON<void>(
+      `${getBackendBaseUrl()}/api/session/${sessionId}/message/${messageId}/blocks`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ blocks }),
+      },
+    );
   },
 };

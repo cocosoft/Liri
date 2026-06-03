@@ -1,6 +1,10 @@
-import { create } from 'zustand';
-import type { FileEntry } from '../types';
-import { fileService, type FileDetectResult, type ConvertFileOptions } from '../services/fileService';
+import { create } from "zustand";
+import type { FileEntry } from "../types";
+import {
+  fileService,
+  type FileDetectResult,
+  type ConvertFileOptions,
+} from "../services/fileService";
 
 interface FileStore {
   entries: FileEntry[];
@@ -21,7 +25,7 @@ interface FileStore {
 
 export const useFileStore = create<FileStore>((set, get) => ({
   entries: [],
-  currentPath: '/',
+  currentPath: "/",
   isLoading: false,
   error: null,
   uploading: false,
@@ -44,7 +48,8 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   goUp: () => {
     const current = get().currentPath;
-    const parent = current === '/' ? '/' : current.split('/').slice(0, -1).join('/') || '/';
+    const parent =
+      current === "/" ? "/" : current.split("/").slice(0, -1).join("/") || "/";
     get().loadDir(parent);
   },
 

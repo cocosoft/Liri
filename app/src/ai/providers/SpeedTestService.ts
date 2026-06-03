@@ -48,7 +48,7 @@ export interface EndpointLatency {
  */
 export async function testEndpoints(
   urls: string[],
-  timeoutMs?: number,
+  timeoutMs?: number
 ): Promise<EndpointLatency[]> {
   if (urls.length === 0) {
     return [];
@@ -61,7 +61,12 @@ export async function testEndpoints(
   const tasks = urls.map(async (url) => {
     const trimmed = url.trim();
     if (!trimmed) {
-      return { url, latency: undefined, status: undefined, error: 'URL 不能为空' };
+      return {
+        url,
+        latency: undefined,
+        status: undefined,
+        error: 'URL 不能为空',
+      };
     }
 
     // 验证 URL 格式
@@ -69,7 +74,12 @@ export async function testEndpoints(
     try {
       parsedUrl = new URL(trimmed);
     } catch {
-      return { url: trimmed, latency: undefined, status: undefined, error: 'URL 无效' };
+      return {
+        url: trimmed,
+        latency: undefined,
+        status: undefined,
+        error: 'URL 无效',
+      };
     }
 
     const controller = new AbortController();
@@ -161,7 +171,9 @@ export function formatSpeedResults(results: EndpointLatency[]): string {
     } else {
       const latencyStr = r.latency !== undefined ? `${r.latency}ms` : 'N/A';
       const statusStr = r.status ? `HTTP ${r.status}` : '';
-      lines.push(`  ${displayUrl.padEnd(45)} ✅ ${latencyStr.padStart(8)} ${statusStr}`);
+      lines.push(
+        `  ${displayUrl.padEnd(45)} ✅ ${latencyStr.padStart(8)} ${statusStr}`
+      );
     }
   }
 

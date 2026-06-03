@@ -7,12 +7,7 @@ import { ALL_MODEL_CONFIGS, getModelKeyByName } from './ModelConfigs.js';
 /**
  * 模型别名列表
  */
-export const MODEL_ALIASES = [
-  'best',
-  'fast',
-  'pro',
-  'flash',
-] as const;
+export const MODEL_ALIASES = ['best', 'fast', 'pro', 'flash'] as const;
 
 /**
  * 模型别名类型
@@ -78,7 +73,11 @@ export function getModelFamily(modelName: string): ModelFamilyAlias | null {
   if (lowerModel.includes('pro') || lowerModel.includes('reasoner')) {
     return 'best';
   }
-  if (lowerModel.includes('flash') || lowerModel.includes('mini') || lowerModel.includes('turbo')) {
+  if (
+    lowerModel.includes('flash') ||
+    lowerModel.includes('mini') ||
+    lowerModel.includes('turbo')
+  ) {
     return 'fast';
   }
 

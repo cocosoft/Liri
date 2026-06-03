@@ -52,10 +52,7 @@ export const CompanionSettings: React.FC = () => {
   return (
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 助手名称 */}
-      <SettingRow
-        label="助手名称"
-        hint="设置 AI 助手在对话中的显示名称"
-      >
+      <SettingRow label="助手名称" hint="设置 AI 助手在对话中的显示名称">
         <input
           type="text"
           value={companion.name || ''}
@@ -80,10 +77,7 @@ export const CompanionSettings: React.FC = () => {
       </SettingRow>
 
       {/* 静音模式 */}
-      <SettingRow
-        label="静音模式"
-        hint="关闭 AI 助手的自动发言和推送通知"
-      >
+      <SettingRow label="静音模式" hint="关闭 AI 助手的自动发言和推送通知">
         <Toggle
           value={companionMuted}
           onChange={(v) => set('companionMuted', v)}

@@ -291,12 +291,10 @@ export class LocalHTTPService {
   private async startCompileScheduler(): Promise<void> {
     try {
       const { aiService } = await import('@modules/ai/services/aiService');
-      const { runKnowledgeCompile } = await import(
-        '@modules/knowledge/KnowledgeCompiler'
-      );
-      const { KnowledgeCompileScheduler } = await import(
-        '@modules/knowledge/KnowledgeCompileScheduler'
-      );
+      const { runKnowledgeCompile } =
+        await import('@modules/knowledge/KnowledgeCompiler');
+      const { KnowledgeCompileScheduler } =
+        await import('@modules/knowledge/KnowledgeCompileScheduler');
       this.compileScheduler = new KnowledgeCompileScheduler(
         (force?: boolean) => runKnowledgeCompile(aiService, { force }),
         { runOnStart: true }
@@ -421,7 +419,11 @@ export class LocalHTTPService {
 
     const url = req.url?.split('?')[0] || '';
 
-    logger.debug('收到请求', { method: req.method, url: req.url, parsedUrl: url });
+    logger.debug('收到请求', {
+      method: req.method,
+      url: req.url,
+      parsedUrl: url,
+    });
 
     // ---- SSE Event Bus ----
     if (req.method === 'GET' && url === '/v1/events') {
@@ -468,7 +470,10 @@ export class LocalHTTPService {
         url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
       );
     }
-    if (req.method === 'PUT' && url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)) {
+    if (
+      req.method === 'PUT' &&
+      url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)
+    ) {
       const match = url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/);
       return this.handleUpdateMessageBlocks(req, res, match![1], match![2]);
     }
@@ -561,7 +566,10 @@ export class LocalHTTPService {
     if (req.method === 'POST' && url === '/v1/voice/session/start') {
       return this.handleStartVoiceSession(req, res);
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/voice\/session\/(.+)\/end$/)) {
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/voice\/session\/(.+)\/end$/)
+    ) {
       return this.handleEndVoiceSession(
         req,
         res,
@@ -597,7 +605,10 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/voice/voices') {
       return this.handleListVoices(req, res);
     }
-    if (req.method === 'POST' && url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)) {
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)
+    ) {
       return this.handleTestWakeWord(
         req,
         res,
@@ -639,7 +650,10 @@ export class LocalHTTPService {
         url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
       );
     }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/knowledge\/bases\/(.+)$/)) {
+    if (
+      req.method === 'DELETE' &&
+      url.match(/^\/v1\/knowledge\/bases\/(.+)$/)
+    ) {
       return this.handleDeleteKnowledgeBase(
         req,
         res,
@@ -673,14 +687,20 @@ export class LocalHTTPService {
     if (req.method === 'POST' && url === '/v1/knowledge/batch-tag') {
       return this.handleBatchTagKnowledge(req, res);
     }
-    if (req.method === 'PUT' && url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)) {
+    if (
+      req.method === 'PUT' &&
+      url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)
+    ) {
       return this.handleUpdateKnowledge(
         req,
         res,
         url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)![1]
       );
     }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)) {
+    if (
+      req.method === 'DELETE' &&
+      url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)
+    ) {
       return this.handleDeleteKnowledge(
         req,
         res,
@@ -819,11 +839,25 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/v1/skills/system') {
       return this.handleListSystemSkills(req, res);
     }
-    if (req.method === 'GET' && url.match(/^\/v1\/skills\/system\/(.+)\/content$/)) {
-      return this.handleSystemSkillContent(req, res, url.match(/^\/v1\/skills\/system\/(.+)\/content$/)![1]);
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/skills\/system\/(.+)\/content$/)
+    ) {
+      return this.handleSystemSkillContent(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/system\/(.+)\/content$/)![1]
+      );
     }
-    if (req.method === 'GET' && url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)) {
-      return this.handleSystemSkillFileContent(req, res, url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)![1]);
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)
+    ) {
+      return this.handleSystemSkillFileContent(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)![1]
+      );
     }
     if (req.method === 'GET' && url === '/v1/skills/search') {
       return this.handleSearchSkills(req, res);
@@ -841,7 +875,11 @@ export class LocalHTTPService {
       return this.handleAddSkillSource(req, res);
     }
     if (req.method === 'DELETE' && url.match(/^\/v1\/skills\/sources\/(.+)$/)) {
-      return this.handleRemoveSkillSource(req, res, url.match(/^\/v1\/skills\/sources\/(.+)$/)![1]);
+      return this.handleRemoveSkillSource(
+        req,
+        res,
+        url.match(/^\/v1\/skills\/sources\/(.+)$/)![1]
+      );
     }
     if (req.method === 'GET' && url.match(/^\/v1\/skills\/(.+)$/)) {
       return this.handleGetSkillDetail(
@@ -1155,7 +1193,11 @@ export class LocalHTTPService {
     const handled = await tryHandleRoute(req, res);
     if (handled) return;
 
-    logger.warning('未匹配的路由', { method: req.method, url: req.url, parsedUrl: url });
+    logger.warning('未匹配的路由', {
+      method: req.method,
+      url: req.url,
+      parsedUrl: url,
+    });
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
@@ -1213,14 +1255,21 @@ export class LocalHTTPService {
       const cpuPercent = this.calcCpuPercent();
       const rssMB = Math.round(status.memory.rss / 1024 / 1024);
       const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
-      const memoryPercent = totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
+      const memoryPercent =
+        totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
 
       // 收集磁盘信息
-      let diskTotalGB = 0, diskFreeGB = 0, diskUsedGB = 0, diskUsagePercent = 0;
+      let diskTotalGB = 0,
+        diskFreeGB = 0,
+        diskUsedGB = 0,
+        diskUsagePercent = 0;
       try {
         if (process.platform === 'win32') {
           const { execSync } = require('child_process');
-          const output = execSync('wmic logicaldisk where DriveType=3 get Size,FreeSpace', { encoding: 'utf8', timeout: 3000 });
+          const output = execSync(
+            'wmic logicaldisk where DriveType=3 get Size,FreeSpace',
+            { encoding: 'utf8', timeout: 3000 }
+          );
           const lines = output.trim().split('\n').slice(1);
           for (const line of lines) {
             const parts = line.trim().split(/\s+/);
@@ -1235,7 +1284,10 @@ export class LocalHTTPService {
           }
         } else {
           const { execSync } = require('child_process');
-          const output = execSync('df -k --total 2>/dev/null || df -k', { encoding: 'utf8', timeout: 3000 });
+          const output = execSync('df -k --total 2>/dev/null || df -k', {
+            encoding: 'utf8',
+            timeout: 3000,
+          });
           const lines = output.trim().split('\n').slice(1);
           for (const line of lines) {
             const parts = line.trim().split(/\s+/);
@@ -1250,17 +1302,22 @@ export class LocalHTTPService {
           }
         }
         diskUsedGB = diskTotalGB - diskFreeGB;
-        diskUsagePercent = diskTotalGB > 0 ? Math.round((diskUsedGB / diskTotalGB) * 100) : 0;
-        diskTotalGB = Math.round(diskTotalGB / (1024 * 1024 * 1024) * 100) / 100;
-        diskFreeGB = Math.round(diskFreeGB / (1024 * 1024 * 1024) * 100) / 100;
-        diskUsedGB = Math.round(diskUsedGB / (1024 * 1024 * 1024) * 100) / 100;
+        diskUsagePercent =
+          diskTotalGB > 0 ? Math.round((diskUsedGB / diskTotalGB) * 100) : 0;
+        diskTotalGB =
+          Math.round((diskTotalGB / (1024 * 1024 * 1024)) * 100) / 100;
+        diskFreeGB =
+          Math.round((diskFreeGB / (1024 * 1024 * 1024)) * 100) / 100;
+        diskUsedGB =
+          Math.round((diskUsedGB / (1024 * 1024 * 1024)) * 100) / 100;
       } catch {
         // 磁盘信息不可用时静默处理
       }
 
-      const loadAverage = status.loadAverage.length > 0
-        ? status.loadAverage.map(l => Math.round(l * 100) / 100)
-        : [];
+      const loadAverage =
+        status.loadAverage.length > 0
+          ? status.loadAverage.map((l) => Math.round(l * 100) / 100)
+          : [];
 
       const summary = {
         uptime: Math.floor(status.uptime),
@@ -1417,9 +1474,13 @@ export class LocalHTTPService {
       if (search) {
         const lowerSearch = search.toLowerCase();
         filtered = filtered.filter((e) => {
-          const inMessage = e.message && e.message.toLowerCase().includes(lowerSearch);
-          const inData = e.data ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch) : false;
-          const inModule = e.module && e.module.toLowerCase().includes(lowerSearch);
+          const inMessage =
+            e.message && e.message.toLowerCase().includes(lowerSearch);
+          const inData = e.data
+            ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch)
+            : false;
+          const inModule =
+            e.module && e.module.toLowerCase().includes(lowerSearch);
           return inMessage || inData || inModule;
         });
       }
@@ -1429,11 +1490,16 @@ export class LocalHTTPService {
 
       const logs = paginated.map((entry, idx) => ({
         id: `log-${idx}-${Date.now()}`,
-        level: entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
+        level:
+          entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
         message: entry.message,
         timestamp: new Date(entry.timestamp).getTime(),
         source: entry.module,
-        details: entry.data ? JSON.stringify(entry.data) : (entry.error ? entry.error.message : undefined),
+        details: entry.data
+          ? JSON.stringify(entry.data)
+          : entry.error
+            ? entry.error.message
+            : undefined,
       }));
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -1515,7 +1581,10 @@ export class LocalHTTPService {
       const toolCounts = new Map<string, number>();
       for (const e of toolEvents) {
         const evt = e as Record<string, unknown>;
-        const name = (evt.metadata as Record<string, unknown>)?.toolName as string || evt.name as string || 'unknown';
+        const name =
+          ((evt.metadata as Record<string, unknown>)?.toolName as string) ||
+          (evt.name as string) ||
+          'unknown';
         toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
       }
       const topTools = Array.from(toolCounts.entries())
@@ -1527,7 +1596,10 @@ export class LocalHTTPService {
       const errorTypeCounts = new Map<string, number>();
       for (const e of errorEvents) {
         const evt = e as Record<string, unknown>;
-        const errType = (evt.metadata as Record<string, unknown>)?.errorType as string || evt.name as string || 'unknown';
+        const errType =
+          ((evt.metadata as Record<string, unknown>)?.errorType as string) ||
+          (evt.name as string) ||
+          'unknown';
         errorTypeCounts.set(errType, (errorTypeCounts.get(errType) || 0) + 1);
       }
       const topErrors = Array.from(errorTypeCounts.entries())
@@ -1544,15 +1616,19 @@ export class LocalHTTPService {
       const calcPercentile = (sorted: number[], p: number): number => {
         if (sorted.length === 0) return 0;
         const idx = Math.ceil((p / 100) * sorted.length) - 1;
-        return Math.round(sorted[Math.max(0, Math.min(idx, sorted.length - 1))] * 100) / 100;
+        return (
+          Math.round(
+            sorted[Math.max(0, Math.min(idx, sorted.length - 1))] * 100
+          ) / 100
+        );
       };
 
       // 从 PerformanceMonitorService 补充延迟数据
       const perfService = PerformanceMonitorService.getInstance();
       const allPerfMetrics = perfService.getAllMetrics();
       const perfDurations = allPerfMetrics
-        .map(m => m.duration)
-        .filter(d => d > 0)
+        .map((m) => m.duration)
+        .filter((d) => d > 0)
         .sort((a, b) => a - b);
 
       if (perfDurations.length > 0) {
@@ -1562,7 +1638,9 @@ export class LocalHTTPService {
 
       // 从 costTracker 获取 Token 用量
       const modelUsage = costTracker.getModelUsage();
-      let totalInputTokens = 0, totalOutputTokens = 0, totalCostUSD = 0;
+      let totalInputTokens = 0,
+        totalOutputTokens = 0,
+        totalCostUSD = 0;
       for (const usage of Object.values(modelUsage)) {
         totalInputTokens += usage.inputTokens;
         totalOutputTokens += usage.outputTokens;
@@ -1583,15 +1661,20 @@ export class LocalHTTPService {
         },
         errors: {
           totalErrors: errorEvents.length,
-          errorRate: events.length > 0
-            ? Math.round((errorEvents.length / events.length) * 10000) / 100
-            : 0,
+          errorRate:
+            events.length > 0
+              ? Math.round((errorEvents.length / events.length) * 10000) / 100
+              : 0,
           topErrors,
         },
         performance: {
-          averageLatencyMs: latencies.length > 0
-            ? Math.round((latencies.reduce((a, b) => a + b, 0) / latencies.length) * 100) / 100
-            : 0,
+          averageLatencyMs:
+            latencies.length > 0
+              ? Math.round(
+                  (latencies.reduce((a, b) => a + b, 0) / latencies.length) *
+                    100
+                ) / 100
+              : 0,
           p50LatencyMs: calcPercentile(latencies, 50),
           p95LatencyMs: calcPercentile(latencies, 95),
           p99LatencyMs: calcPercentile(latencies, 99),
@@ -1612,15 +1695,28 @@ export class LocalHTTPService {
       res.end(JSON.stringify(dashboardData));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        tokens: { totalInputTokens: 0, totalOutputTokens: 0, totalTokens: 0, totalLLMRequests: 0 },
-        tools: { totalToolCalls: 0, uniqueToolsUsed: 0, topTools: [] },
-        errors: { totalErrors: 0, errorRate: 0, topErrors: [] },
-        performance: { averageLatencyMs: 0, p50LatencyMs: 0, p95LatencyMs: 0, p99LatencyMs: 0, totalMetrics: 0 },
-        cost: { totalCostUSD: 0 },
-        session: { totalEvents: 0, totalSessions: 0, activeSessions: 0 },
-        generatedAt: Date.now(),
-      }));
+      res.end(
+        JSON.stringify({
+          tokens: {
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalTokens: 0,
+            totalLLMRequests: 0,
+          },
+          tools: { totalToolCalls: 0, uniqueToolsUsed: 0, topTools: [] },
+          errors: { totalErrors: 0, errorRate: 0, topErrors: [] },
+          performance: {
+            averageLatencyMs: 0,
+            p50LatencyMs: 0,
+            p95LatencyMs: 0,
+            p99LatencyMs: 0,
+            totalMetrics: 0,
+          },
+          cost: { totalCostUSD: 0 },
+          session: { totalEvents: 0, totalSessions: 0, activeSessions: 0 },
+          generatedAt: Date.now(),
+        })
+      );
     }
   }
 
@@ -1761,16 +1857,20 @@ export class LocalHTTPService {
 
     const sessionState = costTracker.getSessionCostState();
     const totalInputTokens = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.inputTokens, 0
+      (sum, u) => sum + u.inputTokens,
+      0
     );
     const totalOutputTokens = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.outputTokens, 0
+      (sum, u) => sum + u.outputTokens,
+      0
     );
     const totalCacheRead = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.cacheReadInputTokens, 0
+      (sum, u) => sum + u.cacheReadInputTokens,
+      0
     );
     const totalCacheCreation = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.cacheCreationInputTokens, 0
+      (sum, u) => sum + u.cacheCreationInputTokens,
+      0
     );
 
     const summary = {
@@ -1789,7 +1889,8 @@ export class LocalHTTPService {
       sessionCost: sessionState.totalCostUSD,
       sessionInputTokens: sessionState.totalInputTokens,
       sessionOutputTokens: sessionState.totalOutputTokens,
-      sessionTokens: sessionState.totalInputTokens + sessionState.totalOutputTokens,
+      sessionTokens:
+        sessionState.totalInputTokens + sessionState.totalOutputTokens,
       topProviders,
       dailyBreakdown,
     };
@@ -1895,17 +1996,30 @@ export class LocalHTTPService {
    */
   private async handleListModels(
     _req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { providerManager } = await import('@modules/ai/providers/ProviderManager.js');
-      const { modelPricingService } = await import('@modules/ai/models/ModelPricingService.js');
+      const { providerManager } =
+        await import('@modules/ai/providers/ProviderManager.js');
+      const { modelPricingService } =
+        await import('@modules/ai/models/ModelPricingService.js');
       await providerManager.initialize();
       await modelPricingService.initialize();
 
       const providers = await providerManager.listProviders();
       const pricingList = await modelPricingService.getAllPricing();
-      const pricingByModel = new Map(pricingList.map((pr: { modelId: string; inputCostPerMillion: number; outputCostPerMillion: number; cacheReadCostPerMillion: number; cacheWriteCostPerMillion: number; displayName: string }) => [pr.modelId, pr]));
+      const pricingByModel = new Map(
+        pricingList.map(
+          (pr: {
+            modelId: string;
+            inputCostPerMillion: number;
+            outputCostPerMillion: number;
+            cacheReadCostPerMillion: number;
+            cacheWriteCostPerMillion: number;
+            displayName: string;
+          }) => [pr.modelId, pr]
+        )
+      );
 
       const models: Array<{
         id: string;
@@ -1920,9 +2034,10 @@ export class LocalHTTPService {
       const addedModelIds = new Set<string>();
 
       for (const pr of pricingList) {
-        const matchingProvider = providers.find((p) =>
-          pr.modelId.startsWith(p.providerType) ||
-          p.name.toLowerCase().includes(pr.modelId.split('-')[0]),
+        const matchingProvider = providers.find(
+          (p) =>
+            pr.modelId.startsWith(p.providerType) ||
+            p.name.toLowerCase().includes(pr.modelId.split('-')[0])
         );
         addedModelIds.add(pr.modelId);
         models.push({
@@ -1961,8 +2076,13 @@ export class LocalHTTPService {
 
       if (models.length === 0) {
         models.push({
-          id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp',
-          providerId: '', type: 'chat', context_length: 65536, enabled: true,
+          id: 'pyapp-default',
+          name: 'Liri 默认',
+          provider: 'pyapp',
+          providerId: '',
+          type: 'chat',
+          context_length: 65536,
+          enabled: true,
         });
       }
 
@@ -1971,13 +2091,22 @@ export class LocalHTTPService {
     } catch (err) {
       logger.error('获取模型列表失败', { error: (err as Error).message });
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        object: 'list',
-        data: [{
-          id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp',
-          providerId: '', type: 'chat', context_length: 65536, enabled: true,
-        }],
-      }));
+      res.end(
+        JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              id: 'pyapp-default',
+              name: 'Liri 默认',
+              provider: 'pyapp',
+              providerId: '',
+              type: 'chat',
+              context_length: 65536,
+              enabled: true,
+            },
+          ],
+        })
+      );
     }
   }
 
@@ -1994,7 +2123,9 @@ export class LocalHTTPService {
       const urlObj = new URL(req.url!, `http://${req.headers.host}`);
       const filePath = urlObj.searchParams.get('path');
       if (!filePath) {
-        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(400, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'path 参数必填' } }));
         return;
       }
@@ -2006,7 +2137,14 @@ export class LocalHTTPService {
       const pathMod = await import('node:path');
 
       const candidateDirs = [
-        pathMod.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills', decodeURIComponent(skillId)),
+        pathMod.join(
+          resolveProjectRoot(),
+          'app',
+          'src',
+          'builtin',
+          'skills',
+          decodeURIComponent(skillId)
+        ),
         pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
       ];
 
@@ -2020,14 +2158,18 @@ export class LocalHTTPService {
       }
 
       if (!skillDir) {
-        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: '技能未找到' } }));
         return;
       }
 
       const fullPath = pathMod.join(skillDir, filePath);
       if (!existsSync(fullPath)) {
-        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: '文件未找到' } }));
         return;
       }
@@ -2052,31 +2194,49 @@ export class LocalHTTPService {
       const { providerId, modelId } = JSON.parse(body);
       if (!providerId || !modelId) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Missing providerId or modelId' }));
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: 'Missing providerId or modelId',
+          })
+        );
         return;
       }
 
-      const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry');
+      const { providerRegistry } =
+        await import('@modules/ai/providers/ProviderRegistry');
       const provider = providerRegistry.get(providerId);
       if (!provider) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: `Provider '${providerId}' not found` }));
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: `Provider '${providerId}' not found`,
+          })
+        );
         return;
       }
 
-      const response = await provider.chat(
-        [{ role: 'user', content: 'Hi' }],
-        { model: modelId, maxTokens: 10 }
-      );
+      const response = await provider.chat([{ role: 'user', content: 'Hi' }], {
+        model: modelId,
+        maxTokens: 10,
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, content: response.content?.slice(0, 100) }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          content: response.content?.slice(0, 100),
+        })
+      );
     } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      }));
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
     }
   }
 
@@ -2085,23 +2245,25 @@ export class LocalHTTPService {
    */
   private handleGetCurrentModel(
     _req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): void {
     try {
       const envModel = process.env.Liri_MODEL || 'deepseek-chat';
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        modelId: envModel,
-        provider: 'deepseek',
-        taskType: 'chat',
-        costThisSession: 0,
-        availableTasks: [
-          { type: 'chat', label: '对话', icon: '💬' },
-          { type: 'coding', label: '编程', icon: '💻' },
-          { type: 'translation', label: '翻译', icon: '🌐' },
-          { type: 'quick', label: '快速', icon: '⚡' },
-        ],
-      }));
+      res.end(
+        JSON.stringify({
+          modelId: envModel,
+          provider: 'deepseek',
+          taskType: 'chat',
+          costThisSession: 0,
+          availableTasks: [
+            { type: 'chat', label: '对话', icon: '💬' },
+            { type: 'coding', label: '编程', icon: '💻' },
+            { type: 'translation', label: '翻译', icon: '🌐' },
+            { type: 'quick', label: '快速', icon: '⚡' },
+          ],
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -2112,7 +2274,7 @@ export class LocalHTTPService {
    */
   private async handleSwitchModel(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     try {
       const body = await this.readRequestBody(req);
@@ -2162,7 +2324,8 @@ export class LocalHTTPService {
       const tasks = JSON.parse(body);
       if (tasks.chat) process.env.Liri_TASK_CHAT = tasks.chat;
       if (tasks.coding) process.env.Liri_TASK_CODING = tasks.coding;
-      if (tasks.translation) process.env.Liri_TASK_TRANSLATION = tasks.translation;
+      if (tasks.translation)
+        process.env.Liri_TASK_TRANSLATION = tasks.translation;
       if (tasks.quick) process.env.Liri_TASK_QUICK = tasks.quick;
       if (tasks.embedding) process.env.Liri_TASK_EMBEDDING = tasks.embedding;
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2375,7 +2538,16 @@ export class LocalHTTPService {
 
       const generator = coreAPI.chatStream(chatRequest);
       let result = await generator.next();
-      let streamUsage: { inputTokens: number; outputTokens: number; totalTokens: number; estimatedCostUsd?: number; cacheReadInputTokens?: number; cacheCreationInputTokens?: number } | undefined;
+      let streamUsage:
+        | {
+            inputTokens: number;
+            outputTokens: number;
+            totalTokens: number;
+            estimatedCostUsd?: number;
+            cacheReadInputTokens?: number;
+            cacheCreationInputTokens?: number;
+          }
+        | undefined;
 
       while (!result.done) {
         const chunk = result.value as ChatStreamChunk;
@@ -2817,9 +2989,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { SqliteTaskStore } = await import(
-        '@modules/tasks/db/SqliteTaskStore'
-      );
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       const taskStates = await store.loadTaskStates();
@@ -2829,8 +3000,16 @@ export class LocalHTTPService {
         name: state.description || state.id,
         status: state.status,
         priority: (state.metadata?.priority as string) || 'medium',
-        progress: state.status === 'completed' ? 100 : state.status === 'running' ? 50 : 0,
-        result: state.status === 'completed' ? state.outputFile || undefined : undefined,
+        progress:
+          state.status === 'completed'
+            ? 100
+            : state.status === 'running'
+              ? 50
+              : 0,
+        result:
+          state.status === 'completed'
+            ? state.outputFile || undefined
+            : undefined,
         error: state.error,
         created_at: state.startTime,
         type: state.type,
@@ -3154,7 +3333,8 @@ export class LocalHTTPService {
       const { createVoiceService } = await import('@modules/services/voice');
       const voiceService = createVoiceService();
       voiceService.updateConfig({
-        language: settings.config?.inputLanguage || settings.config?.outputLanguage,
+        language:
+          settings.config?.inputLanguage || settings.config?.outputLanguage,
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3310,9 +3490,8 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const { text, voiceId } = JSON.parse(body);
 
-      const { TTSRegistry, EdgeTTSProvider } = await import(
-        '@modules/services/voice/services/ttsProvider'
-      );
+      const { TTSRegistry, EdgeTTSProvider } =
+        await import('@modules/services/voice/services/ttsProvider');
 
       if (TTSRegistry.getProviderNames().length === 0) {
         TTSRegistry.register(new EdgeTTSProvider(), true);
@@ -3368,9 +3547,8 @@ export class LocalHTTPService {
       const urlObj = new URL(req.url || '', `http://localhost`);
       const provider = urlObj.searchParams.get('provider') || 'edge';
 
-      const { TTSRegistry, EdgeTTSProvider } = await import(
-        '@modules/services/voice/services/ttsProvider'
-      );
+      const { TTSRegistry, EdgeTTSProvider } =
+        await import('@modules/services/voice/services/ttsProvider');
 
       if (TTSRegistry.getProviderNames().length === 0) {
         TTSRegistry.register(new EdgeTTSProvider(), true);
@@ -3725,7 +3903,11 @@ export class LocalHTTPService {
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
       const registry = getDefaultKnowledgeBaseRegistry();
-      const base = await registry.updateBase(baseName, { label, enabled, icon });
+      const base = await registry.updateBase(baseName, {
+        label,
+        enabled,
+        icon,
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(base));
@@ -3885,8 +4067,17 @@ export class LocalHTTPService {
        * 需要 ConverterEngine 转换的二进制文件扩展名
        */
       const BINARY_EXTENSIONS = new Set([
-        '.docx', '.xlsx', '.xls', '.pptx', '.pdf', '.epub',
-        '.ipynb', '.zip', '.msg', '.rss', '.atom',
+        '.docx',
+        '.xlsx',
+        '.xls',
+        '.pptx',
+        '.pdf',
+        '.epub',
+        '.ipynb',
+        '.zip',
+        '.msg',
+        '.rss',
+        '.atom',
       ]);
 
       let docRelativePath: string;
@@ -3905,7 +4096,9 @@ export class LocalHTTPService {
           `source: "upload"`,
           `uploadedAt: "${now}"`,
           category ? `category: "${category}"` : '',
-          tagList.length > 0 ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]` : '',
+          tagList.length > 0
+            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
+            : '',
           '---',
           '',
         ]
@@ -3930,7 +4123,9 @@ export class LocalHTTPService {
         const { getConverterEngine } =
           await import('@modules/tools/converter/engine/ConverterEngine');
         const engine = getConverterEngine();
-        const fileInfo = engine.getDetector().detect(filename, rawBuffer.length);
+        const fileInfo = engine
+          .getDetector()
+          .detect(filename, rawBuffer.length);
         const result = await engine.convertContent(fileInfo, rawBuffer);
         const extractedContent = result.markdown;
 
@@ -3942,17 +4137,25 @@ export class LocalHTTPService {
         const topRawDir = join(knowledgeRoot, 'raw');
         await mkdir(topRawDir, { recursive: true });
         const compilerFileName = `${baseName}_${nameStem}.txt`;
-        await writeFile(join(topRawDir, compilerFileName), extractedContent, 'utf-8');
+        await writeFile(
+          join(topRawDir, compilerFileName),
+          extractedContent,
+          'utf-8'
+        );
 
         // 5. 写 companion meta.json，记录原始文件路径
         const metaPath = join(topRawDir, `${compilerFileName}.meta.json`);
-        await writeFile(metaPath, JSON.stringify({
-          originalFile: `${baseName}/raw/${originalRawName}`,
-          originalFormat: ext,
-          source: 'upload-extracted',
-          uploadedAt: now,
-          category: category || null,
-        }), 'utf-8');
+        await writeFile(
+          metaPath,
+          JSON.stringify({
+            originalFile: `${baseName}/raw/${originalRawName}`,
+            originalFormat: ext,
+            source: 'upload-extracted',
+            uploadedAt: now,
+            category: category || null,
+          }),
+          'utf-8'
+        );
 
         // 6. 创建知识文档，frontmatter 包含 originalFile 追溯信息
         docRelativePath = join(baseName, `${nameStem}.md`);
@@ -3963,13 +4166,17 @@ export class LocalHTTPService {
           `source: "upload-extracted"`,
           `uploadedAt: "${now}"`,
           category ? `category: "${category}"` : '',
-          tagList.length > 0 ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]` : '',
+          tagList.length > 0
+            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
+            : '',
           `originalFile: "${baseName}/raw/${originalRawName}"`,
           `originalFormat: "${ext}"`,
           '---',
           '',
           extractedContent,
-        ].filter(Boolean).join('\n');
+        ]
+          .filter(Boolean)
+          .join('\n');
         await writeFile(fullPath, docContent, 'utf-8');
       } else {
         // 其他文本类非 .md 文件（.txt/.json/.csv/.yaml 等）
@@ -3996,7 +4203,9 @@ export class LocalHTTPService {
           `source: "upload"`,
           `uploadedAt: "${now}"`,
           category ? `category: "${category}"` : '',
-          tagList.length > 0 ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]` : '',
+          tagList.length > 0
+            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
+            : '',
           `originalFormat: "${ext}"`,
           `needsCompile: true`,
           '---',
@@ -4073,9 +4282,8 @@ export class LocalHTTPService {
       const { readdir, stat } = await import('node:fs/promises');
       const { join, extname } = await import('node:path');
       const { readFileSync, existsSync } = await import('node:fs');
-      const { getDefaultKnowledgeBaseRegistry } = await import(
-        '@modules/knowledge/KnowledgeBaseRegistry'
-      );
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
 
       const registry = getDefaultKnowledgeBaseRegistry();
       const rawDir = join(registry.getKnowledgeRoot(), 'raw');
@@ -4151,12 +4359,9 @@ export class LocalHTTPService {
         return;
       }
 
-      const { getDefaultKnowledgeBaseRegistry } = await import(
-        '@modules/knowledge/KnowledgeBaseRegistry'
-      );
-      const { readFile, writeFile, mkdir } = await import(
-        'node:fs/promises'
-      );
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { readFile, writeFile, mkdir } = await import('node:fs/promises');
       const { join, extname } = await import('node:path');
       const { resolveOutputDir } = await import('@modules/config/paths');
 
@@ -4172,10 +4377,7 @@ export class LocalHTTPService {
         /[\\/:*?"<>|]/g,
         '_'
       );
-      const exportPath = join(
-        notebooksDir,
-        `${safeName}_${Date.now()}.md`
-      );
+      const exportPath = join(notebooksDir, `${safeName}_${Date.now()}.md`);
 
       await writeFile(exportPath, content, 'utf-8');
 
@@ -4208,23 +4410,17 @@ export class LocalHTTPService {
 
       if (!filePath) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'filePath is required' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
         return;
       }
 
-      const { getDefaultKnowledgeBaseRegistry } = await import(
-        '@modules/knowledge/KnowledgeBaseRegistry'
-      );
-      const { readFile, writeFile, mkdir } = await import(
-        'node:fs/promises'
-      );
+      const { getDefaultKnowledgeBaseRegistry } =
+        await import('@modules/knowledge/KnowledgeBaseRegistry');
+      const { readFile, writeFile, mkdir } = await import('node:fs/promises');
       const { join, basename, extname } = await import('node:path');
       const { existsSync } = await import('node:fs');
-      const { knowledgeDocsProvider } = await import(
-        '@modules/docs/FileDocsProvider'
-      );
+      const { knowledgeDocsProvider } =
+        await import('@modules/docs/FileDocsProvider');
 
       if (!existsSync(filePath)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -4241,8 +4437,17 @@ export class LocalHTTPService {
        * 需要 ConverterEngine 转换的二进制文件扩展名
        */
       const BINARY_EXTENSIONS = new Set([
-        '.docx', '.xlsx', '.xls', '.pptx', '.pdf', '.epub',
-        '.ipynb', '.zip', '.msg', '.rss', '.atom',
+        '.docx',
+        '.xlsx',
+        '.xls',
+        '.pptx',
+        '.pdf',
+        '.epub',
+        '.ipynb',
+        '.zip',
+        '.msg',
+        '.rss',
+        '.atom',
       ]);
 
       let rawContent: string;
@@ -4418,7 +4623,9 @@ export class LocalHTTPService {
 
       const newContent = [
         '---',
-        title ? `title: "${title.replace(/"/g, '\\"')}"` : 'title: "未命名文档"',
+        title
+          ? `title: "${title.replace(/"/g, '\\"')}"`
+          : 'title: "未命名文档"',
         `updatedAt: "${new Date().toISOString()}"`,
         '---',
         '',
@@ -4465,7 +4672,9 @@ export class LocalHTTPService {
 
       if (!Array.isArray(ids) || ids.length === 0) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'ids array is required' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'ids array is required' } })
+        );
         return;
       }
 
@@ -4514,13 +4723,17 @@ export class LocalHTTPService {
 
       if (!Array.isArray(ids) || ids.length === 0) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'ids array is required' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'ids array is required' } })
+        );
         return;
       }
 
       if (!Array.isArray(tags) || tags.length === 0) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'tags array is required' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'tags array is required' } })
+        );
         return;
       }
 
@@ -4556,7 +4769,9 @@ export class LocalHTTPService {
         if (existingTagLine) {
           const tagMatch = existingTagLine.match(/\[([^\]]*)\]/);
           if (tagMatch) {
-            const rawTags = tagMatch[1].split(',').map((t) => t.trim().replace(/"/g, ''));
+            const rawTags = tagMatch[1]
+              .split(',')
+              .map((t) => t.trim().replace(/"/g, ''));
             existingTags.push(...rawTags.filter(Boolean));
           }
         }
@@ -4565,7 +4780,9 @@ export class LocalHTTPService {
         const tagStr = mergedTags.map((t) => `"${t}"`).join(', ');
 
         const newFmLines = existingTagLine
-          ? fmLines.map((l) => (l.startsWith('tags:') ? `tags: [${tagStr}]` : l))
+          ? fmLines.map((l) =>
+              l.startsWith('tags:') ? `tags: [${tagStr}]` : l
+            )
           : [...fmLines, `tags: [${tagStr}]`];
 
         const newContent = [
@@ -4721,9 +4938,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { SqliteCronStore } = await import(
-        '@modules/chronos/service/SqliteCronStore'
-      );
+      const { SqliteCronStore } =
+        await import('@modules/chronos/service/SqliteCronStore');
       const { nextCronRunMs } = await import('@modules/chronos/CronTasks');
       const store = new SqliteCronStore();
       await store.init();
@@ -5366,7 +5582,10 @@ export class LocalHTTPService {
 
     for (const entry of entries) {
       // 跳过迁移标记文件本身，避免误复制
-      if (entry.name === '.migrating' || entry.name === '.migration_committed') {
+      if (
+        entry.name === '.migrating' ||
+        entry.name === '.migration_committed'
+      ) {
         continue;
       }
       const srcPath = path.join(src, entry.name);
@@ -5462,7 +5681,11 @@ export class LocalHTTPService {
       if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
         // 阶段一：写迁移令牌，标记迁移进行中
         try {
-          fs.writeFileSync(path.join(resolvedDir, '.migrating'), Date.now().toString(), 'utf-8');
+          fs.writeFileSync(
+            path.join(resolvedDir, '.migrating'),
+            Date.now().toString(),
+            'utf-8'
+          );
         } catch {
           // 非致命：令牌写入失败不影响迁移
         }
@@ -5492,7 +5715,11 @@ export class LocalHTTPService {
 
         // 阶段二：写迁移完成标记
         try {
-          fs.writeFileSync(path.join(resolvedDir, '.migration_committed'), Date.now().toString(), 'utf-8');
+          fs.writeFileSync(
+            path.join(resolvedDir, '.migration_committed'),
+            Date.now().toString(),
+            'utf-8'
+          );
         } catch {
           // 非致命：标记写入失败不影响目录切换
         }
@@ -5642,7 +5869,9 @@ export class LocalHTTPService {
                 }
               }
             }
-          } catch { /* use defaults */ }
+          } catch {
+            /* use defaults */
+          }
 
           let createdAt = 0;
           let updatedAt = 0;
@@ -5650,7 +5879,9 @@ export class LocalHTTPService {
             const st = await stat(s.filePath);
             createdAt = st.birthtimeMs;
             updatedAt = st.mtimeMs;
-          } catch { /* use defaults */ }
+          } catch {
+            /* use defaults */
+          }
 
           skills.push({
             id: s.name,
@@ -5673,7 +5904,13 @@ export class LocalHTTPService {
 
       // 扫描内置技能
       const projectRoot = resolveProjectRoot();
-      const builtinDir = pathMod.join(projectRoot, 'app', 'src', 'builtin', 'skills');
+      const builtinDir = pathMod.join(
+        projectRoot,
+        'app',
+        'src',
+        'builtin',
+        'skills'
+      );
       await scanDir(builtinDir, 'builtin');
 
       // 扫描用户技能
@@ -5704,7 +5941,14 @@ export class LocalHTTPService {
       const pathMod = await import('node:path');
 
       const candidateDirs = [
-        pathMod.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills', decodeURIComponent(skillId)),
+        pathMod.join(
+          resolveProjectRoot(),
+          'app',
+          'src',
+          'builtin',
+          'skills',
+          decodeURIComponent(skillId)
+        ),
         pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
       ];
 
@@ -5718,7 +5962,9 @@ export class LocalHTTPService {
       }
 
       if (!skillFile) {
-        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: '技能未找到' } }));
         return;
       }
@@ -5741,21 +5987,27 @@ export class LocalHTTPService {
       // 收集关联文件
       const skillDir = pathMod.dirname(skillFile);
       try {
-        const entries = await (await import('fs/promises')).readdir(skillDir, { withFileTypes: true });
+        const entries = await (
+          await import('fs/promises')
+        ).readdir(skillDir, { withFileTypes: true });
         for (const entry of entries) {
           if (entry.isFile() && entry.name !== 'SKILL.md') {
             linkedFiles.push(entry.name);
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        content,
-        rawContent,
-        frontmatter,
-        linkedFiles,
-      }));
+      res.end(
+        JSON.stringify({
+          content,
+          rawContent,
+          frontmatter,
+          linkedFiles,
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5893,9 +6145,18 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const { name, apiBaseUrl } = JSON.parse(body || '{}');
 
-      if (!name || !apiBaseUrl || typeof name !== 'string' || typeof apiBaseUrl !== 'string') {
-        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: { message: '需要 name 和 apiBaseUrl 字段' } }));
+      if (
+        !name ||
+        !apiBaseUrl ||
+        typeof name !== 'string' ||
+        typeof apiBaseUrl !== 'string'
+      ) {
+        res.writeHead(400, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({ error: { message: '需要 name 和 apiBaseUrl 字段' } })
+        );
         return;
       }
 
@@ -6316,7 +6577,8 @@ export class LocalHTTPService {
     serverId: string
   ): Promise<void> {
     try {
-      const { getMCPServerManager } = await import('@modules/services/mcp/MCPServerManager');
+      const { getMCPServerManager } =
+        await import('@modules/services/mcp/MCPServerManager');
       const { mcpSystem } = await import('@modules/services/mcp');
 
       const manager = getMCPServerManager();
@@ -6324,14 +6586,27 @@ export class LocalHTTPService {
 
       if (!detail.metadata) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: `服务器 "${serverId}" 未安装` }));
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: `服务器 "${serverId}" 未安装`,
+          })
+        );
         return;
       }
 
       const server = manager.getServer(serverId);
       if (!server) {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, connected: false, status: 'not_found' }));
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            success: false,
+            connected: false,
+            status: 'not_found',
+          })
+        );
         return;
       }
 
@@ -6369,7 +6644,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { getMCPServerManager } = await import('@modules/services/mcp/MCPServerManager');
+      const { getMCPServerManager } =
+        await import('@modules/services/mcp/MCPServerManager');
       const { mcpSystem } = await import('@modules/services/mcp');
       const manager = getMCPServerManager();
       const serverInfos = manager.getServerInfos();
@@ -6384,7 +6660,10 @@ export class LocalHTTPService {
 
       for (const info of serverInfos) {
         for (const tool of info.tools || []) {
-          const enabled = !mcpSystem.marketplace.isToolDisabled(info.name, tool.name);
+          const enabled = !mcpSystem.marketplace.isToolDisabled(
+            info.name,
+            tool.name
+          );
           tools.push({
             name: tool.name,
             description: tool.description || '',
@@ -6567,7 +6846,9 @@ export class LocalHTTPService {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
-            error: { message: 'At least one of enabled/name/config is required' },
+            error: {
+              message: 'At least one of enabled/name/config is required',
+            },
           })
         );
         return;
@@ -6630,9 +6911,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { NpmDistributor } = await import(
-        '@modules/plugins/distribution/NpmDistributor'
-      );
+      const { NpmDistributor } =
+        await import('@modules/plugins/distribution/NpmDistributor');
       const distributor = new NpmDistributor();
       const installed = await distributor.listInstalled();
 
@@ -6670,9 +6950,8 @@ export class LocalHTTPService {
         return;
       }
 
-      const { NpmDistributor } = await import(
-        '@modules/plugins/distribution/NpmDistributor'
-      );
+      const { NpmDistributor } =
+        await import('@modules/plugins/distribution/NpmDistributor');
       const distributor = new NpmDistributor();
       const result = await distributor.install(packageName);
 
@@ -6888,7 +7167,8 @@ export class LocalHTTPService {
 
       const permissionList = session.permissions.map((p: string) => ({
         scope: p === 'read' ? 'read' : p === 'write' ? 'write' : 'admin',
-        description: p === 'read' ? '读取权限' : p === 'write' ? '写入权限' : '管理权限',
+        description:
+          p === 'read' ? '读取权限' : p === 'write' ? '写入权限' : '管理权限',
         level: p as 'none' | 'read' | 'write' | 'admin',
       }));
 
@@ -6901,8 +7181,10 @@ export class LocalHTTPService {
 
   // ========== API Key Handlers ==========
 
-  private apiKeys: Map<string, { name: string; key: string; createdAt: number }> =
-    new Map();
+  private apiKeys: Map<
+    string,
+    { name: string; key: string; createdAt: number }
+  > = new Map();
 
   private async handleListApiKeys(
     req: http.IncomingMessage,
@@ -6936,9 +7218,7 @@ export class LocalHTTPService {
 
       if (!name) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'name is required' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'name is required' } }));
         return;
       }
 
@@ -6971,9 +7251,7 @@ export class LocalHTTPService {
     try {
       if (!this.apiKeys.has(keyId)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'API key not found' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'API key not found' } }));
         return;
       }
 
@@ -6988,16 +7266,16 @@ export class LocalHTTPService {
 
   // ========== Memory Handlers ==========
 
-  private memoryManagerInstance: import('@modules/memory/MemoryManager').MemoryManagerImpl | null =
-    null;
+  private memoryManagerInstance:
+    | import('@modules/memory/MemoryManager').MemoryManagerImpl
+    | null = null;
 
   private async getMemoryManager(): Promise<
     import('@modules/memory/MemoryManager').MemoryManagerImpl
   > {
     if (!this.memoryManagerInstance) {
-      const { MemoryManagerImpl } = await import(
-        '@modules/memory/MemoryManager'
-      );
+      const { MemoryManagerImpl } =
+        await import('@modules/memory/MemoryManager');
       this.memoryManagerInstance = new MemoryManagerImpl();
     }
     return this.memoryManagerInstance;
@@ -7030,9 +7308,7 @@ export class LocalHTTPService {
       const query = parsedUrl.searchParams.get('query') || '';
       if (!query) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'query is required' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'query is required' } }));
         return;
       }
 
@@ -7056,9 +7332,7 @@ export class LocalHTTPService {
 
       if (!memory) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Memory not found' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'Memory not found' } }));
         return;
       }
 
@@ -7079,9 +7353,7 @@ export class LocalHTTPService {
 
       if (!params.content) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'content is required' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'content is required' } }));
         return;
       }
 
@@ -7165,9 +7437,7 @@ export class LocalHTTPService {
 
       if (!memory) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Memory not found' } })
-        );
+        res.end(JSON.stringify({ error: { message: 'Memory not found' } }));
         return;
       }
 
@@ -7273,12 +7543,17 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const parsedUrl = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
       const filePath = parsedUrl.searchParams.get('path');
 
       if (!filePath) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Missing path parameter' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'Missing path parameter' } })
+        );
         return;
       }
 
@@ -7300,7 +7575,11 @@ export class LocalHTTPService {
       const message = err instanceof Error ? err.message : String(err);
       logger.error('打开文件失败', { path: req.url, error: message });
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: `Failed to open file: ${message}` } }));
+      res.end(
+        JSON.stringify({
+          error: { message: `Failed to open file: ${message}` },
+        })
+      );
     }
   }
 
@@ -7314,19 +7593,26 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const parsedUrl = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
       const filePath = parsedUrl.searchParams.get('path');
 
       if (!filePath) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Missing path parameter' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'Missing path parameter' } })
+        );
         return;
       }
 
       // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: `File not found: ${filePath}` } }));
+        res.end(
+          JSON.stringify({ error: { message: `File not found: ${filePath}` } })
+        );
         return;
       }
 
@@ -7353,25 +7639,43 @@ export class LocalHTTPService {
         const dataUri = `data:${mimeTypes[ext]};base64,${base64}`;
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          content: dataUri,
-          type: 'image',
-          size,
-          language: undefined,
-        }));
+        res.end(
+          JSON.stringify({
+            content: dataUri,
+            type: 'image',
+            size,
+            language: undefined,
+          })
+        );
         return;
       }
 
       // 不支持预览的二进制文件
-      const binaryExts = ['.exe', '.zip', '.rar', '.7z', '.gz', '.tar', '.dll', '.so', '.dylib', '.bin', '.dat', '.wasm', '.pdf'];
+      const binaryExts = [
+        '.exe',
+        '.zip',
+        '.rar',
+        '.7z',
+        '.gz',
+        '.tar',
+        '.dll',
+        '.so',
+        '.dylib',
+        '.bin',
+        '.dat',
+        '.wasm',
+        '.pdf',
+      ];
       if (binaryExts.includes(ext)) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          content: `不支持预览该文件类型 (${ext})`,
-          type: 'text',
-          size,
-          language: undefined,
-        }));
+        res.end(
+          JSON.stringify({
+            content: `不支持预览该文件类型 (${ext})`,
+            type: 'text',
+            size,
+            language: undefined,
+          })
+        );
         return;
       }
 
@@ -7383,7 +7687,8 @@ export class LocalHTTPService {
         const buffer = Buffer.alloc(maxPreviewSize);
         fs.readSync(fd, buffer, 0, maxPreviewSize, 0);
         fs.closeSync(fd);
-        content = buffer.toString('utf-8') + '\n\n... 文件过大，仅显示前 1MB 内容';
+        content =
+          buffer.toString('utf-8') + '\n\n... 文件过大，仅显示前 1MB 内容';
       } else {
         content = fs.readFileSync(filePath, 'utf-8');
       }
@@ -7444,17 +7749,23 @@ export class LocalHTTPService {
       const fileInfo = typeMap[ext] || { type: 'text', language: undefined };
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        content,
-        type: fileInfo.type,
-        size,
-        language: fileInfo.language,
-      }));
+      res.end(
+        JSON.stringify({
+          content,
+          type: fileInfo.type,
+          size,
+          language: fileInfo.language,
+        })
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error('读取文件失败', { path: req.url, error: message });
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: `Failed to read file: ${message}` } }));
+      res.end(
+        JSON.stringify({
+          error: { message: `Failed to read file: ${message}` },
+        })
+      );
     }
   }
 
@@ -7467,7 +7778,14 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    const { resolveProjectRoot, resolvePyappHome, resolveOutputDir, resolveDownloadsDir, resolveDataDir, resolveDocsDir } = await import('@modules/config/paths');
+    const {
+      resolveProjectRoot,
+      resolvePyappHome,
+      resolveOutputDir,
+      resolveDownloadsDir,
+      resolveDataDir,
+      resolveDocsDir,
+    } = await import('@modules/config/paths');
     const projectRoot = resolveProjectRoot();
     const basePaths = {
       projectRoot,
@@ -7494,16 +7812,28 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const parsedUrl = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
       const rawPath = parsedUrl.searchParams.get('path');
 
       if (!rawPath) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Missing path parameter' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'Missing path parameter' } })
+        );
         return;
       }
 
-      const { resolveProjectRoot, resolvePyappHome, resolveOutputDir, resolveDownloadsDir, resolveDataDir, resolveDocsDir } = await import('@modules/config/paths');
+      const {
+        resolveProjectRoot,
+        resolvePyappHome,
+        resolveOutputDir,
+        resolveDownloadsDir,
+        resolveDataDir,
+        resolveDocsDir,
+      } = await import('@modules/config/paths');
 
       if (path.isAbsolute(rawPath)) {
         if (fs.existsSync(rawPath)) {
@@ -7555,7 +7885,11 @@ export class LocalHTTPService {
       const message = err instanceof Error ? err.message : String(err);
       logger.error('解析文件路径失败', { path: req.url, error: message });
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: `Failed to resolve path: ${message}` } }));
+      res.end(
+        JSON.stringify({
+          error: { message: `Failed to resolve path: ${message}` },
+        })
+      );
     }
   }
 }

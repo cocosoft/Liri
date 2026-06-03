@@ -48,7 +48,7 @@ const logger = new Logger({ level: LogLevel.INFO });
 /** DB providerType → AIProvider 构造函数映射 */
 function createProviderByType(
   type: ProviderType,
-  config: ProviderConfig,
+  config: ProviderConfig
 ): AIProvider | null {
   switch (type) {
     case 'anthropic':
@@ -177,7 +177,7 @@ export async function syncDBProvidersToRegistry(): Promise<number> {
  * 注册单个供应商到 Registry（供 /provider add 实时生效）
  */
 export async function registerProviderFromDB(
-  providerId: string,
+  providerId: string
 ): Promise<boolean> {
   try {
     const { providerManager } = await import('./ProviderManager.js');

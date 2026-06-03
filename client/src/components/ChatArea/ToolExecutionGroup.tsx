@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import type { MessageBlock } from '../../types';
-import StatusBlock from './StatusBlock';
-import ToolCallBlock from './ToolCallBlock';
-import MarkdownRenderer from './MarkdownRenderer';
-import { useChatStore } from '../../stores/chatStore';
+import React, { useState, useRef, useEffect } from "react";
+import type { MessageBlock } from "../../types";
+import StatusBlock from "./StatusBlock";
+import ToolCallBlock from "./ToolCallBlock";
+import MarkdownRenderer from "./MarkdownRenderer";
+import { useChatStore } from "../../stores/chatStore";
 
 interface ToolExecutionGroupProps {
   blocks: MessageBlock[];
@@ -30,109 +30,131 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
 
   const toolName = React.useMemo(() => {
     for (const block of blocks) {
-      if (block.type === 'tool_call' && block.toolCall?.name) {
+      if (block.type === "tool_call" && block.toolCall?.name) {
         const nameMap: Record<string, string> = {
-          'web-search': '🌐 网络搜索',
-          'web-fetch': '📄 网页获取',
-          'search': '🔍 搜索',
-          'fetch': '📥 获取',
-          'execute': '⚡ 执行',
-          'run': '🚀 运行',
-          'bash': '💻 终端命令',
-          'shell': '🐚 Shell命令',
-          'read': '📖 读取',
-          'write': '💾 写入',
-          'delete': '🗑️ 删除',
-          'create': '✨ 创建',
-          'update': '🔄 更新',
-          'list': '📋 列出',
-          'query': '❓ 查询',
-          'build_index': '🔧 构建索引',
-          'search_knowledge': '📚 搜索知识库',
-          'glob': '📁 文件搜索',
-          'grep': '🔎 文本搜索',
+          "web-search": "🌐 网络搜索",
+          "web-fetch": "📄 网页获取",
+          search: "🔍 搜索",
+          fetch: "📥 获取",
+          execute: "⚡ 执行",
+          run: "🚀 运行",
+          bash: "💻 终端命令",
+          shell: "🐚 Shell命令",
+          read: "📖 读取",
+          write: "💾 写入",
+          delete: "🗑️ 删除",
+          create: "✨ 创建",
+          update: "🔄 更新",
+          list: "📋 列出",
+          query: "❓ 查询",
+          build_index: "🔧 构建索引",
+          search_knowledge: "📚 搜索知识库",
+          glob: "📁 文件搜索",
+          grep: "🔎 文本搜索",
         };
         return nameMap[block.toolCall.name] || block.toolCall.name;
       }
     }
-    return '🔧 工具执行';
+    return "🔧 工具执行";
   }, [blocks]);
 
   const status = React.useMemo(() => {
     for (const block of blocks) {
-      if (block.type === 'tool_call' && block.toolCall?.status) {
+      if (block.type === "tool_call" && block.toolCall?.status) {
         return block.toolCall.status;
       }
     }
 
     for (const block of blocks) {
-      if (block.type === 'status') {
-        if (block.content.includes('completed') || block.content.includes('✅')) {
-          return 'completed';
+      if (block.type === "status") {
+        if (
+          block.content.includes("completed") ||
+          block.content.includes("✅")
+        ) {
+          return "completed";
         }
-        if (block.content.includes('失败') || block.content.includes('❌')) {
-          return 'failed';
+        if (block.content.includes("失败") || block.content.includes("❌")) {
+          return "failed";
         }
-        if (block.content.includes('Running')) {
-          return 'running';
+        if (block.content.includes("Running")) {
+          return "running";
         }
       }
     }
 
-    return isStreaming ? 'running' : 'completed';
+    return isStreaming ? "running" : "completed";
   }, [blocks, isStreaming]);
 
-  const statusIcon = isStreaming ? '⏳' :
-    status === 'completed' ? '✅' :
-    status === 'failed' ? '❌' : '🔧';
+  const statusIcon = isStreaming
+    ? "⏳"
+    : status === "completed"
+      ? "✅"
+      : status === "failed"
+        ? "❌"
+        : "🔧";
 
-  const statusColor = isStreaming ? '#e6c384' :
-    status === 'completed' ? '#9ece6a' :
-    status === 'failed' ? '#f7768e' : '#7aa2f7';
+  const statusColor = isStreaming
+    ? "#e6c384"
+    : status === "completed"
+      ? "#9ece6a"
+      : status === "failed"
+        ? "#f7768e"
+        : "#7aa2f7";
 
   const summaryText = React.useMemo(() => {
     for (const block of blocks) {
-      if (block.type === 'tool_call' && block.toolCall?.arguments) {
+      if (block.type === "tool_call" && block.toolCall?.arguments) {
         const args = block.toolCall.arguments;
         const entries = Object.entries(args);
         if (entries.length > 0) {
-          const preview = entries.slice(0, 2).map(([k, v]) => {
-            const keyLabel: Record<string, string> = {
-              url: '链接',
-              query: '查询',
-              pattern: '模式',
-              command: '命令',
-              path: '路径',
-              keywords: '关键词',
-            };
-            const label = keyLabel[k] || k;
-            const value = typeof v === 'string' ? (v.length > 30 ? v.substring(0, 30) + '...' : v) : String(v);
-            return `${label}: ${value}`;
-          }).join(', ');
-          return entries.length > 2 ? `${preview} 等${entries.length}项` : preview;
+          const preview = entries
+            .slice(0, 2)
+            .map(([k, v]) => {
+              const keyLabel: Record<string, string> = {
+                url: "链接",
+                query: "查询",
+                pattern: "模式",
+                command: "命令",
+                path: "路径",
+                keywords: "关键词",
+              };
+              const label = keyLabel[k] || k;
+              const value =
+                typeof v === "string"
+                  ? v.length > 30
+                    ? v.substring(0, 30) + "..."
+                    : v
+                  : String(v);
+              return `${label}: ${value}`;
+            })
+            .join(", ");
+          return entries.length > 2
+            ? `${preview} 等${entries.length}项`
+            : preview;
         }
       }
     }
-    return '';
+    return "";
   }, [blocks]);
 
   return (
     <div style={styles.container}>
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        style={styles.header}
-      >
+      <button onClick={() => setCollapsed(!collapsed)} style={styles.header}>
         <span>{statusIcon}</span>
         <span style={styles.title}>{toolName}</span>
         {summaryText && (
           <span style={styles.summary}>
-            {collapsed ? `📋 ${summaryText}` : ''}
+            {collapsed ? `📋 ${summaryText}` : ""}
           </span>
         )}
         <span style={{ ...styles.badge, background: statusColor }}>
-          {hasStreamEnded.current ? 'completed' : (isStreaming && status === 'running' ? 'running' : status)}
+          {hasStreamEnded.current
+            ? "completed"
+            : isStreaming && status === "running"
+              ? "running"
+              : status}
         </span>
-        <span style={styles.toggle}>{collapsed ? '▶' : '▼'}</span>
+        <span style={styles.toggle}>{collapsed ? "▶" : "▼"}</span>
       </button>
 
       {!collapsed && (
@@ -162,21 +184,34 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
   );
 }
 
-function BlockItem({ block, isStreaming, onPreviewFile }: { block: MessageBlock; isStreaming?: boolean; onPreviewFile?: (path: string) => void }) {
+function BlockItem({
+  block,
+  isStreaming,
+  onPreviewFile,
+}: {
+  block: MessageBlock;
+  isStreaming?: boolean;
+  onPreviewFile?: (path: string) => void;
+}) {
   const sessionFiles = useChatStore((s) => s.sessionFiles);
-  const knownFilePaths = sessionFiles.map(f => f.path);
+  const knownFilePaths = sessionFiles.map((f) => f.path);
 
   switch (block.type) {
-    case 'status':
-      return <StatusBlock content={block.content} isStreaming={block.isStreaming || isStreaming} />;
-    case 'tool_call':
+    case "status":
+      return (
+        <StatusBlock
+          content={block.content}
+          isStreaming={block.isStreaming || isStreaming}
+        />
+      );
+    case "tool_call":
       return block.toolCall ? (
         <ToolCallBlock
           toolCall={block.toolCall}
           isStreaming={block.isStreaming || isStreaming}
         />
       ) : null;
-    case 'text':
+    case "text":
     default:
       return (
         <MarkdownRenderer
@@ -191,71 +226,71 @@ function BlockItem({ block, isStreaming, onPreviewFile }: { block: MessageBlock;
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    border: '1px solid rgba(122, 162, 247, 0.3)',
-    borderRadius: '10px',
-    overflow: 'hidden',
-    marginBottom: '8px',
-    background: 'rgba(122, 162, 247, 0.03)',
+    border: "1px solid rgba(122, 162, 247, 0.3)",
+    borderRadius: "10px",
+    overflow: "hidden",
+    marginBottom: "8px",
+    background: "rgba(122, 162, 247, 0.03)",
   },
   header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '10px 14px',
-    background: 'rgba(122, 162, 247, 0.08)',
-    border: 'none',
-    width: '100%',
-    cursor: 'pointer',
-    color: '#a9b1d6',
-    fontSize: '13px',
-    textAlign: 'left',
-    fontFamily: 'inherit',
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 14px",
+    background: "rgba(122, 162, 247, 0.08)",
+    border: "none",
+    width: "100%",
+    cursor: "pointer",
+    color: "#a9b1d6",
+    fontSize: "13px",
+    textAlign: "left",
+    fontFamily: "inherit",
   },
   title: {
     fontWeight: 600,
-    color: '#e0e0e0',
+    color: "#e0e0e0",
     flexShrink: 0,
   },
   summary: {
     flex: 1,
-    fontSize: '12px',
-    color: '#565f89',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    fontSize: "12px",
+    color: "#565f89",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   badge: {
-    fontSize: '11px',
-    padding: '2px 8px',
-    borderRadius: '10px',
-    color: '#1a1b26',
+    fontSize: "11px",
+    padding: "2px 8px",
+    borderRadius: "10px",
+    color: "#1a1b26",
     fontWeight: 600,
     flexShrink: 0,
   },
   toggle: {
-    fontSize: '10px',
+    fontSize: "10px",
     flexShrink: 0,
   },
   body: {
-    borderTop: '1px solid rgba(122, 162, 247, 0.12)',
+    borderTop: "1px solid rgba(122, 162, 247, 0.12)",
   },
   expandBtn: {
-    display: 'block',
-    width: '100%',
-    padding: '8px 14px',
-    background: 'transparent',
-    border: 'none',
-    color: '#7aa2f7',
-    fontSize: '12px',
-    cursor: 'pointer',
-    textAlign: 'left',
-    fontFamily: 'inherit',
+    display: "block",
+    width: "100%",
+    padding: "8px 14px",
+    background: "transparent",
+    border: "none",
+    color: "#7aa2f7",
+    fontSize: "12px",
+    cursor: "pointer",
+    textAlign: "left",
+    fontFamily: "inherit",
   },
   blocks: {
-    padding: '8px 12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
+    padding: "8px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
   },
 };
 

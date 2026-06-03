@@ -13,7 +13,7 @@ interface PluginInstallCardProps {
 /** 渠道→CLI 备用安装命令映射 */
 function getCliCommands(pluginNames: string[]): string[] {
   if (pluginNames.length === 0) {
-    return ['# 无可用插件包'];
+    return ["# 无可用插件包"];
   }
   return pluginNames.map((name) => `npm install ${name}`);
 }
@@ -40,12 +40,12 @@ function PluginInstallCard({
           disabled={isInstalling}
           className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg transition-colors"
         >
-          {isInstalling ? '安装中...' : '安装插件'}
+          {isInstalling ? "安装中..." : "安装插件"}
         </button>
       </div>
 
       <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
-        {channelLabel} 需要 {pluginNames.join(' / ')} 插件才能正常工作。
+        {channelLabel} 需要 {pluginNames.join(" / ")} 插件才能正常工作。
         点击"安装插件"自动通过 npm 安装。
       </p>
 

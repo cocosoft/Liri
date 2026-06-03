@@ -1,14 +1,14 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   skillMarketService,
   type SkillSearchResult,
   type InstalledSkill,
   type SkillCategory,
-} from '../services/skillMarketService';
+} from "../services/skillMarketService";
 
 // ─── 筛选类型 ──────────────────────────────────────────
 
-type SourceFilter = 'all' | 'clawhub' | 'local' | 'plugin' | 'mcp';
+type SourceFilter = "all" | "clawhub" | "local" | "plugin" | "mcp";
 
 // ─── 统计类型 ──────────────────────────────────────────
 
@@ -56,7 +56,11 @@ interface SkillMarketStore {
   updatingIds: Set<string>;
 
   /** 搜索技能（防抖由组件处理） */
-  searchMarket: (query: string, category?: string, source?: string) => Promise<void>;
+  searchMarket: (
+    query: string,
+    category?: string,
+    source?: string,
+  ) => Promise<void>;
   /** 加载已安装列表 */
   loadInstalled: () => Promise<void>;
   /** 加载推荐列表 */
@@ -138,10 +142,10 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
   installed: [],
   categories: [],
   availableSources: [],
-  marketSource: '',
-  searchQuery: '',
-  categoryFilter: 'all',
-  sourceFilter: 'all',
+  marketSource: "",
+  searchQuery: "",
+  categoryFilter: "all",
+  sourceFilter: "all",
   isLoading: false,
   operatingId: null,
   error: null,
@@ -155,13 +159,18 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
   searchMarket: async (query, category, source) => {
     set({ isLoading: true, error: null, hasSearched: true });
     try {
-      const cat = category && category !== 'all' ? category : undefined;
+      const cat = category && category !== "all" ? category : undefined;
       const src = source || get().marketSource || undefined;
-      const results = await skillMarketService.search(query, cat, undefined, src);
+      const results = await skillMarketService.search(
+        query,
+        cat,
+        undefined,
+        src,
+      );
       set({ searchResults: results, page: 1 }); // 新搜索重置页码
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : '搜索失败',
+        error: e instanceof Error ? e.message : "搜索失败",
         searchResults: [],
       });
     } finally {
@@ -217,16 +226,16 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
       const sources = await skillMarketService.addSource(name, apiBaseUrl);
       set({ availableSources: sources });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '添加失败' });
+      set({ error: e instanceof Error ? e.message : "添加失败" });
     }
   },
 
   removeCustomSource: async (name) => {
     try {
       const sources = await skillMarketService.removeSource(name);
-      set({ availableSources: sources, marketSource: '' });
+      set({ availableSources: sources, marketSource: "" });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '移除失败' });
+      set({ error: e instanceof Error ? e.message : "移除失败" });
     }
   },
 
@@ -238,7 +247,7 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
       await skillMarketService.install(skillId);
       await get().loadInstalled();
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '安装失败' });
+      set({ error: e instanceof Error ? e.message : "安装失败" });
       throw e;
     } finally {
       set({ operatingId: null });
@@ -253,7 +262,7 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
       await skillMarketService.uninstall(skillId);
       await get().loadInstalled();
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '卸载失败' });
+      set({ error: e instanceof Error ? e.message : "卸载失败" });
       throw e;
     } finally {
       set({ operatingId: null });
@@ -270,7 +279,7 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
       installedTimestamps.set(skillId, Date.now());
       await get().loadInstalled();
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '更新失败' });
+      set({ error: e instanceof Error ? e.message : "更新失败" });
       throw e;
     } finally {
       const next = new Set(get().updatingIds);
@@ -291,9 +300,9 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
 
     try {
       const results = await Promise.allSettled(
-        updatable.map((s) => skillMarketService.update(s.meta.id))
+        updatable.map((s) => skillMarketService.update(s.meta.id)),
       );
-      const failed = results.filter((r) => r.status === 'rejected').length;
+      const failed = results.filter((r) => r.status === "rejected").length;
       if (failed > 0) {
         set({ error: `${failed} 个技能更新失败` });
       }
@@ -311,7 +320,7 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
       await skillMarketService.toggleEnabled(skillId, enabled);
       await get().loadInstalled();
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '操作失败' });
+      set({ error: e instanceof Error ? e.message : "操作失败" });
       throw e;
     } finally {
       set({ operatingId: null });
@@ -344,5 +353,4 @@ export const useSkillMarketStore = create<SkillMarketStore>((set, get) => ({
   hasUpdates: () => get().installed.some((s) => checkHasUpdate(s)),
 
   setPage: (page) => set({ page }),
-
 }));

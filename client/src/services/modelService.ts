@@ -1,11 +1,13 @@
-import { http } from './httpClient';
-import type { ModelInfo } from '../types';
+import { http } from "./httpClient";
+import type { ModelInfo } from "../types";
 
 export type { ModelInfo };
 
 export const modelService = {
   async list(): Promise<ModelInfo[]> {
-    const response = await http.get<{ object: string; data: ModelInfo[] }>('/v1/models');
+    const response = await http.get<{ object: string; data: ModelInfo[] }>(
+      "/v1/models",
+    );
     if (response && Array.isArray(response.data)) {
       return response.data;
     }

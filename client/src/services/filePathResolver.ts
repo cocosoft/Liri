@@ -1,4 +1,4 @@
-import { getBackendBaseUrl } from './backendUrl';
+import { getBackendBaseUrl } from "./backendUrl";
 
 /**
  * 解析可能不完整的文件路径为完整路径
@@ -8,7 +8,9 @@ import { getBackendBaseUrl } from './backendUrl';
 export async function resolveFilePath(rawPath: string): Promise<string> {
   const baseUrl = getBackendBaseUrl();
   const encodedPath = encodeURIComponent(rawPath);
-  const res = await fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`);
+  const res = await fetch(
+    `${baseUrl}/api/file/resolve-path?path=${encodedPath}`,
+  );
   if (res.ok) {
     const data = await res.json();
     return data.resolvedPath;

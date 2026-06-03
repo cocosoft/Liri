@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback } from 'react';
-import { useChatStore } from '../../stores/chatStore';
-import { useSessionStore } from '../../stores/sessionStore';
-import { useBackendStore } from '../../stores/backendStore';
-import ChatMessage from './ChatMessage';
+import { useRef, useEffect, useCallback } from "react";
+import { useChatStore } from "../../stores/chatStore";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useBackendStore } from "../../stores/backendStore";
+import ChatMessage from "./ChatMessage";
 
 function ChatArea() {
   const { messages, error, isStreaming } = useChatStore();
@@ -16,11 +16,14 @@ function ChatArea() {
     useChatStore.setState({ error: null });
   };
 
-  const displayError = error
-    && !backendRunning
-    && (error.includes('fetch') || error.includes('connect') || error.includes('NetworkError'))
-    ? '后端服务未运行。请点击左侧侧边栏底部的 "未连接" 按钮查看启动说明。'
-    : error;
+  const displayError =
+    error &&
+    !backendRunning &&
+    (error.includes("fetch") ||
+      error.includes("connect") ||
+      error.includes("NetworkError"))
+      ? '后端服务未运行。请点击左侧侧边栏底部的 "未连接" 按钮查看启动说明。'
+      : error;
 
   /**
    * 检测用户是否在底部附近
@@ -28,7 +31,10 @@ function ChatArea() {
   const checkNearBottom = useCallback(() => {
     const container = containerRef.current;
     if (!container) return true;
-    return container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    return (
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      100
+    );
   }, []);
 
   /**
@@ -51,9 +57,9 @@ function ChatArea() {
       isNearBottomRef.current = checkNearBottom();
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener("scroll", handleScroll);
     };
   }, [checkNearBottom]);
 
@@ -77,8 +83,12 @@ function ChatArea() {
       {/* 错误提示 */}
       {displayError && (
         <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-          <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">⚠</span>
-          <span className="text-sm text-red-700 dark:text-red-300 flex-1">{displayError}</span>
+          <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+            ⚠
+          </span>
+          <span className="text-sm text-red-700 dark:text-red-300 flex-1">
+            {displayError}
+          </span>
           <button
             onClick={handleDismissError}
             className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
@@ -100,7 +110,9 @@ function ChatArea() {
                 className="w-20 h-20 object-contain"
               />
             </div>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">欢迎使用 Liri</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+              欢迎使用 Liri
+            </h2>
             <p className="text-gray-500 dark:text-gray-400">
               官网: https://openliri.com
             </p>
@@ -153,13 +165,22 @@ function ChatArea() {
                   cacheCreationTokens += m.usage.cacheCreationTokens || 0;
                 }
               }
-              return totalTokens > 0 ? { inputTokens, outputTokens, totalTokens, estimatedCostUsd, cacheReadTokens, cacheCreationTokens } : undefined;
+              return totalTokens > 0
+                ? {
+                    inputTokens,
+                    outputTokens,
+                    totalTokens,
+                    estimatedCostUsd,
+                    cacheReadTokens,
+                    cacheCreationTokens,
+                  }
+                : undefined;
             })();
             return messages.map((message) => (
               <div key={message.id}>
                 <ChatMessage
                   message={message}
-                  isStreaming={isStreaming && message.role === 'assistant'}
+                  isStreaming={isStreaming && message.role === "assistant"}
                   sessionUsage={sessionUsage}
                 />
               </div>

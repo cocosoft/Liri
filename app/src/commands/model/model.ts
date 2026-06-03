@@ -176,9 +176,8 @@ function handleAll(): CommandResult {
  */
 async function handleProviders(): Promise<CommandResult> {
   try {
-    const { providerManager } = await import(
-      '@modules/ai/providers/ProviderManager.js'
-    );
+    const { providerManager } =
+      await import('@modules/ai/providers/ProviderManager.js');
     await providerManager.initialize();
     const providers = await providerManager.listProviders();
 
@@ -197,16 +196,18 @@ async function handleProviders(): Promise<CommandResult> {
       const status = p.isActive ? '✓' : '✗';
       const keyInfo = p.apiKey ? '(已配置 Key)' : '(未配置 Key)';
       lines.push(
-        `  ${status} ${p.name.padEnd(18)} | ${p.providerType.padEnd(10)} | ${keyInfo.padEnd(15)} | ${p.baseUrl}`,
+        `  ${status} ${p.name.padEnd(18)} | ${p.providerType.padEnd(10)} | ${keyInfo.padEnd(15)} | ${p.baseUrl}`
       );
     }
 
     lines.push('─'.repeat(80));
     lines.push(
-      `共 ${providers.length} 个供应商（${providers.filter((p) => p.isActive).length} 激活）`,
+      `共 ${providers.length} 个供应商（${providers.filter((p) => p.isActive).length} 激活）`
     );
     lines.push('');
-    lines.push('使用 /model <model-id> 切换模型，使用 /provider toggle <id> 切换供应商状态。');
+    lines.push(
+      '使用 /model <model-id> 切换模型，使用 /provider toggle <id> 切换供应商状态。'
+    );
 
     return { success: true, message: lines.join('\n') };
   } catch (err) {

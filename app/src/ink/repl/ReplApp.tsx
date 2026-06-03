@@ -239,9 +239,14 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               tokenInfo: {
                 input: getTotalInputTokens() - costBefore.input,
                 output: getTotalOutputTokens() - costBefore.output,
-                total: (getTotalInputTokens() - costBefore.input) + (getTotalOutputTokens() - costBefore.output),
-                cacheRead: getTotalCacheReadInputTokens() - costBefore.cacheRead,
-                cacheCreation: getTotalCacheCreationInputTokens() - costBefore.cacheCreation,
+                total:
+                  getTotalInputTokens() -
+                  costBefore.input +
+                  (getTotalOutputTokens() - costBefore.output),
+                cacheRead:
+                  getTotalCacheReadInputTokens() - costBefore.cacheRead,
+                cacheCreation:
+                  getTotalCacheCreationInputTokens() - costBefore.cacheCreation,
               },
               costUsd: getTotalCostUSD() - costBefore.cost,
               sessionCostUsd: getTotalCostUSD(),
@@ -288,9 +293,13 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           tokenInfo: {
             input: getTotalInputTokens() - costBefore.input,
             output: getTotalOutputTokens() - costBefore.output,
-            total: (getTotalInputTokens() - costBefore.input) + (getTotalOutputTokens() - costBefore.output),
+            total:
+              getTotalInputTokens() -
+              costBefore.input +
+              (getTotalOutputTokens() - costBefore.output),
             cacheRead: getTotalCacheReadInputTokens() - costBefore.cacheRead,
-            cacheCreation: getTotalCacheCreationInputTokens() - costBefore.cacheCreation,
+            cacheCreation:
+              getTotalCacheCreationInputTokens() - costBefore.cacheCreation,
           },
           costUsd: getTotalCostUSD() - costBefore.cost,
           sessionCostUsd: getTotalCostUSD(),

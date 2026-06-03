@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import type { CronTask } from '../types';
-import { cronService } from '../services/cronService';
+import { create } from "zustand";
+import type { CronTask } from "../types";
+import { cronService } from "../services/cronService";
 
 interface CronStore {
   tasks: CronTask[];
@@ -8,7 +8,7 @@ interface CronStore {
   error: string | null;
 
   loadTasks: () => Promise<void>;
-  createTask: (task: Omit<CronTask, 'id' | 'status'>) => Promise<void>;
+  createTask: (task: Omit<CronTask, "id" | "status">) => Promise<void>;
   updateTask: (id: string, updates: Partial<CronTask>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleTask: (id: string, enabled: boolean) => Promise<void>;

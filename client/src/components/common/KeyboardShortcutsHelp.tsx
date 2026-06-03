@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 interface ShortcutEntry {
   keys: string[];
@@ -6,13 +6,13 @@ interface ShortcutEntry {
 }
 
 const shortcuts: ShortcutEntry[] = [
-  { keys: ['Ctrl', 'Shift', 'N'], label: '新建会话' },
-  { keys: ['Ctrl', 'L'], label: '清空当前消息' },
-  { keys: ['Ctrl', 'Shift', 'D'], label: '切换仪表盘' },
-  { keys: ['Ctrl', ','], label: '打开设置面板' },
-  { keys: ['Ctrl', 'I'], label: '聚焦输入框' },
-  { keys: ['Ctrl', '/'], label: '显示快捷键帮助' },
-  { keys: ['Esc'], label: '取消聚焦 / 关闭弹窗' },
+  { keys: ["Ctrl", "Shift", "N"], label: "新建会话" },
+  { keys: ["Ctrl", "L"], label: "清空当前消息" },
+  { keys: ["Ctrl", "Shift", "D"], label: "切换仪表盘" },
+  { keys: ["Ctrl", ","], label: "打开设置面板" },
+  { keys: ["Ctrl", "I"], label: "聚焦输入框" },
+  { keys: ["Ctrl", "/"], label: "显示快捷键帮助" },
+  { keys: ["Esc"], label: "取消聚焦 / 关闭弹窗" },
 ];
 
 function KeyboardShortcutsHelp() {
@@ -20,28 +20,31 @@ function KeyboardShortcutsHelp() {
 
   useEffect(() => {
     const handler = () => setOpen((v) => !v);
-    window.addEventListener('toggle-shortcut-help', handler);
-    return () => window.removeEventListener('toggle-shortcut-help', handler);
+    window.addEventListener("toggle-shortcut-help", handler);
+    return () => window.removeEventListener("toggle-shortcut-help", handler);
   }, []);
 
   useEffect(() => {
     if (!open) return;
 
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setOpen(false);
         e.preventDefault();
       }
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
   }, [open]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={() => setOpen(false)}
+      />
       <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -58,7 +61,9 @@ function KeyboardShortcutsHelp() {
         <div className="space-y-2">
           {shortcuts.map((s, i) => (
             <div key={i} className="flex items-center justify-between py-1.5">
-              <span className="text-sm text-gray-600 dark:text-gray-400">{s.label}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {s.label}
+              </span>
               <div className="flex gap-1">
                 {s.keys.map((key, j) => (
                   <span

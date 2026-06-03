@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
-import { useAgentStore } from '../../stores/agentStore';
-import { useAppStore } from '../../stores/appStore';
-import { SkeletonCard } from '../common/Skeleton';
+import { useEffect, useRef, useState } from "react";
+import { useAgentStore } from "../../stores/agentStore";
+import { useAppStore } from "../../stores/appStore";
+import { SkeletonCard } from "../common/Skeleton";
 
 function AgentPage() {
-  const { tasks, isLoading, error, taskProgress, loadTasks, executeTask, cancelTask, getTaskProgress } = useAgentStore();
+  const {
+    tasks,
+    isLoading,
+    error,
+    taskProgress,
+    loadTasks,
+    executeTask,
+    cancelTask,
+    getTaskProgress,
+  } = useAgentStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
-  const [taskName, setTaskName] = useState('');
+  const [taskName, setTaskName] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const expandedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -40,21 +49,23 @@ function AgentPage() {
   const handleExecute = async () => {
     if (!taskName.trim()) return;
     await executeTask(taskName.trim());
-    setTaskName('');
+    setTaskName("");
   };
 
   const statusColor: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    running: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    pending:
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    running: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    completed:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   };
 
   const statusText: Record<string, string> = {
-    pending: '等待中',
-    running: '运行中',
-    completed: '已完成',
-    failed: '失败',
+    pending: "等待中",
+    running: "运行中",
+    completed: "已完成",
+    failed: "失败",
   };
 
   return (
@@ -65,7 +76,7 @@ function AgentPage() {
             Agent 任务
           </h2>
           <button
-            onClick={() => setActivePage('chat')}
+            onClick={() => setActivePage("chat")}
             className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded"
           >
             返回聊天
@@ -83,7 +94,7 @@ function AgentPage() {
             type="text"
             value={taskName}
             onChange={(e) => setTaskName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleExecute()}
+            onKeyDown={(e) => e.key === "Enter" && handleExecute()}
             placeholder="输入任务名称..."
             className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -115,22 +126,23 @@ function AgentPage() {
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {tasks.map((task) => (
-                <li
-                  key={task.id}
-                  className="px-4 py-3"
-                >
+                <li key={task.id} className="px-4 py-3">
                   <div
                     className="flex items-center justify-between cursor-pointer"
-                    onClick={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                    onClick={() =>
+                      setExpandedId(expandedId === task.id ? null : task.id)
+                    }
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
-                        statusColor[task.status] || ''
-                      }`}>
+                      <span
+                        className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                          statusColor[task.status] || ""
+                        }`}
+                      >
                         {statusText[task.status] || task.status}
                       </span>
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {task.name || task.type || '未知任务'}
+                        {task.name || task.type || "未知任务"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -142,7 +154,8 @@ function AgentPage() {
                           />
                         </div>
                       )}
-                      {(task.status === 'pending' || task.status === 'running') && (
+                      {(task.status === "pending" ||
+                        task.status === "running") && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -154,7 +167,7 @@ function AgentPage() {
                         </button>
                       )}
                       <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {expandedId === task.id ? '▲' : '▼'}
+                        {expandedId === task.id ? "▲" : "▼"}
                       </span>
                     </div>
                   </div>
@@ -163,7 +176,9 @@ function AgentPage() {
                     <div className="mt-3 space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3">
                       {task.result && (
                         <div>
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">结果:</span>
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            结果:
+                          </span>
                           <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                             {task.result}
                           </p>
@@ -171,7 +186,9 @@ function AgentPage() {
                       )}
                       {task.error && (
                         <div>
-                          <span className="text-xs font-medium text-red-500 dark:text-red-400">错误:</span>
+                          <span className="text-xs font-medium text-red-500 dark:text-red-400">
+                            错误:
+                          </span>
                           <p className="mt-0.5 text-xs text-red-500 dark:text-red-400">
                             {task.error}
                           </p>
@@ -188,19 +205,24 @@ function AgentPage() {
                                 key={idx}
                                 className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400"
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  st.status === 'completed'
-                                    ? 'bg-green-400'
-                                    : st.status === 'running'
-                                    ? 'bg-blue-400'
-                                    : st.status === 'failed'
-                                    ? 'bg-red-400'
-                                    : 'bg-gray-300'
-                                }`} />
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    st.status === "completed"
+                                      ? "bg-green-400"
+                                      : st.status === "running"
+                                        ? "bg-blue-400"
+                                        : st.status === "failed"
+                                          ? "bg-red-400"
+                                          : "bg-gray-300"
+                                  }`}
+                                />
                                 <span className="truncate">{st.name}</span>
-                                {st.status === 'running' && st.progress !== undefined && (
-                                  <span className="text-gray-400">{st.progress}%</span>
-                                )}
+                                {st.status === "running" &&
+                                  st.progress !== undefined && (
+                                    <span className="text-gray-400">
+                                      {st.progress}%
+                                    </span>
+                                  )}
                               </li>
                             ))}
                           </ul>
@@ -223,25 +245,33 @@ function AgentPage() {
                           </div>
                         </div>
                       )}
-                      {expandedId === task.id && taskProgress && taskProgress.agentId === task.id && (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
-                          <span className="text-xs font-medium text-blue-700 dark:text-blue-300">实时进度:</span>
-                          <div className="mt-1 flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                                style={{ width: `${taskProgress.progress}%` }}
-                              />
+                      {expandedId === task.id &&
+                        taskProgress &&
+                        taskProgress.agentId === task.id && (
+                          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                              实时进度:
+                            </span>
+                            <div className="mt-1 flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${taskProgress.progress}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                {taskProgress.progress}%
+                              </span>
                             </div>
-                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">{taskProgress.progress}%</span>
+                            <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                              {taskProgress.message || taskProgress.state}
+                            </p>
                           </div>
-                          <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                            {taskProgress.message || taskProgress.state}
-                          </p>
-                        </div>
-                      )}
+                        )}
                       <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 pt-1">
-                        <span>{new Date(task.created_at).toLocaleString('zh-CN')}</span>
+                        <span>
+                          {new Date(task.created_at).toLocaleString("zh-CN")}
+                        </span>
                         {task.tokenUsed !== undefined && (
                           <span>Token: {task.tokenUsed}</span>
                         )}

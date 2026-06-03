@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
-import { knowledgeService } from '../../services/knowledgeService';
-import { HTTPClientError } from '../../services/httpClient';
+import { useState, useRef } from "react";
+import { knowledgeService } from "../../services/knowledgeService";
+import { HTTPClientError } from "../../services/httpClient";
 
 interface FileUploadZoneProps {
   isDark: boolean;
@@ -8,7 +8,7 @@ interface FileUploadZoneProps {
   onUploadComplete: () => void;
 }
 
-type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
+type UploadStatus = "idle" | "uploading" | "success" | "error";
 
 interface UploadState {
   status: UploadStatus;
@@ -17,38 +17,58 @@ interface UploadState {
 }
 
 const ACCEPTED_TYPES = [
-  '.md', '.txt', '.json', '.csv', '.tsv', '.xml', '.yaml', '.yml',
-  '.docx', '.xlsx', '.xls', '.pptx', '.pdf', '.epub',
-  '.ipynb', '.zip', '.msg', '.rss', '.atom',
+  ".md",
+  ".txt",
+  ".json",
+  ".csv",
+  ".tsv",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".docx",
+  ".xlsx",
+  ".xls",
+  ".pptx",
+  ".pdf",
+  ".epub",
+  ".ipynb",
+  ".zip",
+  ".msg",
+  ".rss",
+  ".atom",
 ];
 
-function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZoneProps) {
+function FileUploadZone({
+  isDark,
+  baseName,
+  onUploadComplete,
+}: FileUploadZoneProps) {
   const [uploadState, setUploadState] = useState<UploadState>({
-    status: 'idle',
-    message: '',
+    status: "idle",
+    message: "",
     progress: 0,
   });
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const borderDragClass = isDragOver
-    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+    ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20"
     : isDark
-    ? 'border-gray-600 hover:border-gray-500'
-    : 'border-gray-300 hover:border-gray-400';
-  const textMuted = isDark ? 'text-gray-400' : 'text-gray-500';
-  const textPrimary = isDark ? 'text-gray-100' : 'text-gray-900';
-  const bgHover = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50';
+      ? "border-gray-600 hover:border-gray-500"
+      : "border-gray-300 hover:border-gray-400";
+  const textMuted = isDark ? "text-gray-400" : "text-gray-500";
+  const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
+  const bgHover = isDark ? "hover:bg-gray-700" : "hover:bg-gray-50";
 
   function readFileAsBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
-        const base64 = result.split(',')[1] || '';
+        const base64 = result.split(",")[1] || "";
         resolve(base64);
       };
-      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.onerror = () => reject(new Error("文件读取失败"));
       reader.readAsDataURL(file);
     });
   }
@@ -59,22 +79,22 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
 
     if (!baseName) {
       setUploadState({
-        status: 'error',
-        message: '请先选择一个知识库',
+        status: "error",
+        message: "请先选择一个知识库",
         progress: 0,
       });
       return;
     }
 
-    setUploadState({ status: 'uploading', message: '上传中...', progress: 0 });
+    setUploadState({ status: "uploading", message: "上传中...", progress: 0 });
 
     let successCount = 0;
     let errorCount = 0;
-    let lastErrorMessage = '';
+    let lastErrorMessage = "";
 
     for (let i = 0; i < fileArray.length; i++) {
       const file = fileArray[i];
-      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      const ext = "." + file.name.split(".").pop()?.toLowerCase();
 
       if (!ACCEPTED_TYPES.includes(ext)) {
         errorCount++;
@@ -83,7 +103,10 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
 
       try {
         const data = await readFileAsBase64(file);
-        await knowledgeService.uploadToBase(baseName, { name: file.name, data });
+        await knowledgeService.uploadToBase(baseName, {
+          name: file.name,
+          data,
+        });
         successCount++;
       } catch (err) {
         errorCount++;
@@ -95,7 +118,7 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
       }
 
       setUploadState({
-        status: 'uploading',
+        status: "uploading",
         message: `上传中... (${i + 1}/${fileArray.length})`,
         progress: Math.round(((i + 1) / fileArray.length) * 100),
       });
@@ -103,21 +126,21 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
 
     if (successCount > 0) {
       setUploadState({
-        status: 'success',
-        message: `上传完成: ${successCount} 个文件成功${errorCount > 0 ? `, ${errorCount} 个失败` : ''}`,
+        status: "success",
+        message: `上传完成: ${successCount} 个文件成功${errorCount > 0 ? `, ${errorCount} 个失败` : ""}`,
         progress: 100,
       });
       onUploadComplete();
     } else {
       setUploadState({
-        status: 'error',
-        message: lastErrorMessage || '上传失败，请检查文件是否正确或稍后重试',
+        status: "error",
+        message: lastErrorMessage || "上传失败，请检查文件是否正确或稍后重试",
         progress: 0,
       });
     }
 
     setTimeout(() => {
-      setUploadState({ status: 'idle', message: '', progress: 0 });
+      setUploadState({ status: "idle", message: "", progress: 0 });
     }, 3000);
   }
 
@@ -146,7 +169,7 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       handleFiles(e.target.files);
-      e.target.value = '';
+      e.target.value = "";
     }
   }
 
@@ -154,7 +177,7 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
     fileInputRef.current?.click();
   }
 
-  const isUploading = uploadState.status === 'uploading';
+  const isUploading = uploadState.status === "uploading";
 
   return (
     <div className="px-4 pb-3">
@@ -167,7 +190,7 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
           relative border-2 border-dashed rounded-lg p-4
           transition-colors cursor-pointer
           ${borderDragClass} ${bgHover}
-          ${isUploading ? 'pointer-events-none opacity-70' : ''}
+          ${isUploading ? "pointer-events-none opacity-70" : ""}
         `}
       >
         <input
@@ -179,33 +202,47 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
           className="hidden"
         />
 
-        {uploadState.status === 'uploading' && (
+        {uploadState.status === "uploading" && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10 dark:bg-black/30 rounded-lg">
             <div className="text-center">
               <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-1" />
-              <span className={`text-xs ${textPrimary}`}>{uploadState.message}</span>
+              <span className={`text-xs ${textPrimary}`}>
+                {uploadState.message}
+              </span>
             </div>
           </div>
         )}
 
-        {uploadState.status === 'success' && (
+        {uploadState.status === "success" && (
           <div className="text-center">
             <span className="text-lg">✅</span>
-            <p className={`text-xs mt-1 ${textPrimary}`}>{uploadState.message}</p>
+            <p className={`text-xs mt-1 ${textPrimary}`}>
+              {uploadState.message}
+            </p>
           </div>
         )}
 
-        {uploadState.status === 'error' && (
+        {uploadState.status === "error" && (
           <div className="text-center">
             <span className="text-lg">❌</span>
             <p className={`text-xs mt-1 text-red-500`}>{uploadState.message}</p>
           </div>
         )}
 
-        {uploadState.status === 'idle' && (
+        {uploadState.status === "idle" && (
           <div className="text-center">
-            <svg className={`w-6 h-6 mx-auto mb-1 ${textMuted}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            <svg
+              className={`w-6 h-6 mx-auto mb-1 ${textMuted}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
             </svg>
             <p className={`text-xs ${textMuted}`}>
               拖拽文件到此处，或点击选择文件
@@ -216,14 +253,16 @@ function FileUploadZone({ isDark, baseName, onUploadComplete }: FileUploadZonePr
           </div>
         )}
 
-        {isUploading && uploadState.progress > 0 && uploadState.progress < 100 && (
-          <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-            <div
-              className="bg-blue-500 h-1 rounded-full transition-all duration-300"
-              style={{ width: `${uploadState.progress}%` }}
-            />
-          </div>
-        )}
+        {isUploading &&
+          uploadState.progress > 0 &&
+          uploadState.progress < 100 && (
+            <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+              <div
+                className="bg-blue-500 h-1 rounded-full transition-all duration-300"
+                style={{ width: `${uploadState.progress}%` }}
+              />
+            </div>
+          )}
       </div>
     </div>
   );

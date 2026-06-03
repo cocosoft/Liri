@@ -1,17 +1,17 @@
-import BuddyAvatar from './BuddyAvatar';
-import { useBuddyStore } from '../../stores/buddyStore';
-import type { BuddySpecies, BuddyRarity, BuddyEye } from '../../types';
+import BuddyAvatar from "./BuddyAvatar";
+import { useBuddyStore } from "../../stores/buddyStore";
+import type { BuddySpecies, BuddyRarity, BuddyEye } from "../../types";
 
-const DEFAULT_SPECIES: BuddySpecies = 'duck';
-const DEFAULT_RARITY: BuddyRarity = 'common';
+const DEFAULT_SPECIES: BuddySpecies = "duck";
+const DEFAULT_RARITY: BuddyRarity = "common";
 
 function BuddyMini({ onClick }: { onClick?: () => void }) {
   const { companion, lastInteraction } = useBuddyStore();
 
   const species = companion?.species || DEFAULT_SPECIES;
   const rarity = companion?.rarity || DEFAULT_RARITY;
-  const eye = (companion?.eye as BuddyEye) || '·';
-  const hat = companion?.hat || 'none';
+  const eye = (companion?.eye as BuddyEye) || "·";
+  const hat = companion?.hat || "none";
   const shiny = companion?.shiny || false;
   const name = companion?.name;
 

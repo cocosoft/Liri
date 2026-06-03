@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import type { Message, MessageBlock } from '../../types';
-import MarkdownRenderer from './MarkdownRenderer';
-import ThinkingBlock from './ThinkingBlock';
-import StatusBlock from './StatusBlock';
-import ToolCallBlock from './ToolCallBlock';
-import ToolExecutionGroup from './ToolExecutionGroup';
-import ToolResultMessage from './ToolResultMessage';
-import { knowledgeService } from '../../services/knowledgeService';
-import { useConfigStore } from '../../stores/configStore';
-import { useChatStore } from '../../stores/chatStore';
+import React, { useState } from "react";
+import type { Message, MessageBlock } from "../../types";
+import MarkdownRenderer from "./MarkdownRenderer";
+import ThinkingBlock from "./ThinkingBlock";
+import StatusBlock from "./StatusBlock";
+import ToolCallBlock from "./ToolCallBlock";
+import ToolExecutionGroup from "./ToolExecutionGroup";
+import ToolResultMessage from "./ToolResultMessage";
+import { knowledgeService } from "../../services/knowledgeService";
+import { useConfigStore } from "../../stores/configStore";
+import { useChatStore } from "../../stores/chatStore";
 
 interface ChatMessageProps {
   message: Message;
@@ -28,17 +28,22 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   const setReplyMessage = useChatStore((s) => s.setReplyMessage);
   const [showActions, setShowActions] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saveTitle, setSaveTitle] = useState('');
-  const [saveBase, setSaveBase] = useState('default');
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveTitle, setSaveTitle] = useState("");
+  const [saveBase, setSaveBase] = useState("default");
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const configTheme = useConfigStore((s) => s.config.theme);
-  const isDark = configTheme === 'dark';
-  const isUser = message.role === 'user';
-  const isTool = message.role === 'tool';
+  const isDark = configTheme === "dark";
+  const isUser = message.role === "user";
+  const isTool = message.role === "tool";
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString("zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const formatCost = (costUsd?: number) => {
@@ -50,7 +55,7 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   };
 
   const handleCopy = async () => {
-    if (typeof message.content === 'string') {
+    if (typeof message.content === "string") {
       await navigator.clipboard.writeText(message.content);
     }
     setShowActions(false);
@@ -62,33 +67,38 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
 
   const handleSaveToKnowledge = async () => {
     if (!saveTitle.trim() || !message.content) return;
-    setSaveStatus('saving');
+    setSaveStatus("saving");
     try {
-      const content = typeof message.content === 'string' ? message.content : '';
+      const content =
+        typeof message.content === "string" ? message.content : "";
       const title = saveTitle.trim();
       await knowledgeService.saveFromChat({
         base: saveBase,
         title,
         content,
       });
-      setSaveStatus('saved');
+      setSaveStatus("saved");
       setTimeout(() => {
         setShowSaveModal(false);
-        setSaveStatus('idle');
-        setSaveTitle('');
+        setSaveStatus("idle");
+        setSaveTitle("");
       }, 1500);
     } catch {
-      setSaveStatus('error');
+      setSaveStatus("error");
     }
   };
 
   const openSaveModal = () => {
-    const firstLine = typeof message.content === 'string'
-      ? message.content.split('\n')[0].replace(/^#+\s*/, '').slice(0, 50)
-      : '对话内容';
-    setSaveTitle(firstLine || '对话内容');
-    setSaveBase('default');
-    setSaveStatus('idle');
+    const firstLine =
+      typeof message.content === "string"
+        ? message.content
+            .split("\n")[0]
+            .replace(/^#+\s*/, "")
+            .slice(0, 50)
+        : "对话内容";
+    setSaveTitle(firstLine || "对话内容");
+    setSaveBase("default");
+    setSaveStatus("idle");
     setShowSaveModal(true);
     setShowActions(false);
   };
@@ -102,9 +112,7 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
       {/* 头像 */}
       <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium overflow-hidden">
         {isUser ? (
-          <div className="bg-blue-500 text-white">
-            👤
-          </div>
+          <div className="bg-blue-500 text-white">👤</div>
         ) : (
           <img
             src="/liri_logo.png"
@@ -118,10 +126,14 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
       <div className="flex-1 min-w-0">
         {/* 头部：名称 */}
         <div className="flex items-center gap-2 mb-1">
-          <span className={`text-sm font-medium ${
-            isUser ? 'text-gray-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-400'
-          }`}>
-            {isUser ? '你' : 'Liri'}
+          <span
+            className={`text-sm font-medium ${
+              isUser
+                ? "text-gray-700 dark:text-gray-300"
+                : "text-gray-600 dark:text-gray-400"
+            }`}
+          >
+            {isUser ? "你" : "Liri"}
           </span>
         </div>
 
@@ -129,8 +141,8 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
         <div
           className={`max-w-3xl px-4 py-3 rounded-xl ${
             isUser
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-auto'
-              : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100'
+              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-auto"
+              : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
           }`}
         >
           {/* 消息内容 */}
@@ -141,46 +153,64 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
           ) : isTool ? (
             <ToolResultMessage message={message} />
           ) : (
-            <AssistantMessage
-              message={message}
-              isStreaming={isStreaming}
-            />
+            <AssistantMessage message={message} isStreaming={isStreaming} />
           )}
 
           {/* 消息底部：时间、Token 用量和预估成本 */}
-          <div className={`flex items-center justify-end gap-3 mt-2 pt-2 border-t ${
-            isUser ? 'border-blue-400/30' : 'border-gray-200 dark:border-gray-700'
-          }`}>
+          <div
+            className={`flex items-center justify-end gap-3 mt-2 pt-2 border-t ${
+              isUser
+                ? "border-blue-400/30"
+                : "border-gray-200 dark:border-gray-700"
+            }`}
+          >
             {/* 时间 */}
-            <span className={`text-xs ${
-              isUser ? 'text-blue-200' : 'text-gray-400'
-            }`}>
-              {message.timestamp ? formatTime(message.timestamp) : ''}
+            <span
+              className={`text-xs ${
+                isUser ? "text-blue-200" : "text-gray-400"
+              }`}
+            >
+              {message.timestamp ? formatTime(message.timestamp) : ""}
             </span>
 
             {/* 会话累计 Token 和成本 */}
             {sessionUsage && sessionUsage.totalTokens > 0 && (
-              <div className={`flex items-center gap-2 text-xs ${
-                isUser ? 'text-blue-200' : 'text-gray-400'
-              }`}>
+              <div
+                className={`flex items-center gap-2 text-xs ${
+                  isUser ? "text-blue-200" : "text-gray-400"
+                }`}
+              >
                 <span className="flex items-center gap-1">
                   <span>💬</span>
-                  <span>{(sessionUsage.totalTokens).toLocaleString()} tokens</span>
-                </span>
-                {sessionUsage.cacheReadTokens != null && sessionUsage.cacheReadTokens > 0 && (
-                  <span className="text-cyan-500">📖CR {(sessionUsage.cacheReadTokens).toLocaleString()}</span>
-                )}
-                {sessionUsage.cacheCreationTokens != null && sessionUsage.cacheCreationTokens > 0 && (
-                  <span className="text-yellow-500">✏️CW {(sessionUsage.cacheCreationTokens).toLocaleString()}</span>
-                )}
-                {sessionUsage.estimatedCostUsd != null && sessionUsage.estimatedCostUsd > 0 && (
-                  <span className={`flex items-center gap-1 ${
-                    isUser ? 'text-green-300' : 'text-emerald-500 dark:text-emerald-400'
-                  }`}>
-                    <span>💰</span>
-                    <span>{formatCost(sessionUsage.estimatedCostUsd)}</span>
+                  <span>
+                    {sessionUsage.totalTokens.toLocaleString()} tokens
                   </span>
-                )}
+                </span>
+                {sessionUsage.cacheReadTokens != null &&
+                  sessionUsage.cacheReadTokens > 0 && (
+                    <span className="text-cyan-500">
+                      📖CR {sessionUsage.cacheReadTokens.toLocaleString()}
+                    </span>
+                  )}
+                {sessionUsage.cacheCreationTokens != null &&
+                  sessionUsage.cacheCreationTokens > 0 && (
+                    <span className="text-yellow-500">
+                      ✏️CW {sessionUsage.cacheCreationTokens.toLocaleString()}
+                    </span>
+                  )}
+                {sessionUsage.estimatedCostUsd != null &&
+                  sessionUsage.estimatedCostUsd > 0 && (
+                    <span
+                      className={`flex items-center gap-1 ${
+                        isUser
+                          ? "text-green-300"
+                          : "text-emerald-500 dark:text-emerald-400"
+                      }`}
+                    >
+                      <span>💰</span>
+                      <span>{formatCost(sessionUsage.estimatedCostUsd)}</span>
+                    </span>
+                  )}
               </div>
             )}
           </div>
@@ -222,15 +252,23 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
         {/* 保存到知识库弹窗 */}
         {showSaveModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className={`w-96 p-5 rounded-xl shadow-xl ${
-              isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
-            }`}>
-              <h3 className={`text-sm font-semibold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+            <div
+              className={`w-96 p-5 rounded-xl shadow-xl ${
+                isDark
+                  ? "bg-gray-800 border border-gray-700"
+                  : "bg-white border border-gray-200"
+              }`}
+            >
+              <h3
+                className={`text-sm font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
+              >
                 保存到知识库
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <label
+                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                  >
                     标题
                   </label>
                   <input
@@ -240,13 +278,15 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
                     placeholder="文档标题"
                     className={`w-full px-3 py-2 border rounded-md text-sm ${
                       isDark
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
                     } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <label
+                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                  >
                     知识库
                   </label>
                   <input
@@ -256,15 +296,15 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
                     placeholder="知识库名称 (默认: default)"
                     className={`w-full px-3 py-2 border rounded-md text-sm ${
                       isDark
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
                     } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   />
                 </div>
-                {saveStatus === 'error' && (
+                {saveStatus === "error" && (
                   <p className="text-xs text-red-500">保存失败，请重试</p>
                 )}
-                {saveStatus === 'saved' && (
+                {saveStatus === "saved" && (
                   <p className="text-xs text-emerald-500">保存成功 ✓</p>
                 )}
               </div>
@@ -277,10 +317,10 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
                 </button>
                 <button
                   onClick={handleSaveToKnowledge}
-                  disabled={saveStatus === 'saving' || !saveTitle.trim()}
+                  disabled={saveStatus === "saving" || !saveTitle.trim()}
                   className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-md"
                 >
-                  {saveStatus === 'saving' ? '保存中...' : '保存'}
+                  {saveStatus === "saving" ? "保存中..." : "保存"}
                 </button>
               </div>
             </div>
@@ -291,11 +331,18 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   );
 }
 
-function AssistantMessage({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
+function AssistantMessage({
+  message,
+  isStreaming,
+}: {
+  message: Message;
+  isStreaming?: boolean;
+}) {
   // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
-  const blocks = message.blocks && message.blocks.length > 0
-    ? message.blocks
-    : buildFallbackBlocks(message);
+  const blocks =
+    message.blocks && message.blocks.length > 0
+      ? message.blocks
+      : buildFallbackBlocks(message);
 
   const renderedContent = renderBlocksWithGroups(blocks, isStreaming);
   return (
@@ -312,12 +359,12 @@ function AssistantMessage({ message, isStreaming }: { message: Message; isStream
 function buildFallbackBlocks(message: Message): MessageBlock[] {
   const newBlocks: MessageBlock[] = [];
 
-  const groupId = 'fb_' + message.id;
+  const groupId = "fb_" + message.id;
 
   if (message.content) {
     newBlocks.push({
-      id: 'fb_text_' + message.id,
-      type: 'text',
+      id: "fb_text_" + message.id,
+      type: "text",
       content: message.content,
       isStreaming: false,
       groupId,
@@ -327,9 +374,9 @@ function buildFallbackBlocks(message: Message): MessageBlock[] {
   if (message.tool_calls && message.tool_calls.length > 0) {
     message.tool_calls.forEach((tc) => {
       newBlocks.push({
-        id: 'fb_tc_' + tc.id,
-        type: 'tool_call',
-        content: '',
+        id: "fb_tc_" + tc.id,
+        type: "tool_call",
+        content: "",
         toolCall: tc,
         isStreaming: false,
         groupId,
@@ -344,7 +391,7 @@ function buildFallbackBlocks(message: Message): MessageBlock[] {
  * 判断 block 是否为工具执行相关类型
  */
 function isToolRelatedBlock(block: MessageBlock): boolean {
-  return block.type === 'status' || block.type === 'tool_call';
+  return block.type === "status" || block.type === "tool_call";
 }
 
 /**
@@ -354,7 +401,10 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
  * 确保同一逻辑组（文本→工具调用→状态）始终共享相同 groupId，避免割裂。
  * 向后兼容：旧数据无 groupId 时回退到 toolCallId 分组。
  */
-function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): React.ReactNode[] {
+function renderBlocksWithGroups(
+  blocks: MessageBlock[],
+  isStreaming?: boolean,
+): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
 
@@ -371,7 +421,7 @@ function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): 
           key={block.id}
           block={block}
           isStreaming={isStreaming}
-        />
+        />,
       );
       i++;
       continue;
@@ -399,7 +449,7 @@ function renderBlocksWithGroups(blocks: MessageBlock[], isStreaming?: boolean): 
         key={`tool-group-${firstBlockId || groupKey || i}`}
         blocks={toolBlocks}
         isStreaming={isStreaming}
-      />
+      />,
     );
   }
 
@@ -414,25 +464,30 @@ interface BlockRendererProps {
 function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
-  const knownFilePaths = sessionFiles.map(f => f.path);
+  const knownFilePaths = sessionFiles.map((f) => f.path);
   switch (block.type) {
-    case 'thinking':
+    case "thinking":
       return (
         <ThinkingBlock
           content={block.content}
           isStreaming={block.isStreaming || isStreaming}
         />
       );
-    case 'status':
-      return <StatusBlock content={block.content} isStreaming={block.isStreaming || isStreaming} />;
-    case 'tool_call':
+    case "status":
+      return (
+        <StatusBlock
+          content={block.content}
+          isStreaming={block.isStreaming || isStreaming}
+        />
+      );
+    case "tool_call":
       return block.toolCall ? (
         <ToolCallBlock
           toolCall={block.toolCall}
           isStreaming={block.isStreaming || isStreaming}
         />
       ) : null;
-    case 'text':
+    case "text":
     default:
       return (
         <MarkdownRenderer

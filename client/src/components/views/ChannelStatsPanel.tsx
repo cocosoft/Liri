@@ -34,9 +34,7 @@ function StatCard({
         </span>
         <span className="text-lg">{icon}</span>
       </div>
-      <span className={`text-2xl font-bold ${colorClass}`}>
-        {value}
-      </span>
+      <span className={`text-2xl font-bold ${colorClass}`}>{value}</span>
     </div>
   );
 }

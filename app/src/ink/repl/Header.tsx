@@ -64,23 +64,33 @@ export const Header: React.FC<HeaderProps> = ({
       </Box>
       {showSessionStats && (
         <Box flexDirection="row" gap={1}>
-          <Text color="gray" dimColor>In:</Text>
+          <Text color="gray" dimColor>
+            In:
+          </Text>
           <Text color="blue">{formatCount(totalInput)}</Text>
-          <Text color="gray" dimColor>Out:</Text>
+          <Text color="gray" dimColor>
+            Out:
+          </Text>
           <Text color="green">{formatCount(totalOutput)}</Text>
           {totalCacheRead > 0 && (
             <>
-              <Text color="gray" dimColor>CR:</Text>
+              <Text color="gray" dimColor>
+                CR:
+              </Text>
               <Text color="cyan">{formatCount(totalCacheRead)}</Text>
             </>
           )}
           {totalCacheCreation > 0 && (
             <>
-              <Text color="gray" dimColor>CW:</Text>
+              <Text color="gray" dimColor>
+                CW:
+              </Text>
               <Text color="yellow">{formatCount(totalCacheCreation)}</Text>
             </>
           )}
-          <Text color="gray" dimColor>Cost:</Text>
+          <Text color="gray" dimColor>
+            Cost:
+          </Text>
           <Text color="red">${totalCost.toFixed(4)}</Text>
         </Box>
       )}

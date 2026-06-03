@@ -6,7 +6,13 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { modelManager } from '@modules/ai/models/ModelManager';
-import { readFileSync, writeFileSync, existsSync, unlinkSync, statSync } from 'fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  unlinkSync,
+  statSync,
+} from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/config/paths';
 import { load, dump } from 'js-yaml';
@@ -17,7 +23,11 @@ interface PricingEntry {
   outputPer1M: number;
 }
 
-function parseArgs(args: string): { subcommand: string; flags: Record<string, string>; params: string[] } {
+function parseArgs(args: string): {
+  subcommand: string;
+  flags: Record<string, string>;
+  params: string[];
+} {
   const tokens = args.trim().split(/\s+/).filter(Boolean);
   const flags: Record<string, string> = {};
   const params: string[] = [];
@@ -51,7 +61,10 @@ function formatPrice(val: number): string {
 function loadPricingYaml(): Record<string, unknown> {
   const pricingPath = join(resolvePyappHome(), 'pricing.yaml');
   if (existsSync(pricingPath)) {
-    return load(readFileSync(pricingPath, 'utf-8')) as Record<string, unknown> || {};
+    return (
+      (load(readFileSync(pricingPath, 'utf-8')) as Record<string, unknown>) ||
+      {}
+    );
   }
   return {};
 }
@@ -73,11 +86,16 @@ async function handleList(args: string): Promise<CommandResult> {
   for (const model of allModels) {
     const id = model.firstParty;
     if (!id) continue;
-    if (modelFilter && !id.toLowerCase().includes(modelFilter.toLowerCase())) continue;
+    if (modelFilter && !id.toLowerCase().includes(modelFilter.toLowerCase()))
+      continue;
 
     const pricing = registry.getModelPricing(id);
     if (pricing) {
-      entries.push({ model: id, inputPer1M: pricing.inputPer1M, outputPer1M: pricing.outputPer1M });
+      entries.push({
+        model: id,
+        inputPer1M: pricing.inputPer1M,
+        outputPer1M: pricing.outputPer1M,
+      });
     }
   }
 
@@ -86,10 +104,13 @@ async function handleList(args: string): Promise<CommandResult> {
   }
 
   if (entries.length === 0) {
-    return { success: true, message: modelFilter ? `未找到模型: ${modelFilter}` : '暂无定价数据' };
+    return {
+      success: true,
+      message: modelFilter ? `未找到模型: ${modelFilter}` : '暂无定价数据',
+    };
   }
 
-  const lines = entries.map(e => {
+  const lines = entries.map((e) => {
     const input = formatPrice(e.inputPer1M);
     const output = formatPrice(e.outputPer1M);
     return `  ${e.model.padEnd(35)} 输入: ${input.padEnd(10)} 输出: ${output}`;
@@ -104,7 +125,10 @@ async function handleList(args: string): Promise<CommandResult> {
 async function handleSet(commandArgs: string): Promise<CommandResult> {
   const { params } = parseArgs(commandArgs);
   if (params.length < 1) {
-    return { success: false, message: '用法: /pricing set <model> inputPer1M=X outputPer1M=Y' };
+    return {
+      success: false,
+      message: '用法: /pricing set <model> inputPer1M=X outputPer1M=Y',
+    };
   }
 
   const modelId = params[0];
@@ -121,7 +145,10 @@ async function handleSet(commandArgs: string): Promise<CommandResult> {
   }
 
   if (Object.keys(updates).length === 0) {
-    return { success: false, message: '未提供有效的定价参数。示例: inputPer1M=3.5 outputPer1M=17.5' };
+    return {
+      success: false,
+      message: '未提供有效的定价参数。示例: inputPer1M=3.5 outputPer1M=17.5',
+    };
   }
 
   const existing = loadPricingYaml();
@@ -136,7 +163,9 @@ async function handleSet(commandArgs: string): Promise<CommandResult> {
 
   savePricingYaml(existing);
 
-  const detail = Object.entries(updates).map(([k, v]) => `${k}=${v}`).join(', ');
+  const detail = Object.entries(updates)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(', ');
   return { success: true, message: `已更新 ${modelId} 定价: ${detail}` };
 }
 
@@ -148,7 +177,10 @@ async function handleSync(commandArgs: string): Promise<CommandResult> {
     const cachePath = join(resolvePyappHome(), 'cache', 'pricing.json');
     if (existsSync(cachePath)) {
       const stat = statSync(cachePath);
-      return { success: true, message: `上次同步: ${new Date(stat.mtime).toLocaleString()}` };
+      return {
+        success: true,
+        message: `上次同步: ${new Date(stat.mtime).toLocaleString()}`,
+      };
     }
     return { success: true, message: '尚未同步过社区定价' };
   }
@@ -156,9 +188,15 @@ async function handleSync(commandArgs: string): Promise<CommandResult> {
   try {
     const registry = modelManager.getModelRegistry();
     const count = await registry.syncPricing(sourceUrl);
-    return { success: true, message: `社区定价同步完成，已更新 ${count} 个模型` };
+    return {
+      success: true,
+      message: `社区定价同步完成，已更新 ${count} 个模型`,
+    };
   } catch (e) {
-    return { success: false, message: `同步失败: ${e instanceof Error ? e.message : String(e)}` };
+    return {
+      success: false,
+      message: `同步失败: ${e instanceof Error ? e.message : String(e)}`,
+    };
   }
 }
 
@@ -222,7 +260,10 @@ function handleHelp(): CommandResult {
 }
 
 const pricingCommand = {
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const trimmed = args.trim().toLowerCase();
 
     if (!trimmed || trimmed === 'list') {

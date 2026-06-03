@@ -3,10 +3,10 @@
  * 封装 Tauri updater 插件的检查、下载、安装流程
  */
 
-import { check } from '@tauri-apps/plugin-updater';
-import type { DownloadEvent } from '@tauri-apps/plugin-updater';
-import { ask } from '@tauri-apps/plugin-dialog';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { check } from "@tauri-apps/plugin-updater";
+import type { DownloadEvent } from "@tauri-apps/plugin-updater";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 export interface UpdateCheckResult {
   available: boolean;
@@ -23,7 +23,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   try {
     const update = await check();
     if (!update) {
-      return { available: false, currentVersion: '' };
+      return { available: false, currentVersion: "" };
     }
     return {
       available: true,
@@ -32,7 +32,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       body: update.body,
     };
   } catch {
-    return { available: false, currentVersion: '' };
+    return { available: false, currentVersion: "" };
   }
 }
 
@@ -41,7 +41,11 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
  * @param onProgress 下载进度回调
  */
 export async function downloadAndInstall(
-  onProgress?: (progress: { downloaded: number; total: number; percent: number }) => void
+  onProgress?: (progress: {
+    downloaded: number;
+    total: number;
+    percent: number;
+  }) => void,
 ): Promise<void> {
   const update = await check();
   if (!update) {
@@ -49,7 +53,7 @@ export async function downloadAndInstall(
   }
 
   await update.downloadAndInstall((event: DownloadEvent) => {
-    if (event.event === 'Started' && event.data.contentLength) {
+    if (event.event === "Started" && event.data.contentLength) {
       onProgress?.({
         downloaded: 0,
         total: event.data.contentLength,
@@ -58,9 +62,9 @@ export async function downloadAndInstall(
     }
   });
 
-  const shouldRelaunch = await ask('更新已完成，是否立即重启应用？', {
-    title: '更新完成',
-    kind: 'info',
+  const shouldRelaunch = await ask("更新已完成，是否立即重启应用？", {
+    title: "更新完成",
+    kind: "info",
   });
 
   if (shouldRelaunch) {

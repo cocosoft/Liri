@@ -1,10 +1,10 @@
-import { http } from './httpClient';
+import { http } from "./httpClient";
 
 export interface User {
   id: string;
   username: string;
   email?: string;
-  role: 'admin' | 'user' | 'guest';
+  role: "admin" | "user" | "guest";
   trustLevel: 1 | 2 | 3 | 4 | 5;
   created_at: number;
   last_login_at?: number;
@@ -40,11 +40,11 @@ export interface ApiKey {
 export interface Permission {
   scope: string;
   description: string;
-  level: 'none' | 'read' | 'write' | 'admin';
+  level: "none" | "read" | "write" | "admin";
 }
 
-const AUTH_TOKEN_KEY = 'auth_token';
-const AUTH_USER_KEY = 'auth_user';
+const AUTH_TOKEN_KEY = "auth_token";
+const AUTH_USER_KEY = "auth_user";
 
 function getStoredToken(): string | null {
   return localStorage.getItem(AUTH_TOKEN_KEY);
@@ -86,14 +86,17 @@ export const authService = {
   },
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await http.post<AuthResponse>('/v1/auth/login', credentials);
+    const response = await http.post<AuthResponse>(
+      "/v1/auth/login",
+      credentials,
+    );
     setStoredToken(response.token);
     setStoredUser(response.user);
     return response;
   },
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await http.post<AuthResponse>('/v1/auth/register', data);
+    const response = await http.post<AuthResponse>("/v1/auth/register", data);
     setStoredToken(response.token);
     setStoredUser(response.user);
     return response;
@@ -101,7 +104,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      await http.post('/v1/auth/logout');
+      await http.post("/v1/auth/logout");
     } catch {
     } finally {
       removeStoredToken();
@@ -113,7 +116,7 @@ export const authService = {
     const token = getStoredToken();
     if (!token) return null;
     try {
-      const user = await http.get<User>('/v1/auth/me');
+      const user = await http.get<User>("/v1/auth/me");
       setStoredUser(user);
       return user;
     } catch {
@@ -124,11 +127,15 @@ export const authService = {
   },
 
   async listApiKeys(): Promise<ApiKey[]> {
-    return http.get<ApiKey[]>('/v1/apikeys');
+    return http.get<ApiKey[]>("/v1/apikeys");
   },
 
-  async createApiKey(name: string, permissions: string[], expiresInDays?: number): Promise<ApiKey & { key: string }> {
-    return http.post<ApiKey & { key: string }>('/v1/apikeys', {
+  async createApiKey(
+    name: string,
+    permissions: string[],
+    expiresInDays?: number,
+  ): Promise<ApiKey & { key: string }> {
+    return http.post<ApiKey & { key: string }>("/v1/apikeys", {
       name,
       permissions,
       expires_in_days: expiresInDays,
@@ -140,7 +147,7 @@ export const authService = {
   },
 
   async getPermissions(): Promise<Permission[]> {
-    return http.get<Permission[]>('/v1/auth/permissions');
+    return http.get<Permission[]>("/v1/auth/permissions");
   },
 
   clearAuth(): void {

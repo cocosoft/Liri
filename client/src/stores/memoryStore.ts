@@ -1,5 +1,13 @@
-import { create } from 'zustand';
-import { memoryService, type Memory, type MemorySearchResult, type MemoryWeight, type MemorySyncStatus, type MemorySearchParams, type MemoryListParams } from '../services/memoryService';
+import { create } from "zustand";
+import {
+  memoryService,
+  type Memory,
+  type MemorySearchResult,
+  type MemoryWeight,
+  type MemorySyncStatus,
+  type MemorySearchParams,
+  type MemoryListParams,
+} from "../services/memoryService";
 
 interface MemoryStore {
   memories: Memory[];
@@ -15,7 +23,9 @@ interface MemoryStore {
   loadMemories: (params?: MemoryListParams) => Promise<void>;
   searchMemories: (params: MemorySearchParams) => Promise<void>;
   getMemory: (id: string) => Promise<void>;
-  createMemory: (memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  createMemory: (
+    memory: Omit<Memory, "id" | "createdAt" | "updatedAt">,
+  ) => Promise<void>;
   updateMemory: (id: string, updates: Partial<Memory>) => Promise<void>;
   deleteMemory: (id: string) => Promise<void>;
   deleteAllMemories: () => Promise<number>;
@@ -48,7 +58,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       const result = await memoryService.list(params);
       set({ memories: result.memories, total: result.total });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取记忆列表失败' });
+      set({ error: e instanceof Error ? e.message : "获取记忆列表失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -60,7 +70,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       const result = await memoryService.search(params);
       set({ searchResults: result.results, searchTotal: result.total });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '搜索记忆失败' });
+      set({ error: e instanceof Error ? e.message : "搜索记忆失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -72,7 +82,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       const memory = await memoryService.get(id);
       set({ selectedMemory: memory });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取记忆详情失败' });
+      set({ error: e instanceof Error ? e.message : "获取记忆详情失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -83,7 +93,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
     try {
       await memoryService.create(memory);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '创建记忆失败' });
+      set({ error: e instanceof Error ? e.message : "创建记忆失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -94,7 +104,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
     try {
       await memoryService.update(id, updates);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '更新记忆失败' });
+      set({ error: e instanceof Error ? e.message : "更新记忆失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -105,7 +115,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
     try {
       await memoryService.delete(id);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '删除记忆失败' });
+      set({ error: e instanceof Error ? e.message : "删除记忆失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -118,7 +128,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       set({ memories: [], total: 0, selectedMemory: null });
       return count;
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '清除全部记忆失败' });
+      set({ error: e instanceof Error ? e.message : "清除全部记忆失败" });
       return 0;
     } finally {
       set({ isLoading: false });
@@ -130,7 +140,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       const weights = await memoryService.getWeights();
       set({ weights });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取权重分布失败' });
+      set({ error: e instanceof Error ? e.message : "获取权重分布失败" });
     }
   },
 
@@ -139,7 +149,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       const status = await memoryService.getSyncStatus();
       set({ syncStatus: status });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取同步状态失败' });
+      set({ error: e instanceof Error ? e.message : "获取同步状态失败" });
     }
   },
 
@@ -149,7 +159,7 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
       await memoryService.triggerSync();
       await memoryService.getSyncStatus();
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '触发同步失败' });
+      set({ error: e instanceof Error ? e.message : "触发同步失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -160,4 +170,4 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
   clearError: () => set({ error: null }),
 }));
 
-export { memoryService } from '../services/memoryService';
+export { memoryService } from "../services/memoryService";

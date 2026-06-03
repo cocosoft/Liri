@@ -290,7 +290,8 @@ export async function initAutoDream(): Promise<void> {
       `[autoDream] firing — ${hoursSince.toFixed(1)}h since last, ${sessionIds.length} sessions to review`
     );
 
-    const memoryRoot = process.env.AUTO_MEM_PATH || join(resolveKnowledgeDir(), 'default');
+    const memoryRoot =
+      process.env.AUTO_MEM_PATH || join(resolveKnowledgeDir(), 'default');
     const transcriptDir = process.cwd();
 
     const extra = `

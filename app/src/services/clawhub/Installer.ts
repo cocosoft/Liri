@@ -86,7 +86,9 @@ export class Installer {
    * 根据 skillId 前缀判断是否为仓库源（GitHub/Hermes/Gitee）
    * @returns { prefix, repo } 或 null
    */
-  private parseRepoId(skillId: string): { prefix: string; repo: string } | null {
+  private parseRepoId(
+    skillId: string
+  ): { prefix: string; repo: string } | null {
     const match = skillId.match(/^(github|hermes|gitee):(.+)$/);
     return match ? { prefix: match[1], repo: match[2] } : null;
   }
@@ -120,7 +122,10 @@ export class Installer {
     if (repoInfo) {
       // 仓库源：从 GitHub/Gitee raw 内容下载 SKILL.md
       metaData = await this.installFromRepo(
-        skillId, repoInfo.prefix, repoInfo.repo, installPath
+        skillId,
+        repoInfo.prefix,
+        repoInfo.repo,
+        installPath
       );
     } else if (sourceUrl) {
       // 自定义 URL：期望返回 JSON
@@ -191,7 +196,12 @@ export class Installer {
     }
 
     // 解析 frontmatter
-    const meta = this.parseSkillFrontmatter(skillContent, skillId, prefix, repo);
+    const meta = this.parseSkillFrontmatter(
+      skillContent,
+      skillId,
+      prefix,
+      repo
+    );
 
     // 写入文件到安装目录
     if (!existsSync(installPath)) {
@@ -276,24 +286,40 @@ export class Installer {
       const isHttps = url.startsWith('https');
       const client = isHttps ? https : http;
 
-      const req = client.get(url, { timeout: this.timeout, headers: { 'User-Agent': 'Liri-ClawHub/1.0' } }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks).toString('utf-8');
-            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-              resolve(JSON.parse(body));
-            } else {
-              reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
+      const req = client.get(
+        url,
+        {
+          timeout: this.timeout,
+          headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            try {
+              const body = Buffer.concat(chunks).toString('utf-8');
+              if (
+                res.statusCode &&
+                res.statusCode >= 200 &&
+                res.statusCode < 300
+              ) {
+                resolve(JSON.parse(body));
+              } else {
+                reject(
+                  new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
+                );
+              }
+            } catch (error) {
+              reject(error);
             }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
+          });
+        }
+      );
       req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error(`请求超时: ${url}`)); });
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error(`请求超时: ${url}`));
+      });
     });
   }
 
@@ -305,29 +331,45 @@ export class Installer {
       const isHttps = url.startsWith('https');
       const client = isHttps ? https : http;
 
-      const req = client.get(url, { timeout: this.timeout, headers: { 'User-Agent': 'Liri-ClawHub/1.0' } }, (res) => {
-        // 处理重定向
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          const redirectUrl = res.headers.location;
-          if (redirectUrl) {
-            this.httpGetText(redirectUrl).then(resolve).catch(reject);
-            return;
+      const req = client.get(
+        url,
+        {
+          timeout: this.timeout,
+          headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
+        },
+        (res) => {
+          // 处理重定向
+          if (res.statusCode === 301 || res.statusCode === 302) {
+            const redirectUrl = res.headers.location;
+            if (redirectUrl) {
+              this.httpGetText(redirectUrl).then(resolve).catch(reject);
+              return;
+            }
           }
-        }
 
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf-8');
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(body);
-          } else {
-            reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
-          }
-        });
-      });
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            const body = Buffer.concat(chunks).toString('utf-8');
+            if (
+              res.statusCode &&
+              res.statusCode >= 200 &&
+              res.statusCode < 300
+            ) {
+              resolve(body);
+            } else {
+              reject(
+                new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
+              );
+            }
+          });
+        }
+      );
       req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error(`请求超时: ${url}`)); });
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error(`请求超时: ${url}`));
+      });
     });
   }
 
@@ -629,5 +671,4 @@ export class Installer {
 
     return 0;
   }
-
 }

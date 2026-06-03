@@ -4,7 +4,7 @@ interface ConfirmDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'default';
+  variant?: "danger" | "default";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -13,9 +13,9 @@ function ConfirmDialog({
   open,
   title,
   message,
-  confirmText = '确认',
-  cancelText = '取消',
-  variant = 'default',
+  confirmText = "确认",
+  cancelText = "取消",
+  variant = "default",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -41,9 +41,9 @@ function ConfirmDialog({
           <button
             onClick={onConfirm}
             className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
-              variant === 'danger'
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-blue-500 hover:bg-blue-600'
+              variant === "danger"
+                ? "bg-red-500 hover:bg-red-600"
+                : "bg-blue-500 hover:bg-blue-600"
             }`}
           >
             {confirmText}

@@ -1,4 +1,4 @@
-import { http } from './httpClient';
+import { http } from "./httpClient";
 
 /**
  * ClawHub 技能元数据接口
@@ -90,17 +90,17 @@ class SkillMarketService {
     query: string,
     category?: string,
     tags?: string[],
-    source?: string
+    source?: string,
   ): Promise<SkillSearchResult[]> {
     const params: Record<string, unknown> = {};
     if (query) params.q = query;
     if (category) params.category = category;
-    if (tags?.length) params.tags = tags.join(',');
+    if (tags?.length) params.tags = tags.join(",");
     if (source) params.source = source;
 
     const res = await http.get<{ results: SkillSearchResult[] }>(
-      '/v1/skills/search',
-      { params }
+      "/v1/skills/search",
+      { params },
     );
     return res.results || [];
   }
@@ -109,7 +109,7 @@ class SkillMarketService {
    * 获取已安装技能列表
    */
   async getInstalledSkills(): Promise<InstalledSkill[]> {
-    const res = await http.get<{ skills: InstalledSkill[] }>('/v1/skills');
+    const res = await http.get<{ skills: InstalledSkill[] }>("/v1/skills");
     return res.skills || [];
   }
 
@@ -120,7 +120,7 @@ class SkillMarketService {
   async getSkillDetail(skillId: string): Promise<InstalledSkill | null> {
     try {
       const res = await http.get<{ skill: InstalledSkill }>(
-        `/v1/skills/${encodeURIComponent(skillId)}`
+        `/v1/skills/${encodeURIComponent(skillId)}`,
       );
       return res.skill || null;
     } catch {
@@ -135,8 +135,8 @@ class SkillMarketService {
    */
   async install(skillId: string, sourceUrl?: string): Promise<InstalledSkill> {
     const res = await http.post<{ success: boolean; skill: InstalledSkill }>(
-      '/v1/skills/install',
-      { skillId, sourceUrl }
+      "/v1/skills/install",
+      { skillId, sourceUrl },
     );
     return res.skill;
   }
@@ -155,7 +155,7 @@ class SkillMarketService {
    */
   async update(skillId: string): Promise<InstalledSkill> {
     const res = await http.post<{ success: boolean; skill: InstalledSkill }>(
-      `/v1/skills/${encodeURIComponent(skillId)}/update`
+      `/v1/skills/${encodeURIComponent(skillId)}/update`,
     );
     return res.skill;
   }
@@ -165,10 +165,9 @@ class SkillMarketService {
    * @param limit 返回数量限制
    */
   async getRecommended(limit = 10): Promise<RecommendedResponse> {
-    const res = await http.get<RecommendedResponse>(
-      '/v1/skills/recommended',
-      { params: { limit } }
-    );
+    const res = await http.get<RecommendedResponse>("/v1/skills/recommended", {
+      params: { limit },
+    });
     return {
       recommended: res.recommended || [],
       categories: res.categories || {},
@@ -180,9 +179,7 @@ class SkillMarketService {
    * 获取技能分类列表
    */
   async getCategories(): Promise<CategoryListResponse> {
-    const res = await http.get<CategoryListResponse>(
-      '/v1/skills/categories'
-    );
+    const res = await http.get<CategoryListResponse>("/v1/skills/categories");
     return {
       categories: res.categories || [],
       sourceDistribution: res.sourceDistribution,
@@ -193,26 +190,30 @@ class SkillMarketService {
    * 切换技能启用状态
    */
   async toggleEnabled(skillId: string, enabled: boolean): Promise<void> {
-    await http.post(`/v1/skills/${encodeURIComponent(skillId)}/toggle`, { enabled });
+    await http.post(`/v1/skills/${encodeURIComponent(skillId)}/toggle`, {
+      enabled,
+    });
   }
 
   /** 导出所有已安装技能为 JSON */
   async exportAll(): Promise<InstalledSkill[]> {
-    const res = await http.get<{ skills: InstalledSkill[] }>('/v1/skills/export');
+    const res = await http.get<{ skills: InstalledSkill[] }>(
+      "/v1/skills/export",
+    );
     return res.skills || [];
   }
 
   /** 获取可用技能市场来源列表 */
   async getSources(): Promise<string[]> {
-    const res = await http.get<{ sources: string[] }>('/v1/skills/sources');
+    const res = await http.get<{ sources: string[] }>("/v1/skills/sources");
     return res.sources || [];
   }
 
   /** 添加自定义技能市场来源 */
   async addSource(name: string, apiBaseUrl: string): Promise<string[]> {
     const res = await http.post<{ success: boolean; sources: string[] }>(
-      '/v1/skills/sources',
-      { name, apiBaseUrl }
+      "/v1/skills/sources",
+      { name, apiBaseUrl },
     );
     return res.sources || [];
   }
@@ -220,20 +221,22 @@ class SkillMarketService {
   /** 移除自定义技能市场来源 */
   async removeSource(name: string): Promise<string[]> {
     const res = await http.delete<{ success: boolean; sources: string[] }>(
-      `/v1/skills/sources/${encodeURIComponent(name)}`
+      `/v1/skills/sources/${encodeURIComponent(name)}`,
     );
     return res.sources || [];
   }
 
   /** 批量导入技能（JSON 格式） */
-  async importSkills(skills: Array<{ name: string; description?: string; category?: string }>): Promise<void> {
-    await http.post('/v1/skills/import', { skills });
+  async importSkills(
+    skills: Array<{ name: string; description?: string; category?: string }>,
+  ): Promise<void> {
+    await http.post("/v1/skills/import", { skills });
   }
 
   /** 克隆技能 */
   async clone(skillId: string): Promise<InstalledSkill> {
     const res = await http.post<{ skill: InstalledSkill }>(
-      `/v1/skills/${encodeURIComponent(skillId)}/clone`
+      `/v1/skills/${encodeURIComponent(skillId)}/clone`,
     );
     return res.skill;
   }

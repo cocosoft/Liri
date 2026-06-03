@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { authService, type User, type ApiKey } from '../services/authService';
+import { create } from "zustand";
+import { authService, type User, type ApiKey } from "../services/authService";
 
 interface AuthStore {
   user: User | null;
@@ -9,7 +9,11 @@ interface AuthStore {
   error: string | null;
 
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string, email?: string) => Promise<void>;
+  register: (
+    username: string,
+    password: string,
+    email?: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -34,7 +38,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : '登录失败',
+        error: e instanceof Error ? e.message : "登录失败",
         isLoading: false,
       });
       throw e;
@@ -44,7 +48,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   register: async (username: string, password: string, email?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authService.register({ username, password, email });
+      const response = await authService.register({
+        username,
+        password,
+        email,
+      });
       set({
         user: response.user,
         token: response.token,
@@ -53,7 +61,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : '注册失败',
+        error: e instanceof Error ? e.message : "注册失败",
         isLoading: false,
       });
       throw e;
@@ -105,7 +113,11 @@ interface ApiKeyStore {
   error: string | null;
 
   loadApiKeys: () => Promise<void>;
-  createApiKey: (name: string, permissions: string[], expiresInDays?: number) => Promise<string>;
+  createApiKey: (
+    name: string,
+    permissions: string[],
+    expiresInDays?: number,
+  ) => Promise<string>;
   deleteApiKey: (id: string) => Promise<void>;
 }
 
@@ -121,16 +133,24 @@ export const useApiKeyStore = create<ApiKeyStore>((set) => ({
       set({ apiKeys, isLoading: false });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : '获取API密钥列表失败',
+        error: e instanceof Error ? e.message : "获取API密钥列表失败",
         isLoading: false,
       });
     }
   },
 
-  createApiKey: async (name: string, permissions: string[], expiresInDays?: number) => {
+  createApiKey: async (
+    name: string,
+    permissions: string[],
+    expiresInDays?: number,
+  ) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await authService.createApiKey(name, permissions, expiresInDays);
+      const result = await authService.createApiKey(
+        name,
+        permissions,
+        expiresInDays,
+      );
       set((state) => ({
         apiKeys: [...state.apiKeys, { ...result, key: undefined } as ApiKey],
         isLoading: false,
@@ -138,7 +158,7 @@ export const useApiKeyStore = create<ApiKeyStore>((set) => ({
       return result.key;
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : '创建API密钥失败',
+        error: e instanceof Error ? e.message : "创建API密钥失败",
         isLoading: false,
       });
       throw e;
@@ -155,7 +175,7 @@ export const useApiKeyStore = create<ApiKeyStore>((set) => ({
       }));
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : '删除API密钥失败',
+        error: e instanceof Error ? e.message : "删除API密钥失败",
         isLoading: false,
       });
       throw e;

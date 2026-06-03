@@ -1,58 +1,64 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from "react";
 
 interface FileLinkProps {
   filePath: string;
   onPreview?: (path: string) => void;
 }
 
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
 
 function FileLink({ filePath, onPreview }: FileLinkProps) {
   const [opening, setOpening] = useState(false);
 
-  const handleClick = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (opening) return;
-    setOpening(true);
+  const handleClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (opening) return;
+      setOpening(true);
 
-    try {
-      if (onPreview) {
-        onPreview(filePath);
-      } else if (isTauri) {
-        const { open } = await import('@tauri-apps/plugin-shell');
-        await open(filePath);
-      } else {
-        const encodedPath = encodeURIComponent(filePath);
-        await fetch(`/api/file/open?path=${encodedPath}`);
+      try {
+        if (onPreview) {
+          onPreview(filePath);
+        } else if (isTauri) {
+          const { open } = await import("@tauri-apps/plugin-shell");
+          await open(filePath);
+        } else {
+          const encodedPath = encodeURIComponent(filePath);
+          await fetch(`/api/file/open?path=${encodedPath}`);
+        }
+      } catch (err) {
+        console.error("打开文件失败:", err);
+      } finally {
+        setOpening(false);
       }
-    } catch (err) {
-      console.error('打开文件失败:', err);
-    } finally {
-      setOpening(false);
-    }
-  }, [filePath, opening, onPreview]);
+    },
+    [filePath, opening, onPreview],
+  );
 
-  const handleOpenInSystem = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (opening) return;
-    setOpening(true);
+  const handleOpenInSystem = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (opening) return;
+      setOpening(true);
 
-    try {
-      if (isTauri) {
-        const { open } = await import('@tauri-apps/plugin-shell');
-        await open(filePath);
-      } else {
-        const encodedPath = encodeURIComponent(filePath);
-        await fetch(`/api/file/open?path=${encodedPath}`);
+      try {
+        if (isTauri) {
+          const { open } = await import("@tauri-apps/plugin-shell");
+          await open(filePath);
+        } else {
+          const encodedPath = encodeURIComponent(filePath);
+          await fetch(`/api/file/open?path=${encodedPath}`);
+        }
+      } catch (err) {
+        console.error("打开文件失败:", err);
+      } finally {
+        setOpening(false);
       }
-    } catch (err) {
-      console.error('打开文件失败:', err);
-    } finally {
-      setOpening(false);
-    }
-  }, [filePath, opening]);
+    },
+    [filePath, opening],
+  );
 
   return (
     <span className="inline-flex items-center gap-1 group">
@@ -70,8 +76,18 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
         className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100"
         title="在系统资源管理器中打开"
       >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        <svg
+          className="w-3 h-3"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+          />
         </svg>
       </button>
     </span>

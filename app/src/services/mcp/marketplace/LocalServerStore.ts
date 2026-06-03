@@ -112,7 +112,9 @@ export class LocalServerStore {
   toggleTool(serverName: string, toolName: string, enabled: boolean): void {
     const key = `${serverName}:${toolName}`;
     if (enabled) {
-      this.data.disabledTools = this.data.disabledTools.filter((t) => t !== key);
+      this.data.disabledTools = this.data.disabledTools.filter(
+        (t) => t !== key
+      );
     } else if (!this.data.disabledTools.includes(key)) {
       this.data.disabledTools.push(key);
     }

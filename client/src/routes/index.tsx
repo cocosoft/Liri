@@ -1,100 +1,104 @@
-import { lazy } from 'react';
-import type { RouteObject } from 'react-router-dom';
+import { lazy } from "react";
+import type { RouteObject } from "react-router-dom";
 
-const DashboardPage = lazy(() => import('../components/views/DashboardPage'));
-const LogViewerPage = lazy(() => import('../components/views/LogViewerPage'));
-const KnowledgePage = lazy(() => import('../components/views/KnowledgePage'));
-const AgentPage = lazy(() => import('../components/views/AgentPage'));
-const CronPage = lazy(() => import('../components/views/CronPage'));
-const TaskCenterPage = lazy(() => import('../components/views/TaskCenterPage'));
-const ChannelsPage = lazy(() => import('../components/views/ChannelsPage'));
-const SettingsPage = lazy(() => import('../components/views/SettingsPage'));
-const BuddyPage = lazy(() => import('../components/views/BuddyPage'));
-const FileExplorerPage = lazy(() => import('../components/views/FileExplorerPage'));
-const LoginPage = lazy(() => import('../components/views/LoginPage'));
-const ApiKeyPage = lazy(() => import('../components/views/ApiKeyPage'));
-const STTTestPage = lazy(() => import('../components/views/STTTestPage'));
-const SkillMarketPage = lazy(() => import('../components/views/SkillMarketPage'));
-const MCPMarketPage = lazy(() => import('../components/views/MCPMarketPage'));
-const ModelPage = lazy(() => import('../components/views/ModelPage'));
-const OAuthPage = lazy(() => import('../components/views/OAuthPage'));
-const SkillPage = lazy(() => import('../components/views/SkillPage'));
+const DashboardPage = lazy(() => import("../components/views/DashboardPage"));
+const LogViewerPage = lazy(() => import("../components/views/LogViewerPage"));
+const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
+const AgentPage = lazy(() => import("../components/views/AgentPage"));
+const CronPage = lazy(() => import("../components/views/CronPage"));
+const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
+const ChannelsPage = lazy(() => import("../components/views/ChannelsPage"));
+const SettingsPage = lazy(() => import("../components/views/SettingsPage"));
+const BuddyPage = lazy(() => import("../components/views/BuddyPage"));
+const FileExplorerPage = lazy(
+  () => import("../components/views/FileExplorerPage"),
+);
+const LoginPage = lazy(() => import("../components/views/LoginPage"));
+const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
+const STTTestPage = lazy(() => import("../components/views/STTTestPage"));
+const SkillMarketPage = lazy(
+  () => import("../components/views/SkillMarketPage"),
+);
+const MCPMarketPage = lazy(() => import("../components/views/MCPMarketPage"));
+const ModelPage = lazy(() => import("../components/views/ModelPage"));
+const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
+const SkillPage = lazy(() => import("../components/views/SkillPage"));
 
 export const routes: RouteObject[] = [
   {
-    path: '/login',
+    path: "/login",
     element: <LoginPage />,
   },
   {
-    path: '/apikeys',
+    path: "/apikeys",
     element: <ApiKeyPage />,
   },
   {
-    path: '/dashboard',
+    path: "/dashboard",
     element: <DashboardPage />,
   },
   {
-    path: '/logs',
+    path: "/logs",
     element: <LogViewerPage />,
   },
   {
-    path: '/files',
+    path: "/files",
     element: <FileExplorerPage />,
   },
   {
-    path: '/knowledge',
+    path: "/knowledge",
     element: <KnowledgePage />,
   },
   {
-    path: '/agent',
+    path: "/agent",
     element: <AgentPage />,
   },
   {
-    path: '/cron',
+    path: "/cron",
     element: <CronPage />,
   },
   {
-    path: '/tasks',
+    path: "/tasks",
     element: <TaskCenterPage />,
   },
   {
-    path: '/channels',
+    path: "/channels",
     element: <ChannelsPage />,
   },
   {
-    path: '/settings',
+    path: "/settings",
     element: <SettingsPage />,
   },
   {
-    path: '/buddy',
+    path: "/buddy",
     element: <BuddyPage />,
   },
   {
-    path: '/voice-stt',
+    path: "/voice-stt",
     element: <STTTestPage />,
   },
   {
-    path: '/skill-market',
+    path: "/skill-market",
     element: <SkillMarketPage />,
   },
   {
-    path: '/mcp-market',
+    path: "/mcp-market",
     element: <MCPMarketPage />,
   },
   {
-    path: '/skills',
+    path: "/skills",
     element: <SkillPage />,
   },
   {
-    path: '/models',
+    path: "/models",
     element: <ModelPage />,
   },
   {
-    path: '/plugins',
+    path: "/plugins",
     element: <SkillMarketPage />,
   },
   {
-    path: '/oauth',
+    path: "/oauth",
     element: <OAuthPage />,
   },
 ];

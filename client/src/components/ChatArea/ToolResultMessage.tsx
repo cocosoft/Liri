@@ -1,6 +1,6 @@
-import type { Message } from '../../types';
-import MarkdownRenderer from './MarkdownRenderer';
-import { useChatStore } from '../../stores/chatStore';
+import type { Message } from "../../types";
+import MarkdownRenderer from "./MarkdownRenderer";
+import { useChatStore } from "../../stores/chatStore";
 
 interface ToolResultMessageProps {
   message: Message;
@@ -13,16 +13,16 @@ interface ToolResultMessageProps {
 function ToolResultMessage({ message }: ToolResultMessageProps) {
   const { readFileToPreview } = useChatStore();
   const sessionFiles = useChatStore((s) => s.sessionFiles);
-  const knownFilePaths = sessionFiles.map(f => f.path);
+  const knownFilePaths = sessionFiles.map((f) => f.path);
 
   // 直接使用 message.content 作为工具结果值
   // message.toolCallId 从后端获取工具调用 ID
   const result = {
-    type: 'tool_result',
-    value: message.content || '',
+    type: "tool_result",
+    value: message.content || "",
     toolCallId: message.toolCallId,
   };
-  
+
   // 尝试解析 value 中的 JSON，格式化显示
   const formatValue = (value: string): string => {
     try {
@@ -46,7 +46,11 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
         )}
       </div>
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-        <MarkdownRenderer content={formatValue(result.value)} onPreviewFile={readFileToPreview} knownFilePaths={knownFilePaths} />
+        <MarkdownRenderer
+          content={formatValue(result.value)}
+          onPreviewFile={readFileToPreview}
+          knownFilePaths={knownFilePaths}
+        />
       </div>
     </div>
   );

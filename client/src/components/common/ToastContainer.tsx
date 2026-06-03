@@ -1,17 +1,17 @@
-import { useToastStore, type ToastType } from '../../stores/toastStore';
+import { useToastStore, type ToastType } from "../../stores/toastStore";
 
 const typeStyles: Record<ToastType, string> = {
-  success: 'bg-green-500',
-  error: 'bg-red-500',
-  info: 'bg-blue-500',
-  warning: 'bg-yellow-500',
+  success: "bg-green-500",
+  error: "bg-red-500",
+  info: "bg-blue-500",
+  warning: "bg-yellow-500",
 };
 
 const typeIcons: Record<ToastType, string> = {
-  success: '✓',
-  error: '✗',
-  info: 'ℹ',
-  warning: '⚠',
+  success: "✓",
+  error: "✗",
+  info: "ℹ",
+  warning: "⚠",
 };
 
 function ToastContainer() {
@@ -26,7 +26,9 @@ function ToastContainer() {
           key={toast.id}
           className={`${typeStyles[toast.type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in`}
         >
-          <span className="text-lg font-bold leading-none">{typeIcons[toast.type]}</span>
+          <span className="text-lg font-bold leading-none">
+            {typeIcons[toast.type]}
+          </span>
           <span className="text-sm flex-1">{toast.message}</span>
           <button
             onClick={() => removeToast(toast.id)}

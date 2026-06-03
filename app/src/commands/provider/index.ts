@@ -33,7 +33,8 @@ const providerCommand: Command = {
     return '管理 AI 供应商（添加/删除/列表/编辑 API 提供商）';
   },
   aliases: ['providers', 'pv'],
-  argumentHint: '[list|add|edit|delete|toggle|seed|sync|export|import|test|models|help]',
+  argumentHint:
+    '[list|add|edit|delete|toggle|seed|sync|export|import|test|models|help]',
   whenToUse: '当你需要添加、删除或管理 API 提供商时',
   load: () => import('./provider.js').then((m) => m.default),
 };

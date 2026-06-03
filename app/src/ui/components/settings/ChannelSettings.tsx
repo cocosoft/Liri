@@ -76,10 +76,7 @@ export const ChannelSettings: React.FC = () => {
   return (
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 网关总开关 */}
-      <SettingRow
-        label="网关服务"
-        hint="总开关，关闭后所有外部渠道均不可用"
-      >
+      <SettingRow label="网关服务" hint="总开关，关闭后所有外部渠道均不可用">
         <Toggle
           value={gateway.enabled === true}
           onChange={handleGatewayChange}
@@ -88,13 +85,12 @@ export const ChannelSettings: React.FC = () => {
 
       {/* 各渠道开关 */}
       {CHANNEL_ITEMS.map((ch) => {
-        const channel = (channels as unknown as Record<string, { enabled?: boolean }>)[ch.key] || {};
+        const channel =
+          (channels as unknown as Record<string, { enabled?: boolean }>)[
+            ch.key
+          ] || {};
         return (
-          <SettingRow
-            key={ch.key}
-            label={ch.label}
-            hint={ch.desc}
-          >
+          <SettingRow key={ch.key} label={ch.label} hint={ch.desc}>
             <Toggle
               value={channel.enabled === true}
               onChange={(v) => handleChannelChange(ch.key, v)}

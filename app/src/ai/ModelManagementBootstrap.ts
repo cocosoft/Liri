@@ -96,9 +96,8 @@ const ENV_PRESETS: EnvPreset[] = [
  */
 async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
   try {
-    const { providerManager } = await import(
-      '@modules/ai/providers/ProviderManager.js'
-    );
+    const { providerManager } =
+      await import('@modules/ai/providers/ProviderManager.js');
     await providerManager.initialize();
 
     let seeded = 0;
@@ -153,9 +152,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   const services: Array<{ name: string; init: () => Promise<void> }> = [];
 
   try {
-    const { providerManager } = await import(
-      '@modules/ai/providers/ProviderManager.js'
-    );
+    const { providerManager } =
+      await import('@modules/ai/providers/ProviderManager.js');
     services.push({
       name: 'ProviderManager',
       init: () => providerManager.initialize(),
@@ -165,9 +163,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   }
 
   try {
-    const { usageStatsService } = await import(
-      '@modules/ai/models/UsageStatsService.js'
-    );
+    const { usageStatsService } =
+      await import('@modules/ai/models/UsageStatsService.js');
     services.push({
       name: 'UsageStatsService',
       init: () => usageStatsService.initialize(),
@@ -175,9 +172,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   } catch {}
 
   try {
-    const { modelPricingService } = await import(
-      '@modules/ai/models/ModelPricingService.js'
-    );
+    const { modelPricingService } =
+      await import('@modules/ai/models/ModelPricingService.js');
     services.push({
       name: 'ModelPricingService',
       init: () => modelPricingService.initialize(),
@@ -185,9 +181,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   } catch {}
 
   try {
-    const { appModelRouter } = await import(
-      '@modules/ai/models/AppModelRouter.js'
-    );
+    const { appModelRouter } =
+      await import('@modules/ai/models/AppModelRouter.js');
     services.push({
       name: 'AppModelRouter',
       init: () => appModelRouter.initialize(),
@@ -212,13 +207,12 @@ export async function initializeModelManagementServices(): Promise<void> {
   // 从环境变量 seed Provider 到 DB
   let seeded = 0;
   try {
-    const { providerManager } = await import(
-      '@modules/ai/providers/ProviderManager.js'
-    );
+    const { providerManager } =
+      await import('@modules/ai/providers/ProviderManager.js');
     await providerManager.initialize();
     const existing = await providerManager.listProviders();
     const dedupNames = new Set(
-      existing.map((p) => `${p.name}:${p.providerType}`),
+      existing.map((p) => `${p.name}:${p.providerType}`)
     );
     seeded = await seedEnvProvidersToDB(dedupNames);
   } catch (err) {
@@ -230,9 +224,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   // 同步 DB Provider 到 ProviderRegistry（chat 可用）
   let synced = 0;
   try {
-    const { syncDBProvidersToRegistry } = await import(
-      '@modules/ai/providers/ProviderSyncService.js'
-    );
+    const { syncDBProvidersToRegistry } =
+      await import('@modules/ai/providers/ProviderSyncService.js');
     synced = await syncDBProvidersToRegistry();
     if (synced > 0) {
       logger.info(`已同步 ${synced} 个 DB 供应商到 ProviderRegistry`);
@@ -245,7 +238,7 @@ export async function initializeModelManagementServices(): Promise<void> {
 
   if (initialized > 0 || synced > 0) {
     logger.info(
-      `模型管理模块: ${initialized} DB服务, ${seeded} seed, ${synced} 已同步`,
+      `模型管理模块: ${initialized} DB服务, ${seeded} seed, ${synced} 已同步`
     );
   }
 }

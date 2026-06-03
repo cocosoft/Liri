@@ -1,6 +1,6 @@
-let _backendBase = 'http://127.0.0.1:7890';
+let _backendBase = "http://127.0.0.1:7890";
 let _port = 7890;
-let _apiSecret = '';
+let _apiSecret = "";
 
 export function getBackendBaseUrl(): string {
   return _backendBase;
@@ -25,7 +25,7 @@ export function setApiSecret(secret: string): void {
 
 export async function initBackendUrlFromConfig(): Promise<void> {
   try {
-    const { appConfigService } = await import('./appConfigService');
+    const { appConfigService } = await import("./appConfigService");
     const config = await appConfigService.get();
     setBackendPort(config.httpPort);
   } catch {

@@ -4,7 +4,12 @@
  * 支持关键词搜索、状态筛选、类型筛选、刷新
  */
 
-type StatusFilter = 'all' | 'connected' | 'disconnected' | 'enabled' | 'disabled';
+type StatusFilter =
+  | "all"
+  | "connected"
+  | "disconnected"
+  | "enabled"
+  | "disabled";
 
 interface ChannelFilters {
   search: string;
@@ -22,31 +27,31 @@ interface ChannelFilterBarProps {
 
 /** 渠道类型中文标签 */
 const TYPE_LABELS: Record<string, string> = {
-  qq: 'QQ',
-  wechat: '微信',
-  wecom: '企业微信',
-  feishu: '飞书',
-  dingtalk: '钉钉',
-  telegram: 'Telegram',
-  discord: 'Discord',
-  slack: 'Slack',
-  whatsapp: 'WhatsApp',
-  line: 'Line',
-  email: '邮件',
-  webhook: 'Webhook',
-  irc: 'IRC',
-  nostr: 'Nostr',
-  sms: '短信',
-  matrix: 'Matrix',
-  facebook: 'Facebook',
-  twitter: 'Twitter/X',
-  signal: 'Signal',
-  mattermost: 'Mattermost',
-  bluebubbles: 'iMessage',
-  googlechat: 'Google Chat',
-  msteams: 'MS Teams',
-  zalo: 'Zalo',
-  yuanbao: '元宝',
+  qq: "QQ",
+  wechat: "微信",
+  wecom: "企业微信",
+  feishu: "飞书",
+  dingtalk: "钉钉",
+  telegram: "Telegram",
+  discord: "Discord",
+  slack: "Slack",
+  whatsapp: "WhatsApp",
+  line: "Line",
+  email: "邮件",
+  webhook: "Webhook",
+  irc: "IRC",
+  nostr: "Nostr",
+  sms: "短信",
+  matrix: "Matrix",
+  facebook: "Facebook",
+  twitter: "Twitter/X",
+  signal: "Signal",
+  mattermost: "Mattermost",
+  bluebubbles: "iMessage",
+  googlechat: "Google Chat",
+  msteams: "MS Teams",
+  zalo: "Zalo",
+  yuanbao: "元宝",
 };
 
 function ChannelFilterBar({
@@ -73,7 +78,7 @@ function ChannelFilterBar({
           />
           {filters.search && (
             <button
-              onClick={() => onFiltersChange({ search: '' })}
+              onClick={() => onFiltersChange({ search: "" })}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               ✕
@@ -84,7 +89,9 @@ function ChannelFilterBar({
         {/* 状态筛选 */}
         <select
           value={filters.status}
-          onChange={(e) => onFiltersChange({ status: e.target.value as StatusFilter })}
+          onChange={(e) =>
+            onFiltersChange({ status: e.target.value as StatusFilter })
+          }
           className="py-2 px-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">全部状态</option>
@@ -115,7 +122,7 @@ function ChannelFilterBar({
           className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
           title="刷新"
         >
-          <span className={`text-lg ${isRefreshing ? 'animate-spin' : ''}`}>
+          <span className={`text-lg ${isRefreshing ? "animate-spin" : ""}`}>
             🔄
           </span>
         </button>

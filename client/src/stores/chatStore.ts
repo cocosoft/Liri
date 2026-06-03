@@ -1,22 +1,22 @@
-import { create } from 'zustand';
-import { Message, MessageBlock, FilePreview } from '../types';
-import type { ToolCall } from '../types';
-import { chatService } from '../services/chatService';
-import { getBackendBaseUrl } from '../services/backendUrl';
-import { resolveFilePath } from '../services/filePathResolver';
-import { useSessionStore } from './sessionStore';
+import { create } from "zustand";
+import { Message, MessageBlock, FilePreview } from "../types";
+import type { ToolCall } from "../types";
+import { chatService } from "../services/chatService";
+import { getBackendBaseUrl } from "../services/backendUrl";
+import { resolveFilePath } from "../services/filePathResolver";
+import { useSessionStore } from "./sessionStore";
 
 /**
  * 已知的文件写入/编辑类工具名称集合
  * 这些工具的 arguments 中包含 file_path/path 字段
  */
 const FILE_WRITING_TOOLS = new Set([
-  'file_write',
-  'file_edit',
-  'file_create',
-  'write',
-  'create_file',
-  'edit_file',
+  "file_write",
+  "file_edit",
+  "file_create",
+  "write",
+  "create_file",
+  "edit_file",
 ]);
 
 /**
@@ -29,8 +29,11 @@ function extractFilePathFromToolCall(toolCall: ToolCall): string | null {
   const args = toolCall.arguments as Record<string, unknown> | undefined;
   if (!args) return null;
 
-  const filePath = (args.file_path as string) || (args.path as string) || (args.filePath as string);
-  if (filePath && typeof filePath === 'string') return filePath;
+  const filePath =
+    (args.file_path as string) ||
+    (args.path as string) ||
+    (args.filePath as string);
+  if (filePath && typeof filePath === "string") return filePath;
 
   return null;
 }
@@ -43,10 +46,13 @@ function resolveFilePathFromResult(toolCall: ToolCall): string | null {
   const argPath = extractFilePathFromToolCall(toolCall);
   if (!argPath) return null;
 
-  if (toolCall.result && typeof toolCall.result === 'object') {
+  if (toolCall.result && typeof toolCall.result === "object") {
     const result = toolCall.result as Record<string, unknown>;
-    const resultPath = (result.filePath as string) || (result.path as string) || (result.file_path as string);
-    if (resultPath && typeof resultPath === 'string') return resultPath;
+    const resultPath =
+      (result.filePath as string) ||
+      (result.path as string) ||
+      (result.file_path as string);
+    if (resultPath && typeof resultPath === "string") return resultPath;
   }
   return argPath;
 }
@@ -64,17 +70,17 @@ function extractFileName(filePath: string): string {
  */
 function addFilePathsFromBlocks(
   blocks: MessageBlock[],
-  addFile: (file: FilePreview) => void
+  addFile: (file: FilePreview) => void,
 ): void {
   for (const block of blocks) {
-    if (block.type === 'tool_call' && block.toolCall) {
+    if (block.type === "tool_call" && block.toolCall) {
       const filePath = resolveFilePathFromResult(block.toolCall);
       if (filePath) {
         addFile({
           path: filePath,
           name: extractFileName(filePath),
-          content: '',
-          type: 'text',
+          content: "",
+          type: "text",
         });
       }
     }
@@ -108,7 +114,7 @@ interface ChatStore {
   flushPendingSaves: () => Promise<void>;
 }
 
-import { sessionService } from '../services/sessionService';
+import { sessionService } from "../services/sessionService";
 
 /**
  * 判断是否需要自动重命名会话
@@ -116,7 +122,7 @@ import { sessionService } from '../services/sessionService';
  */
 function shouldAutoRename(sessionId?: string): boolean {
   if (!sessionId) {
-    console.log('[shouldAutoRename] sessionId is undefined');
+    console.log("[shouldAutoRename] sessionId is undefined");
     return false;
   }
 
@@ -124,61 +130,86 @@ function shouldAutoRename(sessionId?: string): boolean {
 
   // 优先从 currentSession 查找
   if (store.currentSession?.id === sessionId) {
-    const title = store.currentSession.title || '';
-    const shouldRename = title.startsWith('新会话') || title.startsWith('New Session');
-    console.log('[shouldAutoRename] title:', title, 'shouldRename:', shouldRename);
+    const title = store.currentSession.title || "";
+    const shouldRename =
+      title.startsWith("新会话") || title.startsWith("New Session");
+    console.log(
+      "[shouldAutoRename] title:",
+      title,
+      "shouldRename:",
+      shouldRename,
+    );
     return shouldRename;
   }
 
   // 降级：从 sessions 列表中按 sessionId 查找
   const found = store.sessions.find((s) => s.id === sessionId);
   if (found) {
-    const title = found.title || '';
-    const shouldRename = title.startsWith('新会话') || title.startsWith('New Session');
-    console.log('[shouldAutoRename] fallback found, title:', title, 'shouldRename:', shouldRename);
+    const title = found.title || "";
+    const shouldRename =
+      title.startsWith("新会话") || title.startsWith("New Session");
+    console.log(
+      "[shouldAutoRename] fallback found, title:",
+      title,
+      "shouldRename:",
+      shouldRename,
+    );
     return shouldRename;
   }
 
-  console.log('[shouldAutoRename] session not found for id:', sessionId);
+  console.log("[shouldAutoRename] session not found for id:", sessionId);
   return false;
 }
 
-async function doAutoRename(sessionId: string, userMessage: string, assistantResponse: string): Promise<void> {
-  console.log('[doAutoRename] Starting auto-rename for session:', sessionId);
-  console.log('[doAutoRename] User message:', userMessage.slice(0, 50), '...');
-  
+async function doAutoRename(
+  sessionId: string,
+  userMessage: string,
+  assistantResponse: string,
+): Promise<void> {
+  console.log("[doAutoRename] Starting auto-rename for session:", sessionId);
+  console.log("[doAutoRename] User message:", userMessage.slice(0, 50), "...");
+
   try {
-    const title = await sessionService.generateTitle(sessionId, userMessage, assistantResponse);
-    console.log('[doAutoRename] Backend returned title:', title);
-    
+    const title = await sessionService.generateTitle(
+      sessionId,
+      userMessage,
+      assistantResponse,
+    );
+    console.log("[doAutoRename] Backend returned title:", title);
+
     if (title) {
-      console.log('[doAutoRename] Renaming session to:', title);
+      console.log("[doAutoRename] Renaming session to:", title);
       useSessionStore.getState().renameSession(sessionId, title);
     } else {
-      console.log('[doAutoRename] Backend returned null, using fallback');
-      const fallbackTitle = userMessage.length > 30 ? userMessage.slice(0, 30) + '…' : userMessage;
+      console.log("[doAutoRename] Backend returned null, using fallback");
+      const fallbackTitle =
+        userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
       useSessionStore.getState().renameSession(sessionId, fallbackTitle);
     }
   } catch (error) {
-    console.warn('[doAutoRename] Failed to generate title from backend, using fallback', error);
-    const fallbackTitle = userMessage.length > 30 ? userMessage.slice(0, 30) + '…' : userMessage;
+    console.warn(
+      "[doAutoRename] Failed to generate title from backend, using fallback",
+      error,
+    );
+    const fallbackTitle =
+      userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
     useSessionStore.getState().renameSession(sessionId, fallbackTitle);
   }
 }
 
 function generateBlockId(): string {
-  return 'blk_' + crypto.randomUUID().slice(0, 8);
+  return "blk_" + crypto.randomUUID().slice(0, 8);
 }
 
 function generateGroupId(): string {
-  return 'grp_' + crypto.randomUUID().slice(0, 8);
+  return "grp_" + crypto.randomUUID().slice(0, 8);
 }
 
 /**
  * 时序块构建器
  * 按流顺序构建 MessageBlock[]，确保工具调用前后的文本正确分段。
  * 对标 Cline 的 assistantMessageContent[] 顺序管理。
- * 
+ *
  * 设计原理：
  *   1. text/thinking chunk → 写入当前活跃块
  *   2. tool_call chunk → 冻结当前文本块，新建 tool_call 块
@@ -199,7 +230,7 @@ class ChronologicalBlockBuilder {
       this.currentGroupId = generateGroupId();
       const newBlock: MessageBlock = {
         id: generateBlockId(),
-        type: 'text',
+        type: "text",
         content,
         isStreaming,
         groupId: this.currentGroupId,
@@ -218,7 +249,7 @@ class ChronologicalBlockBuilder {
     if (!this.activeThinkingBlock) {
       const newBlock: MessageBlock = {
         id: generateBlockId(),
-        type: 'thinking',
+        type: "thinking",
         content,
         isStreaming,
         groupId: this.currentGroupId,
@@ -242,12 +273,12 @@ class ChronologicalBlockBuilder {
   /** 添加状态块，连续重复时去重 */
   addStatus(status: string): void {
     const lastBlock = this.blocks[this.blocks.length - 1];
-    if (lastBlock?.type === 'status' && lastBlock.content === status) {
+    if (lastBlock?.type === "status" && lastBlock.content === status) {
       return;
     }
     this.blocks.push({
       id: generateBlockId(),
-      type: 'status',
+      type: "status",
       content: status,
       isStreaming: true,
       toolCallId: this.currentToolCallId ?? undefined,
@@ -268,18 +299,21 @@ class ChronologicalBlockBuilder {
     }
 
     const existingIdx = this.blocks.findIndex(
-      (b) => b.type === 'tool_call' && b.toolCall?.id === toolCall.id
+      (b) => b.type === "tool_call" && b.toolCall?.id === toolCall.id,
     );
 
     if (existingIdx !== -1) {
       const existing = this.blocks[existingIdx];
-      existing.toolCall = { ...toolCall, status: toolCall.status || 'completed' as const };
-      existing.isStreaming = toolCall.status === 'running';
+      existing.toolCall = {
+        ...toolCall,
+        status: toolCall.status || ("completed" as const),
+      };
+      existing.isStreaming = toolCall.status === "running";
     } else {
       this.blocks.push({
         id: generateBlockId(),
-        type: 'tool_call',
-        content: '',
+        type: "tool_call",
+        content: "",
         toolCall,
         isStreaming: true,
         toolCallId: toolCall.id,
@@ -290,13 +324,16 @@ class ChronologicalBlockBuilder {
   }
 
   /** 更新已有工具调用的状态 */
-  updateToolCallStatus(toolCallId: string, status: 'running' | 'completed' | 'failed'): void {
+  updateToolCallStatus(
+    toolCallId: string,
+    status: "running" | "completed" | "failed",
+  ): void {
     const block = this.blocks.find(
-      (b) => b.type === 'tool_call' && b.toolCall?.id === toolCallId
+      (b) => b.type === "tool_call" && b.toolCall?.id === toolCallId,
     );
     if (block && block.toolCall) {
       block.toolCall.status = status;
-      block.isStreaming = status === 'running';
+      block.isStreaming = status === "running";
     }
   }
 
@@ -340,14 +377,22 @@ async function flushSaveBlocks(): Promise<void> {
     _pendingSaveMessageId = null;
     _pendingSaveBlocks = null;
     try {
-      await chatService.updateMessageBlocks(sid, mid, blk as unknown as Array<Record<string, unknown>>);
+      await chatService.updateMessageBlocks(
+        sid,
+        mid,
+        blk as unknown as Array<Record<string, unknown>>,
+      );
     } catch {
       // 保存失败不影响主流程
     }
   }
 }
 
-function debouncedSaveBlocks(sessionId: string, messageId: string, blocks: MessageBlock[]): void {
+function debouncedSaveBlocks(
+  sessionId: string,
+  messageId: string,
+  blocks: MessageBlock[],
+): void {
   _pendingSaveSessionId = sessionId;
   _pendingSaveMessageId = messageId;
   _pendingSaveBlocks = blocks;
@@ -377,10 +422,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
-      role: 'user',
+      role: "user",
       content,
       timestamp: Date.now(),
-      session_id: sessionId || 'default',
+      session_id: sessionId || "default",
     };
 
     set({ messages: [...get().messages, userMessage] });
@@ -404,19 +449,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
-      role: 'user',
+      role: "user",
       content,
       timestamp: Date.now(),
-      session_id: sessionId || 'default',
+      session_id: sessionId || "default",
     };
 
     const assistantId = crypto.randomUUID();
     const assistantMessage: Message = {
       id: assistantId,
-      role: 'assistant',
-      content: '',
+      role: "assistant",
+      content: "",
       timestamp: Date.now(),
-      session_id: sessionId || 'default',
+      session_id: sessionId || "default",
       blocks: [],
     };
 
@@ -435,17 +480,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const msg = current[msgIdx];
         let updatedMsg: Message;
 
-        if (chunk.type === 'thinking') {
+        if (chunk.type === "thinking") {
           blockBuilder.addThinking(chunk.content, true);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-        } else if (chunk.type === 'text') {
+        } else if (chunk.type === "text") {
           blockBuilder.freezeThinking();
           blockBuilder.addText(chunk.content, true);
-          updatedMsg = { ...msg, content: msg.content + chunk.content, blocks: blockBuilder.getBlocks() };
-        } else if (chunk.type === 'status') {
+          updatedMsg = {
+            ...msg,
+            content: msg.content + chunk.content,
+            blocks: blockBuilder.getBlocks(),
+          };
+        } else if (chunk.type === "status") {
           blockBuilder.addStatus(chunk.content);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-        } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+        } else if (chunk.type === "tool_call" && chunk.toolCall) {
           blockBuilder.addToolCall(chunk.toolCall);
 
           const filePath = extractFilePathFromToolCall(chunk.toolCall);
@@ -454,13 +503,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             get().addSessionFile({
               path: filePath,
               name,
-              content: '',
-              type: 'text',
+              content: "",
+              type: "text",
             });
           }
 
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-        } else if (chunk.type === 'usage' && chunk.usage) {
+        } else if (chunk.type === "usage" && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
         } else {
           updatedMsg = msg;
@@ -491,17 +540,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
       if (finalMsgIdx !== -1) {
         const newMessages = [...finalMessages];
-        newMessages[finalMsgIdx] = { ...finalMessages[finalMsgIdx], blocks: finalBlocks };
+        newMessages[finalMsgIdx] = {
+          ...finalMessages[finalMsgIdx],
+          blocks: finalBlocks,
+        };
         set({ messages: newMessages });
 
-        addFilePathsFromBlocks(finalBlocks, (file) => get().addSessionFile(file));
+        addFilePathsFromBlocks(finalBlocks, (file) =>
+          get().addSessionFile(file),
+        );
 
         // 将 blocks 结构保存到后端
         if (sessionId && finalBlocks.length > 0) {
           try {
-            await chatService.updateMessageBlocks(sessionId, assistantId, finalBlocks as unknown as Array<Record<string, unknown>>);
+            await chatService.updateMessageBlocks(
+              sessionId,
+              assistantId,
+              finalBlocks as unknown as Array<Record<string, unknown>>,
+            );
           } catch (error) {
-            console.warn('[chatStore] Failed to update message blocks:', error);
+            console.warn("[chatStore] Failed to update message blocks:", error);
           }
         }
       }
@@ -510,8 +568,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       if (shouldAutoRename(sessionId)) {
         const finalMessages = get().messages;
-        const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
-        const assistantResponse = finalMsgIdx !== -1 ? finalMessages[finalMsgIdx].content : '';
+        const finalMsgIdx = finalMessages.findIndex(
+          (m) => m.id === assistantId,
+        );
+        const assistantResponse =
+          finalMsgIdx !== -1 ? finalMessages[finalMsgIdx].content : "";
         await doAutoRename(sessionId!, content, assistantResponse);
       }
     } catch (error) {
@@ -533,12 +594,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   addSessionFile: (file) => {
     const current = get().sessionFiles;
-    const exists = current.some(f => f.path === file.path);
+    const exists = current.some((f) => f.path === file.path);
     if (!exists) {
-      console.log('[addSessionFile] adding:', file.path, 'total after:', current.length + 1);
+      console.log(
+        "[addSessionFile] adding:",
+        file.path,
+        "total after:",
+        current.length + 1,
+      );
       set({ sessionFiles: [...current, file] });
     } else {
-      console.log('[addSessionFile] already exists:', file.path);
+      console.log("[addSessionFile] already exists:", file.path);
     }
   },
 
@@ -550,7 +616,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const resolvedPath = await resolveFilePath(filePath);
 
-      const existing = get().sessionFiles.find(f => f.path === resolvedPath);
+      const existing = get().sessionFiles.find((f) => f.path === resolvedPath);
       if (existing && existing.content) {
         set({ previewFile: existing });
         return;
@@ -563,22 +629,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const data = await res.json();
       const filePreview: FilePreview = {
         path: resolvedPath,
-        name: resolvedPath.split('/').pop() || resolvedPath.split('\\').pop() || resolvedPath,
+        name:
+          resolvedPath.split("/").pop() ||
+          resolvedPath.split("\\").pop() ||
+          resolvedPath,
         content: data.content,
-        type: data.type || 'text',
+        type: data.type || "text",
         language: data.language,
         size: data.size,
       };
       get().addSessionFile(filePreview);
       set({ previewFile: filePreview });
     } catch (err) {
-      console.error('读取文件失败:', err);
+      console.error("读取文件失败:", err);
       set({
         previewFile: {
           path: filePath,
-          name: filePath.split('/').pop() || filePath.split('\\').pop() || filePath,
+          name:
+            filePath.split("/").pop() || filePath.split("\\").pop() || filePath,
           content: `错误: ${err instanceof Error ? err.message : String(err)}`,
-          type: 'text',
+          type: "text",
         },
       });
     }
@@ -615,7 +685,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const filteredMessages: Message[] = [];
 
     for (const msg of messages) {
-      if (msg.role === 'tool' && msg.toolCallId) {
+      if (msg.role === "tool" && msg.toolCallId) {
         toolResultsByCallId.set(msg.toolCallId, msg.content);
       } else {
         filteredMessages.push(msg);
@@ -627,17 +697,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // 导致加载历史后出现多个"🤖 Liri"气泡。此处合并为一条消息，与流式体验一致。
     const mergedMessages: Message[] = [];
     for (const msg of filteredMessages) {
-      if (msg.role !== 'assistant') {
+      if (msg.role !== "assistant") {
         mergedMessages.push(msg);
         continue;
       }
 
       const lastIdx = mergedMessages.length - 1;
       const lastMsg = mergedMessages[lastIdx];
-      if (lastMsg && lastMsg.role === 'assistant') {
+      if (lastMsg && lastMsg.role === "assistant") {
         mergedMessages[lastIdx] = {
           ...lastMsg,
-          content: (lastMsg.content || '') + (msg.content || ''),
+          content: (lastMsg.content || "") + (msg.content || ""),
           timestamp: lastMsg.timestamp || msg.timestamp,
           blocks: [
             ...(lastMsg.blocks || []),
@@ -655,14 +725,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // Phase 3: 处理合并后的消息，将工具结果合并到对应 assistant 消息的 tool_call 块中
     const enhancedMessages = mergedMessages.map((msg) => {
-      if (msg.role !== 'assistant') return msg;
+      if (msg.role !== "assistant") return msg;
 
       if (msg.blocks && msg.blocks.length > 0) {
         // 先处理已有 blocks：合并工具结果 + 迁移 groupId
         let hasMergedResult = false;
         const mergedBlocks = msg.blocks.map((b) => {
           const block = { ...b, isStreaming: false };
-          if (block.type === 'tool_call' && block.toolCall?.id && toolResultsByCallId.has(block.toolCall.id)) {
+          if (
+            block.type === "tool_call" &&
+            block.toolCall?.id &&
+            toolResultsByCallId.has(block.toolCall.id)
+          ) {
             const resultContent = toolResultsByCallId.get(block.toolCall.id)!;
             hasMergedResult = true;
             block.toolCall = { ...block.toolCall, result: resultContent };
@@ -677,13 +751,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // 无匹配工具结果时，执行 groupId 迁移（旧 blocks 兼容）
         const oldBlocksHaveGroupId = msg.blocks.some((b) => b.groupId);
         if (oldBlocksHaveGroupId) {
-          return { ...msg, blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })) };
+          return {
+            ...msg,
+            blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })),
+          };
         }
         const lastToolCallId = findLastToolCallId(msg);
         const enhancedBlocks = msg.blocks.map((b) => {
           if (b.groupId) return { ...b, isStreaming: false };
-          const id = b.toolCallId || b.toolCall?.id || lastToolCallId || generateGroupId();
-          return { ...b, isStreaming: false, groupId: 'migrate_' + id };
+          const id =
+            b.toolCallId ||
+            b.toolCall?.id ||
+            lastToolCallId ||
+            generateGroupId();
+          return { ...b, isStreaming: false, groupId: "migrate_" + id };
         });
         return { ...msg, blocks: enhancedBlocks };
       }
@@ -697,7 +778,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const addedPaths = new Set<string>();
 
     for (const msg of enhancedMessages) {
-      if (msg.role === 'assistant' && msg.blocks) {
+      if (msg.role === "assistant" && msg.blocks) {
         addFilePathsFromBlocks(msg.blocks, (file) => {
           if (!addedPaths.has(file.path)) {
             addedPaths.add(file.path);
@@ -711,7 +792,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const currentFiles = get().sessionFiles;
       const merged = [...currentFiles];
       for (const file of sessionFilesList) {
-        if (!merged.some(f => f.path === file.path)) {
+        if (!merged.some((f) => f.path === file.path)) {
           merged.push(file);
         }
       }
@@ -746,13 +827,13 @@ function findLastToolCallId(msg: Message): string | undefined {
 function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   const newBlocks: MessageBlock[] = [];
   const toolCalls = msg.tool_calls || [];
-  const fullText = typeof msg.content === 'string' ? msg.content : '';
+  const fullText = typeof msg.content === "string" ? msg.content : "";
 
   if (toolCalls.length === 0) {
     if (fullText) {
       newBlocks.push({
         id: generateBlockId(),
-        type: 'text',
+        type: "text",
         content: fullText,
         isStreaming: false,
         groupId: generateGroupId(),
@@ -764,7 +845,13 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   const boundaries: number[] = toolCalls.map((tc) => {
     const name = tc.name;
     if (!name) return -1;
-    const candidates = [name, `\`${name}\``, `「${name}」`, `${name} 工具`, `${name}工具`];
+    const candidates = [
+      name,
+      `\`${name}\``,
+      `「${name}」`,
+      `${name} 工具`,
+      `${name}工具`,
+    ];
     for (const c of candidates) {
       const idx = fullText.indexOf(c);
       if (idx !== -1) return idx;
@@ -783,7 +870,7 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
       if (slice && slice.trim()) {
         newBlocks.push({
           id: generateBlockId(),
-          type: 'text',
+          type: "text",
           content: slice,
           isStreaming: false,
           groupId: gid,
@@ -791,8 +878,8 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
       }
       newBlocks.push({
         id: generateBlockId(),
-        type: 'tool_call',
-        content: '',
+        type: "tool_call",
+        content: "",
         toolCall: toolCalls[i],
         isStreaming: false,
         toolCallId: toolCalls[i].id,
@@ -804,7 +891,7 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     if (tail && tail.trim()) {
       newBlocks.push({
         id: generateBlockId(),
-        type: 'text',
+        type: "text",
         content: tail,
         isStreaming: false,
         groupId: generateGroupId(),
@@ -826,7 +913,7 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     if (before && before.trim()) {
       newBlocks.push({
         id: generateBlockId(),
-        type: 'text',
+        type: "text",
         content: before,
         isStreaming: false,
         groupId: gid,
@@ -834,8 +921,8 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     }
     newBlocks.push({
       id: generateBlockId(),
-      type: 'tool_call',
-      content: '',
+      type: "tool_call",
+      content: "",
       toolCall: toolCalls[idx],
       isStreaming: false,
       toolCallId: toolCalls[idx].id,
@@ -849,7 +936,7 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   if (tail && tail.trim()) {
     newBlocks.push({
       id: generateBlockId(),
-      type: 'text',
+      type: "text",
       content: tail,
       isStreaming: false,
       groupId: generateGroupId(),
@@ -860,8 +947,8 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     if (boundaries[i] === -1) {
       newBlocks.push({
         id: generateBlockId(),
-        type: 'tool_call',
-        content: '',
+        type: "tool_call",
+        content: "",
         toolCall: toolCalls[i],
         isStreaming: false,
         toolCallId: toolCalls[i].id,

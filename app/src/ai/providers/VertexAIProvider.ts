@@ -66,7 +66,10 @@ export class VertexAIProvider implements AIProvider {
     this.projectId = (config.projectId ||
       process.env.GOOGLE_PROJECT_ID ||
       '') as string;
-    this.region = (providerCfg?.baseUrl?.includes('region') ? providerCfg.baseUrl.split('.')[0] : '') ||
+    this.region =
+      (providerCfg?.baseUrl?.includes('region')
+        ? providerCfg.baseUrl.split('.')[0]
+        : '') ||
       (config.region as string) ||
       process.env.GOOGLE_REGION ||
       DEFAULT_REGION;

@@ -56,9 +56,8 @@ export class DreamPhaseManager {
       logger.warn(`[DreamPhaseManager] 未知阶段: ${startFrom}，从 light 开始`);
     }
 
-    const phases = startIndex >= 0
-      ? this.phaseOrder.slice(startIndex)
-      : this.phaseOrder;
+    const phases =
+      startIndex >= 0 ? this.phaseOrder.slice(startIndex) : this.phaseOrder;
 
     logger.info(`[DreamPhaseManager] 开始执行阶段: ${phases.join(' → ')}`);
 
@@ -68,14 +67,18 @@ export class DreamPhaseManager {
       results.push(result);
 
       if (!result.success) {
-        logger.warn(`[DreamPhaseManager] 阶段 ${phase} 失败: ${result.error}，停止后续阶段`);
+        logger.warn(
+          `[DreamPhaseManager] 阶段 ${phase} 失败: ${result.error}，停止后续阶段`
+        );
         break;
       }
 
       logger.info(`[DreamPhaseManager] 阶段 ${phase} 完成`);
     }
 
-    logger.info(`[DreamPhaseManager] 全部阶段执行完毕: ${results.length}/${phases.length} 成功`);
+    logger.info(
+      `[DreamPhaseManager] 全部阶段执行完毕: ${results.length}/${phases.length} 成功`
+    );
     return results;
   }
 

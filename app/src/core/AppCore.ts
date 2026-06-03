@@ -299,9 +299,8 @@ export class AppCore {
    */
   private async initializeCostTrackingSystem(): Promise<void> {
     try {
-      const { initializeCostTrackingSystem: initCostTracking } = await import(
-        '@modules/cost/index.js'
-      );
+      const { initializeCostTrackingSystem: initCostTracking } =
+        await import('@modules/cost/index.js');
       await initCostTracking();
       logger.info('成本跟踪系统初始化完成');
     } catch (error) {
@@ -318,53 +317,46 @@ export class AppCore {
    */
   private async initializeOTelSystem(): Promise<void> {
     try {
-      const { initializeTelemetry } = await import(
-        '@modules/monitoring/instrumentation.js'
-      );
+      const { initializeTelemetry } =
+        await import('@modules/monitoring/instrumentation.js');
 
       await initializeTelemetry();
       logger.info('OTel 遥测初始化完成');
 
       // 主动创建 OTel 指标实例（注册到全局 MeterProvider）
-      const { getOTelMetrics, getOTelTracing } = await import(
-        '@modules/monitoring/otel/index.js'
-      );
+      const { getOTelMetrics, getOTelTracing } =
+        await import('@modules/monitoring/otel/index.js');
 
       const otelMetrics = getOTelMetrics();
       const otelTracing = getOTelTracing();
 
       // 创建并启动 MetricsBridge（MetricsService → OTelMetrics）
-      const { getMetricsService, createMetricsBridge } = await import(
-        '@modules/monitoring/index.js'
-      );
+      const { getMetricsService, createMetricsBridge } =
+        await import('@modules/monitoring/index.js');
 
       const metricsService = getMetricsService();
       const metricsBridge = createMetricsBridge(metricsService, otelMetrics);
       metricsBridge.start();
 
       // 创建 TraceBridge 供追踪使用
-      const { createTraceBridge } = await import(
-        '@modules/monitoring/otel/index.js'
-      );
+      const { createTraceBridge } =
+        await import('@modules/monitoring/otel/index.js');
 
       const traceBridge = createTraceBridge(otelTracing);
 
       // 初始化会话追踪
-      const { getSessionTracing } = await import(
-        '@modules/monitoring/tracing/SessionTracing.js'
-      );
+      const { getSessionTracing } =
+        await import('@modules/monitoring/tracing/SessionTracing.js');
 
       getSessionTracing();
 
       logger.info('OTel 桥接组件初始化完成');
 
       // 初始化集中日志配置（LogConfigManager 注册到 Logger）
-      const { logConfigManager } = await import(
-        '@modules/monitoring/logs/config/LogConfig.js'
-      );
-      const { setGlobalConfigProvider } = await import(
-        '@modules/monitoring/logs/Logger.js'
-      );
+      const { logConfigManager } =
+        await import('@modules/monitoring/logs/config/LogConfig.js');
+      const { setGlobalConfigProvider } =
+        await import('@modules/monitoring/logs/Logger.js');
       setGlobalConfigProvider(() => {
         const cfg = logConfigManager.get();
         return {
@@ -377,9 +369,8 @@ export class AppCore {
       logger.info('集中日志配置已注册');
 
       // 创建 OTel 日志适配器（将 OTel Span 上下文注入日志）
-      const { createOTelLoggerAdapter } = await import(
-        '@modules/monitoring/otel/OTelLoggerAdapter.js'
-      );
+      const { createOTelLoggerAdapter } =
+        await import('@modules/monitoring/otel/OTelLoggerAdapter.js');
       createOTelLoggerAdapter(otelTracing, {
         module: 'app',
         traceEnabled: true,
@@ -477,7 +468,8 @@ export class AppCore {
         await import('../session/storage/UnifiedStorageAdapter.js');
       const { FileSystemUnifiedStorage } =
         await import('../session/storage/FileSystemUnifiedStorage.js');
-      const { StorageType } = await import('../session/storage/UnifiedStorage.js');
+      const { StorageType } =
+        await import('../session/storage/UnifiedStorage.js');
 
       const storageDir = opts.storageDir ?? resolveSessionsDir();
       const unifiedStorage = new FileSystemUnifiedStorage({

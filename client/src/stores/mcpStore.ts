@@ -1,11 +1,11 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   mcpMarketplaceService,
   type SearchResult,
   type InstalledMCPServer,
   type ServerDetail,
   type ThirdPartyRegistry,
-} from '../services/mcpMarketplaceService';
+} from "../services/mcpMarketplaceService";
 
 // ─── 工具条目类型 ─────────────────────────────────────
 
@@ -19,7 +19,7 @@ interface MCPToolEntry {
 
 // ─── 筛选类型 ──────────────────────────────────────────
 
-type RegistryFilter = 'all' | 'official' | 'third_party';
+type RegistryFilter = "all" | "official" | "third_party";
 
 interface MCPFilters {
   search: string;
@@ -81,7 +81,11 @@ interface MCPStore {
   /** 设置当前注册表源筛选 */
   setSourceRegistry: (source: string) => void;
   /** 可用注册表源列表 */
-  availableRegistries: Array<{ id: string; name: string; sourceRegistry: string }>;
+  availableRegistries: Array<{
+    id: string;
+    name: string;
+    sourceRegistry: string;
+  }>;
   /** 加载已安装列表 */
   loadInstalled: () => Promise<void>;
   /** 安装服务器 */
@@ -127,7 +131,11 @@ interface MCPStore {
   /** 加载全局工具列表 */
   loadAllTools: () => Promise<void>;
   /** 切换工具启用/禁用 */
-  toggleTool: (toolName: string, serverName: string, enabled: boolean) => Promise<void>;
+  toggleTool: (
+    toolName: string,
+    serverName: string,
+    enabled: boolean,
+  ) => Promise<void>;
   /** 设置工具搜索文本 */
   setToolSearch: (search: string) => void;
 
@@ -159,9 +167,9 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   searchResults: [],
   installedServers: [],
   filters: {
-    search: '',
-    registry: 'all',
-    sourceRegistry: '',
+    search: "",
+    registry: "all",
+    sourceRegistry: "",
   },
   isLoading: false,
   operatingId: null,
@@ -177,7 +185,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   verifyingServer: null,
   allTools: [],
   toolsLoading: false,
-  toolSearch: '',
+  toolSearch: "",
   page: 1,
   pageSize: 10,
 
@@ -187,10 +195,14 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const { filters } = get();
-      const registryParam = registry === 'official' ? 'official'
-        : registry === 'third_party' ? 'third_party'
-        : undefined;
-      const sourceReg = filters.sourceRegistry as ThirdPartyRegistry | undefined || undefined;
+      const registryParam =
+        registry === "official"
+          ? "official"
+          : registry === "third_party"
+            ? "third_party"
+            : undefined;
+      const sourceReg =
+        (filters.sourceRegistry as ThirdPartyRegistry | undefined) || undefined;
       const results = await mcpMarketplaceService.search({
         query: query || undefined,
         registry: registryParam,
@@ -198,7 +210,11 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       });
       set({ searchResults: results, page: 1 });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '搜索失败', searchResults: [], page: 1 });
+      set({
+        error: e instanceof Error ? e.message : "搜索失败",
+        searchResults: [],
+        page: 1,
+      });
     } finally {
       set({ isLoading: false });
     }
@@ -223,7 +239,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await mcpMarketplaceService.install(serverId);
       await get().loadInstalled();
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '安装失败' });
+      set({ error: e instanceof Error ? e.message : "安装失败" });
     } finally {
       set({ operatingId: null });
     }
@@ -236,11 +252,13 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       await mcpMarketplaceService.uninstall(serverId);
       set((s) => ({
-        installedServers: s.installedServers.filter((srv) => srv.name !== serverId),
+        installedServers: s.installedServers.filter(
+          (srv) => srv.name !== serverId,
+        ),
         confirmUninstallId: null,
       }));
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '卸载失败' });
+      set({ error: e instanceof Error ? e.message : "卸载失败" });
     } finally {
       set({ operatingId: null });
     }
@@ -254,7 +272,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     set((s) => ({
       error: null,
       installedServers: s.installedServers.map((srv) =>
-        srv.name === serverId ? { ...srv, enabled } : srv
+        srv.name === serverId ? { ...srv, enabled } : srv,
       ),
     }));
     try {
@@ -264,11 +282,11 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       if (prev) {
         set((s) => ({
           installedServers: s.installedServers.map((srv) =>
-            srv.name === serverId ? prev : srv
+            srv.name === serverId ? prev : srv,
           ),
         }));
       }
-      set({ error: e instanceof Error ? e.message : '切换状态失败' });
+      set({ error: e instanceof Error ? e.message : "切换状态失败" });
     }
   },
 
@@ -282,7 +300,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         set({ selectedServerDetail: detail, showDetail: true });
       }
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取详情失败' });
+      set({ error: e instanceof Error ? e.message : "获取详情失败" });
     } finally {
       set({ isLoading: false });
     }
@@ -381,7 +399,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await get().loadInstalled();
       set({ selectedServerNames: new Set<string>() });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '批量启用失败' });
+      set({ error: e instanceof Error ? e.message : "批量启用失败" });
     } finally {
       set({ batchOperating: false });
     }
@@ -403,7 +421,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await get().loadInstalled();
       set({ selectedServerNames: new Set<string>() });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '批量禁用失败' });
+      set({ error: e instanceof Error ? e.message : "批量禁用失败" });
     } finally {
       set({ batchOperating: false });
     }
@@ -420,11 +438,13 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         await mcpMarketplaceService.uninstall(name);
       }
       set((s) => ({
-        installedServers: s.installedServers.filter((srv) => !selectedServerNames.has(srv.name)),
+        installedServers: s.installedServers.filter(
+          (srv) => !selectedServerNames.has(srv.name),
+        ),
         selectedServerNames: new Set<string>(),
       }));
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '批量卸载失败' });
+      set({ error: e instanceof Error ? e.message : "批量卸载失败" });
     } finally {
       set({ batchOperating: false });
     }
@@ -437,10 +457,12 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       const result = await mcpMarketplaceService.verifyServer(serverId);
       if (!result.connected) {
-        set({ error: `服务器 "${serverId}" 连接失败: ${result.error || result.status}` });
+        set({
+          error: `服务器 "${serverId}" 连接失败: ${result.error || result.status}`,
+        });
       }
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '验证失败' });
+      set({ error: e instanceof Error ? e.message : "验证失败" });
     } finally {
       set({ verifyingServer: null });
     }
@@ -473,11 +495,13 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await mcpMarketplaceService.toggleTool(toolName, enabled, serverName);
       set({
         allTools: get().allTools.map((t) =>
-          t.server === serverName && t.name === toolName ? { ...t, enabled } : t
+          t.server === serverName && t.name === toolName
+            ? { ...t, enabled }
+            : t,
         ),
       });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '切换工具状态失败' });
+      set({ error: e instanceof Error ? e.message : "切换工具状态失败" });
     }
   },
 
@@ -501,5 +525,4 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   },
 
   setPage: (page) => set({ page }),
-
 }));

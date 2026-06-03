@@ -28,8 +28,17 @@
 import { DreamScheduler } from './DreamScheduler';
 import { DreamPhaseManager } from './DreamPhaseManager';
 import { DreamPersistence } from './DreamPersistence';
-import type { DreamSchedulerConfig, DreamPhase, DreamTriggerSource } from './types';
-import { initAutoDream, executeAutoDream, abortAutoDream, isAutoDreamRunning } from '../chronos/autoDream/AutoDream';
+import type {
+  DreamSchedulerConfig,
+  DreamPhase,
+  DreamTriggerSource,
+} from './types';
+import {
+  initAutoDream,
+  executeAutoDream,
+  abortAutoDream,
+  isAutoDreamRunning,
+} from '../chronos/autoDream/AutoDream';
 import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -113,7 +122,10 @@ export class DreamEngine {
       success = true;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
-      logger.error(`[DreamEngine] 梦境执行失败: ${error}`, e instanceof Error ? e : new Error(error));
+      logger.error(
+        `[DreamEngine] 梦境执行失败: ${error}`,
+        e instanceof Error ? e : new Error(error)
+      );
     }
 
     const record = {

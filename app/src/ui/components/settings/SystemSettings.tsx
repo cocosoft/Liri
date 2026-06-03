@@ -74,10 +74,7 @@ export const SystemSettings: React.FC = () => {
   return (
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 自动更新开关 */}
-      <SettingRow
-        label="自动检查更新"
-        hint="启动时自动检查是否有新版本"
-      >
+      <SettingRow label="自动检查更新" hint="启动时自动检查是否有新版本">
         <Toggle
           value={autoUpdate.enabled !== false}
           onChange={(v) => handleAutoUpdateChange('enabled', v)}
@@ -85,10 +82,7 @@ export const SystemSettings: React.FC = () => {
       </SettingRow>
 
       {/* 更新通道 */}
-      <SettingRow
-        label="更新通道"
-        hint="选择稳定版或测试版更新通道"
-      >
+      <SettingRow label="更新通道" hint="选择稳定版或测试版更新通道">
         <div className="flex gap-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           {(['stable', 'beta'] as const).map((ch) => (
             <button
@@ -107,10 +101,7 @@ export const SystemSettings: React.FC = () => {
       </SettingRow>
 
       {/* 差异工具 */}
-      <SettingRow
-        label="差异工具"
-        hint="选择代码差异对比的渲染工具"
-      >
+      <SettingRow label="差异工具" hint="选择代码差异对比的渲染工具">
         <select
           value={diffTool}
           onChange={(e) => handleDiffToolChange(e.target.value)}
@@ -122,10 +113,7 @@ export const SystemSettings: React.FC = () => {
       </SettingRow>
 
       {/* 伴侣名称 */}
-      <SettingRow
-        label="AI 助手名称"
-        hint="设置 AI 助手的显示名称"
-      >
+      <SettingRow label="AI 助手名称" hint="设置 AI 助手的显示名称">
         <input
           type="text"
           value={companion.name || ''}

@@ -1,11 +1,11 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { useChatStore } from '../../stores/chatStore';
-import { useSessionStore } from '../../stores/sessionStore';
-import { useConfigStore } from '../../stores/configStore';
-import { useAppStore } from '../../stores/appStore';
-import { fileService } from '../../services/fileService';
-import VoiceInputButton from '../VoiceInputButton';
-import type { Message } from '../../types';
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useChatStore } from "../../stores/chatStore";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useConfigStore } from "../../stores/configStore";
+import { useAppStore } from "../../stores/appStore";
+import { fileService } from "../../services/fileService";
+import VoiceInputButton from "../VoiceInputButton";
+import type { Message } from "../../types";
 
 interface FileAttachment {
   name: string;
@@ -23,15 +23,421 @@ interface SlashCommand {
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 const EMOJI_CATEGORIES = [
-  { name: '笑脸', icons: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔'] },
-  { name: '动物', icons: ['🐵', '🐒', '🦍', '🦧', '🐶', '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱', '🐈', '🐈‍⬛', '🦁', '🐯', '🐅', '🐆', '🐴', '🫎', '🦄', '🐮', '🐂', '🐃', '🐄', '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🦙', '🦒', '🐘', '🦣', '🦏', '🦛', '🐭', '🐁', '🐀', '🐹', '🐰', '🐇', '🐿️', '🦫', '🦔', '🦇', '🐻', '🐻‍❄️', '🐨', '🐼', '🦘', '🦥', '🦦', '🦨', '🦘'] },
-  { name: '食物', icons: ['🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🥭', '🍎', '🍏', '🍐', '🍑', '🍒', '🍓', '🫐', '🥝', '🍅', '🫒', '🥑', '🍆', '🥔', '🥕', '🌽', '🌶️', '🫑', '🥒', '🥬', '🥦', '🧅', '🧄', '🥜', '🌰', '🫘', '🍞', '🥐', '🥖', '🫓', '🧀', '🍕', '🍔', '🍟', '🌭', '🍿', '🧈', '🥚', '🍳', '🥞', '🧇', '🍩', '🍪', '🎂', '🍰', '🧁', '🍫', '🍬', '🍭', '🍮', '🍦', '🍧', '🍨', '☕', '🍵', '🍶', '🍾', '🍷', '🍸', '🍹', '🧋', '🥤', '🍼'] },
-  { name: '庆祝', icons: ['🎉', '🎊', '🎈', '🎁', '🎀', '🏆', '🎯', '🎰', '🎲', '🎮', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🎻', '🥁', '🎷', '🎸', '🎺', '🎻', '🎹', '🎤', '🎧', '🎼', '🎵', '🎶', '🎹', '🎸', '🎹', '🎺', '🎻', '🎷', '🥁', '🎸', '🎹', '🎧', '🎤'] },
-  { name: '旅行', icons: ['✈️', '🚀', '🚂', '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🚚', '🚛', '🚜', '⛵', '🚢', '🚤', '🚣', '🛶', '🚲', '🛵', '🏍️', '🛺', '🚡', '🚠', '🚟', '🚃', '🚋', '🚌', '🚐', '🚑', '🚒', '🚓', '🚔', '🚨', '🚀', '🛸', '🚁', '🛩️', '✈️', '🛫', '🛬', '🚀', '🛸'] },
-  { name: '物品', icons: ['💎', '👑', '🎁', '🎈', '🎀', '🏆', '🎯', '🎰', '🎲', '🎮', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🎻', '🥁', '🎷', '🎸', '🎺', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '📡', '🔌', '💾', '💿', '📀', '📺', '📷', '📸', '📹', '🎥', '🎞️', '📼', '📟', '📠', '📡', '🔭', '🔬', '🧪', '⚗️', '🔩', '⚙️', '🛠️', '🔧', '🗡️', '⚔️', '🔫', '💣', '🎯', '🏹', '🛡️', '🚨', '🚦', '🚧', '⛔', '🚫', '⚠️', '⛈️', '🌡️', '🔥', '💧', '🌊', '🌈', '⭐', '🌙', '☀️', '⛅', '❄️', '🌨️', '🌀', '🌪️', '🌈', '🌟', '✨', '💫', '⚡', '💥', '💢', '💨', '👁️', '👀', '👂', '👃', '👄', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'] },
+  {
+    name: "笑脸",
+    icons: [
+      "😀",
+      "😃",
+      "😄",
+      "😁",
+      "😆",
+      "😅",
+      "🤣",
+      "😂",
+      "🙂",
+      "😊",
+      "😇",
+      "🥰",
+      "😍",
+      "🤩",
+      "😘",
+      "😗",
+      "😚",
+      "😙",
+      "🥲",
+      "😋",
+      "😛",
+      "😜",
+      "🤪",
+      "😝",
+      "🤑",
+      "🤗",
+      "🤭",
+      "🤫",
+      "🤔",
+      "🤐",
+      "🤨",
+      "😐",
+      "😑",
+      "😶",
+      "😏",
+      "😒",
+      "🙄",
+      "😬",
+      "🤥",
+      "😌",
+      "❤️",
+      "🧡",
+      "💛",
+      "💚",
+      "💙",
+      "💜",
+      "🖤",
+      "🤍",
+      "🤎",
+      "💔",
+    ],
+  },
+  {
+    name: "动物",
+    icons: [
+      "🐵",
+      "🐒",
+      "🦍",
+      "🦧",
+      "🐶",
+      "🐕",
+      "🦮",
+      "🐕‍🦺",
+      "🐩",
+      "🐺",
+      "🦊",
+      "🦝",
+      "🐱",
+      "🐈",
+      "🐈‍⬛",
+      "🦁",
+      "🐯",
+      "🐅",
+      "🐆",
+      "🐴",
+      "🫎",
+      "🦄",
+      "🐮",
+      "🐂",
+      "🐃",
+      "🐄",
+      "🐷",
+      "🐖",
+      "🐗",
+      "🐽",
+      "🐏",
+      "🐑",
+      "🐐",
+      "🦙",
+      "🦒",
+      "🐘",
+      "🦣",
+      "🦏",
+      "🦛",
+      "🐭",
+      "🐁",
+      "🐀",
+      "🐹",
+      "🐰",
+      "🐇",
+      "🐿️",
+      "🦫",
+      "🦔",
+      "🦇",
+      "🐻",
+      "🐻‍❄️",
+      "🐨",
+      "🐼",
+      "🦘",
+      "🦥",
+      "🦦",
+      "🦨",
+      "🦘",
+    ],
+  },
+  {
+    name: "食物",
+    icons: [
+      "🍇",
+      "🍈",
+      "🍉",
+      "🍊",
+      "🍋",
+      "🍌",
+      "🍍",
+      "🥭",
+      "🍎",
+      "🍏",
+      "🍐",
+      "🍑",
+      "🍒",
+      "🍓",
+      "🫐",
+      "🥝",
+      "🍅",
+      "🫒",
+      "🥑",
+      "🍆",
+      "🥔",
+      "🥕",
+      "🌽",
+      "🌶️",
+      "🫑",
+      "🥒",
+      "🥬",
+      "🥦",
+      "🧅",
+      "🧄",
+      "🥜",
+      "🌰",
+      "🫘",
+      "🍞",
+      "🥐",
+      "🥖",
+      "🫓",
+      "🧀",
+      "🍕",
+      "🍔",
+      "🍟",
+      "🌭",
+      "🍿",
+      "🧈",
+      "🥚",
+      "🍳",
+      "🥞",
+      "🧇",
+      "🍩",
+      "🍪",
+      "🎂",
+      "🍰",
+      "🧁",
+      "🍫",
+      "🍬",
+      "🍭",
+      "🍮",
+      "🍦",
+      "🍧",
+      "🍨",
+      "☕",
+      "🍵",
+      "🍶",
+      "🍾",
+      "🍷",
+      "🍸",
+      "🍹",
+      "🧋",
+      "🥤",
+      "🍼",
+    ],
+  },
+  {
+    name: "庆祝",
+    icons: [
+      "🎉",
+      "🎊",
+      "🎈",
+      "🎁",
+      "🎀",
+      "🏆",
+      "🎯",
+      "🎰",
+      "🎲",
+      "🎮",
+      "🎪",
+      "🎭",
+      "🎨",
+      "🎬",
+      "🎤",
+      "🎧",
+      "🎼",
+      "🎹",
+      "🎻",
+      "🥁",
+      "🎷",
+      "🎸",
+      "🎺",
+      "🎻",
+      "🎹",
+      "🎤",
+      "🎧",
+      "🎼",
+      "🎵",
+      "🎶",
+      "🎹",
+      "🎸",
+      "🎹",
+      "🎺",
+      "🎻",
+      "🎷",
+      "🥁",
+      "🎸",
+      "🎹",
+      "🎧",
+      "🎤",
+    ],
+  },
+  {
+    name: "旅行",
+    icons: [
+      "✈️",
+      "🚀",
+      "🚂",
+      "🚗",
+      "🚕",
+      "🚙",
+      "🚌",
+      "🚎",
+      "🏎️",
+      "🚓",
+      "🚑",
+      "🚒",
+      "🚐",
+      "🚚",
+      "🚛",
+      "🚜",
+      "⛵",
+      "🚢",
+      "🚤",
+      "🚣",
+      "🛶",
+      "🚲",
+      "🛵",
+      "🏍️",
+      "🛺",
+      "🚡",
+      "🚠",
+      "🚟",
+      "🚃",
+      "🚋",
+      "🚌",
+      "🚐",
+      "🚑",
+      "🚒",
+      "🚓",
+      "🚔",
+      "🚨",
+      "🚀",
+      "🛸",
+      "🚁",
+      "🛩️",
+      "✈️",
+      "🛫",
+      "🛬",
+      "🚀",
+      "🛸",
+    ],
+  },
+  {
+    name: "物品",
+    icons: [
+      "💎",
+      "👑",
+      "🎁",
+      "🎈",
+      "🎀",
+      "🏆",
+      "🎯",
+      "🎰",
+      "🎲",
+      "🎮",
+      "🎪",
+      "🎭",
+      "🎨",
+      "🎬",
+      "🎤",
+      "🎧",
+      "🎼",
+      "🎹",
+      "🎻",
+      "🥁",
+      "🎷",
+      "🎸",
+      "🎺",
+      "📱",
+      "📲",
+      "💻",
+      "⌨️",
+      "🖥️",
+      "🖨️",
+      "📡",
+      "🔌",
+      "💾",
+      "💿",
+      "📀",
+      "📺",
+      "📷",
+      "📸",
+      "📹",
+      "🎥",
+      "🎞️",
+      "📼",
+      "📟",
+      "📠",
+      "📡",
+      "🔭",
+      "🔬",
+      "🧪",
+      "⚗️",
+      "🔩",
+      "⚙️",
+      "🛠️",
+      "🔧",
+      "🗡️",
+      "⚔️",
+      "🔫",
+      "💣",
+      "🎯",
+      "🏹",
+      "🛡️",
+      "🚨",
+      "🚦",
+      "🚧",
+      "⛔",
+      "🚫",
+      "⚠️",
+      "⛈️",
+      "🌡️",
+      "🔥",
+      "💧",
+      "🌊",
+      "🌈",
+      "⭐",
+      "🌙",
+      "☀️",
+      "⛅",
+      "❄️",
+      "🌨️",
+      "🌀",
+      "🌪️",
+      "🌈",
+      "🌟",
+      "✨",
+      "💫",
+      "⚡",
+      "💥",
+      "💢",
+      "💨",
+      "👁️",
+      "👀",
+      "👂",
+      "👃",
+      "👄",
+      "❤️",
+      "🧡",
+      "💛",
+      "💚",
+      "💙",
+      "💜",
+      "🖤",
+      "🤍",
+      "🤎",
+      "💔",
+      "❣️",
+      "💕",
+      "💞",
+      "💓",
+      "💗",
+      "💖",
+      "💘",
+      "💝",
+      "💟",
+    ],
+  },
 ];
 
-function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+function EmojiPicker({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (emoji: string) => void;
+  onClose: () => void;
+}) {
   const [activeCategory, setActiveCategory] = useState(0);
 
   return (
@@ -45,8 +451,8 @@ function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void;
               onClick={() => setActiveCategory(idx)}
               className={`flex-1 py-2 text-xs font-medium transition-colors ${
                 activeCategory === idx
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
               }`}
             >
               {cat.name}
@@ -82,7 +488,7 @@ function readFileAsBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      resolve(result.split(',')[1]);
+      resolve(result.split(",")[1]);
     };
     reader.onerror = () => reject(new Error(`读取文件失败: ${file.name}`));
     reader.readAsDataURL(file);
@@ -90,7 +496,7 @@ function readFileAsBase64(file: File): Promise<string> {
 }
 
 function ChatInput() {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [showCommands, setShowCommands] = useState(false);
   const [commandIndex, setCommandIndex] = useState(0);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
@@ -119,41 +525,77 @@ function ChatInput() {
   }, [replyMessage]);
 
   const slashCommands: SlashCommand[] = [
-    { key: '/dashboard', label: '/dashboard', description: '打开仪表盘', action: () => setActivePage('dashboard') },
-    { key: '/files', label: '/files', description: '打开文件浏览器', action: () => setActivePage('files') },
-    { key: '/knowledge', label: '/knowledge', description: '打开知识库', action: () => setActivePage('knowledge') },
-    { key: '/agent', label: '/agent', description: '打开 Agent 任务', action: () => setActivePage('agent') },
-    { key: '/clear', label: '/clear', description: '清空聊天消息', action: () => { clearMessages(); setInput(''); } },
-    { key: '/help', label: '/help', description: '显示可用命令', action: () => setShowCommands(true) },
+    {
+      key: "/dashboard",
+      label: "/dashboard",
+      description: "打开仪表盘",
+      action: () => setActivePage("dashboard"),
+    },
+    {
+      key: "/files",
+      label: "/files",
+      description: "打开文件浏览器",
+      action: () => setActivePage("files"),
+    },
+    {
+      key: "/knowledge",
+      label: "/knowledge",
+      description: "打开知识库",
+      action: () => setActivePage("knowledge"),
+    },
+    {
+      key: "/agent",
+      label: "/agent",
+      description: "打开 Agent 任务",
+      action: () => setActivePage("agent"),
+    },
+    {
+      key: "/clear",
+      label: "/clear",
+      description: "清空聊天消息",
+      action: () => {
+        clearMessages();
+        setInput("");
+      },
+    },
+    {
+      key: "/help",
+      label: "/help",
+      description: "显示可用命令",
+      action: () => setShowCommands(true),
+    },
   ];
 
   const filteredCommands = slashCommands.filter((cmd) =>
-    cmd.key.startsWith(input.toLowerCase())
+    cmd.key.startsWith(input.toLowerCase()),
   );
 
   /**
    * 处理文件选择
    */
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files) return;
 
-    const newAttachments: FileAttachment[] = [];
-    for (const file of Array.from(files)) {
-      if (file.size > MAX_FILE_SIZE) {
-        alert(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
-        continue;
+      const newAttachments: FileAttachment[] = [];
+      for (const file of Array.from(files)) {
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
+          continue;
+        }
+        try {
+          const data = await readFileAsBase64(file);
+          newAttachments.push({ name: file.name, size: file.size, data });
+        } catch {
+          alert(`读取文件 "${file.name}" 失败`);
+        }
       }
-      try {
-        const data = await readFileAsBase64(file);
-        newAttachments.push({ name: file.name, size: file.size, data });
-      } catch {
-        alert(`读取文件 "${file.name}" 失败`);
-      }
-    }
-    setAttachments((prev) => [...prev, ...newAttachments]);
-    e.target.value = '';
-  }, []);
+      setAttachments((prev) => [...prev, ...newAttachments]);
+      e.target.value = "";
+    },
+    [],
+  );
 
   /**
    * 移除附件
@@ -237,7 +679,7 @@ function ChatInput() {
     const matched = slashCommands.find((cmd) => cmd.key === trimmed);
     if (matched) {
       matched.action();
-      setInput('');
+      setInput("");
       return;
     }
 
@@ -247,9 +689,9 @@ function ChatInput() {
 
     try {
       let sessionId = currentSession?.id;
-      
+
       if (!sessionId) {
-        const newSession = await createSession('新会话');
+        const newSession = await createSession("新会话");
         sessionId = newSession.id;
       }
 
@@ -262,15 +704,17 @@ function ChatInput() {
 
       let messageContent = trimmed;
       if (replyMessage) {
-        const replyContent = typeof replyMessage.content === 'string' 
-          ? replyMessage.content.slice(0, 100) + (replyMessage.content.length > 100 ? '...' : '')
-          : '[复杂内容]';
+        const replyContent =
+          typeof replyMessage.content === "string"
+            ? replyMessage.content.slice(0, 100) +
+              (replyMessage.content.length > 100 ? "..." : "")
+            : "[复杂内容]";
         messageContent = `回复：${replyContent}\n\n${messageContent}`;
       }
       if (uploadedPaths.length > 0) {
         const fileRefs = uploadedPaths
           .map((p, i) => `[${attachments[i].name}](${p})`)
-          .join(', ');
+          .join(", ");
         messageContent = messageContent
           ? `${messageContent}\n\n附件: ${fileRefs}`
           : `上传文件: ${fileRefs}`;
@@ -280,14 +724,16 @@ function ChatInput() {
         await streamMessage(messageContent, sessionId);
       }
 
-      setInput('');
+      setInput("");
       setShowCommands(false);
       setAttachments([]);
       setReplyMessage(null);
       useChatStore.getState().setReplyMessage(null);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      alert(`文件上传失败: ${errorMsg}\n\n可能原因：\n• 系统安全策略限制了对用户目录的访问\n• 磁盘空间不足\n\n系统会自动尝试使用项目目录作为备选存储位置。`);
+      alert(
+        `文件上传失败: ${errorMsg}\n\n可能原因：\n• 系统安全策略限制了对用户目录的访问\n• 磁盘空间不足\n\n系统会自动尝试使用项目目录作为备选存储位置。`,
+      );
     } finally {
       setIsUploading(false);
     }
@@ -295,21 +741,23 @@ function ChatInput() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showCommands && filteredCommands.length > 0) {
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         setCommandIndex((i) => (i + 1) % filteredCommands.length);
         return;
       }
-      if (e.key === 'ArrowUp') {
+      if (e.key === "ArrowUp") {
         e.preventDefault();
-        setCommandIndex((i) => (i - 1 + filteredCommands.length) % filteredCommands.length);
+        setCommandIndex(
+          (i) => (i - 1 + filteredCommands.length) % filteredCommands.length,
+        );
         return;
       }
-      if (e.key === 'Tab' || e.key === 'Enter') {
+      if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
         const cmd = filteredCommands[commandIndex];
         if (cmd) {
-          setInput(cmd.key + ' ');
+          setInput(cmd.key + " ");
           setCommandIndex(0);
           setShowCommands(false);
         }
@@ -317,13 +765,16 @@ function ChatInput() {
       }
     }
 
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       setShowCommands(false);
       setShowEmojiPicker(false);
       return;
     }
 
-    if ((e.key === 'Enter' && !e.shiftKey) || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+    if (
+      (e.key === "Enter" && !e.shiftKey) ||
+      (e.key === "Enter" && (e.ctrlKey || e.metaKey))
+    ) {
       e.preventDefault();
       handleSubmit();
     }
@@ -331,7 +782,7 @@ function ChatInput() {
 
   const handleInputChange = (value: string) => {
     setInput(value);
-    setShowCommands(value.startsWith('/') && value.indexOf(' ') === -1);
+    setShowCommands(value.startsWith("/") && value.indexOf(" ") === -1);
     setCommandIndex(0);
   };
 
@@ -340,7 +791,7 @@ function ChatInput() {
   return (
     <div
       className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors ${
-        isDragOver ? 'ring-2 ring-blue-400 ring-inset' : ''
+        isDragOver ? "ring-2 ring-blue-400 ring-inset" : ""
       }`}
       onDrop={handleFileDrop}
       onDragOver={handleDragOver}
@@ -355,8 +806,18 @@ function ChatInput() {
             className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors"
             title="上传文件"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
             </svg>
           </button>
           <input
@@ -370,12 +831,24 @@ function ChatInput() {
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             disabled={!currentSession || isSending}
             className={`p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors ${
-              showEmojiPicker ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-500' : ''
+              showEmojiPicker
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-500"
+                : ""
             }`}
             title="选择表情"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
             </svg>
           </button>
           <div className="flex-1" />
@@ -389,9 +862,13 @@ function ChatInput() {
                 key={i}
                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300"
               >
-                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded flex items-center justify-center text-xs">📄</span>
+                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded flex items-center justify-center text-xs">
+                  📄
+                </span>
                 <span className="truncate max-w-[120px]">{file.name}</span>
-                <span className="text-blue-400 dark:text-blue-500 text-xs">({formatFileSize(file.size)})</span>
+                <span className="text-blue-400 dark:text-blue-500 text-xs">
+                  ({formatFileSize(file.size)})
+                </span>
                 <button
                   onClick={() => handleRemoveFile(i)}
                   className="ml-1 p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
@@ -416,20 +893,22 @@ function ChatInput() {
                 <button
                   key={cmd.key}
                   onClick={() => {
-                    setInput(cmd.key + ' ');
+                    setInput(cmd.key + " ");
                     setShowCommands(false);
                   }}
                   onMouseEnter={() => setCommandIndex(idx)}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                     idx === commandIndex
-                      ? 'bg-blue-50 dark:bg-blue-900/30'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      ? "bg-blue-50 dark:bg-blue-900/30"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                   }`}
                 >
                   <span className="font-mono text-blue-600 dark:text-blue-400 font-medium">
                     {cmd.label}
                   </span>
-                  <span className="text-gray-500 dark:text-gray-400">{cmd.description}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {cmd.description}
+                  </span>
                 </button>
               ))}
             </div>
@@ -446,11 +925,15 @@ function ChatInput() {
           {/* 回复消息预览 */}
           {replyMessage && (
             <div className="mb-2 flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">回复 Liri:</span>
+              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                回复 Liri:
+              </span>
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
-                {typeof replyMessage.content === 'string' 
-                  ? (replyMessage.content.length > 50 ? replyMessage.content.slice(0, 50) + '...' : replyMessage.content)
-                  : '[复杂内容]'}
+                {typeof replyMessage.content === "string"
+                  ? replyMessage.content.length > 50
+                    ? replyMessage.content.slice(0, 50) + "..."
+                    : replyMessage.content
+                  : "[复杂内容]"}
               </span>
               <button
                 onClick={() => {
@@ -476,44 +959,88 @@ function ChatInput() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   currentSession
-                    ? '输入消息或 / 查看命令...'
-                    : '请先选择或创建会话'
+                    ? "输入消息或 / 查看命令..."
+                    : "请先选择或创建会话"
                 }
                 disabled={!currentSession || isSending}
                 className="w-full px-3 py-2.5 bg-transparent resize-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:cursor-not-allowed"
                 rows={1}
-                style={{ minHeight: '40px', maxHeight: '200px' }}
+                style={{ minHeight: "40px", maxHeight: "200px" }}
               />
             </div>
 
             {/* 右侧按钮 */}
             <div className="flex items-center gap-1">
-              <VoiceInputButton isDark={config.theme === 'dark'} />
+              <VoiceInputButton isDark={config.theme === "dark"} />
               <button
                 onClick={handleSubmit}
-                disabled={!currentSession || isSending || (!input.trim() && attachments.length === 0)}
+                disabled={
+                  !currentSession ||
+                  isSending ||
+                  (!input.trim() && attachments.length === 0)
+                }
                 className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
               >
                 {isUploading ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     <span>上传中</span>
                   </>
                 ) : isLoading ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     <span>发送中</span>
                   </>
                 ) : (
                   <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                      />
                     </svg>
                     <span>发送</span>
                   </>
@@ -526,11 +1053,26 @@ function ChatInput() {
         {/* 状态提示 */}
         {(isLoading || isUploading) && (
           <div className="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg
+              className="animate-spin h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
-            <span>{isUploading ? '正在上传文件...' : '正在思考中...'}</span>
+            <span>{isUploading ? "正在上传文件..." : "正在思考中..."}</span>
           </div>
         )}
 

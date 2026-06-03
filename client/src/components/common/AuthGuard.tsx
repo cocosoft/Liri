@@ -1,16 +1,20 @@
-import { useEffect, type ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useEffect, type ReactNode } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuthStore } from "../../stores/authStore";
 
 interface AuthGuardProps {
   children: ReactNode;
-  requiredRole?: 'admin' | 'user' | 'guest';
+  requiredRole?: "admin" | "user" | "guest";
   requiredTrustLevel?: number;
 }
 
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = process.env.NODE_ENV === "development";
 
-function AuthGuard({ children, requiredRole, requiredTrustLevel }: AuthGuardProps) {
+function AuthGuard({
+  children,
+  requiredRole,
+  requiredTrustLevel,
+}: AuthGuardProps) {
   const location = useLocation();
   const { isAuthenticated, isLoading, user, checkAuth } = useAuthStore();
 

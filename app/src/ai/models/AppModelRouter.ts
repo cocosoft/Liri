@@ -116,14 +116,15 @@ export class AppModelRouter {
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'AMR_INIT_FAILED',
-        { cause: error },
+        { cause: error }
       );
     }
   }
 
   private async createTable(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`
+      this.db!.run(
+        `
         CREATE TABLE IF NOT EXISTS ${APP_CONFIG_TABLE} (
           app_type TEXT PRIMARY KEY,
           model TEXT NOT NULL DEFAULT '',
@@ -132,10 +133,12 @@ export class AppModelRouter {
           fallback_provider_id TEXT,
           updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
         )
-      `, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      `,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
 
     logger.info('ai_app_model_configs 表创建/验证完成');
@@ -163,7 +166,7 @@ export class AppModelRouter {
         'AppModelRouter not initialized',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        'AMR_NOT_INIT',
+        'AMR_NOT_INIT'
       );
     }
   }
@@ -196,7 +199,7 @@ export class AppModelRouter {
             this.cache.set(appType, config);
             resolve(config);
           }
-        },
+        }
       );
     });
   }
@@ -227,7 +230,7 @@ export class AppModelRouter {
       providerId?: string;
       fallbackModel?: string;
       fallbackProviderId?: string;
-    },
+    }
   ): Promise<AppModelConfig> {
     this.ensureInitialized();
 
@@ -251,7 +254,7 @@ export class AppModelRouter {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     } else {
@@ -271,7 +274,7 @@ export class AppModelRouter {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     }
@@ -298,12 +301,14 @@ export class AppModelRouter {
                 model: r.model as string,
                 providerId: r.provider_id as string | undefined,
                 fallbackModel: r.fallback_model as string | undefined,
-                fallbackProviderId: r.fallback_provider_id as string | undefined,
+                fallbackProviderId: r.fallback_provider_id as
+                  | string
+                  | undefined,
                 updatedAt: r.updated_at as number,
-              })),
+              }))
             );
           }
-        },
+        }
       );
     });
   }
@@ -315,7 +320,7 @@ export class AppModelRouter {
         'Cannot delete default config',
         ErrorCategory.EXECUTION,
         ErrorSeverity.MEDIUM,
-        'AMR_NO_DELETE_DEFAULT',
+        'AMR_NO_DELETE_DEFAULT'
       );
     }
 
@@ -333,7 +338,7 @@ export class AppModelRouter {
             }
             resolve(this.changes > 0);
           }
-        },
+        }
       );
     });
   }

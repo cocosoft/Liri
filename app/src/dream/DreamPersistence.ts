@@ -52,7 +52,9 @@ export class DreamPersistence {
       const data = await readFile(this.storagePath, 'utf-8');
       this.records = JSON.parse(data);
       this.loaded = true;
-      logger.info(`[DreamPersistence] 已加载 ${this.records.length} 条梦境记录`);
+      logger.info(
+        `[DreamPersistence] 已加载 ${this.records.length} 条梦境记录`
+      );
     } catch {
       this.records = [];
       this.loaded = true;
@@ -67,9 +69,16 @@ export class DreamPersistence {
       this.records = this.records.slice(-MAX_RECORDS);
     }
     try {
-      await writeFile(this.storagePath, JSON.stringify(this.records, null, 2), 'utf-8');
+      await writeFile(
+        this.storagePath,
+        JSON.stringify(this.records, null, 2),
+        'utf-8'
+      );
     } catch (e) {
-      logger.error('[DreamPersistence] 保存记录失败', e instanceof Error ? e : new Error(String(e)));
+      logger.error(
+        '[DreamPersistence] 保存记录失败',
+        e instanceof Error ? e : new Error(String(e))
+      );
     }
   }
 

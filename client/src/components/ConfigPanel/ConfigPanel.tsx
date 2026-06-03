@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useConfigStore } from '../../stores/configStore';
-import { chatService } from '../../services/chatService';
-import type { BackendStatus } from '../../types';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useConfigStore } from "../../stores/configStore";
+import { chatService } from "../../services/chatService";
+import type { BackendStatus } from "../../types";
 
 interface ModalProps {
   isOpen: boolean;
@@ -28,33 +28,35 @@ function Modal({ isOpen, onClose, children }: ModalProps) {
 
 function ThemeToggle() {
   const { config, setConfig } = useConfigStore();
-  const isDark = config.theme === 'dark';
+  const isDark = config.theme === "dark";
 
   const toggleTheme = () => {
-    const newTheme = isDark ? 'light' : 'dark';
-    setConfig('theme', newTheme);
+    const newTheme = isDark ? "light" : "dark";
+    setConfig("theme", newTheme);
   };
 
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
       <div>
-        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">主题模式</div>
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          主题模式
+        </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          当前: {isDark ? '深色模式' : '浅色模式'}
+          当前: {isDark ? "深色模式" : "浅色模式"}
         </div>
       </div>
       <button
         onClick={toggleTheme}
         className={`relative w-12 h-6 rounded-full transition-colors ${
-          isDark ? 'bg-blue-500' : 'bg-gray-300'
+          isDark ? "bg-blue-500" : "bg-gray-300"
         }`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform flex items-center justify-center text-xs ${
-            isDark ? 'translate-x-6' : 'translate-x-0'
+            isDark ? "translate-x-6" : "translate-x-0"
           }`}
         >
-          {isDark ? '🌙' : '☀️'}
+          {isDark ? "🌙" : "☀️"}
         </span>
       </button>
     </div>
@@ -113,18 +115,20 @@ function BackendControl() {
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-      <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Backend 服务</h3>
+      <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
+        Backend 服务
+      </h3>
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm text-gray-600 dark:text-gray-400">状态:</span>
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
             backendStatus.running
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
+              ? "bg-green-100 text-green-800"
+              : "bg-gray-100 text-gray-800"
           }`}
         >
-          {backendStatus.running ? '运行中' : '已停止'}
+          {backendStatus.running ? "运行中" : "已停止"}
         </span>
         {backendStatus.port && (
           <span className="text-xs text-gray-500">
@@ -151,7 +155,7 @@ function BackendControl() {
             disabled={loading}
             className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm rounded disabled:opacity-50"
           >
-            {loading ? '停止中...' : '停止 Backend'}
+            {loading ? "停止中..." : "停止 Backend"}
           </button>
         ) : (
           <button
@@ -159,7 +163,7 @@ function BackendControl() {
             disabled={loading}
             className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded disabled:opacity-50"
           >
-            {loading ? '启动中...' : '启动 Backend'}
+            {loading ? "启动中..." : "启动 Backend"}
           </button>
         )}
         <button
@@ -182,7 +186,7 @@ function BackendControl() {
 
 function ConfigPanel() {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'backend' | 'config'>('config');
+  const [activeTab, setActiveTab] = useState<"backend" | "config">("config");
   const { config, loadConfig } = useConfigStore();
   const navigate = useNavigate();
 
@@ -193,10 +197,10 @@ function ConfigPanel() {
   }, [isOpen, loadConfig]);
 
   useEffect(() => {
-    if (config.theme === 'dark') {
-      document.documentElement.classList.add('dark');
+    if (config.theme === "dark") {
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [config.theme]);
 
@@ -205,7 +209,9 @@ function ConfigPanel() {
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)}>
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">设置</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              设置
+            </h2>
             <button
               onClick={() => setIsOpen(false)}
               className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl leading-none"
@@ -216,35 +222,40 @@ function ConfigPanel() {
 
           <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
             <button
-              onClick={() => setActiveTab('config')}
+              onClick={() => setActiveTab("config")}
               className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'config'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                activeTab === "config"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
               外观
             </button>
             <button
-              onClick={() => setActiveTab('backend')}
+              onClick={() => setActiveTab("backend")}
               className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'backend'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                activeTab === "backend"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
               Backend 服务
             </button>
           </div>
 
-          {activeTab === 'config' && (
+          {activeTab === "config" && (
             <div className="space-y-4">
               <ThemeToggle />
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">快捷操作</div>
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  快捷操作
+                </div>
                 <button
-                  onClick={() => { setIsOpen(false); navigate('/settings'); }}
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate("/settings");
+                  }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm transition-colors"
                 >
                   <span>⚙️</span>
@@ -254,7 +265,7 @@ function ConfigPanel() {
             </div>
           )}
 
-          {activeTab === 'backend' && <BackendControl />}
+          {activeTab === "backend" && <BackendControl />}
         </div>
       </Modal>
     </>

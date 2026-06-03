@@ -178,7 +178,7 @@ export class ProviderManager {
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'PM_INIT_FAILED',
-        { cause: error },
+        { cause: error }
       );
     }
   }
@@ -210,7 +210,7 @@ export class ProviderManager {
     // 迁移：为已存在的 DB 添加 requires_auth 列（如果不存在）
     try {
       await this.runAsync(
-        `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN requires_auth INTEGER NOT NULL DEFAULT 1`,
+        `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN requires_auth INTEGER NOT NULL DEFAULT 1`
       );
     } catch {
       // 列已存在，忽略
@@ -294,7 +294,7 @@ export class ProviderManager {
         'ProviderManager not initialized. Call initialize() first.',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        'PM_NOT_INITIALIZED',
+        'PM_NOT_INITIALIZED'
       );
     }
   }
@@ -336,7 +336,7 @@ export class ProviderManager {
 
     const row = await this.getAsync<Record<string, unknown>>(
       `SELECT * FROM ${PROVIDERS_TABLE} WHERE id = ?`,
-      [id],
+      [id]
     );
     return row ? this.rowToProvider(row) : undefined;
   }
@@ -366,7 +366,7 @@ export class ProviderManager {
         params.iconColor || null,
         now,
         now,
-      ],
+      ]
     );
 
     logger.info(`供应商已创建: ${params.name} (${id})`);
@@ -376,7 +376,7 @@ export class ProviderManager {
   /** 更新供应商 */
   async updateProvider(
     id: string,
-    params: UpdateProviderParams,
+    params: UpdateProviderParams
   ): Promise<ProviderRecord | undefined> {
     this.ensureInitialized();
 
@@ -448,7 +448,7 @@ export class ProviderManager {
 
     await this.runAsync(
       `UPDATE ${PROVIDERS_TABLE} SET ${fields.join(', ')} WHERE id = ?`,
-      values,
+      values
     );
 
     logger.info(`供应商已更新: ${id}`);
@@ -464,35 +464,44 @@ export class ProviderManager {
       return false;
     }
 
-    await this.runAsync(
-      `DELETE FROM ${PROVIDERS_TABLE} WHERE id = ?`,
-      [id],
-    );
+    await this.runAsync(`DELETE FROM ${PROVIDERS_TABLE} WHERE id = ?`, [id]);
 
     logger.info(`供应商已删除: ${existing.name} (${id})`);
     return true;
   }
 
   /** 激活/停用供应商 */
-  async toggleProvider(id: string, active: boolean): Promise<ProviderRecord | undefined> {
+  async toggleProvider(
+    id: string,
+    active: boolean
+  ): Promise<ProviderRecord | undefined> {
     return this.updateProvider(id, { isActive: active });
   }
 
   /** 设置供应商排序 */
-  async setSortOrder(id: string, sortIndex: number): Promise<ProviderRecord | undefined> {
+  async setSortOrder(
+    id: string,
+    sortIndex: number
+  ): Promise<ProviderRecord | undefined> {
     return this.updateProvider(id, { sortIndex });
   }
 
   /** 获取按类型分组的供应商统计 */
-  async getProviderStats(): Promise<{ type: string; count: number; active: number }[]> {
+  async getProviderStats(): Promise<
+    { type: string; count: number; active: number }[]
+  > {
     this.ensureInitialized();
 
-    const rows = await this.allAsync<{ provider_type: string; count: number; active: number }>(
+    const rows = await this.allAsync<{
+      provider_type: string;
+      count: number;
+      active: number;
+    }>(
       `SELECT provider_type, COUNT(*) as count,
          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
        FROM ${PROVIDERS_TABLE}
        GROUP BY provider_type
-       ORDER BY count DESC`,
+       ORDER BY count DESC`
     );
 
     return rows.map((r) => ({

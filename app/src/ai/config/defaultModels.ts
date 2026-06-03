@@ -95,7 +95,10 @@ export function loadDefaultModels(): DefaultModelsData {
 /**
  * 注册模型到内联回退（用于脚本生成或 Provider 动态注册）
  */
-export function registerFallbackModel(key: string, config: ModelYamlConfig): void {
+export function registerFallbackModel(
+  key: string,
+  config: ModelYamlConfig
+): void {
   INLINE_FALLBACK.models[key] = config;
 }
 
@@ -103,8 +106,13 @@ export function registerFallbackModel(key: string, config: ModelYamlConfig): voi
  * 持久化当前模型到 YAML 文件
  */
 export function persistDefaultModels(data: DefaultModelsData): string {
-  const yamlContent = dump(data, { lineWidth: 120, noRefs: true, sortKeys: true });
-  const yamlPath = findYamlPath() || join(process.cwd(), 'src/ai/config/models.default.yaml');
+  const yamlContent = dump(data, {
+    lineWidth: 120,
+    noRefs: true,
+    sortKeys: true,
+  });
+  const yamlPath =
+    findYamlPath() || join(process.cwd(), 'src/ai/config/models.default.yaml');
   const dir = dirname(yamlPath);
   if (!existsSync(dir)) {
     const { mkdirSync } = require('fs');

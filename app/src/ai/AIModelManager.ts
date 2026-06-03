@@ -22,12 +22,7 @@ import {
 import { modelManager } from './models/ModelManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
-export const MODEL_ALIASES = [
-  'best',
-  'pro',
-  'flash',
-  'fast',
-] as const;
+export const MODEL_ALIASES = ['best', 'pro', 'flash', 'fast'] as const;
 
 export type ModelAlias = (typeof MODEL_ALIASES)[number];
 

@@ -231,9 +231,8 @@ export async function init(): Promise<void> {
         getStartupChainProfiler().markPhaseStart('provider_init');
         const startTime = Date.now();
         try {
-          const { initializeModelManagementServices } = await import(
-            '../ai/ModelManagementBootstrap.js'
-          );
+          const { initializeModelManagementServices } =
+            await import('../ai/ModelManagementBootstrap.js');
           await initializeModelManagementServices();
           const duration = Date.now() - startTime;
           if (duration > 50) {

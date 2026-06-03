@@ -270,7 +270,11 @@ export class ChannelRegistry extends EventEmitter {
    */
   updateConfig(
     name: string,
-    changes: { name?: string; enabled?: boolean; options?: Record<string, unknown> }
+    changes: {
+      name?: string;
+      enabled?: boolean;
+      options?: Record<string, unknown>;
+    }
   ): boolean {
     const config = this.configs.get(name);
     if (!config) return false;

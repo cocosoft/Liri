@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import type { AgentTask, AgentProgress } from '../types';
-import { agentService } from '../services/agentService';
+import { create } from "zustand";
+import type { AgentTask, AgentProgress } from "../types";
+import { agentService } from "../services/agentService";
 
 interface AgentStore {
   tasks: AgentTask[];
@@ -10,9 +10,21 @@ interface AgentStore {
   selectedTask: AgentTask | null;
   taskLogs: string[];
   loadTasks: () => Promise<void>;
-  createTask: (params: { name: string; description?: string; prompt?: string; priority?: 'high' | 'medium' | 'low'; metadata?: Record<string, unknown> }) => Promise<void>;
-  executeTask: (name: string, params?: Record<string, unknown>) => Promise<void>;
-  updateTask: (id: string, params: { name?: string; description?: string }) => Promise<void>;
+  createTask: (params: {
+    name: string;
+    description?: string;
+    prompt?: string;
+    priority?: "high" | "medium" | "low";
+    metadata?: Record<string, unknown>;
+  }) => Promise<void>;
+  executeTask: (
+    name: string,
+    params?: Record<string, unknown>,
+  ) => Promise<void>;
+  updateTask: (
+    id: string,
+    params: { name?: string; description?: string },
+  ) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   cancelTask: (id: string) => Promise<void>;
   getTaskProgress: (id: string) => Promise<AgentProgress | null>;
@@ -70,7 +82,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       const updated = await agentService.updateTask(id, params);
       set({
         tasks: get().tasks.map((t) => (t.id === id ? updated : t)),
-        selectedTask: get().selectedTask?.id === id ? updated : get().selectedTask,
+        selectedTask:
+          get().selectedTask?.id === id ? updated : get().selectedTask,
       });
     } catch (e) {
       set({ error: String(e) });
@@ -96,11 +109,12 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       const currentSelected = get().selectedTask;
       set({
         tasks: get().tasks.map((t) =>
-          t.id === id ? { ...t, status: 'failed' as const } : t
+          t.id === id ? { ...t, status: "failed" as const } : t,
         ),
-        selectedTask: currentSelected?.id === id 
-          ? { ...currentSelected, status: 'failed' as const } as AgentTask
-          : currentSelected,
+        selectedTask:
+          currentSelected?.id === id
+            ? ({ ...currentSelected, status: "failed" as const } as AgentTask)
+            : currentSelected,
       });
     } catch (e) {
       set({ error: String(e) });

@@ -1,5 +1,9 @@
-import { create } from 'zustand';
-import { voiceService, type VoiceSettings, type VoiceSession } from '../services/voiceService';
+import { create } from "zustand";
+import {
+  voiceService,
+  type VoiceSettings,
+  type VoiceSession,
+} from "../services/voiceService";
 
 interface VoiceStore {
   settings: VoiceSettings | null;
@@ -35,7 +39,7 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
       const settings = await voiceService.getSettings();
       set({ settings, error: null });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '加载语音设置失败' });
+      set({ error: e instanceof Error ? e.message : "加载语音设置失败" });
     }
   },
 
@@ -45,10 +49,13 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
 
     set({ isProcessing: true, error: null });
     try {
-      const updated = await voiceService.updateSettings({ ...settings, ...updates });
+      const updated = await voiceService.updateSettings({
+        ...settings,
+        ...updates,
+      });
       set({ settings: updated });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '更新语音设置失败' });
+      set({ error: e instanceof Error ? e.message : "更新语音设置失败" });
     } finally {
       set({ isProcessing: false });
     }
@@ -60,7 +67,10 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
       const session = await voiceService.startSession();
       set({ currentSession: session });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '开始录音失败', isRecording: false });
+      set({
+        error: e instanceof Error ? e.message : "开始录音失败",
+        isRecording: false,
+      });
     }
   },
 
@@ -76,7 +86,7 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
       await voiceService.endSession(currentSession.id);
       set({ currentSession: null });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '停止录音失败' });
+      set({ error: e instanceof Error ? e.message : "停止录音失败" });
     } finally {
       set({ isProcessing: false });
     }
@@ -88,11 +98,11 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
       const audio = new Audio(audioUrl);
       audio.onended = () => set({ isPlaying: false });
       audio.onerror = () => {
-        set({ isPlaying: false, error: '音频播放失败' });
+        set({ isPlaying: false, error: "音频播放失败" });
       };
       await audio.play();
     } catch (e) {
-      set({ isPlaying: false, error: '音频播放失败' });
+      set({ isPlaying: false, error: "音频播放失败" });
     }
   },
 
@@ -103,4 +113,4 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
   clearError: () => set({ error: null }),
 }));
 
-export { voiceService } from '../services/voiceService';
+export { voiceService } from "../services/voiceService";

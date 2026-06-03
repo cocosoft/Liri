@@ -28,7 +28,9 @@ export class AzureOpenAIProvider implements AIProvider {
 
     this.config = {
       apiVersion: '2024-02-15-preview',
-      ...(providerCfg ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey } : {}),
+      ...(providerCfg
+        ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey }
+        : {}),
       ...config,
     };
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());

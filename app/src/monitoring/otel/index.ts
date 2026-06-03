@@ -53,5 +53,9 @@ export type {
 export { TraceBridge, createTraceBridge } from './TraceBridge.js';
 export type { TraceEvent, TraceBridgeStats } from './TraceBridge.js';
 
-export { OTelLoggerAdapter, getOTelLoggerAdapter, createOTelLoggerAdapter } from './OTelLoggerAdapter.js';
+export {
+  OTelLoggerAdapter,
+  getOTelLoggerAdapter,
+  createOTelLoggerAdapter,
+} from './OTelLoggerAdapter.js';
 export type { OTelLoggerAdapterConfig } from './OTelLoggerAdapter.js';

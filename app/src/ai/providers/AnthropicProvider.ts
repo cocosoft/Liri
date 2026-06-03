@@ -47,8 +47,14 @@ export class AnthropicProvider implements AIProvider {
     const providerCfg = registry.getProviderConfig('anthropic');
 
     const apiKey =
-      providerCfg?.apiKey || (config.apiKey as string) || process.env.ANTHROPIC_API_KEY || '';
-    const baseUrl = (providerCfg?.baseUrl || config.baseUrl as string) || 'https://api.anthropic.com';
+      providerCfg?.apiKey ||
+      (config.apiKey as string) ||
+      process.env.ANTHROPIC_API_KEY ||
+      '';
+    const baseUrl =
+      providerCfg?.baseUrl ||
+      (config.baseUrl as string) ||
+      'https://api.anthropic.com';
 
     this.config = {
       apiKey,

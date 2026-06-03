@@ -60,7 +60,11 @@ export enum ModelCapability {
  * 模型能力映射（已迁移到 ModelConfigs.ts）
  * @deprecated 使用 ModelConfigs.ts 中的 getModelCapabilities() 替代
  */
-export { getModelCapabilities, modelSupportsCapability, getModelsWithCapability } from './ModelConfigs.js';
+export {
+  getModelCapabilities,
+  modelSupportsCapability,
+  getModelsWithCapability,
+} from './ModelConfigs.js';
 
 export enum AIMessageRole {
   USER = 'user',

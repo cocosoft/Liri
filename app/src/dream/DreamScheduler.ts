@@ -27,20 +27,17 @@
 
 import { DreamIdleDetector } from './DreamIdleDetector';
 import { DreamPersistence } from './DreamPersistence';
-import {
-  createInMemoryScheduler,
-} from '../chronos/CronScheduler';
+import { createInMemoryScheduler } from '../chronos/CronScheduler';
 import type { InMemoryScheduler, ScheduledTask } from '../chronos/types';
-import type {
-  DreamSchedulerConfig,
-  DreamTriggerSource,
-} from './types';
+import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export type DreamTriggerCallback = (source: DreamTriggerSource) => Promise<void>;
+export type DreamTriggerCallback = (
+  source: DreamTriggerSource
+) => Promise<void>;
 
 const DREAM_CRON_TASK_ID = 'dream-auto-consolidation';
 const DREAM_CRON_EXPRESSION = '0 2 * * *';
@@ -152,9 +149,7 @@ export class DreamScheduler {
     this.cronScheduler.addTask(dreamTask);
     this.cronScheduler.start();
 
-    logger.info(
-      `[DreamScheduler] cron 触发已注册: ${this.config.cronTrigger}`
-    );
+    logger.info(`[DreamScheduler] cron 触发已注册: ${this.config.cronTrigger}`);
   }
 
   /** 检查是否可以做梦 */

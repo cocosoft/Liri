@@ -3,9 +3,9 @@
  * 管理 Provider 列表、CRUD 操作状态
  */
 
-import { create } from 'zustand';
-import { providerService } from '../services/providerService';
-import type { ProviderInfo, ProviderFormData } from '../types';
+import { create } from "zustand";
+import { providerService } from "../services/providerService";
+import type { ProviderInfo, ProviderFormData } from "../types";
 
 interface ModelAdminState {
   providers: ProviderInfo[];
@@ -15,11 +15,20 @@ interface ModelAdminState {
 
   loadProviders: () => Promise<void>;
   createProvider: (data: ProviderFormData) => Promise<void>;
-  updateProvider: (id: string, data: Partial<ProviderFormData>) => Promise<void>;
+  updateProvider: (
+    id: string,
+    data: Partial<ProviderFormData>,
+  ) => Promise<void>;
   deleteProvider: (id: string) => Promise<void>;
   toggleProvider: (id: string) => Promise<void>;
-  testConnection: (id: string) => Promise<{ success: boolean; error?: string; latencyMs?: number }>;
-  fetchModels: (id: string) => Promise<{ models: Array<{ id: string; ownedBy?: string }> } | { error: string }>;
+  testConnection: (
+    id: string,
+  ) => Promise<{ success: boolean; error?: string; latencyMs?: number }>;
+  fetchModels: (
+    id: string,
+  ) => Promise<
+    { models: Array<{ id: string; ownedBy?: string }> } | { error: string }
+  >;
 
   clearError: () => void;
 }
@@ -36,18 +45,24 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, isLoading: false });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取 Provider 列表失败', isLoading: false });
+      set({
+        error: e instanceof Error ? e.message : "获取 Provider 列表失败",
+        isLoading: false,
+      });
     }
   },
 
   createProvider: async (data) => {
-    set({ savingId: 'new', error: null });
+    set({ savingId: "new", error: null });
     try {
       await providerService.create(data);
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '创建 Provider 失败', savingId: null });
+      set({
+        error: e instanceof Error ? e.message : "创建 Provider 失败",
+        savingId: null,
+      });
     }
   },
 
@@ -58,7 +73,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '更新 Provider 失败', savingId: null });
+      set({
+        error: e instanceof Error ? e.message : "更新 Provider 失败",
+        savingId: null,
+      });
     }
   },
 
@@ -69,7 +87,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '删除 Provider 失败', savingId: null });
+      set({
+        error: e instanceof Error ? e.message : "删除 Provider 失败",
+        savingId: null,
+      });
     }
   },
 
@@ -80,7 +101,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '切换状态失败', savingId: null });
+      set({
+        error: e instanceof Error ? e.message : "切换状态失败",
+        savingId: null,
+      });
     }
   },
 
@@ -95,7 +119,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
         latencyMs: first?.latency,
       };
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : '连接测试失败' };
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : "连接测试失败",
+      };
     }
   },
 

@@ -34,7 +34,7 @@ import { providerManager } from '@modules/ai/providers/ProviderManager.js';
 const balanceCommand = {
   async execute(
     args: string,
-    _context: CommandContext,
+    _context: CommandContext
   ): Promise<CommandResult> {
     const trimmed = args.trim();
     const parts = trimmed.split(/\s+/).filter(Boolean);

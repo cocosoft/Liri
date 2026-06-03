@@ -70,7 +70,8 @@ export {
 } from './KnowledgeBaseRegistry';
 export type { KnowledgeBase, KnowledgeBaseMeta } from './KnowledgeBaseRegistry';
 
-export {
-  KnowledgeCompileScheduler,
+export { KnowledgeCompileScheduler } from './KnowledgeCompileScheduler';
+export type {
+  SchedulerConfig,
+  SchedulerState,
 } from './KnowledgeCompileScheduler';
-export type { SchedulerConfig, SchedulerState } from './KnowledgeCompileScheduler';

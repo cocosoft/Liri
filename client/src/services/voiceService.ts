@@ -1,6 +1,6 @@
-import { http } from './httpClient';
+import { http } from "./httpClient";
 
-export type VoiceProvider = 'gemini' | 'openai' | 'webapi';
+export type VoiceProvider = "gemini" | "openai" | "webapi";
 
 export interface STTResult {
   text: string;
@@ -55,7 +55,7 @@ export interface VoiceSession {
   duration: number | null;
   transcript: string;
   responseAudioUrl: string | null;
-  status: 'active' | 'completed' | 'failed';
+  status: "active" | "completed" | "failed";
 }
 
 export interface VoiceSettings {
@@ -66,47 +66,64 @@ export interface VoiceSettings {
 
 const voiceService = {
   async getSettings(): Promise<VoiceSettings> {
-    const response = await http.get<VoiceSettings>('/v1/voice/settings');
+    const response = await http.get<VoiceSettings>("/v1/voice/settings");
     return response;
   },
 
-  async updateSettings(settings: Partial<VoiceSettings>): Promise<VoiceSettings> {
-    const response = await http.put<VoiceSettings>('/v1/voice/settings', settings);
+  async updateSettings(
+    settings: Partial<VoiceSettings>,
+  ): Promise<VoiceSettings> {
+    const response = await http.put<VoiceSettings>(
+      "/v1/voice/settings",
+      settings,
+    );
     return response;
   },
 
   async startSession(): Promise<VoiceSession> {
-    const response = await http.post<VoiceSession>('/v1/voice/session/start');
+    const response = await http.post<VoiceSession>("/v1/voice/session/start");
     return response;
   },
 
   async endSession(sessionId: string): Promise<VoiceSession> {
-    const response = await http.post<VoiceSession>(`/v1/voice/session/${sessionId}/end`);
+    const response = await http.post<VoiceSession>(
+      `/v1/voice/session/${sessionId}/end`,
+    );
     return response;
   },
 
-  async getSessions(limit: number = 20): Promise<{ sessions: VoiceSession[]; total: number }> {
-    const response = await http.get<{ sessions: VoiceSession[]; total: number }>(`/v1/voice/sessions?limit=${limit}`);
+  async getSessions(
+    limit: number = 20,
+  ): Promise<{ sessions: VoiceSession[]; total: number }> {
+    const response = await http.get<{
+      sessions: VoiceSession[];
+      total: number;
+    }>(`/v1/voice/sessions?limit=${limit}`);
     return response;
   },
 
   async getSession(sessionId: string): Promise<VoiceSession> {
-    const response = await http.get<VoiceSession>(`/v1/voice/session/${sessionId}`);
+    const response = await http.get<VoiceSession>(
+      `/v1/voice/session/${sessionId}`,
+    );
     return response;
   },
 
-  async uploadAudio(sessionId: string, audioBlob: Blob): Promise<{ transcript: string; audioUrl?: string }> {
+  async uploadAudio(
+    sessionId: string,
+    audioBlob: Blob,
+  ): Promise<{ transcript: string; audioUrl?: string }> {
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
-    formData.append('sessionId', sessionId);
+    formData.append("audio", audioBlob, "recording.webm");
+    formData.append("sessionId", sessionId);
 
     const response = await fetch(`${window.location.origin}/v1/voice/upload`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
 
     if (!response.ok) {
-      throw new Error('Failed to upload audio');
+      throw new Error("Failed to upload audio");
     }
 
     return response.json();
@@ -122,22 +139,31 @@ const voiceService = {
   },
 
   async synthesizeSpeech(text: string, voiceId?: string): Promise<string> {
-    const response = await http.post<{ audioUrl: string }>('/v1/voice/tts', { text, voiceId });
+    const response = await http.post<{ audioUrl: string }>("/v1/voice/tts", {
+      text,
+      voiceId,
+    });
     return response.audioUrl;
   },
 
   async getProviders(): Promise<VoiceProvider[]> {
-    const response = await http.get<VoiceProvider[]>('/v1/voice/providers');
+    const response = await http.get<VoiceProvider[]>("/v1/voice/providers");
     return response;
   },
 
-  async getVoices(provider: VoiceProvider): Promise<{ id: string; name: string; language: string }[]> {
-    const response = await http.get<{ id: string; name: string; language: string }[]>(`/v1/voice/voices?provider=${provider}`);
+  async getVoices(
+    provider: VoiceProvider,
+  ): Promise<{ id: string; name: string; language: string }[]> {
+    const response = await http.get<
+      { id: string; name: string; language: string }[]
+    >(`/v1/voice/voices?provider=${provider}`);
     return response;
   },
 
   async testWakeWord(wakeWordId: string): Promise<boolean> {
-    const response = await http.post<{ detected: boolean }>(`/v1/voice/wakeword/${wakeWordId}/test`);
+    const response = await http.post<{ detected: boolean }>(
+      `/v1/voice/wakeword/${wakeWordId}/test`,
+    );
     return response.detected;
   },
 
@@ -153,16 +179,16 @@ const voiceService = {
       providerId?: string;
       language?: string;
       keyterms?: string[];
-    }
+    },
   ): Promise<STTResult> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
       reader.onload = async () => {
         try {
-          const base64 = (reader.result as string).split(',')[1];
+          const base64 = (reader.result as string).split(",")[1];
 
-          const response = await http.post<STTResult>('/v1/voice/transcribe', {
+          const response = await http.post<STTResult>("/v1/voice/transcribe", {
             audioData: base64,
             providerId: options?.providerId,
             language: options?.language,
@@ -175,7 +201,7 @@ const voiceService = {
         }
       };
 
-      reader.onerror = () => reject(new Error('读取音频文件失败'));
+      reader.onerror = () => reject(new Error("读取音频文件失败"));
       reader.readAsDataURL(audioBlob);
     });
   },

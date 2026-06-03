@@ -45,7 +45,14 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { resolveProjectRoot, resolveDataDir, resolveOnboardedFlagPath, resolveOutputDir, resolveDownloadsDir, ensureDataDirectories } from '@modules/config/paths';
+import {
+  resolveProjectRoot,
+  resolveDataDir,
+  resolveOnboardedFlagPath,
+  resolveOutputDir,
+  resolveDownloadsDir,
+  ensureDataDirectories,
+} from '@modules/config/paths';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -488,7 +495,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     // T1.25: 加载模型配置（从 YAML + 用户覆盖）
     try {
-      const { ModelRegistry } = await import('@modules/ai/models/ModelRegistry');
+      const { ModelRegistry } =
+        await import('@modules/ai/models/ModelRegistry');
       const registry = ModelRegistry.getInstance();
       registry.loadDefaultModels();
       registry.loadUserConfigs();

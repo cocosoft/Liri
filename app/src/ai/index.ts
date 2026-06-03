@@ -226,10 +226,7 @@ export * from './credentials';
 export * from './cost';
 
 // models/ — 模型管理增强（对标 CC 供应商管理）
-export {
-  ProviderManager,
-  providerManager,
-} from './providers/ProviderManager';
+export { ProviderManager, providerManager } from './providers/ProviderManager';
 export type {
   ProviderRecord,
   ProviderType,
@@ -247,7 +244,10 @@ export type { FetchedModel } from './providers/ModelFetcher';
 export { SpeedTestService } from './providers/SpeedTestService';
 export type { EndpointLatency } from './providers/SpeedTestService';
 
-export { UsageStatsService, usageStatsService } from './models/UsageStatsService';
+export {
+  UsageStatsService,
+  usageStatsService,
+} from './models/UsageStatsService';
 export type {
   UsageSummary,
   DailyStats,
@@ -259,8 +259,14 @@ export type {
   PaginatedLogs,
 } from './models/UsageStatsService';
 
-export { ModelPricingService, modelPricingService } from './models/ModelPricingService';
-export type { ModelPricingRecord, UpsertPricingParams } from './models/ModelPricingService';
+export {
+  ModelPricingService,
+  modelPricingService,
+} from './models/ModelPricingService';
+export type {
+  ModelPricingRecord,
+  UpsertPricingParams,
+} from './models/ModelPricingService';
 
 export { AppModelRouter, appModelRouter } from './models/AppModelRouter';
 export type { AppModelConfig, AppModelTarget } from './models/AppModelRouter';
@@ -272,7 +278,10 @@ export {
   PriorityBasedFailover,
   priorityFailover,
 } from './providers/PriorityBasedFailover';
-export type { FailoverConfig, FailoverEvent } from './providers/PriorityBasedFailover';
+export type {
+  FailoverConfig,
+  FailoverEvent,
+} from './providers/PriorityBasedFailover';
 
 export { ProviderSyncService } from './providers/ProviderSyncService';
 

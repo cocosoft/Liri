@@ -1,4 +1,4 @@
-import { getBackendBaseUrl } from './backendUrl';
+import { getBackendBaseUrl } from "./backendUrl";
 
 type EventHandler = (data: Record<string, unknown>) => void;
 
@@ -26,12 +26,12 @@ class SSEService {
       };
 
       this.eventSource.onmessage = (e) => {
-        this.dispatch('message', this.parse(e.data));
+        this.dispatch("message", this.parse(e.data));
       };
 
-      this.eventSource.addEventListener('heartbeat', (e: Event) => {
+      this.eventSource.addEventListener("heartbeat", (e: Event) => {
         const msg = e as MessageEvent;
-        this.dispatch('heartbeat', this.parse(msg.data));
+        this.dispatch("heartbeat", this.parse(msg.data));
       });
     } catch {
       this.reconnectTimer = setTimeout(() => this.connect(), 5000);

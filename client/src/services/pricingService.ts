@@ -3,7 +3,7 @@
  * 对接后端 /v1/pricing/* 端点
  */
 
-import { http } from './httpClient';
+import { http } from "./httpClient";
 
 export interface ModelPricingRecord {
   id: string;
@@ -18,7 +18,7 @@ export interface ModelPricingRecord {
 
 export const pricingService = {
   async list(): Promise<ModelPricingRecord[]> {
-    const resp = await http.get<{ data: ModelPricingRecord[] }>('/v1/pricing');
+    const resp = await http.get<{ data: ModelPricingRecord[] }>("/v1/pricing");
     return resp.data ?? [];
   },
 
@@ -30,7 +30,10 @@ export const pricingService = {
     cacheReadCostPerMillion?: number;
     cacheWriteCostPerMillion?: number;
   }): Promise<ModelPricingRecord> {
-    const resp = await http.post<{ data: ModelPricingRecord }>('/v1/pricing', params);
+    const resp = await http.post<{ data: ModelPricingRecord }>(
+      "/v1/pricing",
+      params,
+    );
     return resp.data;
   },
 

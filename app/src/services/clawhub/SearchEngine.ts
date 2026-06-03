@@ -80,7 +80,11 @@ export class SearchEngine {
   constructor(config: SearchEngineConfig = {}) {
     this.apiBaseUrl = config.apiBaseUrl || 'https://api.clawhub.com/v1';
     this.timeout = config.timeout || 10000;
-    this.customSourcesPath = join(resolvePyappHome(), 'config', 'skill-market-sources.json');
+    this.customSourcesPath = join(
+      resolvePyappHome(),
+      'config',
+      'skill-market-sources.json'
+    );
 
     this.registerDefaultSources();
     this.loadCustomSources();
@@ -147,7 +151,11 @@ export class SearchEngine {
     if (this.sources.has(name)) {
       throw new Error(`搜索源 "${name}" 已存在`);
     }
-    const source = new ConfigurableClawHubSource(name, apiBaseUrl, this.timeout);
+    const source = new ConfigurableClawHubSource(
+      name,
+      apiBaseUrl,
+      this.timeout
+    );
     this.sources.set(name, source);
     this.customSources.set(name, apiBaseUrl);
     this.saveCustomSources();
@@ -175,15 +183,28 @@ export class SearchEngine {
       if (!existsSync(this.customSourcesPath)) return;
       const data = JSON.parse(readFileSync(this.customSourcesPath, 'utf-8'));
       if (!data || typeof data !== 'object') return;
-      const sources = data.sources as Array<{ name: string; apiBaseUrl: string }> | undefined;
+      const sources = data.sources as
+        | Array<{ name: string; apiBaseUrl: string }>
+        | undefined;
       if (!Array.isArray(sources)) return;
       for (const s of sources) {
-        if (s.name && s.apiBaseUrl && typeof s.name === 'string' && typeof s.apiBaseUrl === 'string') {
+        if (
+          s.name &&
+          s.apiBaseUrl &&
+          typeof s.name === 'string' &&
+          typeof s.apiBaseUrl === 'string'
+        ) {
           try {
-            const source = new ConfigurableClawHubSource(s.name, s.apiBaseUrl, this.timeout);
+            const source = new ConfigurableClawHubSource(
+              s.name,
+              s.apiBaseUrl,
+              this.timeout
+            );
             this.sources.set(s.name, source);
             this.customSources.set(s.name, s.apiBaseUrl);
-          } catch { /* skip invalid */ }
+          } catch {
+            /* skip invalid */
+          }
         }
       }
       logger.info(`已加载 ${this.customSources.size} 个自定义搜索源`);
@@ -200,7 +221,11 @@ export class SearchEngine {
       const dir = dirname(this.customSourcesPath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
       const data = { sources: this.getCustomSources() };
-      writeFileSync(this.customSourcesPath, JSON.stringify(data, null, 2), 'utf-8');
+      writeFileSync(
+        this.customSourcesPath,
+        JSON.stringify(data, null, 2),
+        'utf-8'
+      );
     } catch (err) {
       logger.warn('保存自定义搜索源失败', err as Error);
     }
@@ -356,7 +381,6 @@ class ClawHubSearchSource implements SearchSource {
       return [];
     }
   }
-
 }
 
 /**
@@ -391,7 +415,10 @@ class HermesSearchSource implements SearchSource {
         ? `${encodeURIComponent(query)}+${baseQuery}`
         : baseQuery;
       const searchUrl = `https://api.github.com/search/repositories?q=${searchQuery}&sort=updated&per_page=20`;
-      const data = await GitHubSearchSource.httpRequest(this.timeout, searchUrl);
+      const data = await GitHubSearchSource.httpRequest(
+        this.timeout,
+        searchUrl
+      );
 
       const items = (data as any)?.items || [];
       const results = items.map((item: any) => ({
@@ -405,7 +432,9 @@ class HermesSearchSource implements SearchSource {
           category: 'community',
           tags: item.topics || [],
           icon: item.owner?.avatar_url,
-          readme: item.html_url ? `${item.html_url}/blob/main/README.md` : undefined,
+          readme: item.html_url
+            ? `${item.html_url}/blob/main/README.md`
+            : undefined,
           dependencies: [],
           permissions: [],
           manifestVersion: '1.0',
@@ -455,29 +484,36 @@ class GiteeSearchSource implements SearchSource {
         ? `${encodeURIComponent(query)}+topic:openclaw-skill+topic:py-app-skill`
         : 'topic:openclaw-skill+topic:py-app-skill';
       const searchUrl = `https://gitee.com/api/v5/search/repositories?q=${searchQuery}&sort=updated&per_page=20`;
-      const data = await GitHubSearchSource.httpRequest(this.timeout, searchUrl);
+      const data = await GitHubSearchSource.httpRequest(
+        this.timeout,
+        searchUrl
+      );
 
       const items = (data as any)?.items || (data as any) || [];
-      const results = (Array.isArray(items) ? items : (items.data || [])).map((item: any) => ({
-        skill: {
-          id: `gitee:${item.full_name || item.path_with_namespace || item.id}`,
-          name: item.name || item.path || 'unknown',
-          version: '1.0.0',
-          description: item.description || '',
-          author: item.owner?.login || item.owner?.name || 'unknown',
-          license: item.license || undefined,
-          category: 'community',
-          tags: [],
-          icon: item.owner?.avatar_url,
-          readme: item.html_url ? `${item.html_url}/blob/main/README.md` : undefined,
-          dependencies: [],
-          permissions: [],
-          manifestVersion: '1.0',
-          source: 'third_party',
-        },
-        source: 'gitee',
-        score: 0,
-      }));
+      const results = (Array.isArray(items) ? items : items.data || []).map(
+        (item: any) => ({
+          skill: {
+            id: `gitee:${item.full_name || item.path_with_namespace || item.id}`,
+            name: item.name || item.path || 'unknown',
+            version: '1.0.0',
+            description: item.description || '',
+            author: item.owner?.login || item.owner?.name || 'unknown',
+            license: item.license || undefined,
+            category: 'community',
+            tags: [],
+            icon: item.owner?.avatar_url,
+            readme: item.html_url
+              ? `${item.html_url}/blob/main/README.md`
+              : undefined,
+            dependencies: [],
+            permissions: [],
+            manifestVersion: '1.0',
+            source: 'third_party',
+          },
+          source: 'gitee',
+          score: 0,
+        })
+      );
 
       this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
       return results;
@@ -649,7 +685,10 @@ class GitHubSearchSource implements SearchSource {
     try {
       const searchQuery = this.buildSearchQuery(query);
       const searchUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=updated&per_page=20`;
-      const data = await GitHubSearchSource.httpRequest(this.timeout, searchUrl);
+      const data = await GitHubSearchSource.httpRequest(
+        this.timeout,
+        searchUrl
+      );
       const results = this.parseGitHubResponse(data);
 
       this.cache.set(cacheKey, { data: results, timestamp: Date.now() });

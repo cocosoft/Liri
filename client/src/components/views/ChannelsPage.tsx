@@ -5,53 +5,79 @@
  * Phase 3: 凭证脱敏 + 插件检测 + 保存/保存并应用
  */
 
-import { useEffect, useMemo } from 'react';
-import { useChannelStore } from '../../stores/channelStore';
-import ChannelStatsPanel from './ChannelStatsPanel';
-import ChannelFilterBar from './ChannelFilterBar';
-import ChannelFormModal from './ChannelFormModal';
-import ConfirmDialog from '../common/ConfirmDialog';
-import { SkeletonCard } from '../common/Skeleton';
+import { useEffect, useMemo } from "react";
+import { useChannelStore } from "../../stores/channelStore";
+import ChannelStatsPanel from "./ChannelStatsPanel";
+import ChannelFilterBar from "./ChannelFilterBar";
+import ChannelFormModal from "./ChannelFormModal";
+import ConfirmDialog from "../common/ConfirmDialog";
+import { SkeletonCard } from "../common/Skeleton";
 
 // ─── 渠道类型颜色映射 ──────────────────────────────────
 
 const CHANNEL_TYPE_COLORS: Record<string, string> = {
-  qq: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  feishu: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-  dingtalk: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  wechat: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  wecom: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  slack: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  discord: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-  telegram: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  whatsapp: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  email: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400',
-  webhook: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  line: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400',
-  irc: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400',
-  nostr: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  sms: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400',
-  matrix: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-  facebook: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  twitter: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  mattermost: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-  signal: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-  googlechat: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  msteams: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  zalo: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  yuanbao: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-  bluebubbles: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  qq: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  feishu: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  dingtalk: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+  wechat:
+    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  wecom: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  slack:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  discord:
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  telegram: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  whatsapp:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  email: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400",
+  webhook:
+    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  line: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
+  irc: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400",
+  nostr: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  sms: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400",
+  matrix: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+  facebook: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  twitter: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+  mattermost:
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  signal:
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  googlechat: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  msteams:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  zalo: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  yuanbao: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+  bluebubbles:
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
 const CHANNEL_TYPE_LABELS: Record<string, string> = {
-  qq: 'QQ', feishu: '飞书', dingtalk: '钉钉', wechat: '微信',
-  wecom: '企业微信', slack: 'Slack', discord: 'Discord',
-  telegram: 'Telegram', whatsapp: 'WhatsApp', email: '邮件',
-  webhook: 'Webhook', line: 'Line', irc: 'IRC', nostr: 'Nostr',
-  sms: '短信', matrix: 'Matrix', facebook: 'Facebook',
-  twitter: 'Twitter/X', signal: 'Signal', mattermost: 'Mattermost',
-  bluebubbles: 'iMessage', googlechat: 'Google Chat',
-  msteams: 'MS Teams', zalo: 'Zalo', yuanbao: '元宝',
+  qq: "QQ",
+  feishu: "飞书",
+  dingtalk: "钉钉",
+  wechat: "微信",
+  wecom: "企业微信",
+  slack: "Slack",
+  discord: "Discord",
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  email: "邮件",
+  webhook: "Webhook",
+  line: "Line",
+  irc: "IRC",
+  nostr: "Nostr",
+  sms: "短信",
+  matrix: "Matrix",
+  facebook: "Facebook",
+  twitter: "Twitter/X",
+  signal: "Signal",
+  mattermost: "Mattermost",
+  bluebubbles: "iMessage",
+  googlechat: "Google Chat",
+  msteams: "MS Teams",
+  zalo: "Zalo",
+  yuanbao: "元宝",
 };
 
 // ─── 组件 ──────────────────────────────────────────────
@@ -128,9 +154,7 @@ function ChannelsPage() {
           </div>
         ) : filteredChannels.length === 0 ? (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-            {channels.length === 0
-              ? '暂无渠道配置'
-              : '没有匹配的渠道'}
+            {channels.length === 0 ? "暂无渠道配置" : "没有匹配的渠道"}
           </div>
         ) : (
           <div className="space-y-3">
@@ -142,7 +166,7 @@ function ChannelsPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   {/* 类型标签 */}
                   <span
-                    className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${CHANNEL_TYPE_COLORS[channel.type] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'}`}
+                    className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${CHANNEL_TYPE_COLORS[channel.type] || "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400"}`}
                   >
                     {CHANNEL_TYPE_LABELS[channel.type] || channel.type}
                   </span>
@@ -157,21 +181,21 @@ function ChannelsPage() {
                       <span className="inline-flex items-center gap-1 text-xs">
                         <span
                           className={`w-2 h-2 rounded-full ${
-                            channel.status === 'error'
-                              ? 'bg-red-500'
+                            channel.status === "error"
+                              ? "bg-red-500"
                               : channel.connected
-                                ? 'bg-green-500'
-                                : 'bg-gray-400'
+                                ? "bg-green-500"
+                                : "bg-gray-400"
                           }`}
                         />
                         <span
                           className={
                             channel.connected
-                              ? 'text-green-600 dark:text-green-400'
-                              : 'text-gray-400'
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-gray-400"
                           }
                         >
-                          {channel.connected ? '已连接' : '未连接'}
+                          {channel.connected ? "已连接" : "未连接"}
                         </span>
                       </span>
 
@@ -181,15 +205,17 @@ function ChannelsPage() {
                         </span>
                       )}
 
-                      {channel.errorCount !== undefined && channel.errorCount > 0 && (
-                        <span className="text-xs text-red-400">
-                          错误: {channel.errorCount}
-                        </span>
-                      )}
+                      {channel.errorCount !== undefined &&
+                        channel.errorCount > 0 && (
+                          <span className="text-xs text-red-400">
+                            错误: {channel.errorCount}
+                          </span>
+                        )}
 
                       {channel.lastActive && (
                         <span className="text-xs text-gray-400">
-                          最后活动: {new Date(channel.lastActive).toLocaleString()}
+                          最后活动:{" "}
+                          {new Date(channel.lastActive).toLocaleString()}
                         </span>
                       )}
                     </div>
@@ -212,7 +238,9 @@ function ChannelsPage() {
                       <input
                         type="checkbox"
                         checked={channel.enabled}
-                        onChange={() => toggleChannel(channel.id, !channel.enabled)}
+                        onChange={() =>
+                          toggleChannel(channel.id, !channel.enabled)
+                        }
                         className="sr-only peer"
                       />
                       <div className="w-9 h-5 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
@@ -239,10 +267,7 @@ function ChannelsPage() {
         )}
 
         {/* Phase 2: 编辑模态框 */}
-        <ChannelFormModal
-          visible={showFormModal}
-          channel={editingChannel}
-        />
+        <ChannelFormModal visible={showFormModal} channel={editingChannel} />
 
         {/* Phase 2: 删除确认对话框 */}
         <ConfirmDialog
@@ -251,7 +276,7 @@ function ChannelsPage() {
           message={
             deletingChannel
               ? `确定要删除渠道「${deletingChannel.name}」吗？此操作不可撤销。`
-              : ''
+              : ""
           }
           confirmText="删除"
           variant="danger"

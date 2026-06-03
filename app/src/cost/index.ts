@@ -151,12 +151,10 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     costTracker.setRecordRepository(repository);
 
     // 初始化分析持久化服务（JSONL 文件）
-    const { getGlobalAnalyticsQueue } = await import(
-      '../analytics/AnalyticsEventQueue.js'
-    );
-    const { AnalyticsPersistenceService } = await import(
-      '../analytics/AnalyticsPersistenceService.js'
-    );
+    const { getGlobalAnalyticsQueue } =
+      await import('../analytics/AnalyticsEventQueue.js');
+    const { AnalyticsPersistenceService } =
+      await import('../analytics/AnalyticsPersistenceService.js');
     const analyticsPersistence = new AnalyticsPersistenceService();
     await analyticsPersistence.initialize();
     getGlobalAnalyticsQueue().attachSink({
@@ -185,9 +183,8 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     });
 
     // 确保 CostAnalyticsTracker 使用全局事件队列（含持久化 sink）
-    const { getCostAnalyticsTracker } = await import(
-      '../analytics/CostAnalyticsTracker.js'
-    );
+    const { getCostAnalyticsTracker } =
+      await import('../analytics/CostAnalyticsTracker.js');
     getCostAnalyticsTracker(getGlobalAnalyticsQueue());
 
     logger.info('成本跟踪系统初始化完成');
@@ -210,8 +207,7 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
       await import('../analytics/CostAnalyticsTracker.js');
     const { getCostRecordRepository } =
       await import('./CostRecordRepository.js');
-    const { costTracker } =
-      await import('./CostTracker.js');
+    const { costTracker } = await import('./CostTracker.js');
 
     const tracker = getCostAnalyticsTracker();
     const sessionSummary = tracker.getSessionCost();

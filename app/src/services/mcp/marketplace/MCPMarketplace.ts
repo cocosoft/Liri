@@ -153,11 +153,7 @@ export class MCPMarketplace {
   /**
    * 切换工具启用/禁用
    */
-  toggleTool(
-    serverName: string,
-    toolName: string,
-    enabled: boolean
-  ): void {
+  toggleTool(serverName: string, toolName: string, enabled: boolean): void {
     this.store.toggleTool(serverName, toolName, enabled);
     logger.info(
       `MCP 工具 ${enabled ? '启用' : '禁用'}: ${serverName}/${toolName}`

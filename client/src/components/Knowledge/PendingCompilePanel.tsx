@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { knowledgeService } from '../../services/knowledgeService';
+import { useState, useEffect, useCallback } from "react";
+import { knowledgeService } from "../../services/knowledgeService";
 
 interface RawFileInfo {
   fileName: string;
@@ -16,19 +16,22 @@ interface PendingCompilePanelProps {
   onCompileComplete?: () => void;
 }
 
-function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelProps) {
+function PendingCompilePanel({
+  isDark,
+  onCompileComplete,
+}: PendingCompilePanelProps) {
   const [rawFiles, setRawFiles] = useState<RawFileInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [compiling, setCompiling] = useState(false);
   const [compileResult, setCompileResult] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  const bgClass = isDark ? 'bg-gray-800' : 'bg-gray-50';
-  const textPrimary = isDark ? 'text-gray-100' : 'text-gray-900';
-  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
-  const textMuted = isDark ? 'text-gray-500' : 'text-gray-400';
-  const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
-  const badgeBg = isDark ? 'bg-gray-700' : 'bg-gray-100';
+  const bgClass = isDark ? "bg-gray-800" : "bg-gray-50";
+  const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
+  const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
+  const textMuted = isDark ? "text-gray-500" : "text-gray-400";
+  const borderColor = isDark ? "border-gray-700" : "border-gray-200";
+  const badgeBg = isDark ? "bg-gray-700" : "bg-gray-100";
 
   const loadRawFiles = useCallback(async () => {
     setLoading(true);
@@ -54,64 +57,85 @@ function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelP
       const result = await knowledgeService.triggerCompile(false);
       const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过`;
       setCompileResult(
-        result.errors?.length
-          ? `${msg}, ${result.errors.length} 个错误`
-          : msg
+        result.errors?.length ? `${msg}, ${result.errors.length} 个错误` : msg,
       );
       await loadRawFiles();
       onCompileComplete?.();
     } catch (err) {
-      setCompileResult('编译失败: ' + (err instanceof Error ? err.message : '未知错误'));
+      setCompileResult(
+        "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
+      );
     } finally {
       setCompiling(false);
     }
   }
 
   function formatSize(bytes: number): string {
-    if (bytes === 0) return '0B';
+    if (bytes === 0) return "0B";
     if (bytes < 1024) return `${bytes}B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   }
 
   function formatDate(ms: number): string {
-    if (!ms) return '';
-    return new Date(ms).toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
+    if (!ms) return "";
+    return new Date(ms).toLocaleString("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
 
   if (!expanded && rawFiles.length === 0) return null;
 
   return (
-    <div className={`mx-4 mb-2 rounded-lg border ${borderColor} ${bgClass} overflow-hidden`}>
+    <div
+      className={`mx-4 mb-2 rounded-lg border ${borderColor} ${bgClass} overflow-hidden`}
+    >
       <div
         className={`flex items-center justify-between px-3 py-2 cursor-pointer select-none ${
-          rawFiles.length > 0 ? 'hover:opacity-80' : ''
+          rawFiles.length > 0 ? "hover:opacity-80" : ""
         }`}
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          <svg
+            className="w-4 h-4 text-amber-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+            />
           </svg>
           <span className={`text-xs font-medium ${textPrimary}`}>
             待处理文件
           </span>
           {rawFiles.length > 0 && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badgeBg} ${textSecondary}`}>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full ${badgeBg} ${textSecondary}`}
+            >
               {rawFiles.length}
             </span>
           )}
         </div>
         <svg
-          className={`w-3.5 h-3.5 ${textSecondary} transition-transform ${expanded ? 'rotate-180' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          className={`w-3.5 h-3.5 ${textSecondary} transition-transform ${expanded ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </div>
 
@@ -131,7 +155,7 @@ function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelP
                 <div
                   key={file.fileName}
                   className={`flex items-center justify-between px-2 py-1.5 rounded text-xs ${
-                    isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                    isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -146,7 +170,9 @@ function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelP
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     <span className={textMuted}>{formatSize(file.size)}</span>
-                    <span className={textMuted}>{formatDate(file.modifiedAt)}</span>
+                    <span className={textMuted}>
+                      {formatDate(file.modifiedAt)}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -167,8 +193,18 @@ function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelP
                   </>
                 ) : (
                   <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
                     </svg>
                     全部编译
                   </>
@@ -177,7 +213,7 @@ function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelP
               <button
                 onClick={loadRawFiles}
                 disabled={loading}
-                className={`text-xs ${textSecondary} hover:${isDark ? 'text-gray-300' : 'text-gray-700'} transition-colors`}
+                className={`text-xs ${textSecondary} hover:${isDark ? "text-gray-300" : "text-gray-700"} transition-colors`}
               >
                 刷新
               </button>
@@ -185,11 +221,13 @@ function PendingCompilePanel({ isDark, onCompileComplete }: PendingCompilePanelP
           )}
 
           {compileResult && (
-            <div className={`mt-2 text-xs px-2 py-1 rounded ${
-              compileResult.includes('失败')
-                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-            }`}>
+            <div
+              className={`mt-2 text-xs px-2 py-1 rounded ${
+                compileResult.includes("失败")
+                  ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                  : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+              }`}
+            >
               {compileResult}
             </div>
           )}

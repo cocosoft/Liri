@@ -110,11 +110,15 @@ export class ModelManager {
   }
 
   getDefaultSonnetModel(): string {
-    return process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || this.modelStrings.sonnet46;
+    return (
+      process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || this.modelStrings.sonnet46
+    );
   }
 
   getDefaultHaikuModel(): string {
-    return process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || this.modelStrings.haiku45;
+    return (
+      process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || this.modelStrings.haiku45
+    );
   }
 
   /**
@@ -219,8 +223,13 @@ export class ModelManager {
    */
   getAvailableModels(): string[] {
     const registry = ModelRegistry.getInstance();
-    const registryModels = registry.getAllModels().map(m => m.firstParty).filter(Boolean);
-    const builtinModels = Object.values(this.modelStrings).filter((s) => s.length > 0);
+    const registryModels = registry
+      .getAllModels()
+      .map((m) => m.firstParty)
+      .filter(Boolean);
+    const builtinModels = Object.values(this.modelStrings).filter(
+      (s) => s.length > 0
+    );
     return Array.from(new Set([...builtinModels, ...registryModels]));
   }
 
@@ -289,7 +298,10 @@ export class ModelManager {
    * 获取带降级的模型
    * 如果后续检测到主力不可用，可以调用此方法获取备用
    */
-  getModelWithFallback(primary?: string): { primary: string; fallback: string } {
+  getModelWithFallback(primary?: string): {
+    primary: string;
+    fallback: string;
+  } {
     const main = primary || this.getDefaultMainLoopModel();
     return {
       primary: main,

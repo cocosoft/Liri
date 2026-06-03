@@ -1,17 +1,19 @@
-import { useEffect, useState } from 'react';
-import { appConfigService } from '../../services/appConfigService';
-import { useBackendStore } from '../../stores/backendStore';
+import { useEffect, useState } from "react";
+import { appConfigService } from "../../services/appConfigService";
+import { useBackendStore } from "../../stores/backendStore";
 
 interface FirstRunWizardProps {
   onComplete: () => void;
 }
 
 export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
-  const [dataDir, setDataDir] = useState('');
+  const [dataDir, setDataDir] = useState("");
   const [httpPort, setHttpPort] = useState(7890);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'welcome' | 'configure' | 'finishing'>('welcome');
+  const [step, setStep] = useState<"welcome" | "configure" | "finishing">(
+    "welcome",
+  );
   const checkBackendStatus = useBackendStore((s) => s.checkStatus);
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   }, []);
 
   const handleComplete = async () => {
-    setStep('finishing');
+    setStep("finishing");
     setSaving(true);
     setError(null);
 
@@ -37,19 +39,29 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
       onComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      setStep('configure');
+      setStep("configure");
       setSaving(false);
     }
   };
 
-  if (step === 'welcome') {
+  if (step === "welcome") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="max-w-md w-full mx-4 text-center">
           <div className="mb-8">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
@@ -61,7 +73,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
             </p>
           </div>
           <button
-            onClick={() => setStep('configure')}
+            onClick={() => setStep("configure")}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             开始设置

@@ -42,10 +42,7 @@ export const AppearanceSettings: React.FC = () => {
   return (
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 主题 */}
-      <SettingRow
-        label="主题模式"
-        hint="切换应用的亮色/暗色/跟随系统主题"
-      >
+      <SettingRow label="主题模式" hint="切换应用的亮色/暗色/跟随系统主题">
         <div className="flex gap-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           {(['light', 'dark', 'system'] as const).map((t) => (
             <button
@@ -64,10 +61,7 @@ export const AppearanceSettings: React.FC = () => {
       </SettingRow>
 
       {/* 编辑器模式 */}
-      <SettingRow
-        label="编辑器模式"
-        hint="选择输入编辑器的行为模式"
-      >
+      <SettingRow label="编辑器模式" hint="选择输入编辑器的行为模式">
         <select
           value={editorMode}
           onChange={(e) => handleEditorModeChange(e.target.value)}
@@ -80,10 +74,7 @@ export const AppearanceSettings: React.FC = () => {
       </SettingRow>
 
       {/* 详细模式 */}
-      <SettingRow
-        label="详细模式"
-        hint="启用后显示更多调试和状态信息"
-      >
+      <SettingRow label="详细模式" hint="启用后显示更多调试和状态信息">
         <button
           onClick={() => handleVerboseChange(!verbose)}
           className={`relative w-11 h-6 rounded-full transition-colors ${

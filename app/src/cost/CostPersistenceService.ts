@@ -144,8 +144,10 @@ export class CostPersistenceService {
     this.accumulatedData.totalCostUSD += sessionData.totalCost;
     this.accumulatedData.totalInputTokens += sessionData.totalInputTokens;
     this.accumulatedData.totalOutputTokens += sessionData.totalOutputTokens;
-    this.accumulatedData.totalCacheReadTokens += sessionData.totalCacheReadTokens;
-    this.accumulatedData.totalCacheCreationTokens += sessionData.totalCacheCreationTokens;
+    this.accumulatedData.totalCacheReadTokens +=
+      sessionData.totalCacheReadTokens;
+    this.accumulatedData.totalCacheCreationTokens +=
+      sessionData.totalCacheCreationTokens;
     this.accumulatedData.totalRequests += sessionData.totalRequests;
     this.accumulatedData.successfulRequests += sessionData.successfulRequests;
     this.accumulatedData.failedRequests += sessionData.failedRequests;

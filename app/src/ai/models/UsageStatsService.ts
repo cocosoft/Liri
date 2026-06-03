@@ -195,7 +195,7 @@ export class UsageStatsService {
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'USAGE_INIT_FAILED',
-        { cause: error },
+        { cause: error }
       );
     }
   }
@@ -253,7 +253,7 @@ export class UsageStatsService {
         'UsageStatsService not initialized',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        'USAGE_NOT_INIT',
+        'USAGE_NOT_INIT'
       );
     }
   }
@@ -314,7 +314,7 @@ export class UsageStatsService {
         params.isStreaming ? 1 : 0,
         timestamp,
         params.errorMessage || null,
-      ],
+      ]
     );
 
     return {
@@ -341,7 +341,7 @@ export class UsageStatsService {
     startDate?: number,
     endDate?: number,
     model?: string,
-    providerId?: string,
+    providerId?: string
   ): Promise<UsageSummary> {
     this.ensureInitialized();
 
@@ -365,9 +365,8 @@ export class UsageStatsService {
       values.push(providerId);
     }
 
-    const where = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const row = await this.getAsync<{
       total_requests: number;
@@ -387,7 +386,7 @@ export class UsageStatsService {
         SUM(cache_creation_tokens) as total_cache_creation_tokens,
         SUM(CASE WHEN status_code < 400 THEN 1 ELSE 0 END) as success_count
       FROM ${USAGE_LOGS_TABLE} ${where}`,
-      values,
+      values
     );
 
     if (!row || row.total_requests === 0) {
@@ -420,7 +419,7 @@ export class UsageStatsService {
   async getDailyTrends(
     startDate?: number,
     endDate?: number,
-    model?: string,
+    model?: string
   ): Promise<DailyStats[]> {
     this.ensureInitialized();
 
@@ -440,9 +439,8 @@ export class UsageStatsService {
       values.push(model);
     }
 
-    const where = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const rows = await this.allAsync<{
       date: string;
@@ -462,7 +460,7 @@ export class UsageStatsService {
       FROM ${USAGE_LOGS_TABLE} ${where}
       GROUP BY date
       ORDER BY date ASC`,
-      values,
+      values
     );
 
     return rows.map((r) => ({
@@ -478,7 +476,7 @@ export class UsageStatsService {
   /** 获取按模型统计 */
   async getModelStats(
     startDate?: number,
-    endDate?: number,
+    endDate?: number
   ): Promise<ModelStats[]> {
     this.ensureInitialized();
 
@@ -494,9 +492,8 @@ export class UsageStatsService {
       values.push(endDate);
     }
 
-    const where = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const rows = await this.allAsync<{
       model: string;
@@ -514,7 +511,7 @@ export class UsageStatsService {
       FROM ${USAGE_LOGS_TABLE} ${where}
       GROUP BY model
       ORDER BY request_count DESC`,
-      values,
+      values
     );
 
     return rows.map((r) => ({
@@ -529,7 +526,7 @@ export class UsageStatsService {
   /** 获取按供应商统计 */
   async getProviderStats(
     startDate?: number,
-    endDate?: number,
+    endDate?: number
   ): Promise<ProviderStats[]> {
     this.ensureInitialized();
 
@@ -545,9 +542,8 @@ export class UsageStatsService {
       values.push(endDate);
     }
 
-    const where = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const rows = await this.allAsync<{
       provider_id: string;
@@ -567,7 +563,7 @@ export class UsageStatsService {
       FROM ${USAGE_LOGS_TABLE} ${where}
       GROUP BY provider_id
       ORDER BY request_count DESC`,
-      values,
+      values
     );
 
     return rows.map((r) => ({
@@ -585,7 +581,7 @@ export class UsageStatsService {
   async getRequestLogs(
     filter: UsageLogFilter,
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = 20
   ): Promise<PaginatedLogs> {
     this.ensureInitialized();
 
@@ -613,13 +609,12 @@ export class UsageStatsService {
       values.push(filter.statusCode);
     }
 
-    const where = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const countRow = await this.getAsync<{ total: number }>(
       `SELECT COUNT(*) as total FROM ${USAGE_LOGS_TABLE} ${where}`,
-      values,
+      values
     );
     const total = countRow?.total || 0;
 
@@ -645,7 +640,7 @@ export class UsageStatsService {
       `SELECT * FROM ${USAGE_LOGS_TABLE} ${where}
        ORDER BY timestamp DESC
        LIMIT ? OFFSET ?`,
-      [...values, safePageSize, offset],
+      [...values, safePageSize, offset]
     );
 
     return {
@@ -675,7 +670,7 @@ export class UsageStatsService {
     this.ensureInitialized();
 
     const row = await this.getAsync<{ total: number }>(
-      `SELECT COUNT(*) as total FROM ${USAGE_LOGS_TABLE}`,
+      `SELECT COUNT(*) as total FROM ${USAGE_LOGS_TABLE}`
     );
     return row?.total || 0;
   }

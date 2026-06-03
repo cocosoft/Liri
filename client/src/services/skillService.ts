@@ -1,12 +1,18 @@
-import { http } from './httpClient';
+import { http } from "./httpClient";
 
-export type SkillStatus = 'enabled' | 'disabled' | 'draft';
+export type SkillStatus = "enabled" | "disabled" | "draft";
 
-export type SkillSource = 'builtin' | 'user' | 'project' | 'plugin' | 'mcp' | 'bundled';
+export type SkillSource =
+  | "builtin"
+  | "user"
+  | "project"
+  | "plugin"
+  | "mcp"
+  | "bundled";
 
 export interface SkillParameter {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  type: "string" | "number" | "boolean" | "array" | "object";
   required: boolean;
   default?: unknown;
   description?: string;
@@ -56,8 +62,8 @@ export interface Skill {
 export interface SkillListParams {
   category?: string;
   status?: SkillStatus;
-  sortBy?: 'createdAt' | 'updatedAt' | 'usageCount';
-  sortOrder?: 'asc' | 'desc';
+  sortBy?: "createdAt" | "updatedAt" | "usageCount";
+  sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }
@@ -70,8 +76,10 @@ export interface SkillCreateData {
 }
 
 const skillService = {
-  async list(params?: SkillListParams): Promise<{ skills: Skill[]; total: number }> {
-    const url = new URL('/v1/skills/system', 'http://localhost');
+  async list(
+    params?: SkillListParams,
+  ): Promise<{ skills: Skill[]; total: number }> {
+    const url = new URL("/v1/skills/system", "http://localhost");
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -79,7 +87,9 @@ const skillService = {
         }
       });
     }
-    const response = await http.get<{ skills: Skill[]; total: number }>(url.pathname + url.search);
+    const response = await http.get<{ skills: Skill[]; total: number }>(
+      url.pathname + url.search,
+    );
     return response;
   },
 
@@ -89,7 +99,7 @@ const skillService = {
   },
 
   async create(data: SkillCreateData): Promise<Skill> {
-    const response = await http.post<Skill>('/v1/skills', data);
+    const response = await http.post<Skill>("/v1/skills", data);
     return response;
   },
 
@@ -113,9 +123,16 @@ const skillService = {
   },
 
   async getCategories(): Promise<string[]> {
-    const response = await http.get<{ categories: Array<{ id: string; capability: string }>; sourceDistribution: Record<string, number> }>('/v1/skills/categories');
+    const response = await http.get<{
+      categories: Array<{ id: string; capability: string }>;
+      sourceDistribution: Record<string, number>;
+    }>("/v1/skills/categories");
     if (Array.isArray(response)) {
-      return response.map((c) => (typeof c === 'string' ? c : (c as any).id || (c as any).capability || ''));
+      return response.map((c) =>
+        typeof c === "string"
+          ? c
+          : (c as any).id || (c as any).capability || "",
+      );
     }
     if (response && Array.isArray(response.categories)) {
       return response.categories.map((c) => c.id || c.capability);
@@ -125,20 +142,24 @@ const skillService = {
 
   /** 获取技能的 SKILL.md 内容 */
   async getContent(id: string): Promise<SkillContent> {
-    const response = await http.get<SkillContent>(`/v1/skills/system/${encodeURIComponent(id)}/content`);
+    const response = await http.get<SkillContent>(
+      `/v1/skills/system/${encodeURIComponent(id)}/content`,
+    );
     return response;
   },
 
   /** 获取技能关联文件列表 */
   async getFiles(id: string): Promise<SkillFileEntry[]> {
-    const response = await http.get<{ files: SkillFileEntry[] }>(`/v1/skills/${id}/files`);
+    const response = await http.get<{ files: SkillFileEntry[] }>(
+      `/v1/skills/${id}/files`,
+    );
     return response.files ?? [];
   },
 
   /** 获取关联文件内容 */
   async getFileContent(skillId: string, filePath: string): Promise<string> {
     const response = await http.get<{ content: string }>(
-      `/v1/skills/system/${encodeURIComponent(skillId)}/files/content?path=${encodeURIComponent(filePath)}`
+      `/v1/skills/system/${encodeURIComponent(skillId)}/files/content?path=${encodeURIComponent(filePath)}`,
     );
     return response.content;
   },

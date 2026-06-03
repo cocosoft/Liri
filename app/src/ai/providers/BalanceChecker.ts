@@ -51,7 +51,12 @@ export interface BalanceData {
 }
 
 /** 支持的余额查询供应商 */
-type BalanceProvider = 'deepseek' | 'siliconflow' | 'siliconflow-en' | 'openrouter' | 'novita';
+type BalanceProvider =
+  | 'deepseek'
+  | 'siliconflow'
+  | 'siliconflow-en'
+  | 'openrouter'
+  | 'novita';
 
 /** 检测供应商类型 */
 function detectProvider(baseUrl: string): BalanceProvider | null {
@@ -69,7 +74,10 @@ function detectProvider(baseUrl: string): BalanceProvider | null {
 const REQUEST_TIMEOUT_MS = 10000;
 
 /** 解析 JSON 数字字段 */
-function parseFloatField(obj: Record<string, unknown>, field: string): number | undefined {
+function parseFloatField(
+  obj: Record<string, unknown>,
+  field: string
+): number | undefined {
   const val = obj[field];
   if (typeof val === 'number') return val;
   if (typeof val === 'string') {
@@ -84,7 +92,7 @@ function parseFloatField(obj: Record<string, unknown>, field: string): number | 
  */
 async function httpGet(
   url: string,
-  apiKey: string,
+  apiKey: string
 ): Promise<{ status: number; body: unknown }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -93,8 +101,8 @@ async function httpGet(
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
       },
       signal: controller.signal,
     });
@@ -124,7 +132,7 @@ async function queryDeepSeek(apiKey: string): Promise<BalanceResult> {
   try {
     const { status, body } = await httpGet(
       'https://api.deepseek.com/user/balance',
-      apiKey,
+      apiKey
     );
 
     if (status === 401 || status === 403) {
@@ -137,13 +145,20 @@ async function queryDeepSeek(apiKey: string): Promise<BalanceResult> {
     }
 
     if (!body || typeof body !== 'object') {
-      return { success: false, provider: 'deepseek', data: [], error: `无效响应` };
+      return {
+        success: false,
+        provider: 'deepseek',
+        data: [],
+        error: `无效响应`,
+      };
     }
 
     const obj = body as Record<string, unknown>;
     const isAvailable = obj['is_available'] !== false;
 
-    const infos = Array.isArray(obj['balance_infos']) ? obj['balance_infos'] : [];
+    const infos = Array.isArray(obj['balance_infos'])
+      ? obj['balance_infos']
+      : [];
 
     const data: BalanceData[] = [];
     for (const info of infos) {
@@ -162,11 +177,16 @@ async function queryDeepSeek(apiKey: string): Promise<BalanceResult> {
     return {
       success: true,
       provider: 'deepseek',
-      data: data.length > 0 ? data : [{
-        planName: 'DeepSeek',
-        unit: 'CNY',
-        remaining: isAvailable ? undefined : 0,
-      }],
+      data:
+        data.length > 0
+          ? data
+          : [
+              {
+                planName: 'DeepSeek',
+                unit: 'CNY',
+                remaining: isAvailable ? undefined : 0,
+              },
+            ],
     };
   } catch (error) {
     return {
@@ -184,14 +204,17 @@ async function queryDeepSeek(apiKey: string): Promise<BalanceResult> {
  *  GET https://api.siliconflow.cn/v1/user/info
  *  返回: { code, data: { balance, chargeBalance, totalBalance, status } }
  */
-async function querySiliconFlow(apiKey: string, isCn: boolean): Promise<BalanceResult> {
+async function querySiliconFlow(
+  apiKey: string,
+  isCn: boolean
+): Promise<BalanceResult> {
   const domain = isCn ? 'api.siliconflow.cn' : 'api.siliconflow.com';
   const provider = isCn ? 'siliconflow' : 'siliconflow-en';
 
   try {
     const { status, body } = await httpGet(
       `https://${domain}/v1/user/info`,
-      apiKey,
+      apiKey
     );
 
     if (status === 401 || status === 403) {
@@ -220,12 +243,14 @@ async function querySiliconFlow(apiKey: string, isCn: boolean): Promise<BalanceR
     return {
       success: true,
       provider,
-      data: [{
-        planName: 'SiliconFlow',
-        remaining: balance,
-        total: totalBalance,
-        unit: 'CNY',
-      }],
+      data: [
+        {
+          planName: 'SiliconFlow',
+          remaining: balance,
+          total: totalBalance,
+          unit: 'CNY',
+        },
+      ],
     };
   } catch (error) {
     return {
@@ -247,7 +272,7 @@ async function queryOpenRouter(apiKey: string): Promise<BalanceResult> {
   try {
     const { status, body } = await httpGet(
       'https://openrouter.ai/api/v1/credits',
-      apiKey,
+      apiKey
     );
 
     if (status === 401 || status === 403) {
@@ -260,14 +285,24 @@ async function queryOpenRouter(apiKey: string): Promise<BalanceResult> {
     }
 
     if (!body || typeof body !== 'object') {
-      return { success: false, provider: 'openrouter', data: [], error: '无效响应' };
+      return {
+        success: false,
+        provider: 'openrouter',
+        data: [],
+        error: '无效响应',
+      };
     }
 
     const obj = body as Record<string, unknown>;
     const dataField = obj['data'] as Record<string, unknown> | undefined;
 
     if (!dataField) {
-      return { success: false, provider: 'openrouter', data: [], error: '响应格式异常' };
+      return {
+        success: false,
+        provider: 'openrouter',
+        data: [],
+        error: '响应格式异常',
+      };
     }
 
     const totalCredits = parseFloatField(dataField, 'total_credits') || 0;
@@ -276,13 +311,15 @@ async function queryOpenRouter(apiKey: string): Promise<BalanceResult> {
     return {
       success: true,
       provider: 'openrouter',
-      data: [{
-        planName: 'OpenRouter',
-        remaining: totalCredits - totalUsage,
-        total: totalCredits,
-        used: totalUsage,
-        unit: 'USD',
-      }],
+      data: [
+        {
+          planName: 'OpenRouter',
+          remaining: totalCredits - totalUsage,
+          total: totalCredits,
+          used: totalUsage,
+          unit: 'USD',
+        },
+      ],
     };
   } catch (error) {
     return {
@@ -300,7 +337,7 @@ async function queryNovita(apiKey: string): Promise<BalanceResult> {
   try {
     const { status, body } = await httpGet(
       'https://api.novita.ai/v1/user/balance',
-      apiKey,
+      apiKey
     );
 
     if (status === 401 || status === 403) {
@@ -313,7 +350,12 @@ async function queryNovita(apiKey: string): Promise<BalanceResult> {
     }
 
     if (!body || typeof body !== 'object') {
-      return { success: false, provider: 'novita', data: [], error: '无效响应' };
+      return {
+        success: false,
+        provider: 'novita',
+        data: [],
+        error: '无效响应',
+      };
     }
 
     const obj = body as Record<string, unknown>;
@@ -322,11 +364,15 @@ async function queryNovita(apiKey: string): Promise<BalanceResult> {
     return {
       success: true,
       provider: 'novita',
-      data: [{
-        planName: 'Novita AI',
-        remaining: dataField ? parseFloatField(dataField, 'balance') : undefined,
-        unit: 'USD',
-      }],
+      data: [
+        {
+          planName: 'Novita AI',
+          remaining: dataField
+            ? parseFloatField(dataField, 'balance')
+            : undefined,
+          unit: 'USD',
+        },
+      ],
     };
   } catch (error) {
     return {
@@ -348,7 +394,7 @@ async function queryNovita(apiKey: string): Promise<BalanceResult> {
  */
 export async function checkBalance(
   baseUrl: string,
-  apiKey: string,
+  apiKey: string
 ): Promise<BalanceResult> {
   if (!apiKey) {
     return {
@@ -401,7 +447,9 @@ export function formatBalanceResult(result: BalanceResult): string {
     if (d.planName) parts.push(d.planName);
 
     if (d.remaining !== undefined) {
-      parts.push(`剩余: ${d.remaining.toFixed(2)}${d.unit ? ` ${d.unit}` : ''}`);
+      parts.push(
+        `剩余: ${d.remaining.toFixed(2)}${d.unit ? ` ${d.unit}` : ''}`
+      );
     }
 
     if (d.total !== undefined) {
@@ -418,4 +466,8 @@ export function formatBalanceResult(result: BalanceResult): string {
   return lines.join('\n');
 }
 
-export const BalanceChecker = { checkBalance, formatBalanceResult, detectProvider };
+export const BalanceChecker = {
+  checkBalance,
+  formatBalanceResult,
+  detectProvider,
+};

@@ -89,7 +89,11 @@ import {
   SessionGateway,
   createSessionGateway,
 } from '@modules/session/SessionGateway';
-import type { UnifiedMessage, FrontendMessageBlock, MessageMetadata } from '@modules/session/types/Message';
+import type {
+  UnifiedMessage,
+  FrontendMessageBlock,
+  MessageMetadata,
+} from '@modules/session/types/Message';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
 import { resolveProjectRoot } from '@modules/config/paths';
@@ -626,9 +630,7 @@ export class ChatManagerImpl implements ChatManager {
     let message = session.messages.find((m) => m.id === messageId);
 
     if (!message) {
-      message = session.messages
-        .filter((m) => m.role === 'assistant')
-        .pop();
+      message = session.messages.filter((m) => m.role === 'assistant').pop();
     }
 
     if (!message) {
@@ -648,7 +650,11 @@ export class ChatManagerImpl implements ChatManager {
     session.updatedAt = new Date();
     session.metadata.lastActivityAt = new Date();
 
-    const toolCalls = message.tool_calls || (message.metadata?.tool_calls as Array<Record<string, unknown>> | undefined);
+    const toolCalls =
+      message.tool_calls ||
+      (message.metadata?.tool_calls as
+        | Array<Record<string, unknown>>
+        | undefined);
     const metadataObj: MessageMetadata = {
       ...(message.metadata as MessageMetadata | undefined),
       ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
@@ -668,7 +674,11 @@ export class ChatManagerImpl implements ChatManager {
       blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
     };
     try {
-      await this.sessionGateway.updateMessage(sessionId, messageId, unifiedMessage);
+      await this.sessionGateway.updateMessage(
+        sessionId,
+        messageId,
+        unifiedMessage
+      );
     } catch {
       // 更新失败不应影响主消息流
     }
@@ -681,7 +691,11 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     message: Message
   ): Promise<void> {
-    const toolCalls = message.tool_calls || (message.metadata?.tool_calls as Array<Record<string, unknown>> | undefined);
+    const toolCalls =
+      message.tool_calls ||
+      (message.metadata?.tool_calls as
+        | Array<Record<string, unknown>>
+        | undefined);
     const metadataObj: MessageMetadata = {
       ...(message.metadata as MessageMetadata | undefined),
       ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
@@ -709,8 +723,10 @@ export class ChatManagerImpl implements ChatManager {
 
   private toSessionMsgType(message: Message): SessionMessageType {
     if (message.role === MessageRole.USER) return SessionMessageType.USER;
-    if (message.role === MessageRole.ASSISTANT) return SessionMessageType.ASSISTANT;
-    if (message.role === MessageRole.TOOL) return SessionMessageType.TOOL_RESULT;
+    if (message.role === MessageRole.ASSISTANT)
+      return SessionMessageType.ASSISTANT;
+    if (message.role === MessageRole.TOOL)
+      return SessionMessageType.TOOL_RESULT;
     return SessionMessageType.SYSTEM;
   }
 
@@ -772,10 +788,17 @@ export class ChatManagerImpl implements ChatManager {
           } else if (Array.isArray(m.content)) {
             const textBlocks = m.content.filter((b) => b.type === 'text');
             if (textBlocks.length > 0) {
-              content = textBlocks.map((b) => (b as { type: 'text'; text: string }).text).join('');
+              content = textBlocks
+                .map((b) => (b as { type: 'text'; text: string }).text)
+                .join('');
             } else {
-              const toolResultBlock = m.content.find((b) => b.type === 'tool_result');
-              content = toolResultBlock ? (toolResultBlock as { type: 'tool_result'; content: string }).content || '' : '';
+              const toolResultBlock = m.content.find(
+                (b) => b.type === 'tool_result'
+              );
+              content = toolResultBlock
+                ? (toolResultBlock as { type: 'tool_result'; content: string })
+                    .content || ''
+                : '';
             }
           } else {
             content = '';
@@ -790,7 +813,9 @@ export class ChatManagerImpl implements ChatManager {
             sessionId: stored.id,
             toolCallId: m.metadata?.toolCallId,
             metadata: m.metadata as Record<string, unknown> | undefined,
-            blocks: m.blocks as unknown as Record<string, unknown>[] | undefined,
+            blocks: m.blocks as unknown as
+              | Record<string, unknown>[]
+              | undefined,
             tool_calls: m.metadata?.tool_calls,
           } as Message;
         });
@@ -1181,19 +1206,17 @@ export class ChatManagerImpl implements ChatManager {
     let assistantMessage = assistantMsg;
     assistantMessage.sessionId = session.id;
     if (response.tool_calls && response.tool_calls.length > 0) {
-      const toolCallsData = response.tool_calls.map(
-        (tc: ParsedToolCall) => ({
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.name,
-            arguments:
-              typeof tc.arguments === 'string'
-                ? tc.arguments
-                : JSON.stringify(tc.arguments || {}),
-          },
-        })
-      );
+      const toolCallsData = response.tool_calls.map((tc: ParsedToolCall) => ({
+        id: tc.id,
+        type: 'function',
+        function: {
+          name: tc.name,
+          arguments:
+            typeof tc.arguments === 'string'
+              ? tc.arguments
+              : JSON.stringify(tc.arguments || {}),
+        },
+      }));
       assistantMessage.metadata = {
         ...assistantMessage.metadata,
         tool_calls: toolCallsData,
@@ -1535,9 +1558,15 @@ export class ChatManagerImpl implements ChatManager {
       inputTokens,
       outputTokens,
       cacheReadInputTokens:
-        usage.prompt_cache_hit_tokens ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens ?? 0,
+        usage.prompt_cache_hit_tokens ??
+        usage.cache_read_input_tokens ??
+        usage.cacheReadInputTokens ??
+        0,
       cacheCreationInputTokens:
-        usage.prompt_cache_miss_tokens ?? usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens ?? 0,
+        usage.prompt_cache_miss_tokens ??
+        usage.cache_creation_input_tokens ??
+        usage.cacheCreationInputTokens ??
+        0,
     });
   }
 
@@ -2049,9 +2078,18 @@ export class ChatManagerImpl implements ChatManager {
       options.onUsage({
         inputTokens,
         outputTokens,
-        cacheReadInputTokens: u.prompt_cache_hit_tokens ?? u.cache_read_input_tokens ?? u.cacheReadInputTokens ?? 0,
-        cacheCreationInputTokens: u.prompt_cache_miss_tokens ?? u.cache_creation_input_tokens ?? u.cacheCreationInputTokens ?? 0,
-        totalTokens: u.total_tokens ?? u.totalTokens ?? (inputTokens + outputTokens),
+        cacheReadInputTokens:
+          u.prompt_cache_hit_tokens ??
+          u.cache_read_input_tokens ??
+          u.cacheReadInputTokens ??
+          0,
+        cacheCreationInputTokens:
+          u.prompt_cache_miss_tokens ??
+          u.cache_creation_input_tokens ??
+          u.cacheCreationInputTokens ??
+          0,
+        totalTokens:
+          u.total_tokens ?? u.totalTokens ?? inputTokens + outputTokens,
         estimatedCostUsd:
           (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
       });
@@ -2260,15 +2298,27 @@ export class ChatManagerImpl implements ChatManager {
 
         // 通知外部：本次工具结果 LLM 响应的词元用量
         if (options?.onUsage && toolResultResponse?.usage) {
-          const u = toolResultResponse.usage as unknown as Record<string, number>;
+          const u = toolResultResponse.usage as unknown as Record<
+            string,
+            number
+          >;
           const inputTokens = u.prompt_tokens ?? u.inputTokens ?? 0;
           const outputTokens = u.completion_tokens ?? u.outputTokens ?? 0;
           options.onUsage({
             inputTokens,
             outputTokens,
-            cacheReadInputTokens: u.prompt_cache_hit_tokens ?? u.cache_read_input_tokens ?? u.cacheReadInputTokens ?? 0,
-            cacheCreationInputTokens: u.prompt_cache_miss_tokens ?? u.cache_creation_input_tokens ?? u.cacheCreationInputTokens ?? 0,
-            totalTokens: u.total_tokens ?? u.totalTokens ?? (inputTokens + outputTokens),
+            cacheReadInputTokens:
+              u.prompt_cache_hit_tokens ??
+              u.cache_read_input_tokens ??
+              u.cacheReadInputTokens ??
+              0,
+            cacheCreationInputTokens:
+              u.prompt_cache_miss_tokens ??
+              u.cache_creation_input_tokens ??
+              u.cacheCreationInputTokens ??
+              0,
+            totalTokens:
+              u.total_tokens ?? u.totalTokens ?? inputTokens + outputTokens,
             estimatedCostUsd:
               (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
           });
@@ -2289,17 +2339,19 @@ export class ChatManagerImpl implements ChatManager {
         ) {
           toolResultAssistantMessage.metadata = {
             ...toolResultAssistantMessage.metadata,
-            tool_calls: toolResultResponse.tool_calls.map((tc: ParsedToolCall) => ({
-              id: tc.id,
-              type: 'function',
-              function: {
-                name: tc.name,
-                arguments:
-                  typeof tc.arguments === 'string'
-                    ? tc.arguments
-                    : JSON.stringify(tc.arguments || {}),
-              },
-            })),
+            tool_calls: toolResultResponse.tool_calls.map(
+              (tc: ParsedToolCall) => ({
+                id: tc.id,
+                type: 'function',
+                function: {
+                  name: tc.name,
+                  arguments:
+                    typeof tc.arguments === 'string'
+                      ? tc.arguments
+                      : JSON.stringify(tc.arguments || {}),
+                },
+              })
+            ),
           };
         }
         this._addAndPersistMessage(session.id, toolResultAssistantMessage);
@@ -2551,7 +2603,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 同步删除持久化存储
     this.sessionGateway.deleteSession(sessionId).catch((e) => {
-      logger.error('Failed to delete session from gateway', { error: String(e) });
+      logger.error('Failed to delete session from gateway', {
+        error: String(e),
+      });
     });
   }
 

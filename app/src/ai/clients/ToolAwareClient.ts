@@ -1,4 +1,8 @@
-import type { AIProvider, ChatOptions, ThinkingProviderChunk } from '@modules/ai/providers';
+import type {
+  AIProvider,
+  ChatOptions,
+  ThinkingProviderChunk,
+} from '@modules/ai/providers';
 import type { ChatMessage, ChatResponse } from '@modules/ai/models/types';
 import type {
   IToolExecutor,

@@ -5,7 +5,12 @@
 
 import React from 'react';
 import { useSettings } from '@modules/hooks/useSettings';
-import type { AIConfig, LocalAgentConfig, OllamaConfig, RoutingConfig } from '@modules/config/types';
+import type {
+  AIConfig,
+  LocalAgentConfig,
+  OllamaConfig,
+  RoutingConfig,
+} from '@modules/config/types';
 import { SettingRow } from './SettingRow';
 
 /**
@@ -112,10 +117,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* 路由策略 */}
-      <SettingRow
-        label="路由策略"
-        hint="选择任务优先使用本地还是云端模型"
-      >
+      <SettingRow label="路由策略" hint="选择任务优先使用本地还是云端模型">
         <select
           value={routing.strategy || 'cloud-first'}
           onChange={(e) => handleRoutingChange('strategy', e.target.value)}
@@ -139,10 +141,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* Ollama 地址 */}
-      <SettingRow
-        label="Ollama 服务地址"
-        hint="本地 Ollama 服务的 API 地址"
-      >
+      <SettingRow label="Ollama 服务地址" hint="本地 Ollama 服务的 API 地址">
         <input
           type="text"
           value={ollama.baseUrl || 'http://localhost:11434'}
@@ -153,10 +152,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* Ollama 默认模型 */}
-      <SettingRow
-        label="Ollama 默认模型"
-        hint="本地运行时使用的默认模型"
-      >
+      <SettingRow label="Ollama 默认模型" hint="本地运行时使用的默认模型">
         <input
           type="text"
           value={ollama.defaultModel || 'llama3'}
@@ -167,10 +163,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* Ollama 超时 */}
-      <SettingRow
-        label="Ollama 超时"
-        hint="本地模型的请求超时时间（毫秒）"
-      >
+      <SettingRow label="Ollama 超时" hint="本地模型的请求超时时间（毫秒）">
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -187,10 +180,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* Skill Provider */}
-      <SettingRow
-        label="Skill 提供者"
-        hint="启用本地 Skill 执行引擎"
-      >
+      <SettingRow label="Skill 提供者" hint="启用本地 Skill 执行引擎">
         <Toggle
           value={localAgent.skillProvider?.enabled !== false}
           onChange={(v) =>
@@ -208,10 +198,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* MCP Provider */}
-      <SettingRow
-        label="MCP 提供者"
-        hint="启用本地 MCP 协议支持"
-      >
+      <SettingRow label="MCP 提供者" hint="启用本地 MCP 协议支持">
         <Toggle
           value={localAgent.mcpProvider?.enabled !== false}
           onChange={(v) =>
@@ -229,10 +216,7 @@ export const AgentSettings: React.FC = () => {
       </SettingRow>
 
       {/* 性能指标 */}
-      <SettingRow
-        label="性能指标"
-        hint="收集本地 Agent 执行的性能数据"
-      >
+      <SettingRow label="性能指标" hint="收集本地 Agent 执行的性能数据">
         <Toggle
           value={localAgent.enableMetrics === true}
           onChange={(v) => handleLocalAgentChange('enableMetrics', v)}

@@ -1,4 +1,4 @@
-import { http } from './httpClient';
+import { http } from "./httpClient";
 
 export interface CostRecord {
   id: string;
@@ -66,17 +66,23 @@ export interface CostService {
 
 export const costService: CostService = {
   async getCostSummary(): Promise<CostSummary> {
-    return http.get<CostSummary>('/api/cost/summary');
+    return http.get<CostSummary>("/api/cost/summary");
   },
 
-  async getCostRecords(page: number, limit: number): Promise<CostRecordsResponse> {
-    return http.get<CostRecordsResponse>('/api/cost/records', {
+  async getCostRecords(
+    page: number,
+    limit: number,
+  ): Promise<CostRecordsResponse> {
+    return http.get<CostRecordsResponse>("/api/cost/records", {
       params: { page, limit },
     });
   },
 
-  async getCostByDateRange(startDate: string, endDate: string): Promise<CostRecord[]> {
-    return http.get<CostRecord[]>('/api/cost/range', {
+  async getCostByDateRange(
+    startDate: string,
+    endDate: string,
+  ): Promise<CostRecord[]> {
+    return http.get<CostRecord[]>("/api/cost/range", {
       params: { startDate, endDate },
     });
   },

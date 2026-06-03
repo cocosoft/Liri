@@ -44,7 +44,10 @@ function buildCostSuffix(msg: DisplayMessage): string {
     parts.push(`📖CR ${formatTokens(msg.tokenInfo.cacheRead)}`);
   }
 
-  if (msg.tokenInfo.cacheCreation !== undefined && msg.tokenInfo.cacheCreation > 0) {
+  if (
+    msg.tokenInfo.cacheCreation !== undefined &&
+    msg.tokenInfo.cacheCreation > 0
+  ) {
     parts.push(`✏️CW ${formatTokens(msg.tokenInfo.cacheCreation)}`);
   }
 
@@ -76,7 +79,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         <Text color={roleColor} bold>
           {roleLabel}
         </Text>
-        <Text color="gray">⏱ {timeStr}{costSuffix}</Text>
+        <Text color="gray">
+          ⏱ {timeStr}
+          {costSuffix}
+        </Text>
       </Box>
       <Box flexDirection="row" paddingLeft={2}>
         {isAssistant ? (

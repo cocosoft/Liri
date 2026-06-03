@@ -64,7 +64,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   if (!isOpen) return null;
 
-  const ActiveComponent = SETTINGS_TABS.find((t) => t.id === activeTab)?.component;
+  const ActiveComponent = SETTINGS_TABS.find(
+    (t) => t.id === activeTab
+  )?.component;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">

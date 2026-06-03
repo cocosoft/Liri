@@ -1,24 +1,24 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { sseService } from '../services/sseService';
+import { useEffect, useCallback, useRef } from "react";
+import { sseService } from "../services/sseService";
 
-const NOTIFICATION_ICON = '🐣';
+const NOTIFICATION_ICON = "🐣";
 
 const DREAM_MESSAGES: Record<string, string> = {
-  'dream:started': '🌙 梦境整合开始',
-  'dream:completed': '✨ 梦境整合完成',
-  'dream:failed': '💤 梦境整合失败',
+  "dream:started": "🌙 梦境整合开始",
+  "dream:completed": "✨ 梦境整合完成",
+  "dream:failed": "💤 梦境整合失败",
 };
 
 function requestPermission(): void {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") {
     Notification.requestPermission();
   }
 }
 
 function sendNotification(title: string, body: string): void {
-  if (!('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
 
   try {
     new Notification(title, {
@@ -41,7 +41,7 @@ export function useBuddyNotification(): void {
 
     if (!eventType || !taskId) return;
 
-    const title = DREAM_MESSAGES[eventType] || '🧠 Buddy 事件';
+    const title = DREAM_MESSAGES[eventType] || "🧠 Buddy 事件";
     const body = summary || `任务 ${taskId.slice(0, 8)}...`;
 
     sendNotification(title, body);
@@ -49,12 +49,12 @@ export function useBuddyNotification(): void {
 
   useEffect(() => {
     requestPermission();
-    hasPermission.current = Notification.permission === 'granted';
+    hasPermission.current = Notification.permission === "granted";
 
-    sseService.on('dream', handleDreamEvent);
+    sseService.on("dream", handleDreamEvent);
 
     return () => {
-      sseService.off('dream', handleDreamEvent);
+      sseService.off("dream", handleDreamEvent);
     };
   }, [handleDreamEvent]);
 }

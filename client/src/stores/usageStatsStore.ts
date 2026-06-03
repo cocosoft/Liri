@@ -3,9 +3,14 @@
  * 对接 /v1/usage/* 端点
  */
 
-import { create } from 'zustand';
-import { usageService } from '../services/usageService';
-import type { UsageSummary, DailyUsageStats, ModelUsageStats, ProviderUsageStats } from '../types';
+import { create } from "zustand";
+import { usageService } from "../services/usageService";
+import type {
+  UsageSummary,
+  DailyUsageStats,
+  ModelUsageStats,
+  ProviderUsageStats,
+} from "../types";
 
 interface UsageStatsState {
   summary: UsageSummary | null;
@@ -47,7 +52,10 @@ export const useUsageStatsStore = create<UsageStatsState>((set) => ({
       ]);
       set({ summary, trends, modelStats, providerStats, isLoading: false });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : '获取使用量统计失败', isLoading: false });
+      set({
+        error: e instanceof Error ? e.message : "获取使用量统计失败",
+        isLoading: false,
+      });
     }
   },
 

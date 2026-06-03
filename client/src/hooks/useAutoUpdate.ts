@@ -3,9 +3,9 @@
  * 提供客户端自动更新的状态管理与操作接口
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { checkForUpdate, downloadAndInstall } from '../services/updaterService';
-import type { UpdateCheckResult } from '../services/updaterService';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { checkForUpdate, downloadAndInstall } from "../services/updaterService";
+import type { UpdateCheckResult } from "../services/updaterService";
 
 export interface AutoUpdateState {
   checking: boolean;
@@ -36,7 +36,7 @@ export function useAutoUpdate() {
       setState((prev) => ({
         ...prev,
         checking: false,
-        error: e instanceof Error ? e.message : '检查更新失败',
+        error: e instanceof Error ? e.message : "检查更新失败",
       }));
     }
   }, []);
@@ -53,7 +53,7 @@ export function useAutoUpdate() {
       setState((prev) => ({
         ...prev,
         downloading: false,
-        error: e instanceof Error ? e.message : '安装更新失败',
+        error: e instanceof Error ? e.message : "安装更新失败",
       }));
     }
   }, []);

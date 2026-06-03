@@ -20,9 +20,14 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件） */
 const COMPILABLE_EXTENSIONS = new Set([
-  '.txt', '.md', '.json',
-  '.csv', '.tsv', '.xml',
-  '.yaml', '.yml',
+  '.txt',
+  '.md',
+  '.json',
+  '.csv',
+  '.tsv',
+  '.xml',
+  '.yaml',
+  '.yml',
 ]);
 
 export interface CompileOptions {
@@ -146,7 +151,10 @@ export class KnowledgeCompiler {
    * 获取编译后的目标路径
    */
   private getWikiTargetPath(rawFile: string): string {
-    const baseName = rawFile.replace(/\.(txt|json|csv|tsv|xml|yaml|yml)$/, '.md');
+    const baseName = rawFile.replace(
+      /\.(txt|json|csv|tsv|xml|yaml|yml)$/,
+      '.md'
+    );
     const fileName = baseName.split(/[\\/]/).pop() || 'untitled.md';
     return join(this.knowledgeRoot, fileName);
   }
@@ -163,7 +171,10 @@ export class KnowledgeCompiler {
     const wikiContent = await this.generateWikiContent(fileName, rawContent);
 
     // 读取 companion meta.json 注入原始文件追溯信息
-    const finalContent = await this.injectOriginalFileMeta(rawFile, wikiContent);
+    const finalContent = await this.injectOriginalFileMeta(
+      rawFile,
+      wikiContent
+    );
 
     await writeFile(targetPath, finalContent, 'utf-8');
   }
@@ -190,8 +201,12 @@ export class KnowledgeCompiler {
         }
         if (fmEnd !== -1) {
           const fmLines = lines.slice(1, fmEnd);
-          const hasOriginalFile = fmLines.some((l) => l.startsWith('originalFile:'));
-          const hasOriginalFormat = fmLines.some((l) => l.startsWith('originalFormat:'));
+          const hasOriginalFile = fmLines.some((l) =>
+            l.startsWith('originalFile:')
+          );
+          const hasOriginalFormat = fmLines.some((l) =>
+            l.startsWith('originalFormat:')
+          );
 
           if (!hasOriginalFile && meta.originalFile) {
             fmLines.splice(1, 0, `originalFile: "${meta.originalFile}"`);
@@ -200,7 +215,9 @@ export class KnowledgeCompiler {
             fmLines.splice(2, 0, `originalFormat: "${meta.originalFormat}"`);
           }
 
-          return ['---', ...fmLines, '---', ...lines.slice(fmEnd + 1)].join('\n');
+          return ['---', ...fmLines, '---', ...lines.slice(fmEnd + 1)].join(
+            '\n'
+          );
         }
       }
     } catch {

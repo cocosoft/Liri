@@ -1,13 +1,15 @@
-import { create } from 'zustand';
-import type { KnowledgeItem } from '../types';
-import { knowledgeService } from '../services/knowledgeService';
+import { create } from "zustand";
+import type { KnowledgeItem } from "../types";
+import { knowledgeService } from "../services/knowledgeService";
 
 interface KnowledgeStore {
   items: KnowledgeItem[];
   isLoading: boolean;
   error: string | null;
   loadItems: () => Promise<void>;
-  createItem: (item: Omit<KnowledgeItem, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  createItem: (
+    item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">,
+  ) => Promise<void>;
   updateItem: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }

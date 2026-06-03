@@ -3,7 +3,7 @@ interface SkeletonProps {
   count?: number;
 }
 
-function SkeletonPulse({ className = '' }: { className?: string }) {
+function SkeletonPulse({ className = "" }: { className?: string }) {
   return (
     <div
       className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded ${className}`}
@@ -11,13 +11,19 @@ function SkeletonPulse({ className = '' }: { className?: string }) {
   );
 }
 
-function SkeletonText({ lines = 3, className = '' }: { lines?: number; className?: string }) {
+function SkeletonText({
+  lines = 3,
+  className = "",
+}: {
+  lines?: number;
+  className?: string;
+}) {
   return (
     <div className={`space-y-2 ${className}`}>
       {Array.from({ length: lines }).map((_, i) => (
         <SkeletonPulse
           key={i}
-          className={`h-3 ${i === lines - 1 ? 'w-3/4' : 'w-full'}`}
+          className={`h-3 ${i === lines - 1 ? "w-3/4" : "w-full"}`}
         />
       ))}
     </div>
@@ -49,7 +55,10 @@ function SkeletonTable({ rows = 5 }: { rows?: number }) {
         <SkeletonPulse className="h-3 w-24" />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4 px-4 py-3 border-t border-gray-100 dark:border-gray-700/50">
+        <div
+          key={i}
+          className="flex gap-4 px-4 py-3 border-t border-gray-100 dark:border-gray-700/50"
+        >
           <SkeletonPulse className="h-4 w-1/2" />
           <SkeletonPulse className="h-4 w-16" />
           <SkeletonPulse className="h-4 w-24" />

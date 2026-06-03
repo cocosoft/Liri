@@ -1,38 +1,51 @@
-import { useEffect, useRef, useState } from 'react';
-import { useFileStore } from '../../stores/fileStore';
-import { useAppStore } from '../../stores/appStore';
-import { SkeletonTable } from '../common/Skeleton';
+import { useEffect, useRef, useState } from "react";
+import { useFileStore } from "../../stores/fileStore";
+import { useAppStore } from "../../stores/appStore";
+import { SkeletonTable } from "../common/Skeleton";
 
 function formatSize(bytes?: number): string {
-  if (bytes === undefined) return '';
+  if (bytes === undefined) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatDate(ts?: number): string {
-  if (!ts) return '';
-  return new Date(ts).toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  if (!ts) return "";
+  return new Date(ts).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function FileExplorerPage() {
   const {
-    entries, currentPath, isLoading, error, uploading,
-    detectResult, convertResult,
-    loadDir, navigateTo, goUp, uploadFile,
-    detectFile, convertFile, clearFileAction,
+    entries,
+    currentPath,
+    isLoading,
+    error,
+    uploading,
+    detectResult,
+    convertResult,
+    loadDir,
+    navigateTo,
+    goUp,
+    uploadFile,
+    detectFile,
+    convertFile,
+    clearFileAction,
   } = useFileStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedFile, setSelectedFile] = useState<{ name: string; path: string } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{
+    name: string;
+    path: string;
+  } | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
-  const [convertFormat, setConvertFormat] = useState('');
+  const [convertFormat, setConvertFormat] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [converting, setConverting] = useState(false);
 
@@ -47,13 +60,19 @@ function FileExplorerPage() {
     }
   }, [error]);
 
-  const handleItemClick = (entry: { name: string; path: string; type: 'file' | 'directory' }) => {
-    if (entry.type === 'directory') {
+  const handleItemClick = (entry: {
+    name: string;
+    path: string;
+    type: "file" | "directory";
+  }) => {
+    if (entry.type === "directory") {
       navigateTo(entry.path);
       setSelectedFile(null);
       clearFileAction();
     } else {
-      setSelectedFile(entry.type === 'file' ? { name: entry.name, path: entry.path } : null);
+      setSelectedFile(
+        entry.type === "file" ? { name: entry.name, path: entry.path } : null,
+      );
       clearFileAction();
     }
   };
@@ -66,7 +85,7 @@ function FileExplorerPage() {
     const file = e.target.files?.[0];
     if (file) {
       uploadFile(file);
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
@@ -78,7 +97,7 @@ function FileExplorerPage() {
   };
 
   const handleConvertOpen = () => {
-    setConvertFormat('');
+    setConvertFormat("");
     setShowConvertDialog(true);
   };
 
@@ -86,7 +105,10 @@ function FileExplorerPage() {
     if (!selectedFile || !convertFormat.trim()) return;
     setConverting(true);
     setShowConvertDialog(false);
-    await convertFile({ filePath: selectedFile.path, outputFormat: convertFormat.trim() });
+    await convertFile({
+      filePath: selectedFile.path,
+      outputFormat: convertFormat.trim(),
+    });
     setConverting(false);
   };
 
@@ -108,17 +130,17 @@ function FileExplorerPage() {
               disabled={uploading}
               className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50"
             >
-              {uploading ? '上传中...' : '上传文件'}
+              {uploading ? "上传中..." : "上传文件"}
             </button>
             <button
               onClick={goUp}
-              disabled={currentPath === '/'}
+              disabled={currentPath === "/"}
               className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40"
             >
               上级目录
             </button>
             <button
-              onClick={() => setActivePage('chat')}
+              onClick={() => setActivePage("chat")}
               className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
             >
               返回聊天
@@ -160,17 +182,20 @@ function FileExplorerPage() {
                   disabled={detecting}
                   className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded"
                 >
-                  {detecting ? '检测中...' : '检测类型'}
+                  {detecting ? "检测中..." : "检测类型"}
                 </button>
                 <button
                   onClick={handleConvertOpen}
                   disabled={converting}
                   className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded"
                 >
-                  {converting ? '转换中...' : '转换格式'}
+                  {converting ? "转换中..." : "转换格式"}
                 </button>
                 <button
-                  onClick={() => { setSelectedFile(null); clearFileAction(); }}
+                  onClick={() => {
+                    setSelectedFile(null);
+                    clearFileAction();
+                  }}
                   className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
                   取消
@@ -181,9 +206,18 @@ function FileExplorerPage() {
             {detectResult && (
               <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
                 <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                  <p><span className="font-medium">文件类型:</span> {detectResult.type}</p>
-                  <p><span className="font-medium">MIME:</span> {detectResult.mime}</p>
-                  <p><span className="font-medium">扩展名:</span> {detectResult.extension}</p>
+                  <p>
+                    <span className="font-medium">文件类型:</span>{" "}
+                    {detectResult.type}
+                  </p>
+                  <p>
+                    <span className="font-medium">MIME:</span>{" "}
+                    {detectResult.mime}
+                  </p>
+                  <p>
+                    <span className="font-medium">扩展名:</span>{" "}
+                    {detectResult.extension}
+                  </p>
                 </div>
               </div>
             )}
@@ -211,7 +245,7 @@ function FileExplorerPage() {
                 type="text"
                 value={convertFormat}
                 onChange={(e) => setConvertFormat(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleConvertConfirm()}
+                onKeyDown={(e) => e.key === "Enter" && handleConvertConfirm()}
                 placeholder="输入目标格式 (如: pdf, docx, txt)"
                 className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
                 autoFocus
@@ -249,8 +283,12 @@ function FileExplorerPage() {
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase">
                   <th className="text-left px-4 py-3 font-medium">名称</th>
-                  <th className="text-right px-4 py-3 font-medium w-24">大小</th>
-                  <th className="text-right px-4 py-3 font-medium w-32">修改时间</th>
+                  <th className="text-right px-4 py-3 font-medium w-24">
+                    大小
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium w-32">
+                    修改时间
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -260,14 +298,14 @@ function FileExplorerPage() {
                     onClick={() => handleItemClick(entry)}
                     className={`border-b border-gray-100 dark:border-gray-700/50 transition-colors cursor-pointer ${
                       selectedFile?.path === entry.path
-                        ? 'bg-blue-50 dark:bg-blue-900/20'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        ? "bg-blue-50 dark:bg-blue-900/20"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     }`}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">
-                          {entry.type === 'directory' ? '📁' : '📄'}
+                          {entry.type === "directory" ? "📁" : "📄"}
                         </span>
                         <span className="text-sm text-gray-900 dark:text-gray-100 truncate max-w-xs">
                           {entry.name}
@@ -275,7 +313,7 @@ function FileExplorerPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">
-                      {entry.type === 'file' ? formatSize(entry.size) : '-'}
+                      {entry.type === "file" ? formatSize(entry.size) : "-"}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(entry.modified_at)}

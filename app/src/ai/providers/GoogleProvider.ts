@@ -30,8 +30,13 @@ export class GoogleProvider implements AIProvider {
     const registry = ModelRegistry.getInstance();
     const providerCfg = registry.getProviderConfig('google');
 
-    this.apiKey = providerCfg?.apiKey || config.apiKey || process.env.GOOGLE_API_KEY || '';
-    this.baseUrl = (providerCfg?.baseUrl || config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.apiKey =
+      providerCfg?.apiKey || config.apiKey || process.env.GOOGLE_API_KEY || '';
+    this.baseUrl = (
+      providerCfg?.baseUrl ||
+      config.baseUrl ||
+      DEFAULT_BASE_URL
+    ).replace(/\/+$/, '');
     this.adapter = new TransportProviderAdapter(new GeminiTransport());
   }
 

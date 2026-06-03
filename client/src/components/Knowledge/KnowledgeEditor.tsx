@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
-import EditorToolbar from './EditorToolbar';
-import MarkdownRenderer from '../ChatArea/MarkdownRenderer';
+import { useState, useRef, useCallback } from "react";
+import EditorToolbar from "./EditorToolbar";
+import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
-type ViewMode = 'edit' | 'preview' | 'split';
+type ViewMode = "edit" | "preview" | "split";
 
 interface KnowledgeEditorProps {
   title: string;
@@ -12,19 +12,25 @@ interface KnowledgeEditorProps {
   onCancel: () => void;
 }
 
-function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark, onSave, onCancel }: KnowledgeEditorProps) {
+function KnowledgeEditor({
+  title: initialTitle,
+  content: initialContent,
+  isDark,
+  onSave,
+  onCancel,
+}: KnowledgeEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
-  const [viewMode, setViewMode] = useState<ViewMode>('split');
+  const [viewMode, setViewMode] = useState<ViewMode>("split");
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const inputBg = isDark
-    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400';
-  const textPrimary = isDark ? 'text-gray-100' : 'text-gray-900';
-  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
-  const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
+    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+    : "bg-white border-gray-300 text-gray-900 placeholder-gray-400";
+  const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
+  const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
+  const borderColor = isDark ? "border-gray-700" : "border-gray-200";
 
   const handleSave = useCallback(async () => {
     if (!title.trim() || !content.trim() || saving) return;
@@ -37,9 +43,9 @@ function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark,
   }, [title, content, saving, onSave]);
 
   const viewButtons: { mode: ViewMode; icon: string; label: string }[] = [
-    { mode: 'edit',    icon: '✏️', label: '编辑' },
-    { mode: 'preview', icon: '👁',  label: '预览' },
-    { mode: 'split',   icon: '↔',   label: '分屏' },
+    { mode: "edit", icon: "✏️", label: "编辑" },
+    { mode: "preview", icon: "👁", label: "预览" },
+    { mode: "split", icon: "↔", label: "分屏" },
   ];
 
   const editorSection = (
@@ -61,7 +67,9 @@ function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark,
   );
 
   const previewSection = (
-    <div className={`flex-1 overflow-y-auto px-4 py-3 ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+    <div
+      className={`flex-1 overflow-y-auto px-4 py-3 ${isDark ? "bg-gray-900" : "bg-white"}`}
+    >
       {content.trim() ? (
         <div className="prose prose-sm max-w-none dark:prose-invert">
           <MarkdownRenderer content={content} />
@@ -75,7 +83,9 @@ function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark,
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* 编辑器顶部栏 */}
-      <div className={`flex items-center justify-between px-4 py-2 border-b ${borderColor} flex-shrink-0`}>
+      <div
+        className={`flex items-center justify-between px-4 py-2 border-b ${borderColor} flex-shrink-0`}
+      >
         <input
           type="text"
           value={title}
@@ -85,14 +95,16 @@ function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark,
         />
         <div className="flex items-center gap-2 ml-4">
           {/* 视图模式切换 */}
-          <div className={`flex rounded-md border ${borderColor} overflow-hidden`}>
+          <div
+            className={`flex rounded-md border ${borderColor} overflow-hidden`}
+          >
             {viewButtons.map((vb) => (
               <button
                 key={vb.mode}
                 onClick={() => setViewMode(vb.mode)}
                 className={`px-2.5 py-1 text-xs transition-colors ${
                   viewMode === vb.mode
-                    ? 'bg-blue-600 text-white'
+                    ? "bg-blue-600 text-white"
                     : `${textSecondary} hover:bg-gray-100 dark:hover:bg-gray-700`
                 }`}
                 title={vb.label}
@@ -106,7 +118,7 @@ function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark,
             disabled={saving || !title.trim() || !content.trim()}
             className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md"
           >
-            {saving ? '保存中...' : '保存'}
+            {saving ? "保存中..." : "保存"}
           </button>
           <button
             onClick={onCancel}
@@ -119,9 +131,9 @@ function KnowledgeEditor({ title: initialTitle, content: initialContent, isDark,
 
       {/* 编辑器主体 */}
       <div className="flex-1 flex min-h-0">
-        {viewMode === 'edit' && editorSection}
-        {viewMode === 'preview' && previewSection}
-        {viewMode === 'split' && (
+        {viewMode === "edit" && editorSection}
+        {viewMode === "preview" && previewSection}
+        {viewMode === "split" && (
           <>
             <div className="flex-1 flex flex-col min-h-0 min-w-0 border-r ${borderColor}">
               {editorSection}

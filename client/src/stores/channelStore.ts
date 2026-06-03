@@ -1,10 +1,15 @@
-import { create } from 'zustand';
-import type { Channel, UpdateChannelRequest } from '../types';
-import { channelService } from '../services/channelService';
+import { create } from "zustand";
+import type { Channel, UpdateChannelRequest } from "../types";
+import { channelService } from "../services/channelService";
 
 // ─── 筛选类型 ──────────────────────────────────────────
 
-type StatusFilter = 'all' | 'connected' | 'disconnected' | 'enabled' | 'disabled';
+type StatusFilter =
+  | "all"
+  | "connected"
+  | "disconnected"
+  | "enabled"
+  | "disabled";
 
 interface ChannelFilters {
   search: string;
@@ -90,7 +95,10 @@ interface ChannelStore {
 
 // ─── 筛选逻辑 ──────────────────────────────────────────
 
-function filterChannels(channels: Channel[], filters: ChannelFilters): Channel[] {
+function filterChannels(
+  channels: Channel[],
+  filters: ChannelFilters,
+): Channel[] {
   return channels.filter((ch) => {
     // 关键词过滤
     if (filters.search) {
@@ -110,13 +118,13 @@ function filterChannels(channels: Channel[], filters: ChannelFilters): Channel[]
 
     // 状态过滤
     switch (filters.status) {
-      case 'connected':
+      case "connected":
         return ch.connected;
-      case 'disconnected':
+      case "disconnected":
         return !ch.connected;
-      case 'enabled':
+      case "enabled":
         return ch.enabled;
-      case 'disabled':
+      case "disabled":
         return !ch.enabled;
       default:
         return true;
@@ -145,9 +153,9 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
   isApplying: false,
   error: null,
   filters: {
-    search: '',
-    status: 'all',
-    type: '',
+    search: "",
+    status: "all",
+    type: "",
   },
   editingChannel: null,
   showFormModal: false,
@@ -184,7 +192,7 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       await channelService.toggle(id, enabled);
       set({
         channels: get().channels.map((c) =>
-          c.id === id ? { ...c, enabled } : c
+          c.id === id ? { ...c, enabled } : c,
         ),
       });
     } catch (e) {
@@ -288,10 +296,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
   isChannelPluginInstalled: (channelType) => {
     /** 渠道→插件包名映射 */
     const CHANNEL_PLUGIN_MAP: Record<string, string[]> = {
-      qq: ['@openclaw-china/qqbot'],
-      feishu: ['@openclaw-china/feishu-china', '@openclaw/feishu'],
-      dingtalk: ['@openclaw-china/dingtalk'],
-      wecom: ['@openclaw-china/wecom', '@openclaw-china/wecom-app'],
+      qq: ["@openclaw-china/qqbot"],
+      feishu: ["@openclaw-china/feishu-china", "@openclaw/feishu"],
+      dingtalk: ["@openclaw-china/dingtalk"],
+      wecom: ["@openclaw-china/wecom", "@openclaw-china/wecom-app"],
     };
 
     const required = CHANNEL_PLUGIN_MAP[channelType];
@@ -302,10 +310,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
 
   installChannelPlugin: async (channelType) => {
     const CHANNEL_PLUGIN_MAP: Record<string, string[]> = {
-      qq: ['@openclaw-china/qqbot'],
-      feishu: ['@openclaw-china/feishu-china', '@openclaw/feishu'],
-      dingtalk: ['@openclaw-china/dingtalk'],
-      wecom: ['@openclaw-china/wecom', '@openclaw-china/wecom-app'],
+      qq: ["@openclaw-china/qqbot"],
+      feishu: ["@openclaw-china/feishu-china", "@openclaw/feishu"],
+      dingtalk: ["@openclaw-china/dingtalk"],
+      wecom: ["@openclaw-china/wecom", "@openclaw-china/wecom-app"],
     };
 
     const packages = CHANNEL_PLUGIN_MAP[channelType];
@@ -331,7 +339,7 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       set({
         error: lastError
           ? `插件安装失败: ${lastError}，请手动执行 npm install`
-          : '插件安装失败，请手动执行 npm install',
+          : "插件安装失败，请手动执行 npm install",
       });
     } catch (e) {
       set({ error: String(e) });
@@ -358,4 +366,3 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
     return computeStats(get().channels);
   },
 }));
-

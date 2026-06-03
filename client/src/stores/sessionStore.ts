@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { Session } from '../types';
-import { sessionService } from '../services/sessionService';
-import { useChatStore } from './chatStore';
+import { create } from "zustand";
+import { Session } from "../types";
+import { sessionService } from "../services/sessionService";
+import { useChatStore } from "./chatStore";
 
 interface SessionStore {
   sessions: Session[];
@@ -26,7 +26,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       let sessions = await sessionService.list();
-      sessions = sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      sessions = sessions.sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
       const currentSession = await sessionService.getCurrent();
       set({ sessions, currentSession, isLoading: false });
     } catch (error) {
@@ -35,28 +38,38 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   createSession: async (title: string) => {
-      console.log('[sessionStore] Creating session with title:', title);
-      set({ isLoading: true, error: null });
-      try {
-        const session = await sessionService.create(title);
-        console.log('[sessionStore] Created session:', session.id, session.title);
-        useChatStore.getState().clearMessages();
-        let sessions = await sessionService.list();
-        sessions = sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-        console.log('[sessionStore] Session list after create:', sessions.length, 'sessions');
-        console.log('[sessionStore] Session IDs:', sessions.map(s => s.id));
-        set({
-          sessions,
-          currentSession: session,
-          isLoading: false,
-        });
-        return session;
-      } catch (error) {
-        console.error('[sessionStore] Failed to create session:', error);
-        set({ error: String(error), isLoading: false });
-        throw error;
-      }
-    },
+    console.log("[sessionStore] Creating session with title:", title);
+    set({ isLoading: true, error: null });
+    try {
+      const session = await sessionService.create(title);
+      console.log("[sessionStore] Created session:", session.id, session.title);
+      useChatStore.getState().clearMessages();
+      let sessions = await sessionService.list();
+      sessions = sessions.sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+      console.log(
+        "[sessionStore] Session list after create:",
+        sessions.length,
+        "sessions",
+      );
+      console.log(
+        "[sessionStore] Session IDs:",
+        sessions.map((s) => s.id),
+      );
+      set({
+        sessions,
+        currentSession: session,
+        isLoading: false,
+      });
+      return session;
+    } catch (error) {
+      console.error("[sessionStore] Failed to create session:", error);
+      set({ error: String(error), isLoading: false });
+      throw error;
+    }
+  },
 
   switchSession: async (id: string) => {
     set({ isLoading: true, error: null });
@@ -92,7 +105,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await sessionService.rename(id, title);
       const sessions = get().sessions.map((s) =>
-        s.id === id ? { ...s, title } : s
+        s.id === id ? { ...s, title } : s,
       );
       const current = get().currentSession;
       const updatedSession: Session | null =

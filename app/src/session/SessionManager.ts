@@ -251,7 +251,7 @@ export class SessionManager {
         id: session.id,
         status: session.state.currentState,
         messageCount: (session.messages ?? []).filter(
-          m => m.type === 'user' || m.type === 'assistant'
+          (m) => m.type === 'user' || m.type === 'assistant'
         ).length,
         totalTokens: session.metadata?.tokenUsage?.totalTokens ?? 0,
         createdAt: session.createdAt.getTime(),

@@ -67,9 +67,12 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 let _coreApiInstance: CoreAPIImpl | null = null;
 
-function countConversationMessages(messages: Array<{ role: string }> | undefined): number {
+function countConversationMessages(
+  messages: Array<{ role: string }> | undefined
+): number {
   if (!messages) return 0;
-  return messages.filter(m => m.role === 'user' || m.role === 'assistant').length;
+  return messages.filter((m) => m.role === 'user' || m.role === 'assistant')
+    .length;
 }
 
 /**
@@ -183,7 +186,16 @@ export class CoreAPIImpl implements CoreAPI {
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
     let finalMessageId = '';
-    let capturedUsage: { inputTokens: number; outputTokens: number; totalTokens: number; estimatedCostUsd?: number; cacheReadTokens?: number; cacheCreationTokens?: number } | undefined;
+    let capturedUsage:
+      | {
+          inputTokens: number;
+          outputTokens: number;
+          totalTokens: number;
+          estimatedCostUsd?: number;
+          cacheReadTokens?: number;
+          cacheCreationTokens?: number;
+        }
+      | undefined;
 
     yield {
       type: 'status',
@@ -278,17 +290,28 @@ export class CoreAPIImpl implements CoreAPI {
             const isFailed = detail ? detail.includes('失败') : false;
             pendingEvents.push({
               type: 'status',
-              content: isFailed ? `❌ Tool ${toolName} failed` : `✅ Tool ${toolName} completed`,
+              content: isFailed
+                ? `❌ Tool ${toolName} failed`
+                : `✅ Tool ${toolName} completed`,
               sessionId: finalSessionId,
             } as ChatStreamChunk);
 
             // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）
             // detail 格式: 成功: "File written successfully: E:\\PY\\CODES\\...\\xxx.md"（JSON.stringify 导致双斜杠）
             let extractedArgs: Record<string, unknown> = {};
-            const isFileWritingTool = ['file_write', 'file_edit', 'file_create', 'write', 'create_file', 'edit_file'].includes(toolName);
+            const isFileWritingTool = [
+              'file_write',
+              'file_edit',
+              'file_create',
+              'write',
+              'create_file',
+              'edit_file',
+            ].includes(toolName);
             if (isFileWritingTool && detail && !isFailed) {
               const normalized = detail.replace(/\\\\/g, '\\');
-              const winPathMatch = normalized.match(/([A-Za-z]:\\(?:[^"\\]+\\)*[^"\\]+\.[a-zA-Z0-9]{1,10})/);
+              const winPathMatch = normalized.match(
+                /([A-Za-z]:\\(?:[^"\\]+\\)*[^"\\]+\.[a-zA-Z0-9]{1,10})/
+              );
               if (winPathMatch) {
                 extractedArgs = { file_path: winPathMatch[1] };
               }
@@ -513,7 +536,9 @@ export class CoreAPIImpl implements CoreAPI {
             role: m.role.toLowerCase(),
             content: typeof m.content === 'string' ? m.content : '',
             timestamp: m.timestamp,
-            tool_calls: m.metadata?.tool_calls as Array<Record<string, unknown>> | undefined,
+            tool_calls: m.metadata?.tool_calls as
+              | Array<Record<string, unknown>>
+              | undefined,
             toolCallId: m.metadata?.toolCallId as string | undefined,
             blocks: m.blocks as Array<Record<string, unknown>> | undefined,
           }));
@@ -536,11 +561,21 @@ export class CoreAPIImpl implements CoreAPI {
       } else if (Array.isArray(msg.content)) {
         const textBlocks = msg.content.filter((b) => b.type === 'text');
         if (textBlocks.length > 0) {
-          content = textBlocks.map((b) => (b as unknown as { type: 'text'; text: string }).text).join('');
+          content = textBlocks
+            .map((b) => (b as unknown as { type: 'text'; text: string }).text)
+            .join('');
         } else {
-          const toolResultBlock = msg.content.find((b) => b.type === 'tool_result');
+          const toolResultBlock = msg.content.find(
+            (b) => b.type === 'tool_result'
+          );
           if (toolResultBlock) {
-            content = (toolResultBlock as unknown as { type: 'tool_result'; content: string }).content || '';
+            content =
+              (
+                toolResultBlock as unknown as {
+                  type: 'tool_result';
+                  content: string;
+                }
+              ).content || '';
           } else {
             content = '';
           }
@@ -555,8 +590,11 @@ export class CoreAPIImpl implements CoreAPI {
         content,
         timestamp:
           msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
-        tool_calls: msg.tool_calls as Array<Record<string, unknown>> | undefined,
-        toolCallId: msg.toolCallId || (msg.metadata?.toolCallId as string | undefined),
+        tool_calls: msg.tool_calls as
+          | Array<Record<string, unknown>>
+          | undefined,
+        toolCallId:
+          msg.toolCallId || (msg.metadata?.toolCallId as string | undefined),
         blocks: msg.blocks,
       };
     });

@@ -42,9 +42,7 @@ export const SettingRow: React.FC<SettingRowProps> = ({
             </p>
           )}
         </div>
-        <div className="flex-shrink-0 flex items-center">
-          {children}
-        </div>
+        <div className="flex-shrink-0 flex items-center">{children}</div>
       </div>
     </div>
   );

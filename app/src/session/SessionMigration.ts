@@ -115,10 +115,7 @@ export class SessionMigration {
 
   private getSessionFiles(): string[] {
     const results: string[] = [];
-    const dirs = [
-      resolveSessionsDir(),
-      resolveDataDir(),
-    ];
+    const dirs = [resolveSessionsDir(), resolveDataDir()];
 
     for (const dir of dirs) {
       if (!existsSync(dir)) continue;

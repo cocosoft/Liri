@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 
 interface AudioPlayerProps {
   audioUrl: string;
@@ -8,7 +8,13 @@ interface AudioPlayerProps {
   onEnded?: () => void;
 }
 
-function AudioPlayer({ audioUrl, isDark, onPlay, onPause, onEnded }: AudioPlayerProps) {
+function AudioPlayer({
+  audioUrl,
+  isDark,
+  onPlay,
+  onPause,
+  onEnded,
+}: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -42,18 +48,18 @@ function AudioPlayer({ audioUrl, isDark, onPlay, onPause, onEnded }: AudioPlayer
       onPause?.();
     };
 
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
 
     return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
     };
   }, [audioUrl, onPlay, onPause, onEnded]);
 
@@ -80,17 +86,21 @@ function AudioPlayer({ audioUrl, isDark, onPlay, onPause, onEnded }: AudioPlayer
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+    <div
+      className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
+    >
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
       <button
         onClick={togglePlay}
         className={`flex items-center justify-center w-8 h-8 rounded-full ${
-          isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+          isDark
+            ? "bg-blue-600 hover:bg-blue-700"
+            : "bg-blue-500 hover:bg-blue-600"
         } text-white`}
       >
         {isPlaying ? (
@@ -99,14 +109,20 @@ function AudioPlayer({ audioUrl, isDark, onPlay, onPause, onEnded }: AudioPlayer
             <rect x="14" y="4" width="4" height="16" rx="1" />
           </svg>
         ) : (
-          <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-4 h-4 ml-0.5"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path d="M8 5v14l11-7z" />
           </svg>
         )}
       </button>
 
       <div className="flex-1 flex items-center gap-2">
-        <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        <span
+          className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+        >
           {formatTime(currentTime)}
         </span>
         <input
@@ -116,10 +132,12 @@ function AudioPlayer({ audioUrl, isDark, onPlay, onPause, onEnded }: AudioPlayer
           value={currentTime}
           onChange={handleSeek}
           className={`flex-1 h-1 rounded-full appearance-none cursor-pointer ${
-            isDark ? 'bg-gray-600' : 'bg-gray-300'
+            isDark ? "bg-gray-600" : "bg-gray-300"
           } [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500`}
         />
-        <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        <span
+          className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+        >
           {formatTime(duration)}
         </span>
       </div>
@@ -134,7 +152,7 @@ function AudioPlayer({ audioUrl, isDark, onPlay, onPause, onEnded }: AudioPlayer
             setCurrentTime(0);
           }
         }}
-        className={`p-1.5 rounded ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}
+        className={`p-1.5 rounded ${isDark ? "hover:bg-gray-700" : "hover:bg-gray-200"}`}
         title="停止"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

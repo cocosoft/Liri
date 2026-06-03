@@ -32,7 +32,10 @@ import {
   providerManager,
   type ProviderType,
 } from '@modules/ai/providers/ProviderManager.js';
-import { testEndpoints, formatSpeedResults } from '@modules/ai/providers/SpeedTestService.js';
+import {
+  testEndpoints,
+  formatSpeedResults,
+} from '@modules/ai/providers/SpeedTestService.js';
 import { fetchModels } from '@modules/ai/providers/ModelFetcher.js';
 import {
   registerProviderFromDB,
@@ -41,8 +44,17 @@ import {
 } from '@modules/ai/providers/ProviderSyncService.js';
 
 const VALID_PROVIDER_TYPES: ProviderType[] = [
-  'openai', 'deepseek', 'anthropic', 'google', 'ollama',
-  'moonshot', 'grok', 'bedrock', 'vertex', 'azure', 'custom',
+  'openai',
+  'deepseek',
+  'anthropic',
+  'google',
+  'ollama',
+  'moonshot',
+  'grok',
+  'bedrock',
+  'vertex',
+  'azure',
+  'custom',
 ];
 
 // ─── 帮助 ──────────────────────────────────────────────
@@ -82,7 +94,10 @@ function showHelp(): CommandResult {
 
 // ─── 列表 ──────────────────────────────────────────────
 
-async function handleList(args: string, showJson: boolean): Promise<CommandResult> {
+async function handleList(
+  args: string,
+  showJson: boolean
+): Promise<CommandResult> {
   await providerManager.initialize();
 
   const filterType = VALID_PROVIDER_TYPES.includes(args as ProviderType)
@@ -108,7 +123,9 @@ async function handleList(args: string, showJson: boolean): Promise<CommandResul
   }
 
   const lines: string[] = [`${'─'.repeat(100)}`];
-  lines.push(`${'类型'.padEnd(10)} | ${'名称'.padEnd(20)} | ${'ID'.padEnd(36)} | 状态 | Base URL`);
+  lines.push(
+    `${'类型'.padEnd(10)} | ${'名称'.padEnd(20)} | ${'ID'.padEnd(36)} | 状态 | Base URL`
+  );
   lines.push(`${'─'.repeat(100)}`);
 
   for (const p of providers) {
@@ -268,7 +285,10 @@ async function handleEdit(args: string): Promise<CommandResult> {
   if (updates['name']) params.name = updates['name'];
   if (updates['type']) {
     if (!VALID_PROVIDER_TYPES.includes(updates['type'] as ProviderType)) {
-      return { success: false, message: `无效的供应商类型: ${updates['type']}` };
+      return {
+        success: false,
+        message: `无效的供应商类型: ${updates['type']}`,
+      };
     }
     params.providerType = updates['type'];
   }
@@ -377,7 +397,9 @@ async function handleStats(): Promise<CommandResult> {
     lines.push(`  ${s.type.padEnd(12)}: ${s.active}/${s.count} 启用`);
   }
   lines.push('─'.repeat(40));
-  lines.push(`  总计: ${providers.filter((p) => p.isActive).length}/${providers.length} 启用`);
+  lines.push(
+    `  总计: ${providers.filter((p) => p.isActive).length}/${providers.length} 启用`
+  );
 
   return { success: true, message: lines.join('\n') };
 }
@@ -393,7 +415,10 @@ async function handleTest(id: string): Promise<CommandResult> {
   }
 
   if (!provider.apiKey) {
-    return { success: false, message: `供应商 ${provider.name} 未设置 API Key，无法进行测速。` };
+    return {
+      success: false,
+      message: `供应商 ${provider.name} 未设置 API Key，无法进行测速。`,
+    };
   }
 
   const urls = [provider.baseUrl];
@@ -418,13 +443,16 @@ async function handleModels(id: string): Promise<CommandResult> {
   }
 
   if (!provider.apiKey) {
-    return { success: false, message: `供应商 ${provider.name} 未设置 API Key，无法获取模型列表。` };
+    return {
+      success: false,
+      message: `供应商 ${provider.name} 未设置 API Key，无法获取模型列表。`,
+    };
   }
 
   const result = await fetchModels(
     provider.baseUrl,
     provider.apiKey,
-    provider.modelsUrl,
+    provider.modelsUrl
   );
 
   if ('error' in result) {
@@ -493,7 +521,8 @@ async function handleImport(filePath: string): Promise<CommandResult> {
   if (!filePath) {
     return {
       success: false,
-      message: '用法: /provider import <文件路径>\n示例: /provider import ~/.pyapp/providers-export.json',
+      message:
+        '用法: /provider import <文件路径>\n示例: /provider import ~/.pyapp/providers-export.json',
     };
   }
 
@@ -509,12 +538,17 @@ async function handleImport(filePath: string): Promise<CommandResult> {
   }
 
   if (!data.providers || !Array.isArray(data.providers)) {
-    return { success: false, message: `无效的导出文件格式（缺少 providers 数组）` };
+    return {
+      success: false,
+      message: `无效的导出文件格式（缺少 providers 数组）`,
+    };
   }
 
   await providerManager.initialize();
   const existing = await providerManager.listProviders();
-  const existingBaseUrls = new Set(existing.map((p) => `${p.name}:${p.baseUrl}`));
+  const existingBaseUrls = new Set(
+    existing.map((p) => `${p.name}:${p.baseUrl}`)
+  );
 
   let imported = 0;
   let skipped = 0;
@@ -625,7 +659,9 @@ async function handleSeed(): Promise<CommandResult> {
     presets.push({
       name: 'Google Gemini',
       providerType: 'google',
-      baseUrl: process.env.GOOGLE_AI_BASE_URL || 'https://generativelanguage.googleapis.com',
+      baseUrl:
+        process.env.GOOGLE_AI_BASE_URL ||
+        'https://generativelanguage.googleapis.com',
       apiKey: googKey,
     });
   }
@@ -643,7 +679,8 @@ async function handleSeed(): Promise<CommandResult> {
   if (presets.length === 0) {
     return {
       success: true,
-      message: '未检测到环境变量中的 API Key。\n请在 .env 或系统环境变量中设置 DEEPSEEK_API_KEY/OPENAI_API_KEY 等，然后重试。\n\n也可以手动添加: /provider add "My API" <type> <url> <key>',
+      message:
+        '未检测到环境变量中的 API Key。\n请在 .env 或系统环境变量中设置 DEEPSEEK_API_KEY/OPENAI_API_KEY 等，然后重试。\n\n也可以手动添加: /provider add "My API" <type> <url> <key>',
     };
   }
 
@@ -651,10 +688,12 @@ async function handleSeed(): Promise<CommandResult> {
 
   // 跳过已存在的供应商（按 name + type 去重）
   const existing = await providerManager.listProviders();
-  const existingKeys = new Set(existing.map((p) => `${p.name}:${p.providerType}`));
+  const existingKeys = new Set(
+    existing.map((p) => `${p.name}:${p.providerType}`)
+  );
 
   const newPresets = presets.filter(
-    (p) => !existingKeys.has(`${p.name}:${p.providerType}`),
+    (p) => !existingKeys.has(`${p.name}:${p.providerType}`)
   );
 
   if (newPresets.length === 0) {
@@ -691,7 +730,7 @@ async function handleSeed(): Promise<CommandResult> {
 const providerCommand = {
   async execute(
     args: string,
-    _context: CommandContext,
+    _context: CommandContext
   ): Promise<CommandResult> {
     const trimmed = args.trim();
     const showJson = /(^|\s)--json(\s|$)/.test(trimmed);

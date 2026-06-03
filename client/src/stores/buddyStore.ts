@@ -1,11 +1,15 @@
-import { create } from 'zustand';
-import type { BuddyCompanion, BuddyInteractionResult } from '../types';
-import { buddyService } from '../services/buddyService';
+import { create } from "zustand";
+import type { BuddyCompanion, BuddyInteractionResult } from "../types";
+import { buddyService } from "../services/buddyService";
 
 interface BuddyStore {
   companion: BuddyCompanion | null;
   lastInteraction: BuddyInteractionResult | null;
-  stats: { interactions: number; dreamsCompleted: number; totalXp: number } | null;
+  stats: {
+    interactions: number;
+    dreamsCompleted: number;
+    totalXp: number;
+  } | null;
   isLoading: boolean;
   error: string | null;
   loadBuddy: (name?: string) => Promise<void>;

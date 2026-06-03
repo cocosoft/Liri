@@ -412,7 +412,9 @@ export function resolveTempDir(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /** 用户下载目录（~/.pyapp/downloads/）—— AI 从互联网下载的材料的存放位置 */
-export function resolveDownloadsDir(env: NodeJS.ProcessEnv = process.env): string {
+export function resolveDownloadsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
   return join(resolvePyappHome(env), 'downloads');
 }
 

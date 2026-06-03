@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { modelAdminService } from '../../services/modelAdminService';
-import { configService } from '../../services/configService';
+import { useState, useEffect } from "react";
+import { modelAdminService } from "../../services/modelAdminService";
+import { configService } from "../../services/configService";
 
 interface ModelMetaEditorProps {
   modelId: string;
@@ -21,27 +21,32 @@ interface FormState {
 }
 
 const CAPABILITY_OPTIONS = [
-  { value: 'streaming', label: 'Streaming' },
-  { value: 'function_calling', label: 'Function Calling' },
-  { value: 'vision', label: 'Vision' },
-  { value: 'thinking', label: 'Thinking' },
-  { value: 'tool_use', label: 'Tool Use' },
-  { value: 'structured_output', label: 'Structured Output' },
-  { value: 'image_input', label: 'Image Input' },
-  { value: 'pdf_input', label: 'PDF Input' },
+  { value: "streaming", label: "Streaming" },
+  { value: "function_calling", label: "Function Calling" },
+  { value: "vision", label: "Vision" },
+  { value: "thinking", label: "Thinking" },
+  { value: "tool_use", label: "Tool Use" },
+  { value: "structured_output", label: "Structured Output" },
+  { value: "image_input", label: "Image Input" },
+  { value: "pdf_input", label: "PDF Input" },
 ];
 
-const DEFAULT_CAPABILITIES = ['streaming', 'function_calling', 'tool_use'];
+const DEFAULT_CAPABILITIES = ["streaming", "function_calling", "tool_use"];
 
-function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEditorProps) {
+function ModelMetaEditor({
+  modelId,
+  modelName,
+  onClose,
+  onSaved,
+}: ModelMetaEditorProps) {
   const [form, setForm] = useState<FormState>({
     displayName: modelName,
-    contextWindow: '200000',
-    maxOutputTokens: '16384',
-    inputPrice: '',
-    outputPrice: '',
-    cacheReadPrice: '',
-    cacheWritePrice: '',
+    contextWindow: "200000",
+    maxOutputTokens: "16384",
+    inputPrice: "",
+    outputPrice: "",
+    cacheReadPrice: "",
+    cacheWritePrice: "",
     capabilities: [...DEFAULT_CAPABILITIES],
   });
   const [saving, setSaving] = useState(false);
@@ -66,19 +71,37 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
             ...prev,
             displayName: (existing.displayName as string) || prev.displayName,
             contextWindow: String(existing.contextWindow || prev.contextWindow),
-            maxOutputTokens: String(existing.maxOutputTokens || prev.maxOutputTokens),
-            inputPrice: typeof existing.pricing === 'object' && existing.pricing
-              ? String((existing.pricing as Record<string, number>).inputPer1M || '')
-              : '',
-            outputPrice: typeof existing.pricing === 'object' && existing.pricing
-              ? String((existing.pricing as Record<string, number>).outputPer1M || '')
-              : '',
-            cacheReadPrice: typeof existing.pricing === 'object' && existing.pricing
-              ? String((existing.pricing as Record<string, number>).cacheReadPer1M || '')
-              : '',
-            cacheWritePrice: typeof existing.pricing === 'object' && existing.pricing
-              ? String((existing.pricing as Record<string, number>).cacheWritePer1M || '')
-              : '',
+            maxOutputTokens: String(
+              existing.maxOutputTokens || prev.maxOutputTokens,
+            ),
+            inputPrice:
+              typeof existing.pricing === "object" && existing.pricing
+                ? String(
+                    (existing.pricing as Record<string, number>).inputPer1M ||
+                      "",
+                  )
+                : "",
+            outputPrice:
+              typeof existing.pricing === "object" && existing.pricing
+                ? String(
+                    (existing.pricing as Record<string, number>).outputPer1M ||
+                      "",
+                  )
+                : "",
+            cacheReadPrice:
+              typeof existing.pricing === "object" && existing.pricing
+                ? String(
+                    (existing.pricing as Record<string, number>)
+                      .cacheReadPer1M || "",
+                  )
+                : "",
+            cacheWritePrice:
+              typeof existing.pricing === "object" && existing.pricing
+                ? String(
+                    (existing.pricing as Record<string, number>)
+                      .cacheWritePer1M || "",
+                  )
+                : "",
             capabilities: Array.isArray(existing.capabilities)
               ? (existing.capabilities as string[])
               : prev.capabilities,
@@ -111,17 +134,27 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
     setError(null);
     try {
       const overrides: Record<string, unknown> = {};
-      if (form.displayName && form.displayName !== modelName) overrides.displayName = form.displayName;
+      if (form.displayName && form.displayName !== modelName)
+        overrides.displayName = form.displayName;
       const cw = parseInt(form.contextWindow);
       if (!isNaN(cw) && cw !== 200000) overrides.contextWindow = cw;
       const mot = parseInt(form.maxOutputTokens);
       if (!isNaN(mot) && mot !== 16384) overrides.maxOutputTokens = mot;
       if (form.inputPrice || form.outputPrice) {
         overrides.pricing = {};
-        if (form.inputPrice) (overrides.pricing as Record<string, number>).inputPer1M = parseFloat(form.inputPrice);
-        if (form.outputPrice) (overrides.pricing as Record<string, number>).outputPer1M = parseFloat(form.outputPrice);
-        if (form.cacheReadPrice) (overrides.pricing as Record<string, number>).cacheReadPer1M = parseFloat(form.cacheReadPrice);
-        if (form.cacheWritePrice) (overrides.pricing as Record<string, number>).cacheWritePer1M = parseFloat(form.cacheWritePrice);
+        if (form.inputPrice)
+          (overrides.pricing as Record<string, number>).inputPer1M = parseFloat(
+            form.inputPrice,
+          );
+        if (form.outputPrice)
+          (overrides.pricing as Record<string, number>).outputPer1M =
+            parseFloat(form.outputPrice);
+        if (form.cacheReadPrice)
+          (overrides.pricing as Record<string, number>).cacheReadPer1M =
+            parseFloat(form.cacheReadPrice);
+        if (form.cacheWritePrice)
+          (overrides.pricing as Record<string, number>).cacheWritePer1M =
+            parseFloat(form.cacheWritePrice);
       }
       overrides.capabilities = form.capabilities;
 
@@ -129,7 +162,7 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '保存失败');
+      setError(e instanceof Error ? e.message : "保存失败");
     } finally {
       setSaving(false);
     }
@@ -142,112 +175,193 @@ function ModelMetaEditor({ modelId, modelName, onClose, onSaved }: ModelMetaEdit
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '恢复默认失败');
+      setError(e instanceof Error ? e.message : "恢复默认失败");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {!loaded ? (
-          <div className="py-8 text-center text-gray-400 text-sm">加载中...</div>
+          <div className="py-8 text-center text-gray-400 text-sm">
+            加载中...
+          </div>
         ) : (
           <>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-            编辑模型: {modelId}
-          </h3>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">修改后将覆盖内置默认值</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              编辑模型: {modelId}
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+              修改后将覆盖内置默认值
+            </p>
 
-        {error && (
-          <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-xs">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">显示名称</label>
-            <input
-              type="text" value={form.displayName}
-              onChange={(e) => handleChange('displayName', e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">上下文窗口</label>
-              <input
-                type="number" value={form.contextWindow}
-                onChange={(e) => handleChange('contextWindow', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">最大输出 Token</label>
-              <input
-                type="number" value={form.maxOutputTokens}
-                onChange={(e) => handleChange('maxOutputTokens', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">定价（$ / 1M tokens）</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">输入</label>
-                <input type="text" value={form.inputPrice} onChange={(e) => handleChange('inputPrice', e.target.value)} placeholder="如: 3.0" className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            {error && (
+              <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-xs">
+                {error}
               </div>
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">输出</label>
-                <input type="text" value={form.outputPrice} onChange={(e) => handleChange('outputPrice', e.target.value)} placeholder="如: 15.0" className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">缓存读</label>
-                <input type="text" value={form.cacheReadPrice} onChange={(e) => handleChange('cacheReadPrice', e.target.value)} placeholder="如: 0.3" className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">缓存写</label>
-                <input type="text" value={form.cacheWritePrice} onChange={(e) => handleChange('cacheWritePrice', e.target.value)} placeholder="如: 3.75" className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
-          </div>
+            )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">能力</label>
-            <div className="flex flex-wrap gap-2">
-              {CAPABILITY_OPTIONS.map((cap) => (
-                <label key={cap.value} className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700 rounded text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600">
-                  <input
-                    type="checkbox"
-                    checked={form.capabilities.includes(cap.value)}
-                    onChange={() => toggleCapability(cap.value)}
-                    className="rounded"
-                  />
-                  {cap.label}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  显示名称
                 </label>
-              ))}
-            </div>
-          </div>
-        </div>
+                <input
+                  type="text"
+                  value={form.displayName}
+                  onChange={(e) => handleChange("displayName", e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-        <div className="flex justify-between mt-6">
-          <button onClick={handleReset} disabled={saving} className="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-50">
-            恢复默认
-          </button>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
-              取消
-            </button>
-            <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors">
-              {saving ? '保存中...' : '保存'}
-            </button>
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    上下文窗口
+                  </label>
+                  <input
+                    type="number"
+                    value={form.contextWindow}
+                    onChange={(e) =>
+                      handleChange("contextWindow", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    最大输出 Token
+                  </label>
+                  <input
+                    type="number"
+                    value={form.maxOutputTokens}
+                    onChange={(e) =>
+                      handleChange("maxOutputTokens", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  定价（$ / 1M tokens）
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      输入
+                    </label>
+                    <input
+                      type="text"
+                      value={form.inputPrice}
+                      onChange={(e) =>
+                        handleChange("inputPrice", e.target.value)
+                      }
+                      placeholder="如: 3.0"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      输出
+                    </label>
+                    <input
+                      type="text"
+                      value={form.outputPrice}
+                      onChange={(e) =>
+                        handleChange("outputPrice", e.target.value)
+                      }
+                      placeholder="如: 15.0"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      缓存读
+                    </label>
+                    <input
+                      type="text"
+                      value={form.cacheReadPrice}
+                      onChange={(e) =>
+                        handleChange("cacheReadPrice", e.target.value)
+                      }
+                      placeholder="如: 0.3"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      缓存写
+                    </label>
+                    <input
+                      type="text"
+                      value={form.cacheWritePrice}
+                      onChange={(e) =>
+                        handleChange("cacheWritePrice", e.target.value)
+                      }
+                      placeholder="如: 3.75"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  能力
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {CAPABILITY_OPTIONS.map((cap) => (
+                    <label
+                      key={cap.value}
+                      className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700 rounded text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.capabilities.includes(cap.value)}
+                        onChange={() => toggleCapability(cap.value)}
+                        className="rounded"
+                      />
+                      {cap.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-6">
+              <button
+                onClick={handleReset}
+                disabled={saving}
+                className="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+              >
+                恢复默认
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+                >
+                  {saving ? "保存中..." : "保存"}
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>

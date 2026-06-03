@@ -1,13 +1,13 @@
-import type { CronTask } from '../types';
-import { http } from './httpClient';
+import type { CronTask } from "../types";
+import { http } from "./httpClient";
 
 export const cronService = {
   list: async (): Promise<CronTask[]> => {
-    return http.get<CronTask[]>('/v1/cron');
+    return http.get<CronTask[]>("/v1/cron");
   },
 
-  create: async (task: Omit<CronTask, 'id' | 'status'>): Promise<CronTask> => {
-    return http.post<CronTask>('/v1/cron', task);
+  create: async (task: Omit<CronTask, "id" | "status">): Promise<CronTask> => {
+    return http.post<CronTask>("/v1/cron", task);
   },
 
   update: async (id: string, updates: Partial<CronTask>): Promise<CronTask> => {

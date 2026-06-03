@@ -49,11 +49,7 @@ async function parseBody(req: http.IncomingMessage): Promise<unknown> {
 }
 
 /** 发送 JSON 响应 */
-function sendJson(
-  res: http.ServerResponse,
-  data: unknown,
-  status = 200,
-): void {
+function sendJson(res: http.ServerResponse, data: unknown, status = 200): void {
   if (res.headersSent) return;
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
@@ -63,7 +59,7 @@ function sendJson(
 function sendError(
   res: http.ServerResponse,
   message: string,
-  status = 400,
+  status = 400
 ): void {
   sendJson(res, { error: { message } }, status);
 }
@@ -73,14 +69,14 @@ function sendError(
 type RouteHandler = (
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ) => Promise<void>;
 
 // ─── Providers 路由 ────────────────────────────────────
 
 async function handleListProviders(
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const { providerManager } = await import('./providers/ProviderManager.js');
@@ -95,7 +91,7 @@ async function handleListProviders(
 async function handleGetProvider(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
@@ -114,7 +110,7 @@ async function handleGetProvider(
 
 async function handleAddProvider(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
@@ -140,7 +136,7 @@ async function handleAddProvider(
 async function handleUpdateProvider(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
@@ -161,7 +157,7 @@ async function handleUpdateProvider(
 async function handleDeleteProvider(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
@@ -181,7 +177,7 @@ async function handleDeleteProvider(
 async function handleToggleProvider(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
@@ -201,7 +197,7 @@ async function handleToggleProvider(
 
 async function handleProviderStats(
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const { providerManager } = await import('./providers/ProviderManager.js');
@@ -223,7 +219,7 @@ async function handleProviderStats(
 async function handleProviderTest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
@@ -254,7 +250,7 @@ function needsModelFetchApiKey(providerType: string): boolean {
 async function handleProviderModels(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
@@ -275,7 +271,7 @@ async function handleProviderModels(
         return;
       }
     }
-    const apiKey = p.requiresAuth ? (p.apiKey || '') : '';
+    const apiKey = p.requiresAuth ? p.apiKey || '' : '';
     const result = await fetchModels(p.baseUrl, apiKey, p.modelsUrl);
     sendJson(res, result);
   } catch (err) {
@@ -287,7 +283,7 @@ async function handleProviderModels(
 
 async function handleUsageSummary(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
@@ -302,7 +298,7 @@ async function handleUsageSummary(
       startDate ? parseInt(startDate) : undefined,
       endDate ? parseInt(endDate) : undefined,
       model,
-      providerId,
+      providerId
     );
     sendJson(res, { data: summary });
   } catch (err) {
@@ -312,7 +308,7 @@ async function handleUsageSummary(
 
 async function handleUsageTrend(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
@@ -325,7 +321,7 @@ async function handleUsageTrend(
     const trends = await usageStatsService.getDailyTrends(
       startDate ? parseInt(startDate) : undefined,
       endDate ? parseInt(endDate) : undefined,
-      model,
+      model
     );
     sendJson(res, { data: trends });
   } catch (err) {
@@ -335,7 +331,7 @@ async function handleUsageTrend(
 
 async function handleUsageModelStats(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
@@ -346,7 +342,7 @@ async function handleUsageModelStats(
     await usageStatsService.initialize();
     const stats = await usageStatsService.getModelStats(
       startDate ? parseInt(startDate) : undefined,
-      endDate ? parseInt(endDate) : undefined,
+      endDate ? parseInt(endDate) : undefined
     );
     sendJson(res, { data: stats });
   } catch (err) {
@@ -356,7 +352,7 @@ async function handleUsageModelStats(
 
 async function handleUsageProviderStats(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
@@ -367,7 +363,7 @@ async function handleUsageProviderStats(
     await usageStatsService.initialize();
     const stats = await usageStatsService.getProviderStats(
       startDate ? parseInt(startDate) : undefined,
-      endDate ? parseInt(endDate) : undefined,
+      endDate ? parseInt(endDate) : undefined
     );
     sendJson(res, { data: stats });
   } catch (err) {
@@ -377,7 +373,7 @@ async function handleUsageProviderStats(
 
 async function handleUsageLogs(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
@@ -391,7 +387,7 @@ async function handleUsageLogs(
     const result = await usageStatsService.getRequestLogs(
       { model, providerId },
       page,
-      pageSize,
+      pageSize
     );
     sendJson(res, { data: result });
   } catch (err) {
@@ -403,16 +399,21 @@ async function handleUsageLogs(
 
 async function handleBalanceQuery(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const body = (await parseBody(req)) as { baseUrl?: string; apiKey?: string; providerId?: string };
+    const body = (await parseBody(req)) as {
+      baseUrl?: string;
+      apiKey?: string;
+      providerId?: string;
+    };
 
     let baseUrl: string;
     let apiKey: string;
 
     if (body.providerId) {
-      const { providerManager } = await import('./providers/ProviderManager.js');
+      const { providerManager } =
+        await import('./providers/ProviderManager.js');
       await providerManager.initialize();
       const p = await providerManager.getProvider(body.providerId);
       if (!p) {
@@ -441,10 +442,11 @@ async function handleBalanceQuery(
 
 async function handleListPricing(
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { modelPricingService } = await import('./models/ModelPricingService.js');
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
     await modelPricingService.initialize();
     const pricing = await modelPricingService.getAllPricing();
     sendJson(res, { data: pricing });
@@ -455,19 +457,24 @@ async function handleListPricing(
 
 async function handleUpsertPricing(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { modelPricingService } = await import('./models/ModelPricingService.js');
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
     await modelPricingService.initialize();
     const record = await modelPricingService.upsertPricing({
       modelId: body.modelId as string,
       displayName: body.displayName as string | undefined,
       inputCostPerMillion: body.inputCostPerMillion as number,
       outputCostPerMillion: body.outputCostPerMillion as number,
-      cacheReadCostPerMillion: body.cacheReadCostPerMillion as number | undefined,
-      cacheWriteCostPerMillion: body.cacheWriteCostPerMillion as number | undefined,
+      cacheReadCostPerMillion: body.cacheReadCostPerMillion as
+        | number
+        | undefined,
+      cacheWriteCostPerMillion: body.cacheWriteCostPerMillion as
+        | number
+        | undefined,
     });
     sendJson(res, { data: record }, 201);
   } catch (err) {
@@ -478,11 +485,12 @@ async function handleUpsertPricing(
 async function handleDeletePricing(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const modelId = decodeURIComponent(match![1]);
   try {
-    const { modelPricingService } = await import('./models/ModelPricingService.js');
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
     await modelPricingService.initialize();
     const ok = await modelPricingService.deletePricing(modelId);
     sendJson(res, { success: ok });
@@ -495,7 +503,7 @@ async function handleDeletePricing(
 
 async function handleListAppConfigs(
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const { appModelRouter } = await import('./models/AppModelRouter.js');
@@ -510,7 +518,7 @@ async function handleListAppConfigs(
 async function handleGetAppConfig(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
@@ -530,7 +538,7 @@ async function handleGetAppConfig(
 async function handleSetAppConfig(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
@@ -552,7 +560,7 @@ async function handleSetAppConfig(
 async function handleDeleteAppConfig(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
@@ -575,36 +583,96 @@ interface RouteEntry {
 
 const ROUTES: RouteEntry[] = [
   // Providers
-  { method: 'GET',    pattern: /^\/v1\/providers\/stats$/,                    handler: handleProviderStats },
-  { method: 'GET',    pattern: /^\/v1\/providers\/([^/]+)\/test$/,            handler: handleProviderTest },
-  { method: 'GET',    pattern: /^\/v1\/providers\/([^/]+)\/models$/,          handler: handleProviderModels },
-  { method: 'POST',   pattern: /^\/v1\/providers\/([^/]+)\/toggle$/,          handler: handleToggleProvider },
-  { method: 'GET',    pattern: /^\/v1\/providers\/([^/]+)$/,                  handler: handleGetProvider },
-  { method: 'PUT',    pattern: /^\/v1\/providers\/([^/]+)$/,                  handler: handleUpdateProvider },
-  { method: 'DELETE', pattern: /^\/v1\/providers\/([^/]+)$/,                  handler: handleDeleteProvider },
-  { method: 'GET',    pattern: /^\/v1\/providers$/,                           handler: handleListProviders },
-  { method: 'POST',   pattern: /^\/v1\/providers$/,                           handler: handleAddProvider },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/providers\/stats$/,
+    handler: handleProviderStats,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/providers\/([^/]+)\/test$/,
+    handler: handleProviderTest,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/providers\/([^/]+)\/models$/,
+    handler: handleProviderModels,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/providers\/([^/]+)\/toggle$/,
+    handler: handleToggleProvider,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/providers\/([^/]+)$/,
+    handler: handleGetProvider,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/providers\/([^/]+)$/,
+    handler: handleUpdateProvider,
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/v1\/providers\/([^/]+)$/,
+    handler: handleDeleteProvider,
+  },
+  { method: 'GET', pattern: /^\/v1\/providers$/, handler: handleListProviders },
+  { method: 'POST', pattern: /^\/v1\/providers$/, handler: handleAddProvider },
 
   // Usage
-  { method: 'GET',    pattern: /^\/v1\/usage\/summary$/,                      handler: handleUsageSummary },
-  { method: 'GET',    pattern: /^\/v1\/usage\/trend$/,                        handler: handleUsageTrend },
-  { method: 'GET',    pattern: /^\/v1\/usage\/models$/,                       handler: handleUsageModelStats },
-  { method: 'GET',    pattern: /^\/v1\/usage\/providers$/,                    handler: handleUsageProviderStats },
-  { method: 'GET',    pattern: /^\/v1\/usage\/logs$/,                         handler: handleUsageLogs },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/usage\/summary$/,
+    handler: handleUsageSummary,
+  },
+  { method: 'GET', pattern: /^\/v1\/usage\/trend$/, handler: handleUsageTrend },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/usage\/models$/,
+    handler: handleUsageModelStats,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/usage\/providers$/,
+    handler: handleUsageProviderStats,
+  },
+  { method: 'GET', pattern: /^\/v1\/usage\/logs$/, handler: handleUsageLogs },
 
   // Balance
-  { method: 'POST',   pattern: /^\/v1\/balance$/,                             handler: handleBalanceQuery },
+  { method: 'POST', pattern: /^\/v1\/balance$/, handler: handleBalanceQuery },
 
   // Pricing
-  { method: 'GET',    pattern: /^\/v1\/pricing$/,                             handler: handleListPricing },
-  { method: 'POST',   pattern: /^\/v1\/pricing$/,                             handler: handleUpsertPricing },
-  { method: 'DELETE', pattern: /^\/v1\/pricing\/([^/]+)$/,                    handler: handleDeletePricing },
+  { method: 'GET', pattern: /^\/v1\/pricing$/, handler: handleListPricing },
+  { method: 'POST', pattern: /^\/v1\/pricing$/, handler: handleUpsertPricing },
+  {
+    method: 'DELETE',
+    pattern: /^\/v1\/pricing\/([^/]+)$/,
+    handler: handleDeletePricing,
+  },
 
   // App Model Configs
-  { method: 'GET',    pattern: /^\/v1\/models\/app-config$/,                  handler: handleListAppConfigs },
-  { method: 'GET',    pattern: /^\/v1\/models\/app-config\/([^/]+)$/,         handler: handleGetAppConfig },
-  { method: 'PUT',    pattern: /^\/v1\/models\/app-config\/([^/]+)$/,         handler: handleSetAppConfig },
-  { method: 'DELETE', pattern: /^\/v1\/models\/app-config\/([^/]+)$/,         handler: handleDeleteAppConfig },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/app-config$/,
+    handler: handleListAppConfigs,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/app-config\/([^/]+)$/,
+    handler: handleGetAppConfig,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/app-config\/([^/]+)$/,
+    handler: handleSetAppConfig,
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/v1\/models\/app-config\/([^/]+)$/,
+    handler: handleDeleteAppConfig,
+  },
 ];
 
 /**
@@ -612,7 +680,7 @@ const ROUTES: RouteEntry[] = [
  */
 export async function tryHandleRoute(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<boolean> {
   const url = req.url?.split('?')[0] || '';
   const method = req.method || 'GET';
@@ -629,7 +697,11 @@ export async function tryHandleRoute(
           error: (err as Error).message,
         });
         if (!res.headersSent) {
-          sendError(res, `Internal server error: ${(err as Error).message}`, 500);
+          sendError(
+            res,
+            `Internal server error: ${(err as Error).message}`,
+            500
+          );
         }
       }
       return true;

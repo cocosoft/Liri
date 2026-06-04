@@ -2,9 +2,9 @@
  * 统一路径管理 — 核心基础设施
  *
  * 按文件存储规范（三层分离）集中管理所有路径模板：
- *   第一层：app/docs/       Git 跟踪，系统文档
- *   第二层：app/data/       不跟踪，项目运行时数据
- *   第三层：~/.pyapp/       不跟踪，用户级数据
+ *   第一层：app/docs/       Git 跟踪，系统文档（跟随安装目录）
+ *   第二层：~/.pyapp/data/  用户数据目录下的项目数据（部署安全）
+ *   第三层：~/.pyapp/       用户级配置、记忆、技能（跨项目）
  *
  * 各模块通过本模块获取路径，不再硬编码路径字符串。
  * 支持运行时通过环境变量切换根目录（测试友好）。
@@ -147,14 +147,14 @@ export function resolveProjectRoot(
 /**
  * 获取项目数据目录（第二层）
  * 可通过 LIRI_DATA_DIR 环境变量覆盖
- * 默认：app/data/
+ * 默认：用户目录下的 .pyapp/data/（部署安全：Program Files 安装也具备写入权限）
  */
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env[ENV_LIRI_DATA_DIR]?.trim();
   if (override) {
     return resolve(override);
   }
-  return join(resolveProjectRoot(env), 'app', 'data');
+  return join(resolvePyappHome(env), 'data');
 }
 
 // ─── 第一层：代码文档 ─────────────────────────

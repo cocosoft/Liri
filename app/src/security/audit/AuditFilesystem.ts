@@ -7,9 +7,17 @@ import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot, resolveDataDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 敏感文件路径（相对于 resolveDataDir()）
+ */
+const SENSITIVE_DATA_FILES = [
+  { file: 'oauth-tokens.json', label: 'OAuth Token 存储', severity: 'HIGH' as AuditSeverity },
+  { file: 'app.db', label: '数据库文件', severity: 'MEDIUM' as AuditSeverity },
+];
 
 const SENSITIVE_PATHS = [
   { path: '.env', label: '环境变量文件', severity: 'HIGH' as AuditSeverity },
@@ -22,16 +30,6 @@ const SENSITIVE_PATHS = [
     path: 'config/credentials.json',
     label: '凭证配置',
     severity: 'HIGH' as AuditSeverity,
-  },
-  {
-    path: 'app/data/oauth-tokens.json',
-    label: 'OAuth Token 存储',
-    severity: 'HIGH' as AuditSeverity,
-  },
-  {
-    path: 'app/data/app.db',
-    label: '数据库文件',
-    severity: 'MEDIUM' as AuditSeverity,
   },
   {
     path: '.ssh/id_rsa',
@@ -73,26 +71,42 @@ function auditSensitivePathPermissions(
 ): void {
   for (const { path: relPath, label, severity } of SENSITIVE_PATHS) {
     const fullPath = join(scanDir, relPath);
-    if (!existsSync(fullPath)) continue;
+    checkPathPermissions(fullPath, relPath, label, severity, findings);
+  }
 
-    try {
-      const st = statSync(fullPath);
+  // 检查数据目录下的敏感文件
+  const dataDir = resolveDataDir();
+  for (const { file, label, severity } of SENSITIVE_DATA_FILES) {
+    const fullPath = join(dataDir, file);
+    checkPathPermissions(fullPath, file, label, severity, findings);
+  }
+}
 
-      const mode = st.mode & 0o777;
+function checkPathPermissions(
+  fullPath: string,
+  relPath: string,
+  label: string,
+  severity: AuditSeverity,
+  findings: SecurityAuditFinding[]
+): void {
+  if (!existsSync(fullPath)) return;
 
-      if (mode & 0o007) {
-        findings.push({
-          id: `FS_perm_${relPath.replace(/[/.]/g, '_')}`,
-          severity,
-          category: 'filesystem',
-          path: fullPath,
-          message: `${label} (${relPath}) 对其他用户可访问 (权限: ${mode.toString(8)})`,
-          remediation: `运行 chmod 600 ${relPath} 限制只有文件所有者可读写`,
-        });
-      }
-    } catch {
-      // stat 失败
+  try {
+    const st = statSync(fullPath);
+    const mode = st.mode & 0o777;
+
+    if (mode & 0o007) {
+      findings.push({
+        id: `FS_perm_${relPath.replace(/[/.]/g, '_')}`,
+        severity,
+        category: 'filesystem',
+        path: fullPath,
+        message: `${label} (${relPath}) 对其他用户可访问 (权限: ${mode.toString(8)})`,
+        remediation: `运行 chmod 600 ${relPath} 限制只有文件所有者可读写`,
+      });
     }
+  } catch {
+    // stat 失败
   }
 }
 
@@ -102,7 +116,7 @@ function auditWorldWritableFiles(
 ): void {
   const checkDirs = [
     join(scanDir, 'app', 'config'),
-    join(scanDir, 'app', 'data'),
+    resolveDataDir(),
     join(scanDir, 'app', 'configs'),
   ];
 

@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.7.0 | **更新**: 2026-06-04
+**版本**: 7.8.0 | **更新**: 2026-06-04
 
 ## §1 基础规则
 
@@ -35,8 +35,8 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 #### 三层分离架构
 | 层级 | 根路径 | Git 跟踪 | 定位 |
 |------|--------|---------|------|
-| 第一层：代码文档 | `app/docs/` | ✅ | 知识库、帮助文档 |
-| 第二层：项目数据 | `app/data/` | ❌ | 运行时数据（项目级） |
+| 第一层：代码文档 | `app/docs/` | ✅ | 知识库、帮助文档（跟随安装目录） |
+| 第二层：项目数据 | `~/.pyapp/data/` | ❌ | 运行时数据 — 部署安全，Program Files 安装也具备写入权限 |
 | 第三层：用户数据 | `~/.pyapp/` | ❌ | 配置、记忆、技能（跨项目） |
 
 **细目**：详见 [paths.ts](file:///E:/PY/CODES/PY_APP/app/src/core/paths.ts)。命名统一 `~/.pyapp/`，禁用 `~/.Liri/`。
@@ -148,7 +148,7 @@ import { resolveOutputDir, resolveDbPath, ... } from '@modules/core/paths';  // 
 | 层级 | 解析函数 | 路径 |
 |------|---------|------|
 | 第一层 | `resolveDocsDir()` | `{root}/app/docs/` |
-| 第二层 | `resolveDataDir()` / `resolveDataSubDir()` | `{root}/app/data/` |
+| 第二层 | `resolveDataDir()` / `resolveDataSubDir()` | `~/.pyapp/data/` |
 | 第三层 | `resolvePyappHome()` | `~/.pyapp/` |
 | 数据库 | `resolveDbPath()` | `{dataDir}/app.db` |
 | 输出目录 | `resolveOutputDir()` | `~/.pyapp/output/` |
@@ -186,6 +186,7 @@ import { resolveOutputDir, resolveDbPath, ... } from '@modules/core/paths';  // 
 ---
 
 ## §2 版本历史
+- **v7.8.0**: §1.5 第二层数据目录移至 `~/.pyapp/data/`（部署安全：Program Files 安装也具备写入权限）；pyapp.ts 清理遗留 PROJECT_DIRS
 - **v7.7.0**: §1.12 路径导入约定（强制）：路径注册表迁移至 `core/paths.ts`，全项目 108 模块统一 `@modules/core/paths`，config/paths.ts 已删除；文件工具输出目录注入规范；Code Review 新增路径检查项
 - **v7.6.0**: §1.5.1 前后端通信开发规则（强制）；新增 `api-spec.md` 接口清单
 - **v7.5.0**: §1.4 OUTPUT_DIR/DOWNLOADS_DIR；§1.5 数据库统一约定（唯一 app.db）；§1.12 禁止行为清单

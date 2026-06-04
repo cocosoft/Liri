@@ -188,33 +188,12 @@ try {
 }
 
 // ── 策略 4: 预创建项目级目录 ──
-// 确保所有必要的目录在项目根目录下存在
-// 注意：这是启动引导阶段的子集，完整的目录列表由 paths.ts 的 ensureDataDirectories()
-// 在 init() 阶段创建（含第二层 app/data/ 和第三层 ~/.pyapp/ 的所有子目录）
+// 确保所有必要的目录存在。
+// 注意：项目数据（第二层）已移至用户目录 ~/.pyapp/data/，
+//       由 paths.ts 的 ensureDataDirectories() 在 init() 阶段创建。
+//       此处仅创建项目结构目录（app/ 用于文档等只读资源）。
 const PROJECT_DIRS = [
-  'data', // 数据目录（OAuth token 等）
-  'data/sessions',
-  'data/cache',
-  'data/attachments',
-  'data/memory',
-  'data/security',
-  'data/transcripts',
-  'data/chronos',
-  'data/output',
-  'data/temp',
-  'data/downloads',
   'app',
-  'app/data',
-  'app/data/governance',
-  'app/data/governance/audit',
-  'app/data/governance/strategies',
-  'app/data/oauth',
-  'app/data/logs',
-  'app/data/team-memory',
-  'app/data/permissions',
-  'app/data/snapshots',
-  'app/data/artifacts',
-  'app/data/pairings',
 ];
 
 {
@@ -236,7 +215,7 @@ const PROJECT_DIRS = [
 // 确保各模块的路径解析函数 fallback 到正确的项目根
 process.env.LIRI_PROJECT_DIR = projectRoot;
 process.env.LIRI_HOME = join(os.homedir(), '.pyapp');
-process.env.LIRI_DATA_DIR = join(projectRoot, 'app', 'data');
+process.env.LIRI_DATA_DIR = join(os.homedir(), '.pyapp', 'data');
 
 // ── 确保用户档案文件存在（~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md）──
 // 在引导阶段尽早创建，不依赖首次运行引导流程

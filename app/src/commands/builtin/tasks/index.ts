@@ -21,6 +21,7 @@
 /**
  * Tasks命令模块入口
  * 任务管理与跟踪
+ * 实现已迁移至 commands/tasks/ （使用真实 taskRegistry 数据源）
  */
 import type { Command } from '@modules/commands/types';
 
@@ -30,7 +31,8 @@ const tasksCommand: Command = {
   description: '任务管理与跟踪（创建/查看/完成/删除/统计）',
   aliases: ['task', 'todo', 'todos'],
   argumentHint: '[list|add|done|delete|priority|stats|<ID>|help]',
-  load: () => import('./Tasks.js').then((m) => m.default),
+  load: () =>
+    import('../../tasks/tasks.js').then((m) => m.default),
 };
 
 export { tasksCommand };

@@ -108,6 +108,7 @@ export function createCronScheduler(
             taskId: registryTaskId,
             cronTaskId: t.id,
             cron: t.cron,
+            silent: t.silent ?? false,
           });
         }
         const registryTaskId = cronTaskMap.get(t.id);
@@ -129,6 +130,9 @@ export function createCronScheduler(
           globalEventBus.publish(SystemEvents.TASK_COMPLETED, {
             taskId: registryTaskId,
             cronTaskId: t.id,
+            silent: t.silent ?? false,
+            cron: t.cron,
+            prompt: t.prompt,
           });
         }
       }

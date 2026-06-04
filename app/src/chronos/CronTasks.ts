@@ -6,7 +6,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { parseCronExpression } from './cron';
+import { parseCronExpression, normalizeSchedule, isValidCronExpression } from './cron';
 import { resolveChronosDir } from '@modules/config/paths';
 import type { ScheduledTask } from './types';
 import type { SqliteCronStore } from './service/SqliteCronStore';
@@ -50,7 +50,7 @@ export async function readCronTasksFile(
   if (_sqliteStore) {
     try {
       const tasks = await _sqliteStore.listTasks();
-      const validTasks = tasks.filter((t) => parseCronExpression(t.cron));
+      const validTasks = tasks.filter((t) => isValidCronExpression(t.cron));
       if (validTasks.length !== tasks.length) {
         logger.warn(
           `[CronTasks] filtered ${tasks.length - validTasks.length} invalid tasks from SQLite`
@@ -91,7 +91,7 @@ export async function readCronTasksFile(
         continue;
       }
 
-      if (!parseCronExpression(t.cron)) {
+      if (!isValidCronExpression(t.cron)) {
         console.log(
           `[CronTasks] skipping task ${t.id} with invalid cron '${t.cron}'`
         );
@@ -197,12 +197,19 @@ export async function addCronTask(
   recurring: boolean = true,
   durable: boolean = true,
   agentId?: string,
-  dir?: string
+  dir?: string,
+  silent: boolean = false
 ): Promise<string> {
+  // Normalize human-friendly schedule (every/at/macro) to 5-field cron
+  const normalizedCron = normalizeSchedule(cron);
+  if (!normalizedCron) {
+    throw new Error(`Invalid schedule expression: ${cron}`);
+  }
+
   const id = generateShortId();
   const task: ScheduledTask = {
     id,
-    cron,
+    cron: normalizedCron,
     prompt,
     createdAt: Date.now(),
     recurring,
@@ -210,6 +217,7 @@ export async function addCronTask(
     durable,
     agentId,
     taskType: 'prompt',
+    silent,
   };
 
   if (durable) {
@@ -301,7 +309,8 @@ export async function listAllCronTasks(dir?: string): Promise<ScheduledTask[]> {
  */
 export function nextCronRunMs(cron: string, fromMs: number): number | null {
   const { computeNextCronRun } = require('./cron');
-  const fields = parseCronExpression(cron);
+  const normalized = normalizeSchedule(cron) ?? cron;
+  const fields = parseCronExpression(normalized);
   if (!fields) return null;
   const next = computeNextCronRun(fields, new Date(fromMs));
   return next ? next.getTime() : null;

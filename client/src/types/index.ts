@@ -366,14 +366,33 @@ export interface BuddyInteractionResult {
   statChanges: Partial<Record<BuddyStat, number>>;
 }
 
+export type ScheduleMode = "cron" | "every" | "at";
+
 export interface CronTask {
   id: string;
   name: string;
   expression: string;
   description: string;
   enabled: boolean;
+  /** 调度模式 */
+  scheduleMode?: ScheduleMode;
+  /** 人类可读的调度描述（如 "Every 30 minutes"） */
+  scheduleDisplay?: string;
+  /** 静默模式：完成时不发送通知 */
+  silent?: boolean;
+  /** 最后运行时间戳 */
   lastRun?: number;
+  /** 下次运行时间戳 */
   nextRun?: number;
+  /** 上次运行耗时 (ms) */
+  lastDurationMs?: number;
+  /** 上次运行状态 */
+  lastStatus?: "ok" | "error" | "skipped";
+  /** 上次错误信息 */
+  lastError?: string;
+  /** 连续错误次数 */
+  consecutiveErrors?: number;
+  /** 当前状态 */
   status: "idle" | "running" | "error";
 }
 

@@ -25,6 +25,10 @@ export interface StatusLineProps {
   busy?: boolean;
   /** 连接状态 */
   connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
+  /** Cron 下次唤醒时间 (ms) */
+  cronNextWakeAt?: number;
+  /** Cron 调度器是否启用 */
+  cronEnabled?: boolean;
   /** 背景色 */
   backgroundColor?: string;
   /** 文本颜色 */
@@ -50,6 +54,20 @@ function formatTokens(val?: number): string {
   return String(val);
 }
 
+function formatCronNextWake(nextWakeMs: number, now: number): string {
+  const diff = nextWakeMs - now;
+  if (diff <= 0) return 'due';
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  const remainder = min % 60;
+  if (hr < 24) return remainder > 0 ? `${hr}h${remainder}m` : `${hr}h`;
+  const days = Math.floor(hr / 24);
+  return `${days}d${hr % 24}h`;
+}
+
 export function StatusLine({
   modelName,
   tokens,
@@ -58,6 +76,8 @@ export function StatusLine({
   statusText,
   busy = false,
   connectionStatus = 'connected',
+  cronNextWakeAt,
+  cronEnabled,
   backgroundColor = 'black',
   textColor = 'white',
   visible = true,
@@ -119,6 +139,19 @@ export function StatusLine({
 
   const rightSection = (
     <Box>
+      {cronEnabled !== undefined && (
+        <>
+          <Text color={cronEnabled ? 'green' : 'gray'} dim>
+            {cronEnabled ? '⏱' : '⏱'}
+          </Text>
+          {cronNextWakeAt !== undefined && cronNextWakeAt > 0 && (
+            <Text color="gray" dim>
+              {' '}{formatCronNextWake(cronNextWakeAt, now)}
+            </Text>
+          )}
+          <Text> </Text>
+        </>
+      )}
       {cost !== undefined && cost > 0 && (
         <>
           <Text color="gray" dim>

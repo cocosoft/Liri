@@ -225,8 +225,14 @@ export class CronScheduler {
     // 更新重复计数
     await this.store.incrementRepeatCompleted(job.id);
 
-    // 投递结果
-    if (this.callbacks.dispatchDelivery) {
+    // 投递结果（静默任务跳过通知）
+    if (job.silent) {
+      logger.info('[CronScheduler] 静默任务完成（跳过通知）', {
+        jobId: job.id,
+        name: job.name,
+      });
+    }
+    if (this.callbacks.dispatchDelivery && !job.silent) {
       try {
         await this.callbacks.dispatchDelivery(job, result);
       } catch (deliveryError) {

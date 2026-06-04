@@ -121,6 +121,8 @@ export interface CronJob {
   ownerKey?: string;
   /** 归属会话 Key */
   sessionKey?: string;
+  /** 静默模式：完成时不发送通知 */
+  silent?: boolean;
 }
 
 /** 调度锁 */

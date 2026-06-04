@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { CronTask } from "../types";
+import type { CronTask, ScheduleMode } from "../types";
 import { cronService } from "../services/cronService";
 
 interface CronStore {
@@ -8,7 +8,14 @@ interface CronStore {
   error: string | null;
 
   loadTasks: () => Promise<void>;
-  createTask: (task: Omit<CronTask, "id" | "status">) => Promise<void>;
+  createTask: (task: {
+    name: string;
+    expression: string;
+    description?: string;
+    enabled?: boolean;
+    scheduleMode?: ScheduleMode;
+    silent?: boolean;
+  }) => Promise<void>;
   updateTask: (id: string, updates: Partial<CronTask>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleTask: (id: string, enabled: boolean) => Promise<void>;
@@ -32,7 +39,14 @@ export const useCronStore = create<CronStore>((set, get) => ({
 
   createTask: async (task) => {
     try {
-      const created = await cronService.create(task);
+      const created = await cronService.create({
+        name: task.name,
+        expression: task.expression,
+        description: task.description ?? "",
+        enabled: task.enabled ?? true,
+        scheduleMode: task.scheduleMode,
+        silent: task.silent,
+      } satisfies Omit<CronTask, "id" | "status">);
       set({ tasks: [...get().tasks, created] });
     } catch (e) {
       set({ error: String(e) });

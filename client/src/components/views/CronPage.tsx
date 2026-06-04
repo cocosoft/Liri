@@ -3,6 +3,7 @@ import { useCronStore } from "../../stores/cronStore";
 import { SkeletonCard } from "../common/Skeleton";
 import CronExecutionHistory from "../Cron/CronExecutionHistory";
 import CronRetryConfig from "../Cron/CronRetryConfig";
+import type { ScheduleMode } from "../../types";
 
 function CronPage() {
   const {
@@ -35,6 +36,14 @@ function CronPage() {
     expression: "",
     description: "",
     enabled: true,
+    scheduleMode: "cron" as ScheduleMode,
+    silent: false,
+    // Every mode
+    everyValue: 30,
+    everyUnit: "minutes" as "minutes" | "hours" | "days",
+    // At mode
+    atHour: "14",
+    atMinute: "00",
   });
   const [notification, setNotification] = useState<{
     message: string;
@@ -129,7 +138,14 @@ function CronPage() {
   };
 
   const handleCreateCronTask = async () => {
-    if (!newCronForm.name.trim() || !newCronForm.expression.trim()) {
+    // Build expression from schedule mode
+    let expression = newCronForm.expression.trim();
+    if (newCronForm.scheduleMode === "every") {
+      expression = `every ${newCronForm.everyValue}${newCronForm.everyUnit === "minutes" ? "m" : newCronForm.everyUnit === "hours" ? "h" : "d"}`;
+    } else if (newCronForm.scheduleMode === "at") {
+      expression = `at ${newCronForm.atHour}:${newCronForm.atMinute}`;
+    }
+    if (!newCronForm.name.trim() || !expression) {
       showNotification("请填写任务名称和 Cron 表达式", "info");
       return;
     }
@@ -138,9 +154,11 @@ function CronPage() {
     try {
       await createTask({
         name: newCronForm.name.trim(),
-        expression: newCronForm.expression.trim(),
+        expression,
         description: newCronForm.description.trim(),
         enabled: newCronForm.enabled,
+        scheduleMode: newCronForm.scheduleMode,
+        silent: newCronForm.silent,
       });
       setShowCreateModal(false);
       setNewCronForm({
@@ -148,6 +166,12 @@ function CronPage() {
         expression: "",
         description: "",
         enabled: true,
+        scheduleMode: "cron",
+        silent: false,
+        everyValue: 30,
+        everyUnit: "minutes",
+        atHour: "14",
+        atMinute: "00",
       });
       showNotification("定时任务创建成功", "success");
     } catch {
@@ -172,6 +196,42 @@ function CronPage() {
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN");
+  };
+
+  /** 构建调度表达式的可读预览 */
+  const buildSchedulePreview = (): string => {
+    if (newCronForm.scheduleMode === "cron") {
+      const expr = newCronForm.expression.trim();
+      return expr || "—";
+    }
+    if (newCronForm.scheduleMode === "every") {
+      const unitLabel =
+        newCronForm.everyUnit === "minutes" ? "分钟" :
+        newCronForm.everyUnit === "hours" ? "小时" : "天";
+      return `每 ${newCronForm.everyValue} ${unitLabel}`;
+    }
+    // at mode
+    return `每天 ${newCronForm.atHour}:${newCronForm.atMinute}`;
+  };
+
+  /** 套用预设模板 */
+  const applyTemplate = (template: {
+    scheduleMode: ScheduleMode;
+    cronExpr?: string;
+    everyValue?: number;
+    everyUnit?: "minutes" | "hours" | "days";
+    atHour?: string;
+    atMinute?: string;
+  }) => {
+    setNewCronForm((prev) => ({
+      ...prev,
+      scheduleMode: template.scheduleMode,
+      expression: template.cronExpr ?? prev.expression,
+      everyValue: template.everyValue ?? prev.everyValue,
+      everyUnit: template.everyUnit ?? prev.everyUnit,
+      atHour: template.atHour ?? prev.atHour,
+      atMinute: template.atMinute ?? prev.atMinute,
+    }));
   };
 
   return (
@@ -352,6 +412,35 @@ function CronPage() {
               </div>
             </div>
 
+            {/* 调度模板预设 */}
+            <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                快速模板（点击套用）
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "每30分钟", scheduleMode: "every" as ScheduleMode, everyValue: 30, everyUnit: "minutes" as const },
+                  { label: "每小时", scheduleMode: "every" as ScheduleMode, everyValue: 1, everyUnit: "hours" as const },
+                  { label: "每6小时", scheduleMode: "every" as ScheduleMode, everyValue: 6, everyUnit: "hours" as const },
+                  { label: "每天8:00", scheduleMode: "cron" as ScheduleMode, cronExpr: "0 8 * * *" },
+                  { label: "每天14:00", scheduleMode: "at" as ScheduleMode, atHour: "14", atMinute: "00" },
+                  { label: "每天9:00", scheduleMode: "at" as ScheduleMode, atHour: "9", atMinute: "00" },
+                  { label: "每周一9:00", scheduleMode: "cron" as ScheduleMode, cronExpr: "0 9 * * 1" },
+                ].map((tpl) => (
+                  <button
+                    key={tpl.label}
+                    onClick={() => {
+                      setShowCreateModal(true);
+                      applyTemplate(tpl);
+                    }}
+                    className="text-xs px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 rounded-full transition-colors border border-gray-200 dark:border-gray-600"
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {selectedTaskIds.length > 0 && (
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -508,6 +597,16 @@ function CronPage() {
                               >
                                 {task.enabled ? "✓ 已启用" : "✗ 已禁用"}
                               </span>
+                              {task.silent && (
+                                <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                                  🔇 静默
+                                </span>
+                              )}
+                              {task.scheduleDisplay && (
+                                <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                                  {task.scheduleDisplay}
+                                </span>
+                              )}
                               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                                 {task.name}
                               </h3>
@@ -716,13 +815,13 @@ function CronPage() {
 
         {activeTab === "history" && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <CronExecutionHistory />
+            <CronExecutionHistory tasks={tasks} />
           </div>
         )}
 
         {activeTab === "retry" && (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <CronRetryConfig />
+            <CronRetryConfig tasks={tasks} />
           </div>
         )}
       </div>
@@ -733,7 +832,7 @@ function CronPage() {
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -758,26 +857,179 @@ function CronPage() {
                     className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400"
                   />
                 </div>
+
+                {/* 调度模式选择 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Cron 表达式 *
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    调度模式
                   </label>
-                  <input
-                    type="text"
-                    value={newCronForm.expression}
-                    onChange={(e) =>
-                      setNewCronForm((prev) => ({
-                        ...prev,
-                        expression: e.target.value,
-                      }))
-                    }
-                    placeholder="例如: 0 */6 * * *"
-                    className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 font-mono"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    格式: 分 时 日 月 周 (空格分隔)
-                  </p>
+                  <div className="flex gap-2">
+                    {(
+                      [
+                        { value: "cron", label: "Cron 表达式" },
+                        { value: "every", label: "间隔模式" },
+                        { value: "at", label: "定点模式" },
+                      ] as { value: ScheduleMode; label: string }[]
+                    ).map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() =>
+                          setNewCronForm((prev) => ({
+                            ...prev,
+                            scheduleMode: opt.value,
+                          }))
+                        }
+                        className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          newCronForm.scheduleMode === opt.value
+                            ? "bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-700 dark:text-blue-400 font-medium"
+                            : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Cron 模式：文本输入 */}
+                {newCronForm.scheduleMode === "cron" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Cron 表达式
+                    </label>
+                    <input
+                      type="text"
+                      value={newCronForm.expression}
+                      onChange={(e) =>
+                        setNewCronForm((prev) => ({
+                          ...prev,
+                          expression: e.target.value,
+                        }))
+                      }
+                      placeholder="例如: 0 8 * * *"
+                      className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 font-mono"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      格式: 分 时 日 月 周 (空格分隔)
+                    </p>
+                  </div>
+                )}
+
+                {/* Every 模式：数值 + 单位 */}
+                {newCronForm.scheduleMode === "every" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      间隔
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newCronForm.everyValue}
+                        onChange={(e) =>
+                          setNewCronForm((prev) => ({
+                            ...prev,
+                            everyValue: Math.max(1, parseInt(e.target.value) || 1),
+                          }))
+                        }
+                        className="w-24 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                      />
+                      <select
+                        value={newCronForm.everyUnit}
+                        onChange={(e) =>
+                          setNewCronForm((prev) => ({
+                            ...prev,
+                            everyUnit: e.target.value as "minutes" | "hours" | "days",
+                          }))
+                        }
+                        className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="minutes">分钟</option>
+                        <option value="hours">小时</option>
+                        <option value="days">天</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* At 模式：时:分 */}
+                {newCronForm.scheduleMode === "at" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      时间 (每天)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={newCronForm.atHour}
+                        onChange={(e) =>
+                          setNewCronForm((prev) => ({
+                            ...prev,
+                            atHour: e.target.value.padStart(2, "0"),
+                          }))
+                        }
+                        className="w-20 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                        placeholder="时"
+                      />
+                      <span className="text-gray-500 dark:text-gray-400 font-bold">:</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={newCronForm.atMinute}
+                        onChange={(e) =>
+                          setNewCronForm((prev) => ({
+                            ...prev,
+                            atMinute: e.target.value.padStart(2, "0"),
+                          }))
+                        }
+                        className="w-20 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                        placeholder="分"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 人类可读预览 */}
+                <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <span className="text-xs text-blue-500 dark:text-blue-400 font-medium">
+                    预览:{" "}
+                  </span>
+                  <span className="text-sm text-blue-700 dark:text-blue-300 font-mono">
+                    {buildSchedulePreview()}
+                  </span>
+                </div>
+
+                {/* 静默开关 */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      🔇 静默模式
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      完成后不发送通知
+                    </p>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setNewCronForm((prev) => ({ ...prev, silent: !prev.silent }))
+                    }
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      newCronForm.silent
+                        ? "bg-purple-500"
+                        : "bg-gray-300 dark:bg-gray-600"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        newCronForm.silent ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     描述
@@ -825,6 +1077,12 @@ function CronPage() {
                       expression: "",
                       description: "",
                       enabled: true,
+                      scheduleMode: "cron",
+                      silent: false,
+                      everyValue: 30,
+                      everyUnit: "minutes",
+                      atHour: "14",
+                      atMinute: "00",
                     });
                   }}
                   className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
@@ -835,12 +1093,12 @@ function CronPage() {
                   onClick={handleCreateCronTask}
                   disabled={
                     !newCronForm.name.trim() ||
-                    !newCronForm.expression.trim() ||
+                    (newCronForm.scheduleMode === "cron" && !newCronForm.expression.trim()) ||
                     isSubmitting
                   }
                   className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  创建
+                  {isSubmitting ? "创建中..." : "创建"}
                 </button>
               </div>
             </div>

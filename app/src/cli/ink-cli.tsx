@@ -16,6 +16,8 @@ import { getToolManager } from '@modules/tools/ToolManager';
 import { profileReport } from '@modules/utils/startupProfiler';
 import { CompanionSprite } from '@modules/buddy/CompanionSprite';
 import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
+import { TaskListV2 } from '@modules/components/TaskListV2';
+import type { TaskGroup, TaskItem } from '@modules/components/TaskListV2';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -47,6 +49,11 @@ const MainMenu = ({
 
       <Button onClick={() => onMenuChange('profile')} width="100%">
         View Startup Profile
+      </Button>
+      <Box height={1} />
+
+      <Button onClick={() => onMenuChange('tasks')} width="100%">
+        Manage Tasks
       </Button>
       <Box height={1} />
 
@@ -243,6 +250,120 @@ const ProfileReport = ({
 };
 
 /**
+ * 任务视图组件
+ * 从任务注册表加载真实数据，使用 TaskListV2 组件渲染
+ */
+const TasksView = ({
+  onMenuChange,
+}: {
+  onMenuChange: (menu: string) => void;
+}) => {
+  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
+  const [taskCount, setTaskCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const { taskRegistry } = await import('@modules/tasks/TaskRegistry');
+        const allTasks = taskRegistry.getAllTasks();
+        const groups: TaskGroup[] = [];
+        const statusOrder = ['running', 'pending', 'completed', 'failed'];
+
+        for (const status of statusOrder) {
+          const statusTasks: TaskItem[] = [];
+          for (const task of allTasks) {
+            const state = task.taskState;
+            let mappedStatus: TaskItem['status'] = 'pending';
+            if (state.status === 'running') mappedStatus = 'running';
+            else if (state.status === 'completed') mappedStatus = 'completed';
+            else if (state.status === 'failed') mappedStatus = 'failed';
+            else if (state.status === 'killed') mappedStatus = 'cancelled';
+
+            if (
+              (status === 'running' && mappedStatus === 'running') ||
+              (status === 'pending' && mappedStatus === 'pending') ||
+              (status === 'completed' && mappedStatus === 'completed') ||
+              (status === 'failed' && (mappedStatus === 'failed' || mappedStatus === 'cancelled'))
+            ) {
+              const meta = state.metadata || {};
+              statusTasks.push({
+                id: state.id,
+                title: state.description || 'Untitled',
+                description: state.error ? `Error: ${state.error}` : undefined,
+                status: mappedStatus,
+                priority: (meta.priority as TaskItem['priority']) || undefined,
+                tags: meta.tags as string[] | undefined,
+              });
+            }
+          }
+          if (statusTasks.length > 0) {
+            const label =
+              status === 'running' ? 'Running' :
+              status === 'pending' ? 'Pending' :
+              status === 'completed' ? 'Completed' :
+              'Failed/Cancelled';
+            groups.push({ name: label, tasks: statusTasks });
+          }
+        }
+
+        setTaskGroups(groups);
+        setTaskCount(allTasks.length);
+      } catch {
+        // 任务注册表可能未初始化
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTasks();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box flexDirection="column" padding={2} width="100%" height="100%">
+        <Text bold color="green">
+          Task Management
+        </Text>
+        <Box height={1} />
+        <Text>Loading tasks...</Text>
+        <Box height={2} />
+        <Button onClick={() => onMenuChange('main')} width="100%" color="gray">
+          Back to Main Menu
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column" padding={2} width="100%" height="100%">
+      <Text bold color="green">
+        Task Management {taskCount > 0 ? `(${taskCount} tasks)` : ''}
+      </Text>
+      <Box height={1} />
+
+      <ScrollBox width="100%" height="80%">
+        {taskGroups.length === 0 ? (
+          <Text color="gray">No tasks found.</Text>
+        ) : (
+          <TaskListV2
+            groups={taskGroups}
+            showProgressBar={false}
+            showPriority={true}
+            showTags={false}
+            expandAll={false}
+          />
+        )}
+      </ScrollBox>
+
+      <Box height={2} />
+      <Button onClick={() => onMenuChange('main')} width="100%" color="gray">
+        Back to Main Menu
+      </Button>
+    </Box>
+  );
+};
+
+/**
  * 主应用组件
  */
 const App = () => {
@@ -321,6 +442,9 @@ const App = () => {
           )}
           {currentMenu === 'profile' && (
             <ProfileReport onMenuChange={handleMenuChange} />
+          )}
+          {currentMenu === 'tasks' && (
+            <TasksView onMenuChange={handleMenuChange} />
           )}
         </Box>
         <Box>

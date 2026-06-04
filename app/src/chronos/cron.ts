@@ -1,6 +1,12 @@
 /**
  * Cron expression parsing and scheduling module
  * Based on CC source: cc_code/backend/utils/cron.ts
+ *
+ * Supports three schedule input modes (aligned with OpenClaw):
+ *   1. Standard 5-field cron: "0 8 * * *"
+ *   2. Every-style: "every 30m" / "every 2 hours"
+ *   3. At-style: "at 14:00" / "at 9:30"
+ *   4. Macro aliases: @daily, @hourly, @weekly, @monthly, @yearly
  */
 
 export type CronFields = {
@@ -11,7 +17,129 @@ export type CronFields = {
   dayOfWeek: number[];
 };
 
+/** Normalized schedule kind, mirroring OpenClaw's CronSchedule union */
+export type ScheduleKind = 'cron' | 'every' | 'at';
+
+/** Parsed human-friendly schedule before normalization to 5-field cron */
+export type ParsedSchedule =
+  | { kind: 'cron'; expr: string }
+  | { kind: 'every'; everyMs: number }
+  | { kind: 'at'; at: string };
+
 type FieldRange = { min: number; max: number };
+
+// ─── Macro aliases ───
+const MACRO_ALIASES: Record<string, string> = {
+  '@yearly': '0 0 1 1 *',
+  '@annually': '0 0 1 1 *',
+  '@monthly': '0 0 1 * *',
+  '@weekly': '0 0 * * 0',
+  '@daily': '0 0 * * *',
+  '@midnight': '0 0 * * *',
+  '@hourly': '0 * * * *',
+};
+
+// ─── Every-style parsing ───
+const EVERY_REGEX = /^every\s+(\d+)\s*(m(?:in(?:ute)?s?)?|hr?s?|h(?:our)?s?|d(?:ay)?s?)$/i;
+const EVERY_MS_MAP: Record<string, number> = {
+  m: 60_000,
+  min: 60_000,
+  mins: 60_000,
+  minute: 60_000,
+  minutes: 60_000,
+  h: 3_600_000,
+  hr: 3_600_000,
+  hrs: 3_600_000,
+  hour: 3_600_000,
+  hours: 3_600_000,
+  d: 86_400_000,
+  day: 86_400_000,
+  days: 86_400_000,
+};
+
+// ─── At-style parsing ───
+const AT_REGEX = /^at\s+(\d{1,2}):(\d{2})$/i;
+
+/**
+ * Parse a human-friendly schedule expression into a ParsedSchedule.
+ * Accepts:
+ *   - Standard 5-field cron: "0 8 * * *"
+ *   - Macro aliases: @daily, @hourly, etc.
+ *   - Every-style: "every 30m", "every 2 hours"
+ *   - At-style: "at 14:00"
+ */
+export function parseSchedule(expr: string): ParsedSchedule | null {
+  const trimmed = expr.trim();
+  if (!trimmed) return null;
+
+  // Macro aliases
+  const macro = MACRO_ALIASES[trimmed.toLowerCase()];
+  if (macro) {
+    return { kind: 'cron', expr: macro };
+  }
+
+  // Every-style
+  const everyMatch = trimmed.match(EVERY_REGEX);
+  if (everyMatch) {
+    const value = parseInt(everyMatch[1]!, 10);
+    const unit = everyMatch[2]!.toLowerCase();
+    const msPerUnit = EVERY_MS_MAP[unit];
+    if (msPerUnit && value > 0) {
+      return { kind: 'every', everyMs: value * msPerUnit };
+    }
+  }
+
+  // At-style
+  const atMatch = trimmed.match(AT_REGEX);
+  if (atMatch) {
+    const hour = parseInt(atMatch[1]!, 10);
+    const minute = parseInt(atMatch[2]!, 10);
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return { kind: 'at', at: trimmed };
+    }
+  }
+
+  // Standard cron fallback
+  if (trimmed.split(/\s+/).length === 5) {
+    return { kind: 'cron', expr: trimmed };
+  }
+
+  return null;
+}
+
+/**
+ * Convert a ParsedSchedule to a standard 5-field cron expression.
+ */
+export function scheduleToCron(schedule: ParsedSchedule): string {
+  if (schedule.kind === 'cron') return schedule.expr;
+  if (schedule.kind === 'at') {
+    const m = schedule.at.match(AT_REGEX);
+    if (m) return `${parseInt(m[2]!, 10)} ${parseInt(m[1]!, 10)} * * *`;
+    return schedule.at;
+  }
+  // every
+  const ms = schedule.everyMs;
+  const minuteMs = 60_000;
+  const hourMs = 3_600_000;
+  const dayMs = 86_400_000;
+  if (ms < minuteMs) return `*/${Math.round(ms / minuteMs)} * * * *`;
+  if (ms < hourMs) return `*/${Math.round(ms / minuteMs)} * * * *`;
+  if (ms < dayMs) return `0 */${Math.round(ms / hourMs)} * * *`;
+  return `0 0 */${Math.round(ms / dayMs)} * *`;
+}
+
+/**
+ * Normalize any schedule expression (cron/every/at/macro) to a 5-field cron string.
+ * Returns null if the expression is invalid.
+ */
+export function normalizeSchedule(expr: string): string | null {
+  const parsed = parseSchedule(expr);
+  if (!parsed) return null;
+  const cron = scheduleToCron(parsed);
+  // Validate the resulting cron expression
+  if (!parseCronExpression(cron)) return null;
+  return cron;
+}
 
 const FIELD_RANGES: FieldRange[] = [
   { min: 0, max: 59 },
@@ -261,10 +389,65 @@ export function cronToHuman(cron: string, utc: boolean = false): string {
 }
 
 /**
- * Validate cron expression
- * @param expr cron expression string
+ * Validate a schedule expression (supports cron, every, at, macro).
+ * @param expr schedule expression string
  * @returns Whether valid
  */
 export function isValidCronExpression(expr: string): boolean {
-  return parseCronExpression(expr) !== null;
+  const parsed = parseSchedule(expr);
+  if (!parsed) return false;
+  if (parsed.kind === 'every') return true;
+  if (parsed.kind === 'at') return true;
+  return parseCronExpression(parsed.expr) !== null;
+}
+
+/**
+ * Get display text for a ParsedSchedule (human-friendly label).
+ */
+export function scheduleToDisplayText(
+  expr: string,
+  fallback: string = '—'
+): string {
+  const parsed = parseSchedule(expr);
+  if (!parsed) return fallback;
+
+  if (parsed.kind === 'every') {
+    const ms = parsed.everyMs;
+    if (ms >= 86_400_000) {
+      const days = Math.round(ms / 86_400_000);
+      return days === 1 ? 'Every day' : `Every ${days} days`;
+    }
+    if (ms >= 3_600_000) {
+      const hours = Math.round(ms / 3_600_000);
+      return hours === 1 ? 'Every hour' : `Every ${hours} hours`;
+    }
+    const minutes = Math.round(ms / 60_000);
+    return minutes === 1 ? 'Every minute' : `Every ${minutes} minutes`;
+  }
+
+  if (parsed.kind === 'at') {
+    const m = parsed.at.match(AT_REGEX);
+    if (m) {
+      const h = parseInt(m[1]!, 10);
+      const min = parseInt(m[2]!, 10);
+      return `At ${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')} daily`;
+    }
+    return parsed.at;
+  }
+
+  // cron - check for macro aliases
+  const trimmed = expr.trim().toLowerCase();
+  for (const [alias, expanded] of Object.entries(MACRO_ALIASES)) {
+    if (trimmed === alias || expanded === parsed.expr) {
+      const labels: Record<string, string> = {
+        '@yearly': 'Yearly', '@annually': 'Yearly',
+        '@monthly': 'Monthly', '@weekly': 'Weekly',
+        '@daily': 'Daily', '@midnight': 'Daily',
+        '@hourly': 'Hourly',
+      };
+      return labels[alias] || alias;
+    }
+  }
+
+  return cronToHuman(parsed.expr);
 }

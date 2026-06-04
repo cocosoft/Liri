@@ -320,6 +320,9 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
   lines.push(`${color}${icon}${RESET} 任务详情`);
   lines.push('─'.repeat(50));
   lines.push(`  ID:          ${task.taskId}`);
+  if (task.taskType) {
+    lines.push(` 来源路由:    ${task.taskType}`);
+  }
   lines.push(
     `  Agent:       ${task.agentName || 'unknown'} (${task.agentType || 'unknown'})`
   );

@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "id": "3eeec201",
+      "cron": "8 22 * * *",
+      "prompt": "执行 AI Agent 日报任务:搜索今天最新的 AI Agent 技术新闻(以技术框架、架构设计、工具链为主),参考知识库中的日报模板格式,生成当日 AI Agent 技术日报写入到 app/data/ 目录下,文件名为 ai_agent_daily_YYYY-MM-DD。重点关注:1) 主流框架更新 2) MCP 协议演进 3) 多 Agent 协作模式 ) 对 Liri 项目有参考价值的技术点。",
+      "createdAt": 1780524597145,
+      "recurring": true,
+      "permanent": false,
+      "taskType": "prompt"
+    }
+  ]
+}

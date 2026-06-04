@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS cron_jobs (
   context_from TEXT,
   owner_key TEXT,
   session_key TEXT,
+  silent INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL
 );
 
@@ -102,6 +103,7 @@ function rowToCronJob(row: any): CronJob {
     contextFrom: row.context_from ? JSON.parse(row.context_from) : undefined,
     ownerKey: row.owner_key ?? undefined,
     sessionKey: row.session_key ?? undefined,
+    silent: row.silent === 1,
   };
 
   return job;
@@ -141,6 +143,7 @@ function cronJobToRow(job: CronJob): Record<string, unknown> {
     context_from: job.contextFrom ? JSON.stringify(job.contextFrom) : null,
     owner_key: job.ownerKey ?? null,
     session_key: job.sessionKey ?? null,
+    silent: job.silent ? 1 : 0,
     updated_at: Date.now(),
   };
 }
@@ -163,16 +166,23 @@ export class CronJobStore {
           return;
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
-          if (schemaErr) {
-            logger.error('[CronJobStore] 初始化表结构失败', {
-              error: schemaErr.message,
-            });
-            reject(schemaErr);
-            return;
-          }
-          logger.info('[CronJobStore] 数据库初始化完成');
-          resolve();
-        });
+            if (schemaErr) {
+              logger.error('[CronJobStore] 初始化表结构失败', {
+                error: schemaErr.message,
+              });
+              reject(schemaErr);
+              return;
+            }
+            // 迁移：添加 silent 列（兼容旧库）
+            this.db!.run(
+              `ALTER TABLE cron_jobs ADD COLUMN silent INTEGER NOT NULL DEFAULT 0`,
+              (/* noop */) => {
+                // 忽略 "column already exists" 错误
+              }
+            );
+            logger.info('[CronJobStore] 数据库初始化完成');
+            resolve();
+          });
       });
     });
   }

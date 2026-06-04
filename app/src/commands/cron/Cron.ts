@@ -1,6 +1,7 @@
 /**
  * Cron 命令实现
  * 定时作业管理：创建/查看/暂停/恢复/删除/统计
+ * 支持三种调度语法：cron 表达式 / every 30m / at 14:00 / @daily
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
@@ -10,8 +11,12 @@ import type {
   CronSchedule,
   CronJobFilter,
 } from '@modules/tasks/cron/types';
+import {
+  parseSchedule,
+  scheduleToCron,
+  scheduleToDisplayText,
+} from '@modules/chronos/cron';
 import { resolveDbPath } from '@modules/config/paths';
-import { join } from 'path';
 
 const CRON_DATA_DIR = process.env.CRON_DATA_DIR || '';
 
@@ -60,16 +65,17 @@ function formatJobTable(jobs: CronJob[]): string {
   if (jobs.length === 0) return '暂无作业';
 
   const header =
-    'ID         | 名称                | 调度            | 状态        | 下次运行   ';
+    'ID         | 名称                | 调度            | 状态        | 通知    | 下次运行   ';
   const sep =
-    '-----------+---------------------+-----------------+-------------+-------------';
+    '-----------+---------------------+-----------------+-------------+---------+-------------';
   const rows = jobs.map((j) => {
     const id = j.id.padEnd(10).slice(0, 10);
     const name = j.name.padEnd(20).slice(0, 20);
     const schedule = formatSchedule(j.schedule).padEnd(16).slice(0, 16);
     const state = j.state.padEnd(12).slice(0, 12);
+    const notify = (j.silent ? '🔇静默' : '📢通知').padEnd(8).slice(0, 8);
     const nextRun = formatDate(j.nextRunAt).padEnd(12).slice(0, 12);
-    return `${id} | ${name} | ${schedule} | ${state} | ${nextRun}`;
+    return `${id} | ${name} | ${schedule} | ${state} | ${notify} | ${nextRun}`;
   });
 
   return [header, sep, ...rows].join('\n');
@@ -161,18 +167,75 @@ export default {
   },
 
   async handleAdd(args: string[]): Promise<CommandResult> {
+    // Parse /cron add <name> <schedule> [--silent] [prompt...]
+    if (args.length < 2) {
+      return {
+        success: false,
+        type: 'text',
+        message:
+          `用法: /cron add <名称> <调度表达式> [--silent] [prompt...]\n\n` +
+          `调度表达式支持:\n` +
+          `  - Cron 标准:  "0 8 * * *"           (每天早上8点)\n` +
+          `  - Every:      "every 30m"           (每30分钟)\n` +
+          `                "every 2 hours"       (每2小时)\n` +
+          `  - At:         "at 14:00"            (每天14:00)\n` +
+          `  - 别名:       "@daily" "@hourly" "@weekly" "@monthly"\n\n` +
+          `选项:\n` +
+          `  --silent      静默执行（完成后不发送通知）`,
+      };
+    }
+
+    const name = args[0]!;
+    const scheduleExpr = args[1]!;
+    
+    // Check for --silent flag
+    let silent = false;
+    const remaining = args.slice(2).filter((arg) => {
+      if (arg === '--silent' || arg === '-s') {
+        silent = true;
+        return false;
+      }
+      return true;
+    });
+    const prompt = remaining.join(' ') || undefined;
+
+    // Parse and validate the schedule expression
+    const parsed = parseSchedule(scheduleExpr);
+    if (!parsed) {
+      return {
+        success: false,
+        type: 'text',
+        message:
+          `无效的调度表达式: "${scheduleExpr}"\n\n` +
+          `支持的格式:\n` +
+          `  - Cron: "0 8 * * *"\n` +
+          `  - Every: "every 30m" / "every 2 hours"\n` +
+          `  - At: "at 14:00"\n` +
+          `  - 别名: @daily @hourly @weekly @monthly`,
+      };
+    }
+
+    const cronExpr = scheduleToCron(parsed);
+    const displayText = scheduleToDisplayText(scheduleExpr);
+
     const store = await getStore();
     const job: CronJob = {
       id: generateId(),
-      name: args[0] || '未命名作业',
-      prompt: args.slice(1).join(' ') || undefined,
+      name,
+      prompt,
       skills: [],
-      schedule: { kind: 'interval', minutes: 30, display: '每 30 分钟' },
+      schedule: {
+        kind: parsed.kind === 'at' ? 'once' : parsed.kind === 'every' ? 'interval' : 'cron',
+        expr: cronExpr,
+        display: displayText,
+        minutes: parsed.kind === 'every' ? Math.round(parsed.everyMs / 60_000) : undefined,
+      } as CronSchedule,
       repeat: { times: null, completed: 0 },
       enabled: true,
       state: 'scheduled',
       createdAt: new Date().toISOString(),
       deliver: 'local',
+      silent,
     };
 
     await store.upsertJob(job);
@@ -180,7 +243,12 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `✅ 作业已创建\n\nID: ${job.id}\n名称: ${job.name}\n调度: ${formatSchedule(job.schedule)}`,
+      message:
+        `✅ 作业已创建\n\n` +
+        `ID:     ${job.id}\n` +
+        `名称:   ${job.name}\n` +
+        `调度:   ${displayText} (${cronExpr})\n` +
+        `通知:   ${silent ? '🔇 静默' : '📢 通知'}${prompt ? `\nPrompt: ${prompt}` : ''}`,
     };
   },
 
@@ -387,6 +455,7 @@ export default {
         lines.push(`来源:      ${job.origin.platform}/${job.origin.chatId}`);
       if (job.ownerKey) lines.push(`所有者:   ${job.ownerKey}`);
       if (job.sessionKey) lines.push(`会话:      ${job.sessionKey}`);
+      lines.push(`通知:      ${job.silent ? '🔇 静默（完成后不通知）' : '📢 通知'}`);
 
       return {
         success: true,
@@ -409,14 +478,15 @@ export default {
       message:
         `📋 Cron 定时作业管理\n\n` +
         `用法:\n` +
-        `  /cron                   查看帮助\n` +
-        `  /cron list [filter]     列出作业 (filter: enabled/paused/failed/completed)\n` +
-        `  /cron add <name>        创建新作业\n` +
-        `  /cron view <ID>         查看作业详情\n` +
-        `  /cron pause <ID>        暂停作业\n` +
-        `  /cron resume <ID>       恢复作业\n` +
-        `  /cron delete <ID>       删除作业\n` +
-        `  /cron stats             查看统计`,
+        `  /cron                       查看帮助\n` +
+        `  /cron list [filter]         列出作业 (filter: enabled/paused/failed/completed)\n` +
+        `  /cron add <名称> <调度> [prompt]  创建作业\n` +
+        `    调度: "0 8 * * *" | "every 30m" | "at 14:00" | @daily\n` +
+        `  /cron view <ID>             查看作业详情\n` +
+        `  /cron pause <ID>            暂停作业\n` +
+        `  /cron resume <ID>           恢复作业\n` +
+        `  /cron delete <ID>           删除作业\n` +
+        `  /cron stats                 查看统计`,
     };
   },
 };

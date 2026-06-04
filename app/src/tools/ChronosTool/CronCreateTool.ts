@@ -63,6 +63,14 @@ export class CronCreateTool {
           required: false,
           default: false,
         },
+        {
+          name: 'silent',
+          type: 'boolean',
+          description:
+            'true = run silently without sending notification when complete',
+          required: false,
+          default: false,
+        },
       ],
       aliases: ['schedule', 'cron_add'],
       searchTips: ['cron', 'schedule', 'recurring', 'reminder', 'timer'],
@@ -101,6 +109,7 @@ export class CronCreateTool {
         const prompt = input.prompt as string;
         const recurring = (input.recurring as boolean) ?? true;
         const durable = (input.durable as boolean) ?? false;
+        const silent = (input.silent as boolean) ?? false;
 
         try {
           const tasks = await listAllCronTasks();
@@ -113,7 +122,7 @@ export class CronCreateTool {
             );
           }
 
-          const id = await addCronTask(cron, prompt, recurring, durable);
+          const id = await addCronTask(cron, prompt, recurring, durable, undefined, undefined, silent);
 
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
           const humanSchedule = cronToHuman(cron);
@@ -124,10 +133,11 @@ export class CronCreateTool {
               humanSchedule,
               recurring,
               durable,
+              silent,
             },
             {
               executionTime,
-              output: `Scheduled ${recurring ? 'recurring' : 'one-shot'} job ${id} (${humanSchedule}). ${durable ? 'Persisted to file' : 'Session-only'}`,
+              output: `Scheduled ${recurring ? 'recurring' : 'one-shot'} job ${id} (${humanSchedule}). ${durable ? 'Persisted to file' : 'Session-only'}${silent ? ' (silent)' : ''}`,
               toolName: 'cron_create',
               executionId: ToolUtils.generateExecutionId('cron_create'),
               timestamp: Date.now(),

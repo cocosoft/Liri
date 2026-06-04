@@ -1,75 +1,57 @@
 import { useState, useEffect } from "react";
 import { useConfigStore } from "../../stores/configStore";
+import type { CronTask } from "../../types";
 
 interface ExecutionRecord {
   id: string;
   taskId: string;
   taskName: string;
   startTime: string;
-  endTime: string;
+  endTime?: string;
   duration: number;
   status: "success" | "failed" | "running";
   output: string;
   error?: string;
 }
 
-function CronExecutionHistory() {
+interface CronExecutionHistoryProps {
+  tasks: CronTask[];
+}
+
+function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const [records] = useState<ExecutionRecord[]>([
-    {
-      id: "1",
-      taskId: "1",
-      taskName: "数据备份",
-      startTime: "2026-05-28 10:00:00",
-      endTime: "2026-05-28 10:05:00",
-      duration: 300,
-      status: "success",
-      output: "备份完成: 100MB",
-    },
-    {
-      id: "2",
-      taskId: "2",
-      taskName: "日志清理",
-      startTime: "2026-05-28 09:00:00",
-      endTime: "2026-05-28 09:02:00",
-      duration: 120,
-      status: "failed",
-      output: "",
-      error: "磁盘空间不足",
-    },
-    {
-      id: "3",
-      taskId: "1",
-      taskName: "数据备份",
-      startTime: "2026-05-27 10:00:00",
-      endTime: "2026-05-27 10:04:00",
-      duration: 240,
-      status: "success",
-      output: "备份完成: 95MB",
-    },
-    {
-      id: "4",
-      taskId: "3",
-      taskName: "健康检查",
-      startTime: "2026-05-28 08:30:00",
-      endTime: "2026-05-28 08:30:05",
-      duration: 5,
-      status: "success",
-      output: "系统正常",
-    },
-    {
-      id: "5",
-      taskId: "2",
-      taskName: "日志清理",
-      startTime: "2026-05-26 09:00:00",
-      endTime: "2026-05-26 09:01:00",
-      duration: 60,
-      status: "failed",
-      output: "",
-      error: "权限不足",
-    },
-  ]);
+
+  // Derive execution records from cron tasks with lastRun data
+  const records: ExecutionRecord[] = tasks
+    .filter((t) => t.lastRun)
+    .map((t) => ({
+      id: `${t.id}-${t.lastRun}`,
+      taskId: t.id,
+      taskName: t.name,
+      startTime: new Date(t.lastRun!).toLocaleString("zh-CN"),
+      endTime: t.lastDurationMs
+        ? new Date(t.lastRun! + t.lastDurationMs).toLocaleString("zh-CN")
+        : undefined,
+      duration: Math.round((t.lastDurationMs ?? 0) / 1000),
+      status: (
+        t.lastStatus === "ok"
+          ? "success"
+          : t.lastStatus === "error"
+            ? "failed"
+            : t.status === "running"
+              ? "running"
+              : "success"
+      ) as "success" | "failed" | "running",
+      output: t.lastStatus === "ok" ? "完成" : "",
+      error: t.lastError,
+    }))
+    .sort((a, b) => {
+      const ta = a.startTime;
+      const tb = b.startTime;
+      return tb.localeCompare(ta);
+    });
+
   const [filter, setFilter] = useState<"all" | "success" | "failed">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -115,6 +97,7 @@ function CronExecutionHistory() {
   };
 
   const formatDuration = (seconds: number) => {
+    if (seconds <= 0) return "—";
     if (seconds < 60) return `${seconds}秒`;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -124,7 +107,12 @@ function CronExecutionHistory() {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium">执行历史</h3>
+        <h3 className="text-sm font-medium">
+          执行历史
+          {records.length > 0 && (
+            <span className="ml-1 text-xs text-gray-400">({records.length})</span>
+          )}
+        </h3>
         <div className="flex gap-2">
           {(["all", "success", "failed"] as const).map((f) => (
             <button

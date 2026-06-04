@@ -82,6 +82,11 @@ export interface ScheduledTask {
   taskType: string;
 
   /**
+   * 静默模式：完成时不发送通知
+   */
+  silent?: boolean;
+
+  /**
    * 额外元数据 (JSON)
    */
   metadata?: Record<string, unknown>;

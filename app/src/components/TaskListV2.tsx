@@ -1,9 +1,9 @@
 /**
  * TaskListV2组件 - 增强版任务列表
- * 支持分组、进度追踪、状态筛选、批量操作
+ * 支持分组、进度追踪、搜索筛选、状态筛选、批量操作
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Text, Box } from 'ink';
 
 export type TaskStatus =
@@ -13,6 +13,10 @@ export type TaskStatus =
   | 'failed'
   | 'skipped'
   | 'cancelled';
+
+export const ALL_TASK_STATUSES: TaskStatus[] = [
+  'pending', 'running', 'completed', 'failed', 'skipped', 'cancelled',
+];
 
 export interface TaskItem {
   /** 任务ID */
@@ -59,6 +63,10 @@ export interface TaskListV2Props {
   showPriority?: boolean;
   /** 是否显示标签 */
   showTags?: boolean;
+  /** 搜索关键词（过滤标题/描述/标签/负责人） */
+  searchQuery?: string;
+  /** 状态过滤（只显示匹配状态的任务） */
+  statusFilter?: TaskStatus | 'all';
 }
 
 const statusIcons: Record<TaskStatus, string> = {
@@ -106,6 +114,51 @@ function ProgressBar({
       </Text>
     </Text>
   );
+}
+
+/** Filter a task item (and its children) by search query and status */
+function filterTaskItem(
+  task: TaskItem,
+  query: string,
+  statusFilter: TaskStatus | 'all'
+): TaskItem | null {
+  const statusMatch = statusFilter === 'all' || task.status === statusFilter;
+  if (!statusMatch) return null;
+
+  if (query) {
+    const q = query.toLowerCase();
+    const titleMatch = task.title.toLowerCase().includes(q);
+    const descMatch = task.description?.toLowerCase().includes(q);
+    const tagMatch = task.tags?.some((t) => t.toLowerCase().includes(q));
+    const assigneeMatch = task.assignee?.toLowerCase().includes(q);
+    const textMatch = titleMatch || descMatch || tagMatch || assigneeMatch;
+
+    // Also check children
+    const filteredChildren = task.children
+      ?.map((child) => filterTaskItem(child, query, statusFilter))
+      .filter((c): c is TaskItem => c !== null);
+
+    if (textMatch) {
+      return { ...task, children: filteredChildren };
+    }
+    if (filteredChildren && filteredChildren.length > 0) {
+      return { ...task, children: filteredChildren };
+    }
+    return null;
+  }
+
+  // No query — filter children by status only
+  const filteredChildren = task.children
+    ?.map((child) => filterTaskItem(child, '', statusFilter))
+    .filter((c): c is TaskItem => c !== null);
+
+  return {
+    ...task,
+    children:
+      filteredChildren && filteredChildren.length > 0
+        ? filteredChildren
+        : task.children,
+  };
 }
 
 function renderTask(
@@ -183,6 +236,25 @@ function renderTask(
   );
 }
 
+/**
+ * Filter groups by applying searchQuery and statusFilter to each task.
+ * Groups with zero matching tasks are excluded.
+ */
+function filterGroups(
+  groups: TaskGroup[],
+  query: string,
+  status: TaskStatus | 'all'
+): TaskGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      tasks: group.tasks
+        .map((t) => filterTaskItem(t, query, status))
+        .filter((t): t is TaskItem => t !== null),
+    }))
+    .filter((group) => group.tasks.length > 0);
+}
+
 export function TaskListV2({
   groups,
   showGroups = true,
@@ -191,29 +263,43 @@ export function TaskListV2({
   showProgressBar = true,
   showPriority = false,
   showTags = false,
+  searchQuery = '',
+  statusFilter = 'all',
 }: TaskListV2Props): React.ReactNode {
   const [expanded, setExpanded] = useState(expandAll);
 
-  const totalTasks = groups.reduce((sum, g) => sum + g.tasks.length, 0);
-  const completedTasks = groups.reduce(
+  const filteredGroups = useMemo(
+    () => filterGroups(groups, searchQuery, statusFilter),
+    [groups, searchQuery, statusFilter]
+  );
+
+  const totalTasks = filteredGroups.reduce((sum, g) => sum + g.tasks.length, 0);
+  const completedTasks = filteredGroups.reduce(
     (sum, g) => sum + g.tasks.filter((t) => t.status === 'completed').length,
     0
   );
-  const failedTasks = groups.reduce(
+  const failedTasks = filteredGroups.reduce(
     (sum, g) => sum + g.tasks.filter((t) => t.status === 'failed').length,
     0
   );
-  const runningTasks = groups.reduce(
+  const runningTasks = filteredGroups.reduce(
     (sum, g) => sum + g.tasks.filter((t) => t.status === 'running').length,
     0
   );
 
+  const hasActiveFilter = searchQuery !== '' || statusFilter !== 'all';
+
   if (totalTasks === 0) {
+    const rawTotal = groups.reduce((sum, g) => sum + g.tasks.length, 0);
     return (
-      <Box>
-        <Text color="gray" dim>
-          暂无任务
-        </Text>
+      <Box flexDirection="column">
+        <Box>
+          <Text color="gray" dim>
+            {rawTotal > 0
+              ? `无匹配任务 (筛选: ${searchQuery ? `"${searchQuery}"` : ''}${searchQuery && statusFilter !== 'all' ? ' + ' : ''}${statusFilter !== 'all' ? statusFilter : ''})`
+              : '暂无任务'}
+          </Text>
+        </Box>
       </Box>
     );
   }
@@ -222,14 +308,15 @@ export function TaskListV2({
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const displayGroups = maxTasks
-    ? groups.map((g) => ({
+    ? filteredGroups.map((g) => ({
         ...g,
         tasks: g.tasks.slice(0, maxTasks),
       }))
-    : groups;
+    : filteredGroups;
 
   return (
     <Box flexDirection="column" width="100%">
+      {/* Header */}
       <Box marginBottom={1}>
         <Text bold>{'任务列表 '}</Text>
         <Text color="gray" dim>
@@ -239,17 +326,40 @@ export function TaskListV2({
           )
         </Text>
       </Box>
+
+      {/* Active filter indicator */}
+      {hasActiveFilter && (
+        <Box marginBottom={1}>
+          {searchQuery && (
+            <Text color="yellow">
+              🔍 "{searchQuery}"
+            </Text>
+          )}
+          {searchQuery && statusFilter !== 'all' && (
+            <Text color="gray" dim> + </Text>
+          )}
+          {statusFilter !== 'all' && (
+            <Text color={statusColors[statusFilter as TaskStatus] ?? 'gray'}>
+              状态: {statusFilter}
+            </Text>
+          )}
+        </Box>
+      )}
+
+      {/* Progress bar */}
       {showProgressBar && (
         <Box marginBottom={1}>
           <ProgressBar percent={overallProgress} />
         </Box>
       )}
+
+      {/* Task groups */}
       <Box flexDirection="column">
         {displayGroups.map((group, groupIdx) => (
           <Box
             key={groupIdx}
             flexDirection="column"
-            marginBottom={groupIdx < groups.length - 1 ? 1 : 0}
+            marginBottom={groupIdx < displayGroups.length - 1 ? 1 : 0}
           >
             {showGroups && (
               <Box marginBottom={1}>

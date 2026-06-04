@@ -140,3 +140,23 @@ export { TaskAuditService } from './TaskAuditService';
 export { TaskMaintenanceService } from './TaskMaintenanceService';
 export { TaskStatusService } from './TaskStatusService';
 export type { SnapshotOptions, TaskStatusSnapshot } from './types';
+
+// 导出生命周期追踪
+export { LifecycleTracker } from './LifecycleTracker';
+export type { LifecyclePhase, LifecycleEvent, ILifecycleTask } from './LifecycleTracker';
+
+// 导出监控任务
+export { MonitorTask } from './MonitorTask';
+export type { MonitorTarget } from './MonitorTask';
+
+// 导出 PDCA 编排器
+export { LongRunningTaskOrchestrator, getOrCreateOrchestrator, getOrchestrator, getAllOrchestrators } from './LongRunningTaskOrchestrator';
+export type { PdcaPhase, PdcaStatus } from './LongRunningTaskOrchestrator';
+export { generateAuditReport } from './AuditReport';
+export type { AuditReport, AuditStepEntry } from './AuditReport';
+export { parseReviewFromText, isReviewPassed, formatReviewSummary } from './PlanReview';
+export type { PlanReview, ReviewIssue, ReviewDecision } from './PlanReview';
+
+// 导出 Curator 审查范围扩展
+export { CuratorReviewScope, curatorReviewScope } from '../tools/AgentTool/CuratorReviewScope';
+export type { ExtendedReviewResult, FileReviewTarget, MemoryReviewTarget, ConfigReviewTarget, CuratorScopeConfig } from '../tools/AgentTool/CuratorReviewScope';

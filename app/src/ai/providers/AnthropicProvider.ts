@@ -19,7 +19,7 @@ import {
 import { feature } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AnthropicMessagesTransport } from '../transports/AnthropicMessagesTransport';
+import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { ModelRegistry } from '../models/ModelRegistry';
@@ -79,7 +79,7 @@ export class AnthropicProvider implements AIProvider {
     });
 
     this.adapter = new TransportProviderAdapter(
-      new AnthropicMessagesTransport()
+      new MessagesApiTransport()
     );
   }
 

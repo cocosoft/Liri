@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "../../stores/agentStore";
 import type { AgentTaskTemplate } from "../../types";
+import { agentService } from "../../services/agentService";
+import { http } from "../../services/httpClient";
+import AgentChatPanel from "../Agent/AgentChatPanel";
+import PdcaPipeline from "../Agent/PdcaPipeline";
+import KanbanBoard from "../Agent/KanbanBoard";
 import { SkeletonCard } from "../common/Skeleton";
 
 function TaskCenterPage() {
@@ -22,7 +27,7 @@ function TaskCenterPage() {
 
   const [agentSearchQuery, setAgentSearchQuery] = useState("");
   const [agentStatusFilter, setAgentStatusFilter] = useState<
-    "all" | "pending" | "running" | "completed" | "failed"
+    "all" | "pending" | "running" | "completed" | "failed" | "lost"
   >("all");
   const [selectedAgentTaskIds, setSelectedAgentTaskIds] = useState<string[]>(
     [],
@@ -72,6 +77,18 @@ function TaskCenterPage() {
     tags: [] as string[],
   });
   const [templateTagInput, setTemplateTagInput] = useState("");
+
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [detailTab, setDetailTab] = useState<"info" | "audit" | "output" | "chat" | "orchestrate">("info");
+  const [plans, setPlans] = useState<any[]>([]);
+  const [flows, setFlows] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<Array<{
+    taskId: string; eventType: string; oldStatus: string | null; newStatus: string; timestamp: number;
+  }>>([]);
+  const [outputContent, setOutputContent] = useState<string | null>(null);
+  const [taskState, setTaskState] = useState<Record<string, unknown> | null>(null);
+  const [recoveringIds, setRecoveringIds] = useState<Set<string>>(new Set());
+  const auditLoadingRef = useRef(false);
 
   const expandedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -371,18 +388,24 @@ function TaskCenterPage() {
   useEffect(() => {
     loadAgentTasks();
     const interval = setInterval(() => {
-      loadAgentTasks();
+      if (autoRefresh) loadAgentTasks();
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [autoRefresh]);
 
   useEffect(() => {
     if (expandedPollRef.current) {
       clearInterval(expandedPollRef.current);
       expandedPollRef.current = null;
     }
+    setAuditLogs([]);
+    setOutputContent(null);
+    setTaskState(null);
+    setDetailTab("info");
     if (selectedTask) {
       getAgentTaskProgress(selectedTask.id);
+      agentService.getTaskState(selectedTask.id).then((s) => setTaskState(s ?? null)).catch(() => {});
+      agentService.getTaskAuditLogs(selectedTask.id).then((logs) => setAuditLogs(Array.isArray(logs) ? logs : [])).catch(() => {});
       if (selectedTask.status === "running") {
         expandedPollRef.current = setInterval(() => {
           getAgentTaskProgress(selectedTask.id);
@@ -489,6 +512,7 @@ function TaskCenterPage() {
     completed:
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    lost: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
   };
 
   const agentStatusText: Record<string, string> = {
@@ -496,10 +520,79 @@ function TaskCenterPage() {
     running: "运行中",
     completed: "已完成",
     failed: "失败",
+    lost: "已失联",
+  };
+
+  const reloadOutput = async (id: string) => {
+    try {
+      const content = await agentService.getTaskOutput(id);
+      setOutputContent(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+    } catch {
+      setOutputContent("(无法加载输出)");
+    }
+  };
+
+  const handleRecoverTask = async (id: string) => {
+    setRecoveringIds((prev) => new Set(prev).add(id));
+    try {
+      await agentService.recoverTask(id);
+      showNotification("任务已恢复为等待中", "success");
+      loadAgentTasks();
+    } catch {
+      showNotification("恢复失败", "error");
+    } finally {
+      setRecoveringIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const handleBatchKill = async () => {
+    const running = selectedAgentTaskIds.filter(
+      (id) => agentTasks.find((t) => t.id === id)?.status === "running",
+    );
+    if (running.length === 0) {
+      showNotification("没有可终止的运行中任务", "info");
+      return;
+    }
+    if (!confirm(`确定要终止 ${running.length} 个运行中的任务？`)) return;
+    try {
+      for (const id of running) {
+        await cancelAgentTask(id);
+      }
+      setSelectedAgentTaskIds([]);
+      showNotification(`已终止 ${running.length} 个任务`, "success");
+    } catch {
+      showNotification("部分任务终止失败", "error");
+    }
   };
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN");
+  };
+
+  const loadOrchestrationData = async () => {
+    try {
+      const [plansData, flowsData] = await Promise.all([
+        http.get<any[]>("/v1/plans").then((r: any) => r?.ok ? r.data : []),
+        http.get<any[]>("/v1/flows").then((r: any) => r?.ok ? r.data : []),
+      ]);
+      setPlans(Array.isArray(plansData) ? plansData : []);
+      setFlows(Array.isArray(flowsData) ? flowsData : []);
+    } catch {
+      // silent
+    }
+  };
+
+  const statusDot = (s: string) => {
+    const map: Record<string, string> = {
+      pending: "bg-yellow-400", running: "bg-blue-400 animate-pulse",
+      completed: "bg-green-400", failed: "bg-red-400", cancelled: "bg-gray-400",
+      aborted: "bg-red-400",
+    };
+    return map[s] || "bg-gray-300";
   };
 
   return (
@@ -663,6 +756,22 @@ function TaskCenterPage() {
               </div>
             </div>
 
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded"
+                />
+                自动刷新
+              </label>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <span className="text-xs text-gray-400">
+                已失联 {agentTasks.filter((t) => t.status === "lost").length}
+              </span>
+            </div>
+
             {selectedAgentTaskIds.length > 0 && (
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -683,6 +792,12 @@ function TaskCenterPage() {
                     className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg"
                   >
                     重新执行
+                  </button>
+                  <button
+                    onClick={handleBatchKill}
+                    className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
+                  >
+                    批量终止
                   </button>
                   <button
                     onClick={handleAgentBatchDelete}
@@ -739,6 +854,7 @@ function TaskCenterPage() {
                   <option value="running">运行中</option>
                   <option value="completed">已完成</option>
                   <option value="failed">失败</option>
+                  <option value="lost">已失联</option>
                 </select>
                 <select
                   value={agentSortBy}
@@ -923,6 +1039,25 @@ function TaskCenterPage() {
                                 </svg>
                               </button>
                             )}
+                            {task.status === "lost" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRecoverTask(task.id);
+                                }}
+                                disabled={recoveringIds.has(task.id)}
+                                className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
+                                title="恢复"
+                              >
+                                {recoveringIds.has(task.id) ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -980,6 +1115,11 @@ function TaskCenterPage() {
                               )}
                             </div>
                           )}
+                          {task.status === "lost" && (
+                            <div className="flex items-center gap-2 mr-2">
+                              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">失联</span>
+                            </div>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1026,9 +1166,9 @@ function TaskCenterPage() {
           {selectedTask && (
             <div className="w-80 shrink-0">
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sticky top-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    任务详情
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {selectedTask.name}
                   </h3>
                   <button
                     onClick={() => selectAgentTask(null as any)}
@@ -1050,149 +1190,233 @@ function TaskCenterPage() {
                   </button>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                      基本信息
-                    </h4>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {selectedTask.name}
-                        </p>
-                      </div>
-                      {selectedTask.description && (
-                        <div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                            {selectedTask.description}
-                          </p>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
+                {/* Tabs */}
+                <div className="flex gap-1 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+                  {(["info", "audit", "output", "chat", "orchestrate"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => {
+                        setDetailTab(tab);
+                        if (tab === "output" && !outputContent) reloadOutput(selectedTask.id);
+                        if (tab === "orchestrate" && plans.length === 0) {
+                          loadOrchestrationData();
+                        }
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-t transition-colors ${
+                        detailTab === tab
+                          ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      }`}
+                    >
+                      {tab === "info" ? "详情" : tab === "audit" ? "审计" : tab === "output" ? "输出" : tab === "chat" ? "对话" : "编排"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Info Tab */}
+                {detailTab === "info" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${agentStatusColor[selectedTask.status] || ""}`}
+                      >
                         <span
-                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${agentStatusColor[selectedTask.status] || ""}`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${selectedTask.status === "running" ? "bg-blue-400 animate-pulse" : selectedTask.status === "completed" ? "bg-green-400" : selectedTask.status === "failed" ? "bg-red-400" : "bg-gray-400"}`}
-                          />
-                          {agentStatusText[selectedTask.status] ||
-                            selectedTask.status}
+                          className={`w-1.5 h-1.5 rounded-full ${selectedTask.status === "running" ? "bg-blue-400 animate-pulse" : selectedTask.status === "completed" ? "bg-green-400" : selectedTask.status === "failed" ? "bg-red-400" : selectedTask.status === "lost" ? "bg-gray-400" : "bg-gray-400"}`}
+                        />
+                        {agentStatusText[selectedTask.status] || selectedTask.status}
+                      </span>
+                      {selectedTask.priority && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          selectedTask.priority === "high" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : selectedTask.priority === "medium" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                        }`}>
+                          {selectedTask.priority === "high" ? "高" : selectedTask.priority === "medium" ? "中" : "低"}
                         </span>
-                        {selectedTask.priority && (
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              selectedTask.priority === "high"
-                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                : selectedTask.priority === "medium"
-                                  ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                  : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                            }`}
-                          >
-                            {selectedTask.priority === "high"
-                              ? "高优先级"
-                              : selectedTask.priority === "medium"
-                                ? "中优先级"
-                                : "低优先级"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-100 dark:border-gray-700" />
-
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                      时间信息
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          创建时间
-                        </span>
-                        <span className="text-xs text-gray-700 dark:text-gray-300">
-                          {formatTimestamp(selectedTask.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-100 dark:border-gray-700" />
-
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                      资源消耗
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedTask.tokenUsed !== undefined && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            Token 消耗
-                          </span>
-                          <span className="text-xs font-mono text-gray-700 dark:text-gray-300">
-                            {selectedTask.tokenUsed}
-                          </span>
-                        </div>
                       )}
                     </div>
-                  </div>
+                    {selectedTask.description && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {selectedTask.description}
+                      </p>
+                    )}
+                    {taskState && (
+                      <div className="text-xs text-gray-500 space-y-1 bg-gray-50 dark:bg-gray-700/30 p-2 rounded">
+                        <div>类型: {(taskState.type as string) || "-"}</div>
+                        <div>工具调用: {taskState.toolUseCount as number ?? 0} 次</div>
+                        <div>Token: {taskState.tokenCount as number ?? 0}</div>
+                        <div>创建: {typeof taskState.startTime === 'number' ? formatTimestamp(taskState.startTime as number) : "-"}</div>
+                      </div>
+                    )}
+                    {selectedTask.tokenUsed !== undefined && (
+                      <div className="text-xs text-gray-500">Token 消耗: {selectedTask.tokenUsed}</div>
+                    )}
+                    <div className="text-xs text-gray-500">创建: {formatTimestamp(selectedTask.created_at)}</div>
 
-                  {taskLogs.length > 0 && (
-                    <>
-                      <div className="border-t border-gray-100 dark:border-gray-700" />
+                    {taskLogs.length > 0 && (
                       <div>
-                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                          执行日志
-                        </h4>
-                        <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-48 font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border border-gray-100 dark:border-gray-700">
-                          {taskLogs.join("\n")}
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">日志</p>
+                        <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-32 font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border">
+                          {taskLogs.slice(-20).join("\n")}
                         </pre>
                       </div>
-                    </>
-                  )}
+                    )}
 
-                  <div className="border-t border-gray-100 dark:border-gray-700" />
-
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                      快捷操作
-                    </h4>
-                    <div className="space-y-1.5">
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
                       {selectedTask.status === "pending" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <span className="text-blue-500">▶</span>{" "}
-                          点击执行按钮开始任务
-                        </p>
+                        <button onClick={() => handleExecuteAgentTask(selectedTask.name)}
+                          className="w-full text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded">▶ 执行任务</button>
                       )}
                       {selectedTask.status === "running" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <span className="text-orange-500">⏸</span>{" "}
-                          点击取消按钮中止任务
-                        </p>
+                        <button onClick={() => cancelAgentTask(selectedTask.id)}
+                          className="w-full text-xs px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded">⏹ 终止任务</button>
                       )}
-                      {selectedTask.status === "completed" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <span className="text-green-500">✓</span>{" "}
-                          任务已完成，可重新执行
-                        </p>
+                      {(selectedTask.status === "completed" || selectedTask.status === "failed") && (
+                        <button onClick={() => handleExecuteAgentTask(selectedTask.name)}
+                          className="w-full text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded">↻ 重新执行</button>
                       )}
-                      {selectedTask.status === "failed" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <span className="text-red-500">✗</span>{" "}
-                          任务失败，可重新执行
-                        </p>
+                      {selectedTask.status === "lost" && (
+                        <button onClick={() => handleRecoverTask(selectedTask.id)} disabled={recoveringIds.has(selectedTask.id)}
+                          className="w-full text-xs px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded disabled:opacity-50">
+                          {recoveringIds.has(selectedTask.id) ? "恢复中..." : "🔄 恢复任务"}
+                        </button>
                       )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        <span className="text-gray-400">✎</span>{" "}
-                        点击编辑按钮修改任务
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        <span className="text-gray-400">🗑</span>{" "}
-                        点击删除按钮移除任务
-                      </p>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Audit Tab */}
+                {detailTab === "audit" && (
+                  <div>
+                    {(!auditLogs || !Array.isArray(auditLogs) || auditLogs.length === 0) ? (
+                      <p className="text-xs text-gray-400 text-center py-6">暂无审计记录</p>
+                    ) : (
+                      <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                        {auditLogs.map((entry, i) => (
+                          <div key={i} className="border-l-2 border-gray-200 dark:border-gray-600 pl-2.5 py-0.5">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className="text-gray-500">
+                                {new Date(entry.timestamp).toLocaleTimeString()}
+                              </span>
+                              <span className={`px-1 rounded text-[10px] ${
+                                entry.eventType === "state_change" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                : entry.eventType === "lost_detected" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                              }`}>
+                                {entry.eventType === "state_change" ? "变更" : entry.eventType === "lost_detected" ? "失联" : entry.eventType}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                              {entry.oldStatus || "(初始)"} → {entry.newStatus}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Output Tab */}
+                {detailTab === "output" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">任务输出</span>
+                      <button onClick={() => reloadOutput(selectedTask.id)}
+                        className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                        刷新
+                      </button>
+                    </div>
+                    {outputContent === null ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : (
+                      <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-[360px] font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border">
+                        {outputContent || "(无输出)"}
+                      </pre>
+                    )}
+                  </div>
+                )}
+
+                {/* Chat Tab */}
+                {detailTab === "chat" && (
+                  <AgentChatPanel taskId={selectedTask.id} taskName={selectedTask.name} />
+                )}
+
+                {/* Orchestrate Tab */}
+                {detailTab === "orchestrate" && (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                    {/* PDCA 管线 */}
+                    <PdcaPipeline taskId={selectedTask.id} />
+                    <hr className="border-gray-100 dark:border-gray-700" />
+                    {/* Kanban 看板 */}
+                    <KanbanBoard />
+                    <hr className="border-gray-100 dark:border-gray-700" />
+                    {/* Plans 编排计划 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">历史计划 (Plan)</span>
+                        <button onClick={loadOrchestrationData} className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                          刷新
+                        </button>
+                      </div>
+                      {plans.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-3">暂无编排计划</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {plans.map((plan: any) => (
+                            <div key={plan.id} className="border border-gray-200 dark:border-gray-700 rounded p-2">
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusDot(plan.status)}`} />
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{plan.description || plan.id}</span>
+                              </div>
+                              {plan.steps && (
+                                <div className="space-y-1">
+                                  {plan.steps.map((step: any, si: number) => (
+                                    <div key={step.id} className="flex items-center gap-1.5">
+                                      <span className="w-4 h-4 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-[9px] text-gray-500 shrink-0">
+                                        {si + 1}
+                                      </span>
+                                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(step.status)}`} />
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{step.description}</span>
+                                      </div>
+                                      <span className="text-[9px] text-gray-400">{step.status}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Flows 流程图 */}
+                    <div>
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">流程图 (Flow)</span>
+                      {flows.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-3">暂无流程图</p>
+                      ) : (
+                        <div className="space-y-2 mt-2">
+                          {flows.map((flow: any) => (
+                            <div key={flow.flowId} className="border border-gray-200 dark:border-gray-700 rounded p-2">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusDot(flow.status)}`} />
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{flow.goal || flow.flowId}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                <span>状态: {flow.status}</span>
+                                <span>owner: {flow.ownerKey?.slice(0, 8)}</span>
+                                {flow.currentStep && <span>步骤: {flow.currentStep}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

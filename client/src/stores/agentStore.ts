@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { AgentTask, AgentProgress } from "../types";
 import { agentService } from "../services/agentService";
 
+let _refreshTimer: ReturnType<typeof setInterval> | null = null;
+
 interface AgentStore {
   tasks: AgentTask[];
   isLoading: boolean;
@@ -146,6 +148,24 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     set({ selectedTask: task });
     if (task) {
       get().getTaskLogs(task.id);
+    }
+  },
+
+  // ─── 自动刷新 ───────────────────────────────
+
+  /** 启动自动刷新（10s 间隔） */
+  startAutoRefresh() {
+    if (_refreshTimer) return;
+    _refreshTimer = setInterval(() => {
+      get().loadTasks();
+    }, 10_000);
+  },
+
+  /** 停止自动刷新 */
+  stopAutoRefresh() {
+    if (_refreshTimer) {
+      clearInterval(_refreshTimer);
+      _refreshTimer = null;
     }
   },
 }));

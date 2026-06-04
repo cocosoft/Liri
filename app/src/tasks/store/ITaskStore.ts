@@ -8,4 +8,20 @@ export interface ITaskStore {
   deleteTaskState(taskId: string): Promise<void>;
   getTaskState(taskId: string): Promise<TaskState | null>;
   healthCheck(): Promise<boolean>;
+  writeAuditLog?(entry: {
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    timestamp: number;
+  }): Promise<void>;
+  queryAuditLogs?(taskId: string): Promise<Array<{
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    timestamp: number;
+  }>>;
+  cleanupExpiredTasks?(retentionDays?: number): Promise<number>;
+  rebuildIndexes?(): Promise<void>;
 }

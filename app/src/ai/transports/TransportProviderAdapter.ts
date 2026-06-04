@@ -3,10 +3,9 @@
  *
  * 允许现有 Provider 将消息转换、请求构建、响应归一化委托给 BaseTransport 实现，
  * 从而消除 Provider 与 Transport 之间的传输逻辑重复。
- *
- * 用法:
- *   class MyProvider implements AIProvider {
- *     private transport = new AnthropicMessagesTransport();
+ *   使用示例:
+ *     class MyProvider implements AIProvider {
+ *       private transport = new MessagesApiTransport();
  *     private adapter = new TransportProviderAdapter(this.transport);
  *
  *     async chat(messages, options) {

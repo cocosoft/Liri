@@ -3,7 +3,7 @@ import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { DatabaseError } from '@modules/error';
 import { resolveDbPath } from '@modules/config/paths';
-import { SCHEMA, FTS5_SCHEMA, TABLE_NAMES } from './schema';
+import { SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
 import type { TaskState } from '../types';
 import type {
   TaskFlowRecord,
@@ -148,6 +148,17 @@ export class SqliteTaskStore implements ITaskStore {
       });
     } catch {
       logger.warn('FTS5 not available, full-text search disabled');
+    }
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.exec(KANBAN_SCHEMA, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    } catch {
+      logger.warn('Kanban schema init failed');
     }
   }
 
@@ -695,6 +706,225 @@ export class SqliteTaskStore implements ITaskStore {
     } catch {
       return false;
     }
+  }
+
+  // ─── 审计日志 ───────────────────────────────────────
+
+  async writeAuditLog(entry: {
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    timestamp: number;
+  }): Promise<void> {
+    return this.withDb(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `INSERT INTO ${TABLE_NAMES.TASK_AUDIT_LOG} (task_id, event_type, old_status, new_status, timestamp)
+           VALUES (?, ?, ?, ?, ?)`,
+          [entry.taskId, entry.eventType, entry.oldStatus, entry.newStatus, entry.timestamp],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          },
+        );
+      });
+    });
+  }
+
+  async queryAuditLogs(taskId: string): Promise<Array<{
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    timestamp: number;
+  }>> {
+    return this.withDb(async () => {
+      const rows = await new Promise<any[]>((resolve, reject) => {
+        this.db!.all(
+          `SELECT task_id, event_type, old_status, new_status, timestamp
+           FROM ${TABLE_NAMES.TASK_AUDIT_LOG}
+           WHERE task_id = ?
+           ORDER BY timestamp DESC`,
+          [taskId],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          },
+        );
+      });
+      return rows.map((r) => ({
+        taskId: r.task_id,
+        eventType: r.event_type,
+        oldStatus: r.old_status,
+        newStatus: r.new_status,
+        timestamp: r.timestamp,
+      }));
+    });
+  }
+
+  // ─── 自动维护 ───────────────────────────────────────
+
+  /**
+   * 清理过期终端任务（默认 7 天前的 COMPLETED/FAILED/KILLED/LOST）。
+   * 被清理的任务的审计日志保留。
+   */
+  async cleanupExpiredTasks(retentionDays: number = 7): Promise<number> {
+    return this.withDb(async () => {
+      const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+      const result = await new Promise<number>((resolve, reject) => {
+        this.db!.run(
+          `DELETE FROM ${TABLE_NAMES.TASK_STATES}
+           WHERE status IN ('completed', 'failed', 'killed', 'lost')
+           AND end_time IS NOT NULL
+           AND end_time < ?`,
+          [cutoff],
+          function (err) {
+            if (err) reject(err);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            else resolve((this as any).changes ?? 0);
+          },
+        );
+      });
+      logger.info('Task cleanup completed', { deleted: result, retentionDays });
+      return result;
+    });
+  }
+
+  /**
+   * 重建索引（定期优化查询性能）
+   */
+  async rebuildIndexes(): Promise<void> {
+    return this.withDb(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('REINDEX task_states;', (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('REINDEX task_audit_log;', (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      logger.info('Task indexes rebuilt');
+    });
+  }
+
+  // ─── Kanban CRUD ────────────────────────────────────
+
+  async initKanban(): Promise<void> {
+    return this.withDb(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.exec(KANBAN_SCHEMA, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    });
+  }
+
+  async loadKanbanCards(): Promise<any[]> {
+    return this.withDb(async () => {
+      const rows = await new Promise<any[]>((resolve, reject) => {
+        this.db!.all(
+          'SELECT * FROM kanban_cards ORDER BY sort_order ASC, created_at DESC',
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          },
+        );
+      });
+      return rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        columnId: r.column_id,
+        assignee: r.assignee,
+        priority: r.priority,
+        tags: r.tags ? JSON.parse(r.tags) : [],
+        sortOrder: r.sort_order,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    });
+  }
+
+  async saveKanbanCard(card: {
+    id: string;
+    title: string;
+    description?: string;
+    columnId?: string;
+    assignee?: string;
+    priority?: string;
+    tags?: string[];
+    sortOrder?: number;
+  }): Promise<void> {
+    return this.withDb(async () => {
+      const now = Date.now();
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `INSERT INTO kanban_cards (id, title, description, column_id, assignee, priority, tags, sort_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             title = excluded.title,
+             description = excluded.description,
+             column_id = excluded.column_id,
+             assignee = excluded.assignee,
+             priority = excluded.priority,
+             tags = excluded.tags,
+             sort_order = excluded.sort_order,
+             updated_at = excluded.updated_at`,
+          [
+            card.id,
+            card.title,
+            card.description || '',
+            card.columnId || 'todo',
+            card.assignee || null,
+            card.priority || 'medium',
+            JSON.stringify(card.tags || []),
+            card.sortOrder ?? 0,
+            now,
+            now,
+          ],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          },
+        );
+      });
+    });
+  }
+
+  async deleteKanbanCard(id: string): Promise<void> {
+    return this.withDb(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('DELETE FROM kanban_cards WHERE id = ?', [id], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    });
+  }
+
+  async updateKanbanCardColumn(
+    cardId: string,
+    columnId: string,
+    sortOrder: number,
+  ): Promise<void> {
+    return this.withDb(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          'UPDATE kanban_cards SET column_id = ?, sort_order = ?, updated_at = ? WHERE id = ?',
+          [columnId, sortOrder, Date.now(), cardId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          },
+        );
+      });
+    });
   }
 }
 

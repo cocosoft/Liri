@@ -25,6 +25,8 @@ import { taskRegistry } from './TaskRegistry';
 import { resolveDataSubDir } from '../config/paths';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
+import type { PlanReview } from './PlanReview';
+import type { ReviewDecision } from './PlanReview';
 
 export interface PlanStep {
   id: string;
@@ -33,6 +35,16 @@ export interface PlanStep {
   taskId: string;
   result?: string;
   error?: string;
+  /** PDCA：验收标准 */
+  acceptanceCriteria?: string;
+  /** PDCA：审查结果 */
+  reviewResult?: PlanReview;
+  /** PDCA：重试计数 */
+  retryCount: number;
+  /** PDCA：最大重试次数（默认 3） */
+  maxRetries: number;
+  /** PDCA：决策 */
+  decision?: ReviewDecision;
 }
 
 export interface Plan {
@@ -136,13 +148,15 @@ export class TaskOrchestrator {
    * @param stepDescriptions 步骤描述数组
    * @param sessionId 会话 ID
    * @param existingTaskIds 可选：已有任务 ID 列表（当任务已被 create_task_list 工具注册时使用）
+   * @param acceptanceCriteria 可选：每步的验收标准列表
    * @returns 创建的 Plan 对象
    */
   createPlan(
     description: string,
     stepDescriptions: string[],
     sessionId: string,
-    existingTaskIds?: string[]
+    existingTaskIds?: string[],
+    acceptanceCriteria?: string[],
   ): Plan {
     void this.initialize();
 
@@ -155,8 +169,11 @@ export class TaskOrchestrator {
       return {
         id: stepId,
         description: desc,
-        status: 'pending',
+        status: 'pending' as const,
         taskId,
+        retryCount: 0,
+        maxRetries: 3,
+        acceptanceCriteria: acceptanceCriteria?.[i],
       };
     });
 

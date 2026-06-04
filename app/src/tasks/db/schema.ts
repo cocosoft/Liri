@@ -90,3 +90,24 @@ CREATE VIRTUAL TABLE IF NOT EXISTS task_states_fts USING fts5(
   tokenize='porter unicode61'
 );
 `;
+
+export const KANBAN_SCHEMA = `
+CREATE TABLE IF NOT EXISTS kanban_cards (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  column_id TEXT NOT NULL DEFAULT 'todo',
+  assignee TEXT,
+  priority TEXT NOT NULL DEFAULT 'medium',
+  tags TEXT,
+  parent_task_id TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  metadata TEXT,
+  FOREIGN KEY (parent_task_id) REFERENCES task_states(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kanban_column ON kanban_cards(column_id);
+CREATE INDEX IF NOT EXISTS idx_kanban_assignee ON kanban_cards(assignee);
+`;

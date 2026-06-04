@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
 
@@ -21,6 +21,14 @@ function SessionHistorySidebar() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSessions = useMemo(() => {
+    if (!searchQuery.trim()) return sessions;
+    return sessions.filter((s) =>
+      s.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [sessions, searchQuery]);
 
   useEffect(() => {
     loadSessions();
@@ -188,30 +196,33 @@ function SessionHistorySidebar() {
         </div>
       </div>
 
+      {/* 搜索框 */}
+      <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="搜索会话..."
+          className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200 placeholder-gray-400"
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        {filteredSessions.length === 0 && sessions.length > 0 && (
+          <p className="text-xs text-gray-400 text-center py-4">未找到匹配的会话</p>
+        )}
+
         {sessions.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <svg
-              className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-              />
+            <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             <p className="text-sm text-gray-400 dark:text-gray-500">暂无会话</p>
-            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
-              创建新会话开始聊天
-            </p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">创建新会话开始聊天</p>
           </div>
         )}
 
-        {sessions.map((session) => {
+        {filteredSessions.map((session) => {
           const isActive = currentSession?.id === session.id;
           return (
             <div

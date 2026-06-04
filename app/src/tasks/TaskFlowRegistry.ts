@@ -152,6 +152,32 @@ export class TaskFlowRegistry {
     if (!this.store) return;
     await this.store.saveTaskFlowRecord(record);
   }
+
+  // ─── Owner Access Control ──────────────────────────
+
+  /**
+   * 按 flowId + 调用方 ownerKey 获取流记录。
+   * 如果调用方不是该 flow 的 owner，返回 undefined。
+   */
+  getFlowByIdForOwner(flowId: string, callerOwnerKey: string): TaskFlowRecord | undefined {
+    const flow = this.flows.get(flowId);
+    if (!flow) return undefined;
+    if (flow.ownerKey !== callerOwnerKey) return undefined;
+    return flow;
+  }
+
+  /**
+   * 检查调用方是否有权限操作指定流。
+   * 返回 { ok: true, flow } 或 { ok: false }。
+   */
+  ensureOwnerAccess(
+    flowId: string,
+    callerOwnerKey: string,
+  ): { ok: true; flow: TaskFlowRecord } | { ok: false } {
+    const flow = this.getFlowByIdForOwner(flowId, callerOwnerKey);
+    if (!flow) return { ok: false };
+    return { ok: true, flow };
+  }
 }
 
 export const taskFlowRegistry = new TaskFlowRegistry();

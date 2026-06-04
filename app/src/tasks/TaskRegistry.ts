@@ -6,6 +6,9 @@ import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
+/** LOST 检测：运行中任务超过此时间（ms）无 progress 更新则标记为 LOST */
+const LOST_TIMEOUT_MS = 30 * 60 * 1000; // 30 分钟
+
 /**
  * 任务注册表
  */
@@ -120,6 +123,8 @@ export class TaskRegistry {
   private tasksByType: Map<TaskType, Set<string>> = new Map();
   private tasksByStatus: Map<TaskStatus, Set<string>> = new Map();
   private taskCurrentStatus: Map<string, TaskStatus> = new Map();
+  /** 记录每个任务最近一次 progress/state 更新的时间戳，用于 LOST 检测 */
+  private lastProgressTime: Map<string, number> = new Map();
 
   setPersistDir(dir: string): void {
     this.persistDir = dir;
@@ -208,8 +213,14 @@ export class TaskRegistry {
 
     task.on('stateChanged', (state: TaskState) => {
       const prevStatus = this.taskCurrentStatus.get(taskId);
+      this.lastProgressTime.set(taskId, Date.now());
       this.stateHistory.push(state);
       this.notifyListeners({ type: 'stateChanged', taskId, state });
+
+      // 审计日志：状态变更时写入
+      if (prevStatus !== undefined && prevStatus !== state.status) {
+        this.writeAuditLog(taskId, 'state_change', prevStatus, state.status);
+      }
 
       if (prevStatus !== undefined && prevStatus !== state.status) {
         this.tasksByStatus.get(prevStatus)?.delete(taskId);
@@ -224,6 +235,7 @@ export class TaskRegistry {
     });
 
     task.on('progress', (progress: any) => {
+      this.lastProgressTime.set(taskId, Date.now());
       this.notifyListeners({ type: 'progress', taskId, progress });
     });
 
@@ -471,6 +483,108 @@ export class TaskRegistry {
   killAll(): Promise<void[]> {
     const running = this.getRunningTasks();
     return Promise.all(running.map((t) => t.kill().catch(() => {})));
+  }
+
+  // ─── 审计日志 ───────────────────────────────────────
+
+  /**
+   * 写入任务审计日志（SQLite 优先，文件降级）
+   */
+  private async writeAuditLog(
+    taskId: string,
+    eventType: string,
+    oldStatus: TaskStatus | undefined,
+    newStatus: TaskStatus,
+  ): Promise<void> {
+    const entry = {
+      taskId,
+      eventType,
+      oldStatus: oldStatus ?? null,
+      newStatus,
+      timestamp: Date.now(),
+    };
+
+    if (this.sqliteStore) {
+      try {
+        await this.sqliteStore.writeAuditLog(entry);
+        return;
+      } catch (error) {
+        logger.warn('Audit log write to SQLite failed, falling back to file', {
+          taskId,
+          error: String(error),
+        });
+      }
+    }
+
+    // 文件降级路径
+    if (this.persistDir) {
+      try {
+        const auditPath = join(this.persistDir, 'audit.jsonl');
+        await fs.appendFile(auditPath, JSON.stringify(entry) + '\n', 'utf-8');
+      } catch {
+        // 降级路径也失败，不阻塞主流程
+      }
+    }
+  }
+
+  /**
+   * 查询指定任务的审计日志
+   */
+  async getAuditLogs(taskId: string): Promise<Array<{
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    timestamp: number;
+  }>> {
+    if (this.sqliteStore) {
+      return this.sqliteStore.queryAuditLogs(taskId);
+    }
+    return [];
+  }
+
+  // ─── LOST 状态检测 ──────────────────────────────────
+
+  /**
+   * 检测运行中超过 LOST_TIMEOUT_MS 无更新的任务，自动标记为 LOST。
+   * 返回被标记为 LOST 的任务 ID 列表。
+   */
+  async detectLostTasks(): Promise<string[]> {
+    const now = Date.now();
+    const running = this.getRunningTasks();
+    const lostIds: string[] = [];
+
+    for (const task of running) {
+      const lastTime = this.lastProgressTime.get(task.id) ?? task.taskState.startTime;
+      if (now - lastTime > LOST_TIMEOUT_MS) {
+        const taskId = task.id;
+        await task.kill();
+        task['updateState']?.({ status: TaskStatus.LOST, endTime: now, error: 'Task lost: no progress update for 30 minutes' });
+        this.writeAuditLog(taskId, 'lost_detected', TaskStatus.RUNNING, TaskStatus.LOST);
+        lostIds.push(taskId);
+        logger.warn('Task marked as LOST', { taskId, idleMs: now - lastTime });
+      }
+    }
+
+    return lostIds;
+  }
+
+  /**
+   * 尝试恢复 LOST 任务（重置状态为 PENDING）
+   */
+  async recoverLostTask(taskId: string): Promise<boolean> {
+    const task = this.tasks.get(taskId);
+    if (!task || task.status !== TaskStatus.LOST) return false;
+
+    task['updateState']?.({ status: TaskStatus.PENDING, endTime: undefined, error: undefined });
+    this.lastProgressTime.set(taskId, Date.now());
+    this.writeAuditLog(taskId, 'recovered', TaskStatus.LOST, TaskStatus.PENDING);
+    return true;
+  }
+
+  /** 获取所有 LOST 状态的任务 */
+  getLostTasks(): BaseTask[] {
+    return this.getTasksByStatus(TaskStatus.LOST);
   }
 }
 

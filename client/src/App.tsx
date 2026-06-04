@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import "./components/ChatArea/markdown-theme.css";
-import Sidebar from "./components/Sidebar/Sidebar";
+import Sidebar, { MobileBottomNav } from "./components/Sidebar/Sidebar";
 import Header from "./components/common/Header";
 import Footer from "./components/common/Footer";
 import ChatArea from "./components/ChatArea/ChatArea";
@@ -45,6 +45,8 @@ import ModelPage from "./components/views/ModelPage";
 import DevPage from "./components/views/DevPage";
 import HomePage from "./components/views/HomePage";
 import { FirstRunWizard } from "./components/views/FirstRunWizard";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { useSessionStore } from "./stores/sessionStore";
 import { useAppStore } from "./stores/appStore";
 import { useBackendStore } from "./stores/backendStore";
@@ -125,11 +127,15 @@ function App() {
   }, [location.pathname, setActivePage]);
 
   return (
+    <TooltipProvider>
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
         <div className="flex-1 flex page-transition-enter overflow-hidden">
+          <ErrorBoundary>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/apikeys" element={<ApiKeyPage />} />
@@ -388,6 +394,7 @@ function App() {
               }
             />
           </Routes>
+          </ErrorBoundary>
         </div>
         {location.pathname === "/chat" || location.pathname === "/" ? (
           <FilePreviewPanel />
@@ -396,6 +403,7 @@ function App() {
         )}
       </div>
       <Footer />
+      <MobileBottomNav />
       <ConfigPanel />
       <ToastContainer />
       <KeyboardShortcutsHelp />
@@ -403,6 +411,7 @@ function App() {
         <FirstRunWizard onComplete={() => setShowFirstRun(false)} />
       )}
     </div>
+    </TooltipProvider>
   );
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "Liri",
+  "short_name": "Liri",
+  "description": "AI Agent workbench",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#6c5ce7",
+  "scope": "/",
+  "icons": []
+}

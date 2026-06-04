@@ -517,6 +517,129 @@ export class LocalHTTPService {
       return this.handleClearAllSessions(req, res);
     }
 
+    // ---- Plans & Flows (编排) ----
+    if (req.method === 'GET' && url === '/v1/plans') {
+      return this.handleListPlans(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/plans') {
+      return this.handleCreatePlan(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/plans\/([^/]+)$/)) {
+      return this.handleGetPlan(
+        req,
+        res,
+        url.match(/^\/v1\/plans\/([^/]+)$/)![1]
+      );
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/plans\/(.+)\/execute$/)
+    ) {
+      return this.handleExecutePlan(
+        req,
+        res,
+        url.match(/^\/v1\/plans\/(.+)\/execute$/)![1]
+      );
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/plans\/(.+)\/abort$/)
+    ) {
+      return this.handleAbortPlan(
+        req,
+        res,
+        url.match(/^\/v1\/plans\/(.+)\/abort$/)![1]
+      );
+    }
+    if (req.method === 'GET' && url === '/v1/flows') {
+      return this.handleListFlows(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/flows\/([^/]+)$/)) {
+      return this.handleGetFlow(
+        req,
+        res,
+        url.match(/^\/v1\/flows\/([^/]+)$/)![1]
+      );
+    }
+
+    // ---- PDCA (长程任务编排) ----
+    if (req.method === 'POST' && url === '/v1/pdca/start') {
+      return this.handlePdcaStart(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/pdca\/([^/]+)$/)) {
+      return this.handlePdcaStatus(
+        req,
+        res,
+        url.match(/^\/v1\/pdca\/([^/]+)$/)![1]
+      );
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/pdca\/(.+)\/audit$/)) {
+      return this.handlePdcaAudit(
+        req,
+        res,
+        url.match(/^\/v1\/pdca\/(.+)\/audit$/)![1]
+      );
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/pdca\/(.+)\/confirm$/)
+    ) {
+      return this.handlePdcaConfirm(
+        req,
+        res,
+        url.match(/^\/v1\/pdca\/(.+)\/confirm$/)![1]
+      );
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/review$/)
+    ) {
+      const m = url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/review$/)!;
+      return this.handlePdcaReviewStep(req, res, m[1], m[2]);
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/decide$/)
+    ) {
+      const m = url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/decide$/)!;
+      return this.handlePdcaDecideStep(req, res, m[1], m[2]);
+    }
+    if (req.method === 'POST' && url === '/v1/pdca/list') {
+      return this.handlePdcaList(req, res);
+    }
+
+    // ---- Kanban ----
+    if (req.method === 'GET' && url === '/v1/kanban') {
+      return this.handleKanbanList(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/kanban') {
+      return this.handleKanbanCreate(req, res);
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/kanban\/(.+)$/)) {
+      return this.handleKanbanUpdate(
+        req,
+        res,
+        url.match(/^\/v1\/kanban\/(.+)$/)![1],
+      );
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/kanban\/(.+)$/)) {
+      return this.handleKanbanDelete(
+        req,
+        res,
+        url.match(/^\/v1\/kanban\/(.+)$/)![1],
+      );
+    }
+    if (
+      req.method === 'PUT' &&
+      url.match(/^\/v1\/kanban\/(.+)\/move$/)
+    ) {
+      return this.handleKanbanMove(
+        req,
+        res,
+        url.match(/^\/v1\/kanban\/(.+)\/move$/)![1],
+      );
+    }
+
     // ---- Tools ----
     if (req.method === 'GET' && url === '/v1/tools') {
       return this.handleListTools(req, res);
@@ -536,11 +659,71 @@ export class LocalHTTPService {
     if (req.method === 'POST' && url === '/v1/agents/tasks') {
       return this.handleExecuteAgentTask(req, res);
     }
-    if (req.method === 'GET' && url.match(/^\/v1\/agents\/tasks\/(.+)$/)) {
+    if (req.method === 'GET' && url.match(/^\/v1\/agents\/tasks\/([^/]+)$/)) {
       return this.handleGetAgentProgress(
         req,
         res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)$/)![1]
+        url.match(/^\/v1\/agents\/tasks\/([^/]+)$/)![1]
+      );
+    }
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/state$/)
+    ) {
+      return this.handleGetAgentTaskState(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/state$/)![1]
+      );
+    }
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/audit$/)
+    ) {
+      return this.handleGetAgentTaskAudit(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/audit$/)![1]
+      );
+    }
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/logs$/)
+    ) {
+      return this.handleGetAgentTaskLogs(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/logs$/)![1]
+      );
+    }
+    if (
+      req.method === 'GET' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/output$/)
+    ) {
+      return this.handleGetAgentTaskOutput(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/output$/)![1]
+      );
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/recover$/)
+    ) {
+      return this.handleRecoverAgentTask(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/recover$/)![1]
+      );
+    }
+    if (
+      req.method === 'POST' &&
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/chat$/)
+    ) {
+      return this.handleAgentTaskChat(
+        req,
+        res,
+        url.match(/^\/v1\/agents\/tasks\/(.+)\/chat$/)![1]
       );
     }
     if (
@@ -6745,6 +6928,552 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success, taskId }));
       this.broadcastEvent('agent:task-cancelled', { taskId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetAgentTaskState(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      const state = await store.getTaskState(taskId);
+      if (!state) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Task not found' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(state));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetAgentTaskAudit(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      const logs = await store.queryAuditLogs(taskId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(logs));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetAgentTaskLogs(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const logs: string[] = [];
+
+      // 从 SQLite 加载日志
+      try {
+        const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+        const store = new SqliteTaskStore();
+        await store.init();
+        const state = await store.getTaskState(taskId);
+        if (state) {
+          logs.push(`Task: ${state.description || taskId} | Status: ${state.status} | Type: ${state.type}`);
+          if (state.outputFile) {
+            const fs = await import('fs');
+            if (fs.existsSync(state.outputFile)) {
+              const content = fs.readFileSync(state.outputFile, 'utf-8');
+              logs.push(...content.split('\n').filter(Boolean).slice(-100));
+            }
+          }
+          if (state.error) {
+            logs.push(`Error: ${state.error}`);
+          }
+        } else {
+          logs.push(`Task ${taskId} not found in store`);
+        }
+      } catch (e) {
+        logs.push(`Failed to load task state: ${String(e)}`);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(logs));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetAgentTaskOutput(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const fs = await import('fs');
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      const state = await store.getTaskState(taskId);
+
+      let output = '';
+      if (state?.outputFile && fs.existsSync(state.outputFile)) {
+        output = fs.readFileSync(state.outputFile, 'utf-8');
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(output));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleRecoverAgentTask(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const { taskRegistry } = await import('@modules/tasks');
+      const recovered = await taskRegistry.recoverLostTask(taskId);
+      if (!recovered) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Task not found or not in LOST state' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, taskId }));
+      this.broadcastEvent('agent:task-recovered', { taskId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleAgentTaskChat(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { message } = JSON.parse(body);
+      let reply = '';
+      try {
+        const coreAPI = getCoreAPI();
+        reply = (await (coreAPI as any).sendTaskMessage?.(taskId, message)) || '';
+      } catch {
+        // 降级：通过 executor 直接执行
+        const { coordinator } = await import('@modules/core/Coordinator');
+        const task = coordinator.getTask(taskId);
+        if (task && typeof (task as any).sendMessage === 'function') {
+          reply = await (task as any).sendMessage(message);
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(reply || '(Agent未响应)'));
+      this.broadcastEvent('agent:task-chat', { taskId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== PDCA Handlers ==========
+
+  private async handlePdcaStart(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { description, sessionId } = JSON.parse(body);
+      const taskId = `pdca_${Date.now().toString(36)}`;
+
+      const { getOrCreateOrchestrator } = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const orchestrator = getOrCreateOrchestrator(taskId);
+      const status = await orchestrator.runFullPdca(description, sessionId || '');
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(status));
+      this.broadcastEvent('pdca:started', { taskId, status });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handlePdcaStatus(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      let orchestrator: any = null;
+      try {
+        const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
+        orchestrator = mod.getOrchestrator(taskId);
+      } catch {
+        // 模块加载失败或无 orchestrator
+      }
+      if (!orchestrator) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(orchestrator.getStatus()));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handlePdcaAudit(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      let orchestrator: any = null;
+      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      if (!orchestrator) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ taskId, error: 'Not available' }));
+        return;
+      }
+      const report = orchestrator.generateReport();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(report));
+    } catch (err) { this.sendError(res, err); }
+  }
+
+  private async handlePdcaReviewStep(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string,
+    stepId: string
+  ): Promise<void> {
+    try {
+      let orchestrator: any = null;
+      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      if (!orchestrator) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not available' }));
+        return;
+      }
+      const review = await orchestrator.reviewStep(stepId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(review));
+      this.broadcastEvent('pdca:reviewed', { taskId, stepId, review });
+    } catch (err) { this.sendError(res, err); }
+  }
+
+  private async handlePdcaDecideStep(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string,
+    stepId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { decision } = JSON.parse(body);
+      let orchestrator: any = null;
+      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      if (!orchestrator) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not available' }));
+        return;
+      }
+      await orchestrator.decideStep(stepId, decision);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      this.broadcastEvent('pdca:decided', { taskId, stepId, decision });
+    } catch (err) { this.sendError(res, err); }
+  }
+
+  private async handlePdcaList(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      let list: any[] = [];
+      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); list = m.getAllOrchestrators().map((o: any) => o.getStatus()); } catch {}
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(list));
+    } catch (err) { this.sendError(res, err); }
+  }
+
+  private async handlePdcaConfirm(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    try {
+      let orchestrator: any = null;
+      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      if (!orchestrator) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(orchestrator.getStatus()));
+    } catch (err) { this.sendError(res, err); }
+  }
+
+  // ========== Kanban Handlers ==========
+
+  private async handleKanbanList(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      const cards = await store.loadKanbanCards();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(cards));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleKanbanCreate(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { title, description, columnId, assignee, priority, tags } = JSON.parse(body);
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      const card = {
+        id: `kb_${Date.now().toString(36)}`,
+        title,
+        description,
+        columnId: columnId || 'todo',
+        assignee,
+        priority: priority || 'medium',
+        tags: tags || [],
+        sortOrder: Date.now(),
+      };
+      await store.saveKanbanCard(card);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(card));
+      this.broadcastEvent('kanban:created', { card });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleKanbanUpdate(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cardId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { title, description, assignee, priority, tags } = JSON.parse(body);
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      await store.saveKanbanCard({ id: cardId, title: title || '', description, assignee, priority, tags });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      this.broadcastEvent('kanban:updated', { cardId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleKanbanDelete(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cardId: string
+  ): Promise<void> {
+    try {
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      await store.deleteKanbanCard(cardId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      this.broadcastEvent('kanban:deleted', { cardId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleKanbanMove(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cardId: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { columnId, sortOrder } = JSON.parse(body);
+      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const store = new SqliteTaskStore();
+      await store.init();
+      await store.updateKanbanCardColumn(cardId, columnId, sortOrder ?? Date.now());
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      this.broadcastEvent('kanban:moved', { cardId, columnId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Plan & Flow Handlers ==========
+
+  private async handleListPlans(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      await taskOrchestrator['initialize']();
+      const plans = taskOrchestrator.getAllPlans();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(plans));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleCreatePlan(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const body = await this.readRequestBody(req);
+      const { description, steps, sessionId } = JSON.parse(body);
+      const plan = taskOrchestrator.createPlan(
+        description || '',
+        steps || [],
+        sessionId || '',
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(plan));
+      this.broadcastEvent('plan:created', { planId: plan.id });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetPlan(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    planId: string
+  ): Promise<void> {
+    try {
+      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const plan = taskOrchestrator.getPlan(planId);
+      if (!plan) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Plan not found' }));
+        return;
+      }
+      const progress = taskOrchestrator.getPlanProgress(planId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ plan, progress }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleExecutePlan(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    planId: string
+  ): Promise<void> {
+    try {
+      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const plan = taskOrchestrator.getPlan(planId);
+      if (!plan) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Plan not found' }));
+        return;
+      }
+      // 标记所有 pending 步骤为 running
+      for (const step of plan.steps) {
+        if (step.status === 'pending') {
+          taskOrchestrator.markStepRunning(step.id);
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, planId }));
+      this.broadcastEvent('plan:executed', { planId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleAbortPlan(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    planId: string
+  ): Promise<void> {
+    try {
+      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const plan = taskOrchestrator.getPlan(planId);
+      if (!plan) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Plan not found' }));
+        return;
+      }
+      // 标记所有 running/pending 步骤为 cancelled
+      for (const step of plan.steps) {
+        if (step.status === 'running' || step.status === 'pending') {
+          taskOrchestrator.markStepFailed(step.id, '已终止');
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, planId }));
+      this.broadcastEvent('plan:aborted', { planId });
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleListFlows(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { taskFlowRegistry } = await import('@modules/tasks/TaskFlowRegistry');
+      const flows = taskFlowRegistry.getAllFlows();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(flows));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleGetFlow(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    flowId: string
+  ): Promise<void> {
+    try {
+      const { taskFlowRegistry } = await import('@modules/tasks/TaskFlowRegistry');
+      const flow = taskFlowRegistry.getFlow(flowId);
+      if (!flow) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Flow not found' }));
+        return;
+      }
+      const stats = taskFlowRegistry.getStats();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ flow, stats }));
     } catch (err) {
       this.sendError(res, err);
     }

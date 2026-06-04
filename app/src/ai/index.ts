@@ -60,11 +60,8 @@ export { DeepSeekProvider } from './providers/DeepSeekProvider';
 
 // transports/ — 统一传输抽象层（对标 Hermes ProviderTransport）
 export { BaseTransport } from './transports/BaseTransport';
-export {
-  TransportRegistry,
-  transportRegistry,
-} from './transports/TransportRegistry';
-export { AnthropicMessagesTransport } from './transports/AnthropicMessagesTransport';
+export { TransportRegistry, transportRegistry } from './transports/TransportRegistry';
+export { MessagesApiTransport, AnthropicMessagesTransport } from './transports/AnthropicMessagesTransport';
 export { ChatCompletionsTransport } from './transports/ChatCompletionsTransport';
 export { GeminiTransport } from './transports/GeminiTransport';
 export type {
@@ -75,6 +72,10 @@ export type {
   TransportStreamEvent,
 } from './transports/types';
 export { EMPTY_NORMALIZED_USAGE } from './transports/types';
+
+// prompts/ — prompt 增强与缓存
+export { PromptCacheManager, promptCacheManager } from './prompts/PromptCacheManager';
+export type { CacheStats, PromptCacheConfig } from './prompts/PromptCacheManager';
 
 // parsers/ — 工具调用解析器（对标 Hermes ToolCallParser 系统）
 export { BaseParser } from './parsers/BaseParser';

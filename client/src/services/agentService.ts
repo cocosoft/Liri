@@ -191,4 +191,73 @@ export const agentService = {
       return [];
     }
   },
+
+  /** 获取任务审计日志 */
+  getTaskAuditLogs: async (taskId: string): Promise<Array<{
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    timestamp: number;
+  }>> => {
+    try {
+      return await http.get(`/v1/agents/tasks/${taskId}/audit`);
+    } catch {
+      const result = await tryTauri("get_task_audit_logs", { taskId });
+      if (result) return result as any[];
+      return [];
+    }
+  },
+
+  /** 恢复 LOST 任务 */
+  recoverTask: async (taskId: string): Promise<AgentTask> => {
+    try {
+      return await http.post(`/v1/agents/tasks/${taskId}/recover`);
+    } catch {
+      const result = await tryTauri<AgentTask>("recover_agent_task", { taskId });
+      if (result) return result;
+      throw new Error("无法恢复任务");
+    }
+  },
+
+  /** 获取任务状态（后端 TaskState） */
+  getTaskState: async (taskId: string): Promise<{
+    id: string;
+    type: string;
+    status: string;
+    description: string;
+    startTime: number;
+    endTime?: number;
+    toolUseCount: number;
+    tokenCount: number;
+    outputFile: string;
+    error?: string;
+  } | null> => {
+    try {
+      return await http.get(`/v1/agents/tasks/${taskId}/state`);
+    } catch {
+      const result = await tryTauri("get_task_state", { taskId });
+      return (result as any) || null;
+    }
+  },
+
+  /** 获取任务输出内容 */
+  getTaskOutput: async (taskId: string): Promise<string> => {
+    try {
+      return await http.get<string>(`/v1/agents/tasks/${taskId}/output`);
+    } catch {
+      const result = await tryTauri<string>("get_task_output", { taskId });
+      return result || "";
+    }
+  },
+
+  /** 向 Agent 任务发送对话消息 */
+  sendChatMessage: async (taskId: string, message: string): Promise<string> => {
+    try {
+      return await http.post<string>(`/v1/agents/tasks/${taskId}/chat`, { message });
+    } catch {
+      const result = await tryTauri<string>("agent_task_chat", { taskId, message });
+      return result || "";
+    }
+  },
 };

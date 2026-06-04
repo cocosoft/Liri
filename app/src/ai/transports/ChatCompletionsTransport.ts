@@ -14,17 +14,14 @@ import type {
 } from './types';
 
 export class ChatCompletionsTransport extends BaseTransport {
-  readonly provider = 'openai';
+  readonly provider = 'chat_completions';
 
+  /**
+   * 兼容 OpenAI Chat Completions 格式的模型。
+   * 不限于 OpenAI —— DeepSeek / Moonshot / Groq / Ollama / vLLM 等均可用。
+   */
   readonly supportedModels = [
-    'gpt-4',
-    'gpt-4-turbo',
-    'gpt-4o',
-    'gpt-4o-mini',
-    'gpt-3.5-turbo',
-    'o1',
-    'o1-mini',
-    'o3-mini',
+    '*',
   ];
 
   /**

@@ -1,9 +1,13 @@
 /**
- * Anthropic Messages API 传输实现
- * 对标 Hermes agent/transports/anthropic.py（AnthropicTransport）
+ * Messages API 传输实现（协议名，非供应商绑定）
  *
- * 复用现有的 ai/clients/PromptCacheConfig.ts 进行缓存控制
+ * 将内部消息/工具格式转换为 Anthropic Messages API 格式。
+ * 该协议同样被其他服务采用（如 Amazon Bedrock Converse API 等），
+ * 因此以协议命名而非供应商命名。
+ *
+ * 参考: hermes agent/transports/anthropic.py
  */
+
 import { BaseTransport } from './BaseTransport';
 import type {
   NormalizedResponse,
@@ -11,62 +15,116 @@ import type {
   NormalizedUsage,
   TransportRequestParams,
 } from './types';
-import {
-  isCacheSupported,
-  calculateBreakpoints,
-  shouldPlaceSystemBreakpoint,
-  shouldPlaceBreakpoint,
-  shouldPlaceToolsBreakpoint,
-  createCacheControl,
-  DEFAULT_CACHE_CONFIG,
-} from '../clients/PromptCacheConfig';
 
-export class AnthropicMessagesTransport extends BaseTransport {
-  readonly provider = 'anthropic';
+interface MessagesTextBlock {
+  type: 'text';
+  text: string;
+  cache_control?: { type: 'ephemeral' };
+}
 
+interface MessagesToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface MessagesToolResultBlock {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: string;
+  cache_control?: { type: 'ephemeral' };
+}
+
+type MessagesContentBlock =
+  | MessagesTextBlock
+  | MessagesToolUseBlock
+  | MessagesToolResultBlock;
+
+interface MessagesAPIMessage {
+  role: 'user' | 'assistant';
+  content: MessagesContentBlock[];
+}
+
+interface MessagesAPIToolDef {
+  name: string;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+  cache_control?: { type: 'ephemeral' };
+}
+
+export class MessagesApiTransport extends BaseTransport {
+  readonly provider = 'messages_api';
+
+  /**
+   * 兼容 Messages API 协议格式的模型。
+   * 不限于 Anthropic —— 任何实现同格式的 provider 均可使用。
+   */
   readonly supportedModels = [
-    'claude-opus-4-6',
-    'claude-opus-4-5-20251101',
-    'claude-sonnet-4-6',
-    'claude-sonnet-4-5-20250929',
-    'claude-haiku-4-5-20251001',
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
+    '*',
   ];
 
+  /** 是否启用 prompt caching */
+  enableCaching = true;
+
   convertMessages(
-    messages: Array<{ role: string; content: string | null }>
-  ): Array<{ role: string; content: string }> {
-    const roleMap: Record<string, string> = {
-      user: 'user',
-      assistant: 'assistant',
-      tool: 'user',
-      system: 'user',
-    };
+    messages: Array<{
+      role: string;
+      content: string | null;
+      tool_calls?: Array<Record<string, unknown>>;
+      tool_call_id?: string;
+    }>,
+  ): MessagesAPIMessage[] {
+    const result: MessagesAPIMessage[] = [];
 
-    const useCache = isCacheSupported('claude-sonnet-4-6');
-    const breakpoints = calculateBreakpoints(messages.length);
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]!;
+      const blocks: MessagesContentBlock[] = [];
 
-    return messages
-      .filter((m) => m.content !== null)
-      .map((m, index) => {
-        const msg: Record<string, unknown> = {
-          role: roleMap[m.role] || 'user',
-          content: m.content,
-        };
+      if (m.role === 'system') {
+        continue; // 由 buildRequest 处理为顶层 system 参数
+      }
 
-        if (useCache && shouldPlaceBreakpoint(index, breakpoints)) {
-          msg.content = [
-            {
-              type: 'text',
-              text: m.content,
-              cache_control: createCacheControl(),
-            },
-          ];
+      if (m.role === 'user') {
+        blocks.push({ type: 'text', text: m.content ?? '' });
+      } else if (m.role === 'assistant') {
+        if (m.content) {
+          blocks.push({ type: 'text', text: m.content });
         }
+        if (m.tool_calls?.length) {
+          for (const tc of m.tool_calls) {
+            const fn = (tc as any).function || tc;
+            blocks.push({
+              type: 'tool_use',
+              id: (tc as any).id || `tc_${Math.random().toString(36).slice(2)}`,
+              name: fn.name || '',
+              input: typeof fn.arguments === 'string'
+                ? JSON.parse(fn.arguments)
+                : (fn.arguments || {}),
+            });
+          }
+        }
+      } else if (m.role === 'tool') {
+        blocks.push({
+          type: 'tool_result',
+          tool_use_id: m.tool_call_id || '',
+          content: m.content ?? '',
+          cache_control: this.enableCaching ? { type: 'ephemeral' } : undefined,
+        });
+      }
 
-        return msg as { role: string; content: string };
-      });
+      if (blocks.length > 0) {
+        const role: 'user' | 'assistant' =
+          m.role === 'tool' || m.role === 'user' ? 'user' : 'assistant';
+        result.push({ role, content: blocks });
+      }
+    }
+
+    return result;
   }
 
   convertTools(
@@ -74,164 +132,123 @@ export class AnthropicMessagesTransport extends BaseTransport {
       name: string;
       description: string;
       parameters: Record<string, unknown>;
-    }>
-  ): Array<{
-    name: string;
-    description: string;
-    input_schema: Record<string, unknown>;
-  }> {
-    const useCache = isCacheSupported('claude-sonnet-4-6');
-    const breakpoints = calculateBreakpoints(tools.length);
-
-    return tools.map((t, index) => {
-      const tool: Record<string, unknown> = {
-        name: t.name,
-        description: t.description,
-        input_schema: t.parameters,
-      };
-
-      if (
-        useCache &&
-        shouldPlaceToolsBreakpoint(breakpoints) &&
-        index === tools.length - 1
-      ) {
-        tool.cache_control = createCacheControl();
-      }
-
-      return tool as {
-        name: string;
-        description: string;
-        input_schema: Record<string, unknown>;
-      };
-    });
+    }>,
+  ): MessagesAPIToolDef[] {
+    return tools.map((t, i) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: {
+        type: 'object',
+        properties: (t.parameters.properties as Record<string, unknown>) || {},
+        required: (t.parameters.required as string[]) || [],
+      },
+      ...(this.enableCaching && i === tools.length - 1
+        ? { cache_control: { type: 'ephemeral' as const } }
+        : {}),
+    }));
   }
 
   buildRequest(params: TransportRequestParams): Record<string, unknown> {
-    const messages = this.convertMessages(params.messages);
-    const tools = params.tools ? this.convertTools(params.tools) : undefined;
-    const useCache = isCacheSupported(params.model);
-    const breakpoints = useCache
-      ? calculateBreakpoints(params.messages.length)
-      : [];
+    const messages = this.convertMessages(params.messages as any);
+    const tools = params.tools?.length
+      ? this.convertTools(params.tools as any)
+      : undefined;
 
-    const request: Record<string, unknown> = {
+    const systemMsg = (params.messages as Array<{ role: string; content: string | null }>)
+      .filter((m) => m.role === 'system' && m.content)
+      .map((m) => ({
+        type: 'text',
+        text: m.content!,
+        ...(this.enableCaching ? { cache_control: { type: 'ephemeral' as const } } : {}),
+      }));
+
+    const body: Record<string, unknown> = {
       model: params.model,
-      messages,
       max_tokens: params.maxTokens ?? 4096,
-      temperature: params.temperature ?? 1.0,
+      messages,
     };
 
-    const rawPrompt = params.systemPrompt || '';
-    let systemContent: unknown = rawPrompt;
-
-    if (useCache && rawPrompt && typeof rawPrompt === 'string') {
-      const CACHE_BOUNDARY = '<!-- CACHE_BOUNDARY -->';
-      const boundaryIndex = rawPrompt.indexOf(CACHE_BOUNDARY);
-
-      if (boundaryIndex !== -1) {
-        const stablePart = rawPrompt.slice(0, boundaryIndex).trimEnd();
-        const dynamicPart = rawPrompt
-          .slice(boundaryIndex + CACHE_BOUNDARY.length)
-          .trimStart();
-
-        const blocks: Record<string, unknown>[] = [];
-        if (stablePart) {
-          blocks.push({
-            type: 'text',
-            text: stablePart,
-            cache_control: createCacheControl(),
-          });
-        }
-        if (dynamicPart) {
-          blocks.push({
-            type: 'text',
-            text: dynamicPart,
-          });
-        }
-        systemContent = blocks.length > 0 ? blocks : rawPrompt;
-      } else if (shouldPlaceSystemBreakpoint(breakpoints)) {
-        systemContent = [
-          {
-            type: 'text',
-            text: rawPrompt,
-            cache_control: createCacheControl(),
-          },
-        ];
-      }
+    if (systemMsg.length > 0) {
+      body.system = systemMsg;
     }
 
-    if (systemContent) {
-      request.system = systemContent;
+    if (tools) {
+      body.tools = tools;
     }
 
-    if (tools && tools.length > 0) {
-      request.tools = tools;
+    if (params.temperature !== undefined && params.temperature > 0) {
+      body.temperature = params.temperature;
     }
 
-    if (params.stream) {
-      request.stream = true;
+    if (params.stopSequences?.length) {
+      body.stop_sequences = params.stopSequences;
     }
 
-    return request;
+    return body;
   }
 
   normalizeResponse(raw: any): NormalizedResponse {
     const content = raw.content || [];
+    const textBlocks = content.filter((b: any) => b.type === 'text');
+    const toolUseBlocks = content.filter((b: any) => b.type === 'tool_use');
 
-    let textContent: string | null = null;
-    const toolCalls: NormalizedToolCall[] = [];
+    const text = textBlocks.map((b: any) => b.text).join('\n');
+    const toolCalls: NormalizedToolCall[] = toolUseBlocks.map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      arguments: b.input,
+    }));
 
-    for (const block of content) {
-      if (block.type === 'text') {
-        textContent = (textContent || '') + block.text;
-      } else if (block.type === 'tool_use') {
-        toolCalls.push({
-          id: block.id,
-          name: block.name,
-          arguments: JSON.stringify(block.input),
-        });
-      }
-    }
-
-    return {
-      content: textContent,
-      toolCalls,
-      usage: {
-        inputTokens: raw.usage?.input_tokens ?? 0,
-        outputTokens: raw.usage?.output_tokens ?? 0,
-        cacheReadTokens: raw.usage?.cache_read_input_tokens ?? 0,
-        cacheCreationTokens: raw.usage?.cache_creation_input_tokens ?? 0,
-        totalTokens:
-          (raw.usage?.input_tokens ?? 0) + (raw.usage?.output_tokens ?? 0),
-      },
-      reasoning: null,
-      finishReason: raw.stop_reason ?? 'end_turn',
-      model: raw.model ?? '',
-      id: raw.id ?? '',
-    };
-  }
-
-  override extractCacheStats(raw: any): NormalizedUsage | null {
-    if (!raw.usage) {
-      return null;
-    }
-    return {
-      inputTokens: raw.usage.input_tokens ?? 0,
-      outputTokens: raw.usage.output_tokens ?? 0,
-      cacheReadTokens: raw.usage.cache_read_input_tokens ?? 0,
-      cacheCreationTokens: raw.usage.cache_creation_input_tokens ?? 0,
+    const usage: NormalizedUsage = {
+      inputTokens: raw.usage?.input_tokens ?? 0,
+      outputTokens: raw.usage?.output_tokens ?? 0,
       totalTokens:
-        (raw.usage.input_tokens ?? 0) + (raw.usage.output_tokens ?? 0),
+        (raw.usage?.input_tokens ?? 0) + (raw.usage?.output_tokens ?? 0),
+      cacheReadTokens: raw.usage?.cache_read_input_tokens ?? 0,
+      cacheCreationTokens: raw.usage?.cache_creation_input_tokens ?? 0,
+    };
+
+    return {
+      id: raw.id || '',
+      model: raw.model,
+      finishReason: raw.stop_reason || 'stop',
+      content: text || null,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      usage,
+      raw,
     };
   }
 
-  override mapFinishReason(rawReason: string): string {
-    const reasonMap: Record<string, string> = {
-      end_turn: 'stop',
-      max_tokens: 'length',
-      tool_use: 'tool_calls',
-      stop_sequence: 'stop',
-    };
-    return reasonMap[rawReason] || rawReason;
+  extractCacheStats(raw: any): Record<string, unknown> | undefined {
+    if (
+      raw.usage?.cache_read_input_tokens ||
+      raw.usage?.cache_creation_input_tokens
+    ) {
+      return {
+        cacheReadInputTokens: raw.usage.cache_read_input_tokens || 0,
+        cacheCreationInputTokens: raw.usage.cache_creation_input_tokens || 0,
+      };
+    }
+    return undefined;
+  }
+
+  mapFinishReason(
+    rawStopReason: string,
+    hasToolCalls: boolean,
+  ): string {
+    if (hasToolCalls) return 'tool_calls';
+    switch (rawStopReason) {
+      case 'end_turn':
+        return 'stop';
+      case 'max_tokens':
+        return 'length';
+      case 'tool_use':
+        return 'tool_calls';
+      default:
+        return 'stop';
+    }
   }
 }
+
+/** @deprecated 使用 MessagesApiTransport */
+export { MessagesApiTransport as AnthropicMessagesTransport };

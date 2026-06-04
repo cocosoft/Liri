@@ -18,6 +18,25 @@ export type ChannelSetupPlugin = {
 
 const DEFAULT_PLUGINS: ChannelSetupPlugin[] = [
   {
+    channelId: 'qq',
+    name: 'QQ Bot',
+    description: 'QQ 开放平台 Bot',
+    configure: async (accountId, ctx, configProvider) => {
+      if (!ctx.env?.QQ_APP_ID || !ctx.env?.QQ_APP_SECRET) {
+        return { ok: false, error: 'QQ_APP_ID 和 QQ_APP_SECRET 未配置' };
+      }
+      configProvider.set(
+        `channels.qq.accounts.${accountId}.appId`,
+        ctx.env.QQ_APP_ID
+      );
+      configProvider.set(
+        `channels.qq.accounts.${accountId}.clientSecret`,
+        ctx.env.QQ_APP_SECRET
+      );
+      return { ok: true };
+    },
+  },
+  {
     channelId: 'irc',
     name: 'IRC',
     description: 'Internet Relay Chat',

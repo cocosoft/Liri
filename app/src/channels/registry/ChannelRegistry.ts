@@ -8,9 +8,14 @@
  * - register() 保持原有的本地缓存逻辑（用于 IChannelPlugin / ChannelInterface 直接注册）
  * - 读取方法优先返回已注册的 ChannelPlugin 适配结果，本地缓存作为补充
  * - 未匹配到本地缓存时自动从 ChannelPluginRegistry 同步
+ *
+ * 持久化：通过 channel_configs 表将配置（name/enabled/options）存入 app.db，
+ * 重启后自动恢复。
  */
 
 import { EventEmitter } from 'node:events';
+import { Database } from 'sqlite3';
+import { resolveDbPath } from '@modules/config/paths';
 import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';
 import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
 import { ChannelStatus } from '../../core/gateway/types';
@@ -168,9 +173,109 @@ export class ChannelRegistry extends EventEmitter {
   private channels: Map<string, ChannelInterface> = new Map();
   private configs: Map<string, ChannelConfig> = new Map();
 
-  constructor() {
+  // ─── 持久化 ────────────────────────────────────────────
+  private db: Database | null = null;
+  private readonly dbPath: string;
+  private persistenceReady = false;
+
+  constructor(dbPath: string = resolveDbPath()) {
     super();
-    this.syncFromPluginRegistry();
+    this.dbPath = dbPath;
+  }
+
+  /**
+   * 初始化持久化（异步，在应用启动时调用）
+   * 创建表 + 加载已保存的配置
+   */
+  async initPersistence(): Promise<void> {
+    if (this.persistenceReady) return;
+
+    this.db = await new Promise<Database>((resolve, reject) => {
+      const db = new Database(this.dbPath, (err) => {
+        if (err) reject(err);
+        else resolve(db);
+      });
+    });
+
+    await this.createTable();
+    await this.loadSavedConfigs();
+
+    this.persistenceReady = true;
+  }
+
+  /** 创建 channel_configs 表 */
+  private createTable(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db!.run(
+        `CREATE TABLE IF NOT EXISTS channel_configs (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          options TEXT NOT NULL DEFAULT '{}',
+          updated_at INTEGER NOT NULL DEFAULT 0
+        )`,
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+  }
+
+  /** 从 DB 加载已保存的配置到内存 */
+  private loadSavedConfigs(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db!.all(
+        'SELECT id, name, type, enabled, options FROM channel_configs',
+        (err, rows: Array<{ id: string; name: string; type: string; enabled: number; options: string }>) => {
+          if (err) { reject(err); return; }
+
+          for (const row of rows) {
+            let options: Record<string, unknown> = {};
+            try { options = JSON.parse(row.options || '{}'); } catch { /* ignore */ }
+
+            this.configs.set(row.id, {
+              name: row.name,
+              type: row.type || row.id,
+              enabled: row.enabled === 1,
+              options,
+            });
+          }
+          resolve();
+        }
+      );
+    });
+  }
+
+  /** 持久化单条配置（UPSERT） */
+  private persistConfig(config: ChannelConfig): void {
+    if (!this.db || !this.persistenceReady) return;
+    const { type, name, enabled, options } = config;
+    const optionsJson = JSON.stringify(options || {});
+
+    this.db.run(
+      `INSERT INTO channel_configs (id, name, type, enabled, options, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         type = excluded.type,
+         enabled = excluded.enabled,
+         options = excluded.options,
+         updated_at = excluded.updated_at`,
+      [type, name, type, enabled ? 1 : 0, optionsJson, Date.now()]
+    );
+  }
+
+  /** 从 DB 删除单条配置 */
+  private deletePersistedConfig(id: string): void {
+    if (!this.db || !this.persistenceReady) return;
+    this.db.run('DELETE FROM channel_configs WHERE id = ?', [id]);
+  }
+
+  /** 同步当前的全部内存配置到 DB */
+  private syncAllToDb(): void {
+    if (!this.db || !this.persistenceReady) return;
+    for (const config of this.configs.values()) {
+      this.persistConfig(config);
+    }
   }
 
   /** 从 ChannelPluginRegistry 同步已有插件到本地缓存 */
@@ -197,12 +302,14 @@ export class ChannelRegistry extends EventEmitter {
     }
 
     this.channels.set(adapted.name, adapted);
-    this.configs.set(adapted.name, {
+    const config: ChannelConfig = {
       name: adapted.name,
       type: adapted.type,
       enabled: adapted.enabled,
       options: {},
-    });
+    };
+    this.configs.set(adapted.name, config);
+    this.persistConfig(config);
 
     this.emit('channel:registered', { name: adapted.name, type: adapted.type });
   }
@@ -217,6 +324,7 @@ export class ChannelRegistry extends EventEmitter {
       channel.disconnect();
       this.channels.delete(name);
       this.configs.delete(name);
+      this.deletePersistedConfig(name);
       this.emit('channel:unregistered', { name });
 
       return true;
@@ -288,6 +396,7 @@ export class ChannelRegistry extends EventEmitter {
     if (changes.options !== undefined) {
       config.options = { ...config.options, ...changes.options };
     }
+    this.persistConfig(config);
     return true;
   }
 

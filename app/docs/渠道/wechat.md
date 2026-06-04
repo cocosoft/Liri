@@ -1,36 +1,29 @@
-# 微信渠道
+# 微信渠道（个人微信）
 
 ## 概述
 
-支持将 Liri 接入微信公众号或企业微信。
+通过 weixin-cli HTTP Bridge 接入个人微信，支持扫码登录后收发消息。
+
+## 前置
+
+```bash
+npx -y @tencent-weixin/openclaw-weixin-cli@latest install
+```
 
 ## 配置
 
 ```env
-WECHAT_ENABLED=true
-WECHAT_APP_ID=your_app_id
-WECHAT_APP_SECRET=your_app_secret
-WECHAT_TOKEN=your_token
-WECHAT_ENCODING_AES_KEY=your_aes_key
+WECHAT_BOT_HTTP_URL=http://localhost:7600
 ```
 
 ## 功能
 
-- 消息收发
-- 菜单交互
-- 模板消息
-- 二维码登录
+- 私聊消息收发
+- 图片发送
 
 ## 设置步骤
 
-1. 在微信公众平台注册服务号
-2. 启用开发者模式
-3. 配置服务器地址（需公网可访问）
-4. 验证 Token
-5. 配置环境变量并启动
-
-## 支持的账号类型
-
-- 微信公众号（服务号）
-- 企业微信
-- 微信小程序
+1. 运行安装命令: `npx -y @tencent-weixin/openclaw-weixin-cli@latest install`
+2. 启动 weixin-cli 服务，扫描二维码登录
+3. 确保 HTTP 服务在 `WECHAT_BOT_HTTP_URL` 地址可访问
+4. 在 Liri 前端消息渠道中填写 Bot HTTP URL，保存并开启

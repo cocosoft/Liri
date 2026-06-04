@@ -7,10 +7,10 @@
 ## 配置
 
 ```env
-QQ_ENABLED=true
 QQ_APP_ID=your_app_id
-QQ_BOT_TOKEN=your_bot_token
-QQ_BOT_SECRET=your_bot_secret
+QQ_APP_SECRET=your_app_secret
+# 可选：默认发送目标
+# QQ_HOME_CHANNEL_ID=your_group_or_channel_id
 ```
 
 ## 功能

@@ -22,6 +22,7 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
+import type { IChannelPlugin } from '@modules/channels/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -4941,6 +4942,7 @@ export class LocalHTTPService {
       const { SqliteCronStore } =
         await import('@modules/chronos/service/SqliteCronStore');
       const { nextCronRunMs } = await import('@modules/chronos/CronTasks');
+      const { scheduleToDisplayText } = await import('@modules/chronos/cron');
       const store = new SqliteCronStore();
       await store.init();
       const tasks = await store.listTasks();
@@ -4965,6 +4967,8 @@ export class LocalHTTPService {
           metadata: t.metadata || {},
           enabled: t.durable !== false,
           status: 'idle',
+          scheduleDisplay: scheduleToDisplayText(t.cron),
+          silent: t.silent ?? false,
         };
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4983,7 +4987,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const body = await this.readRequestBody(req);
-      const { cron, prompt, recurring, durable, agentId } = JSON.parse(body);
+      const { cron, prompt, recurring, durable, agentId, silent } = JSON.parse(body);
       if (!cron || !prompt) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
@@ -4997,7 +5001,9 @@ export class LocalHTTPService {
         prompt,
         recurring !== false,
         durable !== false,
-        agentId
+        agentId,
+        undefined,
+        silent ?? false
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
@@ -5008,6 +5014,7 @@ export class LocalHTTPService {
           recurring: recurring !== false,
           durable: durable !== false,
           agentId,
+          silent: silent ?? false,
           createdAt: Date.now(),
         })
       );
@@ -5225,9 +5232,13 @@ export class LocalHTTPService {
         await import('@modules/channels/registry/ChannelRegistry');
       const channel = channelRegistry.get(channelId);
       if (!channel) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
-        return;
+        // 尝试动态注册（可能 registry 状态已丢失）
+        const dynRegistered = await this.tryDynamicRegister(channelId);
+        if (!dynRegistered) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
+          return;
+        }
       }
       if (enabled) {
         await channelRegistry.connect(channelId);
@@ -6858,12 +6869,20 @@ export class LocalHTTPService {
         await import('@modules/channels/registry/ChannelRegistry');
       const channel = channelRegistry.get(channelId);
       if (!channel) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
-        return;
+        // 尝试动态注册：前端凭据足够时自动创建并注册通道插件
+        const dynRegistered = await this.tryDynamicRegister(
+          channelId,
+          config as Record<string, unknown> | undefined
+        );
+        if (!dynRegistered) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
+          return;
+        }
       }
 
       // 更新配置
+      const channelAfterDyn = channelRegistry.get(channelId)!;
       const updated = channelRegistry.updateConfig(channelId, {
         name: name,
         enabled: enabled,
@@ -6887,10 +6906,11 @@ export class LocalHTTPService {
       res.end(
         JSON.stringify({
           id: channelId,
-          name: name || channel.name,
-          type: channel.type,
-          enabled: enabled !== undefined ? enabled : channel.enabled,
-          connected: latestChannel?.connected ?? channel.connected,
+          name: name || channelAfterDyn.name,
+          type: channelAfterDyn.type,
+          enabled: enabled !== undefined ? enabled : channelAfterDyn.enabled,
+          connected: latestChannel?.connected ?? channelAfterDyn.connected,
+          registered: true,
           config: latestConfig?.options || {},
         })
       );
@@ -6899,6 +6919,165 @@ export class LocalHTTPService {
     } catch (err) {
       this.sendError(res, err);
     }
+  }
+
+  /**
+   * 通道动态注册元信息表（26 通道全覆盖）
+   * 与 setupChannels.ts 中的 channelCandidates 保持同步
+   */
+  private static readonly CHANNEL_TABLE: Array<{
+    type: string;
+    name: string;
+    importPath: string;
+    exportKey: string;
+  }> = [
+    { type: 'telegram', name: 'Telegram', importPath: '../../../channels/telegram/TelegramChannel', exportKey: 'telegramChannel' },
+    { type: 'discord', name: 'Discord', importPath: '../../../channels/discord/DiscordChannel', exportKey: 'discordChannel' },
+    { type: 'qq', name: 'QQ', importPath: '../../../channels/qq/QQChannel', exportKey: 'qqChannel' },
+    { type: 'dingtalk', name: '钉钉', importPath: '../../../channels/dingtalk/DingTalkChannel', exportKey: 'dingtalkChannel' },
+    { type: 'feishu', name: '飞书', importPath: '../../../channels/feishu/FeishuChannel', exportKey: 'feishuChannel' },
+    { type: 'wechat', name: '微信', importPath: '../../../channels/wechat/WechatChannel', exportKey: 'wechatChannel' },
+    { type: 'slack', name: 'Slack', importPath: '../../../channels/slack/index', exportKey: 'slackChannelPlugin' },
+    { type: 'line', name: 'Line', importPath: '../../../channels/line/index', exportKey: 'lineChannelPlugin' },
+    { type: 'irc', name: 'IRC', importPath: '../../../channels/irc/index', exportKey: 'ircChannelPlugin' },
+    { type: 'nostr', name: 'Nostr', importPath: '../../../channels/nostr/index', exportKey: 'nostrChannelPlugin' },
+    { type: 'email', name: '邮件', importPath: '../../../channels/email/EmailChannel', exportKey: 'emailChannelPlugin' },
+    { type: 'sms', name: '短信', importPath: '../../../channels/sms/SmsChannel', exportKey: 'smsChannelPlugin' },
+    { type: 'webhook', name: 'Webhook', importPath: '../../../channels/webhook/WebhookChannel', exportKey: 'webhookChannelPlugin' },
+    { type: 'wecom', name: '企业微信', importPath: '../../../channels/wecom/WeComChannel', exportKey: 'wecomChannel' },
+    { type: 'googlechat', name: 'Google Chat', importPath: '../../../channels/googlechat/index', exportKey: 'googleChatChannelPlugin' },
+    { type: 'msteams', name: 'MS Teams', importPath: '../../../channels/msteams/index', exportKey: 'msteamsChannelPlugin' },
+    { type: 'zalo', name: 'Zalo', importPath: '../../../channels/zalo/index', exportKey: 'zaloChannelPlugin' },
+    { type: 'yuanbao', name: '元宝', importPath: '../../../channels/yuanbao/index', exportKey: 'yuanbaoChannelPlugin' },
+    { type: 'whatsapp', name: 'WhatsApp', importPath: '../../../channels/whatsapp/index', exportKey: 'whatsAppChannelPlugin' },
+    { type: 'signal', name: 'Signal', importPath: '../../../channels/signal/index', exportKey: 'signalChannelPlugin' },
+    { type: 'matrix', name: 'Matrix', importPath: '../../../channels/matrix/index', exportKey: 'matrixChannelPlugin' },
+    { type: 'facebook', name: 'Facebook Messenger', importPath: '../../../channels/facebookmessenger/index', exportKey: 'facebookMessengerChannelPlugin' },
+    { type: 'twitter', name: 'Twitter/X', importPath: '../../../channels/twitter/index', exportKey: 'twitterChannelPlugin' },
+    { type: 'claude', name: 'Claude', importPath: '../../../channels/claude/index', exportKey: 'claudeChannelPlugin' },
+    { type: 'mattermost', name: 'Mattermost', importPath: '../../../channels/mattermost/MattermostChannel', exportKey: 'mattermostChannel' },
+    { type: 'bluebubbles', name: 'iMessage', importPath: '../../../channels/bluebubbles/BlueBubblesChannel', exportKey: 'bluebubblesChannelPlugin' },
+  ];
+
+  /** CHANNEL_TABLE 的快速索引 */
+  private static getChannelEntry(type: string) {
+    return LocalHTTPService.CHANNEL_TABLE.find((e) => e.type === type);
+  }
+
+  /**
+   * 尝试动态注册未注册的通道（前端提供凭据时自动注册）
+   * 覆盖全部 26 个通道，通过 CHANNEL_TABLE 表驱动
+   */
+  private async tryDynamicRegister(
+    channelType: string,
+    config?: Record<string, unknown>
+  ): Promise<boolean> {
+    const entry = LocalHTTPService.getChannelEntry(channelType);
+    if (!entry) return false;
+
+    try {
+      // 动态导入插件模块
+      const mod = await import(entry.importPath);
+      const plugin = (mod as Record<string, unknown>)[entry.exportKey] as IChannelPlugin | undefined;
+      if (!plugin) {
+        logger.warning(`tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`);
+        return false;
+      }
+
+      // 1. 注册到 ChannelRegistry
+      const { channelRegistry } = await import(
+        '@modules/channels/registry/ChannelRegistry'
+      );
+      const { adaptPluginToInterface } = await import(
+        '@modules/channels/registry/ChannelRegistry'
+      );
+      channelRegistry.register(adaptPluginToInterface(plugin));
+
+      // 2. 注册到 ChannelBootstrapper
+      const { channelBootstrapper } = await import(
+        '../../../channels/bootstrap/ChannelBootstrapper'
+      );
+      channelBootstrapper.registerPluginChannel(channelType, () => plugin);
+
+      // 3. 写入配置（合并前端传入的凭据）
+      channelRegistry.updateConfig(channelType, {
+        name: entry.name,
+        enabled: false,
+        options: {
+          ...(channelRegistry.getConfig(channelType)?.options || {}),
+          ...(config || {}),
+        },
+      });
+
+      // 4. 绑定入站消息处理器
+      this.bindChannelMessageHandler(channelType, plugin);
+
+      return true;
+    } catch (err) {
+      logger.error(`tryDynamicRegister(${channelType}) 失败`, {
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /** 绑定入站消息 → AI → 出站 回路 */
+  private bindChannelMessageHandler(
+    channelType: string,
+    plugin: IChannelPlugin
+  ): void {
+    if (!plugin.inbound) return;
+
+    const _processingMessages = new Set<string>();
+
+    plugin.inbound.setMessageHandler(
+      async (message: import('@modules/channels/types').MessageContext) => {
+        if (_processingMessages.has(message.messageId)) return;
+        _processingMessages.add(message.messageId);
+
+        try {
+          const sender =
+            message.senderName || message.senderId || 'unknown';
+          const label = channelType.toUpperCase();
+          console.log(`\n── [${label}] ${sender} ──`);
+          console.log(message.content);
+
+          const coreAPI = getCoreAPI();
+          const response = await coreAPI.chat({
+            content: message.content,
+            sessionId: message.conversationId ?? message.senderId,
+            metadata: {
+              channel: message.channelId,
+              sender: message.senderId,
+              messageType: message.messageType,
+              isDirectMessage: message.isDirectMessage,
+              rawPayload: message.rawPayload,
+            },
+          });
+
+          if (response.content && plugin.outbound) {
+            console.log(`\n── [${label}] Liri ──`);
+            console.log(response.content);
+            console.log('');
+
+            await plugin.outbound.sendText(
+              message.conversationId ?? message.senderId,
+              response.content
+            );
+          }
+        } catch (error) {
+          logger.error(`[${channelType}] 入站消息处理失败`, {
+            messageId: message.messageId,
+            error: String(error),
+          });
+        } finally {
+          setTimeout(() => {
+            _processingMessages.delete(message.messageId);
+          }, 3000);
+        }
+      }
+    );
+    logger.info(`[${channelType}] 入站消息处理器已绑定`);
   }
 
   // ========== Channel Plugin Handlers ==========

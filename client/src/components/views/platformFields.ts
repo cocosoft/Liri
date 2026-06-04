@@ -118,20 +118,12 @@ export const PLATFORM_FIELDS: Record<string, PlatformFieldDef[]> = {
   ],
   wechat: [
     {
-      key: "appId",
-      label: "App ID",
-      placeholder: "wx...",
+      key: "botHttpUrl",
+      label: "Bot HTTP URL",
+      placeholder: "http://localhost:7600",
       type: "text",
       required: true,
     },
-    {
-      key: "appSecret",
-      label: "App Secret",
-      placeholder: "...",
-      type: "password",
-      required: true,
-    },
-    { key: "token", label: "回调 Token", placeholder: "...", type: "text" },
   ],
   qq: [
     {
@@ -147,6 +139,12 @@ export const PLATFORM_FIELDS: Record<string, PlatformFieldDef[]> = {
       placeholder: "...",
       type: "password",
       required: true,
+    },
+    {
+      key: "homeChannelId",
+      label: "默认发送目标",
+      placeholder: "QQ 群号/频道号",
+      type: "text",
     },
   ],
   line: [

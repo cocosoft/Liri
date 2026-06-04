@@ -70,6 +70,7 @@ const CHANNEL_PLUGIN_MAP: Record<string, string[]> = {
   feishu: ["@openclaw-china/feishu-china", "@openclaw/feishu"],
   dingtalk: ["@openclaw-china/dingtalk"],
   wecom: ["@openclaw-china/wecom", "@openclaw-china/wecom-app"],
+  wechat: ["@tencent-weixin/openclaw-weixin-cli"],
 };
 
 function needsPlugin(channelType: string): string[] | null {
@@ -258,7 +259,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
           {/* 未注册提示 */}
           {!channel.registered && (
             <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
-              此渠道尚未注册。如需启用，请在后端配置对应的环境变量后重启服务。
+              此渠道尚未注册。请在下方填写凭据后保存，系统将自动完成注册。
             </div>
           )}
 
@@ -373,18 +374,14 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
             </button>
             <button
               onClick={() => saveChannel(buildSaveData())}
-              disabled={isSaving || isApplying || !channel.registered}
-              title={!channel.registered ? "未注册渠道无法保存" : "保存配置"}
+              disabled={isSaving || isApplying}
               className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
             >
               {isSaving && !isApplying ? "保存中..." : "保存"}
             </button>
             <button
               onClick={() => saveAndApplyChannel(buildSaveData())}
-              disabled={isSaving || isApplying || !channel.registered}
-              title={
-                !channel.registered ? "未注册渠道无法应用" : "保存并应用配置"
-              }
+              disabled={isSaving || isApplying}
               className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
             >
               {isApplying ? "应用中..." : "保存并应用"}

@@ -46,7 +46,7 @@ const CHANNEL_INFO: Record<
     signupUrl: 'https://q.qq.com/',
     envVars: [
       { key: 'QQ_APP_ID', label: 'QQ Bot AppID' },
-      { key: 'QQ_TOKEN', label: 'QQ Bot Token' },
+      { key: 'QQ_APP_SECRET', label: 'QQ Bot AppSecret' },
     ],
     channelType: 'qq',
   },

@@ -202,7 +202,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   protected getDefaultConfig(): Record<string, unknown> {
     return {
       appId: '',
-      secret: '',
+      clientSecret: '',
       webhookPort: 8086,
       wsHost: 'api.sgroup.qq.com',
     };
@@ -212,12 +212,13 @@ class QQChannelPlugin extends BaseChannelPlugin {
     const errors: string[] = [];
     const appId =
       (config['appId'] as string) || (process.env['QQ_APP_ID'] as string) || '';
-    const secret =
+    const clientSecret =
+      (config['clientSecret'] as string) ||
       (config['secret'] as string) ||
       (process.env['QQ_APP_SECRET'] as string) ||
       '';
     if (!appId) errors.push('缺少 appId (QQ Bot AppID)');
-    if (!secret) errors.push('缺少 secret (QQ Bot AppSecret)');
+    if (!clientSecret) errors.push('缺少 clientSecret (QQ Bot AppSecret)');
     return errors;
   }
 
@@ -225,17 +226,18 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.appId =
       (config['appId'] as string) || (process.env['QQ_APP_ID'] as string) || '';
     this.secret =
+      (config['clientSecret'] as string) ||
       (config['secret'] as string) ||
       (process.env['QQ_APP_SECRET'] as string) ||
       '';
 
     if (!this.appId || !this.secret)
       throw new AppError(
-        'QQ Bot: appId 和 secret 是必需的',
+        'QQ Bot: appId 和 clientSecret 是必需的',
         ErrorCategory.VALIDATION,
         ErrorSeverity.HIGH,
         'INVALID_INPUT',
-        { channel: 'qq', missing: ['appId', 'secret'] }
+        { channel: 'qq', missing: ['appId', 'clientSecret'] }
       );
 
     // 获取 Access Token

@@ -96,7 +96,7 @@ export async function setupChannelsFromConfig(): Promise<{
     },
     {
       type: 'wechat',
-      enabled: !!process.env.WECHAT_APP_ID && !!process.env.WECHAT_APP_SECRET,
+      enabled: !!process.env.WECHAT_BOT_HTTP_URL,
       importPath: '../channels/wechat/WechatChannel',
       exportKey: 'wechatChannel',
     },
@@ -238,29 +238,41 @@ export async function setupChannelsFromConfig(): Promise<{
 
   const enabledDefs = channelCandidates.filter((c) => c.enabled);
 
-  if (enabledDefs.length === 0) {
+  // 补充：DB 中已持久化的通道也视为"已启用"（凭据来自前端保存，不依赖 .env）
+  const persistedTypes = new Set(
+    channelRegistry.getAllConfigs().map((cfg) => cfg.type)
+  );
+  const dbEnabledDefs: typeof channelCandidates = [];
+  for (const candidate of channelCandidates) {
+    if (!candidate.enabled && persistedTypes.has(candidate.type)) {
+      dbEnabledDefs.push({ ...candidate, enabled: true });
+    }
+  }
+  const allEnabledDefs = [...enabledDefs, ...dbEnabledDefs];
+
+  if (allEnabledDefs.length === 0) {
     logger.info('通道自动注册: 无启用的通道, 跳过');
     return { registered: 0, errors: [] };
   }
 
-  // 第二步：按 CHANNEL_PRIORITY 排序 + 硬编码上限 3（WebSocket 通道资源占用高）
-  // 未设置 CHANNEL_PRIORITY 时，按定义顺序取前 3 个
-  const MAX_CHANNELS = 3;
+  // DB 来源的通道不受 MAX_CHANNELS 限制（前端显式配置的凭据 → 始终注册）
+  const MAX_ENV_CHANNELS = 3;
   const priorityStr = process.env.CHANNEL_PRIORITY || '';
 
-  let selectedDefs: typeof enabledDefs;
+  // 环境变量通道按优先级选择（上限 MAX_ENV_CHANNELS）
+  let selectedEnvDefs: typeof channelCandidates;
   if (priorityStr) {
     const priorityOrder = priorityStr
       .split(',')
       .map((s) => s.trim().toLowerCase());
     const priorityMap = new Map(priorityOrder.map((t, i) => [t, i]));
-    selectedDefs = enabledDefs
+    selectedEnvDefs = enabledDefs
       .filter((d) => priorityMap.has(d.type))
       .sort(
         (a, b) =>
           (priorityMap.get(a.type) ?? 999) - (priorityMap.get(b.type) ?? 999)
       )
-      .slice(0, MAX_CHANNELS);
+      .slice(0, MAX_ENV_CHANNELS);
     const skippedUnprioritized = enabledDefs.filter(
       (d) => !priorityMap.has(d.type)
     ).length;
@@ -270,16 +282,27 @@ export async function setupChannelsFromConfig(): Promise<{
       );
     }
   } else {
-    selectedDefs = enabledDefs.slice(0, MAX_CHANNELS);
+    selectedEnvDefs = enabledDefs.slice(0, MAX_ENV_CHANNELS);
   }
 
-  const totalSkipped = enabledDefs.length - selectedDefs.length;
-  if (totalSkipped > 0) {
+  // DB 来源通道 + 环境变量通道（去重：DB 优先）
+  const envTypes = new Set(selectedEnvDefs.map((d) => d.type));
+  const dedupedDbDefs = dbEnabledDefs.filter((d) => !envTypes.has(d.type));
+  const selectedDefs = [...dedupedDbDefs, ...selectedEnvDefs];
+
+  if (dbEnabledDefs.length > 0) {
+    logger.info(
+      `DB 持久化通道自动注册: ${dbEnabledDefs.map((d) => d.type).join(', ')}`
+    );
+  }
+
+  const totalEnvSkipped = enabledDefs.length - selectedEnvDefs.length;
+  if (totalEnvSkipped > 0) {
     const skippedTypes = enabledDefs
-      .filter((d) => !selectedDefs.find((s) => s.type === d.type))
+      .filter((d) => !selectedEnvDefs.find((s) => s.type === d.type))
       .map((d) => d.type);
     logger.info(
-      `通道上限 ${MAX_CHANNELS} 个, 跳过: ${skippedTypes.join(', ')}`
+      `通道上限 ${MAX_ENV_CHANNELS} 个, 跳过: ${skippedTypes.join(', ')}`
     );
   }
   // 第三步：仅导入选中的通道模块（并行导入）

@@ -377,10 +377,16 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const { launchRepl } = await import('./entrypoints/repl');
   await launchRepl({ httpPort, useLegacyRepl });
 
-  // REPL 完全启动后，后台延迟连接通道，不阻塞用户交互
+  // REPL 完全启动后，初始化通道持久化并后台连接，不阻塞用户交互
   import('./channels/setupChannels').then(({ lazyConnectChannels }) => {
-    lazyConnectChannels().catch((err) => {
-      logger.error('延迟通道连接异常', { error: String(err) });
+    import('./channels/registry/ChannelRegistry').then(({ channelRegistry }) => {
+      channelRegistry.initPersistence().then(() => {
+        lazyConnectChannels().catch((err) => {
+          logger.error('延迟通道连接异常', { error: String(err) });
+        });
+      }).catch((err) => {
+        logger.error('通道持久化初始化失败', { error: String(err) });
+      });
     });
   });
 }

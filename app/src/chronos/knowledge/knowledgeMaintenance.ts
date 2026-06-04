@@ -6,7 +6,7 @@
  * 3. 执行健康检查（可选，默认仅在检查模式下执行）
  */
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -76,7 +76,7 @@ export class SkillSyncService {
   }
 }
 
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 export const skillSyncService = new SkillSyncService(
   resolveDataDir(),

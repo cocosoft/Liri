@@ -1,4 +1,4 @@
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 import {

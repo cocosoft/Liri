@@ -3,11 +3,10 @@
  *
  * 每个 Agent 实例拥有独立的 AbortController 和工作目录，
  * 多 Agent 并行运行时互不干扰。
- * 参考 hermes task_id 命名空间隔离 + cc_code TaskContext.abortController。
  */
 
 import { mkdirSync, existsSync } from 'fs';
-import { resolvePyappHome } from '../../config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { join } from 'path';
 
 export interface AgentIsolation {

@@ -9,7 +9,7 @@
  * - 优雅卸载：依次执行 deactivate → saveContext → unload
  */
 
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import {
   watch,
   FSWatcher,

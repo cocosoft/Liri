@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveGovernanceDir } from '@modules/config/paths';
+import { resolveGovernanceDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

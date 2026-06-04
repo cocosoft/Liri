@@ -19,7 +19,7 @@ import {
 } from '../config/ConfigLoader.js';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const DEFAULT_PRICING_SOURCE =
   'https://raw.githubusercontent.com/community/llm-pricing/main/pricing.json';

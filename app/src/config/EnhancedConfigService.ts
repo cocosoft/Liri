@@ -13,7 +13,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome } from './paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -22,7 +22,7 @@ import {
   ThemeMetadata,
   validateThemeDefinition,
 } from './ThemeSchema';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

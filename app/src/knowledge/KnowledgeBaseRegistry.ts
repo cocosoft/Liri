@@ -10,7 +10,7 @@ import { join, basename } from 'path';
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 export interface KnowledgeBaseMeta {
   label: string;

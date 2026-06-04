@@ -157,7 +157,7 @@ export class UtilHandler {
   async showVersion() {
     const { readFileSync, existsSync } = await import('fs');
     const { join } = await import('path');
-    const { resolveProjectRoot } = await import('@modules/config/paths');
+    const { resolveProjectRoot } = await import('@modules/core/paths');
     const packagePath = join(resolveProjectRoot(), 'package.json');
     let version = '0.0.0';
     if (existsSync(packagePath)) {

@@ -2,7 +2,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

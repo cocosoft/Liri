@@ -8,7 +8,7 @@ import https from 'node:https';
 import http from 'node:http';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { ClawHubSkillMeta, SkillSearchResult } from './ClawHubAdapter';
 

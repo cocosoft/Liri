@@ -4,7 +4,7 @@
  */
 import path from 'node:path';
 import os from 'node:os';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 /**
  * 内部缓存文件模式（禁止 Agent 读取）

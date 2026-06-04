@@ -2,7 +2,7 @@ import { join } from 'path';
 import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { DatabaseError } from '@modules/error';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 import { SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
 import type { TaskState } from '../types';
 import type {

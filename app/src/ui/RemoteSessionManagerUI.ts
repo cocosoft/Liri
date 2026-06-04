@@ -13,7 +13,7 @@ import {
   TerminalSession,
 } from '../ui/TerminalUIIntegration.js';
 import { RealtimeTerminalOutput } from '../ui/RealtimeTerminalOutput.js';
-import { resolveSessionsDir } from '@modules/config/paths';
+import { resolveSessionsDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -357,7 +357,7 @@ export class RemoteSessionManagerUI {
     try {
       const fs = require('fs');
       const path = require('path');
-      const { resolveDataDir } = require('@modules/config/paths');
+      const { resolveDataDir } = require('@modules/core/paths');
       const historyPath =
         this.config.historyFilePath ||
         path.join(resolveDataDir(), 'session_history.json');

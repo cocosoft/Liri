@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 获取插件目录

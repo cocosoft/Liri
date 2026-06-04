@@ -14,7 +14,7 @@ import {
 } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

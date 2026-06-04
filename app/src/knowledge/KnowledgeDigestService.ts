@@ -12,7 +12,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, relative } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

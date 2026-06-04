@@ -15,7 +15,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import path from 'node:path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 const MICROSOFT_LOGIN_BASE = 'https://login.microsoftonline.com';
 const BOT_FRAMEWORK_BASE = 'https://smba.trafficmanager.net/amer';

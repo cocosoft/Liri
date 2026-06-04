@@ -5,7 +5,7 @@ import type { CheckpointStorage } from '../types/checkpoint';
 import { CHECKPOINT_TABLE, CHECKPOINT_MAX_AUTO } from '../types/checkpoint';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 
 const logger = new Logger();
 

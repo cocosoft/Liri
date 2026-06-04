@@ -22,7 +22,7 @@ import { LazyModuleLoader } from './utils/LazyModuleLoader.js';
 import { execSync } from 'child_process';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, resolve, dirname } from 'path';
-import { resolveSessionsDir, resolveDataDir } from '@modules/config/paths';
+import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
 
 /**
  * Git 工作树创建选项

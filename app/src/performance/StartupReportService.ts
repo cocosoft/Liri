@@ -5,7 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { resolveDataSubDir, resolveProjectRoot } from '@modules/config/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/core/paths';
 
 /**
  * 启动报告配置

@@ -19,7 +19,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
-import { resolveProjectRoot, resolveDataDir } from '@modules/config/paths';
+import { resolveProjectRoot, resolveDataDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

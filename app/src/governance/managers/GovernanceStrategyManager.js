@@ -7,7 +7,7 @@
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolveGovernanceDir } from '@modules/config/paths';
+import { resolveGovernanceDir } from '@modules/core/paths';
 
 /**
  * 治理策略管理服务类

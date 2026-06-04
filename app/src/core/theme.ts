@@ -7,7 +7,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

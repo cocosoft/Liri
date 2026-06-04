@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { DiskSpaceMonitor } from '../../core/delivery/monitor/DiskSpaceMonitor';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 诊断级别

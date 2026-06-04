@@ -5,7 +5,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import type { TAORCheckpoint, CheckpointStorage } from './TAORLoop.js';
 
 const CHECKPOINT_DIR_DEFAULT = 'checkpoints';

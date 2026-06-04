@@ -5,7 +5,7 @@
  */
 
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import {
   MEMORY_FRONTMATTER_EXAMPLE,

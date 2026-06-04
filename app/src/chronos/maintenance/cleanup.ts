@@ -6,7 +6,7 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 const CLEANUP_LOCK_FILE = '.chronos-cleanup.lock';
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;

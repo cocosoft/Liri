@@ -12,7 +12,7 @@ import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 安全存储数据接口

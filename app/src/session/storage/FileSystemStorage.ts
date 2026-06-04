@@ -9,7 +9,7 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
-import { resolveSessionsDir } from '../../config/paths';
+import { resolveSessionsDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

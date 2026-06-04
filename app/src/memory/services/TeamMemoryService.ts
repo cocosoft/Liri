@@ -9,7 +9,7 @@ import { MemoryType } from '../types/MemoryType';
 import { MemoryManager } from '../MemoryManager';
 import * as fs from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import matter from 'gray-matter';

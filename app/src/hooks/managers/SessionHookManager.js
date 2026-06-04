@@ -7,7 +7,7 @@
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { resolveConfigDir } from '@modules/config/paths';
+import { resolveConfigDir } from '@modules/core/paths';
 
 /**
  * 会话级钩子匹配器

@@ -8,7 +8,7 @@ import { join, resolve } from 'path';
 import { z } from 'zod';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '../config/ConfigManager.js';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -5,7 +5,7 @@
 import { readFileSync, existsSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import type {
   KeybindingsLoadResult,
   ParsedBinding,

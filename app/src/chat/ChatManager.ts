@@ -96,7 +96,7 @@ import type {
 } from '@modules/session/types/Message';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';

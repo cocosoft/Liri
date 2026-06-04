@@ -6,6 +6,7 @@ import StatusBlock from "./StatusBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import ToolExecutionGroup from "./ToolExecutionGroup";
 import ToolResultMessage from "./ToolResultMessage";
+import TaskCard from "./TaskCard";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import { useChatStore } from "../../stores/chatStore";
@@ -487,6 +488,8 @@ function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
           isStreaming={block.isStreaming || isStreaming}
         />
       ) : null;
+    case "task_decomposition":
+      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
     case "text":
     default:
       return (

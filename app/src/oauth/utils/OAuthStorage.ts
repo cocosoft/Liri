@@ -7,7 +7,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '@modules/infrastructure';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import type {
   StoredTokenData,
   ITokenStorage,

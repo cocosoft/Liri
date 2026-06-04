@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

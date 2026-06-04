@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 

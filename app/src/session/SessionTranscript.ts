@@ -13,7 +13,7 @@ import {
   mkdirSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { resolveTranscriptsDir } from '../config/paths';
+import { resolveTranscriptsDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -8,7 +8,7 @@ import { Database } from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 import type {
   QueryLogEntry,
   QueryLogFilter,

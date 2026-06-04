@@ -1,7 +1,7 @@
 import { fork, ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 export interface ForkedDreamConfig {
   thinkingPrompt: string;

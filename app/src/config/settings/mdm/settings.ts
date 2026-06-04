@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { logger } from '@modules/utils/log.js';
 import {
   WINDOWS_REGISTRY_KEY_PATH_HKCU,

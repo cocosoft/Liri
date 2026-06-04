@@ -17,6 +17,7 @@ import type {
   ValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
+import { resolveDownloadsDir } from '@modules/core/paths';
 
 /**
  * WebFetch 输入模式

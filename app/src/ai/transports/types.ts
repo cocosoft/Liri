@@ -38,7 +38,6 @@ export interface NormalizedToolCall {
 
 /**
  * 标准化 Token 用量统计
- * 对标 Hermes Usage dataclass, CC Code NonNullableUsage
  */
 export interface NormalizedUsage {
   /** 输入Token数 */
@@ -84,6 +83,8 @@ export interface NormalizedResponse {
   model: string;
   /** 响应唯一标识 */
   id: string;
+  /** 原始响应（透传） */
+  raw?: unknown;
 }
 
 /**
@@ -112,6 +113,8 @@ export interface TransportRequestParams {
   temperature?: number;
   /** 最大输出Token数 */
   maxTokens?: number;
+  /** 停止序列 */
+  stopSequences?: string[];
   /** 是否启用流式 */
   stream?: boolean;
   /** 提供商特有扩展参数 */

@@ -16,7 +16,7 @@ import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

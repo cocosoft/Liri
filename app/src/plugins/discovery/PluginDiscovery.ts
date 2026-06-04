@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveProjectRoot, resolvePyappHome } from '../../config/paths';
+import { resolveProjectRoot, resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 发现源类型

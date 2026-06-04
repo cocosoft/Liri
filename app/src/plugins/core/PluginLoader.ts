@@ -5,7 +5,7 @@
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginState,

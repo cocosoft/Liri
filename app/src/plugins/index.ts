@@ -53,7 +53,7 @@ import {
   PluginEventType,
   PluginEvent,
 } from './types/PluginTypes';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

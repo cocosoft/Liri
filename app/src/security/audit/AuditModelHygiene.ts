@@ -6,7 +6,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

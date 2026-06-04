@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import path from 'node:path';
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveSessionsDir, resolveDataDir } from '@modules/config/paths';
+import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
 import {
   createTranscriptManager,
   TranscriptManager,

@@ -7,7 +7,7 @@ import { mkdir, writeFile, readdir, readFile, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands/types';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 获取记忆文件目录

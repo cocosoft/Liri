@@ -11,7 +11,7 @@
 
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '../../config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { Logger } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger();

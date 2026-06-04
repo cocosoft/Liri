@@ -301,26 +301,6 @@ export namespace FileConstants {
   export const DEFAULT_ENCODING = 'utf-8';
 
   /**
-   * 临时目录
-   */
-  export const TEMP_DIR = '/tmp/Liri';
-
-  /**
-   * 缓存目录
-   */
-  export const CACHE_DIR = './app/data/cache';
-
-  /**
-   * 日志目录
-   */
-  export const LOG_DIR = './.pyapp/logs';
-
-  /**
-   * 数据目录
-   */
-  export const DATA_DIR = './.pyapp/data';
-
-  /**
    * 忽略的文件模式
    */
   export const IGNORED_PATTERNS = [

@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Database } from 'sqlite3';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 
 const logger = new Logger();
 

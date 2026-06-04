@@ -12,7 +12,7 @@ import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import chatService from '@modules/chat';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
-import { resolveDataDir } from '../../config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 export interface SaveConversationInput {
   sessionId?: string;

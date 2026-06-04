@@ -213,26 +213,30 @@ export class MessagesApiTransport extends BaseTransport {
       model: raw.model,
       finishReason: raw.stop_reason || 'stop',
       content: text || null,
-      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      toolCalls: toolCalls,
+      reasoning: null,
       usage,
       raw,
     };
   }
 
-  extractCacheStats(raw: any): Record<string, unknown> | undefined {
+  override extractCacheStats(raw: any): NormalizedUsage | null {
     if (
       raw.usage?.cache_read_input_tokens ||
       raw.usage?.cache_creation_input_tokens
     ) {
       return {
-        cacheReadInputTokens: raw.usage.cache_read_input_tokens || 0,
-        cacheCreationInputTokens: raw.usage.cache_creation_input_tokens || 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cacheReadTokens: raw.usage.cache_read_input_tokens || 0,
+        cacheCreationTokens: raw.usage.cache_creation_input_tokens || 0,
       };
     }
-    return undefined;
+    return null;
   }
 
-  mapFinishReason(
+  override mapFinishReason(
     rawStopReason: string,
     hasToolCalls: boolean,
   ): string {

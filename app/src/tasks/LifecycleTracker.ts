@@ -3,13 +3,9 @@
  *
  * 定义 create → start → progress → finalize 四个核心阶段。
  * 所有 BaseTask 子类应遵循此契约。
- *
- * 参考 openclaw task-executor.ts 的：
- *   createQueuedTaskRun → markTaskRunningByRunId
- *   → recordTaskProgressByRunId → finalizeTaskRunByRunId
  */
 
-import { TaskStatus } from '../types';
+import { TaskStatus } from './types';
 
 /** 生命周期阶段 */
 export type LifecyclePhase =

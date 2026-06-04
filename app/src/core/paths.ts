@@ -1,5 +1,5 @@
 /**
- * 统一路径管理
+ * 统一路径管理 — 核心基础设施
  *
  * 按文件存储规范（三层分离）集中管理所有路径模板：
  *   第一层：app/docs/       Git 跟踪，系统文档
@@ -8,6 +8,9 @@
  *
  * 各模块通过本模块获取路径，不再硬编码路径字符串。
  * 支持运行时通过环境变量切换根目录（测试友好）。
+ *
+ * 注意：此为规范（canonical）路径注册表，其他模块应统一引用此文件，
+ * 不应在 config/ 或其他地方自行定义路径常量。
  */
 
 import { homedir } from 'os';
@@ -425,6 +428,11 @@ export function resolveOnboardedFlagPath(
   return join(resolveDataDir(env), '.onboarded');
 }
 
+/** 用户媒体文件目录（~/.pyapp/media/） */
+export function resolveMediaDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolvePyappHome(env), 'media');
+}
+
 // ─── 初始化辅助 ───────────────────────────────
 
 /**
@@ -458,6 +466,8 @@ export function ensureDataDirectories(
     resolveLogsDir(env),
     resolveArtifactsDir(env),
     resolveGovernanceDir(env),
+    join(resolveGovernanceDir(env), 'audit'),
+    join(resolveGovernanceDir(env), 'strategies'),
     resolvePairingsDir(env),
     resolvePyappHome(env),
     resolveUserMemoryDir(env),
@@ -465,6 +475,7 @@ export function ensureDataDirectories(
     resolveUserSkillsDir(env),
     resolveUserPermissionsDir(env),
     resolveOutputDir(env),
+    resolveMediaDir(env),
   ];
 
   // 临时目录也加入创建列表
@@ -511,6 +522,7 @@ export const ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const OUTPUT_DIR = resolveOutputDir();
 export const TEMP_DIR = resolveTempDir();
 export const DOWNLOADS_DIR = resolveDownloadsDir();
+export const MEDIA_DIR = resolveMediaDir();
 export const DOCS_DIR = resolveDocsDir();
 export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
 /** @deprecated 使用 resolveConfigDir() 或 CONFIG_DIR */

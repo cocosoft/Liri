@@ -17,7 +17,7 @@ let initialized = false;
 /** 获取或初始化调度器存储 */
 async function getStore(): Promise<CronJobStore> {
   if (!store) {
-    const { resolveDbPath } = await import('@modules/config/paths');
+    const { resolveDbPath } = await import('@modules/core/paths');
     store = new CronJobStore(resolveDbPath());
     await store.init();
   }
@@ -47,7 +47,7 @@ export async function ensureGlobalCronSchedulerStarted(
   const s = await getStore();
 
   // 使用与 CronJobStore 相同的 db 路径
-  const { resolveDbPath } = await import('@modules/config/paths');
+  const { resolveDbPath } = await import('@modules/core/paths');
   const rl = new CronRunLog(resolveDbPath());
   await rl.init();
 

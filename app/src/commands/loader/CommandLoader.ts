@@ -13,7 +13,7 @@ import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 import { LazyCommand } from './LazyCommand.js';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

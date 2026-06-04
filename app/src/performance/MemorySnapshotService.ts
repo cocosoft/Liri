@@ -5,7 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { resolveDataSubDir } from '../config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 
 /**
  * 内存快照配置

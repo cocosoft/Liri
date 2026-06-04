@@ -20,7 +20,7 @@ import {
   MODULE_INITIALIZATION_ORDER,
 } from '@modules/modules/ModuleDefinitions';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveCacheDir } from '@modules/config/paths';
+import { resolveCacheDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

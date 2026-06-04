@@ -15,7 +15,7 @@
 
 import { EventEmitter } from 'node:events';
 import { Database } from 'sqlite3';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';
 import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
 import { ChannelStatus } from '../../core/gateway/types';

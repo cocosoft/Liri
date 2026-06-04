@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { CryptoUtils } from '@modules/security/services/CryptoUtils.js';
-import { resolveOAuthDir, ensureDir } from '@modules/config/paths';
+import { resolveOAuthDir, ensureDir } from '@modules/core/paths';
 
 /**
  * OAuth Token数据结构

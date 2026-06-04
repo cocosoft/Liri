@@ -4,7 +4,7 @@
  */
 
 import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   MemorySecretScanner,
@@ -104,7 +104,7 @@ export interface TeamMemorySyncConfig {
  * 默认配置
  */
 import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 const DEFAULT_CONFIG: TeamMemorySyncConfig = {
   serverUrl: '',

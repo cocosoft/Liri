@@ -5,7 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveSecurityDir } from '@modules/config/paths';
+import { resolveSecurityDir } from '@modules/core/paths';
 import { EventEmitter } from 'node:events';
 
 /**

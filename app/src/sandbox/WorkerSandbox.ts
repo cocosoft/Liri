@@ -6,7 +6,7 @@
 
 import { Worker } from 'worker_threads';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import {
   Sandbox,
   SandboxConfig,

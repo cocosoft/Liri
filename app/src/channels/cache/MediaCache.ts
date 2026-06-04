@@ -4,7 +4,7 @@
  * 支持 LRU 淘汰、TTL 过期、磁盘持久化和下载即缓存
  */
 
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import {
   mkdir,
   readFile,

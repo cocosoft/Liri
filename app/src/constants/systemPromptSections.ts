@@ -28,7 +28,7 @@ import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
 import { getGitInfo } from '@modules/context/GitDetector';
 import { readProjectFiles } from '@modules/context/ProjectFileReader';
 import { basename, join } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 
 /** 技能注入服务单例 */
@@ -137,6 +137,52 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
 
   systemPromptSection('toolUse', () => {
     return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n修改文件时：\n- 使用可用工具先读取文件再编辑\n- 做精准、最小化的修改\n- 除非明确要求，否则不添加注释\n\n执行命令时：\n- 先说明你要做什么\n- 必要时等待用户确认\n- 清晰地报告结果`;
+  }),
+
+  systemPromptSection('taskNegotiation', () => {
+    return `## 复杂任务处理
+
+当你接到一个复杂任务时，不要一次性输出完整方案，而是按照以下规则与用户协商。
+
+### 判断是否需要协商
+以下情况属于"复杂任务"，需要与用户协商后再执行：
+- 需要分解为 3 个以上子步骤
+- 子步骤之间存在依赖关系（A 完成后才能做 B）
+- 任务涉及多个领域或工具
+- 任务结果存在多种可能性，需要用户决策
+
+以下情况可以直接执行，不需要协商：
+- 单步操作（如"读取这个文件"）
+- 明确的指令（如"搜索 Python 异步编程"）
+- 用户已经说清楚要做什么，无歧义
+
+### 协商规则
+- 最多与用户协商 2 轮
+- 第 1 轮：提出初步分解方案，一次性列出所有维度，说明依赖关系
+- 第 2 轮：根据反馈调整，再次确认
+- 2 轮后无论用户是否满意，按当前方案执行
+- 用户也可以直接说"开始吧"或"别问了，直接开始"提前结束协商
+- 使用 ask_user_question 工具询问用户意见
+- 一次性问完所有问题，不要逐项问（如不要问"要不要加A？"、"要不要加B？"）
+
+### 任务管理
+- 协商完成后，调用 todo_write action=write 写入子任务列表
+- 在 todo_write 的 metadata 中注明 dependsOn 依赖关系（格式：{"taskId": 3, "dependsOn": [1, 2]}）
+- 按依赖关系顺序执行：无依赖的先执行，有依赖的后执行
+- 每完成一个子任务，调用 todo_write update 更新状态
+- 每完成 3 个子任务，主动在回复中简要报告进度
+
+### 异常处理
+- 子任务失败时，暂停执行，告知用户失败原因
+- 评估失败对后续任务的影响（检查 dependsOn 关系）
+- 使用 ask_user_question 询问用户如何处理（重试 / 跳过 / 改方案）
+
+### 完成总结
+- 全部完成后，生成一段自然语言总结（关键结果 + 输出文件路径），追加到会话中
+
+### 超时
+- 如果发出问题后用户超过 30 秒没有回复，按当前方案自动执行
+- 不要重复问同一个问题`;
   }),
 
   systemPromptSection('userProfile', () => {

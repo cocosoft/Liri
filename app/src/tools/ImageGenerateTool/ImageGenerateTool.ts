@@ -10,6 +10,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
+import { resolveOutputDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

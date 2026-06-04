@@ -52,7 +52,7 @@ import {
   resolveOutputDir,
   resolveDownloadsDir,
   ensureDataDirectories,
-} from '@modules/config/paths';
+} from '@modules/core/paths';
 
 const logger = new Logger({ level: 'info' as any });
 

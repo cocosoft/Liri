@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 export type ResumeAgentInput = {
   agentId: string;

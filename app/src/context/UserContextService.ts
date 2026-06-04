@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

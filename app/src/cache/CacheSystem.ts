@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { randomBytes } from 'crypto';
-import { resolveCacheDir } from '@modules/config/paths';
+import { resolveCacheDir } from '@modules/core/paths';
 import {
   open,
   writeFile,

@@ -24,7 +24,7 @@
  * 记录梦境执行历史，用于判断最短间隔等调度决策。
  */
 
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import type { DreamRecord } from './types';

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { ICache, CacheStats } from '@modules/cache/models/types';

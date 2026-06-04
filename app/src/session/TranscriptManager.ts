@@ -5,7 +5,7 @@
 import { writeFile, readFile, mkdir, stat, unlink, readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 import { UnifiedMessage, MessageType, MessageRole } from './types/Message.js';
 import type {

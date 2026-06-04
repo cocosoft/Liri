@@ -10,7 +10,7 @@ import type {
   Transaction,
   UnifiedMessageQueryOptions,
 } from './UnifiedStorage.js';
-import { resolveSessionsDir } from '../../config/paths';
+import { resolveSessionsDir } from '@modules/core/paths';
 import type {
   UnifiedSession,
   SessionFilter,

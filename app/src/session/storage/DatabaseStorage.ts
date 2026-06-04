@@ -9,7 +9,7 @@ import type {
   SessionListOptions,
 } from '../SessionStorage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 
 /**
  * 数据库存储实现

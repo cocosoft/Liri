@@ -1,6 +1,6 @@
 import { appendFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { resolveDataSubDir } from '../config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import type { AnalyticsEvent } from './types';
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import {

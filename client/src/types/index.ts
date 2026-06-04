@@ -27,13 +27,30 @@ export interface Message {
 
 export interface MessageBlock {
   id: string;
-  type: "text" | "thinking" | "tool_call" | "status";
+  type: "text" | "thinking" | "tool_call" | "status" | "task_decomposition";
   content: string;
   toolCall?: ToolCall;
   status?: string;
   isStreaming?: boolean;
   toolCallId?: string;
   groupId?: string;
+  taskCard?: TaskCardData;
+}
+
+/** TaskCard 数据 — 从 TodoWriteTool 的 todo list 映射 */
+export interface TaskCardData {
+  title: string;
+  tasks: TaskCardTask[];
+  status: "planning" | "executing" | "done";
+}
+
+export interface TaskCardTask {
+  id: string;
+  name: string;
+  status: "pending" | "in_progress" | "completed" | "failed" | "blocked";
+  dependsOn: string[];
+  result?: string;
+  durationMs?: number;
 }
 
 export interface Tool {

@@ -23,7 +23,7 @@ interface PendingPairing {
   expiresAt: number;
 }
 
-import { resolvePairingsDir } from '@modules/config/paths';
+import { resolvePairingsDir } from '@modules/core/paths';
 
 export class PairingStore {
   private storeDir: string;

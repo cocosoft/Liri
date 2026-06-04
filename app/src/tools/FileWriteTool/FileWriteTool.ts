@@ -3,6 +3,13 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveOutputDir } from '@modules/core/paths';
+
+function resolveFilePath(filePath: string): string {
+  return path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(resolveOutputDir(), filePath);
+}
 
 export interface FileWriteInput {
   filePath: string;
@@ -19,7 +26,7 @@ export interface FileWriteResult {
 const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
 export function writeFile(input: FileWriteInput): FileWriteResult {
-  const resolved = path.resolve(input.filePath);
+  const resolved = resolveFilePath(input.filePath);
 
   const dir = path.dirname(resolved);
   if (!fs.existsSync(dir)) {
@@ -129,7 +136,7 @@ export class FileWriteTool extends BaseTool {
       const append = (input.append as boolean) || false;
 
       if (append) {
-        const resolved = path.resolve(input.file_path as string);
+        const resolved = resolveFilePath(input.file_path as string);
         const existingContent = fs.readFileSync(resolved, 'utf-8');
         writeFile({
           filePath: input.file_path as string,

@@ -7,7 +7,7 @@
 import { getConfig, setConfigValue } from '@modules/config/index.js';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { resolveDataSubDir, resolveProjectRoot } from '@modules/config/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/core/paths';
 
 /**
  * 语言包接口

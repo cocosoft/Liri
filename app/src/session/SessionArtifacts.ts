@@ -42,7 +42,7 @@ export interface ArtifactConfig {
   maxTotalSize: number;
 }
 
-import { resolveArtifactsDir } from '@modules/config/paths';
+import { resolveArtifactsDir } from '@modules/core/paths';
 
 const DEFAULT_CONFIG: ArtifactConfig = {
   artifactsDir: resolveArtifactsDir(),

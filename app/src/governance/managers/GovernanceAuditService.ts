@@ -14,7 +14,7 @@ import type {
   GovernanceEventType,
 } from '../types/GovernanceTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveGovernanceDir } from '@modules/config/paths';
+import { resolveGovernanceDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

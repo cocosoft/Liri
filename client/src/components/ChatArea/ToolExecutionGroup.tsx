@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import type { MessageBlock } from "../../types";
+import type { MessageBlock, TaskCardData, TaskCardTask } from "../../types";
 import StatusBlock from "./StatusBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import MarkdownRenderer from "./MarkdownRenderer";
+import TaskCard from "./TaskCard";
 import { useChatStore } from "../../stores/chatStore";
 
 interface ToolExecutionGroupProps {
@@ -136,6 +137,46 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     }
     return "";
   }, [blocks]);
+
+  /** 检测是否为 todo_write 工具调用，若是则提取 TaskCard 数据 */
+  const taskCardData = React.useMemo((): TaskCardData | null => {
+    for (const block of blocks) {
+      if (
+        block.type === "tool_call" &&
+        block.toolCall?.name === "todo_write" &&
+        block.toolCall?.status === "completed"
+      ) {
+        const args = block.toolCall.arguments as Record<string, unknown> | undefined;
+        if (args?.action === "write" && args?.todos) {
+          const todos = args.todos as Array<{
+            id?: string; name?: string; status?: string;
+            dependsOn?: string[]; activeForm?: string; metadata?: Record<string, unknown>;
+          }>;
+          if (Array.isArray(todos) && todos.length > 0) {
+            const tasks: TaskCardTask[] = todos.map((t, i) => ({
+              id: t.id || String(i + 1),
+              name: t.name || `步骤 ${i + 1}`,
+              status: (t.status as TaskCardTask["status"]) || "pending",
+              dependsOn:
+                t.dependsOn ||
+                (t.metadata as Record<string, unknown> | undefined)?.dependsOn as string[] ||
+                [],
+            }));
+            const title =
+              (args?.title as string) ||
+              (typeof args?.description === "string" ? args.description : "") ||
+              `任务 (${todos.length} 步)`;
+            return { title, tasks, status: "planning" };
+          }
+        }
+      }
+    }
+    return null;
+  }, [blocks]);
+
+  if (taskCardData) {
+    return <TaskCard data={taskCardData} />;
+  }
 
   return (
     <div style={styles.container}>

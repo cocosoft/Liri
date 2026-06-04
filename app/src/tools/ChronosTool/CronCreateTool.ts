@@ -135,7 +135,7 @@ export class CronCreateTool {
           const { parseSchedule } = await import('@modules/chronos/cron');
           const { computeNextCronRun } = await import('@modules/tasks/cron/CronParser');
           const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-          const { resolveDbPath } = await import('@modules/config/paths');
+          const { resolveDbPath } = await import('@modules/core/paths');
 
           const parsed: any = parseSchedule(expression) || { kind: 'cron', expr: expression, display: expression };
 

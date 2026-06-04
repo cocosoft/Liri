@@ -16,7 +16,7 @@ import {
   loadLocalAgents,
 } from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
-import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
+import { resolvePyappHome, resolveDataDir } from '@modules/core/paths';
 
 /**
  * Agent源类型

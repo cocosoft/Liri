@@ -7,7 +7,7 @@
 import { readFile, writeFile, mkdir, readdir, unlink, stat } from 'fs/promises';
 import { join, dirname, basename } from 'path';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 export interface SessionData<T = unknown> {
   id: string;

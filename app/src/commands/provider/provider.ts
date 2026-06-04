@@ -26,7 +26,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { join } from 'path';
 import {
   providerManager,

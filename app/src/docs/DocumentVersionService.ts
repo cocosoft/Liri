@@ -4,7 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';

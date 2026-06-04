@@ -15,7 +15,7 @@ import {
   rmSync,
   copyFileSync,
 } from 'fs';
-import { resolveUserSkillsDir } from '@modules/config/paths';
+import { resolveUserSkillsDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   InstalledSkill,

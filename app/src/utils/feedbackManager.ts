@@ -13,7 +13,7 @@ import {
 } from 'fs';
 import { logger } from '../utils/log.js';
 import { sanitizeInput } from '@modules/security';
-import { resolveDataDir } from '../config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 export interface FeedbackEntry {
   id: string;

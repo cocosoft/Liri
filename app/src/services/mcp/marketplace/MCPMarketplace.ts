@@ -1,5 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import { LocalServerStore } from './LocalServerStore';

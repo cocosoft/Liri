@@ -17,7 +17,7 @@ import {
   copyFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

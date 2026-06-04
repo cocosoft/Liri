@@ -3,7 +3,7 @@
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
 import { join } from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import {
   PermissionRule,
   PermissionBehavior,

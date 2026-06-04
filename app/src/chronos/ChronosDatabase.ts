@@ -7,7 +7,7 @@ import type {
   TaskStatus,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 
 /**
  * Chronos数据库存储实现

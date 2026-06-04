@@ -37,7 +37,7 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '@modules/monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome, ensureDataDirectories } from '@modules/config/paths';
+import { resolvePyappHome, ensureDataDirectories } from '@modules/core/paths';
 import { getStartupChainProfiler } from '@modules/bootstrap/StartupChainProfiler.js';
 import {
   loadStartupConfig,
@@ -74,7 +74,7 @@ async function loadUserDataDirectory(): Promise<void> {
   try {
     const { loadUserSettings } =
       await import('../config/settings/userSettings.js');
-    const { setUserDataDirOverride } = await import('../config/paths.js');
+    const { setUserDataDirOverride } = await import('@modules/core/paths');
 
     const settings = loadUserSettings();
     const dataDirectory = settings.dataDirectory as string | undefined;

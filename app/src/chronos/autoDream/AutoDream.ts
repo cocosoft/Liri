@@ -4,7 +4,7 @@
  */
 
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
-import { resolveKnowledgeDir, resolvePyappHome } from '@modules/config/paths';
+import { resolveKnowledgeDir, resolvePyappHome } from '@modules/core/paths';
 import { join } from 'path';
 import {
   readLastConsolidatedAt,

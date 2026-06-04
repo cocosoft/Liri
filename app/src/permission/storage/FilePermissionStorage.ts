@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolvePermissionsDir } from '@modules/config/paths';
+import { resolvePermissionsDir } from '@modules/core/paths';
 import type {
   PermissionStorage,
   PermissionRule,

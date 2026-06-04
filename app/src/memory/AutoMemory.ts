@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveMemoryDir } from '@modules/config/paths';
+import { resolveMemoryDir } from '@modules/core/paths';
 
 export function getAutoMemPath(): string {
   return path.join(resolveMemoryDir(), 'MEMORY.md');

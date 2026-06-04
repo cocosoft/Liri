@@ -9,7 +9,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveLogsDir } from '@modules/config/paths';
+import { resolveLogsDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

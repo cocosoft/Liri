@@ -8,7 +8,7 @@
 
 import { join } from 'path';
 import { writeFileSync } from 'fs';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import type { CommandContext } from '@modules/commands/types';
 
 interface MsgLike {

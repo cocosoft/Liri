@@ -4,7 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveMemoryDir } from '@modules/config/paths';
+import { resolvePyappHome, resolveMemoryDir } from '@modules/core/paths';
 
 export interface ProjectFiles {
   pyAppMd: string | null;

@@ -11,7 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -11,7 +11,7 @@ import {
   resolvePyappHome,
   resolveDataDir,
   resolveProjectRoot,
-} from '@modules/config/paths';
+} from '@modules/core/paths';
 
 /**
  * 技能加载路径配置

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Logger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
-import { resolveDataDir } from '../config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: 'info' as any });
 

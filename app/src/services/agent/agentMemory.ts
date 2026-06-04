@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveDataDir } from '@modules/config/paths';
+import { resolveDataDir } from '@modules/core/paths';
 import { getProjectRoot } from '../../bootstrap/state.js';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
 import { getCwd } from '@modules/utils/cwd';

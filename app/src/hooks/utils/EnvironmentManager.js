@@ -7,7 +7,7 @@
 import { platform, homedir } from 'os';
 import { join, sep, resolve, isAbsolute } from 'path';
 import { existsSync } from 'fs';
-import { resolveProjectRoot, resolveSessionsDir } from '@modules/config/paths';
+import { resolveProjectRoot, resolveSessionsDir } from '@modules/core/paths';
 
 /**
  * 环境变量选项

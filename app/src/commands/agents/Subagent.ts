@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
 
 /**
  * Agent 源类型

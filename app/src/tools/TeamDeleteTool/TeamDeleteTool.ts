@@ -11,7 +11,7 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

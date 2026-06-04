@@ -27,7 +27,7 @@ import {
 } from './trajectory';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolveSessionsDir } from '@modules/config/paths';
+import { resolveSessionsDir } from '@modules/core/paths';
 import { CuratorScheduler } from '@modules/tools/AgentTool/CuratorScheduler';
 import { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 import { InternalEventBus } from './events';

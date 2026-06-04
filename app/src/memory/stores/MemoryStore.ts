@@ -7,7 +7,7 @@ import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveMemoryDir } from '../../config/paths';
+import { resolveMemoryDir } from '@modules/core/paths';
 
 const storeLogger = new Logger({ level: LogLevel.INFO });
 

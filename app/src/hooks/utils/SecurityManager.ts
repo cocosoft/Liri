@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { join, resolve, dirname } from 'path';
-import { resolveProjectRoot, resolveSecurityDir } from '@modules/config/paths';
+import { resolveProjectRoot, resolveSecurityDir } from '@modules/core/paths';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 

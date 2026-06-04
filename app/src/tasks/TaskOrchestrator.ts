@@ -22,7 +22,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { taskRegistry } from './TaskRegistry';
-import { resolveDataSubDir } from '../config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';

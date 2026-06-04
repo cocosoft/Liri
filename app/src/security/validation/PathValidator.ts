@@ -5,7 +5,7 @@
 
 import { homedir } from 'os';
 import { isAbsolute, resolve, dirname } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import {
   PathValidationRule,
   ValidationResult,

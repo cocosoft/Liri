@@ -9,7 +9,7 @@ import { existsSync, statSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, hostname } from 'os';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveProjectRoot } from '@modules/config/paths';
+import { resolveDbPath, resolveProjectRoot } from '@modules/core/paths';
 
 const execAsync = promisify(exec);
 

@@ -11,7 +11,7 @@ import { freemem, totalmem, cpus, loadavg, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);

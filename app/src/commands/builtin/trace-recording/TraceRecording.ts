@@ -11,7 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { join, resolve } from 'path';
-import { resolveOutputDir } from '@modules/config/paths';
+import { resolveOutputDir } from '@modules/core/paths';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 /**

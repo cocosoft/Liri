@@ -200,7 +200,7 @@ export async function loadUserAgents(): Promise<AgentDefinition[]> {
   return loadAgentsFromDir(userAgentsDir);
 }
 
-import { resolveDataSubDir, resolvePyappHome } from '@modules/config/paths';
+import { resolveDataSubDir, resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 加载项目级Agent

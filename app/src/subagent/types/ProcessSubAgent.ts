@@ -12,7 +12,7 @@ import {
 } from './SubAgent';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 

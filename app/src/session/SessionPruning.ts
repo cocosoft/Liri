@@ -25,7 +25,7 @@ export interface PruningResult {
   prunedSessions: string[];
 }
 
-import { resolveSessionsDir } from '@modules/config/paths';
+import { resolveSessionsDir } from '@modules/core/paths';
 
 const DEFAULT_PRUNING_CONFIG: PruningConfig = {
   sessionsDir: resolveSessionsDir(),

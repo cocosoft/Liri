@@ -3,7 +3,7 @@
  * 对标 CC 的日志配置管理机制
  */
 
-import { resolveLogsDir } from '@modules/config/paths';
+import { resolveLogsDir } from '@modules/core/paths';
 import { join } from 'path';
 import { LogLevel } from '../Logger.js';
 

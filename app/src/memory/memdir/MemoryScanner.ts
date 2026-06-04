@@ -9,7 +9,7 @@ import { existsSync } from 'fs';
 import type { MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

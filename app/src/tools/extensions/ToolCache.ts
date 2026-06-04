@@ -6,7 +6,7 @@ import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveCacheDir } from '@modules/config/paths';
+import { resolveCacheDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

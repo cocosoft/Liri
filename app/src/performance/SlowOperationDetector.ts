@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveLogsDir } from '@modules/config/paths';
+import { resolveLogsDir } from '@modules/core/paths';
 import path from 'path';
 import fs from 'fs';
 

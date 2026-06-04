@@ -27,7 +27,7 @@
 
 import { Database } from 'sqlite3';
 import { randomUUID } from 'node:crypto';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 

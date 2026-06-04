@@ -119,11 +119,12 @@ export class LongRunningTaskOrchestrator {
       (async (params) => {
         try {
           const { createAIService } = await import('../ai');
+          // FIXME: 迁移到新的 AIService API（generate/stream 替代 chat）
           const service = createAIService({
-            model: 'claude-sonnet-4-20250514',
-            temperature: 0.3,
-          });
-          const response = await service.chat({
+            defaultModel: 'claude-sonnet-4-20250514',
+            apiKey: process.env.ANTHROPIC_API_KEY || '',
+          } as any);
+          const response = await (service as any).chat({
             messages: [
               { role: 'system', content: params.systemPrompt },
               { role: 'user', content: params.userPrompt },

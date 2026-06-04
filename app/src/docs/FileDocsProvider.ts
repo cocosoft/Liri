@@ -5,7 +5,7 @@
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative, basename, dirname } from 'node:path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 export interface FileDocEntry {
   relativePath: string;

@@ -41,7 +41,7 @@ import {
   loadPolicySettings,
   isPolicySettingsAvailable,
 } from './settings/policySettings.js';
-import { resolveUserConfigPath, resolvePyappHome, ensureDir } from './paths.js';
+import { resolveUserConfigPath, resolvePyappHome, ensureDir } from '@modules/core/paths';
 import {
   setRuntimeConfigSnapshot,
   clearRuntimeConfigSnapshot,

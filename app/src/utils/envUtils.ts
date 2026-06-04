@@ -2,7 +2,7 @@
  * 环境变量工具函数
  */
 
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 /**
  * 检查环境变量是否为真值

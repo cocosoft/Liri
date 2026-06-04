@@ -11,7 +11,7 @@ import {
 import { ChatSession } from '../types/session';
 import { ChatSession as ChatSessionImpl } from '../sessions/chatSession';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import {
   readdirSync,
   writeFileSync,
@@ -21,7 +21,7 @@ import {
 } from 'fs';
 import { AIModelType } from '@modules/ai/models/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

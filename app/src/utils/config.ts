@@ -7,7 +7,7 @@ import { join } from 'path';
 import { configManager } from '../config/ConfigManager.js';
 import type { GlobalConfig } from '../config/types.js';
 import { profileCheckpoint } from './startupProfiler.js';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 export type AppConfig = GlobalConfig;
 

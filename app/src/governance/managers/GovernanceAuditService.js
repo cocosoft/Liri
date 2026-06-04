@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { randomUUID } from 'crypto';
-import { resolveLogsDir } from '@modules/config/paths';
+import { resolveLogsDir } from '@modules/core/paths';
 
 /**
  * 治理审计服务类

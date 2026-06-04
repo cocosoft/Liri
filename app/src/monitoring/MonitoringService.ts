@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveLogsDir } from '@modules/config/paths';
+import { resolveLogsDir } from '@modules/core/paths';
 import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';

@@ -1,6 +1,5 @@
 /**
  * AI 提供商传输抽象基类
- * 对标 Hermes agent/transports/base.py（ProviderTransport ABC）
  *
  * 职责:
  *   convertMessages  — 内部消息格式 → 提供商原生格式
@@ -63,7 +62,6 @@ export abstract class BaseTransport {
 
   /**
    * 提取缓存统计（可选覆写）
-   * 对标 Hermes extract_cache_stats
    * @param raw 提供商原始响应
    * @returns 缓存统计数据，无缓存数据时返回 null
    */
@@ -73,11 +71,10 @@ export abstract class BaseTransport {
 
   /**
    * 映射停止原因到标准词汇（可选覆写）
-   * 对标 Hermes map_finish_reason
    * @param rawReason 提供商原始停止原因
    * @returns 标准化停止原因
    */
-  mapFinishReason(rawReason: string): string {
+  mapFinishReason(rawReason: string, _hasToolCalls?: boolean): string {
     return rawReason;
   }
 

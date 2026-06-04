@@ -12,7 +12,7 @@ import { CustomAgentDefinition, SettingSource } from './types';
 import { parseAgentsFromJson } from './parseAgent';
 import { getCwd } from '@modules/utils/cwd';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
-import { resolveDataDir, resolvePyappHome } from '@modules/config/paths';
+import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
 
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 

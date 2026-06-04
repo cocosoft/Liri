@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolveMediaDir } from '@modules/core/paths';
 
 /**
  * 存储配置
@@ -34,7 +34,7 @@ export class MediaStore {
 
   constructor(config?: Partial<MediaStoreConfig>) {
     this.config = {
-      basePath: config?.basePath || path.join(resolvePyappHome(), 'media'),
+      basePath: config?.basePath || resolveMediaDir(),
       maxSize: config?.maxSize || 1024 * 1024 * 1024,
       organizeByDate: config?.organizeByDate !== false,
     };

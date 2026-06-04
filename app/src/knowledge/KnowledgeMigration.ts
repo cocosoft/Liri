@@ -9,7 +9,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   resolvePyappHome,
   resolveKnowledgeBaseDir,
-} from '@modules/config/paths';
+} from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

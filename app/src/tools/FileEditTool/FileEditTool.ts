@@ -3,6 +3,13 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveOutputDir } from '@modules/core/paths';
+
+function resolveFilePath(filePath: string): string {
+  return path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(resolveOutputDir(), filePath);
+}
 
 export interface FileEditInput {
   filePath: string;
@@ -20,7 +27,7 @@ export interface FileEditResult {
 const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
 export function editFile(input: FileEditInput): FileEditResult {
-  const resolved = path.resolve(input.filePath);
+  const resolved = resolveFilePath(input.filePath);
 
   if (!fs.existsSync(resolved)) {
     throw new AppError(
@@ -167,7 +174,7 @@ export class FileEditTool extends BaseTool {
       }
 
       if (replaceAll) {
-        const resolved = path.resolve(input.file_path as string);
+        const resolved = resolveFilePath(input.file_path as string);
         const content = fs.readFileSync(resolved, 'utf-8');
         const normalizedOld = normalizeQuotes(content).includes(
           normalizeQuotes(oldString)

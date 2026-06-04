@@ -10,7 +10,7 @@ import type {
   DEFAULT_SUGGESTION_CONFIG,
 } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 
 /**
  * PromptSuggestion数据库存储实现

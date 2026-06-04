@@ -11,7 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { resolveChronosDir } from '@modules/config/paths';
+import { resolveChronosDir } from '@modules/core/paths';
 import type { SchedulerLock } from './types';
 
 const LOCK_FILE_NAME = 'scheduler.lock';

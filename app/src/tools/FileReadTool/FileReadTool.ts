@@ -5,6 +5,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getReadProtectionService } from '../../security/files/ReadProtectionService';
+import { resolveOutputDir } from '@modules/core/paths';
+
+function resolveFilePath(filePath: string): string {
+  return path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(resolveOutputDir(), filePath);
+}
 
 export interface FileReadInput {
   filePath: string;
@@ -26,7 +33,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB
 const BLOCKED_PATHS = new Set(['/dev/zero', '/dev/random', '/dev/urandom']);
 
 export function readFile(input: FileReadInput): FileReadResult {
-  const resolved = path.resolve(input.filePath);
+  const resolved = resolveFilePath(input.filePath);
 
   const readProtection = getReadProtectionService();
   const accessCheck = readProtection.checkReadAccess(resolved);
@@ -188,7 +195,7 @@ export class FileReadTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
-      const filePath = path.resolve(input.file_path as string);
+      const filePath = resolveFilePath(input.file_path as string);
 
       const pathCheck = checkPathAccessibility(
         input.file_path as string,

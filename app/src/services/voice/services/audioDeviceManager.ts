@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getPlatform } from '@modules/utils/platform';
-import { resolvePyappHome, ensureDir } from '@modules/config/paths';
+import { resolvePyappHome, ensureDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

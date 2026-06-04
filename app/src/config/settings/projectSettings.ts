@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { deepMerge } from '@modules/utils/common.js';
-import { resolveProjectSettingsPath } from '@modules/config/paths';
+import { resolveProjectSettingsPath } from '@modules/core/paths';
 
 /**
  * 获取项目设置文件路径

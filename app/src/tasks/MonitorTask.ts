@@ -7,9 +7,9 @@
  */
 
 import { EventEmitter } from 'events';
-import { TaskType, TaskStatus } from '../types';
-import type { TaskState } from '../types';
-import { BaseTask } from '../BaseTask';
+import { TaskType, TaskStatus } from './types';
+import type { TaskState } from './types';
+import { BaseTask } from './BaseTask';
 
 export interface MonitorTarget {
   name: string;

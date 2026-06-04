@@ -148,7 +148,7 @@ export class LocalHTTPService {
   private async seedKnowledgeBaseIfEmpty(): Promise<void> {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
-    const { resolvePyappHome } = await import('@modules/config/paths');
+    const { resolvePyappHome } = await import('@modules/core/paths');
 
     const userKnowledgeDir = path.join(resolvePyappHome(), 'knowledge');
 
@@ -166,7 +166,7 @@ export class LocalHTTPService {
 
     // 拷贝源：1) 项目源码路径（开发环境）
     try {
-      const { resolveKnowledgeBaseDir } = await import('@modules/config/paths');
+      const { resolveKnowledgeBaseDir } = await import('@modules/core/paths');
       const sourceDir = resolveKnowledgeBaseDir();
       const sourceFiles = await fs.readdir(sourceDir);
       const mdFiles = sourceFiles.filter((f: string) => f.endsWith('.md'));
@@ -2324,7 +2324,7 @@ export class LocalHTTPService {
       const { readFile } = await import('fs/promises');
       const { existsSync } = await import('fs');
       const { resolveProjectRoot, resolvePyappHome } =
-        await import('@modules/config/paths');
+        await import('@modules/core/paths');
       const pathMod = await import('node:path');
 
       const candidateDirs = [
@@ -3788,7 +3788,7 @@ export class LocalHTTPService {
         await import('@modules/knowledge/KnowledgeBaseRegistry');
       const { stat } = await import('node:fs/promises');
       const { join } = await import('node:path');
-      const { resolvePyappHome } = await import('@modules/config/paths');
+      const { resolvePyappHome } = await import('@modules/core/paths');
 
       const parsedUrl = new URL(req.url || '', 'http://localhost');
       const baseFilter = parsedUrl.searchParams.get('base');
@@ -3907,7 +3907,7 @@ export class LocalHTTPService {
         res.end(JSON.stringify({ error: { message: 'title is required' } }));
         return;
       }
-      const { resolvePyappHome } = await import('@modules/config/paths');
+      const { resolvePyappHome } = await import('@modules/core/paths');
       const { writeFile, mkdir } = await import('node:fs/promises');
       const { join } = await import('node:path');
       const userKnowledgeDir = join(resolvePyappHome(), 'knowledge');
@@ -4554,7 +4554,7 @@ export class LocalHTTPService {
         await import('@modules/knowledge/KnowledgeBaseRegistry');
       const { readFile, writeFile, mkdir } = await import('node:fs/promises');
       const { join, extname } = await import('node:path');
-      const { resolveOutputDir } = await import('@modules/config/paths');
+      const { resolveOutputDir } = await import('@modules/core/paths');
 
       const registry = getDefaultKnowledgeBaseRegistry();
       const sourcePath = join(registry.getKnowledgeRoot(), docPath);
@@ -5158,7 +5158,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
       const store = new CronJobStore(resolveDbPath());
       await store.init();
       const jobs = await store.loadJobs();
@@ -5196,7 +5196,7 @@ export class LocalHTTPService {
       const { parseSchedule } = await import('@modules/chronos/cron');
       const { computeNextCronRun } = await import('@modules/tasks/cron/CronParser');
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
 
       const parsed: any = parseSchedule(cronExpr) || { kind: 'cron', expr: cronExpr, display: cronExpr };
 
@@ -5268,7 +5268,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
       const store = new CronJobStore(resolveDbPath());
       await store.init();
       const job = await store.getJob(cronId);
@@ -5297,7 +5297,7 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const updates = JSON.parse(body);
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
       const store = new CronJobStore(resolveDbPath());
       await store.init();
 
@@ -5341,7 +5341,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
       const store = new CronJobStore(resolveDbPath());
       await store.init();
       await store.deleteJob(cronId);
@@ -5364,7 +5364,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
       const store = new CronJobStore(resolveDbPath());
       await store.init();
 
@@ -5411,7 +5411,7 @@ export class LocalHTTPService {
       } else {
         // 调度器未启动，回退到静态查询
         const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-        const { resolveDbPath } = await import('@modules/config/paths');
+        const { resolveDbPath } = await import('@modules/core/paths');
         const store = new CronJobStore(resolveDbPath());
         await store.init();
         const stats = await store.getStats();
@@ -5456,7 +5456,7 @@ export class LocalHTTPService {
         | undefined;
 
       const { CronRunLog } = await import('@modules/tasks/cron/CronRunLog');
-      const { resolveDbPath } = await import('@modules/config/paths');
+      const { resolveDbPath } = await import('@modules/core/paths');
       const runLog = new CronRunLog(resolveDbPath());
       await runLog.init();
 
@@ -5806,12 +5806,19 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { resolvePyappHome, getUserDataDirOverride } =
-        await import('@modules/config/paths');
+      const {
+        resolvePyappHome,
+        getUserDataDirOverride,
+        setUserDataDirOverride,
+      } = await import('@modules/core/paths');
 
       const currentDir = resolvePyappHome();
       const configuredDir = getUserDataDirOverride();
+      // 获取原始默认值（临时清除覆盖，计算后恢复）
+      const savedOverride = getUserDataDirOverride();
+      if (savedOverride) setUserDataDirOverride(null);
       const defaultDir = resolvePyappHome();
+      if (savedOverride) setUserDataDirOverride(savedOverride);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
@@ -6028,7 +6035,7 @@ export class LocalHTTPService {
 
       // 获取当前数据目录
       const { resolvePyappHome, setUserDataDirOverride } =
-        await import('@modules/config/paths');
+        await import('@modules/core/paths');
       const currentDir = resolvePyappHome();
 
       // 执行数据迁移（两阶段：先复制，成功后再切换）
@@ -6193,7 +6200,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { resolveProjectRoot, resolvePyappHome } =
-        await import('@modules/config/paths');
+        await import('@modules/core/paths');
       const { scanSkillsFromDirectory } =
         await import('@modules/services/skillSearch');
       const { readFile, stat } = await import('fs/promises');
@@ -6296,7 +6303,7 @@ export class LocalHTTPService {
       const { readFile, stat } = await import('fs/promises');
       const { existsSync } = await import('fs');
       const { resolveProjectRoot, resolvePyappHome } =
-        await import('@modules/config/paths');
+        await import('@modules/core/paths');
       const pathMod = await import('node:path');
 
       const candidateDirs = [
@@ -7237,7 +7244,7 @@ export class LocalHTTPService {
       } catch {
         // 降级：通过 executor 直接执行
         const { coordinator } = await import('@modules/core/Coordinator');
-        const task = coordinator.getTask(taskId);
+        const task = (coordinator as any).getTask(taskId);
         if (task && typeof (task as any).sendMessage === 'function') {
           reply = await (task as any).sendMessage(message);
         }
@@ -8858,7 +8865,7 @@ export class LocalHTTPService {
       resolveDownloadsDir,
       resolveDataDir,
       resolveDocsDir,
-    } = await import('@modules/config/paths');
+    } = await import('@modules/core/paths');
     const projectRoot = resolveProjectRoot();
     const basePaths = {
       projectRoot,
@@ -8906,7 +8913,7 @@ export class LocalHTTPService {
         resolveDownloadsDir,
         resolveDataDir,
         resolveDocsDir,
-      } = await import('@modules/config/paths');
+      } = await import('@modules/core/paths');
 
       if (path.isAbsolute(rawPath)) {
         if (fs.existsSync(rawPath)) {

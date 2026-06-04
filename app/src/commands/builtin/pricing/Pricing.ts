@@ -14,7 +14,7 @@ import {
   statSync,
 } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import { load, dump } from 'js-yaml';
 
 interface PricingEntry {

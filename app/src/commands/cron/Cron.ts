@@ -16,7 +16,7 @@ import {
   scheduleToCron,
   scheduleToDisplayText,
 } from '@modules/chronos/cron';
-import { resolveDbPath } from '@modules/config/paths';
+import { resolveDbPath } from '@modules/core/paths';
 
 const CRON_DATA_DIR = process.env.CRON_DATA_DIR || '';
 

@@ -6,7 +6,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { EmbeddingService } from '../services/EmbeddingService';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
-import { resolveDataDir, resolvePyappHome } from '@modules/config/paths';
+import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

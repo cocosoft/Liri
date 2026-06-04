@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { extname, resolve } from 'path';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { feature } from '@modules/core/featureFlags.js';

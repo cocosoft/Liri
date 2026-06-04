@@ -10,7 +10,7 @@ import { join, dirname } from 'path';
 import {
   resolveAttachmentsDir,
   resolveDataSubDir,
-} from '@modules/config/paths';
+} from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

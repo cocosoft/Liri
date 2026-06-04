@@ -5,7 +5,7 @@
  */
 
 import { platform } from 'os';
-import { resolveProjectRoot } from '@modules/config/paths';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 /**
  * 环境变量选项

@@ -6,6 +6,7 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { resolveOutputDir } from '@modules/core/paths';
 
 export interface MusicGenerateParams {
   prompt: string;

@@ -17,7 +17,7 @@ import {
 } from 'fs';
 import { join, basename, dirname, resolve, extname } from 'path';
 
-import { resolveDataDir, resolveDbPath } from '@modules/config/paths';
+import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

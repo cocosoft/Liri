@@ -17,7 +17,7 @@ import type {
 } from './qos/SessionPriority';
 import { BudgetTracker } from './budget/BudgetTracker';
 import { BudgetEnforcer } from './budget/BudgetEnforcer';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 import type {
   SessionTokenBudgetConfig,
   BudgetDecision,

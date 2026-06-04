@@ -8,7 +8,7 @@ import path from 'path';
 import {
   resolveUserSkillsDir,
   resolveProjectRoot,
-} from '@modules/config/paths';
+} from '@modules/core/paths';
 import { profileCheckpoint } from '@modules/utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

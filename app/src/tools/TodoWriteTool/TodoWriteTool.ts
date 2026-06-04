@@ -1,7 +1,6 @@
 /**
  * TodoWriteTool - 待办事项管理工具
  *
- * 参考CC源码实现: cc_code/tools/TodoWriteTool.ts
  * 提供任务清单管理功能
  */
 
@@ -11,6 +10,11 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam } from '../types/Tool';
 import { feature } from '@modules/core/featureFlags';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
+import { Database } from 'sqlite3';
+import { resolveDbPath } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * Todo 项状态
@@ -26,15 +30,150 @@ interface Todo {
   content: string;
   status: TodoStatus;
   activeForm?: string;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
 
+const TODO_TABLE_SCHEMA = `
+CREATE TABLE IF NOT EXISTS todowrite_todos (
+  id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  active_form TEXT,
+  depends_on TEXT,
+  metadata TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (id, session_id)
+);
+CREATE INDEX IF NOT EXISTS idx_todowrite_todos_session ON todowrite_todos(session_id);
+`;
+
+/** SQLite 持久化的 Todo 结构 */
+interface TodoRow {
+  id: string;
+  session_id: string;
+  content: string;
+  status: string;
+  active_form?: string;
+  depends_on?: string;
+  metadata?: string;
+  sort_order: number;
+  created_at: number;
+  updated_at: number;
+}
+
 /**
- * Todo 管理器
+ * Todo 管理器（带 SQLite 持久化）
  */
 class TodoManager {
   private todos: Map<string, Todo[]> = new Map();
+  private db: Database;
+  private initialized = false;
+
+  constructor(dbPath: string = resolveDbPath()) {
+    this.db = new Database(dbPath);
+    this.ensureTable();
+    this.loadFromDb();
+  }
+
+  /** 确保表存在 */
+  private ensureTable(): void {
+    try {
+      this.db.exec(TODO_TABLE_SCHEMA);
+    } catch (e) {
+      logger.error('TodoManager: 建表失败', { error: String(e) });
+    }
+  }
+
+  /** 从 SQLite 恢复内存数据 */
+  private loadFromDb(): void {
+    try {
+      this.db.all(
+        'SELECT * FROM todowrite_todos ORDER BY session_id, sort_order',
+        [],
+        (err, rows: TodoRow[]) => {
+          if (err) {
+            logger.error('TodoManager: 恢复失败', { error: String(err) });
+            this.initialized = true;
+            return;
+          }
+          for (const row of rows) {
+            const todos = this.todos.get(row.session_id) || [];
+            todos.push({
+              id: row.id,
+              content: row.content,
+              status: row.status as TodoStatus,
+              activeForm: row.active_form || undefined,
+              metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+              createdAt: new Date(row.created_at),
+              updatedAt: new Date(row.updated_at),
+            });
+            this.todos.set(row.session_id, todos);
+          }
+          this.initialized = true;
+          logger.info('TodoManager: 恢复完成', { sessionCount: this.todos.size });
+        }
+      );
+    } catch (e) {
+      logger.error('TodoManager: 恢复异常', { error: String(e) });
+      this.initialized = true;
+    }
+  }
+
+  /** 写入单条 todo 到 SQLite */
+  private saveTodoToDb(sessionId: string, todo: Todo, sortOrder: number): void {
+    try {
+      this.db.run(
+        `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          todo.id, sessionId, todo.content, todo.status,
+          todo.activeForm || null,
+          todo.metadata ? JSON.stringify(todo.metadata) : null,
+          sortOrder,
+          todo.createdAt.getTime(), todo.updatedAt.getTime(),
+        ],
+        (err) => {
+          if (err) logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err) });
+        }
+      );
+    } catch (e) {
+      logger.error('TodoManager: 写入异常', { todoId: todo.id, error: String(e) });
+    }
+  }
+
+  /** 全部写入到 SQLite（覆盖） */
+  private saveAllToDb(sessionId: string, todos: Todo[]): void {
+    try {
+      this.db.run('DELETE FROM todowrite_todos WHERE session_id = ?', [sessionId], (err) => {
+        if (err) {
+          logger.error('TodoManager: 清除失败', { error: String(err) });
+          return;
+        }
+        for (let i = 0; i < todos.length; i++) {
+          this.saveTodoToDb(sessionId, todos[i], i);
+        }
+      });
+    } catch (e) {
+      logger.error('TodoManager: 覆盖写入异常', { error: String(e) });
+    }
+  }
+
+  /** 删除单条 */
+  private deleteFromDb(sessionId: string, todoId: string): void {
+    try {
+      this.db.run(
+        'DELETE FROM todowrite_todos WHERE id = ? AND session_id = ?',
+        [todoId, sessionId]
+      );
+    } catch (e) {
+      logger.error('TodoManager: 删除失败', { error: String(e) });
+    }
+  }
 
   /**
    * 获取指定会话的 todos
@@ -48,6 +187,7 @@ class TodoManager {
    */
   setTodos(sessionId: string, todos: Todo[]): void {
     this.todos.set(sessionId, todos);
+    this.saveAllToDb(sessionId, todos);
   }
 
   /**
@@ -126,9 +266,18 @@ class TodoManager {
       .map(([sessionId, todos]) => ({ sessionId, todos }))
       .filter((item) => item.todos.length > 0);
   }
+
+  /** 关闭数据库连接 */
+  close(): void {
+    try {
+      this.db.close();
+    } catch (e) {
+      logger.error('TodoManager: 关闭数据库失败', { error: String(e) });
+    }
+  }
 }
 
-// 全局 Todo 管理器
+// 全局 Todo 管理器（现在带 SQLite 持久化）
 const todoManager = new TodoManager();
 
 /**
@@ -565,6 +714,7 @@ export class TodoWriteTool implements Tool {
             content: t.content,
             status: t.status || 'pending',
             activeForm: t.activeForm || undefined,
+            metadata: t.metadata || undefined,
             createdAt: new Date(),
             updatedAt: new Date(),
           }));

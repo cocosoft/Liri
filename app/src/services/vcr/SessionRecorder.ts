@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface RecordedMessage {

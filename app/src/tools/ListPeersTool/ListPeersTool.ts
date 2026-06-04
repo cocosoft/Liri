@@ -10,7 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
-import { resolveDataSubDir } from '@modules/config/paths';
+import { resolveDataSubDir } from '@modules/core/paths';
 
 /**
  * Peer信息

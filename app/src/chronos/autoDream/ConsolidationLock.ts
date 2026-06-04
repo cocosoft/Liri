@@ -6,7 +6,7 @@
 import { mkdir, readFile, stat, unlink, utimes, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { resolveMemoryDir, resolveSessionsDir } from '@modules/config/paths';
+import { resolveMemoryDir, resolveSessionsDir } from '@modules/core/paths';
 
 const LOCK_FILE = '.consolidate-lock';
 const HOLDER_STALE_MS = 60 * 60 * 1000;

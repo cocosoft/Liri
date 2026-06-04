@@ -1,116 +1,77 @@
 /**
- * Cron删除工具
+ * Cron删除工具 - 接入新 CronJobStore
  */
 
 import { Tool } from '../types/Tool';
-import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { listAllCronTasks, removeCronTasks } from '@modules/chronos/CronTasks';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
-/**
- * Cron删除工具类
- */
 export class CronDeleteTool {
-  /**
-   * 创建Cron删除工具实例
-   * @returns Cron删除工具实例
-   */
   static create(): Tool {
     return {
       name: 'cron_delete',
-      description: 'Cancel a scheduled cron job',
+      description: 'Cancel/delete a scheduled cron task by ID',
       params: [
         {
           name: 'id',
           type: 'string',
-          description: 'Job ID returned by cron_create',
+          description: 'Task ID returned by cron_create or shown in cron_list',
           required: true,
-          example: 'abc123',
+          example: 'cron-1234567890-abc123',
         },
       ],
-      aliases: ['cron_cancel', 'unschedule'],
+      aliases: ['cron_cancel', 'unschedule', 'delete_task'],
       searchTips: ['cron', 'delete', 'cancel', 'unschedule', 'remove'],
       isEnabled: () => true,
-      isReadOnly: (_input?: Record<string, unknown>) => false,
-      isDestructive: (_input?: Record<string, unknown>) => true,
-      isConcurrencySafe: (_input?: Record<string, unknown>) => true,
+      isReadOnly: () => false,
+      isDestructive: () => true,
+      isConcurrencySafe: () => true,
       validateInput: (input: Record<string, unknown>) => {
         if (!input.id || typeof input.id !== 'string') {
-          return {
-            result: false,
-            message: 'id is required and must be a string',
-          };
+          return { result: false, message: 'id is required (string)' };
         }
         return { result: true };
       },
-      checkPermissions: async (
-        input: Record<string, unknown>,
-        context: ToolUseContext
-      ) => {
-        return { behavior: 'allow' };
-      },
-      execute: async (
-        input: Record<string, unknown>,
-        context: ToolUseContext
-      ) => {
+      checkPermissions: async () => ({ behavior: 'allow' as const }),
+      execute: async (input: Record<string, unknown>, _context: ToolUseContext) => {
         const startTime = Date.now();
         const id = input.id as string;
-
         try {
-          const tasks = await listAllCronTasks();
-          const task = tasks.find((t) => t.id === id);
-          if (!task) {
-            throw new AppError(
-              `No scheduled job with id '${id}'`,
-              ErrorCategory.EXECUTION,
-              ErrorSeverity.HIGH,
-              '1000'
-            );
+          const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
+          const { resolveDbPath } = await import('@modules/config/paths');
+          const store = new CronJobStore(resolveDbPath());
+          await store.init();
+
+          const existing = await store.getJob(id);
+          if (!existing) {
+            await store.close();
+            throw new AppError(`No task with id "${id}"`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
 
-          await removeCronTasks([id]);
+          await store.deleteJob(id);
+          await store.close();
 
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
           return ToolUtils.createSuccessResult(
-            { id },
-            {
-              executionTime,
-              output: `Cancelled job ${id}.`,
-              toolName: 'cron_delete',
-              executionId: ToolUtils.generateExecutionId('cron_delete'),
-              timestamp: Date.now(),
-            }
+            { id, name: existing.name },
+            { executionTime, output: `Deleted task "${existing.name}" (${id}).`, toolName: 'cron_delete', executionId: ToolUtils.generateExecutionId('cron_delete'), timestamp: Date.now() }
           );
         } catch (error) {
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
-          return ToolUtils.createFailureResult(
-            error instanceof Error ? error.message : 'Unknown error',
-            {
-              executionTime,
-              errorOutput: error instanceof Error ? error.stack || '' : '',
-              toolName: 'cron_delete',
-              executionId: ToolUtils.generateExecutionId('cron_delete'),
-              timestamp: Date.now(),
-            }
+          const msg = error instanceof AppError ? error.message : (error instanceof Error ? error.message : 'Unknown error');
+          return ToolUtils.createFailureResult(msg,
+            { executionTime, errorOutput: error instanceof Error ? error.stack || '' : '', toolName: 'cron_delete', executionId: ToolUtils.generateExecutionId('cron_delete'), timestamp: Date.now() }
           );
         }
       },
       getInfo: function () {
         return {
-          name: this.name,
-          description: this.description,
-          params: this.params,
-          aliases: this.aliases,
-          searchTips: this.searchTips,
-          enabled: true,
-          readOnly: false,
-          destructive: true,
-          concurrencySafe: true,
-          deferred: false,
-          alwaysLoad: false,
-          interruptBehavior: 'block',
+          name: this.name, description: this.description, params: this.params,
+          aliases: this.aliases, searchTips: this.searchTips,
+          enabled: true, readOnly: false, destructive: true,
+          concurrencySafe: true, deferred: false, alwaysLoad: false,
+          interruptBehavior: 'block' as const,
         };
       },
     };

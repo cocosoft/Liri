@@ -15,6 +15,10 @@ export interface CronSchedule {
   minutes?: number;
   /** 仅 kind='cron' 时有效：cron 表达式 */
   expr?: string;
+  /** 时区（仅 kind='cron' 时有效），如 Asia/Shanghai */
+  tz?: string;
+  /** 错峰窗口（毫秒），覆盖默认整点 5 分钟窗口 */
+  staggerMs?: number;
 }
 
 /** 重复策略 */
@@ -98,10 +102,19 @@ export interface CronJob {
   pausedReason?: string;
   createdAt: string;
   nextRunAt?: string;
+  runningAtMs?: number;
   lastRunAt?: string;
   lastStatus?: CronRunStatus;
   lastError?: string;
   lastDeliveryError?: string;
+  /** 连续执行错误计数（成功时重置） */
+  consecutiveErrors?: number;
+  /** 连续跳过计数 */
+  consecutiveSkipped?: number;
+  /** 调度计算错误计数（超阈值自动禁用） */
+  scheduleErrorCount?: number;
+  /** 最大连续错误数（默认 10） */
+  maxConsecutiveErrors?: number;
   deliver: string;
   origin?: CronOrigin;
   /** 投递目标平台 */
@@ -155,6 +168,10 @@ export interface CronJobResult {
   finalResponse: string;
   error?: string;
   durationMs: number;
+  model?: string;
+  provider?: string;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 /** 调度器接口 */

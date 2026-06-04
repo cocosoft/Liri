@@ -88,7 +88,6 @@ function TaskCenterPage() {
   const [outputContent, setOutputContent] = useState<string | null>(null);
   const [taskState, setTaskState] = useState<Record<string, unknown> | null>(null);
   const [recoveringIds, setRecoveringIds] = useState<Set<string>>(new Set());
-  const auditLoadingRef = useRef(false);
 
   const expandedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

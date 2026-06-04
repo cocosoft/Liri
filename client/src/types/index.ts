@@ -256,7 +256,7 @@ export interface KnowledgeFile {
 export interface AgentTask {
   id: string;
   name: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "lost";
   priority?: "high" | "medium" | "low";
   progress?: number;
   result?: string;
@@ -373,6 +373,8 @@ export interface CronTask {
   name: string;
   expression: string;
   description: string;
+  /** 要执行的具体指令内容 */
+  prompt?: string;
   enabled: boolean;
   /** 调度模式 */
   scheduleMode?: ScheduleMode;

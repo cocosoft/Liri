@@ -1,13 +1,14 @@
 {
   "tasks": [
     {
-      "id": "3eeec201",
-      "cron": "8 22 * * *",
-      "prompt": "执行 AI Agent 日报任务:搜索今天最新的 AI Agent 技术新闻(以技术框架、架构设计、工具链为主),参考知识库中的日报模板格式,生成当日 AI Agent 技术日报写入到 app/data/ 目录下,文件名为 ai_agent_daily_YYYY-MM-DD。重点关注:1) 主流框架更新 2) MCP 协议演进 3) 多 Agent 协作模式 ) 对 Liri 项目有参考价值的技术点。",
-      "createdAt": 1780524597145,
+      "id": "d3ed1f3c",
+      "cron": "0 8 * * *",
+      "prompt": "# AI-Agent 每日动态日报\n\n请以下步骤:\n\n## 1. 搜索最新动态\n搜索 AI-Agent 领域的最新进展,搜索以下关键词:\n- \"AI agent\" latest news\n- \"AI agent framework\" updates\n- \"autonomous AI agent\" developments\n- \"multi-agent system\" advances\n- \"agentic AI\" trends\n- 中文关键词: AI智能体 最新进展\n\n## 2. 抓取关键内容\n从搜索结果中抓取最有价值的 3-5 篇文章/资源。\n\n## 3. 整理日报\n将结果整理为 Markdown 格式的日报,包含:\n- **日期**: 当前日期\n- **今日焦点**: 1-2句话总结今日最值得关注的事件\n- **热点动态**: 3-5个关键动态,每个包含标题、摘要、来源\n- **值得关注的项目/工具**: 新发布或值得关注的开源项目\n- **趋势观察**: 对当前 AI-Agent 领域趋势的简短分析\n\n## 4. 保存文件\n将日报保存到用户输出目录下的 `daily/` 文件夹中,文件名格式为 `ai-agent-daily-YYYY-MM-DD.md`确保文件已保存。",
+      "createdAt": 1780569621752,
       "recurring": true,
       "permanent": false,
-      "taskType": "prompt"
+      "taskType": "prompt",
+      "silent": false
     }
   ]
 }

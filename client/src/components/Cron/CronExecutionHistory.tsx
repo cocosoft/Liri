@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import type { CronTask } from "../../types";
 
@@ -19,32 +20,34 @@ interface CronExecutionHistoryProps {
 }
 
 function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
+  const { t, i18n } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
+  const locale = i18n.language === "zh" ? "zh-CN" : "en-US";
 
   // Derive execution records from cron tasks with lastRun data
   const records: ExecutionRecord[] = tasks
-    .filter((t) => t.lastRun)
-    .map((t) => ({
-      id: `${t.id}-${t.lastRun}`,
-      taskId: t.id,
-      taskName: t.name,
-      startTime: new Date(t.lastRun!).toLocaleString("zh-CN"),
-      endTime: t.lastDurationMs
-        ? new Date(t.lastRun! + t.lastDurationMs).toLocaleString("zh-CN")
+    .filter((task) => task.lastRun)
+    .map((task) => ({
+      id: `${task.id}-${task.lastRun}`,
+      taskId: task.id,
+      taskName: task.name,
+      startTime: new Date(task.lastRun!).toLocaleString(locale),
+      endTime: task.lastDurationMs
+        ? new Date(task.lastRun! + task.lastDurationMs).toLocaleString(locale)
         : undefined,
-      duration: Math.round((t.lastDurationMs ?? 0) / 1000),
+      duration: Math.round((task.lastDurationMs ?? 0) / 1000),
       status: (
-        t.lastStatus === "ok"
+        task.lastStatus === "ok"
           ? "success"
-          : t.lastStatus === "error"
+          : task.lastStatus === "error"
             ? "failed"
-            : t.status === "running"
+            : task.status === "running"
               ? "running"
               : "success"
       ) as "success" | "failed" | "running",
-      output: t.lastStatus === "ok" ? "完成" : "",
-      error: t.lastError,
+      output: task.lastStatus === "ok" ? t("cron.historyCompleted", "Completed") : "",
+      error: task.lastError,
     }))
     .sort((a, b) => {
       const ta = a.startTime;
@@ -53,7 +56,6 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
     });
 
   const [filter, setFilter] = useState<"all" | "success" | "failed">("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     loadConfig();
@@ -86,11 +88,11 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
   const getStatusText = (status: string) => {
     switch (status) {
       case "success":
-        return "成功";
+        return t("cron.statusSuccess", "Success");
       case "failed":
-        return "失败";
+        return t("cron.statusFailed", "Failed");
       case "running":
-        return "运行中";
+        return t("cron.statusRunning", "Running");
       default:
         return status;
     }
@@ -98,20 +100,44 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
 
   const formatDuration = (seconds: number) => {
     if (seconds <= 0) return "—";
-    if (seconds < 60) return `${seconds}秒`;
+    if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}分${secs}秒`;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   };
+
+  if (records.length === 0) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center text-center">
+        <svg
+          className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mb-1">
+          {t("cron.noHistoryTitle", "No execution history")}
+        </p>
+        <p className="text-gray-400 dark:text-gray-500 text-xs">
+          {t("cron.noHistoryDesc", "Records will appear here after tasks run")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium">
-          执行历史
-          {records.length > 0 && (
-            <span className="ml-1 text-xs text-gray-400">({records.length})</span>
-          )}
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {t("cron.tabHistory", "Execution History")}
+          <span className="ml-1 text-xs text-gray-400">({records.length})</span>
         </h3>
         <div className="flex gap-2">
           {(["all", "success", "failed"] as const).map((f) => (
@@ -126,7 +152,11 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              {f === "all" ? "全部" : f === "success" ? "成功" : "失败"}
+              {f === "all"
+                ? t("cron.all", "All")
+                : f === "success"
+                  ? t("cron.statusSuccess", "Success")
+                  : t("cron.statusFailed", "Failed")}
             </button>
           ))}
         </div>
@@ -134,19 +164,16 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
 
       <div className="space-y-2">
         {filteredRecords.length === 0 ? (
-          <p className="text-center text-gray-400 py-8 text-sm">暂无执行记录</p>
+          <p className="text-center text-gray-400 py-8 text-sm">
+            {t("cron.noFilterMatch", "No matching records")}
+          </p>
         ) : (
           filteredRecords.map((record) => (
             <div
               key={record.id}
               className={`rounded-lg border ${isDark ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}
             >
-              <button
-                onClick={() =>
-                  setExpandedId(expandedId === record.id ? null : record.id)
-                }
-                className="w-full p-3 text-left"
-              >
+              <div className="p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span
@@ -161,67 +188,24 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span
-                      className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                    >
+                    <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                       {record.startTime}
                     </span>
-                    <span
-                      className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                    >
+                    <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                       {formatDuration(record.duration)}
                     </span>
-                    <svg
-                      className={`w-4 h-4 text-gray-400 transition-transform ${expandedId === record.id ? "rotate-180" : ""}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
                   </div>
                 </div>
-              </button>
-
-              {expandedId === record.id && (
-                <div
-                  className={`px-3 pb-3 border-t ${isDark ? "border-gray-700" : "border-gray-200"} pt-3`}
-                >
-                  {record.output && (
-                    <div className="mb-2">
-                      <span
-                        className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                      >
-                        输出:
-                      </span>
-                      <pre
-                        className={`mt-1 text-xs p-2 rounded ${isDark ? "bg-gray-800 text-gray-300" : "bg-white text-gray-700"}`}
-                      >
-                        {record.output}
-                      </pre>
-                    </div>
-                  )}
-                  {record.error && (
-                    <div>
-                      <span
-                        className={`text-xs ${isDark ? "text-red-400" : "text-red-600"}`}
-                      >
-                        错误:
-                      </span>
-                      <pre
-                        className={`mt-1 text-xs p-2 rounded ${isDark ? "bg-red-900/20 text-red-300" : "bg-red-50 text-red-700"}`}
-                      >
-                        {record.error}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
+                {record.error && (
+                  <div className="mt-2">
+                    <pre
+                      className={`text-xs p-2 rounded ${isDark ? "bg-red-900/20 text-red-300" : "bg-red-50 text-red-700"}`}
+                    >
+                      {record.error}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
           ))
         )}

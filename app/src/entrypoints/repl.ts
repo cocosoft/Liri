@@ -340,6 +340,34 @@ export async function launchRepl(
   profileCheckpoint('repl_initialize_chat_manager_end');
   getStartupChainProfiler().markPhaseEnd('session_init');
 
+  // 启动全局 Cron 调度器（附带真实 AI 执行器）
+  try {
+    const { ensureGlobalCronSchedulerStarted } =
+      await import('../tasks/cron/GlobalCronScheduler');
+    const { createCronExecutor } = await import('../tasks/cron/CronExecutor');
+    const provider = providerRegistry.getOrCreate('deepseek', {
+      apiKey: process.env.DEEPSEEK_API_KEY || '',
+      baseUrl: process.env.DEEPSEEK_BASE_URL,
+      model: process.env.DEEPSEEK_MODEL,
+    });
+    const realExecutor = createCronExecutor(provider);
+    await ensureGlobalCronSchedulerStarted({ executeJob: realExecutor });
+    ui.showInfo('Cron 调度器已启动 (AI 执行引擎就绪)');
+  } catch (cronError) {
+    // AI provider 不可用时仍启动占位调度器
+    try {
+      const { ensureGlobalCronSchedulerStarted } =
+        await import('../tasks/cron/GlobalCronScheduler');
+      await ensureGlobalCronSchedulerStarted();
+      ui.showInfo('Cron 调度器已启动（默认执行模式）');
+    } catch {
+      // 彻底启动失败，不阻塞 REPL
+    }
+    ui.showWarning(
+      `Cron 调度器 AI 引擎不可用: ${cronError instanceof Error ? cronError.message : String(cronError)}`
+    );
+  }
+
   if (!finalConfig.useLegacyRepl) {
     getStartupChainProfiler().markPhaseStart('context_init');
     getStartupChainProfiler().markPhaseEnd('context_init');

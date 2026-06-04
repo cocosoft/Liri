@@ -13,11 +13,16 @@ import type {
 } from './types';
 import { validateCronTransition } from './types';
 import { CronJobStore } from './CronJobStore';
+import type { CronRunLog } from './CronRunLog';
 import type { DeliveryQueue, DeliveryQueueEntry } from './DeliveryQueue';
+import { computeNextCronRun, isValidCronExpr } from './CronParser';
+import { CronTimer } from './CronTimer';
+import { resolveCronStaggerMs, resolveStaggerOffsetMs } from './CronStagger';
+import { CronAlertService } from './CronAlertService';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const DEFAULT_CHECK_INTERVAL_MS = 1000;
+const DEFAULT_MAX_MISSED_JOBS_PER_RESTART = 5;
 const DEFAULT_MAX_PARALLEL_JOBS = 5;
 const DEFAULT_JOB_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -69,25 +74,31 @@ export class CronScheduler {
   private callbacks: SchedulerCallbacks;
   private config: Required<CronSchedulerConfig>;
   private running = false;
-  private tickTimer: ReturnType<typeof setInterval> | null = null;
+  private timer: CronTimer = new CronTimer();
   private activeJobs = 0;
   private lastTickAt = 0;
   private startTime = 0;
   private lock: SchedulerLock | null = null;
   private pendingJobs = new Set<Promise<unknown>>();
   private deliveryQueue: DeliveryQueue | null = null;
+  private runLog: CronRunLog | null = null;
+  private alertService: CronAlertService | null = null;
 
   constructor(
     store: CronJobStore,
     callbacks: SchedulerCallbacks,
     config?: CronSchedulerConfig,
-    deliveryQueue?: DeliveryQueue
+    deliveryQueue?: DeliveryQueue,
+    runLog?: CronRunLog,
+    alertService?: CronAlertService
   ) {
     this.store = store;
     this.callbacks = callbacks;
     this.deliveryQueue = deliveryQueue ?? null;
+    this.runLog = runLog ?? null;
+    this.alertService = alertService ?? null;
     this.config = {
-      checkIntervalMs: config?.checkIntervalMs ?? DEFAULT_CHECK_INTERVAL_MS,
+      checkIntervalMs: config?.checkIntervalMs ?? 1000,
       maxParallelJobs: config?.maxParallelJobs ?? DEFAULT_MAX_PARALLEL_JOBS,
       jobTimeoutMs: config?.jobTimeoutMs ?? DEFAULT_JOB_TIMEOUT_MS,
       enableLock: config?.enableLock ?? true,
@@ -97,7 +108,7 @@ export class CronScheduler {
   }
 
   /** 启动调度器 */
-  start(): void {
+  async start(): Promise<void> {
     if (this.running) {
       logger.warning('[CronScheduler] 调度器已在运行');
       return;
@@ -113,12 +124,23 @@ export class CronScheduler {
       }
     }
 
-    this.tickTimer = setInterval(() => {
-      void this.tick();
-    }, this.config.checkIntervalMs);
+    // 启动中断恢复
+    await this.recoverInterruptedJobs();
 
-    logger.info('[CronScheduler] 调度器已启动', {
-      checkIntervalMs: this.config.checkIntervalMs,
+    // 追赶遗漏的作业
+    await this.catchUpMissedJobs();
+
+    // 使用动态定时器替代固定轮询
+    this.timer.start(async () => {
+      await this.tick();
+      // tick 完成后计算下次唤醒时间
+      if (this.running) {
+        const nextMs = await this.computeNextWakeTime();
+        this.timer.reschedule(nextMs);
+      }
+    });
+
+    logger.info('[CronScheduler] 调度器已启动（动态定时器模式）', {
       maxParallelJobs: this.config.maxParallelJobs,
     });
   }
@@ -126,15 +148,180 @@ export class CronScheduler {
   /** 停止调度器 */
   stop(): void {
     this.running = false;
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
-    }
+    this.timer.stop();
     if (this.lock) {
       releaseLock(this.config.lockIdentity);
       this.lock = null;
     }
     logger.info('[CronScheduler] 调度器已停止');
+  }
+
+  /**
+   * 唤醒调度器：强制立即 tick
+   * 用于新作业创建后通知调度器立即检查
+   */
+  wake(): void {
+    if (!this.running) return;
+    // 调度 100ms 后 tick，不阻塞调用者
+    this.timer.reschedule(Date.now() + 100);
+    logger.debug('[CronScheduler] 收到唤醒信号，即将立即 tick');
+  }
+
+  /**
+   * 启动中断恢复
+   * 对标 openclaw src/cron/service/ops.ts:markInterruptedStartupRun()
+   */
+  private async recoverInterruptedJobs(): Promise<void> {
+    try {
+      const runningJobs = await this.store.findRunningJobs();
+      if (runningJobs.length === 0) return;
+
+      const now = Date.now();
+      const interruptedReason = 'cron: job interrupted by gateway restart';
+
+      logger.warning(`[CronScheduler] 发现 ${runningJobs.length} 个中断作业，执行恢复`, {
+        jobIds: runningJobs.map((j) => j.id),
+      });
+
+      for (const job of runningJobs) {
+        try {
+          // 计算运行的耗时（如果有 runningAtMs）
+          const durationMs = job.runningAtMs
+            ? Math.max(0, now - job.runningAtMs)
+            : undefined;
+
+          // 标记为 failed
+          await this.store.updateJobState(job.id, 'failed');
+          await this.store.markJobRun(job.id, false, interruptedReason);
+
+          // 更新连续错误计数
+          const prevErrors = job.consecutiveErrors ?? 0;
+          await this.store.updateConsecutiveErrors(
+            job.id,
+            prevErrors + 1,
+            job.consecutiveSkipped ?? 0,
+            job.scheduleErrorCount ?? 0
+          );
+
+          // 重新计算下次运行时间
+          const nextRun = this.computeNextRun(job);
+          if (nextRun) {
+            await this.store.updateNextRun(job.id, nextRun);
+          }
+
+          // 恢复为 scheduled 以便下次继续
+          await this.store.updateJobState(job.id, 'scheduled');
+
+          logger.info('[CronScheduler] 恢复中断作业', {
+            jobId: job.id,
+            name: job.name,
+            durationMs,
+            nextRun,
+          });
+        } catch (jobErr) {
+          logger.error('[CronScheduler] 恢复作业失败', {
+            jobId: job.id,
+            error: jobErr instanceof Error ? jobErr.message : String(jobErr),
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('[CronScheduler] 恢复中断作业失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * 追赶遗漏的作业
+   * 对标 openclaw src/cron/service/ops.ts:runMissedJobs
+   */
+  private async catchUpMissedJobs(): Promise<void> {
+    try {
+      const enabledJobs = await this.store.listEnabledJobs();
+      if (enabledJobs.length === 0) return;
+
+      const nowMs = Date.now();
+      const missed: { job: CronJob; shouldRun: boolean }[] = [];
+
+      for (const job of enabledJobs) {
+        if (!job.nextRunAt) continue;
+        const nextRunMs = new Date(job.nextRunAt).getTime();
+
+        // 下一个运行时间在过去超过 60 秒时认为遗漏
+        const missedByMs = nowMs - nextRunMs;
+        if (missedByMs < 60_000) continue;
+
+        // 一次性作业：120s 宽限期（对标 hermes）
+        if (job.schedule.kind === 'once') {
+          if (missedByMs < 120_000) {
+            missed.push({ job, shouldRun: true });
+          } else {
+            // 超宽限期，标记完成
+            await this.store.updateJobState(job.id, 'completed');
+            logger.info('[CronScheduler] 一次性作业已过期，标记完成', {
+              jobId: job.id,
+              name: job.name,
+            });
+          }
+          continue;
+        }
+
+        missed.push({ job, shouldRun: true });
+      }
+
+      // 限制追赶数量
+      const toRun = missed
+        .filter((m) => m.shouldRun)
+        .slice(0, DEFAULT_MAX_MISSED_JOBS_PER_RESTART);
+
+      if (toRun.length > 0) {
+        logger.warning(`[CronScheduler] 追赶 ${toRun.length} 个遗漏作业`, {
+          jobIds: toRun.map((m) => m.job.id),
+        });
+      }
+
+      for (const { job } of toRun) {
+        try {
+          // 追赶执行（异步，不等待）
+          const jobPromise = this.runJob(job);
+          this.pendingJobs.add(jobPromise);
+          jobPromise.finally(() => this.pendingJobs.delete(jobPromise));
+        } catch (err) {
+          logger.error('[CronScheduler] 追赶作业失败', {
+            jobId: job.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('[CronScheduler] 追赶遗漏作业失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * 计算下次唤醒时间
+   * 扫描所有 enabled 作业的 nextRunAt，返回最早的那个
+   */
+  private async computeNextWakeTime(): Promise<number | undefined> {
+    try {
+      const enabledJobs = await this.store.listEnabledJobs();
+      let earliest: number | undefined;
+
+      for (const job of enabledJobs) {
+        if (!job.nextRunAt) continue;
+        const ms = new Date(job.nextRunAt).getTime();
+        if (Number.isFinite(ms) && (earliest === undefined || ms < earliest)) {
+          earliest = ms;
+        }
+      }
+
+      return earliest;
+    } catch {
+      return undefined;
+    }
   }
 
   /** 执行一次调度检查 */
@@ -182,10 +369,19 @@ export class CronScheduler {
   async runJob(job: CronJob): Promise<CronJobResult> {
     this.activeJobs++;
 
-    // 将作业状态设为 running
+    // 记录开始运行时间并更新状态
+    const runningAtMs = Date.now();
     await this.store.updateJobState(job.id, 'running');
 
-    const startTime = Date.now();
+    // 持久化 runningAtMs（用于启动恢复时计算耗时）
+    job.runningAtMs = runningAtMs;
+    try {
+      await this.store.upsertJob(job);
+    } catch {
+      // 更新元数据失败不阻塞执行
+    }
+
+    const startTime = runningAtMs;
     let result: CronJobResult;
 
     try {
@@ -219,13 +415,48 @@ export class CronScheduler {
       this.activeJobs--;
     }
 
+    const prevErrorCount = job.consecutiveErrors ?? 0;
+    const prevSkippedCount = job.consecutiveSkipped ?? 0;
+    const maxErrors = job.maxConsecutiveErrors ?? 10;
+
     // 持久化执行结果
     await this.store.markJobRun(job.id, result.success, result.error);
+
+    if (result.success) {
+      // 成功：重置连续错误计数
+      await this.store.updateConsecutiveErrors(job.id, 0, 0, 0);
+    } else {
+      // 失败：递增连续错误计数
+      const newErrors = prevErrorCount + 1;
+      await this.store.updateConsecutiveErrors(
+        job.id,
+        newErrors,
+        prevSkippedCount,
+        job.scheduleErrorCount ?? 0
+      );
+
+      // 达到阈值自动禁用
+      if (newErrors >= maxErrors) {
+        const reason = `连续失败 ${newErrors} 次（上限 ${maxErrors}）`;
+        await this.store.disableJob(job.id, reason);
+        logger.warning(`[CronScheduler] 作业已自动禁用: ${reason}`, {
+          jobId: job.id,
+          name: job.name,
+        });
+      }
+
+      // 失败告警（独立于自动禁用，提前触发）
+      if (this.alertService) {
+        this.alertService.check(job, newErrors, prevSkippedCount);
+      }
+    }
 
     // 更新重复计数
     await this.store.incrementRepeatCompleted(job.id);
 
     // 投递结果（静默任务跳过通知）
+    let deliveryError: string | undefined;
+    let nextRunAtMs: number | undefined;
     if (job.silent) {
       logger.info('[CronScheduler] 静默任务完成（跳过通知）', {
         jobId: job.id,
@@ -235,26 +466,26 @@ export class CronScheduler {
     if (this.callbacks.dispatchDelivery && !job.silent) {
       try {
         await this.callbacks.dispatchDelivery(job, result);
-      } catch (deliveryError) {
-        const errMsg =
-          deliveryError instanceof Error
-            ? deliveryError.message
-            : String(deliveryError);
+      } catch (deliveryError_) {
+        deliveryError =
+          deliveryError_ instanceof Error
+            ? deliveryError_.message
+            : String(deliveryError_);
         logger.error('[CronScheduler] 投递失败', {
           jobId: job.id,
-          error: errMsg,
+          error: deliveryError,
         });
         await this.store.markJobRun(
           job.id,
           result.success,
           result.error,
-          errMsg
+          deliveryError
         );
 
         // 将失败投递加入重试队列
         if (this.deliveryQueue) {
           try {
-            await this.deliveryQueue.enqueue(job, result, errMsg);
+            await this.deliveryQueue.enqueue(job, result, deliveryError);
             logger.info('[CronScheduler] 投递已加入重试队列', {
               jobId: job.id,
             });
@@ -279,6 +510,22 @@ export class CronScheduler {
       await this.completeJob(job.id);
     }
 
+    // 记录运行日志
+    if (this.runLog) {
+      const nextRun = job.nextRunAt;
+      if (nextRun) {
+        nextRunAtMs = new Date(nextRun).getTime();
+      }
+      await this.runLog
+        .recordRun(job, result, startTime, nextRunAtMs, undefined, job.sessionKey, deliveryError)
+        .catch((logErr) => {
+          logger.warning('[CronScheduler] 记录运行日志失败', {
+            jobId: job.id,
+            error: logErr instanceof Error ? logErr.message : String(logErr),
+          });
+        });
+    }
+
     logger.info('[CronScheduler] 作业执行完毕', {
       jobId: job.id,
       success: result.success,
@@ -301,7 +548,7 @@ export class CronScheduler {
 
   /**
    * 计算下次运行时间
-   * 对标 hermes-agent cron/jobs.py:compute_next_run() 和 advance_next_run()
+   * 基于 croner 库（对标 openclaw src/cron/schedule.ts）
    */
   private computeNextRun(job: CronJob): string | null {
     if (
@@ -311,8 +558,7 @@ export class CronScheduler {
       return null;
     }
 
-    const now = new Date();
-    let next: Date;
+    const nowMs = Date.now();
 
     switch (job.schedule.kind) {
       case 'once': {
@@ -321,106 +567,33 @@ export class CronScheduler {
 
       case 'interval': {
         const minutes = job.schedule.minutes || 30;
-        next = new Date(now.getTime() + minutes * 60 * 1000);
-        break;
+        const next = new Date(nowMs + minutes * 60 * 1000);
+        return next.toISOString();
       }
 
       case 'cron': {
         const expr = job.schedule.expr;
         if (!expr) return null;
-        next = this.resolveCron(expr, now);
-        break;
+        let nextRunMs = nowMs;
+        // 先计算 cron 原始下次运行时间
+        const cronNextRun = computeNextCronRun(expr, nowMs, job.schedule.tz);
+        if (!cronNextRun) return null;
+        nextRunMs = new Date(cronNextRun).getTime();
+
+        // 错峰执行：对整点表达式基于 jobId 哈希分配偏移
+        const staggerWindowMs = resolveCronStaggerMs(expr, job.id, job.schedule.staggerMs as number | undefined);
+        if (staggerWindowMs > 0) {
+          const offset = resolveStaggerOffsetMs(job.id, staggerWindowMs);
+          nextRunMs += offset;
+        }
+
+        return new Date(nextRunMs).toISOString();
       }
 
       default: {
         return null;
       }
     }
-
-    return next.toISOString();
-  }
-
-  /**
-   * 简易 cron 表达式解析
-   * 支持格式: "* * * * *" 标准 5 段式
-   */
-  private resolveCron(expr: string, from: Date): Date {
-    const parts = expr.trim().split(/\s+/);
-    if (parts.length !== 5) {
-      // fallback: 加 5 分钟
-      return new Date(from.getTime() + 5 * 60 * 1000);
-    }
-
-    const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-
-    // 尝试计算下一个匹配时间点
-    const candidate = new Date(from.getTime() + 60 * 1000);
-    candidate.setSeconds(0, 0);
-
-    const maxIterations = 525600;
-    for (let i = 0; i < maxIterations; i++) {
-      if (
-        this.matchesField(candidate.getMinutes(), minute, 0, 59) &&
-        this.matchesField(candidate.getHours(), hour, 0, 23) &&
-        this.matchesField(candidate.getDate(), dayOfMonth, 1, 31) &&
-        this.matchesField(candidate.getMonth() + 1, month, 1, 12) &&
-        this.matchesField(candidate.getDay(), dayOfWeek, 0, 6)
-      ) {
-        return candidate;
-      }
-      candidate.setTime(candidate.getTime() + 60 * 1000);
-    }
-
-    return new Date(from.getTime() + 60 * 60 * 1000);
-  }
-
-  /** 校验字段是否匹配 cron 表达式段 */
-  private matchesField(
-    value: number,
-    pattern: string,
-    min: number,
-    max: number
-  ): boolean {
-    if (pattern === '*') return true;
-
-    // 逗号分割的多值
-    if (pattern.includes(',')) {
-      return pattern
-        .split(',')
-        .some((p) => this.matchesField(value, p.trim(), min, max));
-    }
-
-    // 步进表达式: */5, 1-10/2
-    if (pattern.includes('/')) {
-      const [range, stepStr] = pattern.split('/');
-      const step = parseInt(stepStr, 10);
-      if (isNaN(step)) return false;
-
-      const [rMin, rMax] =
-        range === '*'
-          ? [min, max]
-          : range.split('-').map((s) => parseInt(s.trim(), 10));
-
-      if (isNaN(rMin) || isNaN(rMax)) return false;
-
-      for (let v = rMin; v <= rMax; v += step) {
-        if (v === value) return true;
-      }
-      return false;
-    }
-
-    // 范围表达式: 1-5
-    if (pattern.includes('-')) {
-      const [pMin, pMax] = pattern
-        .split('-')
-        .map((s) => parseInt(s.trim(), 10));
-      if (isNaN(pMin) || isNaN(pMax)) return false;
-      return value >= pMin && value <= pMax;
-    }
-
-    const num = parseInt(pattern, 10);
-    if (isNaN(num)) return false;
-    return value === num;
   }
 
   /** 标记作业为完成（使用状态守卫验证） */

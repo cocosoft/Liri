@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCronStore } from "../../stores/cronStore";
 import { SkeletonCard } from "../common/Skeleton";
 import CronExecutionHistory from "../Cron/CronExecutionHistory";
 import CronRetryConfig from "../Cron/CronRetryConfig";
 import type { ScheduleMode } from "../../types";
+import { cronTemplates } from "../../config/cronTemplates";
 
 function CronPage() {
+  const { t } = useTranslation();
   const {
     tasks,
     isLoading,
+    saving,
+    schedulerStatus,
+    statusLoading,
     loadTasks,
+    loadStatus,
     toggleTask,
     deleteTask,
     runTaskNow,
@@ -38,12 +45,18 @@ function CronPage() {
     enabled: true,
     scheduleMode: "cron" as ScheduleMode,
     silent: false,
+    prompt: "" as string,
     // Every mode
     everyValue: 30,
     everyUnit: "minutes" as "minutes" | "hours" | "days",
     // At mode
     atHour: "14",
     atMinute: "00",
+    deliver: "local" as string,
+    deliverTo: "" as string,
+    agentId: "" as string,
+    model: "" as string,
+    timezone: "" as string,
   });
   const [notification, setNotification] = useState<{
     message: string;
@@ -52,7 +65,16 @@ function CronPage() {
 
   useEffect(() => {
     loadTasks();
-  }, []);
+    loadStatus();
+  }, [loadTasks, loadStatus]);
+
+  // 每 30s 刷新调度器状态
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadStatus();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadStatus]);
 
   const showNotification = (
     message: string,
@@ -111,17 +133,17 @@ function CronPage() {
       }
       setSelectedTaskIds([]);
       showNotification(
-        `已手动执行 ${selectedTaskIds.length} 个定时任务`,
+        t("cron.executeSuccess", "Executed successfully"),
         "success",
       );
     } catch {
-      showNotification("执行定时任务失败", "error");
+      showNotification(t("cron.executeFailed", "Execution failed"), "error");
     }
   };
 
   const handleBatchDelete = async () => {
     if (selectedTaskIds.length === 0) return;
-    if (!confirm(`确定要删除选中的 ${selectedTaskIds.length} 个定时任务吗？`))
+    if (!confirm(t("cron.batchDeleteConfirm", "Delete selected tasks?")))
       return;
     try {
       for (const id of selectedTaskIds) {
@@ -129,11 +151,11 @@ function CronPage() {
       }
       setSelectedTaskIds([]);
       showNotification(
-        `成功删除 ${selectedTaskIds.length} 个定时任务`,
+        t("cron.deleteSuccess", "Deleted successfully"),
         "success",
       );
     } catch {
-      showNotification("删除定时任务失败", "error");
+      showNotification(t("cron.deleteFailed", "Delete failed"), "error");
     }
   };
 
@@ -145,8 +167,8 @@ function CronPage() {
     } else if (newCronForm.scheduleMode === "at") {
       expression = `at ${newCronForm.atHour}:${newCronForm.atMinute}`;
     }
-    if (!newCronForm.name.trim() || !expression) {
-      showNotification("请填写任务名称和 Cron 表达式", "info");
+    if (!newCronForm.name.trim() || !newCronForm.prompt.trim() || !expression) {
+      showNotification(t("cron.fillRequired", "Please fill in task name, execution content, and schedule"), "info");
       return;
     }
     if (isSubmitting) return;
@@ -155,10 +177,17 @@ function CronPage() {
       await createTask({
         name: newCronForm.name.trim(),
         expression,
+        prompt: newCronForm.prompt.trim(),
         description: newCronForm.description.trim(),
         enabled: newCronForm.enabled,
         scheduleMode: newCronForm.scheduleMode,
         silent: newCronForm.silent,
+        everyValue: newCronForm.everyValue,
+        everyUnit: newCronForm.everyUnit,
+        atHour: newCronForm.atHour,
+        atMinute: newCronForm.atMinute,
+        deliver: newCronForm.deliver,
+        deliverTo: newCronForm.deliverTo,
       });
       setShowCreateModal(false);
       setNewCronForm({
@@ -168,14 +197,20 @@ function CronPage() {
         enabled: true,
         scheduleMode: "cron",
         silent: false,
+        prompt: "",
         everyValue: 30,
         everyUnit: "minutes",
         atHour: "14",
         atMinute: "00",
+        deliver: "local",
+        deliverTo: "",
+        agentId: "",
+        model: "",
+        timezone: "",
       });
-      showNotification("定时任务创建成功", "success");
+      showNotification(t("cron.createSuccess", "Cron task created successfully"), "success");
     } catch {
-      showNotification("创建定时任务失败", "error");
+      showNotification(t("cron.createFailed", "Create failed"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -251,15 +286,57 @@ function CronPage() {
       )}
 
       <div className="max-w-5xl mx-auto p-6">
+        {/* 调度器状态栏 */}
+        <div
+          className={`mb-4 px-4 py-2 rounded-lg border text-sm flex items-center gap-3 ${
+            !schedulerStatus
+              ? "bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-700"
+              : schedulerStatus.running
+                ? "bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-800"
+                : "bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-800"
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              !schedulerStatus
+                ? "bg-gray-400"
+                : schedulerStatus.running
+                  ? "bg-green-500"
+                  : "bg-red-500"
+            }`}
+          />
+          <span className="text-gray-700 dark:text-gray-300">
+            {!schedulerStatus || statusLoading
+              ? t("cron.schedulerStatusLoading", "调度器状态加载中...")
+              : schedulerStatus.running
+                ? t("cron.schedulerRunning", "调度器运行中")
+                : t("cron.schedulerStopped", "调度器已停止")}
+          </span>
+          {schedulerStatus?.running && (
+            <>
+              <span className="text-gray-400">|</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("cron.activeJobs", "活跃")}: {schedulerStatus.activeJobs}
+              </span>
+              <span className="text-gray-400">|</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("cron.uptime", "运行")}:{" "}
+                {Math.floor(schedulerStatus.uptimeMs / 60000)}m
+              </span>
+            </>
+          )}
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            定时任务
+            {t("cron.pageTitle", "定时任务")}
           </h2>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+            disabled={saving}
+            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            新建任务
+            {saving ? t("cron.creating", "创建中...") : t("cron.newTask", "新建任务")}
           </button>
         </div>
 
@@ -302,27 +379,13 @@ function CronPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                      />
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      总任务
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {tasks.length}
-                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("cron.totalTasks", "Total")}</p>
+                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">{tasks.length}</p>
                   </div>
                 </div>
               </div>
@@ -330,27 +393,13 @@ function CronPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-green-600 dark:text-green-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
+                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      运行中
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {tasks.filter((t) => t.status === "running").length}
-                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("cron.running", "Running")}</p>
+                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">{tasks.filter((t) => t.status === "running").length}</p>
                   </div>
                 </div>
               </div>
@@ -358,27 +407,13 @@ function CronPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-yellow-600 dark:text-yellow-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
+                    <svg className="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      空闲
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {tasks.filter((t) => t.status === "idle").length}
-                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("cron.idle", "Idle")}</p>
+                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">{tasks.filter((t) => t.status === "idle").length}</p>
                   </div>
                 </div>
               </div>
@@ -386,27 +421,13 @@ function CronPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-red-600 dark:text-red-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
+                    <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      错误
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {tasks.filter((t) => t.status === "error").length}
-                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("cron.error", "Errors")}</p>
+                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">{tasks.filter((t) => t.status === "error").length}</p>
                   </div>
                 </div>
               </div>
@@ -415,7 +436,7 @@ function CronPage() {
             {/* 调度模板预设 */}
             <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                快速模板（点击套用）
+                {t("cron.quickTemplateTitle", "Quick Templates (click to apply)")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -445,27 +466,29 @@ function CronPage() {
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-blue-700 dark:text-blue-300">
-                    已选择 <strong>{selectedTaskIds.length}</strong> 个定时任务
+                    {t("cron.batchSelected", "{{count}} tasks selected").replace("{{count}}", String(selectedTaskIds.length))}
                   </span>
                   <button
                     onClick={() => setSelectedTaskIds([])}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    取消选择
+                    {t("cron.clearSelection", "Clear")}
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleBatchExecute}
-                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                    disabled={saving || selectedTaskIds.length === 0}
+                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={t("cron.forceRun", "Force")}
                   >
-                    立即执行
+                    {t("cron.forceRun", "强制执行")}
                   </button>
                   <button
                     onClick={handleBatchDelete}
                     className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg"
                   >
-                    批量删除
+                    {t("cron.batchDelete", "Batch Delete")}
                   </button>
                 </div>
               </div>
@@ -497,7 +520,7 @@ function CronPage() {
                     </svg>
                     <input
                       type="text"
-                      placeholder="搜索定时任务..."
+                      placeholder={t("cron.searchPlaceholder", "Search tasks...")}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full sm:w-64 pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400"
@@ -511,10 +534,10 @@ function CronPage() {
                   onChange={(e) => setStatusFilter(e.target.value as any)}
                   className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
                 >
-                  <option value="all">全部状态</option>
-                  <option value="running">运行中</option>
-                  <option value="idle">空闲</option>
-                  <option value="error">错误</option>
+                  <option value="all">{t("cron.allStatus", "All Status")}</option>
+                  <option value="running">{t("cron.running", "Running")}</option>
+                  <option value="idle">{t("cron.idle", "Idle")}</option>
+                  <option value="error">{t("cron.error", "Error")}</option>
                 </select>
                 <select
                   value={sortBy}
@@ -523,9 +546,9 @@ function CronPage() {
                   }
                   className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
                 >
-                  <option value="lastRun">上次执行</option>
-                  <option value="name">名称</option>
-                  <option value="nextRun">下次执行</option>
+                  <option value="lastRun">{t("cron.sortLastExec", "Last Run")}</option>
+                  <option value="name">{t("cron.sortName", "Name")}</option>
+                  <option value="nextRun">{t("cron.sortNextExec", "Next Run")}</option>
                 </select>
                 <button
                   onClick={() =>
@@ -537,14 +560,14 @@ function CronPage() {
                   {sortOrder === "asc" ? "↑" : "↓"}
                 </button>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  共 {filteredTasks.length} 个任务
+                  {t("cron.totalTasksLabel", "{{count}} tasks total").replace("{{count}}", String(filteredTasks.length))}
                 </span>
                 <button
                   onClick={loadTasks}
                   disabled={isLoading}
                   className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg disabled:opacity-50"
                 >
-                  刷新
+                {t("cron.refresh", "Refresh")}
                 </button>
               </div>
             </div>
@@ -556,8 +579,8 @@ function CronPage() {
                 </div>
               ) : filteredTasks.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-                  暂无匹配的定时任务
-                  <p className="text-sm mt-2">尝试调整搜索关键词或筛选条件</p>
+                  {t("cron.noMatchingTasks", "No matching tasks")}
+                  <p className="text-sm mt-2">{t("cron.noMatchingDesc", "Try adjusting filters")}</p>
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -595,11 +618,11 @@ function CronPage() {
                                     : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                                 }`}
                               >
-                                {task.enabled ? "✓ 已启用" : "✗ 已禁用"}
+                                {task.enabled ? `✓ ${t("cron.enabledLabel", "Enabled")}` : `✗ ${t("cron.disabledLabel", "Disabled")}`}
                               </span>
                               {task.silent && (
                                 <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
-                                  🔇 静默
+                                  {t("cron.silent", "Silent")}
                                 </span>
                               )}
                               {task.scheduleDisplay && (
@@ -632,8 +655,9 @@ function CronPage() {
                                 e.stopPropagation();
                                 runTaskNow(task.id);
                               }}
-                              className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
-                              title="立即执行"
+                              disabled={saving}
+                              className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded disabled:opacity-40"
+                              title={t("cron.forceRun", "Force Run")}
                             >
                               <svg
                                 className="w-4 h-4"
@@ -655,7 +679,7 @@ function CronPage() {
                                 toggleTask(task.id, !task.enabled);
                               }}
                               className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
-                              title={task.enabled ? "禁用" : "启用"}
+                              title={task.enabled ? t("cron.disable", "Disable") : t("cron.enable", "Enable")}
                             >
                               <svg
                                 className="w-4 h-4"
@@ -689,12 +713,12 @@ function CronPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (confirm("确定要删除这个定时任务吗？")) {
+                                if (confirm(t("cron.deleteConfirm", "Delete this cron task?"))) {
                                   deleteTask(task.id);
                                 }
                               }}
                               className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
-                              title="删除"
+                              title={t("cron.deleteTask", "Delete")}
                             >
                               <svg
                                 className="w-4 h-4"
@@ -745,9 +769,10 @@ function CronPage() {
                                 e.stopPropagation();
                                 runTaskNow(task.id);
                               }}
-                              className="text-xs px-2 py-1 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-600 rounded hover:bg-green-50 dark:hover:bg-green-900/30"
+                              disabled={saving}
+                              className="text-xs px-2 py-1 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-600 rounded hover:bg-green-50 dark:hover:bg-green-900/30 disabled:opacity-40"
                             >
-                              立即执行
+                              {t("cron.forceRun", "强制执行")}
                             </button>
                             <button
                               onClick={(e) => {
@@ -774,7 +799,7 @@ function CronPage() {
                           {task.expression && (
                             <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded">
                               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Cron 表达式
+                                {t("cron.expression", "Cron Expression")}
                               </span>
                               <code className="block mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre font-mono bg-white dark:bg-gray-800 p-2 rounded">
                                 {task.expression}
@@ -785,7 +810,7 @@ function CronPage() {
                           {task.nextRun && (
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded">
                               <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
-                                下次执行时间
+                                {t("cron.nextRunTime", "Next Run")}
                               </span>
                               <p className="mt-1 text-sm text-blue-600 dark:text-blue-300">
                                 {formatTimestamp(task.nextRun)}
@@ -796,7 +821,7 @@ function CronPage() {
                           {task.lastRun && (
                             <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded">
                               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                上次执行时间
+                                {t("cron.lastRunTime", "Last Run")}
                               </span>
                               <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
                                 {formatTimestamp(task.lastRun)}
@@ -837,12 +862,48 @@ function CronPage() {
           >
             <div className="p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                新建定时任务
+                {t("cron.newTask", "新建定时任务")}
               </h3>
+
+              {/* 快速模板预设 */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {t("cron.templates", "快速模板")}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {cronTemplates.map((tmpl) => (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => {
+                        setNewCronForm((prev) => ({
+                          ...prev,
+                          scheduleMode: tmpl.scheduleMode,
+                          expression: tmpl.cronExpr ?? prev.expression,
+                          everyValue: tmpl.everyValue ?? prev.everyValue,
+                          everyUnit: tmpl.everyUnit ?? prev.everyUnit,
+                          atHour: tmpl.atHour ?? prev.atHour,
+                          atMinute: tmpl.atMinute ?? prev.atMinute,
+                          silent: tmpl.silent ?? false,
+                        }));
+                      }}
+                      className="px-3 py-2 text-left text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 transition-colors"
+                    >
+                      <div className="font-medium text-gray-800 dark:text-gray-200">
+                        {t(tmpl.labelKey)}
+                      </div>
+                      <div className="text-gray-400 mt-0.5">
+                        {t(tmpl.descriptionKey)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    任务名称 *
+                    {t("cron.taskName", "任务名称")} *
                   </label>
                   <input
                     type="text"
@@ -853,22 +914,41 @@ function CronPage() {
                         name: e.target.value,
                       }))
                     }
-                    placeholder="输入定时任务名称"
+                    placeholder={t("cron.taskNamePlaceholder", "Enter task name")}
                     className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+                  />
+                </div>
+
+                {/* 执行内容 (prompt) - 定时任务要执行的具体指令 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t("cron.promptLabel", "Execution Content")} *
+                  </label>
+                  <textarea
+                    value={newCronForm.prompt}
+                    onChange={(e) =>
+                      setNewCronForm((prev) => ({
+                        ...prev,
+                        prompt: e.target.value,
+                      }))
+                    }
+                    placeholder={t("cron.promptPlaceholder", "What should this job do? e.g. \"Check system health and report status\"")}
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 resize-none"
                   />
                 </div>
 
                 {/* 调度模式选择 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    调度模式
+                    {t("cron.scheduleMode", "Schedule Mode")}
                   </label>
                   <div className="flex gap-2">
                     {(
                       [
-                        { value: "cron", label: "Cron 表达式" },
-                        { value: "every", label: "间隔模式" },
-                        { value: "at", label: "定点模式" },
+                        { value: "cron", label: t("cron.scheduleCron", "Cron Expression") },
+                        { value: "every", label: t("cron.scheduleEvery", "Interval") },
+                        { value: "at", label: t("cron.scheduleAt", "At Time") },
                       ] as { value: ScheduleMode; label: string }[]
                     ).map((opt) => (
                       <button
@@ -895,7 +975,7 @@ function CronPage() {
                 {newCronForm.scheduleMode === "cron" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Cron 表达式
+                      {t("cron.expression", "Cron Expression")}
                     </label>
                     <input
                       type="text"
@@ -906,11 +986,11 @@ function CronPage() {
                           expression: e.target.value,
                         }))
                       }
-                      placeholder="例如: 0 8 * * *"
+                      placeholder={t("cron.cronPlaceholder", "e.g. 0 8 * * *")}
                       className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 font-mono"
                     />
                     <p className="text-xs text-gray-400 mt-1">
-                      格式: 分 时 日 月 周 (空格分隔)
+                      {t("cron.cronFormat", "Format: min hour day month weekday")}
                     </p>
                   </div>
                 )}
@@ -919,7 +999,7 @@ function CronPage() {
                 {newCronForm.scheduleMode === "every" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      间隔
+                      {t("cron.intervalLabel", "Interval")}
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -944,9 +1024,9 @@ function CronPage() {
                         }
                         className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
                       >
-                        <option value="minutes">分钟</option>
-                        <option value="hours">小时</option>
-                        <option value="days">天</option>
+                        <option value="minutes">{t("cron.minutesUnit", "Minutes")}</option>
+                        <option value="hours">{t("cron.hoursUnit", "Hours")}</option>
+                        <option value="days">{t("cron.daysUnit", "Days")}</option>
                       </select>
                     </div>
                   </div>
@@ -956,7 +1036,7 @@ function CronPage() {
                 {newCronForm.scheduleMode === "at" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      时间 (每天)
+                      {t("cron.atTimeLabel", "Time (Daily)")}
                     </label>
                     <div className="flex items-center gap-2">
                       <input
@@ -995,7 +1075,7 @@ function CronPage() {
                 {/* 人类可读预览 */}
                 <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                   <span className="text-xs text-blue-500 dark:text-blue-400 font-medium">
-                    预览:{" "}
+                    {t("cron.previewLabel", "Preview")}:{" "}
                   </span>
                   <span className="text-sm text-blue-700 dark:text-blue-300 font-mono">
                     {buildSchedulePreview()}
@@ -1006,10 +1086,10 @@ function CronPage() {
                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <div>
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      🔇 静默模式
+                      {t("cron.silent", "Silent Mode")}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      完成后不发送通知
+                      {t("cron.silentDesc", "Skip notification on completion")}
                     </p>
                   </div>
                   <button
@@ -1030,9 +1110,46 @@ function CronPage() {
                   </button>
                 </div>
 
+                {/* 投递配置 */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("cron.deliveryConfig", "Delivery Config")}
+                  </label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <select
+                      value={newCronForm.deliver || "local"}
+                      onChange={(e) =>
+                        setNewCronForm((prev) => ({
+                          ...prev,
+                          deliver: e.target.value,
+                        }))
+                      }
+                      className="flex-1 px-2 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="local">{t("cron.deliverLocal", "Local")}</option>
+                      <option value="announce">{t("cron.deliverAnnounce", "Announce")}</option>
+                      <option value="webhook">{t("cron.deliverWebhook", "Webhook")}</option>
+                    </select>
+                    {(newCronForm.deliver === "announce" || newCronForm.deliver === "webhook") && (
+                      <input
+                        type="text"
+                        value={newCronForm.deliverTo || ""}
+                        onChange={(e) =>
+                          setNewCronForm((prev) => ({
+                            ...prev,
+                            deliverTo: e.target.value,
+                          }))
+                        }
+                        placeholder={t("cron.deliverToPlaceholder", "Channel or URL")}
+                        className="flex-1 px-2 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-900 dark:text-gray-100"
+                      />
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    描述
+                    {t("cron.description", "Description")}
                   </label>
                   <textarea
                     value={newCronForm.description}
@@ -1042,7 +1159,7 @@ function CronPage() {
                         description: e.target.value,
                       }))
                     }
-                    placeholder="输入任务描述（可选）"
+                    placeholder={t("cron.descriptionPlaceholder", "Enter description (optional)")}
                     rows={3}
                     className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 resize-none"
                   />
@@ -1064,7 +1181,7 @@ function CronPage() {
                     htmlFor="cron-enabled"
                     className="text-sm text-gray-700 dark:text-gray-300"
                   >
-                    创建后立即启用
+                  {t("cron.createAndEnable", "Create and enable")}
                   </label>
                 </div>
               </div>
@@ -1079,15 +1196,21 @@ function CronPage() {
                       enabled: true,
                       scheduleMode: "cron",
                       silent: false,
+                      prompt: "",
                       everyValue: 30,
                       everyUnit: "minutes",
                       atHour: "14",
                       atMinute: "00",
+                      deliver: "local",
+                      deliverTo: "",
+                      agentId: "",
+                      model: "",
+                      timezone: "",
                     });
                   }}
                   className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
                 >
-                  取消
+                  {t("common.cancel", "Cancel")}
                 </button>
                 <button
                   onClick={handleCreateCronTask}
@@ -1098,7 +1221,7 @@ function CronPage() {
                   }
                   className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? "创建中..." : "创建"}
+                  {isSubmitting ? t("cron.creating", "Creating...") : t("cron.create", "Create")}
                 </button>
               </div>
             </div>

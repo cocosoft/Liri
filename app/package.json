@@ -104,6 +104,7 @@
     "cheerio": "^1.2.0",
     "clipboardy": "^5.3.1",
     "commander": "^12.1.0",
+    "croner": "^10.0.1",
     "emoji-regex": "^10.6.0",
     "fast-xml-parser": "^5.7.3",
     "figures": "^6.1.0",

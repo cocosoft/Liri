@@ -85,6 +85,7 @@ function rowToCronJob(row: any): CronJob {
     pausedReason: row.paused_reason ?? undefined,
     createdAt: row.created_at,
     nextRunAt: row.next_run_at ?? undefined,
+    runningAtMs: row.running_at_ms ?? undefined,
     lastRunAt: row.last_run_at ?? undefined,
     lastStatus: row.last_status ?? undefined,
     lastError: row.last_error ?? undefined,
@@ -104,7 +105,15 @@ function rowToCronJob(row: any): CronJob {
     ownerKey: row.owner_key ?? undefined,
     sessionKey: row.session_key ?? undefined,
     silent: row.silent === 1,
+    consecutiveErrors: row.consecutive_errors ?? 0,
+    consecutiveSkipped: row.consecutive_skipped ?? 0,
+    scheduleErrorCount: row.schedule_error_count ?? 0,
   };
+
+  // 从 schedule JSON 中读取 tz（如果 schedule 中没有则尝试 row.schedule_tz）
+  if (row.schedule_tz && !job.schedule.tz) {
+    job.schedule.tz = row.schedule_tz;
+  }
 
   return job;
 }
@@ -125,6 +134,7 @@ function cronJobToRow(job: CronJob): Record<string, unknown> {
     paused_reason: job.pausedReason ?? null,
     created_at: job.createdAt,
     next_run_at: job.nextRunAt ?? null,
+    running_at_ms: job.runningAtMs ?? null,
     last_run_at: job.lastRunAt ?? null,
     last_status: job.lastStatus ?? null,
     last_error: job.lastError ?? null,
@@ -144,6 +154,10 @@ function cronJobToRow(job: CronJob): Record<string, unknown> {
     owner_key: job.ownerKey ?? null,
     session_key: job.sessionKey ?? null,
     silent: job.silent ? 1 : 0,
+    consecutive_errors: job.consecutiveErrors ?? 0,
+    consecutive_skipped: job.consecutiveSkipped ?? 0,
+    schedule_error_count: job.scheduleErrorCount ?? 0,
+    schedule_tz: job.schedule.tz ?? null,
     updated_at: Date.now(),
   };
 }
@@ -178,6 +192,31 @@ export class CronJobStore {
               `ALTER TABLE cron_jobs ADD COLUMN silent INTEGER NOT NULL DEFAULT 0`,
               (/* noop */) => {
                 // 忽略 "column already exists" 错误
+              }
+            );
+            // 迁移：添加 running_at_ms 列
+            this.db!.run(
+              `ALTER TABLE cron_jobs ADD COLUMN running_at_ms INTEGER DEFAULT NULL`,
+              (/* noop */) => {}
+            );
+            // 迁移：添加连续错误保护列
+            this.db!.run(
+              `ALTER TABLE cron_jobs ADD COLUMN consecutive_errors INTEGER NOT NULL DEFAULT 0`,
+              (/* noop */) => {
+                this.db!.run(
+                  `ALTER TABLE cron_jobs ADD COLUMN consecutive_skipped INTEGER NOT NULL DEFAULT 0`,
+                  (/* noop */) => {
+                    this.db!.run(
+                      `ALTER TABLE cron_jobs ADD COLUMN schedule_error_count INTEGER NOT NULL DEFAULT 0`,
+                      (/* noop */) => {
+                        this.db!.run(
+                          `ALTER TABLE cron_jobs ADD COLUMN schedule_tz TEXT DEFAULT NULL`,
+                          (/* noop */) => {}
+                        );
+                      }
+                    );
+                  }
+                );
               }
             );
             logger.info('[CronJobStore] 数据库初始化完成');
@@ -515,6 +554,74 @@ export class CronJobStore {
       db.run(`DELETE FROM ${TABLE_CRON_JOBS} WHERE id = ?`, [jobId], (err) => {
         if (err) {
           logger.error('[CronJobStore] 删除作业失败', {
+            jobId,
+            error: err.message,
+          });
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  /** 禁用作业（连续错误超阈值时调用） */
+  async disableJob(jobId: string, reason?: string): Promise<void> {
+    const db = this.ensureDb();
+    const sql = `UPDATE ${TABLE_CRON_JOBS}
+      SET enabled = 0, last_error = COALESCE(last_error, ?), updated_at = ?
+      WHERE id = ?`;
+
+    return new Promise((resolve, reject) => {
+      db.run(sql, [reason ? `已自动禁用: ${reason}` : null, Date.now(), jobId], (err) => {
+        if (err) {
+          logger.error('[CronJobStore] 禁用作业失败', { jobId, error: err.message });
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  /** 查找所有 running 状态的作业（用于启动恢复） */
+  async findRunningJobs(): Promise<CronJob[]> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM ${TABLE_CRON_JOBS} WHERE state = 'running'`,
+        [],
+        (err, rows) => {
+          if (err) {
+            logger.error('[CronJobStore] 查询运行中作业失败', {
+              error: err.message,
+            });
+            reject(err);
+            return;
+          }
+          resolve((rows as any[]).map(rowToCronJob));
+        }
+      );
+    });
+  }
+
+  /** 更新作业连续错误计数 */
+  async updateConsecutiveErrors(
+    jobId: string,
+    errors: number,
+    skipped: number,
+    scheduleErrors: number
+  ): Promise<void> {
+    const db = this.ensureDb();
+    const sql = `UPDATE ${TABLE_CRON_JOBS}
+      SET consecutive_errors = ?, consecutive_skipped = ?,
+          schedule_error_count = ?, updated_at = ?
+      WHERE id = ?`;
+
+    return new Promise((resolve, reject) => {
+      db.run(sql, [errors, skipped, scheduleErrors, Date.now(), jobId], (err) => {
+        if (err) {
+          logger.error('[CronJobStore] 更新错误计数失败', {
             jobId,
             error: err.message,
           });

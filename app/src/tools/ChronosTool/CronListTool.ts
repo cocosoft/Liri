@@ -1,109 +1,80 @@
 /**
- * Cron列表工具
+ * Cron列表工具 - 接入新 CronJobStore
  */
 
 import { Tool } from '../types/Tool';
-import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { listAllCronTasks } from '@modules/chronos/CronTasks';
-import { cronToHuman } from '@modules/chronos/cron';
 
-/**
- * 任务截断长度
- */
-const PROMPT_TRUNCATE_LENGTH = 80;
-
-/**
- * Cron列表工具类
- */
 export class CronListTool {
-  /**
-   * 创建Cron列表工具实例
-   * @returns Cron列表工具实例
-   */
   static create(): Tool {
     return {
       name: 'cron_list',
-      description: 'List all active cron jobs',
+      description: 'List all active cron/scheduled tasks',
       params: [],
-      aliases: ['cron_jobs', 'list_cron', 'scheduled'],
+      aliases: ['cron_jobs', 'list_cron', 'scheduled', 'tasks'],
       searchTips: ['cron', 'list', 'jobs', 'scheduled', 'tasks'],
       isEnabled: () => true,
-      isReadOnly: (_input?: Record<string, unknown>) => true,
-      isDestructive: (_input?: Record<string, unknown>) => false,
-      isConcurrencySafe: (_input?: Record<string, unknown>) => true,
-      validateInput: (input) => {
-        return { result: true };
-      },
-      checkPermissions: async (input, context) => {
-        return { behavior: 'allow' };
-      },
-      execute: async (input, context) => {
+      isReadOnly: () => true,
+      isDestructive: () => false,
+      isConcurrencySafe: () => true,
+      validateInput: () => ({ result: true }),
+      checkPermissions: async () => ({ behavior: 'allow' as const }),
+      execute: async (_input, _context) => {
         const startTime = Date.now();
-
         try {
-          const tasks = await listAllCronTasks();
-          const jobs = tasks.map((t) => ({
-            id: t.id,
-            cron: t.cron,
-            humanSchedule: cronToHuman(t.cron),
-            prompt: t.prompt,
-            ...(t.recurring ? { recurring: true } : {}),
-            ...(t.durable === false ? { durable: false } : {}),
+          const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
+          const { resolveDbPath } = await import('@modules/config/paths');
+          const store = new CronJobStore(resolveDbPath());
+          await store.init();
+          const jobs = await store.loadJobs();
+          await store.close();
+
+          const list = jobs.map((j) => ({
+            id: j.id,
+            name: j.name,
+            schedule: j.schedule?.display || j.schedule?.expr || '',
+            prompt: j.prompt || '',
+            enabled: j.enabled,
+            state: j.state,
+            nextRunAt: j.nextRunAt || undefined,
+            lastRunAt: j.lastRunAt || undefined,
+            silent: j.silent || false,
           }));
 
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
+          const output = list.length === 0
+            ? 'No scheduled tasks.'
+            : list.map((j) => {
+                const status = j.enabled
+                  ? j.state === 'running' ? ' [running]' : ' [active]'
+                  : ' [disabled]';
+                const next = j.nextRunAt
+                  ? ` | next: ${new Date(j.nextRunAt).toLocaleString()}`
+                  : '';
+                const silent = j.silent ? ' (silent)' : '';
+                return `${j.id}: "${j.name}" — ${j.schedule}${status}${next}${silent}\n  ${j.prompt}`;
+              }).join('\n\n');
+
           return ToolUtils.createSuccessResult(
-            { jobs },
-            {
-              executionTime,
-              output:
-                jobs.length > 0
-                  ? jobs
-                      .map((j) => {
-                        const truncatedPrompt =
-                          j.prompt.length > PROMPT_TRUNCATE_LENGTH
-                            ? j.prompt.substring(0, PROMPT_TRUNCATE_LENGTH) +
-                              '...'
-                            : j.prompt;
-                        return `${j.id} — ${j.humanSchedule}${j.recurring ? ' (recurring)' : ' (one-shot)'}${j.durable === false ? ' [session-only]' : ''}: ${truncatedPrompt}`;
-                      })
-                      .join('\n')
-                  : 'No scheduled jobs.',
-              toolName: 'cron_list',
-              executionId: ToolUtils.generateExecutionId('cron_list'),
-              timestamp: Date.now(),
-            }
+            { jobs: list, count: list.length },
+            { executionTime, output, toolName: 'cron_list', executionId: ToolUtils.generateExecutionId('cron_list'), timestamp: Date.now() }
           );
         } catch (error) {
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
           return ToolUtils.createFailureResult(
             error instanceof Error ? error.message : 'Unknown error',
-            {
-              executionTime,
-              errorOutput: error instanceof Error ? error.stack || '' : '',
-              toolName: 'cron_list',
-              executionId: ToolUtils.generateExecutionId('cron_list'),
-              timestamp: Date.now(),
-            }
+            { executionTime, errorOutput: error instanceof Error ? error.stack || '' : '', toolName: 'cron_list', executionId: ToolUtils.generateExecutionId('cron_list'), timestamp: Date.now() }
           );
         }
       },
       getInfo: function () {
         return {
-          name: this.name,
-          description: this.description,
-          params: this.params,
-          aliases: this.aliases,
-          searchTips: this.searchTips,
-          enabled: true,
-          readOnly: true,
-          destructive: false,
-          concurrencySafe: true,
-          deferred: false,
-          alwaysLoad: false,
-          interruptBehavior: 'block',
+          name: this.name, description: this.description, params: this.params,
+          aliases: this.aliases, searchTips: this.searchTips,
+          enabled: true, readOnly: true, destructive: false,
+          concurrencySafe: true, deferred: false, alwaysLoad: false,
+          interruptBehavior: 'block' as const,
         };
       },
     };

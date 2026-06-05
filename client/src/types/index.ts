@@ -15,6 +15,8 @@ export interface Message {
   tool_calls?: ToolCall[];
   blocks?: MessageBlock[];
   toolCallId?: string;
+  /** LLM 返回的错误信息（用于显示重试/继续按钮） */
+  error?: string;
   usage?: {
     inputTokens: number;
     outputTokens: number;

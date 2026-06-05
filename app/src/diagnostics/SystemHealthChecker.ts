@@ -315,31 +315,14 @@ export class SystemHealthChecker extends EventEmitter {
    * 检查环境变量
    */
   private async checkEnvironmentVariables(): Promise<HealthCheckItem> {
-    const requiredVars = ['PATH', 'HOME', 'NODE_ENV'];
-    const missing: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];
-
-    for (const varName of requiredVars) {
-      if (!process.env[varName]) {
-        missing.push(varName);
-      }
-    }
 
     if (!process.env.OAUTH_ENCRYPTION_KEY) {
       warnings.push('OAUTH_ENCRYPTION_KEY');
       suggestions.push(
         '设置 OAUTH_ENCRYPTION_KEY 环境变量以确保 OAuth 令牌加密安全'
       );
-    }
-
-    if (missing.length > 0) {
-      return {
-        name: '环境变量',
-        status: 'warning',
-        message: `缺少环境变量: ${missing.join(', ')}`,
-        suggestions: [`设置缺少的环境变量: ${missing.join(', ')}`],
-      };
     }
 
     if (warnings.length > 0) {
@@ -392,13 +375,8 @@ export class SystemHealthChecker extends EventEmitter {
     const issues: string[] = [];
     const suggestions: string[] = [];
 
-    const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
+    const projectRoot = resolveProjectRoot();
     const pyappDir = resolvePyappHome();
-
-    if (!process.env.LIRI_PROJECT_DIR) {
-      issues.push('LIRI_PROJECT_DIR 未设置');
-      suggestions.push('设置 LIRI_PROJECT_DIR 环境变量可优化路径解析');
-    }
 
     if (
       !existsSync(

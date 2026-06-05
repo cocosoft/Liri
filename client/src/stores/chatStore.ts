@@ -100,6 +100,10 @@ interface ChatStore {
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
   streamMessage: (content: string, sessionId?: string) => Promise<void>;
+  /** 重新生成上一条 AI 消息 */
+  regenerateMessage: (sessionId?: string) => Promise<void>;
+  /** 在出错后重试（传入出错的 assistant 消息 ID，内部找到前置用户消息重新发送） */
+  retryFromError: (assistantMsgId: string, sessionId?: string) => Promise<void>;
   clearMessages: () => void;
   setMessages: (messages: Message[]) => void;
   setReplyMessage: (message: Message | null) => void;
@@ -511,6 +515,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "usage" && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
+        } else if (chunk.type === "error") {
+          // LLM 错误 → toast 通知用户 + 标记此消息为错误
+          const errMsg = chunk.content || "AI 服务异常，请稍后重试";
+          import("../stores/toastStore.js").then(({ useToastStore }) => {
+            useToastStore.getState().addToast("error", errMsg);
+          });
+          updatedMsg = { ...msg, content: msg.content + `\n\n❌ ${errMsg}`, error: errMsg };
         } else {
           updatedMsg = msg;
         }
@@ -582,6 +593,62 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   clearMessages: () => {
     set({ messages: [], error: null });
+  },
+
+  /**
+   * 重新生成上一条 AI 回复：
+   * 找到 AI 消息之前的最后一条用户消息，重新发送
+   */
+  regenerateMessage: async (sessionId?: string) => {
+    const { messages } = get();
+    if (messages.length < 2) return;
+
+    // 找到最后一条 assistant 消息
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUserIdx = i;
+        break;
+      }
+    }
+    if (lastUserIdx === -1) return;
+
+    const userMsg = messages[lastUserIdx];
+    const content = typeof userMsg.content === "string" ? userMsg.content : "";
+
+    // 移除最后一条 assistant 及之后的所有消息，然后重新发送
+    const truncated = messages.slice(0, lastUserIdx + 1);
+    set({ messages: truncated });
+
+    await get().streamMessage(content, sessionId || userMsg.session_id);
+  },
+
+  /**
+   * 重试出错的请求：传入出错的 assistant 消息 ID，找到前置用户消息重新发送
+   */
+  retryFromError: async (assistantMsgId: string, sessionId?: string) => {
+    const { messages } = get();
+    const aiIdx = messages.findIndex((m) => m.id === assistantMsgId);
+    if (aiIdx === -1) return;
+
+    // 向前找到最近的一条 user 消息
+    let userMsgIdx = -1;
+    for (let i = aiIdx - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        userMsgIdx = i;
+        break;
+      }
+    }
+    if (userMsgIdx === -1) return;
+
+    const userMsg = messages[userMsgIdx];
+    const content = typeof userMsg.content === "string" ? userMsg.content : "";
+
+    // 移除该用户消息及其之后的所有消息，然后重新发送
+    const truncated = messages.slice(0, userMsgIdx + 1);
+    set({ messages: truncated });
+
+    await get().streamMessage(content, sessionId || userMsg.session_id);
   },
 
   setReplyMessage: (replyMessage: Message | null) => {

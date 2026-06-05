@@ -12,6 +12,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { createChatManager } from '@modules/chat/ChatManager';
 import { attachmentManager } from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
@@ -798,6 +799,81 @@ export class LocalHTTPService {
         res,
         url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)![1]
       );
+    }
+
+    // ---- Checkpoints ----
+    if (req.method === 'POST' && url === '/v1/checkpoints') {
+      return this.handleCreateCheckpoint(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/checkpoints') {
+      return this.handleListCheckpoints(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/checkpoints\/(.+)$/)) {
+      return this.handleGetCheckpoint(
+        req,
+        res,
+        url.match(/^\/v1\/checkpoints\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url.match(/^\/v1\/checkpoints\/(.+)\/rollback$/)) {
+      return this.handleRollbackCheckpoint(
+        req,
+        res,
+        url.match(/^\/v1\/checkpoints\/(.+)\/rollback$/)![1]
+      );
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/checkpoints\/(.+)$/)) {
+      return this.handleDeleteCheckpoint(
+        req,
+        res,
+        url.match(/^\/v1\/checkpoints\/(.+)$/)![1]
+      );
+    }
+
+    // ---- Memory ----
+    if (req.method === 'POST' && url === '/v1/memory') {
+      return this.handleCreateMemory(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/memory') {
+      return this.handleListMemories(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/memory\/(.+)$/)) {
+      return this.handleGetMemory(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {
+      return this.handleUpdateMemory(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'DELETE' && url.match(/^\/v1\/memory\/(.+)$/)) {
+      return this.handleDeleteMemory(
+        req,
+        res,
+        url.match(/^\/v1\/memory\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'POST' && url === '/v1/memory/search') {
+      return this.handleSearchMemories(req, res);
+    }
+
+    // ---- Semantic Index ----
+    if (req.method === 'POST' && url === '/v1/semantic/index') {
+      return this.handleBuildSemanticIndex(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/semantic/search') {
+      return this.handleSearchSemantic(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/semantic/index/status') {
+      return this.handleGetSemanticIndexStatus(req, res);
+    }
+    if (req.method === 'DELETE' && url === '/v1/semantic/index') {
+      return this.handleClearSemanticIndex(req, res);
     }
 
     // ---- Files ----
@@ -8970,6 +9046,226 @@ export class LocalHTTPService {
           error: { message: `Failed to resolve path: ${message}` },
         })
       );
+    }
+  }
+
+  // ========== Checkpoint Handlers ==========
+
+  /**
+   * 创建检查点 POST /v1/checkpoints
+   * { sessionId, label }
+   */
+  private async handleCreateCheckpoint(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { sessionId, label } = JSON.parse(body);
+      const chatManager = createChatManager();
+      const cpId = await chatManager.createCheckpoint(sessionId, label);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ id: cpId, sessionId, label }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 列出检查点 GET /v1/checkpoints?sessionId=...
+   */
+  private async handleListCheckpoints(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const sessionId = urlObj.searchParams.get('sessionId') || '';
+      const chatManager = createChatManager();
+      const checkpoints = await chatManager.listCheckpoints(sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(checkpoints));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 获取检查点详情 GET /v1/checkpoints/:id
+   */
+  private async handleGetCheckpoint(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cpId: string
+  ): Promise<void> {
+    try {
+      const chatManager = createChatManager();
+      const allCheckpoints = await chatManager.listCheckpoints('');
+      let checkpoint = allCheckpoints.find((cp) => cp.id === cpId);
+      if (!checkpoint) {
+        const cp = await (chatManager as any).getCheckpoint?.(cpId);
+        if (cp) checkpoint = cp;
+      }
+      if (!checkpoint) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Checkpoint not found' } }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(checkpoint));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 回滚到检查点 POST /v1/checkpoints/:id/rollback
+   */
+  private async handleRollbackCheckpoint(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cpId: string
+  ): Promise<void> {
+    try {
+      const chatManager = createChatManager();
+      await chatManager.rollbackToCheckpoint(cpId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, checkpointId: cpId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 删除检查点 DELETE /v1/checkpoints/:id
+   */
+  private async handleDeleteCheckpoint(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cpId: string
+  ): Promise<void> {
+    try {
+      const chatManager = createChatManager();
+      await chatManager.deleteCheckpoint(cpId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, checkpointId: cpId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Semantic Index Handlers ==========
+
+  /**
+   * 构建语义索引 POST /v1/semantic/index
+   */
+  private async handleBuildSemanticIndex(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { rootDir, incremental = true } = JSON.parse(body);
+      const { IndexBuilder } = await import('@modules/knowledge/semantic/builder');
+      const builder = new IndexBuilder();
+      const result = await builder.build({
+        rootDir,
+        incremental,
+        embedOptions: { provider: 'ollama' },
+        onProgress: (phase, done, total) => {
+          logger.info(`Semantic index building: ${phase} ${done}/${total}`);
+        },
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 语义搜索 GET /v1/semantic/search?q=...&topK=10
+   */
+  private async handleSearchSemantic(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const query = urlObj.searchParams.get('q');
+      const topK = parseInt(urlObj.searchParams.get('topK') || '10', 10);
+      const minScore = parseFloat(urlObj.searchParams.get('minScore') || '0.3');
+
+      if (!query) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'q parameter is required' } }));
+        return;
+      }
+
+      const { SemanticStore } = await import('@modules/knowledge/semantic/store');
+      const { embed } = await import('@modules/knowledge/semantic/embedding');
+      const { resolveDataSubDir } = await import('@modules/core/paths');
+      const store = new SemanticStore(
+        resolveDataSubDir('semantic-index'),
+        { provider: 'ollama', model: 'all-minilm' }
+      );
+      await store.load();
+
+      const embedding = await embed(query, { provider: 'ollama' });
+      const hits = store.search(embedding, topK, minScore);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(hits));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 获取索引状态 GET /v1/semantic/index/status
+   */
+  private async handleGetSemanticIndexStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { SemanticStore, readIndexMeta } = await import('@modules/knowledge/semantic/store');
+      const { resolveDataSubDir } = await import('@modules/core/paths');
+      const store = new SemanticStore(
+        resolveDataSubDir('semantic-index'),
+        { provider: 'ollama', model: 'all-minilm' }
+      );
+      await store.load();
+
+      const meta = await readIndexMeta(resolveDataSubDir('semantic-index'));
+      const status = {
+        entryCount: store.size,
+        indexExists: meta !== null,
+        meta,
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(status));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 清除语义索引 DELETE /v1/semantic/index
+   */
+  private async handleClearSemanticIndex(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { wipeStoreFiles } = await import('@modules/knowledge/semantic/store');
+      const { resolveDataSubDir } = await import('@modules/core/paths');
+      await wipeStoreFiles(resolveDataSubDir('semantic-index'));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
     }
   }
 }

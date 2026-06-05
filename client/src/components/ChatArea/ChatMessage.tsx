@@ -27,6 +27,8 @@ interface ChatMessageProps {
 
 function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   const setReplyMessage = useChatStore((s) => s.setReplyMessage);
+  const regenerateMessage = useChatStore((s) => s.regenerateMessage);
+  const retryFromError = useChatStore((s) => s.retryFromError);
   const [showActions, setShowActions] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveTitle, setSaveTitle] = useState("");
@@ -64,6 +66,19 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
 
   const handleRegenerate = () => {
     setShowActions(false);
+    regenerateMessage(message.session_id);
+  };
+
+  const handleRetry = () => {
+    // 找到此 AI 消息前面的用户消息
+    retryFromError(message.id, message.session_id);
+  };
+
+  const handleContinue = () => {
+    // 继续 — 保持错误消息不变，用户重新输入
+    // 将错误上下文放入输入框
+    const errText = message.error || "请继续...";
+    setReplyMessage(message);
   };
 
   const handleSaveToKnowledge = async () => {
@@ -217,8 +232,26 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
           </div>
         </div>
 
+        {/* 错误状态操作按钮 */}
+        {message.error && !isStreaming && (
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              onClick={handleRetry}
+              className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            >
+              🔄 重试
+            </button>
+            <button
+              onClick={handleContinue}
+              className="px-4 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md transition-colors"
+            >
+              继续
+            </button>
+          </div>
+        )}
+
         {/* 操作按钮 */}
-        {showActions && !isUser && (
+        {showActions && !isUser && !message.error && (
           <div className="flex items-center gap-2 mt-2 opacity-70">
             <button
               onClick={() => {

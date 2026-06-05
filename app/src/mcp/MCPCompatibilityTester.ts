@@ -1,6 +1,5 @@
 /**
  * MCP 协议兼容性回归测试器
- * 对标平安科技：定期回归测试 MCP 兼容性
  */
 import { EventEmitter } from 'node:events';
 

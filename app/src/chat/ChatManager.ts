@@ -849,23 +849,57 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   private _sanitizeApiMessages(apiMessages: Record<string, unknown>[]): void {
-    let lastAssistantHadToolCalls = false;
-
+    let lastAssistantIndex = -1;
+    // 第一遍：收集 assistant 中所有 tool_call_id
+    const assistantToolCallIds: Map<number, Set<string>> = new Map();
     for (let i = 0; i < apiMessages.length; i++) {
+      const msg = apiMessages[i];
+      if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
+        const ids = new Set<string>();
+        for (const tc of msg.tool_calls as Array<{ id?: string }>) {
+          if (tc.id) ids.add(tc.id);
+        }
+        if (ids.size > 0) {
+          assistantToolCallIds.set(i, ids);
+          lastAssistantIndex = i;
+        }
+      }
+    }
+
+    // 第二遍：收集所有 tool 消息的 tool_call_id
+    const resolvedToolCallIds = new Set<string>();
+    for (let i = 0; i < apiMessages.length; i++) {
+      const msg = apiMessages[i];
+      if (msg.role === 'tool' && msg.tool_call_id) {
+        resolvedToolCallIds.add(msg.tool_call_id as string);
+      }
+    }
+
+    // 第三遍：从后往前删除无 tool 响应的 assistant 及孤立的 tool 消息
+    let lastHadToolCalls = false;
+    for (let i = apiMessages.length - 1; i >= 0; i--) {
       const msg = apiMessages[i];
 
       if (msg.role === 'assistant') {
-        lastAssistantHadToolCalls = !!(
-          msg.tool_calls &&
-          Array.isArray(msg.tool_calls) &&
-          (msg.tool_calls as Array<unknown>).length > 0
-        );
+        const ids = assistantToolCallIds.get(i);
+        if (ids && ids.size > 0) {
+          // 检查是否有任何一个 tool_call_id 未被响应
+          const allResolved = Array.from(ids).every((id) =>
+            resolvedToolCallIds.has(id)
+          );
+          if (!allResolved) {
+            // 删除含孤立 tool_calls 的 assistant 消息
+            apiMessages.splice(i, 1);
+          }
+          lastHadToolCalls = allResolved;
+        } else {
+          lastHadToolCalls = false;
+        }
       }
 
       if (msg.role === 'tool') {
-        if (!lastAssistantHadToolCalls) {
+        if (!lastHadToolCalls) {
           apiMessages.splice(i, 1);
-          i--;
         }
       }
     }

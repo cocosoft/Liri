@@ -170,8 +170,6 @@ export {
   type TrustedSettingSource,
 } from './managedEnv.js';
 
-export * from './setup.js';
-
 // 导出运行时配置快照
 export {
   setRuntimeConfigSnapshot,

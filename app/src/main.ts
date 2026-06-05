@@ -27,7 +27,8 @@ import {
   profilePhaseEnd,
   getPhaseSummary,
 } from './utils/startupProfiler';
-import { Logger } from './monitoring/logs/Logger';
+import { Logger, setGlobalConfigProvider } from './monitoring/logs/Logger';
+import { LogConfigManager } from './monitoring/logs/config/LogConfig';
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
@@ -191,6 +192,12 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   console.log('');
   console.log('🎉 欢迎使用 Liri，准备配置向导...');
   console.log('');
+
+  // 若 HTTP 服务已在运行，提示用户可通过浏览器完成初始化
+  if (process.env.LIRI_HTTP_STARTED === '1') {
+    console.log('  💻 也可打开浏览器访问前端页面完成初始化配置。');
+    console.log('');
+  }
 
   if (retryCount >= MAX_ONBOARD_RETRIES) {
     console.log('  ⚠️ 引导已重试多次，跳过自动引导。');
@@ -366,16 +373,31 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const { init } = await import('./entrypoints/init');
   await init();
 
-  await checkFirstRunAndOnboard();
-
   const httpPort = parseHttpPortFromArgs(options.args);
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
+
+  // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
+  const { startHTTPServer } = await import('./entrypoints/repl');
+  let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
+  try {
+    httpService = await startHTTPServer(httpPort);
+    process.env.LIRI_HTTP_STARTED = '1';
+    logger.info(`HTTP 服务已启动: http://127.0.0.1:${httpPort}`);
+  } catch (e) {
+    logger.warning('HTTP 服务启动失败，引导期间前端不可用', { error: String(e) });
+  }
+
+  await checkFirstRunAndOnboard();
 
   // 启动后异步展示健康报告（延迟执行，不阻塞 REPL 启动）
   displayStartupHealthReport();
 
   const { launchRepl } = await import('./entrypoints/repl');
-  await launchRepl({ httpPort, useLegacyRepl });
+  await launchRepl({
+    httpPort,
+    useLegacyRepl,
+    preStartedHttp: httpService ?? undefined,
+  });
 
   // REPL 完全启动后，初始化通道持久化并后台连接，不阻塞用户交互
   import('./channels/setupChannels').then(({ lazyConnectChannels }) => {
@@ -465,6 +487,18 @@ async function launchTest(options: LaunchOptions): Promise<void> {
  */
 export async function launch(options: LaunchOptions): Promise<void> {
   setupWindowsSecurity();
+
+  // 注册全局日志配置提供者：后续所有 Logger 实例自动启用文件写入
+  setGlobalConfigProvider(() => {
+    const logCfg = LogConfigManager.getInstance().get();
+    const fileTarget = logCfg.targets.find((t) => t.type === 'file');
+    return {
+      fileOutput: true,
+      logFile: fileTarget?.path,
+      level: logCfg.level,
+      format: logCfg.format as 'text' | 'json',
+    };
+  });
 
   profileCheckpoint('launch_start');
   profilePhaseStart('launch_total');

@@ -53,6 +53,21 @@ const logger = new Logger({
 
 /**
  * REPL配置接口
+ *
+ * 预启动 HTTP 服务：主入口 (main.ts) 可在启动 REPL 循环前先启动 HTTP 服务，
+ * 使前端在终端引导阻塞时也能连接。传入 preStartedHttp 后 REPL 跳过 HTTP 启动。
+ */
+export async function startHTTPServer(
+  port: number,
+  host: string = '127.0.0.1'
+): Promise<LocalHTTPService> {
+  const service = new LocalHTTPService({ host, port });
+  await service.start();
+  return service;
+}
+
+/**
+ * REPL配置接口
  */
 export interface REPLConfig {
   prompt?: string;
@@ -60,6 +75,8 @@ export interface REPLConfig {
   exitCommand?: string;
   httpPort?: number;
   useLegacyRepl?: boolean;
+  /** 已预先启动的 HTTP 服务实例（避免重复启动） */
+  preStartedHttp?: LocalHTTPService;
 }
 
 /**
@@ -201,9 +218,14 @@ export async function launchRepl(
     finalConfig.prompt = '\u{1F50C} [离线] ';
   }
 
-  // 启动 LocalHTTPService（如果配置了 httpPort）
+  // 启动 LocalHTTPService（如果配置了 httpPort，或使用预启动实例）
   let localHTTPService: LocalHTTPService | null = null;
-  if (finalConfig.httpPort) {
+  if (finalConfig.preStartedHttp) {
+    localHTTPService = finalConfig.preStartedHttp;
+    ui.showInfo(
+      `HTTP API 服务已在运行: http://127.0.0.1:${finalConfig.httpPort}`
+    );
+  } else if (finalConfig.httpPort) {
     try {
       profileCheckpoint('repl_http_service_start');
       localHTTPService = new LocalHTTPService({

@@ -11,7 +11,8 @@ import { ToolParam } from '../types/Tool';
 import { feature } from '@modules/core/featureFlags';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 import { Database } from 'sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath, ensureDir } from '@modules/core/paths';
+import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -75,6 +76,7 @@ class TodoManager {
   private initialized = false;
 
   constructor(dbPath: string = resolveDbPath()) {
+    ensureDir(dirname(dbPath));
     this.db = new Database(dbPath);
     this.ensureTable();
     this.loadFromDb();

@@ -27,7 +27,8 @@
  */
 
 import { Database } from 'sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath, ensureDir } from '@modules/core/paths';
+import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -98,6 +99,11 @@ export class AppModelRouter {
 
   private async _doInitialize(): Promise<void> {
     try {
+      // 确保数据库文件所在目录存在
+      const dir = dirname(this.dbPath);
+      ensureDir(dir);
+      logger.debug('AppModelRouter DB 目录', { dir, dbPath: this.dbPath });
+
       this.db = await new Promise<Database>((resolve, reject) => {
         const db = new Database(this.dbPath, (err) => {
           if (err) reject(err);
@@ -106,13 +112,15 @@ export class AppModelRouter {
       });
 
       await this.createTable();
-      await this.ensureDefaultEntry();
+      // 先标记已初始化，再调用 ensureDefaultEntry（内部需要 getConfig）
       this.initialized = true;
+      await this.ensureDefaultEntry();
       logger.info('AppModelRouter 初始化完成');
     } catch (error) {
-      logger.error('AppModelRouter 初始化失败', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error('AppModelRouter 初始化失败', { dbPath: this.dbPath, error: msg });
       throw new AppError(
-        'Failed to initialize AppModelRouter',
+        `Failed to initialize AppModelRouter: ${msg}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'AMR_INIT_FAILED',

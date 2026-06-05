@@ -1,7 +1,6 @@
 /**
  * 进程内传输
  * 支持同一进程内MCP通信，无需序列化
- * 参考CC源码 cc_code/backend/services/mcp/InProcessTransport.ts 实现
  */
 
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';

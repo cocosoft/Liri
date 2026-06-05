@@ -49,7 +49,7 @@ export class GoogleProvider implements AIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = options?.model || 'gemini-2.0-flash';
+    const model = options?.model || '';
     const { systemPrompt } = this.adapter.splitMessages(messages);
 
     const requestBody = this.adapter.buildRequest({
@@ -106,7 +106,7 @@ export class GoogleProvider implements AIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || 'gemini-2.0-flash';
+    const model = options?.model || '';
     const { systemPrompt } = this.adapter.splitMessages(messages);
 
     const requestBody = this.adapter.buildRequest({
@@ -277,7 +277,7 @@ export class GoogleProvider implements AIProvider {
       ],
     };
 
-    const model = 'gemini-2.0-flash';
+    const model = '';
     const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
 
     try {

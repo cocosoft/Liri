@@ -47,6 +47,9 @@ export type ProviderType =
   | 'azure'
   | 'custom';
 
+/** 供应商分类 */
+export type ProviderCategory = 'official' | 'aggregator' | 'third_party' | 'cn_official';
+
 /** 供应商记录 */
 export interface ProviderRecord {
   /** 唯一ID */
@@ -75,6 +78,8 @@ export interface ProviderRecord {
   iconColor?: string;
   /** 是否需要认证（API Key） */
   requiresAuth: boolean;
+  /** 供应商分类（官方、聚合、第三方、国内官方） */
+  category?: ProviderCategory;
   /** 创建时间 */
   createdAt: number;
   /** 更新时间 */
@@ -83,17 +88,20 @@ export interface ProviderRecord {
 
 /** 创建供应商参数 */
 export interface CreateProviderParams {
+  id?: string;
   name: string;
   providerType: ProviderType;
   baseUrl: string;
   apiKey?: string;
   modelsUrl?: string;
   headers?: Record<string, string>;
+  isActive?: boolean;
+  sortIndex?: number;
   notes?: string;
   icon?: string;
   iconColor?: string;
-  /** 是否需要认证（默认 true，ollama/LM Studio 等本地服务设为 false） */
   requiresAuth?: boolean;
+  category?: ProviderCategory;
 }
 
 /** 更新供应商参数 */
@@ -110,6 +118,7 @@ export interface UpdateProviderParams {
   icon?: string;
   iconColor?: string;
   requiresAuth?: boolean;
+  category?: ProviderCategory;
 }
 
 /** 供应商列表查询过滤器 */
@@ -201,11 +210,21 @@ export class ProviderManager {
         notes TEXT,
         icon TEXT,
         icon_color TEXT,
+        category TEXT,
         requires_auth INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
     `);
+
+    // 迁移：为已存在的 DB 添加 category 列（如果不存在）
+    try {
+      await this.runAsync(
+        `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN category TEXT`
+      );
+    } catch {
+      // 列已存在，忽略
+    }
 
     // 迁移：为已存在的 DB 添加 requires_auth 列（如果不存在）
     try {
@@ -282,6 +301,7 @@ export class ProviderManager {
       icon: row.icon as string | undefined,
       iconColor: row.icon_color as string | undefined,
       requiresAuth: (row.requires_auth as number) === 1,
+      category: row.category as ProviderCategory | undefined,
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number,
     };
@@ -350,8 +370,8 @@ export class ProviderManager {
 
     await this.runAsync(
       `INSERT INTO ${PROVIDERS_TABLE}
-       (id, name, provider_type, base_url, api_key, models_url, headers, is_active, sort_index, requires_auth, notes, icon, icon_color, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?)`,
+       (id, name, provider_type, base_url, api_key, models_url, headers, is_active, sort_index, requires_auth, notes, icon, icon_color, category, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         params.name,
@@ -364,6 +384,7 @@ export class ProviderManager {
         params.notes || null,
         params.icon || null,
         params.iconColor || null,
+        params.category || null,
         now,
         now,
       ]
@@ -436,6 +457,10 @@ export class ProviderManager {
     if (params.requiresAuth !== undefined) {
       fields.push('requires_auth = ?');
       values.push(params.requiresAuth ? 1 : 0);
+    }
+    if (params.category !== undefined) {
+      fields.push('category = ?');
+      values.push(params.category || null);
     }
 
     if (fields.length === 0) {

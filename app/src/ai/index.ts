@@ -288,6 +288,11 @@ export { ProviderSyncService } from './providers/ProviderSyncService';
 
 export { tryHandleRoute } from './ModelManagementAPI';
 
+// modelRouter/ — 统一模型路由层
+export { ModelRouter, modelRouter } from './modelRouter';
+export type { TaskType, TaskModelConfig, ModelRouterOptions } from './modelRouter';
+export { ALL_TASK_TYPES } from './modelRouter';
+
 // embedding/ — 嵌入模型支持（可选依赖，零启动开销）
 export {
   EmbeddingBase,

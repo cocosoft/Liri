@@ -29,6 +29,24 @@ const TASK_DEFINITIONS = [
     icon: "⚡",
   },
   {
+    type: "agent",
+    label: "🤖 代理",
+    description: "SubAgent / 自主代理任务",
+    icon: "🤖",
+  },
+  {
+    type: "scheduled",
+    label: "⏰ 定时",
+    description: "定时任务",
+    icon: "⏰",
+  },
+  {
+    type: "local",
+    label: "🖥️ 本地",
+    description: "本地模型（Ollama 等）",
+    icon: "🖥️",
+  },
+  {
     type: "embedding",
     label: "📐 嵌入",
     description: "文本向量化（知识库）",
@@ -64,6 +82,12 @@ function TaskAssignment() {
     return groups;
   }, [models]);
 
+  /** 获取指定任务类型的可选模型（Local 仅显示本地模型） */
+  const getAvailableModels = (taskType: string, providerModels: ModelInfo[]) => {
+    if (taskType !== 'local') return providerModels;
+    return providerModels.filter(m => m.requiresAuth === false);
+  };
+
   const handleTaskChange = (type: string, modelId: string) => {
     setTasks((prev) => ({ ...prev, [type]: modelId }));
     setSaved(false);
@@ -85,11 +109,11 @@ function TaskAssignment() {
 
   const handleReset = async () => {
     const defaults: TaskModelConfig = {
-      chat: "deepseek-chat",
+      chat: "deepseek-v4-pro",
       coding: "deepseek-v4-pro",
       translation: "gpt-4o-mini",
       quick: "deepseek-v4-flash",
-      embedding: "deepseek-chat",
+      embedding: "deepseek-v4-pro",
     };
     setTasks(defaults);
     setSaved(false);
@@ -137,15 +161,19 @@ function TaskAssignment() {
               >
                 <option value="">— 未设置 —</option>
                 {Object.entries(modelsByProvider).map(
-                  ([provider, providerModels]) => (
-                    <optgroup key={provider} label={provider}>
-                      {providerModels.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name || m.id}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ),
+                  ([provider, providerModels]) => {
+                    const available = getAvailableModels(task.type, providerModels);
+                    if (available.length === 0) return null;
+                    return (
+                      <optgroup key={provider} label={provider}>
+                        {available.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.id}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  },
                 )}
               </select>
             </div>

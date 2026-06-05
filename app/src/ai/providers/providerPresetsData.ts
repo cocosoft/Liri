@@ -1,40 +1,63 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
- * Provider 快速预置
- * 按分类组织：official / aggregator / third_party / cn_official / local
+ * Provider 预设数据
+ *
+ * 服务端预设数据，通过 /v1/providers/presets 提供给前端。
+ * 保持与 client/src/config/providerPresets.ts 同步。
  */
 
-import type { ProviderPreset, ProviderFormData } from "../types";
+export interface ProviderPresetTheme {
+  icon: string;
+  backgroundColor: string;
+  textColor: string;
+}
 
-/** 供应商类型标签映射 */
-export const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  deepseek: "DeepSeek",
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google Gemini",
-  ollama: "Ollama (本地)",
-  moonshot: "Moonshot",
-  grok: "Grok",
-  bedrock: "AWS Bedrock",
-  vertex: "Google Vertex AI",
-  azure: "Azure OpenAI",
-  openrouter: "OpenRouter",
-  together: "Together AI",
-  fireworks: "Fireworks AI",
-  groq: "Groq",
-  perplexity: "Perplexity",
-  cohere: "Cohere",
-  mistral: "Mistral AI",
-  replicate: "Replicate",
-  siliconflow: "SiliconFlow",
-  zhipu: "智谱AI",
-  qianfan: "百度千帆",
-  qwen: "阿里通义千问",
-  lmstudio: "LM Studio (本地)",
-  localai: "LocalAI (本地)",
-  custom: "自定义",
-};
+export interface ProviderPresetSettings {
+  name: string;
+  providerType: string;
+  baseUrl: string;
+  apiKey: string;
+  modelsUrl: string;
+  notes: string;
+  requiresAuth: boolean;
+  category: string;
+}
 
-/** 所有预设 */
+export interface ProviderPreset {
+  name: string;
+  websiteUrl?: string;
+  apiKeyUrl?: string;
+  settingsConfig: ProviderPresetSettings;
+  isOfficial: boolean;
+  category: string;
+  apiFormat: string;
+  providerType: string;
+  requiresOAuth: boolean;
+  modelsUrl?: string;
+  endpointCandidates?: string[];
+  theme?: ProviderPresetTheme;
+}
+
 export const PRESETS: ProviderPreset[] = [
   // ═══════════════════════ Official ═══════════════════════
   {
@@ -515,7 +538,7 @@ export const PRESETS: ProviderPreset[] = [
   },
 ];
 
-/** 按分类分组预设 */
+/** 按分类分组 */
 export function getPresetsByCategory(): Record<string, ProviderPreset[]> {
   const grouped: Record<string, ProviderPreset[]> = {};
   for (const preset of PRESETS) {
@@ -525,15 +548,3 @@ export function getPresetsByCategory(): Record<string, ProviderPreset[]> {
   }
   return grouped;
 }
-
-/** 分类中文名 */
-export const CATEGORY_LABELS: Record<string, string> = {
-  official: "官方供应商",
-  aggregator: "聚合供应商",
-  third_party: "第三方",
-  cn_official: "国内官方",
-};
-
-// 保留 QUICK_PRESETS 兼容别名
-export const QUICK_PRESETS: Array<{ name: string; form: ProviderFormData }> =
-  PRESETS.map((p) => ({ name: p.name, form: p.settingsConfig }));

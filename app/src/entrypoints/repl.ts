@@ -91,6 +91,11 @@ const DEFAULT_CONFIG: REPLConfig = {
 /**
  * 初始化聊天管理器
  * 通过 CoreAPIImpl 获取共享 ChatManager，避免重复创建
+ *
+ * Provider 初始化策略（数出同源）:
+ *   1. 优先从 DB 同步 Provider 到 ProviderRegistry（用户通过 UI/CLI 配置的 Provider）
+ *   2. DB 中无 deepseek 时，从环境变量回退创建（兼容旧配置）
+ *   3. DB 中的 Ollama 等 Provider 通过 syncDBProvidersToRegistry 自动注册
  */
 export async function initializeChatManager(): Promise<ChatManager> {
   const coreAPI = getCoreAPI();
@@ -100,22 +105,33 @@ export async function initializeChatManager(): Promise<ChatManager> {
   toolManager.loadBuiltinTools();
   const registry = toolManager.getRegistry();
 
-  const config = getConfig();
-  const apiKey =
-    config['ai.deepseek.apiKey'] ||
-    config.ai?.deepseek?.apiKey ||
-    process.env.DEEPSEEK_API_KEY ||
-    '';
+  // Step 1: 从 DB 同步所有活跃 Provider 到运行时 ProviderRegistry
+  const { syncDBProvidersToRegistry } =
+    await import('../ai/providers/ProviderSyncService.js');
+  await syncDBProvidersToRegistry();
 
-  const provider = providerRegistry.getOrCreate('deepseek', {
-    apiKey,
-    baseUrl: process.env.DEEPSEEK_BASE_URL,
-    model: process.env.DEEPSEEK_MODEL,
-  });
+  // Step 2: 获取默认 Provider（deepseek），DB 同步优先级最高
+  let provider = providerRegistry.getByType('deepseek');
 
-  // 确保 Provider 使用最新密钥（getOrCreate 可能返回已存在的 stale 实例）
-  if (apiKey) {
-    provider.setApiKey?.(apiKey);
+  // Step 3: DB 中无 deepseek 时，从环境变量回退创建
+  if (!provider) {
+    const config = getConfig();
+    const apiKey =
+      config['ai.deepseek.apiKey'] ||
+      config.ai?.deepseek?.apiKey ||
+      process.env.DEEPSEEK_API_KEY ||
+      '';
+
+    provider = providerRegistry.getOrCreate('deepseek', {
+      apiKey,
+      baseUrl: process.env.DEEPSEEK_BASE_URL,
+      model: process.env.DEEPSEEK_MODEL,
+    });
+
+    // 确保 Provider 使用最新密钥（getOrCreate 可能返回已存在的 stale 实例）
+    if (apiKey) {
+      provider.setApiKey?.(apiKey);
+    }
   }
 
   const llmClient = new ToolAwareClient(

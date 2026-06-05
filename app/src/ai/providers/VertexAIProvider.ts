@@ -76,7 +76,7 @@ export class VertexAIProvider implements AIProvider {
     this.defaultModel = (providerCfg?.models?.[0] ||
       config.model ||
       process.env.VERTEX_AI_MODEL ||
-      'gemini-2.0-flash') as string;
+      '') as string;
     this.timeout =
       (config.timeout as number) ||
       parseInt(process.env.VERTEX_AI_TIMEOUT || '120000', 10);

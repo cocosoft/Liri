@@ -67,7 +67,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
             isDark={isDark}
             value={config.model || ""}
             onChange={(value) => onUpdate({ model: value })}
-            placeholder="例如: gpt-4o, claude-3-opus, deepseek-chat"
+            placeholder="例如: gpt-4o, claude-3-opus, deepseek-v4-pro"
           />
         </ConfigItem>
 
@@ -103,7 +103,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   isDark={isDark}
                   value={config.deepseek?.model || ""}
                   onChange={(v) => handleDeepseekChange("model", v)}
-                  placeholder="deepseek-chat"
+                  placeholder="deepseek-v4-pro"
                 />
               </ConfigItem>
             </div>

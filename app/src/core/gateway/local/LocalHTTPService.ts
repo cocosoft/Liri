@@ -450,6 +450,9 @@ export class LocalHTTPService {
     if (req.method === 'PUT' && url === '/v1/models/tasks') {
       return this.handleSaveTasks(req, res);
     }
+    if (req.method === 'PUT' && url === '/v1/models/default') {
+      return this.handleSetDefaultModel(req, res);
+    }
 
     if (req.method === 'POST' && url === '/v1/chat/completions') {
       return this.handleChatCompletions(req, res);
@@ -2273,6 +2276,12 @@ export class LocalHTTPService {
       await providerManager.initialize();
       await modelPricingService.initialize();
 
+      // 确保 DB 中的 Provider 已同步到运行时 ProviderRegistry（数出同源）
+      // 模型列表显示的所有模型，其对应的 Provider 必须在运行时可用
+      const { syncDBProvidersToRegistry } =
+        await import('@modules/ai/providers/ProviderSyncService.js');
+      await syncDBProvidersToRegistry();
+
       const providers = await providerManager.listProviders();
       const pricingList = await modelPricingService.getAllPricing();
       const pricingByModel = new Map(
@@ -2284,6 +2293,7 @@ export class LocalHTTPService {
             cacheReadCostPerMillion: number;
             cacheWriteCostPerMillion: number;
             displayName: string;
+            enabled: boolean;
           }) => [pr.modelId, pr]
         )
       );
@@ -2296,25 +2306,36 @@ export class LocalHTTPService {
         type: string;
         context_length: number;
         enabled: boolean;
+        requiresAuth: boolean;
         pricing?: Record<string, number>;
       }> = [];
-      const addedModelIds = new Set<string>();
 
       for (const pr of pricingList) {
-        const matchingProvider = providers.find(
-          (p) =>
-            pr.modelId.startsWith(p.providerType) ||
-            p.name.toLowerCase().includes(pr.modelId.split('-')[0])
-        );
-        addedModelIds.add(pr.modelId);
+        let matchingProvider;
+        if (pr.providerId) {
+          // 有存储的 provider_id，直接精确匹配
+          matchingProvider = providers.find((p) => p.id === pr.providerId);
+        } else {
+          // 遗留数据：启发式匹配
+          matchingProvider = providers.find(
+            (p) =>
+              pr.modelId.startsWith(p.providerType) ||
+              p.name.toLowerCase().includes(pr.modelId.split('-')[0])
+          );
+        }
         models.push({
           id: pr.modelId,
           name: pr.displayName || pr.modelId,
           provider: matchingProvider?.name || pr.modelId.split('-')[0],
           providerId: matchingProvider?.id || '',
+          requiresAuth: matchingProvider ? matchingProvider.requiresAuth : true,
           type: 'chat',
           context_length: 65536,
-          enabled: matchingProvider ? matchingProvider.isActive : true,
+          enabled: pr.enabled !== undefined
+            ? pr.enabled
+            : matchingProvider
+              ? matchingProvider.isActive
+              : true,
           pricing: {
             inputPer1M: pr.inputCostPerMillion,
             outputPer1M: pr.outputCostPerMillion,
@@ -2324,29 +2345,13 @@ export class LocalHTTPService {
         });
       }
 
-      for (const p of providers) {
-        if (!p.isActive) continue;
-        const fallbackId = `${p.providerType}-${p.name.toLowerCase().replace(/\\s+/g, '-')}`;
-        if (!addedModelIds.has(fallbackId)) {
-          models.push({
-            id: fallbackId,
-            name: p.name,
-            provider: p.name,
-            providerId: p.id,
-            type: 'chat',
-            context_length: 65536,
-            enabled: true,
-          });
-          addedModelIds.add(fallbackId);
-        }
-      }
-
       if (models.length === 0) {
         models.push({
           id: 'pyapp-default',
           name: 'Liri 默认',
           provider: 'pyapp',
           providerId: '',
+          requiresAuth: false,
           type: 'chat',
           context_length: 65536,
           enabled: true,
@@ -2508,18 +2513,19 @@ export class LocalHTTPService {
   }
 
   /**
-   * 获取当前模型状态（从 configStore 读取）
+   * 获取当前模型状态（从 ModelRouter 读取）
    */
-  private handleGetCurrentModel(
+  private async handleGetCurrentModel(
     _req: http.IncomingMessage,
     res: http.ServerResponse
-  ): void {
+  ): Promise<void> {
     try {
-      const envModel = process.env.Liri_MODEL || 'deepseek-chat';
+      const { modelRouter } = await import('@modules/ai/modelRouter');
+      const modelId = modelRouter.getCurrentModel();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          modelId: envModel,
+          modelId,
           provider: 'deepseek',
           taskType: 'chat',
           costThisSession: 0,
@@ -2537,7 +2543,7 @@ export class LocalHTTPService {
   }
 
   /**
-   * 切换当前模型（写入 Liri_MODEL 环境变量，前端 configStore 同步）
+   * 切换当前模型（持久化到 ConfigManager）
    */
   private async handleSwitchModel(
     req: http.IncomingMessage,
@@ -2547,7 +2553,8 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const { modelId } = JSON.parse(body);
       if (modelId) {
-        process.env.Liri_MODEL = modelId;
+        const { modelRouter } = await import('@modules/ai/modelRouter');
+        modelRouter.setCurrentModel(modelId);
         logger.info(`模型已切换: ${modelId}`);
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2558,20 +2565,15 @@ export class LocalHTTPService {
   }
 
   /**
-   * 获取任务分工策略
+   * 获取任务分工策略（从 ModelRouter 读取）
    */
   private async handleGetTasks(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const tasks = {
-        chat: process.env.Liri_TASK_CHAT || 'deepseek-chat',
-        coding: process.env.Liri_TASK_CODING || 'deepseek-v4-pro',
-        translation: process.env.Liri_TASK_TRANSLATION || 'gpt-4o-mini',
-        quick: process.env.Liri_TASK_QUICK || 'deepseek-v4-flash',
-        embedding: process.env.Liri_TASK_EMBEDDING || 'deepseek-chat',
-      };
+      const { modelRouter } = await import('@modules/ai/modelRouter');
+      const tasks = modelRouter.getTasks();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(tasks));
     } catch (err) {
@@ -2580,7 +2582,7 @@ export class LocalHTTPService {
   }
 
   /**
-   * 保存任务分工策略
+   * 保存任务分工策略（持久化到 ConfigManager）
    */
   private async handleSaveTasks(
     req: http.IncomingMessage,
@@ -2589,14 +2591,37 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const tasks = JSON.parse(body);
-      if (tasks.chat) process.env.Liri_TASK_CHAT = tasks.chat;
-      if (tasks.coding) process.env.Liri_TASK_CODING = tasks.coding;
-      if (tasks.translation)
-        process.env.Liri_TASK_TRANSLATION = tasks.translation;
-      if (tasks.quick) process.env.Liri_TASK_QUICK = tasks.quick;
-      if (tasks.embedding) process.env.Liri_TASK_EMBEDDING = tasks.embedding;
+      const { modelRouter } = await import('@modules/ai/modelRouter');
+      modelRouter.setTasks(tasks);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 设置供应商默认模型（持久化到 GlobalConfig.models.defaultModel.{providerId}）
+   */
+  private async handleSetDefaultModel(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { providerId, modelId } = JSON.parse(body);
+      if (!providerId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'providerId is required' }));
+        return;
+      }
+      const { configManager } = await import('@modules/config/ConfigManager');
+      const models = configManager.getConfigValue<Record<string, unknown>>('models') || {};
+      const defaultModel = (models.defaultModel as Record<string, string>) || {};
+      defaultModel[providerId] = modelId || '';
+      configManager.setConfigValue('models', { ...models, defaultModel });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, providerId, modelId }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -6829,6 +6854,13 @@ export class LocalHTTPService {
         (parsedUrl.searchParams.get('sourceRegistry') as any) || undefined;
 
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       const results = await mcpSystem.marketplace.search({
         query,
         category,
@@ -6836,10 +6868,23 @@ export class LocalHTTPService {
         sourceRegistry,
       });
 
+      if (!results || !Array.isArray(results)) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify([]));
+        return;
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(results));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error('MCP 市场搜索失败', err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: '搜索失败',
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -6853,19 +6898,46 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      const adapters = mcpSystem.marketplace.registryHub.getAdapters();
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
+      const marketplace = mcpSystem.marketplace;
+      if (!marketplace.registryHub) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: '注册表中心未初始化' } }));
+        return;
+      }
+
+      const adapters = marketplace.registryHub.getAdapters();
+      if (!adapters || !Array.isArray(adapters)) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ registries: [] }));
+        return;
+      }
+
       const registries = adapters
-        .filter((a) => a.registryType === 'third_party')
+        .filter((a) => a && a.registryType === 'third_party')
         .map((a) => ({
-          id: a.sourceRegistry || a.id,
-          name: a.displayName,
+          id: (a.sourceRegistry as string) || a.id,
+          name: a.displayName || 'Unknown',
           sourceRegistry: a.sourceRegistry,
         }));
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ registries }));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error('获取 MCP 注册表列表失败', err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: '获取注册表列表失败',
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -6878,12 +6950,32 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       const categories = await mcpSystem.marketplace.getCategories();
+
+      if (!categories || !Array.isArray(categories)) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify([]));
+        return;
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(categories));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error('获取 MCP 分类列表失败', err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: '获取分类列表失败',
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -6897,6 +6989,13 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       const detail = await mcpSystem.marketplace.getServerDetail(serverId);
 
       if (!detail) {
@@ -6908,7 +7007,14 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detail));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error('获取 MCP 服务器详情失败', err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: '获取服务器详情失败',
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -6921,7 +7027,19 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       const servers = mcpSystem.marketplace.getInstalledServers();
+      if (!servers || !Array.isArray(servers)) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify([]));
+        return;
+      }
 
       const detailed = servers.map((s) => {
         const detail = mcpSystem.marketplace.getInstalledServerDetail(s.name);
@@ -6935,7 +7053,14 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detailed));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error('获取已安装 MCP 服务器列表失败', err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: '获取已安装服务器列表失败',
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -6949,12 +7074,26 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       await mcpSystem.marketplace.install(serverId);
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error(`安装 MCP 服务器失败: ${serverId}`, err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: `安装服务器失败: ${serverId}`,
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -6968,12 +7107,26 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       await mcpSystem.marketplace.uninstall(serverId);
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error(`卸载 MCP 服务器失败: ${serverId}`, err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: `卸载服务器失败: ${serverId}`,
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 
@@ -7001,12 +7154,26 @@ export class LocalHTTPService {
       }
 
       const { mcpSystem } = await import('@modules/services/mcp');
+      
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
+        return;
+      }
+
       await mcpSystem.marketplace.toggleServer(serverId, enabled);
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId, enabled }));
     } catch (err) {
-      this.sendError(res, err);
+      logger.error(`切换 MCP 服务器状态失败: ${serverId}`, err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ 
+        error: { 
+          message: `切换服务器状态失败: ${serverId}`,
+          detail: err instanceof Error ? err.message : String(err)
+        } 
+      }));
     }
   }
 

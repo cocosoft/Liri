@@ -1,7 +1,6 @@
 /**
  * 模型管理服务
  * 提供模型选择、别名处理、配置管理等功能
- * 参考CC源码: cc_code/backend/utils/model/model.ts
  */
 
 import {
@@ -20,10 +19,6 @@ import {
   type ModelKey,
 } from './ModelConfigs.js';
 import { ModelRegistry } from './ModelRegistry.js';
-import {
-  ModelSelectionStrategy,
-  getModelSelectionStrategy,
-} from './ModelSelectionStrategy.js';
 
 /**
  * 用户订阅类型
@@ -53,7 +48,6 @@ export class ModelManager {
   private static instance: ModelManager;
   private config: ModelManagerConfig;
   private modelStrings: Record<ModelKey, string>;
-  private strategy: ModelSelectionStrategy;
 
   private constructor(config: Partial<ModelManagerConfig> = {}) {
     this.config = {
@@ -62,7 +56,6 @@ export class ModelManager {
       enable1MContext: config.enable1MContext || false,
     };
     this.modelStrings = this.initializeModelStrings();
-    this.strategy = getModelSelectionStrategy(this.config.provider);
   }
 
   static getInstance(config?: Partial<ModelManagerConfig>): ModelManager {
@@ -83,26 +76,36 @@ export class ModelManager {
   updateConfig(config: Partial<ModelManagerConfig>): void {
     this.config = { ...this.config, ...config };
     this.modelStrings = this.initializeModelStrings();
-    this.strategy = getModelSelectionStrategy(this.config.provider);
   }
 
   getBestModel(): string {
-    return this.strategy.getBestModel();
+    return this.getDefaultOpusModel();
   }
 
   getSmallFastModel(): string {
-    return this.strategy.getSmallFastModel();
+    return this.getDefaultHaikuModel();
   }
 
   getDefaultMainLoopModel(): string {
     if (this.config.modelOverride) {
       return this.parseModel(this.config.modelOverride);
     }
-    return this.strategy.getDefaultMainLoopModel(this.config);
+
+    if (
+      this.config.subscriptionType === 'max' ||
+      this.config.subscriptionType === 'team_premium'
+    ) {
+      const bestModel = this.getDefaultOpusModel();
+      return this.config.enable1MContext && supports1MContext(bestModel)
+        ? `${bestModel}[1m]`
+        : bestModel;
+    }
+
+    return this.getDefaultSonnetModel();
   }
 
   getDefaultModel(): string {
-    return this.strategy.getDefaultModel();
+    return this.getDefaultSonnetModel();
   }
 
   getDefaultOpusModel(): string {

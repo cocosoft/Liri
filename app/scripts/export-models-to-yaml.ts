@@ -22,12 +22,6 @@ interface ModelEntry {
 
 const models: Record<string, ModelEntry> = {
   // ===== DeepSeek（主力） =====
-  'deepseek-chat': {
-    displayName: 'DeepSeek Chat', contextWindow: 128000, maxOutputTokens: 8192,
-    capabilities: ['streaming', 'function_calling', 'thinking', 'context_caching', 'structured_output', 'parallel_tool_calls'],
-    providers: { firstParty: 'deepseek-chat', deepseek: 'deepseek-chat' },
-    pricing: { inputPer1M: 0.5, outputPer1M: 2 },
-  },
   'deepseek-reasoner': {
     displayName: 'DeepSeek Reasoner', contextWindow: 128000, maxOutputTokens: 8192,
     capabilities: ['streaming', 'thinking', 'tool_use'],

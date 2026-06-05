@@ -47,14 +47,7 @@ interface AnthropicToolResultBlock extends AnthropicContentBlock {
 
 export class AnthropicFormatter extends ModelFormatter {
   readonly supportedModels = [
-    'claude-3-5-sonnet',
-    'claude-3-5-haiku',
-    'claude-3-opus',
-    'claude-3-sonnet',
-    'claude-3-haiku',
-    'claude-opus-4',
-    'claude-sonnet-4',
-    'claude-haiku-4',
+    'claude-',
   ];
 
   /**

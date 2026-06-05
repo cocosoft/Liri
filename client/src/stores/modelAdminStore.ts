@@ -26,11 +26,20 @@ interface ModelAdminState {
   ) => Promise<{ success: boolean; error?: string; latencyMs?: number }>;
   fetchModels: (
     id: string,
+    options?: { page?: number; pageSize?: number; search?: string },
   ) => Promise<
-    { models: Array<{ id: string; ownedBy?: string }> } | { error: string }
+    { models: Array<{ id: string; ownedBy?: string }>; total: number; page: number; pageSize: number } | { error: string }
   >;
 
   clearError: () => void;
+  createModel: (data: {
+    modelId: string;
+    displayName?: string;
+    contextWindow?: number;
+    maxOutputTokens?: number;
+    inputCostPerMillion?: number;
+    outputCostPerMillion?: number;
+  }) => Promise<void>;
 }
 
 export const useModelAdminStore = create<ModelAdminState>((set) => ({
@@ -126,8 +135,23 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
     }
   },
 
-  fetchModels: async (id) => {
-    return providerService.fetchModels(id);
+  fetchModels: async (id, options) => {
+    return providerService.fetchModels(id, options);
+  },
+
+  createModel: async (data) => {
+    set({ savingId: "model", error: null });
+    try {
+      await providerService.createModel(data);
+      // 创建成功后重新加载供应商列表（触发模型列表刷新）
+      const providers = await providerService.list();
+      set({ providers, savingId: null });
+    } catch (e) {
+      set({
+        error: e instanceof Error ? e.message : "创建模型失败",
+        savingId: null,
+      });
+    }
   },
 
   clearError: () => set({ error: null }),

@@ -48,9 +48,6 @@
         "installMode": "currentUser",
         "languages": ["SimpChinese", "English"]
       }
-    },
-    "about": {
-      "website": "https://openliri.com"
     }
   },
   "plugins": {

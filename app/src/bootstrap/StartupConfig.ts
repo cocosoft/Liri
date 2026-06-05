@@ -139,7 +139,7 @@ export const DEFAULT_STARTUP_CONFIG: StartupConfig = {
   },
   ai: {
     provider: 'deepseek',
-    model: 'deepseek-chat',
+    model: '',
   },
   features: {
     autoCompact: true,

@@ -50,7 +50,7 @@ export function isModelFamilyAlias(model: string): boolean {
 export function parseModelAlias(alias: ModelAlias): string {
   switch (alias) {
     case 'best':
-      return 'deepseek-chat';
+      return 'deepseek-v4-pro';
     case 'fast':
       return 'deepseek-v4-flash';
     case 'pro':

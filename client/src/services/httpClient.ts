@@ -78,7 +78,7 @@ function formatError(status: number, body?: string): ApiError {
   try {
     if (body) {
       const parsed = JSON.parse(body);
-      message = parsed.message || parsed.error || message;
+      message = parsed.message || (typeof parsed.error === 'string' ? parsed.error : parsed.error?.message) || message;
     }
   } catch {
     if (body) message = body.slice(0, 200);
@@ -213,6 +213,10 @@ export class HTTPClientError extends Error {
     super(message);
     this.name = "HTTPClientError";
   }
+
+  toString(): string {
+    return `${this.name}: ${this.message} (status: ${this.status})`;
+  }
 }
 
 /** 旧的 http 对象，兼容所有现有 service。返回原始数据，错误时抛 HTTPClientError。 */
@@ -233,10 +237,11 @@ export const http = {
     }
     const res = await request<T>("GET", url, undefined);
     if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
       throw new HTTPClientError(
-        res.error!.message,
-        res.error!.code,
-        res.error,
+        error.message,
+        error.code,
+        error,
       );
     }
     return res.data as T;
@@ -245,10 +250,11 @@ export const http = {
   async post<T>(path: string, body?: unknown): Promise<T> {
     const res = await request<T>("POST", path, body);
     if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
       throw new HTTPClientError(
-        res.error!.message,
-        res.error!.code,
-        res.error,
+        error.message,
+        error.code,
+        error,
       );
     }
     return res.data as T;
@@ -257,10 +263,11 @@ export const http = {
   async put<T>(path: string, body: unknown): Promise<T> {
     const res = await request<T>("PUT", path, body);
     if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
       throw new HTTPClientError(
-        res.error!.message,
-        res.error!.code,
-        res.error,
+        error.message,
+        error.code,
+        error,
       );
     }
     return res.data as T;
@@ -269,10 +276,11 @@ export const http = {
   async patch<T>(path: string, body?: unknown): Promise<T> {
     const res = await request<T>("PATCH", path, body);
     if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
       throw new HTTPClientError(
-        res.error!.message,
-        res.error!.code,
-        res.error,
+        error.message,
+        error.code,
+        error,
       );
     }
     return res.data as T;
@@ -281,10 +289,11 @@ export const http = {
   async delete<T>(path: string): Promise<T> {
     const res = await request<T>("DELETE", path);
     if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
       throw new HTTPClientError(
-        res.error!.message,
-        res.error!.code,
-        res.error,
+        error.message,
+        error.code,
+        error,
       );
     }
     return res.data as T;

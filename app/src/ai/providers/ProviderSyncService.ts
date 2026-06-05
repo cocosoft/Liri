@@ -125,6 +125,11 @@ function syncOneProvider(record: ProviderRecord): void {
   }
 
   providerRegistry.register(wrapped);
+
+  // 注册类型别名，使 getByModel() 能通过模型前缀（如 'qwen'→'ollama'）查找到
+  // 该 DB 同步的 Provider（硬编码映射表用的 providerType，而非 db:uuid）
+  providerRegistry.setProviderTypeAlias(record.providerType, registryId);
+
   logger.debug(`DB供应商已同步: ${record.name} (${registryId})`);
 }
 
@@ -202,6 +207,7 @@ export async function registerProviderFromDB(
  */
 export function unregisterProviderFromRegistry(providerId: string): boolean {
   const registryId = `db:${providerId}`;
+  // unregister() 自动清理 providerTypeToId 中的对应条目
   dbToRegistry.delete(providerId);
   return providerRegistry.unregister(registryId);
 }

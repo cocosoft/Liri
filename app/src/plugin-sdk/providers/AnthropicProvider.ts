@@ -62,7 +62,7 @@ export function createAnthropicProvider(
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: cfg.models[0] || 'claude-sonnet-4-20250514',
+            model: cfg.models[0] || '',
             max_tokens: 1,
             messages: [{ role: 'user', content: 'ping' }],
           }),

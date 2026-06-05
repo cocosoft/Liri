@@ -7,6 +7,7 @@ import type { CronJob, CronJobResult } from './types';
 import type { AIProvider, ChatOptions } from '@modules/ai/providers';
 import type { ChatMessage } from '@modules/ai/models/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { modelRouter } from '@modules/ai/modelRouter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -42,12 +43,12 @@ export function createCronExecutor(
   return async (job: CronJob): Promise<CronJobResult> => {
     const startTime = Date.now();
 
-    // 动态读取模型配置
+    // 动态读取模型配置（通过 ModelRouter 统一路由）
     const model =
       job.model ||
       cfg.model ||
-      process.env.DEEPSEEK_MODEL ||
-      'deepseek-chat';
+      modelRouter.resolve('scheduled') ||
+      '';
 
     const messages: ChatMessage[] = [
       { role: 'system', content: cfg.systemPrompt! },

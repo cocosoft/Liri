@@ -515,13 +515,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "usage" && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
-        } else if (chunk.type === "error") {
-          // LLM 错误 → toast 通知用户 + 标记此消息为错误
-          const errMsg = chunk.content || "AI 服务异常，请稍后重试";
-          import("../stores/toastStore.js").then(({ useToastStore }) => {
-            useToastStore.getState().addToast("error", errMsg);
-          });
-          updatedMsg = { ...msg, content: msg.content + `\n\n❌ ${errMsg}`, error: errMsg };
         } else {
           updatedMsg = msg;
         }

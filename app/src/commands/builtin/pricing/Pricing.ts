@@ -186,11 +186,14 @@ async function handleSync(commandArgs: string): Promise<CommandResult> {
   }
 
   try {
-    const registry = modelManager.getModelRegistry();
-    const count = await registry.syncPricing(sourceUrl);
+    const { modelPricingService } = await import(
+      '@modules/ai/models/ModelPricingService.js'
+    );
+    await modelPricingService.initialize();
+    const count = await modelPricingService.reSeedFromYaml();
     return {
       success: true,
-      message: `社区定价同步完成，已更新 ${count} 个模型`,
+      message: `YAML 数据重新同步完成，已更新 ${count} 个模型`,
     };
   } catch (e) {
     return {

@@ -60,7 +60,7 @@ export class ContextCompressor {
 
   constructor(config?: Partial<ContextCompressionConfig>, model?: AIModelType) {
     this.config = { ...DEFAULT_COMPRESSION_CONFIG, ...config };
-    this.model = model ?? ('gpt-4o-mini' as AIModelType);
+    this.model = model ?? ('' as AIModelType);
   }
 
   /**

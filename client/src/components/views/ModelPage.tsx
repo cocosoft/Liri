@@ -6,11 +6,15 @@ import { SkeletonPulse } from "../common/Skeleton";
 import TaskAssignment from "../modelAdmin/TaskAssignment";
 import ModelMetaEditor from "../modelAdmin/ModelMetaEditor";
 import ModelCompare from "../modelAdmin/ModelCompare";
+import ProviderPresetPanel from "../modelAdmin/ProviderPresetPanel";
+import ProviderEditorModal from "../modelAdmin/ProviderEditorModal";
+import AddModelModal from "../modelAdmin/AddModelModal";
+import FetchedModelList from "../modelAdmin/FetchedModelList";
 import {
-  QUICK_PRESETS,
   PROVIDER_TYPE_LABELS,
 } from "../../config/providerPresets";
 import { balanceService } from "../../services/balanceService";
+import { modelSwitchService } from "../../services/modelSwitchService";
 import type { ProviderInfo, ProviderFormData, FetchedModel } from "../../types";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -32,7 +36,7 @@ function formatDate(ts: number): string {
 }
 
 function ProviderPage() {
-  const { models, isLoading: modelsLoading, loadModels } = useModelStore();
+  const { models, isLoading: modelsLoading, loadModels, toggleModel, deleteModel } = useModelStore();
   const store = useModelAdminStore();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -41,18 +45,10 @@ function ProviderPage() {
     "providers" | "models" | "tasks" | "compare"
   >("providers");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showEditor, setShowEditor] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<ProviderFormData>({
-    name: "",
-    providerType: "custom",
-    baseUrl: "",
-    apiKey: "",
-    modelsUrl: "",
-    notes: "",
-    requiresAuth: true,
-  });
+  const [editorProvider, setEditorProvider] = useState<ProviderInfo | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
   const [editMetaId, setEditMetaId] = useState<string | null>(null);
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[] | null>(
     null,
@@ -61,6 +57,14 @@ function ProviderPage() {
   const [checkingBalanceId, setCheckingBalanceId] = useState<string | null>(
     null,
   );
+  const [modelSearchText, setModelSearchText] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+  const [totalModels, setTotalModels] = useState(0);
+  const [fetchingProviderId, setFetchingProviderId] = useState<string | null>(null);
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [initialFormData, setInitialFormData] = useState<Partial<ProviderFormData> | undefined>(undefined);
 
   useEffect(() => {
     loadModels();
@@ -80,49 +84,34 @@ function ProviderPage() {
   }, [store.providers, searchQuery]);
 
   const openEditor = useCallback((provider?: ProviderInfo) => {
-    if (provider) {
-      setEditingId(provider.id);
-      setFormData({
-        name: provider.name,
-        providerType: provider.providerType,
-        baseUrl: provider.baseUrl,
-        apiKey: "",
-        modelsUrl: provider.modelsUrl || "",
-        notes: provider.notes || "",
-        requiresAuth: provider.requiresAuth,
-      });
-    } else {
-      setEditingId(null);
-      setFormData({
-        name: "",
-        providerType: "custom",
-        baseUrl: "",
-        apiKey: "",
-        modelsUrl: "",
-        notes: "",
-        requiresAuth: true,
-      });
-    }
+    setEditorProvider(provider ?? null);
+    setEditingId(provider?.id ?? null);
     setShowEditor(true);
     setShowPresets(false);
   }, []);
 
-  const applyPreset = useCallback((preset: (typeof QUICK_PRESETS)[0]) => {
+  const handlePresetSelect = useCallback((formData: ProviderFormData) => {
+    setInitialFormData(formData);
+    setEditorProvider(null);
     setEditingId(null);
-    setFormData({ ...preset.form });
-    setShowPresets(false);
     setShowEditor(true);
+    setShowPresets(false);
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!formData.name.trim()) return;
-    if (editingId) {
-      await store.updateProvider(editingId, formData);
-    } else {
-      await store.createProvider(formData);
-    }
-    setShowEditor(false);
-  }, [editingId, formData, store]);
+  const handleSave = useCallback(
+    async (data: ProviderFormData) => {
+      if (editingId) {
+        await store.updateProvider(editingId, data);
+      } else {
+        await store.createProvider(data);
+      }
+      setShowEditor(false);
+      setEditorProvider(null);
+      setEditingId(null);
+      setInitialFormData(undefined);
+    },
+    [editingId, store],
+  );
 
   const handleDelete = useCallback(
     async (id: string, name: string) => {
@@ -133,21 +122,22 @@ function ProviderPage() {
     [store],
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof ProviderFormData, value: string) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
-
   const handleFetchModels = useCallback(
-    async (id: string) => {
-      setFetchingModelsId(id);
+    async (id: string, options?: { page?: number; search?: string }) => {
+      const currentProviderId = options?.search ? fetchingProviderId : id;
+      setFetchingModelsId(currentProviderId);
       setFetchedModels(null);
       try {
-        const result = await store.fetchModels(id);
+        const result = await store.fetchModels(id, {
+          page: options?.page || currentPage,
+          pageSize,
+          search: options?.search || modelSearchText,
+        });
         if ("models" in result) {
           setFetchedModels(result.models);
+          setTotalModels(result.total);
+          setCurrentPage(result.page);
+          setFetchingProviderId(id);
         }
       } catch {
         // 静默
@@ -155,8 +145,55 @@ function ProviderPage() {
         setFetchingModelsId(null);
       }
     },
-    [store],
+    [store, currentPage, pageSize, modelSearchText, fetchingProviderId],
   );
+
+  const handleSearchChange = useCallback((text: string) => {
+    setModelSearchText(text);
+    setCurrentPage(1);
+    if (fetchingProviderId) {
+      handleFetchModels(fetchingProviderId, { search: text, page: 1 });
+    }
+  }, [handleFetchModels, fetchingProviderId]);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    if (fetchingProviderId) {
+      handleFetchModels(fetchingProviderId, { page });
+    }
+  }, [handleFetchModels, fetchingProviderId]);
+
+  const handleAddModel = useCallback(async (form: {
+    modelId: string;
+    displayName: string;
+    contextWindow: number;
+    maxOutputTokens: number;
+    inputCostPerMillion: number;
+    outputCostPerMillion: number;
+  }) => {
+    try {
+      await store.createModel(form);
+      setShowAddModel(false);
+      loadModels();
+    } catch (e) {
+      alert(`创建模型失败: ${e instanceof Error ? e.message : "未知错误"}`);
+    }
+  }, [store, loadModels]);
+
+  const handleBulkImport = useCallback(async (modelIds: string[]) => {
+    if (!modelIds.length || !fetchingProviderId) return;
+    setImporting(true);
+    try {
+      const { providerService } = await import('../../services/providerService');
+      await providerService.bulkImportModels(fetchingProviderId, modelIds);
+      await loadModels();
+      alert(`成功导入 ${modelIds.length} 个模型到模型列表`);
+    } catch (e) {
+      alert(`导入失败: ${e instanceof Error ? e.message : "未知错误"}`);
+    } finally {
+      setImporting(false);
+    }
+  }, [fetchingProviderId, loadModels]);
 
   const handleCheckBalance = useCallback(async (provider: ProviderInfo) => {
     setCheckingBalanceId(provider.id);
@@ -178,6 +215,17 @@ function ProviderPage() {
     }
   }, []);
 
+  const handleSetDefaultModel = useCallback(async (provider: ProviderInfo) => {
+    const modelId = prompt(`为 "${provider.name}" 设置默认模型 ID:\n输入模型 ID（留空清除默认）`, '');
+    if (modelId === null) return;
+    try {
+      await modelSwitchService.setDefaultModel(provider.id, modelId);
+      alert(`已${modelId ? `将 "${provider.name}" 默认模型设为 ${modelId}` : `清除 "${provider.name}" 的默认模型`}`);
+    } catch (e) {
+      alert(`设置失败: ${e instanceof Error ? e.message : "未知错误"}`);
+    }
+  }, []);
+
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto p-6">
@@ -194,10 +242,7 @@ function ProviderPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setShowPresets(true);
-                setShowEditor(false);
-              }}
+              onClick={() => setShowPresets(true)}
               className="px-3 py-2 text-sm bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg transition-colors"
             >
               快速添加
@@ -359,6 +404,14 @@ function ProviderPage() {
                           {p.isActive ? "停用" : "启用"}
                         </button>
                         <button
+                          onClick={() => handleSetDefaultModel(p)}
+                          title="设置该供应商使用的默认模型"
+                          className="px-2 py-1.5 text-xs bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-600 dark:text-sky-400 rounded transition-colors"
+                        >
+                          设默认
+                        </button>
+                        {p.requiresAuth !== false && (
+                        <button
                           onClick={() => handleCheckBalance(p)}
                           disabled={
                             checkingBalanceId === p.id ||
@@ -373,6 +426,7 @@ function ProviderPage() {
                         >
                           {checkingBalanceId === p.id ? "..." : "余额"}
                         </button>
+                        )}
                         <button
                           onClick={() => openEditor(p)}
                           className="px-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded transition-colors"
@@ -388,28 +442,18 @@ function ProviderPage() {
                       </div>
                     </div>
                     {/* 获取到的模型列表 */}
-                    {fetchedModels && fetchingModelsId === p.id && (
-                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                        <p className="text-xs text-gray-500 mb-2">
-                          可用模型 ({fetchedModels.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {fetchedModels.slice(0, 20).map((m) => (
-                            <span
-                              key={m.id}
-                              className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
-                            >
-                              {m.id}
-                              {m.ownedBy ? ` [${m.ownedBy}]` : ""}
-                            </span>
-                          ))}
-                          {fetchedModels.length > 20 && (
-                            <span className="px-1.5 py-0.5 text-xs text-gray-400">
-                              +{fetchedModels.length - 20} 更多
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    {fetchedModels && fetchingProviderId === p.id && (
+                      <FetchedModelList
+                        models={fetchedModels}
+                        total={totalModels}
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        searchText={modelSearchText}
+                        onSearchChange={handleSearchChange}
+                        onPageChange={handlePageChange}
+                        onBulkImport={handleBulkImport}
+                        importing={importing}
+                      />
                     )}
                   </div>
                 ))}
@@ -435,6 +479,15 @@ function ProviderPage() {
         {/* 模型列表 Tab */}
         {activeTab === "models" && (
           <>
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setShowAddModel(true)}
+                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                + 添加模型
+              </button>
+            </div>
+
             {modelsLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -488,24 +541,47 @@ function ProviderPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4 shrink-0">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${model.enabled ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}
+                        <button
+                          onClick={async () => {
+                            try {
+                              await toggleModel(model.id);
+                            } catch {
+                              // error handled by store
+                            }
+                          }}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border transition-colors cursor-pointer ${
+                            model.enabled
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
+                          }`}
+                          title={model.enabled ? "点击停用" : "点击启用"}
                         >
                           {model.enabled ? "可用" : "停用"}
-                        </span>
+                        </button>
                         {model.providerId && (
                           <button
                             onClick={() => setActiveTab("providers")}
-                            className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0"
                           >
                             管理 Provider
                           </button>
                         )}
                         <button
                           onClick={() => setEditMetaId(model.id)}
-                          className="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded"
+                          className="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded shrink-0"
                         >
                           元数据
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`确定删除模型「${model.name || model.id}」？此操作不可恢复。`)) {
+                              deleteModel(model.id).catch(() => {});
+                            }
+                          }}
+                          className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded shrink-0"
+                          title="删除模型"
+                        >
+                          删除
                         </button>
                       </div>
                     </div>
@@ -515,187 +591,53 @@ function ProviderPage() {
             )}
           </>
         )}
-
-        {/* 快速预设面板 */}
-        {showPresets && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => setShowPresets(false)}
-          >
-            <div
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                快速添加 Provider
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {QUICK_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    onClick={() => applyPreset(preset)}
-                    className="p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-left transition-colors border border-transparent hover:border-blue-300 dark:hover:border-blue-600"
-                  >
-                    <div
-                      className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1 ${TYPE_COLORS[preset.form.providerType] || DEFAULT_COLOR}`}
-                    >
-                      {preset.name}
-                    </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                      {preset.form.baseUrl}
-                    </p>
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setShowPresets(false)}
-                className="mt-4 w-full px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 编辑/新增弹窗 */}
-        {showEditor && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => setShowEditor(false)}
-          >
-            <div
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                {editingId ? "编辑 Provider" : "新增 Provider"}
-              </h3>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    名称 *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => handleFieldChange("name", e.target.value)}
-                    placeholder="例如: DeepSeek"
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    类型
-                  </label>
-                  <select
-                    value={formData.providerType}
-                    onChange={(e) =>
-                      handleFieldChange("providerType", e.target.value)
-                    }
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                  >
-                    {Object.entries(PROVIDER_TYPE_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    Base URL *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.baseUrl}
-                    onChange={(e) =>
-                      handleFieldChange("baseUrl", e.target.value)
-                    }
-                    placeholder="https://api.deepseek.com"
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.apiKey}
-                    onChange={(e) =>
-                      handleFieldChange("apiKey", e.target.value)
-                    }
-                    placeholder="sk-..."
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    备注
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.notes}
-                    onChange={(e) => handleFieldChange("notes", e.target.value)}
-                    placeholder="可选备注"
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="requiresAuth"
-                    checked={!formData.requiresAuth}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        requiresAuth: !e.target.checked,
-                      })
-                    }
-                    className="rounded"
-                  />
-                  <label
-                    htmlFor="requiresAuth"
-                    className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} cursor-pointer`}
-                  >
-                    本地供应商（无需 API Key，如 Ollama / LM Studio）
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex gap-2 mt-5">
-                <button
-                  onClick={handleSave}
-                  disabled={store.savingId !== null}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50"
-                >
-                  {store.savingId !== null ? "保存中..." : "保存"}
-                </button>
-                <button
-                  onClick={() => setShowEditor(false)}
-                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 模型元数据编辑器 */}
-        {editMetaId && (
-          <ModelMetaEditor
-            modelId={editMetaId}
-            modelName={editMetaId}
-            onClose={() => setEditMetaId(null)}
-            onSaved={() => {
-              setEditMetaId(null);
-              loadModels();
-            }}
-          />
-        )}
       </div>
+
+      {/* 快速预设面板 */}
+      {showPresets && (
+        <ProviderPresetPanel
+          onSelect={handlePresetSelect}
+          onClose={() => setShowPresets(false)}
+        />
+      )}
+
+      {/* 编辑/新增弹窗 */}
+      {showEditor && (
+        <ProviderEditorModal
+          provider={editorProvider}
+          initialFormData={initialFormData}
+          isSaving={store.savingId !== null}
+          isDark={isDark}
+          onSave={handleSave}
+          onClose={() => {
+            setShowEditor(false);
+            setEditorProvider(null);
+            setEditingId(null);
+            setInitialFormData(undefined);
+          }}
+        />
+      )}
+
+      {/* 模型元数据编辑器 */}
+      {editMetaId && (
+        <ModelMetaEditor
+          modelId={editMetaId}
+          modelName={editMetaId}
+          onClose={() => setEditMetaId(null)}
+          onSaved={() => {
+            setEditMetaId(null);
+            loadModels();
+          }}
+        />
+      )}
+
+      {/* 添加模型弹窗 */}
+      {showAddModel && (
+        <AddModelModal
+          onSave={handleAddModel}
+          onClose={() => setShowAddModel(false)}
+        />
+      )}
     </div>
   );
 }

@@ -70,8 +70,25 @@ export const providerService = {
   /** 获取供应商可用模型列表 */
   async fetchModels(
     id: string,
-  ): Promise<{ models: FetchedModel[]; usedUrl: string } | { error: string }> {
-    return http.get(`/v1/providers/${encodeURIComponent(id)}/models`);
+    options?: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+    },
+  ): Promise<{
+    models: FetchedModel[];
+    usedUrl: string;
+    total: number;
+    page: number;
+    pageSize: number;
+  } | { error: string }> {
+    const params = new URLSearchParams();
+    if (options?.page) params.set("page", String(options.page));
+    if (options?.pageSize) params.set("pageSize", String(options.pageSize));
+    if (options?.search) params.set("search", options.search);
+    return http.get(
+      `/v1/providers/${encodeURIComponent(id)}/models?${params.toString()}`,
+    );
   },
 
   /** 供应商统计 */
@@ -87,6 +104,66 @@ export const providerService = {
         active: number;
       };
     }>("/v1/providers/stats");
+    return resp.data;
+  },
+
+  /** 获取供应商预设（按分类分组） */
+  async getPresets(): Promise<Record<string, unknown[]>> {
+    try {
+      const resp = await http.get<{ data: Record<string, unknown[]> }>(
+        "/v1/providers/presets",
+      );
+      return resp?.data ?? {};
+    } catch {
+      return {};
+    }
+  },
+
+  /** 创建自定义模型 */
+  async createModel(data: {
+    modelId: string;
+    displayName?: string;
+    contextWindow?: number;
+    maxOutputTokens?: number;
+    inputCostPerMillion?: number;
+    outputCostPerMillion?: number;
+    cacheReadCostPerMillion?: number;
+    cacheWriteCostPerMillion?: number;
+  }): Promise<{
+    id: string;
+    modelId: string;
+    displayName?: string;
+    inputCostPerMillion: number;
+    outputCostPerMillion: number;
+    cacheReadCostPerMillion?: number;
+    cacheWriteCostPerMillion?: number;
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    const resp = await http.post<{
+      data: {
+        id: string;
+        modelId: string;
+        displayName?: string;
+        inputCostPerMillion: number;
+        outputCostPerMillion: number;
+        cacheReadCostPerMillion?: number;
+        cacheWriteCostPerMillion?: number;
+        createdAt: string;
+        updatedAt: string;
+      };
+    }>("/v1/models", data);
+    return resp.data;
+  },
+
+  /** 批量导入模型到模型列表 */
+  async bulkImportModels(
+    providerId: string,
+    modelIds: string[],
+  ): Promise<{ imported: number }> {
+    const resp = await http.post<{
+      data: { imported: number };
+    }>("/v1/models/bulk-import", { modelIds, providerId });
     return resp.data;
   },
 };

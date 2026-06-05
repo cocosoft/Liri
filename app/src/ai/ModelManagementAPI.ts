@@ -242,37 +242,44 @@ async function handleProviderTest(
   }
 }
 
-/** 不需要 API Key 的本地供应商（由 DB requiresAuth 字段控制，此处仅做兜底） */
-function needsModelFetchApiKey(providerType: string): boolean {
-  return providerType !== 'ollama';
-}
-
 async function handleProviderModels(
-  _req: http.IncomingMessage,
+  req: http.IncomingMessage,
   res: http.ServerResponse,
   match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
+  
+  // 解析分页参数
+  const url = new URL(req.url || '/', 'http://localhost');
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
+  const search = url.searchParams.get('search') || undefined;
+  
   try {
     const { providerManager } = await import('./providers/ProviderManager.js');
-    const { fetchModels } = await import('./providers/ModelFetcher.js');
+    const { fetchModels, isLocalProvider } = await import('./providers/ModelFetcher.js');
     await providerManager.initialize();
     const p = await providerManager.getProvider(id);
     if (!p) {
       sendError(res, '供应商不存在', 404);
       return;
     }
-    if (p.requiresAuth && !p.apiKey) {
-      // 兜底：某些已知本地类型即使 requiresAuth=true（旧数据）也可尝试
-      if (!needsModelFetchApiKey(p.providerType)) {
-        // 本地类型允许空 Key
-      } else {
-        sendError(res, '供应商需要 API Key 但未设置', 400);
-        return;
-      }
+    
+    // 本地供应商跳过 API Key 校验
+    // 云供应商需要 API Key（除非 requiresAuth 为 false）
+    const isLocal = isLocalProvider(p.providerType);
+    if (!isLocal && p.requiresAuth && !p.apiKey) {
+      sendError(res, '供应商需要 API Key 但未设置', 400);
+      return;
     }
+    
     const apiKey = p.requiresAuth ? p.apiKey || '' : '';
-    const result = await fetchModels(p.baseUrl, apiKey, p.modelsUrl);
+    // 传递 providerType 和分页参数到 fetchModels
+    const result = await fetchModels(p.baseUrl, apiKey, p.modelsUrl, p.providerType, {
+      page,
+      pageSize,
+      search
+    });
     sendJson(res, result);
   } catch (err) {
     sendError(res, `获取模型列表失败: ${(err as Error).message}`, 500);
@@ -476,6 +483,9 @@ async function handleUpsertPricing(
         | number
         | undefined,
     });
+    // 刷新 ModelRegistry 定价缓存
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
     sendJson(res, { data: record }, 201);
   } catch (err) {
     sendError(res, `更新定价失败: ${(err as Error).message}`, 500);
@@ -493,9 +503,153 @@ async function handleDeletePricing(
       await import('./models/ModelPricingService.js');
     await modelPricingService.initialize();
     const ok = await modelPricingService.deletePricing(modelId);
+    // 刷新 ModelRegistry 定价缓存
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
     sendJson(res, { success: ok });
   } catch (err) {
     sendError(res, `删除定价失败: ${(err as Error).message}`, 500);
+  }
+}
+
+// ─── Custom Models 路由 ──────────────────────────────
+
+async function handleCreateCustomModel(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+    
+    await modelPricingService.initialize();
+    
+    const modelId = body.modelId as string;
+    if (!modelId) {
+      sendError(res, 'modelId 不能为空', 400);
+      return;
+    }
+    
+    // 创建模型定价记录
+    const record = await modelPricingService.upsertPricing({
+      modelId,
+      displayName: body.displayName as string | undefined,
+      inputCostPerMillion: (body.inputCostPerMillion as number) || 0,
+      outputCostPerMillion: (body.outputCostPerMillion as number) || 0,
+      cacheReadCostPerMillion: (body.cacheReadCostPerMillion as number) || undefined,
+      cacheWriteCostPerMillion: (body.cacheWriteCostPerMillion as number) || undefined,
+    });
+    
+    // 在注册表中发现该模型
+    const registry = ModelRegistry.getInstance();
+    registry.discoverModel(modelId, {
+      displayName: body.displayName as string | undefined,
+      contextWindow: (body.contextWindow as number) || 200000,
+      maxOutputTokens: (body.maxOutputTokens as number) || 4096,
+    });
+    // 刷新 ModelRegistry 定价缓存
+    registry.refreshDbPricing().catch(() => {});
+    
+    sendJson(res, { data: record }, 201);
+  } catch (err) {
+    sendError(res, `创建模型失败: ${(err as Error).message}`, 500);
+  }
+}
+
+async function handleBulkImportModels(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+
+    await modelPricingService.initialize();
+
+    const modelIds = body.modelIds as string[];
+    const providerId = body.providerId as string | undefined;
+    if (!Array.isArray(modelIds) || modelIds.length === 0) {
+      sendError(res, 'modelIds 不能为空', 400);
+      return;
+    }
+
+    let imported = 0;
+    for (const modelId of modelIds) {
+      if (typeof modelId !== 'string') continue;
+      await modelPricingService.upsertPricing({
+        modelId,
+        providerId,
+        inputCostPerMillion: 0,
+        outputCostPerMillion: 0,
+      });
+      const registry = ModelRegistry.getInstance();
+      registry.discoverModel(modelId, {
+        contextWindow: 200000,
+        maxOutputTokens: 4096,
+      });
+      imported++;
+    }
+
+    // 刷新 ModelRegistry 定价缓存
+    const registry = ModelRegistry.getInstance();
+    registry.refreshDbPricing().catch(() => {});
+
+    sendJson(res, { data: { imported } }, 201);
+  } catch (err) {
+    console.error(`[bulk-import] 批量导入失败:`, err);
+    sendError(res, `批量导入失败: ${(err as Error).message}`, 500);
+  }
+}
+
+async function handleToggleModel(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null
+): Promise<void> {
+  const modelId = decodeURIComponent(match![1]);
+  try {
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const result = await modelPricingService.toggleModel(modelId);
+    if (result === null) {
+      sendError(res, '模型不存在', 404);
+      return;
+    }
+    // 刷新 ModelRegistry 定价缓存
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
+    sendJson(res, { data: { modelId, enabled: result } });
+  } catch (err) {
+    sendError(res, `切换模型状态失败: ${(err as Error).message}`, 500);
+  }
+}
+
+async function handleDeleteModel(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null
+): Promise<void> {
+  const modelId = decodeURIComponent(match![1]);
+  try {
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const ok = await modelPricingService.deleteModel(modelId);
+    if (!ok) {
+      sendError(res, '模型不存在', 404);
+      return;
+    }
+    // 刷新 ModelRegistry 定价缓存
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
+    sendJson(res, { success: true });
+  } catch (err) {
+    sendError(res, `删除模型失败: ${(err as Error).message}`, 500);
   }
 }
 
@@ -573,6 +727,23 @@ async function handleDeleteAppConfig(
   }
 }
 
+// ─── Provider Presets ─────────────────────────────────
+
+async function handleListPresets(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getPresetsByCategory } = await import(
+      './providers/providerPresetsData.js'
+    );
+    const grouped = getPresetsByCategory();
+    sendJson(res, { data: grouped });
+  } catch (err) {
+    sendError(res, `获取预设失败: ${(err as Error).message}`, 500);
+  }
+}
+
 // ─── 路由表 ───────────────────────────────────────────
 
 interface RouteEntry {
@@ -583,6 +754,11 @@ interface RouteEntry {
 
 const ROUTES: RouteEntry[] = [
   // Providers
+  {
+    method: 'GET',
+    pattern: /^\/v1\/providers\/presets$/,
+    handler: handleListPresets,
+  },
   {
     method: 'GET',
     pattern: /^\/v1\/providers\/stats$/,
@@ -620,6 +796,12 @@ const ROUTES: RouteEntry[] = [
   },
   { method: 'GET', pattern: /^\/v1\/providers$/, handler: handleListProviders },
   { method: 'POST', pattern: /^\/v1\/providers$/, handler: handleAddProvider },
+
+  // Custom Models
+  { method: 'POST', pattern: /^\/v1\/models$/, handler: handleCreateCustomModel },
+  { method: 'POST', pattern: /^\/v1\/models\/bulk-import$/, handler: handleBulkImportModels },
+  { method: 'PATCH', pattern: /^\/v1\/models\/([^/]+)\/toggle$/, handler: handleToggleModel },
+  { method: 'DELETE', pattern: /^\/v1\/models\/([^/]+)$/, handler: handleDeleteModel },
 
   // Usage
   {

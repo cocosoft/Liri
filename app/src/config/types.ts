@@ -57,9 +57,23 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
 };
 
 /**
- * 通知渠道类型
+ * 通知频道
  */
 export type NotificationChannel = 'auto' | 'native' | 'none';
+
+/**
+ * 模型路由配置
+ */
+export interface ModelConfig {
+  /** 当前选中的主模型 */
+  current?: string;
+  /** 任务分工映射 */
+  tasks?: Record<string, string>;
+  /** 各供应商默认模型 e.g. { ollama: "qwen2.5:7b", deepseek: "deepseek-chat" } */
+  defaultModel?: Record<string, string>;
+  /** 模型元数据覆盖 */
+  overrides?: Record<string, Record<string, unknown>>;
+}
 
 /**
  * 编辑器模式
@@ -322,6 +336,9 @@ export interface GlobalConfig {
   /** AI 模块配置 */
   ai?: AIConfig;
 
+  /** 模型路由配置 */
+  models?: ModelConfig;
+
   /** 伙伴配置 */
   companion?: {
     name: string;
@@ -453,21 +470,21 @@ export function createDefaultGlobalConfig(): GlobalConfig {
     },
     ai: {
       provider: 'deepseek',
-      model: 'deepseek-chat',
+      model: '',
       deepseek: {
         apiKey: process.env.DEEPSEEK_API_KEY || '',
         baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
-        model: 'deepseek-chat',
+        model: '',
       },
       anthropic: {
         apiKey: process.env.ANTHROPIC_API_KEY || '',
         baseUrl: 'https://api.anthropic.com',
-        model: 'claude-3-5-sonnet-20241022',
+        model: '',
       },
       openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
         baseUrl: 'https://api.openai.com/v1',
-        model: 'gpt-4o',
+        model: '',
       },
       azure: {
         resourceName: '',
@@ -486,7 +503,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       localOllama: {
         enabled: false,
         baseUrl: 'http://localhost:11434',
-        defaultModel: 'qwen3:1.8b',
+        defaultModel: '',
         timeout: 30000,
       },
       routing: {

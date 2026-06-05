@@ -59,7 +59,7 @@ export interface YoloClassifierConfig {
  */
 const DEFAULT_CONFIG: YoloClassifierConfig = {
   enabled: true,
-  model: 'claude-3-5-sonnet-20241022',
+  model: '',
   temperature: 0.1,
   maxTokens: 1024,
   cacheTtlMs: 60000,

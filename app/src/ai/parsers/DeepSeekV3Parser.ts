@@ -19,7 +19,7 @@ import { emptyParsedResult, toolCallResult } from './types';
 export class DeepSeekV3Parser extends BaseParser {
   readonly name = 'deepseek_v3';
 
-  readonly modelPatterns = ['deepseek-chat', 'deepseek-v3', 'deepseek_v3'];
+  readonly modelPatterns = ['deepseek-', 'deepseek_v3'];
 
   private static readonly START_TOKEN = '<｜tool▁calls▁begin｜>';
 

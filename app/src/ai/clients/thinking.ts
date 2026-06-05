@@ -151,21 +151,6 @@ export const ADAPTIVE_EFFORT_MAP: Record<string, string> = {
 };
 
 export const ANTHROPIC_OUTPUT_LIMITS: Record<string, number> = {
-  'claude-opus-4-7': 128_000,
-  'claude-opus-4-6': 128_000,
-  'claude-sonnet-4-6': 64_000,
-  'claude-sonnet-4-5': 64_000,
-  'claude-haiku-4-5': 64_000,
-  'claude-opus-4-1': 32_000,
-  'claude-sonnet-4': 64_000,
-  'claude-opus-4': 32_000,
-  'claude-3-5-sonnet': 8_192,
-  'claude-3-5-haiku': 8_192,
-  'claude-3-opus': 4_096,
-  'claude-3-sonnet': 4_096,
-  'claude-3-haiku': 4_096,
-  minimax: 131_072,
-  qwen3: 65_536,
 };
 
 export function resolveAnthropicMaxTokens(model: string): number {

@@ -63,7 +63,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
   constructor(apiKey: string) {
     this.config = {
       apiKey,
-      model: 'models/gemini-2.0-flash-live-001',
+      model: '',
       voiceName: DEFAULT_VOICE_NAME,
     };
   }

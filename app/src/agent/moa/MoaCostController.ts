@@ -79,13 +79,6 @@ export interface CostSnapshot {
  * 参考价格，可根据实际情况调整
  */
 const MODEL_COST_MAP: Record<string, { input: number; output: number }> = {
-  'gpt-4': { input: 0.00003, output: 0.00006 },
-  'gpt-4o': { input: 0.00001, output: 0.00003 },
-  'gpt-4o-mini': { input: 0.0000015, output: 0.000006 },
-  'claude-sonnet-4': { input: 0.000003, output: 0.000015 },
-  'claude-sonnet': { input: 0.000003, output: 0.000015 },
-  'claude-opus-4': { input: 0.000015, output: 0.000075 },
-  'claude-haiku': { input: 0.00000025, output: 0.00000125 },
 };
 
 /**

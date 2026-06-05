@@ -171,13 +171,7 @@ export class ModelContextCache {
 
   /** 从 PriceManager 发现已知模型的上下文窗口 */
   discoverFromPriceManager(): number {
-    const models = [
-      'deepseek-chat',
-      'deepseek-reasoner',
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gemini-2.5-flash',
-    ];
+    const models: string[] = [];
     let count = 0;
     for (const model of models) {
       if (this.cache.has(model)) continue;

@@ -58,7 +58,7 @@ export class QueryEngineIntegrationAdapter {
       ollama: {
         enabled: false,
         baseUrl: 'http://localhost:11434',
-        defaultModel: 'qwen3:1.8b',
+        defaultModel: '',
         timeout: 30000,
       },
       routing: {

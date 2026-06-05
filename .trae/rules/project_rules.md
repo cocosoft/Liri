@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.8.0 | **更新**: 2026-06-04
+**版本**: 7.9.0 | **更新**: 2026-06-06
 
 ## §1 基础规则
 
@@ -55,7 +55,33 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 上传入口统一：client 端使用 `fileService.upload()`/`uploadBase64()`，app 端使用 `AttachmentManager` 保存到 `~/.pyapp/attachments/`。
 禁止 `path.resolve(process.cwd(), 'uploads')` 或任何项目目录下的自定义 upload 目录。
 
-### 1.5 规则文件索引
+### 1.5 模型数据一致性规范（数出同源）
+
+**核心原则**：数据库（SQLite）是模型和 Provider 配置的**唯一事实来源**，运行时状态必须从数据库同步，不允许出现"数据库有但运行时无"或"UI 显示但实际不可用"的情况。
+
+**强制规则**：
+1. `handleListModels()` 返回的模型列表，其对应的 Provider 必须在 `ProviderRegistry` 中已注册（通过 `syncDBProvidersToRegistry()` 确保）
+2. Provider 的所有创建/更新/删除操作必须通过 `ProviderManager`（写入 DB `providers` 表），再通过 `ProviderSyncService` 同步到运行时 `ProviderRegistry`
+3. 启动入口（`repl.ts`、`main.ts`）不得使用 `providerRegistry.getOrCreate()` 手动注册 Provider，必须从 `syncDBProvidersToRegistry()` 获取
+4. 环境变量回退（如 `DEEPSEEK_API_KEY`）仅在 DB 中无对应记录时作为 fallback
+
+**实现管线**：
+```
+用户配置（UI/CLI）→ ProviderManager（写入 DB providers 表）
+                                   ↓
+                    ProviderSyncService.syncDBProvidersToRegistry()
+                                   ↓
+                    ProviderRegistry（运行时，含 providerTypeToId 类型别名映射）
+                                   ↓
+                    getByModel() / getByType() 动态查找
+```
+
+**红线**：
+- ❌ 在 `repl.ts` / `main.ts` 中手动 `getOrCreate('ollama', ...)`（应走 DB 同步）
+- ❌ `handleListModels()` 返回的模型对应的 Provider 在运行时不存在
+- ❌ 绕过 `ProviderManager` 直接修改 `ProviderRegistry`
+
+### 1.6 规则文件索引
 | 文件 | 生效 | 用途 |
 |------|------|------|
 | `Liri.md` | 始终 | 通用行为准则 |
@@ -68,7 +94,7 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 | `operations.md` | 部署/安全 | 运维Checklist |
 | `benchmark-rules.md` | 手动`#Rule` | 对标分析规范 |
 
-#### 1.5.1 前后端接口清单（强制）
+#### 1.6.1 前后端接口清单（强制）
 
 前后端接口的唯一事实来源为 **[api-spec.md](file:///e:/PY/CODES/PY_APP/.trae/docs/api-spec.md)**（`.trae/docs/` 目录，随项目持续更新）。
 
@@ -84,10 +110,10 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 3. 新增接口优先 HTTP 路由（`/v1/*`），Rust IPC 仅作 fallback
 4. 清单中标注的已知缺口（§5），新增功能时应同步补齐
 
-### 1.6 前端规范
+### 1.7 前端规范
 详见 [frontend.md](file:///E:/PY/CODES/Liri/.trae/rules/frontend.md)。React 18 + TS + Tauri 2 + TailwindCSS + Zustand；禁止 Mock；PascalCase + `.tsx`。
 
-### 1.7 日志规范
+### 1.8 日志规范
 **唯一入口**：`monitoring/logs/Logger.ts`。新代码从 `@modules/monitoring/logs/Logger` 导入 `Logger` + `LogLevel`。
 ❌ 禁止 `utils/log`（兼容层）、`utils/logger`（已删除）、`utils/monitoring`、`console.log`。
 ```typescript
@@ -98,28 +124,28 @@ logger.info('完成', { toolName, duration: elapsedMs });  // ✅
 // ❌ console.log / console.error
 ```
 
-### 1.8 错误处理规范
+### 1.9 错误处理规范
 禁止吞异常；必须使用 `AppError` + `ErrorCodes`；用户端中文、日志端英文。
 ```typescript
 try { await executeTool(); }
 catch (e) { throw new AppError(ErrorCodes.TOOL_EXEC_FAILED, { module: 'ToolExecutor', cause: e }); }
 ```
 
-#### 1.8.1 预存错误记录（发现即记录）
+#### 1.9.1 预存错误记录（发现即记录）
 发现的预存错误（非本次引入）必须**立即记录**到 `dev_docs/error_repairs/预存错误与待处理问题.md`，按 A-G 类分类。不得跳过、不得补记。
 
-### 1.9 入口与启动规范
+### 1.10 入口与启动规范
 - 编译入口：`src/pyapp.ts`（`process.chdir()` + 根目录解析）
 - 模块入口：`src/main.ts`（`launch()` 统一分发）
 - ❌ 禁止直接调用 `main.tsx` / `main_with_modules.tsx` / `index.ts`
 - 启动模式：`CLI | REPL | MCP | DAEMON | TEST`
 
-### 1.10 MCP 模块架构
+### 1.11 MCP 模块架构
 - 标准层：`services/mcp/`（核心类型、客户端、传输层）
 - 增强层：`mcp/`（引用标准层，不重复实现）
 - ❌ 禁止两套实现重复定义相同类型
 
-### 1.11 术语规范（歧义消除）
+### 1.12 术语规范（歧义消除）
 | 术语 | 中文 | 含义 | 涉及模块 |
 |------|------|------|---------|
 | token (LLM) | **词元** | 文本最小单位，按词计费 | `TokenTracker`, `CostTracker` |
@@ -127,7 +153,7 @@ catch (e) { throw new AppError(ErrorCodes.TOOL_EXEC_FAILED, { module: 'ToolExecu
 | memory (Knowledge) | **记忆** | 持久化上下文 | `memory/` 模块 |
 | memory (RAM) | **内存** | 运行时资源 | 堆检查、`StorageFactory` |
 
-### 1.12 路径与依赖管理规范
+### 1.13 路径与依赖管理规范
 
 #### 路径导入约定（强制）
 路径注册表唯一入口：`core/paths.ts`（核心基础设施）。
@@ -186,7 +212,8 @@ import { resolveOutputDir, resolveDbPath, ... } from '@modules/core/paths';  // 
 ---
 
 ## §2 版本历史
-- **v7.8.0**: §1.5 第二层数据目录移至 `~/.pyapp/data/`（部署安全：Program Files 安装也具备写入权限）；pyapp.ts 清理遗留 PROJECT_DIRS
+- **v7.9.0**: §1.5 模型数据一致性规范（数出同源）—— DB 是模型/Provider 的唯一事实来源，运行时必须从 DB 同步，禁止手动硬编码注册
+- **v7.8.0**: §1.6 第二层数据目录移至 `~/.pyapp/data/`（部署安全：Program Files 安装也具备写入权限）；pyapp.ts 清理遗留 PROJECT_DIRS
 - **v7.7.0**: §1.12 路径导入约定（强制）：路径注册表迁移至 `core/paths.ts`，全项目 108 模块统一 `@modules/core/paths`，config/paths.ts 已删除；文件工具输出目录注入规范；Code Review 新增路径检查项
 - **v7.6.0**: §1.5.1 前后端通信开发规则（强制）；新增 `api-spec.md` 接口清单
 - **v7.5.0**: §1.4 OUTPUT_DIR/DOWNLOADS_DIR；§1.5 数据库统一约定（唯一 app.db）；§1.12 禁止行为清单

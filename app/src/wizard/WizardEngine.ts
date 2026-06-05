@@ -481,12 +481,9 @@ export class WizardEngine extends EventEmitter {
           description: '选择默认使用的 AI 模型',
           prompt: '请选择模型',
           options: [
-            'claude-sonnet-4',
-            'gpt-4o',
-            'deepseek-v3',
-            'gemini-2.0-pro',
+            '',
           ],
-          default: 'claude-sonnet-4',
+          default: '',
         },
         {
           id: 'daemon',

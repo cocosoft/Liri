@@ -23,7 +23,7 @@ interface ModelSwitchState {
 }
 
 export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
-  currentModelId: "deepseek-chat",
+  currentModelId: "",
   currentProvider: "deepseek",
   costThisSession: 0,
   availableTasks: [],

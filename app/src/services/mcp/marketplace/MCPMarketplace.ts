@@ -22,17 +22,36 @@ export class MCPMarketplace {
   readonly store: LocalServerStore;
   readonly configWriter: ConfigWriter;
   readonly registryHub: RegistryHub;
+  private initialized: boolean = false;
 
   constructor() {
-    const mcpHome = this.getMCPHome();
-    this.store = new LocalServerStore(mcpHome);
-    this.configWriter = new ConfigWriter();
-    this.registryHub = new RegistryHub();
+    try {
+      const mcpHome = this.getMCPHome();
+      this.store = new LocalServerStore(mcpHome);
+      this.configWriter = new ConfigWriter();
+      this.registryHub = new RegistryHub();
+      this.initialized = true;
+      logger.info('MCPMarketplace 初始化成功');
+    } catch (error) {
+      logger.error('MCPMarketplace 初始化失败', error as Error);
+      // 使用空存储和注册表作为降级方案
+      const fs = require('fs');
+      const os = require('os');
+      const tempDir = fs.mkdtempSync(`${os.tmpdir()}${require('path').sep}mcp_`);
+      this.store = new LocalServerStore(tempDir);
+      this.configWriter = new ConfigWriter();
+      this.registryHub = new RegistryHub(true); // 安全模式
+      this.initialized = false;
+    }
   }
 
   private getMCPHome(): string {
     const pyappHome = resolvePyappHome();
-    const mcpDir = `${pyappHome}\\mcp`;
+    if (!pyappHome) {
+      throw new Error('无法解析 pyapp 主目录');
+    }
+    const path = require('path');
+    const mcpDir = path.join(pyappHome, 'mcp');
 
     return mcpDir;
   }

@@ -34,23 +34,9 @@ export const DEFAULT_MANUAL_COMPACT_BUFFER_TOKENS = 3000;
 export const MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3;
 
 const CONTEXT_WINDOW_MAP: Record<string, number> = {
-  'claude-3-5-sonnet': 200000,
-  'claude-3-5-sonnet-20241022': 200000,
-  'claude-3-opus': 200000,
-  'claude-3-sonnet': 200000,
-  'claude-3-haiku': 200000,
-  'claude-2': 100000,
-  'claude-instant': 100000,
 };
 
 const MAX_OUTPUT_TOKENS_MAP: Record<string, number> = {
-  'claude-3-5-sonnet': 8192,
-  'claude-3-5-sonnet-20241022': 8192,
-  'claude-3-opus': 4096,
-  'claude-3-sonnet': 4096,
-  'claude-3-haiku': 4096,
-  'claude-2': 4096,
-  'claude-instant': 4096,
 };
 
 export function getContextWindowForModel(model: string): number {

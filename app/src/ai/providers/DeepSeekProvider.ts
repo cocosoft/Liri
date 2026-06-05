@@ -25,7 +25,7 @@ import { ModelRegistry } from '../models/ModelRegistry';
 const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
-const DEFAULT_MODEL = 'deepseek-chat';
+const DEFAULT_MODEL = '';
 
 export class DeepSeekProvider implements AIProvider {
   readonly id = 'deepseek';

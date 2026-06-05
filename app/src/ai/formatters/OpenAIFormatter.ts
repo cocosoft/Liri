@@ -24,13 +24,9 @@ import type { ContentPart } from '../models/types';
 
 export class OpenAIFormatter extends ModelFormatter {
   readonly supportedModels = [
-    'gpt-4',
-    'gpt-4o',
-    'gpt-4o-mini',
-    'gpt-3.5-turbo',
+    'gpt-',
     'o1',
-    'o1-mini',
-    'o3-mini',
+    'o3',
   ];
 
   /**

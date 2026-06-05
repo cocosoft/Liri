@@ -905,7 +905,7 @@ export class SessionGateway {
 
     const preResult = await this.compactionBridge.beforeCompact(
       sessionLike,
-      model ?? 'deepseek-chat'
+      model ?? ''
     );
 
     if (!preResult.proceed) {
@@ -914,7 +914,7 @@ export class SessionGateway {
 
     const record = await this.compactionBridge.performCompact(
       sessionLike,
-      model ?? 'deepseek-chat',
+      model ?? '',
       'manual'
     );
 

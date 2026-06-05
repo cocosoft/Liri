@@ -175,7 +175,7 @@ function checkModelStatus(report: DoctorReport): void {
     if (existsSync(modelsConfigPath)) {
       report.model.health = 'ok';
       report.model.models = [
-        'deepseek-chat',
+        '',
         'deepseek-v4-pro',
         'deepseek-v4-flash',
       ];

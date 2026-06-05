@@ -61,6 +61,7 @@ import {
   validateInput,
 } from '@modules/utils/sanitization.js';
 import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
+import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
@@ -1069,6 +1070,8 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
+    const activeClient = this.getClientForModel(options?.model);
+
     // 准备消息列表（用于API调用）
     const apiMessages = messages.map((msg) => {
       const chatMessage: Record<string, unknown> = {
@@ -1197,7 +1200,7 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    const response = await this.llmClient.sendMessage(
+    const response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
       {
         ...options,
@@ -1425,7 +1428,7 @@ export class ChatManagerImpl implements ChatManager {
           messages: updatedMessages,
         });
 
-        const toolResultResponse = await this.llmClient.sendMessage(
+        const toolResultResponse = await activeClient.sendMessage(
           updatedMessages as unknown as ChatMessage[],
           {
             ...options,
@@ -1612,7 +1615,7 @@ export class ChatManagerImpl implements ChatManager {
     session: ChatSession,
     options?: SendMessageOptions
   ): Promise<void> {
-    if (!this.llmClient) return;
+    const activeClient = this.getClientForModel(options?.model);
 
     const messages = session.messages;
     const apiMessages = messages.map((msg: Message) => {
@@ -1644,7 +1647,7 @@ export class ChatManagerImpl implements ChatManager {
 
     const toolDefinitions = this.buildToolDefinitions();
 
-    let response = await this.llmClient.sendMessage(
+    let response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
       {
         ...options,
@@ -1750,7 +1753,7 @@ export class ChatManagerImpl implements ChatManager {
         })),
       ];
 
-      const toolResultResponse = await this.llmClient.sendMessage(
+      const toolResultResponse = await activeClient.sendMessage(
         updatedMessages as unknown as ChatMessage[],
         {
           tools:
@@ -2072,7 +2075,9 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
-    const gen = this.llmClient.streamMessage(
+    const activeClient = this.getClientForModel(options?.model);
+
+    const gen = activeClient.streamMessage(
       apiMessages as unknown as ChatMessage[],
       {
         ...options,
@@ -2294,18 +2299,9 @@ export class ChatManagerImpl implements ChatManager {
           })),
         ];
 
-        if (!this.llmClient) {
-          throw new AppError(
-            'LLM client not initialized',
-            ErrorCategory.EXECUTION,
-            ErrorSeverity.HIGH,
-            '1000'
-          );
-        }
-
         let toolResultAccumulatedContent = '';
 
-        const toolGen = this.llmClient.streamMessage(
+        const toolGen = activeClient.streamMessage(
           updatedMessages as unknown as ChatMessage[],
           {
             ...options,
@@ -2803,6 +2799,36 @@ export class ChatManagerImpl implements ChatManager {
       getLatestCheckpoint: (sessionId: string) =>
         this._checkpointService.getLatestCheckpoint(sessionId),
     };
+  }
+
+  /**
+   * 根据模型名获取对应的 LLM 客户端
+   * 如果模型属于其他 Provider（如 Ollama），自动创建对应的 ToolAwareClient
+   */
+  private getClientForModel(model?: string): ToolAwareClient {
+    if (!this.llmClient) {
+      throw new AppError(
+        'LLM client not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    if (!model) return this.llmClient;
+
+    const currentProviderId = this.llmClient.getProviderId();
+    const resolvedProvider = providerRegistry.getByModel(model);
+
+    if (resolvedProvider && resolvedProvider.id !== currentProviderId) {
+      return new ToolAwareClient(
+        resolvedProvider,
+        this.toolRegistry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
+        this.toolExecutor
+      );
+    }
+
+    return this.llmClient;
   }
 
   /**

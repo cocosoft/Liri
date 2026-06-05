@@ -57,6 +57,7 @@ import { globalToolManager } from '@modules/tools/core/ToolManager';
 import type { Coordinator } from '@modules/core/Coordinator';
 import { coordinator as defaultCoordinator } from '@modules/core/Coordinator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { modelRouter } from '@modules/ai/modelRouter';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
@@ -129,7 +130,7 @@ export class CoreAPIImpl implements CoreAPI {
       options?.modelName ??
       process.env.DEEPSEEK_MODEL ??
       process.env.AI_MODEL ??
-      'deepseek-chat';
+      '';
   }
 
   /**
@@ -148,10 +149,12 @@ export class CoreAPIImpl implements CoreAPI {
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
     try {
+      const model = modelRouter.resolve('chat');
       const message = await this.chatManager.sendMessage(request.content, {
         sessionId: request.sessionId,
         metadata: request.metadata,
         stream: request.stream,
+        model,
       });
 
       const content =
@@ -206,9 +209,13 @@ export class CoreAPIImpl implements CoreAPI {
     try {
       const pendingEvents: ChatStreamChunk[] = [];
 
+      const model = modelRouter.resolve('chat');
+      // 同步更新模型名（用于成本记录）
+      if (model) this._modelName = model;
       const generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
         metadata: request.metadata,
+        model,
         onUsage: (usage) => {
           capturedUsage = {
             inputTokens: usage.inputTokens,

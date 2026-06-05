@@ -52,7 +52,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
   private _apiKey = '';
   private _apiUrl = 'https://api.anthropic.com/v1';
   private _organizationId = '';
-  private _model = 'claude-sonnet-4-20250514';
+  private _model = '';
 
   readonly id = 'claude';
   readonly meta = CLAUDE_META;
@@ -64,7 +64,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
       apiKey: '',
       apiUrl: 'https://api.anthropic.com/v1',
       organizationId: '',
-      model: 'claude-sonnet-4-20250514',
+      model: '',
     };
   }
 
@@ -79,7 +79,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
     this._apiUrl =
       (config['apiUrl'] as string) || 'https://api.anthropic.com/v1';
     this._organizationId = (config['organizationId'] as string) || '';
-    this._model = (config['model'] as string) || 'claude-sonnet-4-20250514';
+    this._model = (config['model'] as string) || '';
 
     this.eventBus.emit('connected', { apiUrl: this._apiUrl });
   }

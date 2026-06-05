@@ -32,12 +32,7 @@ export function createOpenAIProvider(
     apiKey: config.apiKey || '',
     baseUrl: config.baseUrl || 'https://api.openai.com/v1',
     organization: config.organization,
-    models: config.models || [
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gpt-4-turbo',
-      'gpt-3.5-turbo',
-    ],
+    models: config.models || [],
     maxRetries: config.maxRetries ?? 3,
     timeout: config.timeout ?? 30000,
   };

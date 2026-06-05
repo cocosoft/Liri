@@ -79,6 +79,7 @@ export interface ModelInfo {
   type: "chat" | "embedding" | "image";
   context_length: number;
   enabled: boolean;
+  requiresAuth?: boolean;
   pricing?: {
     inputPer1M?: number;
     outputPer1M?: number;
@@ -86,6 +87,9 @@ export interface ModelInfo {
     cacheWritePer1M?: number;
   };
 }
+
+/** 供应商分类 */
+export type ProviderCategory = 'official' | 'aggregator' | 'third_party' | 'cn_official';
 
 /** 提供商配置（DB 驱动，对齐后端 ProviderRecord） */
 export interface ProviderInfo {
@@ -101,6 +105,7 @@ export interface ProviderInfo {
   notes?: string;
   icon?: string;
   iconColor?: string;
+  category?: ProviderCategory;
   createdAt: number;
   updatedAt: number;
 }
@@ -114,6 +119,29 @@ export interface ProviderFormData {
   modelsUrl: string;
   notes: string;
   requiresAuth: boolean;
+  icon?: string;
+  iconColor?: string;
+  category?: ProviderCategory;
+}
+
+/** 供应商预设 */
+export interface ProviderPreset {
+  name: string;
+  websiteUrl?: string;
+  apiKeyUrl?: string;
+  settingsConfig: ProviderFormData;
+  isOfficial: boolean;
+  category: ProviderCategory;
+  apiFormat: 'openai' | 'anthropic' | 'google' | 'custom';
+  providerType: string;
+  requiresOAuth: boolean;
+  modelsUrl?: string;
+  endpointCandidates?: string[];
+  theme?: {
+    icon: string;
+    backgroundColor: string;
+    textColor: string;
+  };
 }
 
 /** 端点测速结果 */
@@ -218,6 +246,9 @@ export interface TaskModelConfig {
   coding?: string;
   translation?: string;
   quick?: string;
+  agent?: string;
+  scheduled?: string;
+  local?: string;
   embedding?: string;
 }
 

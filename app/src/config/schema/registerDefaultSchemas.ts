@@ -111,8 +111,8 @@ function registerAiSettings(): void {
     key: 'ai.model',
     description: '默认使用的 AI 模型名称',
     type: 'string',
-    defaultValue: 'deepseek-chat',
-    example: 'claude-3-5-sonnet-20241022',
+    defaultValue: '',
+    example: 'deepseek-v4-pro',
   });
 
   configSchema.registerItem('AI 设置', {
@@ -136,8 +136,8 @@ function registerAiSettings(): void {
     key: 'ai.deepseek.model',
     description: 'DeepSeek 使用的模型',
     type: 'string',
-    defaultValue: 'deepseek-chat',
-    example: 'deepseek-coder',
+    defaultValue: '',
+    example: 'deepseek-v4-pro',
   });
 
   configSchema.registerItem('AI 设置', {
@@ -161,7 +161,7 @@ function registerAiSettings(): void {
     key: 'ai.anthropic.model',
     description: 'Anthropic 使用的模型',
     type: 'string',
-    defaultValue: 'claude-3-5-sonnet-20241022',
+    defaultValue: '',
     example: 'claude-opus-4-20250514',
   });
 
@@ -186,7 +186,7 @@ function registerAiSettings(): void {
     key: 'ai.openai.model',
     description: 'OpenAI 使用的模型',
     type: 'string',
-    defaultValue: 'gpt-4o',
+    defaultValue: '',
     example: 'gpt-4o-mini',
   });
 
@@ -227,7 +227,7 @@ function registerAiSettings(): void {
     key: 'ai.localOllama.defaultModel',
     description: 'Ollama 默认模型',
     type: 'string',
-    defaultValue: 'qwen3:1.8b',
+    defaultValue: '',
     example: 'llama3:8b',
   });
 

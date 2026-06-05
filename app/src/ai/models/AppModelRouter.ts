@@ -154,18 +154,14 @@ export class AppModelRouter {
 
   private async ensureDefaultEntry(): Promise<void> {
     const existing = await this.getConfig('default');
-    if (existing) return;
+    if (existing && existing.model) return;
 
-    // 从 ModelManager 获取当前默认模型
-    let defaultModel = 'deepseek-chat';
-    try {
-      const { modelManager } = await import('./ModelManager.js');
-      defaultModel = modelManager.getCurrentModel();
-    } catch {
-      // fallback
-    }
+    // 从 ActiveModelProvider 获取第一个可用模型
+    const { activeModelProvider } = await import('./ActiveModelProvider.js');
+    const effectiveModel = await activeModelProvider.getEffectiveModel(undefined, 'ollama');
+    const modelId = effectiveModel || '';
 
-    await this.setConfig('default', { model: defaultModel });
+    await this.setConfig('default', { model: modelId });
   }
 
   private ensureInitialized(): void {
@@ -218,7 +214,7 @@ export class AppModelRouter {
     if (config?.model) return config.model;
 
     const defaultConfig = await this.getConfig('default');
-    return defaultConfig?.model || 'deepseek-chat';
+    return defaultConfig?.model || '';
   }
 
   /** 获取供应商ID：先查应用配置，再回退 default */
@@ -273,7 +269,7 @@ export class AppModelRouter {
            VALUES (?, ?, ?, ?, ?, ?)`,
           [
             appType,
-            params.model || 'deepseek-chat',
+            params.model || '',
             params.providerId || null,
             params.fallbackModel || null,
             params.fallbackProviderId || null,

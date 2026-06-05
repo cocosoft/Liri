@@ -338,7 +338,7 @@ async function testApiConnection(
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'deepseek-chat',
+            model: '',
             messages: [{ role: 'user', content: 'hi' }],
             max_tokens: 1,
           }),
@@ -356,7 +356,7 @@ async function testApiConnection(
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: '',
             messages: [{ role: 'user', content: 'hi' }],
             max_tokens: 1,
           }),

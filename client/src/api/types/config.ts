@@ -28,6 +28,7 @@ export interface ModelInfo {
   type: "chat" | "embedding" | "image";
   context_length: number;
   enabled: boolean;
+  requiresAuth?: boolean;
   pricing?: {
     inputPer1M?: number;
     outputPer1M?: number;

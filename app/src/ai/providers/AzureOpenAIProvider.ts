@@ -54,7 +54,7 @@ export class AzureOpenAIProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-35-turbo'];
+    return [];
   }
 
   validateConfig(config: ProviderConfig): ProviderValidationResult {
@@ -88,7 +88,7 @@ export class AzureOpenAIProvider implements AIProvider {
       (this.config.baseUrl as string) ||
       process.env['AZURE_OPENAI_ENDPOINT'] ||
       '';
-    const deployment = (this.config.deployment as string) || 'gpt-4o';
+    const deployment = (this.config.deployment as string) || '';
     const apiVersion =
       (this.config.apiVersion as string) || '2024-02-15-preview';
 

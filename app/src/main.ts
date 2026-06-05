@@ -533,13 +533,22 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 
-    // T1.25: 加载模型配置（从 YAML + 用户覆盖）
+    // T1.25: 加载模型配置（从 YAML + DB 单一数据源）
     try {
       const { ModelRegistry } =
         await import('@modules/ai/models/ModelRegistry');
       const registry = ModelRegistry.getInstance();
       registry.loadDefaultModels();
       registry.loadUserConfigs();
+
+      // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
+      const { modelPricingService } = await import(
+        '@modules/ai/models/ModelPricingService.js'
+      );
+      await modelPricingService.initialize();
+
+      // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
+      await registry.loadDbPricing();
     } catch (e) {
       logger.warning('加载模型配置失败（非致命）', e as Error);
     }

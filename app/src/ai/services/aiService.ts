@@ -7,7 +7,6 @@ import {
   AIRequestParams,
   AIResponse,
   AIMessage,
-  AIModelType,
   ChatMessage,
   ChatResponse,
   ToolCall,
@@ -73,7 +72,7 @@ export class AIServiceImpl implements AIService {
 
   async generate(
     messages: AIMessage[],
-    model: AIModelType = this.config.defaultModel,
+    model: string = this.config.defaultModel,
     options: Partial<AIRequestParams> = {}
   ): Promise<AIResponse> {
     const client = this.getClientForModel(model);
@@ -116,7 +115,7 @@ export class AIServiceImpl implements AIService {
 
   async *stream(
     messages: AIMessage[],
-    model: AIModelType = this.config.defaultModel,
+    model: string = this.config.defaultModel,
     options: Partial<AIRequestParams> = {}
   ): AsyncGenerator<AIResponse> {
     const client = this.getClientForModel(model);
@@ -190,11 +189,11 @@ export class AIServiceImpl implements AIService {
     }).catch(() => {});
   }
 
-  setDefaultModel(model: AIModelType): void {
+  setDefaultModel(model: string): void {
     this.config.defaultModel = model;
   }
 
-  getDefaultModel(): AIModelType {
+  getDefaultModel(): string {
     return this.config.defaultModel;
   }
 
@@ -206,7 +205,7 @@ export class AIServiceImpl implements AIService {
     return { ...this.config };
   }
 
-  private getClientForModel(model: AIModelType): AIProvider {
+  private getClientForModel(model: string): AIProvider {
     const resolved = providerRegistry.getByModel(model);
     if (resolved) return resolved;
 
@@ -226,7 +225,7 @@ export function createAIService(
   config: Partial<AIServiceConfig> = {}
 ): AIService {
   const defaultConfig: AIServiceConfig = {
-    defaultModel: AIModelType.DEEPSEEK_CHAT,
+    defaultModel: '',
     apiKey:
       process.env.ANTHROPIC_API_KEY ||
       process.env.OPENAI_API_KEY ||
@@ -260,7 +259,7 @@ export function createAIServiceWithScrubbing(
   pipeline?: ScrubberPipeline
 ): AIServiceImpl {
   const service = new AIServiceImpl({
-    defaultModel: AIModelType.DEEPSEEK_CHAT,
+    defaultModel: '',
     apiKey:
       process.env.ANTHROPIC_API_KEY ||
       process.env.OPENAI_API_KEY ||

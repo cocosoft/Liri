@@ -19,15 +19,33 @@ const logger = new Logger({ level: LogLevel.INFO });
 export class RegistryHub {
   private adapters: Map<string, RegistryAdapter> = new Map();
 
-  constructor() {
-    this.registerDefaultAdapters();
+  constructor(safeMode: boolean = false) {
+    if (!safeMode) {
+      this.registerDefaultAdapters();
+    }
   }
 
   private registerDefaultAdapters(): void {
-    this.registerAdapter(new OfficialRegistryAdapter());
-    this.registerAdapter(new GitHubRegistryAdapter());
-    this.registerAdapter(new SmitheryRegistryAdapter());
-    this.registerAdapter(new NPMRegistryAdapter());
+    try {
+      this.registerAdapter(new OfficialRegistryAdapter());
+    } catch (error) {
+      logger.warn('注册官方注册表适配器失败', error as Error);
+    }
+    try {
+      this.registerAdapter(new GitHubRegistryAdapter());
+    } catch (error) {
+      logger.warn('注册 GitHub 注册表适配器失败', error as Error);
+    }
+    try {
+      this.registerAdapter(new SmitheryRegistryAdapter());
+    } catch (error) {
+      logger.warn('注册 Smithery 注册表适配器失败', error as Error);
+    }
+    try {
+      this.registerAdapter(new NPMRegistryAdapter());
+    } catch (error) {
+      logger.warn('注册 NPM 注册表适配器失败', error as Error);
+    }
   }
 
   registerAdapter(adapter: RegistryAdapter): void {

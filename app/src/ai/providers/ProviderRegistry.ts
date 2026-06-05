@@ -9,6 +9,13 @@ export class ProviderRegistry {
   private defaultProviderId: string | null = null;
 
   /**
+   * DB 同步 Provider 的类型别名映射
+   * providerType (如 'ollama') → registryId (如 'db:uuid')
+   * 使 getByModel() 能通过模型前缀查找 DB 同步的 Provider
+   */
+  private providerTypeToId: Map<string, string> = new Map();
+
+  /**
    * 模型前缀 → Provider ID 映射表（按优先级排序）
    * getByModel() 依次匹配，返回第一个命中
    */
@@ -51,6 +58,13 @@ export class ProviderRegistry {
   unregister(providerId: string): boolean {
     const removed = this.providers.delete(providerId);
     if (removed) {
+      // 清理该 provider 在类型别名映射中的条目
+      for (const [type, id] of this.providerTypeToId) {
+        if (id === providerId) {
+          this.providerTypeToId.delete(type);
+          break;
+        }
+      }
       logger.info(`Provider unregistered: ${providerId}`);
       if (this.defaultProviderId === providerId) {
         this.defaultProviderId =
@@ -82,16 +96,57 @@ export class ProviderRegistry {
   /**
    * 按模型名自动匹配 Provider
    * 遍历 modelToProvider 映射表，返回第一个匹配的已注册 Provider
+   *
+   * 匹配优先级:
+   *   1. 直接 ID 匹配（如 'deepseek'）
+   *   2. 类型别名匹配（DB 同步的 Provider，如 'ollama' → 'db:uuid'）
    */
   getByModel(model: string): AIProvider | undefined {
     const normalized = model.toLowerCase();
     for (const [prefix, providerId] of this.modelToProvider) {
-      if (normalized.startsWith(prefix) && this.providers.has(providerId)) {
-        return this.providers.get(providerId);
+      if (normalized.startsWith(prefix)) {
+        // 优先：直接 ID 匹配
+        if (this.providers.has(providerId)) {
+          return this.providers.get(providerId);
+        }
+        // 回退：类型别名匹配（DB 同步的 Provider）
+        const aliasedId = this.providerTypeToId.get(providerId);
+        if (aliasedId && this.providers.has(aliasedId)) {
+          return this.providers.get(aliasedId);
+        }
       }
     }
     logger.debug(`模型未匹配到 Provider: ${model}`);
     return undefined;
+  }
+
+  /**
+   * 按 provider 类型查找（用于 DB 同步的场景）
+   * 例如 getByType('ollama') 返回最后一个同步的 ollama Provider
+   */
+  getByType(providerType: string): AIProvider | undefined {
+    const registryId = this.providerTypeToId.get(providerType);
+    if (registryId && this.providers.has(registryId)) {
+      return this.providers.get(registryId);
+    }
+    // 降级：直接 ID 匹配（兼容硬编码注册的 Provider）
+    if (this.providers.has(providerType)) {
+      return this.providers.get(providerType);
+    }
+    return undefined;
+  }
+
+  /**
+   * 设置 DB 同步 Provider 的类型别名
+   * 每个 providerType 只有一个活跃别名（后注册覆盖前注册）
+   */
+  setProviderTypeAlias(providerType: string, registryId: string): void {
+    this.providerTypeToId.set(providerType, registryId);
+  }
+
+  /** 移除 Provider 类型别名 */
+  removeProviderTypeAlias(providerType: string): void {
+    this.providerTypeToId.delete(providerType);
   }
 
   /**
@@ -215,6 +270,7 @@ export class ProviderRegistry {
   clear(): void {
     this.providers.clear();
     this.defaultProviderId = null;
+    this.providerTypeToId.clear();
     logger.info('All providers cleared');
   }
 

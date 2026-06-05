@@ -59,7 +59,7 @@ export class AnthropicProvider implements AIProvider {
     this.config = {
       apiKey,
       baseUrl,
-      model: (config.model as string) || 'claude-sonnet-4-6',
+      model: (config.model as string) || '',
       maxTokens: (config.maxTokens as number) || 4096,
       temperature: (config.temperature as number) || 1.0,
     };
@@ -148,7 +148,7 @@ export class AnthropicProvider implements AIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const model = options?.model || this.config.model || 'claude-sonnet-4-6';
+    const model = options?.model || this.config.model || '';
 
     return withRetry(
       async () => {
@@ -178,7 +178,7 @@ export class AnthropicProvider implements AIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
-    const model = options?.model || this.config.model || 'claude-sonnet-4-6';
+    const model = options?.model || this.config.model || '';
     const { systemPrompt } = this.adapter.splitMessages(messages);
 
     const requestBody = this.adapter.buildRequest({

@@ -50,7 +50,7 @@ export class OpenAIProvider implements AIProvider {
     }
   ): Promise<ChatResponse> {
     const requestBody = this.adapter.buildRequest({
-      model: options?.model || 'gpt-4o',
+      model: options?.model || '',
       messages,
       tools: options?.tools,
       maxTokens: options?.maxTokens || 4096,
@@ -101,7 +101,7 @@ export class OpenAIProvider implements AIProvider {
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const requestBody = this.adapter.buildRequest({
-      model: options?.model || 'gpt-4o',
+      model: options?.model || '',
       messages,
       tools: options?.tools,
       maxTokens: options?.maxTokens || 4096,
@@ -188,7 +188,7 @@ export class OpenAIProvider implements AIProvider {
 
       return {
         content: fullContent,
-        model: options?.model || 'gpt-4o',
+        model: options?.model || '',
         stop_reason: 'stop',
         usage: lastUsage,
       };
@@ -330,7 +330,7 @@ export class OpenAIProvider implements AIProvider {
     const dataUrl = `data:${params.mimeType};base64,${base64}`;
 
     const requestBody = {
-      model: 'gpt-4o',
+      model: '',
       messages: [
         {
           role: 'user',
@@ -381,7 +381,7 @@ export class OpenAIProvider implements AIProvider {
       return {
         success: true,
         description: content || '',
-        model: 'gpt-4o',
+        model: '',
         durationMs: Date.now() - startTime,
       };
     } catch (error) {

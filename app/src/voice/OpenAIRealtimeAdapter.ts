@@ -17,7 +17,7 @@ import { randomUUID } from 'crypto';
 const OPENAI_WS_BASE = 'wss://api.openai.com/v1/realtime';
 
 /** 默认模型 */
-const DEFAULT_MODEL = 'gpt-4o-realtime-preview-2024-12-17';
+const DEFAULT_MODEL = '';
 
 /** 语音配置 */
 const DEFAULT_VOICE = 'alloy';

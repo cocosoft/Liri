@@ -43,16 +43,16 @@ export function isThinkingModeModel(model: string): boolean {
  *
  * @returns 'enabled' | 'disabled' | undefined
  *   - 'enabled': 推理模型（reasoner / v4-pro / v4-flash）
- *   - 'disabled': 非推理模型（deepseek-chat）
+ *   - 'disabled': 非推理模型
  *   - undefined: 第三方端点，跳过该字段
  */
 export function thinkingModeForModel(
   model: string,
 ): 'enabled' | 'disabled' | undefined {
-  if (model === 'deepseek-chat') return 'disabled';
+  if (!model) return undefined;
   if (model.includes('reasoner')) return 'enabled';
   if (model === 'deepseek-v4-flash' || model === 'deepseek-v4-pro') return 'enabled';
-  return undefined;
+  return 'disabled';
 }
 
 /**

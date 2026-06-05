@@ -1,30 +1,24 @@
 /**
- * 运行时模型注册表（YAML 驱动版）
- * 三层模型数据合并：内置默认值（YAML） → 用户配置覆盖（~/.pyapp/models.yaml） → 运行时发现
+ * 运行时模型注册表
+ *
+ * 模型定义（displayName, contextWindow, capabilities, providerMappings）从 YAML 加载。
+ * 模型定价 + 启停状态统一从 DB（model_registry 表，通过 ModelPricingService）加载。
+ *
+ * YAML 是模型定义的播种源，DB 是定价和启停的单一事实来源。
+ * 删除旧的 4 级定价回退链，改为单一路径：DB → 内存缓存。
  */
 
-import { ModelConfig, ModelKey, APIProvider } from './ModelConfigs.js';
+import { ModelConfig, APIProvider } from './ModelConfigs.js';
 import { ModelCapability } from './types.js';
 import {
   loadDefaultModels,
-  type DefaultModelsData,
   type ModelYamlConfig,
 } from '../config/defaultModels.js';
 import {
   loadProvidersConfig,
   loadModelsConfig,
-  loadPricingConfig,
-  type PricingOverride,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
-
-const DEFAULT_PRICING_SOURCE =
-  'https://raw.githubusercontent.com/community/llm-pricing/main/pricing.json';
-
-const PRICING_CACHE_PATH = join(resolvePyappHome(), 'cache', 'pricing.json');
 
 const API_PROVIDER_KEYS: APIProvider[] = [
   'firstParty',
@@ -75,6 +69,10 @@ function yamlEntryToModelConfig(
 
 /**
  * 运行时模型注册表
+ *
+ * 模型定义 + 定价双源设计：
+ * - 模型定义（字段、能力、provider 映射）→ YAML 加载 → builtinModels
+ * - 模型定价 + 启停 → DB model_registry → 内存缓存
  */
 export class ModelRegistry {
   private static instance: ModelRegistry;
@@ -84,11 +82,13 @@ export class ModelRegistry {
   private discoveredModels: Map<string, ModelConfig> = new Map();
 
   private providerConfigs: Map<string, ProviderConfig> = new Map();
-  private userPricing: Map<string, PricingOverride> = new Map();
-  private syncedPricing: Map<string, PricingOverride> = new Map();
+
+  /** DB 中加载的定价缓存，键为 modelId（唯一来源） */
+  private dbPricing: Map<string, { inputPer1M: number; outputPer1M: number }> =
+    new Map();
 
   private constructor() {
-    // 启动时从 ModelRegistry 构造函数加载内置模型
+    // 启动时通过 loadDefaultModels + loadDbPricing 初始化
   }
 
   static getInstance(): ModelRegistry {
@@ -106,11 +106,30 @@ export class ModelRegistry {
     }
   }
 
-  /** 加载用户配置（providers.yaml + models.yaml + pricing.yaml） */
+  /** 从 ModelPricingService（DB）加载定价到内存缓存 */
+  async loadDbPricing(): Promise<void> {
+    try {
+      const { modelPricingService } = await import(
+        '@modules/ai/models/ModelPricingService.js'
+      );
+      await modelPricingService.initialize();
+      const all = await modelPricingService.getAllPricing();
+      this.dbPricing.clear();
+      for (const rec of all) {
+        this.dbPricing.set(rec.modelId, {
+          inputPer1M: rec.inputCostPerMillion,
+          outputPer1M: rec.outputCostPerMillion,
+        });
+      }
+    } catch {
+      // DB 不可用时持有空 Map，getModelPricing 返回 null
+    }
+  }
+
+  /** 加载用户配置（providers.yaml + models.yaml）— 不含 pricing，pricing 统一走 DB */
   loadUserConfigs(): void {
     const providersCfg = loadProvidersConfig();
     const modelsCfg = loadModelsConfig();
-    const pricingCfg = loadPricingConfig();
 
     for (const [id, cfg] of Object.entries(providersCfg.providers)) {
       this.providerConfigs.set(id, cfg);
@@ -145,12 +164,6 @@ export class ModelRegistry {
         });
       }
     }
-
-    for (const [modelId, pricing] of Object.entries(pricingCfg.pricing)) {
-      this.userPricing.set(modelId, pricing);
-    }
-
-    this.loadSyncedPricingCache();
   }
 
   getAllModels(): ModelConfig[] {
@@ -258,32 +271,30 @@ export class ModelRegistry {
     return (config as unknown as Record<string, string>)[provider] || '';
   }
 
-  /** 同步获取模型定价（用户YAML > 社区同步 > 内置YAML） */
+  /** 获取模型定价 — 统一来源：DB → 内存缓存 */
   getModelPricing(
     modelName: string
   ): { inputPer1M: number; outputPer1M: number } | null {
-    const user = this.userPricing.get(modelName);
-    if (user)
-      return { inputPer1M: user.inputPer1M, outputPer1M: user.outputPer1M };
+    // 1. DB 定价（唯一来源）
+    const db = this.dbPricing.get(modelName);
+    if (db) return db;
 
-    const synced = this.syncedPricing.get(modelName);
-    if (synced)
-      return { inputPer1M: synced.inputPer1M, outputPer1M: synced.outputPer1M };
-
+    // 2. fallback: YAML 内置定价（作为默认值，但用户可修改覆盖）
     const model = this.getModel(modelName);
     if (model?.pricing) return model.pricing;
 
     return null;
   }
 
-  /** 异步获取模型定价（DB > 用户YAML > 社区同步 > 内置YAML，含 DB 用户自定义定价） */
+  /** 异步获取模型定价 — 从 DB 实时查询（更精确，例如用于计费） */
   async getModelPricingAsync(
     modelName: string
   ): Promise<{ inputPer1M: number; outputPer1M: number } | null> {
-    // 1. DB 用户自定义定价（最高优先级）
     try {
-      const { modelPricingService } =
-        await import('@modules/ai/models/ModelPricingService.js');
+      const { modelPricingService } = await import(
+        '@modules/ai/models/ModelPricingService.js'
+      );
+      // 确保已初始化
       await modelPricingService.initialize();
       const dbPricing = await modelPricingService.getPricing(modelName);
       if (dbPricing) {
@@ -295,42 +306,11 @@ export class ModelRegistry {
     } catch {
       // DB 不可用时回退
     }
-
-    // 2-4. 同步定价链
     return this.getModelPricing(modelName);
   }
 
-  async syncPricing(sourceUrl?: string): Promise<number> {
-    const url = sourceUrl ?? DEFAULT_PRICING_SOURCE;
-    const response = await fetch(url);
-    const data = (await response.json()) as {
-      pricing: Record<string, PricingOverride>;
-    };
-
-    let count = 0;
-    for (const [modelId, pricing] of Object.entries(data.pricing)) {
-      this.syncedPricing.set(modelId, pricing);
-      count++;
-    }
-
-    const cacheDir = join(resolvePyappHome(), 'cache');
-    if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
-    writeFileSync(PRICING_CACHE_PATH, JSON.stringify(data), 'utf-8');
-
-    return count;
-  }
-
-  private loadSyncedPricingCache(): void {
-    if (existsSync(PRICING_CACHE_PATH)) {
-      try {
-        const raw = JSON.parse(readFileSync(PRICING_CACHE_PATH, 'utf-8'));
-        const data = raw as { pricing: Record<string, PricingOverride> };
-        for (const [modelId, pricing] of Object.entries(data.pricing)) {
-          this.syncedPricing.set(modelId, pricing);
-        }
-      } catch {
-        // 缓存文件损坏时忽略
-      }
-    }
+  /** 刷新 DB 定价缓存（API upsert/toggle 后调用） */
+  async refreshDbPricing(): Promise<void> {
+    await this.loadDbPricing();
   }
 }

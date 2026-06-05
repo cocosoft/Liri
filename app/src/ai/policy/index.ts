@@ -76,10 +76,10 @@ const DEFAULT_PROVIDER_CHAINS: Record<string, string[]> = {
 };
 
 const DEFAULT_PROVIDER_MODELS: Record<string, string> = {
-  anthropic: 'claude-sonnet-4-6',
-  openai: 'gpt-4o',
-  deepseek: 'deepseek-chat',
-  google: 'gemini-2.0-flash',
+  anthropic: '',
+  openai: '',
+  deepseek: '',
+  google: '',
 };
 
 export class FailoverManager {

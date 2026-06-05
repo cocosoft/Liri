@@ -121,7 +121,7 @@ export class LongRunningTaskOrchestrator {
           const { createAIService } = await import('../ai');
           // FIXME: 迁移到新的 AIService API（generate/stream 替代 chat）
           const service = createAIService({
-            defaultModel: 'claude-sonnet-4-20250514',
+            defaultModel: '',
             apiKey: process.env.ANTHROPIC_API_KEY || '',
           } as any);
           const response = await (service as any).chat({

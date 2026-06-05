@@ -369,13 +369,13 @@ export class SessionManager {
 
         const bridgeResult = await this.compactionBridge.beforeCompact(
           session,
-          'deepseek-chat'
+          ''
         );
         if (!bridgeResult.proceed) continue;
 
         const record = await this.compactionBridge.performCompact(
           session,
-          'deepseek-chat',
+          '',
           'manual'
         );
         results.push({

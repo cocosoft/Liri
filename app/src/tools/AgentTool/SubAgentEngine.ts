@@ -19,6 +19,7 @@ import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai/providers';
 import { providerRegistry } from '@modules/ai/providers';
+import { modelRouter } from '@modules/ai/modelRouter';
 
 /**
  * 子代理进度事件类型
@@ -129,7 +130,7 @@ export class SubAgentEngine {
   constructor(config?: Partial<SubAgentEngineConfig>) {
     this.config = {
       defaultMaxTurns: config?.defaultMaxTurns ?? 50,
-      defaultModel: config?.defaultModel ?? 'deepseek-chat',
+      defaultModel: config?.defaultModel ?? '',
       timeoutMs: config?.timeoutMs ?? 600000,
     };
   }
@@ -358,9 +359,10 @@ export class SubAgentEngine {
     tools: ToolDefinition[],
     model?: string
   ): Promise<ChatResponse> {
+    const resolvedModel = model || this.config.defaultModel || modelRouter.resolve('agent');
     return client.chat(messages, {
       tools: tools.length > 0 ? tools : undefined,
-      model: model || this.config.defaultModel,
+      model: resolvedModel,
     });
   }
 

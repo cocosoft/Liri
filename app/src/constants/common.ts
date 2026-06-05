@@ -37,7 +37,7 @@ export const MAX_PATH_LENGTH = 4096;
 export const MAX_FILENAME_LENGTH = 255;
 
 export const TOKEN_ENCODING = 'cl100k_base';
-export const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
+export const DEFAULT_MODEL = '';
 export const DEFAULT_MAX_TOKENS = 4096;
 
 export const USER_AGENT = 'Liri/1.0.0';

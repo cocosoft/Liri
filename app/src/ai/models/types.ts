@@ -29,8 +29,6 @@ export enum AIModelType {
   GPT_3_5_TURBO = 'gpt-3.5-turbo',
   GPT_4 = 'gpt-4',
   GPT_4_TURBO = 'gpt-4-turbo',
-  DEEPSEEK_CHAT = 'deepseek-chat',
-  DEEPSEEK_CODER = 'deepseek-coder',
 }
 
 /**
@@ -120,7 +118,7 @@ export interface AIClient {
 }
 
 export interface AIServiceConfig {
-  defaultModel: AIModelType;
+  defaultModel: string;
   apiKey: string;
   baseUrl?: string;
   timeout?: number;
@@ -130,16 +128,16 @@ export interface AIServiceConfig {
 export interface AIService {
   generate(
     messages: AIMessage[],
-    model?: AIModelType,
+    model?: string,
     options?: Partial<AIRequestParams>
   ): Promise<AIResponse>;
   stream(
     messages: AIMessage[],
-    model?: AIModelType,
+    model?: string,
     options?: Partial<AIRequestParams>
   ): AsyncGenerator<AIResponse>;
-  setDefaultModel(model: AIModelType): void;
-  getDefaultModel(): AIModelType;
+  setDefaultModel(model: string): void;
+  getDefaultModel(): string;
   updateConfig(config: Partial<AIServiceConfig>): void;
   getConfig(): AIServiceConfig;
 }

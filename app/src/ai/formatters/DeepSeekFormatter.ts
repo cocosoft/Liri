@@ -4,9 +4,8 @@
  * DeepSeek API 兼容 OpenAI Chat Completions 格式，但有额外特性：
  * - 支持 FIM (Fill-in-the-Middle) 模式: prompt/ suffix
  * - prefix 和 suffix 通过额外参数传递
- * - 支持 deepseek-chat 和 deepseek-reasoner 两种模型
  *
- * 适用于: deepseek-chat, deepseek-coder, deepseek-reasoner
+ * 适用于: deepseek-* 系列模型
  */
 
 import { OpenAIFormatter } from './OpenAIFormatter';
@@ -15,9 +14,7 @@ import type { ChatMessage, ChatResponse } from '../models/types';
 
 export class DeepSeekFormatter extends OpenAIFormatter {
   override readonly supportedModels = [
-    'deepseek-chat',
-    'deepseek-coder',
-    'deepseek-reasoner',
+    'deepseek-',
   ];
 
   /**

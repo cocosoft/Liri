@@ -95,21 +95,21 @@ export class TaskRouterImpl {
         case 'explanation':
           return {
             target: 'ollama',
-            model: 'qwen3:1.8b',
+            model: '',
             reason: '本地优先策略：解释类',
             fallback: this.createCloudDecision('Ollama 不可用，降级到 Cloud'),
           };
         case 'code_generation':
           return {
             target: 'ollama',
-            model: 'qwen3:1.8b',
+            model: '',
             reason: '本地优先策略：代码生成',
             fallback: this.createCloudDecision('Ollama 不可用，降级到 Cloud'),
           };
         case 'general':
           return {
             target: 'ollama',
-            model: 'qwen3:1.8b',
+            model: '',
             reason: '本地优先策略：通用',
             fallback: this.createCloudDecision('Ollama 不可用，降级到 Cloud'),
           };
@@ -119,7 +119,7 @@ export class TaskRouterImpl {
     // ③ 低置信度（< localLLM）或未匹配 type → 云端回退
     return {
       target: 'cloud',
-      model: 'deepseek-chat',
+      model: '',
       reason: '低置信度，降级到 Cloud',
     };
   }
@@ -153,7 +153,7 @@ export class TaskRouterImpl {
     if (this.strategy === 'ollama-first') {
       return {
         target: 'ollama',
-        model: 'qwen3:1.8b',
+        model: '',
         reason: 'Ollama 优先策略',
         fallback: this.createCloudDecision('Ollama 不可用，降级到 Cloud'),
       };
@@ -161,7 +161,7 @@ export class TaskRouterImpl {
 
     return {
       target: 'cloud',
-      model: 'deepseek-chat',
+      model: '',
       reason: '代码生成需要强推理能力',
     };
   }
@@ -170,7 +170,7 @@ export class TaskRouterImpl {
     if (this.strategy === 'ollama-first') {
       return {
         target: 'ollama',
-        model: 'qwen3:1.8b',
+        model: '',
         reason: 'Ollama 优先策略',
         fallback: this.createCloudDecision('Ollama 不可用，降级到 Cloud'),
       };
@@ -178,7 +178,7 @@ export class TaskRouterImpl {
 
     return {
       target: 'cloud',
-      model: 'deepseek-chat',
+      model: '',
       reason: '解释需要知识理解',
     };
   }
@@ -203,7 +203,7 @@ export class TaskRouterImpl {
     if (this.strategy === 'local-first') {
       return {
         target: 'ollama',
-        model: 'qwen3:1.8b',
+        model: '',
         reason: '本地优先策略',
         fallback: this.createCloudDecision('Ollama 不可用，降级到 Cloud'),
       };
@@ -211,7 +211,7 @@ export class TaskRouterImpl {
 
     return {
       target: 'cloud',
-      model: 'deepseek-chat',
+      model: '',
       reason: '通用任务使用 Cloud',
     };
   }
@@ -219,7 +219,7 @@ export class TaskRouterImpl {
   private createCloudDecision(reason: string): RouteDecision {
     return {
       target: 'cloud',
-      model: 'deepseek-chat',
+      model: '',
       reason,
     };
   }

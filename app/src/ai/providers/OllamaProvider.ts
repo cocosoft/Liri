@@ -22,7 +22,7 @@ import { ModelRegistry } from '../models/ModelRegistry';
 const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
-const DEFAULT_MODEL = 'qwen3:1.8b';
+const DEFAULT_MODEL = '';
 
 export class OllamaProvider implements AIProvider {
   readonly id = 'ollama';

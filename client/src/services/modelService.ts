@@ -18,4 +18,15 @@ export const modelService = {
     const models = await this.list();
     return models.find((m) => m.id === id) || null;
   },
+
+  async toggle(id: string): Promise<boolean> {
+    const resp = await http.patch<{ data: { modelId: string; enabled: boolean } }>(
+      `/v1/models/${encodeURIComponent(id)}/toggle`,
+    );
+    return resp.data.enabled;
+  },
+
+  async remove(id: string): Promise<void> {
+    await http.delete<{ success: boolean }>(`/v1/models/${encodeURIComponent(id)}`);
+  },
 };

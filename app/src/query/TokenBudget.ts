@@ -87,8 +87,7 @@ export interface TokenBudgetManager {
 
 const MODEL_FAMILY_HEURISTICS: Record<string, number> = {
   claude: 4,
-  'deepseek-chat': 3,
-  'deepseek-reasoner': 3,
+  deepseek: 3,
   gpt: 3.5,
 };
 
@@ -114,7 +113,7 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
         config.enableCompression !== undefined
           ? config.enableCompression
           : true,
-      modelName: config.modelName || 'deepseek-chat',
+      modelName: config.modelName || '',
     };
     this.currentUsage = 0;
     this.currentOutputUsage = 0;

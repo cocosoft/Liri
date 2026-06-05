@@ -370,7 +370,7 @@ export class LocalAgent {
       const delegatedDecision: RouteDecision = {
         ...routeDecision,
         target: 'cloud',
-        model: routeDecision.fallback?.model || 'deepseek-chat',
+        model: routeDecision.fallback?.model || '',
         reason: `Delegated from Ollama (depth ${this.delegationDepth})`,
       };
       const result = await this.handleCloud(
@@ -441,7 +441,7 @@ export class LocalAgent {
       ];
 
       const response = await this.llmClient.chat(chatMessages, {
-        model: routeDecision.model || 'deepseek-chat',
+        model: routeDecision.model || '',
       });
 
       return {
@@ -551,7 +551,7 @@ export function createLocalAgent(
     ollama: {
       enabled: false,
       baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-      defaultModel: process.env.OLLAMA_DEFAULT_MODEL || 'qwen3:1.8b',
+      defaultModel: process.env.OLLAMA_DEFAULT_MODEL || '',
       timeout: parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10),
     },
     routing: {

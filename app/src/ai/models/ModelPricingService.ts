@@ -20,11 +20,17 @@
 // SOFTWARE.
 
 /**
- * 模型定价管理服务
- * 对标 CC 源码 cc-switch/src-tauri/src/commands/usage.rs (model_pricing 表)
+ * 模型注册表服务（单一数据源）
  *
- * 提供基于 SQLite 的模型定价存储和查询，
- * 与 ModelRegistry（YAML 驱动）互补：DB 为可编辑用户定价，YAML 为只读默认值。
+ * 统一管理模型定义 + 定价 + 启停状态，数据存储于 model_registry 表。
+ * 启动时从 models.default.yaml 种子到 DB（首次/表空时），此后所有读写均以 DB 为准。
+ *
+ * 旧 model_pricing 表在首次初始化时自动迁移并废弃。
+ *
+ * 使用方式:
+ *   import { modelPricingService } from './ModelPricingService.js';
+ *   await modelPricingService.initialize();
+ *   const pricing = await modelPricingService.getPricing('gpt-4o');
  */
 
 import { Database } from 'sqlite3';
@@ -35,34 +41,102 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const PRICING_TABLE = 'model_pricing';
+const REGISTRY_TABLE = 'model_registry';
+const OLD_PRICING_TABLE = 'model_pricing';
 
-/** 模型定价记录 */
+/** 数据库行原始列名 → 接口字段名映射 */
+const COLUMN_MAP: Record<string, string> = {
+  model_id: 'modelId',
+  display_name: 'displayName',
+  context_window: 'contextWindow',
+  max_output_tokens: 'maxOutputTokens',
+  input_price: 'inputCostPerMillion',
+  output_price: 'outputCostPerMillion',
+  cache_read_price: 'cacheReadCostPerMillion',
+  cache_write_price: 'cacheWriteCostPerMillion',
+  is_custom: 'isCustom',
+  provider_id: 'providerId',
+  provider_mappings: 'providerMappings',
+  created_at: 'createdAt',
+  updated_at: 'updatedAt',
+};
+
+/** 模型注册表记录（完整字段） */
 export interface ModelPricingRecord {
   id: string;
   modelId: string;
   displayName: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  capabilities: string[];
+  /** JSON: {"firstParty":"gpt-4o","openai":"gpt-4o"} */
+  providerMappings: Record<string, string>;
   inputCostPerMillion: number;
   outputCostPerMillion: number;
   cacheReadCostPerMillion: number;
   cacheWriteCostPerMillion: number;
   isCustom: boolean;
+  providerId: string;
+  enabled: boolean;
   createdAt: number;
   updatedAt: number;
 }
 
-/** 创建/更新定价参数 */
+/** 创建/更新模型参数 */
 export interface UpsertPricingParams {
   modelId: string;
   displayName?: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  capabilities?: string[];
+  providerMappings?: Record<string, string>;
   inputCostPerMillion: number;
   outputCostPerMillion: number;
   cacheReadCostPerMillion?: number;
   cacheWriteCostPerMillion?: number;
+  providerId?: string;
+  enabled?: boolean;
+}
+
+/** 将数据库行转为 ModelPricingRecord */
+function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
+  let capabilities: string[] = [];
+  try {
+    const raw = row.capabilities as string;
+    if (raw) capabilities = JSON.parse(raw);
+  } catch { /* 静默忽略 */ }
+
+  let providerMappings: Record<string, string> = {};
+  try {
+    const raw = row.provider_mappings as string;
+    if (raw) providerMappings = JSON.parse(raw);
+  } catch { /* 静默忽略 */ }
+
+  return {
+    id: row.id as string,
+    modelId: row.model_id as string,
+    displayName: row.display_name as string,
+    contextWindow: (row.context_window as number) || 128000,
+    maxOutputTokens: (row.max_output_tokens as number) || 8192,
+    capabilities,
+    providerMappings,
+    inputCostPerMillion: (row.input_price as number) || 0,
+    outputCostPerMillion: (row.output_price as number) || 0,
+    cacheReadCostPerMillion: (row.cache_read_price as number) || 0,
+    cacheWriteCostPerMillion: (row.cache_write_price as number) || 0,
+    isCustom: (row.is_custom as number) === 1,
+    providerId: (row.provider_id as string) || '',
+    enabled: (row.enabled as number) !== 0,
+    createdAt: row.created_at as number,
+    updatedAt: row.updated_at as number,
+  };
 }
 
 /**
- * 模型定价管理服务
+ * 模型注册表服务（单一数据源）
+ *
+ * 所有模型数据（定义、定价、启停）统一由 model_registry 表管理。
+ * YAML 仅在首次启动时作为种子数据写入，之后所有读写以 DB 为准。
  */
 export class ModelPricingService {
   private static instance: ModelPricingService;
@@ -71,6 +145,7 @@ export class ModelPricingService {
   private dbPath: string;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private seeded = false;
 
   private constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
@@ -91,6 +166,11 @@ export class ModelPricingService {
     return this.initPromise;
   }
 
+  /** 是否已经从 YAML 种过数据 */
+  isSeeded(): boolean {
+    return this.seeded;
+  }
+
   private async _doInitialize(): Promise<void> {
     try {
       this.db = await new Promise<Database>((resolve, reject) => {
@@ -100,9 +180,12 @@ export class ModelPricingService {
         });
       });
 
-      await this.createTable();
+      await this.createRegistryTable();
+      await this.migrateOldPricingTable();
+      await this.seedFromYamlIfEmpty();
+
       this.initialized = true;
-      logger.info('ModelPricingService 初始化完成');
+      logger.info('ModelPricingService 初始化完成（model_registry 单一数据源）');
     } catch (error) {
       logger.error('ModelPricingService 初始化失败', error);
       throw new AppError(
@@ -115,39 +198,234 @@ export class ModelPricingService {
     }
   }
 
-  private async createTable(): Promise<void> {
+  private async createRegistryTable(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `
-        CREATE TABLE IF NOT EXISTS ${PRICING_TABLE} (
-          id TEXT PRIMARY KEY,
-          model_id TEXT NOT NULL UNIQUE,
-          display_name TEXT NOT NULL DEFAULT '',
-          input_cost_per_million REAL NOT NULL DEFAULT 0,
-          output_cost_per_million REAL NOT NULL DEFAULT 0,
-          cache_read_cost_per_million REAL NOT NULL DEFAULT 0,
-          cache_write_cost_per_million REAL NOT NULL DEFAULT 0,
-          is_custom INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-          updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-        )
-      `,
+        `CREATE TABLE IF NOT EXISTS ${REGISTRY_TABLE} (
+          id                 TEXT NOT NULL DEFAULT '',
+          model_id           TEXT PRIMARY KEY,
+          display_name       TEXT NOT NULL DEFAULT '',
+          context_window     INTEGER NOT NULL DEFAULT 128000,
+          max_output_tokens  INTEGER NOT NULL DEFAULT 8192,
+          capabilities       TEXT NOT NULL DEFAULT '[]',
+          provider_mappings  TEXT NOT NULL DEFAULT '{}',
+          input_price        REAL NOT NULL DEFAULT 0,
+          output_price       REAL NOT NULL DEFAULT 0,
+          cache_read_price   REAL NOT NULL DEFAULT 0,
+          cache_write_price  REAL NOT NULL DEFAULT 0,
+          provider_id        TEXT NOT NULL DEFAULT '',
+          enabled            INTEGER NOT NULL DEFAULT 1,
+          is_custom          INTEGER NOT NULL DEFAULT 0,
+          created_at         INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+          updated_at         INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+        )`,
         (err) => {
           if (err) reject(err);
-          else {
-            this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_model_pricing_model_id ON ${PRICING_TABLE}(model_id)`,
-              (err2) => {
-                if (err2) reject(err2);
-                else resolve();
-              }
-            );
-          }
+          else resolve();
         }
       );
     });
 
-    logger.info('model_pricing 表创建/验证完成');
+    // 兼容旧列：尝试添加可能缺失的 is_custom 列（已存在的库）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0`,
+        () => resolve()
+      );
+    });
+
+    // 兼容旧列：尝试添加可能缺失的 id 列（已存在的库）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN id TEXT NOT NULL DEFAULT ''`,
+        () => resolve()
+      );
+    });
+
+    logger.info('model_registry 表创建/验证完成');
+  }
+
+  /** 迁移旧 model_pricing 表数据到 model_registry，然后删除旧表 */
+  private async migrateOldPricingTable(): Promise<void> {
+    // 检查旧表是否存在
+    const tableExists = await new Promise<boolean>((resolve, reject) => {
+      this.db!.get(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+        [OLD_PRICING_TABLE],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(!!row);
+        }
+      );
+    });
+
+    if (!tableExists) return;
+
+    // 检查 model_registry 是否已有数据（避免重复迁移）
+    const registryCount = await new Promise<number>((resolve, reject) => {
+      this.db!.get(
+        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
+        (err, row) => {
+          if (err) reject(err);
+          else resolve((row as Record<string, number>).cnt);
+        }
+      );
+    });
+
+    if (registryCount > 0) {
+      // 已有数据，直接删旧表
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      logger.info('旧 model_pricing 表已废弃并删除（新表已有数据）');
+      return;
+    }
+
+    // 迁移数据
+    const oldRows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
+      this.db!.all(
+        `SELECT * FROM ${OLD_PRICING_TABLE}`,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows as Record<string, unknown>[]);
+        }
+      );
+    });
+
+    if (oldRows.length === 0) {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      logger.info('旧 model_pricing 表为空，已直接删除');
+      return;
+    }
+
+    let migrated = 0;
+    for (const old of oldRows) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(
+            `INSERT OR IGNORE INTO ${REGISTRY_TABLE}
+             (model_id, display_name, input_price, output_price,
+              cache_read_price, cache_write_price, provider_id,
+              enabled, is_custom, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              old.model_id,
+              old.display_name || '',
+              old.input_price as number || old.input_cost_per_million as number || 0,
+              old.output_price as number || old.output_cost_per_million as number || 0,
+              old.cache_read_price as number || old.cache_read_cost_per_million as number || 0,
+              old.cache_write_price as number || old.cache_write_cost_per_million as number || 0,
+              (old.provider_id as string) || (old.provider as string) || '',
+              old.enabled ?? 1,
+              old.is_custom ?? 0,
+              old.created_at || Math.floor(Date.now() / 1000),
+              old.updated_at || Math.floor(Date.now() / 1000),
+            ],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        migrated++;
+      } catch {
+        // 单行迁移失败继续下一行
+      }
+    }
+
+    // 删除旧表
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    logger.info(`旧 model_pricing 表已迁移：${migrated}/${oldRows.length} 条记录 → model_registry，旧表已删除`);
+  }
+
+  /** 首次启动时从 YAML 种子数据到 DB */
+  private async seedFromYamlIfEmpty(): Promise<void> {
+    const count = await new Promise<number>((resolve, reject) => {
+      this.db!.get(
+        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
+        (err, row) => {
+          if (err) reject(err);
+          else resolve((row as Record<string, number>).cnt);
+        }
+      );
+    });
+
+    if (count > 0) {
+      this.seeded = true;
+      return; // 已有数据，不需要种子
+    }
+
+    try {
+      const { loadDefaultModels } = await import('../config/defaultModels.js');
+      const data = loadDefaultModels();
+      const modelIds = Object.keys(data.models);
+
+      if (modelIds.length === 0) {
+        logger.warning('YAML 种子数据为空，跳过 seeding');
+        return;
+      }
+
+      let seeded = 0;
+      const now = Math.floor(Date.now() / 1000);
+
+      for (const [key, entry] of Object.entries(data.models)) {
+        const providerMappings = entry.providers || {};
+        const capabilities = entry.capabilities || [];
+
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(
+            `INSERT OR IGNORE INTO ${REGISTRY_TABLE}
+             (model_id, display_name, context_window, max_output_tokens,
+              capabilities, provider_mappings,
+              input_price, output_price, cache_read_price, cache_write_price,
+              provider_id, enabled, is_custom, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
+            [
+              key,
+              entry.displayName || key,
+              entry.contextWindow || 128000,
+              entry.maxOutputTokens || 8192,
+              JSON.stringify(capabilities),
+              JSON.stringify(providerMappings),
+              entry.pricing?.inputPer1M || 0,
+              entry.pricing?.outputPer1M || 0,
+              entry.pricing?.cacheReadPer1M || 0,
+              entry.pricing?.cacheWritePer1M || 0,
+              // 推断主 provider：取 provider_mappings 中除了 firstParty 外的第一个 key
+              Object.keys(providerMappings).find(k => k !== 'firstParty') || '',
+              now,
+              now,
+            ],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        seeded++;
+      }
+
+      this.seeded = true;
+      logger.info(`已从 YAML 种子 ${seeded} 个模型到 model_registry 表`);
+    } catch (err) {
+      logger.warning('YAML 种子失败（非关键，不影响启动）', {
+        error: (err as Error).message,
+      });
+    }
   }
 
   private ensureInitialized(): void {
@@ -161,7 +439,7 @@ export class ModelPricingService {
     }
   }
 
-  /** 获取或更新模型定价 */
+  /** 获取或更新模型 */
   async upsertPricing(
     params: UpsertPricingParams
   ): Promise<ModelPricingRecord> {
@@ -171,24 +449,33 @@ export class ModelPricingService {
     const existing = await this.getPricing(params.modelId);
 
     if (existing) {
-      // 更新
+      const providerMappings = params.providerMappings
+        ? JSON.stringify(params.providerMappings)
+        : (existing.providerMappings ? JSON.stringify(existing.providerMappings) : '{}');
+      const capabilities = params.capabilities
+        ? JSON.stringify(params.capabilities)
+        : (existing.capabilities ? JSON.stringify(existing.capabilities) : '[]');
+
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `UPDATE ${PRICING_TABLE} SET
-           display_name = ?,
-           input_cost_per_million = ?,
-           output_cost_per_million = ?,
-           cache_read_cost_per_million = ?,
-           cache_write_cost_per_million = ?,
-           is_custom = 1,
-           updated_at = ?
+          `UPDATE ${REGISTRY_TABLE} SET
+           display_name = ?, context_window = ?, max_output_tokens = ?,
+           capabilities = ?, provider_mappings = ?,
+           input_price = ?, output_price = ?,
+           cache_read_price = ?, cache_write_price = ?,
+           provider_id = ?, updated_at = ?
            WHERE model_id = ?`,
           [
             params.displayName || existing.displayName,
+            params.contextWindow ?? existing.contextWindow,
+            params.maxOutputTokens ?? existing.maxOutputTokens,
+            capabilities,
+            providerMappings,
             params.inputCostPerMillion,
             params.outputCostPerMillion,
-            params.cacheReadCostPerMillion || 0,
-            params.cacheWriteCostPerMillion || 0,
+            params.cacheReadCostPerMillion ?? existing.cacheReadCostPerMillion,
+            params.cacheWriteCostPerMillion ?? existing.cacheWriteCostPerMillion,
+            params.providerId || existing.providerId || '',
             now,
             params.modelId,
           ],
@@ -199,22 +486,36 @@ export class ModelPricingService {
         );
       });
     } else {
-      // 插入
       const id = randomUUID();
+      const providerMappings = params.providerMappings
+        ? JSON.stringify(params.providerMappings)
+        : '{}';
+      const capabilities = params.capabilities
+        ? JSON.stringify(params.capabilities)
+        : '[]';
+
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `INSERT INTO ${PRICING_TABLE}
-           (id, model_id, display_name, input_cost_per_million, output_cost_per_million,
-            cache_read_cost_per_million, cache_write_cost_per_million, is_custom, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          `INSERT INTO ${REGISTRY_TABLE}
+           (id, model_id, display_name, context_window, max_output_tokens,
+            capabilities, provider_mappings,
+            input_price, output_price, cache_read_price, cache_write_price,
+            provider_id, enabled, is_custom, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           [
             id,
             params.modelId,
             params.displayName || params.modelId,
+            params.contextWindow ?? 128000,
+            params.maxOutputTokens ?? 8192,
+            capabilities,
+            providerMappings,
             params.inputCostPerMillion,
             params.outputCostPerMillion,
             params.cacheReadCostPerMillion || 0,
             params.cacheWriteCostPerMillion || 0,
+            params.providerId || '',
+            params.enabled !== false ? 1 : 0,
             now,
             now,
           ],
@@ -229,63 +530,35 @@ export class ModelPricingService {
     return (await this.getPricing(params.modelId))!;
   }
 
-  /** 获取单个模型定价 */
+  /** 获取单个模型 */
   async getPricing(modelId: string): Promise<ModelPricingRecord | undefined> {
     this.ensureInitialized();
 
     return new Promise<ModelPricingRecord | undefined>((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${PRICING_TABLE} WHERE model_id = ?`,
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
         [modelId],
         (err, row) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
-          else {
-            const r = row as Record<string, unknown>;
-            resolve({
-              id: r.id as string,
-              modelId: r.model_id as string,
-              displayName: r.display_name as string,
-              inputCostPerMillion: r.input_cost_per_million as number,
-              outputCostPerMillion: r.output_cost_per_million as number,
-              cacheReadCostPerMillion: r.cache_read_cost_per_million as number,
-              cacheWriteCostPerMillion:
-                r.cache_write_cost_per_million as number,
-              isCustom: (r.is_custom as number) === 1,
-              createdAt: r.created_at as number,
-              updatedAt: r.updated_at as number,
-            });
-          }
+          else resolve(rowToRecord(row as Record<string, unknown>));
         }
       );
     });
   }
 
-  /** 获取所有定价 */
+  /** 获取所有模型 */
   async getAllPricing(): Promise<ModelPricingRecord[]> {
     this.ensureInitialized();
 
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${PRICING_TABLE} ORDER BY model_id ASC`,
+        `SELECT * FROM ${REGISTRY_TABLE} ORDER BY model_id ASC`,
         (err, rows) => {
           if (err) reject(err);
           else {
             resolve(
-              (rows as Record<string, unknown>[]).map((r) => ({
-                id: r.id as string,
-                modelId: r.model_id as string,
-                displayName: r.display_name as string,
-                inputCostPerMillion: r.input_cost_per_million as number,
-                outputCostPerMillion: r.output_cost_per_million as number,
-                cacheReadCostPerMillion:
-                  r.cache_read_cost_per_million as number,
-                cacheWriteCostPerMillion:
-                  r.cache_write_cost_per_million as number,
-                isCustom: (r.is_custom as number) === 1,
-                createdAt: r.created_at as number,
-                updatedAt: r.updated_at as number,
-              }))
+              (rows as Record<string, unknown>[]).map(rowToRecord)
             );
           }
         }
@@ -293,13 +566,32 @@ export class ModelPricingService {
     });
   }
 
-  /** 删除自定义定价 */
+  /** 获取所有已启用的模型 */
+  async getAllEnabledPricing(): Promise<ModelPricingRecord[]> {
+    this.ensureInitialized();
+
+    return new Promise<ModelPricingRecord[]>((resolve, reject) => {
+      this.db!.all(
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE enabled = 1 ORDER BY model_id ASC`,
+        (err, rows) => {
+          if (err) reject(err);
+          else {
+            resolve(
+              (rows as Record<string, unknown>[]).map(rowToRecord)
+            );
+          }
+        }
+      );
+    });
+  }
+
+  /** 删除用户自定义模型 */
   async deletePricing(modelId: string): Promise<boolean> {
     this.ensureInitialized();
 
     return new Promise<boolean>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${PRICING_TABLE} WHERE model_id = ? AND is_custom = 1`,
+        `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ? AND is_custom = 1`,
         [modelId],
         function (err) {
           if (err) reject(err);
@@ -307,6 +599,128 @@ export class ModelPricingService {
         }
       );
     });
+  }
+
+  /** 切换模型启用/停用 */
+  async toggleModel(modelId: string): Promise<boolean | null> {
+    this.ensureInitialized();
+
+    const record = await this.getPricing(modelId);
+    if (!record) return null;
+
+    const newEnabled = record.enabled ? 0 : 1;
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(
+        `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE model_id = ?`,
+        [newEnabled, Math.floor(Date.now() / 1000), modelId],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+    return newEnabled === 1;
+  }
+
+  /** 删除模型（不限 is_custom） */
+  async deleteModel(modelId: string): Promise<boolean> {
+    this.ensureInitialized();
+
+    return new Promise<boolean>((resolve, reject) => {
+      this.db!.run(
+        `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
+        [modelId],
+        function (err) {
+          if (err) reject(err);
+          else resolve(this.changes > 0);
+        }
+      );
+    });
+  }
+
+  /** 获取模型计数 */
+  async getModelCount(): Promise<number> {
+    this.ensureInitialized();
+
+    return new Promise<number>((resolve, reject) => {
+      this.db!.get(
+        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
+        (err, row) => {
+          if (err) reject(err);
+          else resolve((row as Record<string, number>).cnt);
+        }
+      );
+    });
+  }
+
+  /** 重新从 YAML 种子数据（覆盖现有种子数据，保留用户自定义数据） */
+  async reSeedFromYaml(): Promise<number> {
+    this.ensureInitialized();
+
+    try {
+      const { loadDefaultModels } = await import('../config/defaultModels.js');
+      const data = loadDefaultModels();
+      const now = Math.floor(Date.now() / 1000);
+
+      let updated = 0;
+      for (const [key, entry] of Object.entries(data.models)) {
+        const providerMappings = JSON.stringify(entry.providers || {});
+        const capabilities = JSON.stringify(entry.capabilities || []);
+
+        // UPSERT: 只覆盖 is_custom=0 的种子行
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(
+            `INSERT INTO ${REGISTRY_TABLE}
+             (model_id, display_name, context_window, max_output_tokens,
+              capabilities, provider_mappings,
+              input_price, output_price, cache_read_price, cache_write_price,
+              provider_id, enabled, is_custom, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
+             ON CONFLICT(model_id) DO UPDATE SET
+              display_name = excluded.display_name,
+              context_window = excluded.context_window,
+              max_output_tokens = excluded.max_output_tokens,
+              capabilities = excluded.capabilities,
+              provider_mappings = excluded.provider_mappings,
+              input_price = excluded.input_price,
+              output_price = excluded.output_price,
+              cache_read_price = excluded.cache_read_price,
+              cache_write_price = excluded.cache_write_price,
+              provider_id = excluded.provider_id,
+              updated_at = excluded.updated_at
+             WHERE is_custom = 0`,
+            [
+              key,
+              entry.displayName || key,
+              entry.contextWindow || 128000,
+              entry.maxOutputTokens || 8192,
+              capabilities,
+              providerMappings,
+              entry.pricing?.inputPer1M || 0,
+              entry.pricing?.outputPer1M || 0,
+              entry.pricing?.cacheReadPer1M || 0,
+              entry.pricing?.cacheWritePer1M || 0,
+              Object.keys(entry.providers || {}).find(k => k !== 'firstParty') || '',
+              now,
+              now,
+            ],
+            function (this: { changes: number }, err: Error | null) {
+              if (err) reject(err);
+              else {
+                updated += this.changes || 0;
+                resolve();
+              }
+            }
+          );
+        });
+      }
+
+      logger.info(`YAML 数据重新同步完成：${updated} 条更新`);
+      return updated;
+    } catch (err) {
+      logger.error('YAML 重新同步失败', err);
+      throw err;
+    }
   }
 }
 

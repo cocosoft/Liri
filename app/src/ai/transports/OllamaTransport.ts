@@ -15,14 +15,11 @@ export class OllamaTransport extends BaseTransport {
   readonly provider = 'ollama';
 
   readonly supportedModels = [
-    'qwen3:1.8b',
-    'qwen3:7b',
-    'qwen3:14b',
-    'llama3:8b',
-    'llama3:70b',
-    'mistral:7b',
-    'codellama:7b',
-    'deepseek-coder:6.7b',
+    'qwen3:',
+    'llama3:',
+    'mistral:',
+    'codellama:',
+    'deepseek-coder:',
   ];
 
   convertMessages(

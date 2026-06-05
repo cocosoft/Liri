@@ -75,9 +75,6 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   };
 
   const handleContinue = () => {
-    // 继续 — 保持错误消息不变，用户重新输入
-    // 将错误上下文放入输入框
-    const errText = message.error || "请继续...";
     setReplyMessage(message);
   };
 

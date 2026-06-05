@@ -45,16 +45,7 @@ export interface CostTrackingConfig {
 const DEFAULT_PRICING: Record<
   string,
   { input: number; output: number; perMillion?: boolean }
-> = {
-  'deepseek-chat': { input: 0.00014, output: 0.00028, perMillion: true },
-  'deepseek-coder': { input: 0.00014, output: 0.00028, perMillion: true },
-  'claude-3-opus-20240229': { input: 15, output: 75, perMillion: true },
-  'claude-3-sonnet-20240229': { input: 3, output: 15, perMillion: true },
-  'claude-3-haiku-20240229': { input: 0.25, output: 1.25, perMillion: true },
-  'gpt-4': { input: 30, output: 60, perMillion: true },
-  'gpt-4-turbo': { input: 10, output: 30, perMillion: true },
-  'gpt-3.5-turbo': { input: 0.5, output: 1.5, perMillion: true },
-};
+> = {};
 
 export class CostAnalyticsTracker {
   private analytics: AnalyticsEventQueue;

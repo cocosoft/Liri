@@ -83,7 +83,7 @@ export interface BtwContextMessage {
 }
 
 const DEFAULT_CONFIG: BtwProcessorConfig = {
-  model: 'gpt-4o-mini',
+  model: '',
   provider: 'openai',
   maxContextMessages: 10,
   timeoutMs: 30000,

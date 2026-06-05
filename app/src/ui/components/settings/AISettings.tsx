@@ -61,7 +61,7 @@ export const AISettings: React.FC = () => {
           type="text"
           value={model}
           onChange={(e) => handleModelChange(e.target.value)}
-          placeholder="如：claude-sonnet-4-20250514"
+          placeholder="如：gpt-4o"
           className="px-3 py-1.5 w-64 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </SettingRow>

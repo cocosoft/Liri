@@ -22,4 +22,8 @@ export const modelSwitchService = {
   async saveTasks(tasks: TaskModelConfig): Promise<void> {
     await http.put("/v1/models/tasks", tasks);
   },
+
+  async setDefaultModel(providerId: string, modelId: string): Promise<void> {
+    await http.put("/v1/models/default", { providerId, modelId });
+  },
 };

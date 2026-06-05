@@ -7,10 +7,10 @@
 
 | 组件 | 版本文件 | 当前版本 |
 |------|----------|---------|
-| 后端 (app/) | `app/package.json` | 0.1.0 |
-| 前端客户端 (client/) | `client/package.json` | 0.1.0 |
-| Tauri 配置 | `client/src-tauri/tauri.conf.json` | 0.1.0 |
-| Cargo 配置 | `client/src-tauri/Cargo.toml` | 0.1.0 |
+| 后端 (app/) | `app/package.json` | 0.2.0 |
+| 前端客户端 (client/) | `client/package.json` | 0.2.0 |
+| Tauri 配置 | `client/src-tauri/tauri.conf.json` | 0.2.0 |
+| Cargo 配置 | `client/src-tauri/Cargo.toml` | 0.2.0 |
 
 版本格式：`v<主版本>.<次版本>.<修订号>`（如 `v0.1.0`）
 
@@ -197,3 +197,51 @@ cd client && npm run typecheck && npm run build && cd ..
 git tag -a "v$version" -m "Release v$version"
 git push origin main --tags
 ```
+
+---
+
+## 七、版本历史
+
+### v0.2.0 (2026-06-05)
+
+**新增功能**
+
+- ✅ **i18n 国际化** - 新增国际化入口模块
+- ✅ **知识库语义索引** - 新增 `knowledge/semantic/` 模块（builder/chunker/embedding/store）
+- ✅ **MCP 断线重连** - 新增 drift 断线漂移检测、reconnect 重连机制、StreamableHttpTransport 流式传输
+- ✅ **查询上下文引擎** - 新增 ContextFolder、ReasoningRetention、ThinkingMode、healing、shrink、streamModelResponse
+- ✅ **Repair 工具集** - 新增上下文修复工具（flatten/scavenge/storm/truncation）
+- ✅ **Cron Scheduler** - 完整的定时任务调度系统（CronScheduler/CronTimer/CronParser/CronStagger/CronRunLog/CronExecutor/GlobalCronScheduler）
+- ✅ **Agent 任务中心** - PDCA 长程编排、Kanban 看板、xterm 终端集成
+- ✅ **消息通道** - QQ/飞书/微信通道打通 + SQLite 持久化 + 26 通道动态注册
+
+**架构重构**
+
+- 路径管理架构重构：`config/paths.ts` 迁移至 `core/paths.ts`
+- 第二层项目数据移至用户目录 `~/.pyapp/data/`（部署安全）
+- 梦境引擎与守护进程分离，新增 `dream/` 模块
+- 路由 `/coding` 重命名为 `/dev`
+
+**增强改进**
+
+- LocalHTTPService 扩展 +296 行，新增路由与端点
+- 客户端 ChatStore/ChatMessage 增强对话状态管理
+- 设置页面重构：Tab 拆分为子组件 + 左侧导航 + 内容横向拉通
+
+**修复**
+
+- 移除 AutoDream.ts 中重复的 executeAutoDream 函数定义
+- 修复 KanbanBoard/PdcaPipeline 轮询问题
+- 修复 logs 500 错误
+
+---
+
+### v0.1.1
+
+- 累积小修复与改进
+
+---
+
+### v0.1.0
+
+- 初始版本发布

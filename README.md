@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/190615273/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/190615273/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -373,12 +373,28 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.1.0**（开发阶段）
+当前版本：**v0.2.0**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 每次提交递增修订号
 - 修订号达 100 进位次版本
 - 次版本达 10 进位主版本
+
+### 🚀 版本更新记录
+
+#### v0.2.0 (2026-06-05)
+
+**新增核心能力**
+- ✅ **知识库语义索引** - 支持文档向量化、语义检索
+- ✅ **MCP 断线重连** - 流式传输 + 自动重连机制
+- ✅ **Cron 定时任务调度** - 完整的计划任务系统
+- ✅ **Agent 任务中心** - PDCA 长程编排、Kanban 看板
+- ✅ **消息通道扩展** - QQ/飞书/微信等 26+ 平台接入
+- ✅ **查询上下文引擎** - 智能上下文管理与修复工具
+
+**架构升级**
+- 路径管理架构重构，部署更安全
+- 梦境引擎与守护进程分离
 
 ---
 

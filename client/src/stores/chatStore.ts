@@ -498,6 +498,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         } else if (chunk.type === "status") {
           blockBuilder.addStatus(chunk.content);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "error") {
+          // 将错误信息显示在聊天界面中
+          blockBuilder.addStatus(`❌ ${chunk.content}`);
+          updatedMsg = {
+            ...msg,
+            content: msg.content + chunk.content,
+            blocks: blockBuilder.getBlocks(),
+          };
+          set({ error: chunk.content });
         } else if (chunk.type === "tool_call" && chunk.toolCall) {
           blockBuilder.addToolCall(chunk.toolCall);
 

@@ -713,11 +713,29 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
+    // 更新内存中的会话标题
     const session = this.chatManager
       .getSessions()
       .find((s) => s.id === sessionId);
     if (session) {
       session.title = title;
+    }
+
+    // 持久化标题变更到存储
+    try {
+      const gateway = this.chatManager.getSessionGateway();
+      if (gateway) {
+        const storedSession = await gateway.getSession(sessionId);
+        if (storedSession) {
+          storedSession.title = title;
+          await gateway.updateSession(storedSession);
+        }
+      }
+    } catch (e) {
+      logger.error('Failed to persist session title', {
+        sessionId,
+        error: String(e),
+      });
     }
   }
 

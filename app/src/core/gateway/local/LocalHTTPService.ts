@@ -1073,6 +1073,9 @@ export class LocalHTTPService {
         url.match(/^\/v1\/channels\/(.+)$/)![1]
       );
     }
+    if (req.method === 'POST' && url === '/v1/channels/config/apply') {
+      return this.handleApplyChannelConfig(req, res);
+    }
 
     // ---- Channel Plugins ----
     if (req.method === 'GET' && url === '/v1/channels/plugins') {
@@ -2950,6 +2953,20 @@ export class LocalHTTPService {
       const response = await coreAPI.chat(chatRequest);
       const chatDurationMs = Date.now() - chatStartTime;
 
+      // 检查 AI 响应是否成功
+      if (response.finishReason === 'error' || !response.content) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
+              type: 'server_error',
+            },
+          })
+        );
+        return;
+      }
+
       logger.info('Chat completed', {
         model: request.model || 'pyapp-default',
         durationMs: chatDurationMs,
@@ -3131,6 +3148,24 @@ export class LocalHTTPService {
                   index: 0,
                   delta: { content: chunk.content },
                   finish_reason: null,
+                },
+              ],
+            })}\n\n`
+          );
+        } else if (chunk.type === 'error' && chunk.content) {
+          // 将错误作为 SSE 事件发送给前端，确保用户能看到错误信息
+          res.write(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'error',
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: chunk.content },
+                  finish_reason: 'error',
                 },
               ],
             })}\n\n`
@@ -8500,6 +8535,87 @@ export class LocalHTTPService {
       this.broadcastEvent('channel:updated', { id: channelId, enabled, name });
     } catch (err) {
       this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理通道配置应用请求 POST /v1/channels/config/apply
+   * 从 DB 中读取已保存的通道配置，重新注册并连接通道
+   */
+  private async handleApplyChannelConfig(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
+
+      // 获取所有已持久化的配置
+      const savedConfigs = channelRegistry.getAllConfigs();
+
+      // 对每个已保存但未注册的通道，尝试动态注册
+      let registeredCount = 0;
+      for (const config of savedConfigs) {
+        const existing = channelRegistry.get(config.type);
+        if (!existing) {
+          const dynRegistered = await this.tryDynamicRegister(
+            config.type,
+            config.options
+          );
+          if (dynRegistered) {
+            registeredCount++;
+            // 恢复持久化的配置（含 enabled 状态）
+            channelRegistry.updateConfig(config.type, {
+              name: config.name,
+              enabled: config.enabled,
+              options: config.options,
+            });
+          }
+        }
+      }
+
+      // 连接所有已启用的通道
+      const enabledChannels = channelRegistry.getEnabled();
+      let connectedCount = 0;
+      const errors: string[] = [];
+
+      for (const channel of enabledChannels) {
+        try {
+          await channel.connect();
+          connectedCount++;
+        } catch (e) {
+          const msg = `连接通道失败: ${channel.name} — ${e instanceof Error ? e.message : String(e)}`;
+          logger.warning(msg);
+          errors.push(msg);
+        }
+      }
+
+      logger.info('通道配置应用完成', {
+        registered: registeredCount,
+        connected: connectedCount,
+        errors: errors.length,
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          registered: registeredCount,
+          connected: connectedCount,
+          errors: errors.length > 0 ? errors : undefined,
+        })
+      );
+    } catch (err) {
+      logger.error('通道配置应用失败', err as Error);
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '配置应用失败',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 

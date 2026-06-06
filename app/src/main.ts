@@ -407,9 +407,17 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   });
 
   // REPL 完全启动后，初始化通道持久化并后台连接，不阻塞用户交互
-  import('./channels/setupChannels').then(({ lazyConnectChannels }) => {
+  import('./channels/setupChannels').then(({ setupChannelsFromConfig, lazyConnectChannels }) => {
     import('./channels/registry/ChannelRegistry').then(({ channelRegistry }) => {
       channelRegistry.initPersistence().then(() => {
+        // 从 DB 恢复已保存的通道配置（注册到内存）
+        setupChannelsFromConfig().then(() => {
+          logger.info('通道配置已从 DB 恢复');
+        }).catch((err) => {
+          logger.error('从 DB 恢复通道配置失败', { error: String(err) });
+        });
+
+        // 后台连接已启用的通道
         lazyConnectChannels().catch((err) => {
           logger.error('延迟通道连接异常', { error: String(err) });
         });
@@ -612,9 +620,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
         defaultTier: ((routerCfg as any)?.defaultTier as any) || 'medium',
         sessionSticky: (routerCfg as any)?.sessionSticky !== false,
         tiers: {
-          simple: { model: 'gpt-4o-mini', providerHint: 'deepseek' },
-          medium: { model: 'gpt-4o', providerHint: 'deepseek' },
-          complex: { model: 'gpt-4o', providerHint: 'deepseek' },
+          simple: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
+          medium: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
+          complex: { model: 'deepseek-v4-pro', providerHint: 'deepseek' },
           reasoning: { model: 'deepseek-reasoner', providerHint: 'deepseek' },
         },
       };

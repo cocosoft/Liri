@@ -7,7 +7,7 @@ function getModelFromConfig(): string {
 }
 
 export interface StreamChunk {
-  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done";
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error";
   content: string;
   toolCall?: ToolCall;
   usage?: {
@@ -217,6 +217,11 @@ export const chatService = {
                   type: "status",
                   content: chunk.choices?.[0]?.delta?.content || "",
                 };
+              } else if (pyappType === "error") {
+                yield {
+                  type: "error",
+                  content: chunk.choices?.[0]?.delta?.content || "Unknown error",
+                };
               } else if (pyappType === "tool_call") {
                 const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
                 if (tc) {
@@ -257,6 +262,11 @@ export const chatService = {
                 yield {
                   type: "text",
                   content: chunk.choices[0].delta.content,
+                };
+              } else if (chunk.choices?.[0]?.finish_reason === "error") {
+                yield {
+                  type: "error",
+                  content: "AI 服务返回错误，请检查 API 密钥和模型配置",
                 };
               }
             } catch {}

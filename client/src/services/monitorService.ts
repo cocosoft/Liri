@@ -1,6 +1,51 @@
 import { http } from "./httpClient";
 import type { MetricPoint, Alert, LogEntry, SystemHealth } from "../types";
 
+export interface SessionSummary {
+  sessionId: string;
+  title?: string;
+  totalRequests: number;
+  totalTokens: number;
+  totalCostUsd: number;
+  firstCallAt: string;
+  lastCallAt: string;
+  models: string[];
+}
+
+export interface LLMCallRecord {
+  requestId: string;
+  timestamp: string;
+  model: string;
+  provider: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreateTokens: number;
+  reasoningTokens: number;
+  costUsd: number;
+  durationMs: number;
+  request?: object;
+  response?: object;
+}
+
+export interface SessionDetail extends SessionSummary {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreateTokens: number;
+  totalReasoningTokens: number;
+  providers: string[];
+  calls: LLMCallRecord[];
+}
+
+export interface CostSummary {
+  totalSessions: number;
+  totalRequests: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCostUsd: number;
+}
+
 export interface MetricsData {
   requests: MetricPoint[];
   responseTime: MetricPoint[];
@@ -81,6 +126,7 @@ export const monitorService = {
 
   async getLogs(params: {
     level?: "debug" | "info" | "warn" | "error";
+    source?: string;
     search?: string;
     startTime?: number;
     endTime?: number;
@@ -89,6 +135,7 @@ export const monitorService = {
   }): Promise<{ logs: LogEntry[]; total: number }> {
     const searchParams = new URLSearchParams();
     if (params.level) searchParams.set("level", params.level);
+    if (params.source) searchParams.set("source", params.source);
     if (params.search) searchParams.set("search", params.search);
     if (params.startTime)
       searchParams.set("start_time", String(params.startTime));
@@ -107,5 +154,50 @@ export const monitorService = {
 
   async getAnalyticsDashboard(): Promise<AnalyticsDashboardData> {
     return http.get<AnalyticsDashboardData>("/v1/analytics/dashboard");
+  },
+
+  async getSessions(params: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ sessions: SessionSummary[]; total: number }> {
+    const searchParams = new URLSearchParams();
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+
+    return http.get<{ sessions: SessionSummary[]; total: number }>(
+      `/v1/monitor/sessions?${searchParams.toString()}`,
+    );
+  },
+
+  async getSessionDetail(sessionId: string): Promise<SessionDetail> {
+    return http.get<SessionDetail>(`/v1/monitor/sessions/${sessionId}`);
+  },
+
+  async getCostSummary(): Promise<CostSummary> {
+    return http.get<CostSummary>("/v1/monitor/cost");
+  },
+
+  async exportLogs(params: {
+    format?: 'json' | 'csv';
+    level?: string;
+    source?: string;
+    search?: string;
+  }): Promise<Blob> {
+    const { getBackendBaseUrl } = await import('./backendUrl');
+    const baseUrl = getBackendBaseUrl();
+    
+    const response = await fetch(`${baseUrl}/v1/monitor/logs/export`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+    
+    if (!response.ok) {
+      throw new Error('导出失败');
+    }
+    
+    return response.blob();
   },
 };

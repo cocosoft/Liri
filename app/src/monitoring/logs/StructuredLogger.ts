@@ -9,26 +9,19 @@ import {
   LogLevel,
   type LoggerConfig,
 } from '@modules/monitoring/logs/Logger';
-
-export interface StructuredLogEntry {
-  timestamp: string;
-  level: LogLevel;
-  module: string;
-  message: string;
-  traceId?: string;
-  spanId?: string;
-  data?: Record<string, unknown>;
-  error?: { name: string; message: string; stack?: string };
-}
+import {
+  MODULE_LOG_MEMORY,
+  appendLogEntry,
+  clearLogMemory,
+  getLogMemoryCount,
+  type StructuredLogEntry,
+} from './LogMemory.js';
 
 export interface StructuredLoggerConfig extends LoggerConfig {
   module: string;
   traceEnabled: boolean;
   jsonOutput: boolean;
 }
-
-const MODULE_LOG_MEMORY: StructuredLogEntry[] = [];
-const MAX_MEMORY_ENTRIES = 1000;
 
 export class StructuredLogger extends Logger {
   private moduleName: string;
@@ -87,6 +80,7 @@ export class StructuredLogger extends Logger {
       error: error
         ? { name: error.name, message: error.message, stack: error.stack }
         : undefined,
+      source: 'structured',
     };
 
     if (this.jsonOutput) {
@@ -128,10 +122,7 @@ export class StructuredLogger extends Logger {
       }
     }
 
-    MODULE_LOG_MEMORY.push(entry);
-    if (MODULE_LOG_MEMORY.length > MAX_MEMORY_ENTRIES) {
-      MODULE_LOG_MEMORY.shift();
-    }
+    appendLogEntry(entry);
   }
 
   static queryLogs(filter?: {
@@ -170,10 +161,10 @@ export class StructuredLogger extends Logger {
   }
 
   static getMemoryLogCount(): number {
-    return MODULE_LOG_MEMORY.length;
+    return getLogMemoryCount();
   }
 
   static clearMemory(): void {
-    MODULE_LOG_MEMORY.length = 0;
+    clearLogMemory();
   }
 }

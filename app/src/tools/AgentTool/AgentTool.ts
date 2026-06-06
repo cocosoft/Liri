@@ -38,6 +38,7 @@ import {
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { modelRouter } from '@modules/ai/modelRouter';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { getToolManager } from '../ToolManager';
@@ -467,7 +468,11 @@ export class AgentTool implements Tool {
   ): Promise<{ result: string }> {
     const { providerRegistry } =
       await import('../../ai/providers/ProviderRegistry');
-    const llmClient = providerRegistry.getOrCreate('deepseek');
+    const agentModel = modelRouter.resolve('chat');
+    let llmClient = agentModel ? providerRegistry.getByModel(agentModel) : undefined;
+    if (!llmClient) {
+      llmClient = providerRegistry.getOrCreate('deepseek');
+    }
 
     const toolDefinitions = this.buildToolDefinitions().map((t) => ({
       type: 'function' as const,

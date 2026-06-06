@@ -1,43 +1,71 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * OpenAI Provider
+ *
+ * 使用 ChatCompletionsTransport（OpenAI 兼容格式），
+ * 通过 std/fetch 直连 API，支持 DALL-E 图像生成和 Vision 图片分析。
+ */
+
 import type {
   ChatMessage,
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import {
-  type AIProvider,
-  type ProviderConfig,
-  type ProviderValidationResult,
-} from './AIProvider';
+import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
+import {
+  BaseAIProvider,
+  type BaseProviderOptions,
+} from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
-export class OpenAIProvider implements AIProvider {
-  readonly id = 'openai';
-  readonly displayName = 'OpenAI';
+export class OpenAIProvider extends BaseAIProvider {
   private apiKey: string;
   private baseUrl: string;
-  private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('openai');
+  /**
+   * 初始化 OpenAI Provider。
+   * 构造函数回退链：DB 持久化 > 环境变量。
+   *
+   * @param options - 基础选项（providerId, displayName, defaultBaseUrl, envApiKey, defaultModel 等）
+   * @param _extraConfig - 扩展配置（保留接口一致）
+   */
+  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+    super(options, _extraConfig);
 
-    this.apiKey =
-      providerCfg?.apiKey || config.apiKey || process.env.OPENAI_API_KEY || '';
-    this.baseUrl = (
-      providerCfg?.baseUrl ||
-      config.baseUrl ||
-      DEFAULT_BASE_URL
-    ).replace(/\/+$/, '');
-    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
+    this.apiKey = this.resolveApiKey() || '';
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+
+    if (!this.transport) {
+      this.transport = new TransportProviderAdapter(new ChatCompletionsTransport());
+    }
   }
 
   async chat(
@@ -49,8 +77,9 @@ export class OpenAIProvider implements AIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const requestBody = this.adapter.buildRequest({
-      model: options?.model || '',
+    const model = this.resolveModel('chat', options);
+    const requestBody = this.transport!.buildRequest({
+      model,
       messages,
       tools: options?.tools,
       maxTokens: options?.maxTokens || 4096,
@@ -79,7 +108,7 @@ export class OpenAIProvider implements AIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
+      return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -100,8 +129,9 @@ export class OpenAIProvider implements AIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const requestBody = this.adapter.buildRequest({
-      model: options?.model || '',
+    const model = this.resolveModel('chat', options);
+    const requestBody = this.transport!.buildRequest({
+      model,
       messages,
       tools: options?.tools,
       maxTokens: options?.maxTokens || 4096,
@@ -188,7 +218,7 @@ export class OpenAIProvider implements AIProvider {
 
       return {
         content: fullContent,
-        model: options?.model || '',
+        model,
         stop_reason: 'stop',
         usage: lastUsage,
       };
@@ -227,7 +257,7 @@ export class OpenAIProvider implements AIProvider {
     }
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

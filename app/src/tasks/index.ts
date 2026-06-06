@@ -50,7 +50,8 @@ export type { TaskInfo, TaskStats, DisplayStatus } from './TaskRegistry';
 export { displayToTaskStatus, taskStatusToDisplay } from './TaskRegistry';
 
 // 导出其他任务类型
-export { LocalAgentTask } from './LocalAgentTask';
+// @deprecated LocalAgentTask 已废弃 — launchAgent() 返回 mock 对象，将在未来版本中删除
+// export { LocalAgentTask } from './LocalAgentTask';
 export { RemoteAgentTask } from './RemoteAgentTask';
 export { DreamTask } from './DreamTask';
 export { LocalWorkflowTask } from './LocalWorkflowTask';

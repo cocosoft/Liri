@@ -57,13 +57,30 @@ export interface UsageInfo {
   cacheCreationTokens?: number;
 }
 
+/** 工具需要用户交互时的选项数据 */
+export interface QuestionOption {
+  label: string;
+  description: string;
+}
+
+/** 工具需要用户交互时的提问数据 */
+export interface QuestionData {
+  questionId: string;
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect?: boolean;
+}
+
 export interface ChatStreamChunk {
-  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done' | 'error';
+  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done' | 'error' | 'question';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
   status?: string;
   usage?: UsageInfo;
+  /** 仅在 type='question' 时存在 */
+  questionData?: QuestionData;
 }
 
 /** 工具调用描述 */

@@ -1,43 +1,72 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * Google Gemini Provider
+ *
+ * 使用 GeminiTransport，通过 std/fetch 直连 Google Generative Language API，
+ * URL 格式为 `${baseUrl}/models/${model}:generateContent?key=${apiKey}`，
+ * 支持 Vision 图片分析。
+ */
+
 import type {
   ChatMessage,
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import {
-  type AIProvider,
-  type ProviderConfig,
-  type ProviderValidationResult,
-} from './AIProvider';
+import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
+import {
+  BaseAIProvider,
+  type BaseProviderOptions,
+} from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
-export class GoogleProvider implements AIProvider {
-  readonly id = 'google';
-  readonly displayName = 'Google Gemini';
+export class GoogleProvider extends BaseAIProvider {
   private apiKey: string;
   private baseUrl: string;
-  private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('google');
+  /**
+   * 初始化 Google Gemini Provider。
+   * 构造函数回退链：DB 持久化 > 环境变量。
+   *
+   * @param options - 基础选项
+   * @param _extraConfig - 扩展配置（保留接口一致）
+   */
+  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+    super(options, _extraConfig);
 
-    this.apiKey =
-      providerCfg?.apiKey || config.apiKey || process.env.GOOGLE_API_KEY || '';
-    this.baseUrl = (
-      providerCfg?.baseUrl ||
-      config.baseUrl ||
-      DEFAULT_BASE_URL
-    ).replace(/\/+$/, '');
-    this.adapter = new TransportProviderAdapter(new GeminiTransport());
+    this.apiKey = this.resolveApiKey() || '';
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+
+    if (!this.transport) {
+      this.transport = new TransportProviderAdapter(new GeminiTransport());
+    }
   }
 
   async chat(
@@ -49,10 +78,10 @@ export class GoogleProvider implements AIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = options?.model || '';
-    const { systemPrompt } = this.adapter.splitMessages(messages);
+    const model = this.resolveModel('chat', options);
+    const { systemPrompt } = this.transport!.splitMessages(messages);
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -82,8 +111,8 @@ export class GoogleProvider implements AIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return this.adapter.toChatResponse(
-        this.adapter.normalizeResponse(data),
+      return this.transport!.toChatResponse(
+        this.transport!.normalizeResponse(data),
         model
       );
     } catch (error) {
@@ -106,10 +135,10 @@ export class GoogleProvider implements AIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || '';
-    const { systemPrompt } = this.adapter.splitMessages(messages);
+    const model = this.resolveModel('chat', options);
+    const { systemPrompt } = this.transport!.splitMessages(messages);
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -227,7 +256,7 @@ export class GoogleProvider implements AIProvider {
     }
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

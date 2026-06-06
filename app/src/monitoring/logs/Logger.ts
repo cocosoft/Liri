@@ -1,5 +1,6 @@
 import { appendFileSync } from 'node:fs';
 import { logRedact } from './redact/LogRedact.js';
+import { appendLogEntry, type StructuredLogEntry, type LogSource } from './LogMemory.js';
 
 export enum LogLevel {
   DEBUG = 'debug',
@@ -99,6 +100,17 @@ export class Logger {
 
     const formatted = this.formatMessage(level, message, meta);
     const sanitized = logRedact.redact(formatted);
+
+    // 将日志条目写入内存，供日志查询接口使用
+    const logEntry: StructuredLogEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      module: this.module,
+      message,
+      data: meta !== undefined ? (typeof meta === 'object' ? meta as Record<string, unknown> : { meta }) : undefined,
+      source: 'logger' as LogSource,
+    };
+    appendLogEntry(logEntry);
 
     if (this.consoleOutput) {
       switch (level) {

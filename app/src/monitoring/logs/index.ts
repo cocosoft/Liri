@@ -13,7 +13,8 @@ export {
 export type { LoggerConfig } from './Logger.js';
 
 export { StructuredLogger } from './StructuredLogger.js';
-export type { StructuredLogEntry } from './StructuredLogger.js';
+export type { StructuredLogEntry } from './LogMemory.js';
+export { MODULE_LOG_MEMORY, appendLogEntry, clearLogMemory, getLogMemoryCount } from './LogMemory.js';
 
 export { logConfigManager, LogConfigManager } from './config/LogConfig.js';
 export type { LogTarget, LogConfiguration } from './config/LogConfig.js';

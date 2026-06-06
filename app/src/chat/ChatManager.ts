@@ -481,6 +481,14 @@ export interface ChatManager {
    * 清理
    */
   cleanup(): void;
+
+  /**
+   * 解析待处理的用户交互（工具暂停/恢复）
+   * @param questionId 问题ID
+   * @param answers 用户选择的答案列表
+   * @returns 是否成功解析（false 表示没有匹配的待处理交互）
+   */
+  resolveInteraction(questionId: string, answers: string[]): boolean;
 }
 
 /**
@@ -552,6 +560,17 @@ export class ChatManagerImpl implements ChatManager {
    */
   private hookChainManager: HookChainManager;
   private _executingPlan = false;
+
+  /**
+   * 待处理的用户交互（工具暂停/恢复机制）
+   * 当工具需要用户输入时，streamMessage 会 yield question 分块，
+   * 然后 await 此 Promise，直到 UI 层调用 resolveInteraction() 解析
+   */
+  private _pendingInteraction: {
+    questionId: string;
+    promise: Promise<string[]>;
+    resolve: (answers: string[]) => void;
+  } | null = null;
 
   /**
    * 查询引擎
@@ -2230,6 +2249,61 @@ export class ChatManagerImpl implements ChatManager {
           );
           options?.onToolCall?.('start', toolName, toolCall.id, argsStr);
 
+          // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
+          const toolObj = (this.toolRegistry as unknown as {
+            getTool: (name: string) => {
+              requiresUserInteraction?: () => boolean;
+            } | undefined;
+          }).getTool?.(toolName);
+
+          if (toolObj?.requiresUserInteraction?.()) {
+            const toolArgs = toolCall.arguments as Record<string, unknown>;
+            const questionId = `q_${Date.now()}_${(toolCall.id || '').slice(0, 8)}`;
+
+            // 创建待处理交互 Promise
+            const interactionPromise = new Promise<string[]>((resolve) => {
+              this._pendingInteraction = {
+                questionId,
+                resolve,
+                promise: undefined as unknown as Promise<string[]>,
+              };
+            });
+            // 修复循环引用：将 promise 指向自身
+            (this._pendingInteraction as { promise: Promise<string[]> }).promise = interactionPromise;
+
+            // yield 问题分块到 UI 层
+            const questionChunk: ChatStreamChunk = {
+              type: 'question',
+              content: (toolArgs.question as string) || '',
+              sessionId: session.id,
+              toolCall: {
+                id: toolCall.id,
+                name: toolName,
+                arguments: toolArgs,
+              },
+              questionData: {
+                questionId,
+                question: toolArgs.question as string,
+                header: toolArgs.header as string,
+                options: (toolArgs.options || []) as Array<{
+                  label: string;
+                  description: string;
+                }>,
+                multiSelect: toolArgs.multiSelect as boolean | undefined,
+              },
+            };
+            yield questionChunk;
+
+            // 阻塞等待用户输入
+            logger.info('等待用户回答', { questionId, question: toolArgs.question });
+            const answers = await interactionPromise;
+
+            // 将用户答案注入工具参数
+            (toolCall.arguments as Record<string, unknown>)._userAnswers = answers;
+            logger.info('收到用户回答', { questionId, answers });
+          }
+          // ---- 结束用户交互检查 ----
+
           const toolResult = await this.executeTool({
             id: toolCall.id,
             name: toolName,
@@ -2407,6 +2481,28 @@ export class ChatManagerImpl implements ChatManager {
 
     options?.onComplete?.(assistantMessage);
     return assistantMessage;
+  }
+
+  /**
+   * 解析待处理的用户交互
+   * 当工具需要用户输入时，UI 层调用此方法提供用户答案，从而恢复工具执行
+   *
+   * @param questionId 问题ID（必须与待处理交互的 questionId 匹配）
+   * @param answers 用户选择的答案列表
+   * @returns 是否成功解析
+   */
+  resolveInteraction(questionId: string, answers: string[]): boolean {
+    if (
+      this._pendingInteraction &&
+      this._pendingInteraction.questionId === questionId
+    ) {
+      logger.info('解析用户交互', { questionId, answers });
+      this._pendingInteraction.resolve(answers);
+      this._pendingInteraction = null;
+      return true;
+    }
+    logger.warn('未找到匹配的待处理交互', { questionId });
+    return false;
   }
 
   /**

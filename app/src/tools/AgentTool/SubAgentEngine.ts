@@ -159,7 +159,11 @@ export class SubAgentEngine {
     let totalCompletionTokens = 0;
 
     try {
-      const llmClient = providerRegistry.getOrCreate('deepseek');
+      const agentModel = modelRouter.resolve('agent');
+      let llmClient = agentModel ? providerRegistry.getByModel(agentModel) : undefined;
+      if (!llmClient) {
+        llmClient = providerRegistry.getOrCreate('deepseek');
+      }
 
       const messages: ChatMessage[] = [
         { role: 'system', content: request.systemPrompt },

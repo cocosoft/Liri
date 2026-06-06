@@ -1,6 +1,29 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
  * DeepSeek AI Provider
- * 真实 API 调用 — 从 clients/DeepSeekClient.ts 迁移
+ *
+ * 使用 ChatCompletionsTransport（OpenAI 兼容格式），
+ * 通过 std/fetch 直连 API，支持流式 tool_calls 累积。
  */
 
 import type {
@@ -8,65 +31,53 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import type {
-  ChatOptions,
-  AIProvider,
-  ProviderConfig,
-  ProviderValidationResult,
-} from './AIProvider';
+import type { ChatOptions, ProviderConfig, ProviderValidationResult, ThinkingProviderChunk } from './AIProvider';
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
+import {
+  BaseAIProvider,
+  type BaseProviderOptions,
+  type PendingToolCall,
+} from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
-const DEFAULT_MODEL = '';
 
-export class DeepSeekProvider implements AIProvider {
-  readonly id = 'deepseek';
-  readonly displayName = 'DeepSeek';
+export class DeepSeekProvider extends BaseAIProvider {
   private apiKey: string;
   private baseUrl: string;
-  private defaultModel: string;
-  private toolRegistry: ToolRegistry | null = null;
-  private toolExecutor: IToolExecutor | null = null;
-  private readonly adapter: TransportProviderAdapter;
 
   /**
-   * 初始化 Provider 实例，配置 API 密钥、基础 URL、默认模型及传输适配器。
+   * 初始化 DeepSeek Provider。
+   * 构造函数回退链：DB 持久化 > 环境变量。
    *
-   * @param config - 提供者配置对象，包含可选的 apiKey、baseUrl 和 model 字段。
+   * @param options - 基础选项
+   * @param _extraConfig - 扩展配置（未使用）
    */
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('deepseek');
+  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+    super(options, _extraConfig);
 
-    this.apiKey =
-      providerCfg?.apiKey ||
-      config.apiKey ||
-      process.env.DEEPSEEK_API_KEY ||
-      '';
+    // 通过基类方法解析 API Key / Base URL
+    this.apiKey = this.resolveApiKey() || '';
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
 
-    this.baseUrl = (
-      providerCfg?.baseUrl ||
-      config.baseUrl ||
-      process.env.DEEPSEEK_BASE_URL ||
-      DEFAULT_BASE_URL
-    ).replace(/\/+$/, '');
-
-    // 设置默认模型，优先使用配置中的模型，否则使用默认模型
-    this.defaultModel = (config.model as string) || DEFAULT_MODEL;
-
-    // 初始化传输适配器，使用聊天完成传输协议
-    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
+    // 初始化 Transport 适配器
+    if (!this.transport) {
+      this.transport = new TransportProviderAdapter(new ChatCompletionsTransport());
+    }
   }
 
-  setApiKey(key: string): void {
+  /**
+   * 运行时更新 API Key。
+   *
+   * @param key - 新的 API Key
+   */
+  override setApiKey(key: string): void {
     if (key) {
       this.apiKey = key;
       logger.info('DeepSeek API key updated');
@@ -75,27 +86,29 @@ export class DeepSeekProvider implements AIProvider {
 
   /**
    * 设置工具注册表实例。
-   * @param registry - 要设置的工具注册表实例，若为 null 则清除当前注册表。
+   *
+   * @param registry - 工具注册表实例，为 null 则清除
    */
-  setToolRegistry(registry: ToolRegistry | null): void {
+  override setToolRegistry(registry: ToolRegistry | null): void {
     this.toolRegistry = registry;
   }
 
-  setToolExecutor(executor: IToolExecutor | null): void {
+  /**
+   * 设置工具执行器。
+   *
+   * @param executor - 工具执行器实例，为 null 则清除
+   */
+  override setToolExecutor(executor: IToolExecutor | null): void {
     this.toolExecutor = executor;
-  }
-
-  supportsThinking(_model: string): boolean {
-    return false;
   }
 
   async chat(
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const model = options?.model || this.defaultModel;
+    const model = this.resolveModel('chat', options);
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -123,16 +136,16 @@ export class DeepSeekProvider implements AIProvider {
     }
 
     const data = (await response.json()) as Record<string, unknown>;
-    return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
+    return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
   }
 
   async *chatStream(
     messages: ChatMessage[],
     options?: ChatOptions
-  ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || this.defaultModel;
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
+    const model = this.resolveModel('chat', options);
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -173,11 +186,7 @@ export class DeepSeekProvider implements AIProvider {
     const decoder = new TextDecoder();
     let fullContent = '';
     let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
-    // 流式 tool_calls 按 index 累积: {arguments 为累积字符串}
-    const pendingToolCalls: Map<
-      number,
-      { id: string; name: string; arguments: string }
-    > = new Map();
+    const pendingToolCalls: Map<number, PendingToolCall> = new Map();
     let lastUsage: ChatResponse['usage'] | undefined;
 
     try {
@@ -209,7 +218,6 @@ export class DeepSeekProvider implements AIProvider {
             const choice = choices?.[0];
             if (!choice) continue;
 
-            // 检测 finish_reason
             const finishReason = choice['finish_reason'] as string | undefined;
             if (finishReason === 'tool_calls') {
               stopReason = 'tool_calls';
@@ -229,7 +237,7 @@ export class DeepSeekProvider implements AIProvider {
               yield content;
             }
 
-            // 处理流式 tool_calls
+            // 处理流式 tool_calls（按 index 合并分片）
             const streamToolCalls = delta?.['tool_calls'] as
               | Array<Record<string, unknown>>
               | undefined;
@@ -241,7 +249,6 @@ export class DeepSeekProvider implements AIProvider {
                   pending = { id: '', name: '', arguments: '' };
                   pendingToolCalls.set(idx, pending);
                 }
-                // id 和 name 只在首帧出现
                 if (tc['id']) {
                   pending.id = tc['id'] as string;
                 }
@@ -267,7 +274,7 @@ export class DeepSeekProvider implements AIProvider {
       reader.releaseLock();
     }
 
-    // 组装 tool_calls 返回（若存在）
+    // 若 stopReason 为 tool_calls，组装 tool_calls 返回
     if (stopReason === 'tool_calls' && pendingToolCalls.size > 0) {
       const toolCalls = Array.from(pendingToolCalls.entries())
         .sort(([a], [b]) => a - b)
@@ -305,7 +312,13 @@ export class DeepSeekProvider implements AIProvider {
     );
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  /**
+   * 验证配置是否合法。
+   *
+   * @param config - Provider 配置
+   * @returns 验证结果
+   */
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
     if (!this.apiKey && !config.apiKey && !process.env.DEEPSEEK_API_KEY) {

@@ -73,6 +73,18 @@ export interface ModelConfig {
   defaultModel?: Record<string, string>;
   /** 模型元数据覆盖 */
   overrides?: Record<string, Record<string, unknown>>;
+  /** 智能路由配置（启用 SmartRouter 时使用） */
+  router?: {
+    enabled: boolean;
+    judge?: {
+      provider: string;
+      model: string;
+      timeoutMs: number;
+    };
+    tiers: Record<string, { model: string; providerHint?: string }>;
+    defaultTier: 'simple' | 'medium' | 'complex' | 'reasoning';
+    sessionSticky?: boolean;
+  };
 }
 
 /**

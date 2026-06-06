@@ -215,6 +215,19 @@ export {
 } from './services/QueryEngineWrapper';
 export type { QueryEngineWrapperConfig } from './services/QueryEngineWrapper';
 
+// router/ — 智能路由模块
+export { SmartRouter, JudgeService, TierResolver, SessionRouterStore } from './router';
+export type {
+  SmartRouterOptions,
+  RouterTier,
+  RouterConfig,
+  TierModelConfig,
+  JudgeCloudConfig,
+  SessionRouteRecord,
+  JudgeResult,
+} from './router';
+export { ALL_ROUTER_TIERS } from './router';
+
 // middleware/ — 统一中间件管道
 export {
   AIPipeline,

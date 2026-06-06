@@ -4,48 +4,48 @@
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChatMessage, ChatResponse } from '../models/types';
-import type {
-  AIProvider,
-  ProviderConfig,
-  ProviderValidationResult,
-  ChatOptions,
-} from './AIProvider';
-import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
+import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
+import {
+  BaseAIProvider,
+  type BaseProviderOptions,
+} from './BaseAIProvider';
 
-export class GrokProvider implements AIProvider {
-  readonly id = 'grok';
-  readonly displayName = 'Grok (X.AI)';
-  private config: ProviderConfig;
-  private readonly adapter: TransportProviderAdapter;
+export class GrokProvider extends BaseAIProvider {
+  private baseUrl: string;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('grok');
+  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+    super(options, _extraConfig);
 
-    this.config = {
-      baseUrl: 'https://api.x.ai/v1',
-      ...(providerCfg
-        ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey }
-        : {}),
-      ...config,
-    };
-    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
+    this.baseUrl = (this.resolveBaseUrl() || 'https://api.x.ai/v1').replace(/\/+$/, '');
+
+    if (!this.transport) {
+      this.transport = new TransportProviderAdapter(new ChatCompletionsTransport());
+    }
   }
 
   async chat(
     messages: ChatMessage[],
-    options?: ChatOptions
+    options?: {
+      tools?: import('../models/types').ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    }
   ): Promise<ChatResponse> {
     return this.sendRequest(messages, options, false);
   }
 
   async *chatStream(
     messages: ChatMessage[],
-    options?: ChatOptions
+    options?: {
+      tools?: import('../models/types').ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const response = await this.sendRequest(messages, options, true);
     yield response.content;
@@ -59,7 +59,7 @@ export class GrokProvider implements AIProvider {
     );
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
 
     if (!config.apiKey && !process.env['GROK_API_KEY']) {
@@ -69,25 +69,20 @@ export class GrokProvider implements AIProvider {
     return { valid: errors.length === 0, errors, warnings: [] };
   }
 
-  setToolRegistry(registry: ToolRegistry | null): void {}
-
-  setToolExecutor(executor: IToolExecutor | null): void {}
-
   private async sendRequest(
     messages: ChatMessage[],
-    options?: ChatOptions,
+    options?: {
+      tools?: import('../models/types').ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    },
     stream?: boolean
   ): Promise<ChatResponse> {
-    const apiKey =
-      (this.config.apiKey as string) || process.env['GROK_API_KEY'] || '';
-    const baseUrl = (this.config.baseUrl as string) || 'https://api.x.ai/v1';
-    const grokModels = getModelsByProvider('grok').map(
-      (key) => ALL_MODEL_CONFIGS[key].grok
-    );
-    const model =
-      options?.model || (this.config.model as string) || grokModels[1];
+    const apiKey = this.resolveApiKey() || process.env['GROK_API_KEY'] || '';
+    const model = this.resolveModel('chat', options);
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -96,7 +91,7 @@ export class GrokProvider implements AIProvider {
       stream: stream || false,
     });
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -116,6 +111,6 @@ export class GrokProvider implements AIProvider {
     }
 
     const data = (await response.json()) as Record<string, unknown>;
-    return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
+    return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
   }
 }

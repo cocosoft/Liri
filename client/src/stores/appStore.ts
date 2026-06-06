@@ -13,7 +13,9 @@ export type AppPage =
   | "agent"
   | "channels"
   | "settings"
-  | "buddy";
+  | "buddy"
+  | "plans"
+  | "semantic";
 
 type NavigateFn = (path: string) => void;
 

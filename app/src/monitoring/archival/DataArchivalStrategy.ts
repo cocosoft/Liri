@@ -19,7 +19,7 @@ import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '../logs/StructuredLogger';
-import type { StructuredLogEntry } from '../logs/StructuredLogger';
+import type { StructuredLogEntry } from '../logs/LogMemory';
 import { getMetricsService } from '../metrics/MetricsService';
 import { getAlertManager, AlertLevel } from '../alerts/AlertManager';
 import type { AlertNotification } from '../alerts/AlertManager';

@@ -54,6 +54,7 @@ import {
   resolveDownloadsDir,
   ensureDataDirectories,
 } from '@modules/core/paths';
+import { modelRouter } from '@modules/ai/modelRouter';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -373,7 +374,13 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const { init } = await import('./entrypoints/init');
   await init();
 
-  const httpPort = parseHttpPortFromArgs(options.args);
+  // 解析 --model 参数并设为全局模型
+  const modelArg = parseModelFromArgs(options.args);
+  if (modelArg) {
+    modelRouter.setCurrentModel(modelArg);
+  }
+
+  const httpPort = parseHttpPortFromArgs(options.args) || 0;
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
 
   // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
@@ -431,6 +438,24 @@ function parseHttpPortFromArgs(args?: string[]): number | undefined {
       if (!isNaN(port) && port > 0 && port < 65536) {
         return port;
       }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * 从命令行参数中解析 --model 值
+ */
+function parseModelFromArgs(args?: string[]): string | undefined {
+  if (!args) return undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--model' && i + 1 < args.length) {
+      return args[i + 1];
+    }
+    if (args[i].startsWith('--model=')) {
+      return args[i].split('=')[1];
     }
   }
 
@@ -573,6 +598,39 @@ export async function launch(options: LaunchOptions): Promise<void> {
         });
       }
     );
+
+    // T1.8: 初始化 SmartRouter 智能路由（非阻塞，失败不影响主流程）
+    try {
+      const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
+      const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry');
+      const { configManager } = await import('@modules/config/ConfigManager');
+
+      // 从 configManager 读取路由配置，若无则使用默认值
+      const routerCfg = configManager.getConfigValue<Record<string, unknown>>('models.router') || {};
+      const routerConfig: import('@modules/ai/router/types').RouterConfig = {
+        enabled: (routerCfg as any)?.enabled !== false,
+        defaultTier: ((routerCfg as any)?.defaultTier as any) || 'medium',
+        sessionSticky: (routerCfg as any)?.sessionSticky !== false,
+        tiers: {
+          simple: { model: 'gpt-4o-mini', providerHint: 'deepseek' },
+          medium: { model: 'gpt-4o', providerHint: 'deepseek' },
+          complex: { model: 'gpt-4o', providerHint: 'deepseek' },
+          reasoning: { model: 'deepseek-reasoner', providerHint: 'deepseek' },
+        },
+      };
+
+      const smartRouter = new SmartRouter({
+        config: routerConfig,
+        providerRegistry,
+      });
+
+      // 注入 CoreAPIImpl 全局单例
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      getCoreAPI().setSmartRouter(smartRouter);
+      logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
+    } catch (e) {
+      logger.warning('SmartRouter 初始化失败（非致命，使用静态路由）', e as Error);
+    }
 
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');

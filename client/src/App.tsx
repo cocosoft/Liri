@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import "./components/ChatArea/markdown-theme.css";
 import Sidebar, { MobileBottomNav } from "./components/Sidebar/Sidebar";
 import Header from "./components/common/Header";
@@ -15,16 +15,11 @@ import ToastContainer from "./components/common/ToastContainer";
 import KeyboardShortcutsHelp from "./components/common/KeyboardShortcutsHelp";
 import AuthGuard from "./components/common/AuthGuard";
 import LoginPage from "./components/views/LoginPage";
-import ApiKeyPage from "./components/views/ApiKeyPage";
-import LogViewerPage from "./components/views/LogViewerPage";
 import MemoryPage from "./components/views/MemoryPage";
 import SkillPage from "./components/views/SkillPage";
 import DashboardPage from "./components/views/DashboardPage";
 import FileExplorerPage from "./components/views/FileExplorerPage";
-import TerminalPage from "./components/views/TerminalPage";
 import CostPage from "./components/views/CostPage";
-import SandboxPage from "./components/views/SandboxPage";
-import PermissionPage from "./components/views/PermissionPage";
 import KnowledgePage from "./components/views/KnowledgePage";
 import AgentPage from "./components/views/AgentPage";
 import AgentAdvancedPage from "./components/views/AgentAdvancedPage";
@@ -33,13 +28,10 @@ import DreamPage from "./components/views/DreamPage";
 import TaskCenterPage from "./components/views/TaskCenterPage";
 import ChannelsPage from "./components/views/ChannelsPage";
 import SettingsPage from "./components/views/SettingsPage";
-import ConfigDeepPage from "./components/views/ConfigDeepPage";
 import BuddyPage from "./components/views/BuddyPage";
-import OAuthPage from "./components/views/OAuthPage";
-import MediaPage from "./components/views/MediaPage";
-import AutoReplyPage from "./components/views/AutoReplyPage";
-import STTTestPage from "./components/views/STTTestPage";
 import SkillMarketPage from "./components/views/SkillMarketPage";
+import UserPage from "./components/views/UserPage";
+import HelpPage from "./components/views/HelpPage";
 import MCPMarketPage from "./components/views/MCPMarketPage";
 import ModelPage from "./components/views/ModelPage";
 import DevPage from "./components/views/DevPage";
@@ -138,7 +130,6 @@ function App() {
           <ErrorBoundary>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/apikeys" element={<ApiKeyPage />} />
             <Route
               path="/"
               element={
@@ -169,14 +160,6 @@ function App() {
               }
             />
             <Route
-              path="/logs"
-              element={
-                <AuthGuard>
-                  <LogViewerPage />
-                </AuthGuard>
-              }
-            />
-            <Route
               path="/files"
               element={
                 <AuthGuard>
@@ -185,66 +168,10 @@ function App() {
               }
             />
             <Route
-              path="/terminal"
-              element={
-                <AuthGuard>
-                  <TerminalPage />
-                </AuthGuard>
-              }
-            />
-            <Route
               path="/cost"
               element={
                 <AuthGuard>
                   <CostPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/sandbox"
-              element={
-                <AuthGuard>
-                  <SandboxPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/permissions"
-              element={
-                <AuthGuard>
-                  <PermissionPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/oauth"
-              element={
-                <AuthGuard>
-                  <OAuthPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/plugins"
-              element={
-                <AuthGuard>
-                  <SkillMarketPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/media"
-              element={
-                <AuthGuard>
-                  <MediaPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/autoreply"
-              element={
-                <AuthGuard>
-                  <AutoReplyPage />
                 </AuthGuard>
               }
             />
@@ -258,6 +185,10 @@ function App() {
             />
             <Route
               path="/dev"
+              element={<Navigate to="/dev/terminal" replace />}
+            />
+            <Route
+              path="/dev/:subPage"
               element={
                 <AuthGuard>
                   <DevPage />
@@ -338,10 +269,18 @@ function App() {
               }
             />
             <Route
-              path="/settings/deep"
+              path="/user"
               element={
                 <AuthGuard>
-                  <ConfigDeepPage />
+                  <UserPage />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/help"
+              element={
+                <AuthGuard>
+                  <HelpPage />
                 </AuthGuard>
               }
             />
@@ -354,15 +293,7 @@ function App() {
               }
             />
             <Route
-              path="/voice-stt"
-              element={
-                <AuthGuard>
-                  <STTTestPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/skill-market"
+              path="/market/skills"
               element={
                 <AuthGuard>
                   <SkillMarketPage />
@@ -370,15 +301,7 @@ function App() {
               }
             />
             <Route
-              path="/mcp"
-              element={
-                <AuthGuard>
-                  <MCPMarketPage />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/mcp-market"
+              path="/market/mcp"
               element={
                 <AuthGuard>
                   <MCPMarketPage />
@@ -393,14 +316,57 @@ function App() {
                 </AuthGuard>
               }
             />
+            <Route
+              path="/plans"
+              element={<Navigate to="/tasks" replace />}
+            />
+            <Route
+              path="/semantic"
+              element={<Navigate to="/knowledge" replace />}
+            />
+            {/* 开发者工具路由归集 */}
+            <Route
+              path="/logs"
+              element={<Navigate to="/dev/logs" replace />}
+            />
+            <Route
+              path="/voice-stt"
+              element={<Navigate to="/dev/stt-test" replace />}
+            />
+            <Route
+              path="/terminal"
+              element={<Navigate to="/dev/terminal" replace />}
+            />
+            <Route
+              path="/sandbox"
+              element={<Navigate to="/dev/sandbox" replace />}
+            />
+            <Route
+              path="/media"
+              element={<Navigate to="/dev/media" replace />}
+            />
+            <Route
+              path="/autoreply"
+              element={<Navigate to="/dev/autoreply" replace />}
+            />
           </Routes>
           </ErrorBoundary>
         </div>
-        {location.pathname === "/chat" || location.pathname === "/" ? (
-          <FilePreviewPanel />
-        ) : (
-          <ToolPanel />
-        )}
+      {/* 右侧面板：按页面联动 */}
+        {(() => {
+          // 全宽页面（不显示右侧面板）
+          const fullWidthPages = ["/settings", "/help", "/user", "/dashboard", "/login",
+            "/buddy", "/dream", "/memory", "/skills", "/market/skills", "/market/mcp"];
+          if (fullWidthPages.includes(location.pathname)) return null;
+
+          // 聊天页面显示文件预览
+          if (location.pathname === "/chat" || location.pathname === "/") {
+            return <FilePreviewPanel />;
+          }
+
+          // 其余页面显示上下文面板
+          return <ToolPanel />;
+        })()}
       </div>
       <Footer />
       <MobileBottomNav />

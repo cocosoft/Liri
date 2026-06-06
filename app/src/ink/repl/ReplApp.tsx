@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, AlternateScreen, useApp } from '../../ink';
+import { Box, Text, AlternateScreen, useApp } from '../../ink';
 import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
 import { StatusBar } from './StatusBar';
@@ -20,6 +20,7 @@ import type {
   ActiveToolCall,
 } from './types';
 import type { ChatManager } from '@modules/chat/ChatManager';
+import type { ChatStreamChunk, QuestionData } from '@modules/runtime/api/CoreAPI';
 
 const logger = new Logger({ level: 'info' as never });
 
@@ -38,9 +39,11 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
   const [terminalHeight, setTerminalHeight] = useState(24);
   const [submitCount, setSubmitCount] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const pauseResolveRef = useRef<(() => void) | null>(null);
   const isPausedRef = useRef(false);
+  const currentQuestionRef = useRef<QuestionData | null>(null);
 
   const { exit } = useApp();
 
@@ -98,11 +101,12 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             role: 'system',
             content: [
               '可用命令:',
-              '  /help    - 显示帮助',
-              '  /clear   - 清空对话',
-              '  /onboard - 重新配置 AI 设置',
-              '  /ink     - 显示 Ink 模式信息',
-              '  exit     - 退出',
+              '  /help       - 显示帮助',
+              '  /clear      - 清空对话',
+              '  /onboard    - 重新配置 AI 设置',
+              '  /router     - 智能路由管理（status/on/off/config）',
+              '  /ink        - 显示 Ink 模式信息',
+              '  exit        - 退出',
               '',
               '快捷键:',
               '  ↑↓       - 浏览输入历史',
@@ -133,6 +137,207 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             timestamp: Date.now(),
           },
         ]);
+        return;
+      }
+
+      if (content === '/router') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content,
+            timestamp: Date.now(),
+          },
+          {
+            id: `router-help-${Date.now()}`,
+            role: 'system',
+            content: [
+              '智能路由 SmartRouter 命令:',
+              '  /router         - 显示此帮助',
+              '  /router status  - 查看当前路由状态与最近决策',
+              '  /router on      - 启用智能路由（运行时即时生效）',
+              '  /router off     - 关闭智能路由（回退静态路由）',
+              '  /router config  - 查看完整路由配置',
+            ].join('\n'),
+            timestamp: Date.now(),
+          },
+        ]);
+        return;
+      }
+
+      if (content === '/router status') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content,
+            timestamp: Date.now(),
+          },
+        ]);
+        // 动态加载，避免循环依赖
+        try {
+          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+          const core = getCoreAPI();
+          const router = core.getSmartRouter();
+          const lastDecision = core.getLastRouteDecision();
+          const routerConfig = router?.getConfig();
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `router-status-${Date.now()}`,
+              role: 'system',
+              content: [
+                '=== SmartRouter 状态 ===',
+                `  启用: ${routerConfig?.enabled ? '✅ 是' : '❌ 否（使用静态路由）'}`,
+                `  实例活跃: ${router !== null ? '✅' : '❌'}`,
+                `  默认等级: ${routerConfig?.defaultTier || 'medium'}`,
+                `  会话黏性: ${routerConfig?.sessionSticky ? '✅ 开启' : '❌ 关闭'}`,
+                '',
+                '最近路由决策:',
+                lastDecision
+                  ? `  等级: ${lastDecision.tier} | 模型: ${lastDecision.model} | Provider: ${lastDecision.provider}`
+                  : '  （暂无记录）',
+              ].join('\n'),
+              timestamp: Date.now(),
+            },
+          ]);
+        } catch {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `router-status-${Date.now()}`,
+              role: 'system',
+              content: '❌ 无法获取路由状态（SmartRouter 未初始化或 CoreAPI 不可用）',
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+        return;
+      }
+
+      if (content === '/router on' || content === '/router off') {
+        const enable = content === '/router on';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content,
+            timestamp: Date.now(),
+          },
+        ]);
+        try {
+          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+          const { configManager } = await import('@modules/config/ConfigManager');
+          const core = getCoreAPI();
+          const router = core.getSmartRouter();
+          if (router) {
+            router.updateConfig({ enabled: enable } as any);
+            // 同时持久化到 config.json
+            const current = configManager.getConfigValue<Record<string, unknown>>('models.router') || {};
+            configManager.setConfigValue('models.router', { ...current, enabled: enable });
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `router-toggle-${Date.now()}`,
+                role: 'system',
+                content: `✅ SmartRouter 已${enable ? '启用' : '关闭'}（运行时即时生效，配置已持久化）`,
+                timestamp: Date.now(),
+              },
+            ]);
+          } else {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `router-toggle-${Date.now()}`,
+                role: 'system',
+                content: '❌ SmartRouter 未初始化，无法切换',
+                timestamp: Date.now(),
+              },
+            ]);
+          }
+        } catch {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `router-toggle-${Date.now()}`,
+              role: 'system',
+              content: '❌ 操作失败（CoreAPI 或 ConfigManager 不可用）',
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+        return;
+      }
+
+      if (content === '/router config') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content,
+            timestamp: Date.now(),
+          },
+        ]);
+        try {
+          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+          const core = getCoreAPI();
+          const router = core.getSmartRouter();
+          const routerConfig = router?.getConfig();
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `router-config-${Date.now()}`,
+              role: 'system',
+              content: routerConfig
+                ? [
+                    '=== SmartRouter 配置 ===',
+                    `  启用: ${routerConfig.enabled}`,
+                    `  默认等级: ${routerConfig.defaultTier}`,
+                    `  会话黏性: ${routerConfig.sessionSticky ?? true}`,
+                    '',
+                    'Tier 映射:',
+                    ...Object.entries(routerConfig.tiers || {}).map(
+                      ([tier, cfg]) => `  ${tier}: ${cfg?.model} (${cfg?.providerHint || 'auto'})`
+                    ),
+                    '',
+                    'Judge 配置:',
+                    routerConfig.judge
+                      ? `  Provider: ${routerConfig.judge.provider} | 模型: ${routerConfig.judge.model} | 超时: ${routerConfig.judge.timeoutMs}ms`
+                      : '  （使用 LocalAgent 本地判定）',
+                    '',
+                    '回退链:',
+                    (routerConfig.fallback?.length ?? 0) > 0
+                      ? routerConfig.fallback!.map((f, i) => `  ${i + 1}. ${f.provider}/${f.model}`).join('\n')
+                      : '  （无配置）',
+                    '',
+                    '零用量重试:',
+                    routerConfig.zeroUsageRetry?.enabled
+                      ? `  启用（最多 ${routerConfig.zeroUsageRetry.maxAttempts} 次）`
+                      : '  关闭',
+                    '瞬态重试:',
+                    routerConfig.transientRetry?.enabled
+                      ? `  启用（最多 ${routerConfig.transientRetry.maxAttempts} 次，延迟 ${routerConfig.transientRetry.baseDelayMs}~${routerConfig.transientRetry.maxDelayMs}ms）`
+                      : '  关闭',
+                  ].join('\n')
+                : '❌ SmartRouter 未初始化，无法读取配置',
+              timestamp: Date.now(),
+            },
+          ]);
+        } catch {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `router-config-${Date.now()}`,
+              role: 'system',
+              content: '❌ 无法读取路由配置',
+              timestamp: Date.now(),
+            },
+          ]);
+        }
         return;
       }
 
@@ -189,7 +394,31 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         while (!result.done) {
           if (controller.signal.aborted) break;
 
-          const chunk = result.value as string;
+          const chunkValue = result.value;
+
+          // 处理 ChatStreamChunk 对象（如 question 类型分块）
+          if (typeof chunkValue !== 'string') {
+            const chunk = chunkValue as ChatStreamChunk;
+
+            if (chunk.type === 'question' && chunk.questionData) {
+              // 收到需要用户交互的问题分块
+              currentQuestionRef.current = chunk.questionData;
+              setCurrentQuestion(chunk.questionData);
+              setStreamState('question');
+              setActiveToolCalls([]);
+
+              // 等待用户回答（streamMessage 内部 await 了 Promise，
+              // 此处 await stream.next() 会阻塞直到 resolveInteraction 被调用）
+              result = await stream.next();
+              continue;
+            }
+
+            // 其他非文本分块（如 tool_call, status 等）跳过
+            result = await stream.next();
+            continue;
+          }
+
+          const chunk = chunkValue as string;
           accumulated += chunk;
           tokenCount++;
           lastTokenTime = Date.now();
@@ -321,7 +550,9 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         clearInterval(pauseCheckInterval);
         setActiveToolCalls([]);
         setStreamingContent('');
-        if (streamState === 'streaming') {
+        currentQuestionRef.current = null;
+        setCurrentQuestion(null);
+        if (streamState === 'streaming' || streamState === 'question') {
           setStreamState('idle');
         }
       }
@@ -329,11 +560,50 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
     [chatManager, streamStats, exit, onExit]
   );
 
+  /**
+   * 处理用户在问题模式下的回答
+   * 当 LLM 调用 ask_user_question 工具后，用户输入答案并提交时调用
+   */
+  const handleQuestionAnswer = useCallback(
+    (answer: string) => {
+      const qData = currentQuestionRef.current;
+      if (!qData || !chatManager) return;
+
+      const trimmed = answer.trim();
+
+      // 解析用户输入：支持数字索引（如 "1"、"1,2,3"）或直接文本
+      let answers: string[];
+      const indices = trimmed
+        .split(/[,，\s]+/)
+        .map((s) => parseInt(s, 10))
+        .filter((n) => !isNaN(n));
+
+      if (indices.length > 0 && indices.every((i) => i >= 1 && i <= qData.options.length)) {
+        // 用户输入的是有效数字索引（1-indexed）
+        answers = indices.map((i) => qData.options[i - 1].label);
+      } else {
+        // 回退：将输入文本作为答案
+        answers = [trimmed];
+      }
+
+      logger.info('用户回答问题', { questionId: qData.questionId, answers });
+      const resolved = chatManager.resolveInteraction(qData.questionId, answers);
+
+      if (resolved) {
+        // 清除问题状态，恢复流式输出
+        currentQuestionRef.current = null;
+        setCurrentQuestion(null);
+        setStreamState('streaming');
+      }
+    },
+    [chatManager]
+  );
+
   const conversationHeight = Math.max(6, terminalHeight - 6);
 
   useEffect(() => {
     const handler = () => {
-      if (streamState === 'streaming') {
+      if (streamState === 'streaming' || streamState === 'question') {
         abortRef.current?.abort();
       }
     };
@@ -350,20 +620,47 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         <ConversationArea
           messages={messages}
           streamingContent={streamingContent}
-          isStreaming={streamState === 'streaming'}
+          isStreaming={streamState === 'streaming' || streamState === 'question'}
           streamState={streamState}
           activeToolCalls={activeToolCalls}
           height={conversationHeight}
         />
         <Box flexDirection="column">
+          {/* 问题展示 UI：当 LLM 调用 ask_user_question 时显示 */}
+          {currentQuestion && (
+            <Box
+              flexDirection="column"
+              paddingX={1}
+              paddingY={1}
+              borderStyle="round"
+              borderColor="yellow"
+            >
+              <Text bold color="yellow">
+                请选择:
+              </Text>
+              <Text>{currentQuestion.question}</Text>
+              {currentQuestion.options.map((opt, idx) => (
+                <Text key={opt.label} color="cyan">
+                  {idx + 1}. {opt.label}
+                  {opt.description ? ` — ${opt.description}` : ''}
+                </Text>
+              ))}
+              <Text color="gray">
+                输入数字（如 1）或逗号分隔多个数字（如 1,2）后按 Enter
+              </Text>
+            </Box>
+          )}
           <StatusBar
             streamStats={streamStats}
             streamState={streamState}
             submitCount={submitCount}
           />
           <InputArea
-            onSubmit={handleSubmit}
-            disabled={streamState === 'streaming' || streamState === 'paused'}
+            onSubmit={currentQuestion ? handleQuestionAnswer : handleSubmit}
+            disabled={
+              (streamState === 'streaming' || streamState === 'paused') &&
+              !currentQuestion
+            }
             onEscape={handleEscape}
           />
         </Box>

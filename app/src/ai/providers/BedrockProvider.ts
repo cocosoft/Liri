@@ -10,32 +10,27 @@ import type {
   ToolDefinition,
 } from '../models/types';
 import type {
-  AIProvider,
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { BedrockTransport } from '../transports/BedrockTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
 
-export class BedrockProvider implements AIProvider {
-  readonly id = 'bedrock';
-  readonly displayName = 'AWS Bedrock';
+export class BedrockProvider extends BaseAIProvider {
   private config: ProviderConfig;
   private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('bedrock');
-
+  constructor(
+    options: BaseProviderOptions,
+    extraConfig?: Record<string, unknown>
+  ) {
+    super(options);
     this.config = {
       region: 'us-east-1',
-      ...(providerCfg
-        ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey }
-        : {}),
-      ...config,
+      ...(extraConfig || {}),
     };
     this.adapter = new TransportProviderAdapter(new BedrockTransport());
   }
@@ -63,7 +58,7 @@ export class BedrockProvider implements AIProvider {
     );
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -80,7 +75,7 @@ export class BedrockProvider implements AIProvider {
     return { valid: errors.length === 0, errors, warnings };
   }
 
-  supportsThinking(model: string): boolean {
+  override supportsThinking(model: string): boolean {
     return model.includes('claude-sonnet') || model.includes('claude-opus');
   }
 

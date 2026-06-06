@@ -12,17 +12,16 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import {
-  type AIProvider,
-  type ProviderConfig,
-  type ProviderValidationResult,
+import type {
+  ProviderConfig,
+  ProviderValidationResult,
 } from './AIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -47,10 +46,7 @@ interface CachedToken {
   expiresAt: number;
 }
 
-export class VertexAIProvider implements AIProvider {
-  readonly id = 'vertex-ai';
-  readonly displayName = 'Google Vertex AI';
-
+export class VertexAIProvider extends BaseAIProvider {
   private projectId: string;
   private region: string;
   private defaultModel: string;
@@ -59,26 +55,25 @@ export class VertexAIProvider implements AIProvider {
   private serviceAccount: ServiceAccountKey | null = null;
   private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('vertex-ai');
+  constructor(
+    options: BaseProviderOptions,
+    extraConfig?: Record<string, unknown>
+  ) {
+    super(options);
+    const cfg = extraConfig || {};
 
-    this.projectId = (config.projectId ||
+    this.projectId = (cfg.projectId ||
       process.env.GOOGLE_PROJECT_ID ||
       '') as string;
     this.region =
-      (providerCfg?.baseUrl?.includes('region')
-        ? providerCfg.baseUrl.split('.')[0]
-        : '') ||
-      (config.region as string) ||
+      (cfg.region as string) ||
       process.env.GOOGLE_REGION ||
       DEFAULT_REGION;
-    this.defaultModel = (providerCfg?.models?.[0] ||
-      config.model ||
+    this.defaultModel = (cfg.model ||
       process.env.VERTEX_AI_MODEL ||
       '') as string;
     this.timeout =
-      (config.timeout as number) ||
+      (cfg.timeout as number) ||
       parseInt(process.env.VERTEX_AI_TIMEOUT || '120000', 10);
     this.adapter = new TransportProviderAdapter(new GeminiTransport());
   }
@@ -92,7 +87,7 @@ export class VertexAIProvider implements AIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = options?.model || this.defaultModel;
+    const model = options?.model || this.defaultModel || this.resolveModel('chat');
     const { systemPrompt } = this.adapter.splitMessages(messages);
     const token = await this.getAccessToken();
 
@@ -153,7 +148,7 @@ export class VertexAIProvider implements AIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || this.defaultModel;
+    const model = options?.model || this.defaultModel || this.resolveModel('chat');
     const { systemPrompt } = this.adapter.splitMessages(messages);
     const token = await this.getAccessToken();
 
@@ -283,7 +278,7 @@ export class VertexAIProvider implements AIProvider {
     }
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

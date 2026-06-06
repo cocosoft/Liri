@@ -29,6 +29,8 @@ import {
   QueryEngineIntegrationAdapter,
   createIntegrationAdapter,
 } from '../localAgent/QueryEngineIntegrationAdapter.js';
+import { SmartRouter } from '../router/SmartRouter.js';
+import type { RouteDecision } from '../router/types.js';
 
 export interface QueryEngineWrapperConfig {
   client: AIProvider;
@@ -44,6 +46,7 @@ export class QueryEngineWrapper implements IQueryEngineCore {
   private integrationAdapter: QueryEngineIntegrationAdapter;
   private localAgent: LocalAgent | null = null;
   private abortController: AbortController | null = null;
+  private smartRouter: SmartRouter | null = null;
 
   constructor(config: QueryEngineWrapperConfig) {
     this.client = config.client;
@@ -57,6 +60,27 @@ export class QueryEngineWrapper implements IQueryEngineCore {
 
   isLocalAgentEnabled(): boolean {
     return this.integrationAdapter.isEnabled();
+  }
+
+  /**
+   * 设置 SmartRouter 实例（启用智能路由决策）
+   */
+  setSmartRouter(router: SmartRouter): void {
+    this.smartRouter = router;
+  }
+
+  /**
+   * 移除 SmartRouter（回退到原有 LocalAgent 预分类或直通）
+   */
+  removeSmartRouter(): void {
+    this.smartRouter = null;
+  }
+
+  /**
+   * 获取 SmartRouter 实例（用于前端读取路由状态）
+   */
+  getSmartRouter(): SmartRouter | null {
+    return this.smartRouter;
   }
 
   async query(
@@ -75,22 +99,31 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     const params = this.buildQueryParams(messages, options);
 
     const input = this.extractUserInput(messages);
+    let modelOverride = '';
+
     if (input) {
-      const localAgentResult = await this.integrationAdapter.process(
-        input,
-        messages
-      );
-      if (!localAgentResult.shouldContinueToQueryEngine) {
-        yield {
-          type: 'content_block_delta',
-          data: { delta: localAgentResult.result?.response || '' },
-        };
-        yield { type: 'message_stop', data: undefined };
-        return;
+      // SmartRouter 决策（优先于 LocalAgent 预分类）
+      if (this.smartRouter?.isEnabled()) {
+        const decision = await this.smartRouter.decide(input);
+        modelOverride = decision.model;
+      } else {
+        const localAgentResult = await this.integrationAdapter.process(
+          input,
+          messages
+        );
+        if (!localAgentResult.shouldContinueToQueryEngine) {
+          yield {
+            type: 'content_block_delta',
+            data: { delta: localAgentResult.result?.response || '' },
+          };
+          yield { type: 'message_stop', data: undefined };
+          return;
+        }
       }
     }
 
     const { model, maxTurns } = params;
+    const effectiveModel = modelOverride || model || this.defaultModel;
     let currentMessages = [...messages];
     let currentTurn = 0;
     const maxIterations = maxTurns || 10;
@@ -106,7 +139,7 @@ export class QueryEngineWrapper implements IQueryEngineCore {
 
       try {
         const streamIterable = (this.client as any).stream?.(currentMessages, {
-          model: model || this.defaultModel,
+          model: effectiveModel,
           tools: options?.tools,
         });
 
@@ -175,6 +208,16 @@ export class QueryEngineWrapper implements IQueryEngineCore {
       return this.executeDirectQuery(params);
     }
 
+    // SmartRouter 决策管线（优先）
+    if (this.smartRouter?.isEnabled()) {
+      const decision = await this.smartRouter.decide(input);
+      return this.executeDirectQuery({
+        ...params,
+        model: decision.model || params.model,
+      });
+    }
+
+    // 原有 LocalAgent 预分类路径
     const localAgentResult = await this.integrationAdapter.process(
       input,
       messages

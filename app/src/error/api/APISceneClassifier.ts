@@ -10,7 +10,7 @@ import {
   APIConnectionError,
   APIConnectionTimeoutError,
   APIError,
-} from '@anthropic-ai/sdk/error.js';
+} from './ApiError';
 import { extractConnectionErrorDetails } from './errorUtils';
 
 /**

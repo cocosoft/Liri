@@ -1,4 +1,4 @@
-import type { FileEntry } from "../types";
+import type { FileEntry, WorkspaceInfo } from "../types";
 import { http } from "./httpClient";
 
 const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
@@ -40,6 +40,18 @@ function createFallbackFileService() {
     detect: async (filePath: string): Promise<FileDetectResult> => {
       return http.post<FileDetectResult>("/v1/files/detect", { filePath });
     },
+    listWorkspaces: async (): Promise<WorkspaceInfo[]> => {
+      return [];
+    },
+    sendToAI: async (_filePath: string): Promise<void> => {
+      throw new Error("Not implemented");
+    },
+    saveToKnowledge: async (_filePath: string): Promise<void> => {
+      throw new Error("Not implemented");
+    },
+    saveToMemory: async (_filePath: string): Promise<void> => {
+      throw new Error("Not implemented");
+    },
   };
 }
 
@@ -62,6 +74,25 @@ function createTauriFileService() {
     },
     detect: async (filePath: string): Promise<FileDetectResult> => {
       return http.post<FileDetectResult>("/v1/files/detect", { filePath });
+    },
+    listWorkspaces: async (): Promise<WorkspaceInfo[]> => {
+      try {
+        return await http.get<WorkspaceInfo[]>("/v1/workspaces");
+      } catch {
+        const core = await getTauriCore();
+        if (!core) return [];
+        const result = await core.invoke<WorkspaceInfo[]>("list_workspaces");
+        return result || [];
+      }
+    },
+    sendToAI: async (filePath: string): Promise<void> => {
+      await http.post("/v1/files/send-to-ai", { filePath });
+    },
+    saveToKnowledge: async (filePath: string): Promise<void> => {
+      await http.post("/v1/knowledge/ingest", { filePath });
+    },
+    saveToMemory: async (filePath: string): Promise<void> => {
+      await http.post("/v1/memory/create-from-file", { filePath });
     },
   };
 }

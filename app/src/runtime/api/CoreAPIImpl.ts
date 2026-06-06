@@ -58,6 +58,9 @@ import type { Coordinator } from '@modules/core/Coordinator';
 import { coordinator as defaultCoordinator } from '@modules/core/Coordinator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { modelRouter } from '@modules/ai/modelRouter';
+import { SmartRouter } from '@modules/ai/router/SmartRouter';
+import type { RouterConfig, RouteDecision } from '@modules/ai/router/types';
+import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
@@ -110,6 +113,12 @@ export class CoreAPIImpl implements CoreAPI {
   private fileTypeDetector: FileTypeDetector;
   private _modelName: string;
 
+  /** SmartRouter 智能路由实例（可选，未设置时使用 modelRouter.resolve 静态路由） */
+  private smartRouter: SmartRouter | null = null;
+
+  /** 最近一次路由决策缓存（用于前端 status bar 展示） */
+  private lastRouteDecision: RouteDecision | null = null;
+
   constructor(options?: {
     chatManager?: ChatManager;
     sessionManager?: SessionManager;
@@ -147,12 +156,67 @@ export class CoreAPIImpl implements CoreAPI {
     return this._modelName;
   }
 
+  /**
+   * 设置 SmartRouter 实例（启用智能路由决策）
+   */
+  setSmartRouter(router: SmartRouter): void {
+    this.smartRouter = router;
+    logger.info('SmartRouter 已接入 CoreAPIImpl');
+  }
+
+  /**
+   * 移除 SmartRouter（回退到静态路由）
+   */
+  removeSmartRouter(): void {
+    this.smartRouter = null;
+    this.lastRouteDecision = null;
+  }
+
+  /**
+   * 获取当前 SmartRouter 实例
+   */
+  getSmartRouter(): SmartRouter | null {
+    return this.smartRouter;
+  }
+
+  /**
+   * 获取最近一次路由决策（供前端展示）
+   */
+  getLastRouteDecision(): RouteDecision | null {
+    return this.lastRouteDecision;
+  }
+
+  /**
+   * 使用 SmartRouter 决策模型（若 SmartRouter 启用且可用）
+   * @returns 模型名；若 SmartRouter 未启用则返回从 modelRouter 解析的模型
+   */
+  private async resolveSmartModel(
+    content: string,
+    sessionId?: string
+  ): Promise<{ model: string; tier: string }> {
+    if (this.smartRouter?.isEnabled()) {
+      try {
+        const decision = await this.smartRouter.decide(content, sessionId);
+        this.lastRouteDecision = decision;
+        if (decision.model) {
+          return { model: decision.model, tier: decision.tier };
+        }
+      } catch (error) {
+        logger.warning('SmartRouter 决策失败，回退 modelRouter', { error });
+      }
+    }
+    return { model: modelRouter.resolve('chat'), tier: 'fallback' };
+  }
+
   async chat(request: ChatRequest): Promise<ChatResponse> {
     try {
-      const model = modelRouter.resolve('chat');
+      const { model, tier } = await this.resolveSmartModel(
+        request.content,
+        request.sessionId
+      );
       const message = await this.chatManager.sendMessage(request.content, {
         sessionId: request.sessionId,
-        metadata: request.metadata,
+        metadata: { ...request.metadata, routerTier: tier },
         stream: request.stream,
         model,
       });
@@ -209,12 +273,20 @@ export class CoreAPIImpl implements CoreAPI {
     try {
       const pendingEvents: ChatStreamChunk[] = [];
 
-      const model = modelRouter.resolve('chat');
+      const { model, tier } = await this.resolveSmartModel(
+        request.content,
+        request.sessionId
+      );
       // 同步更新模型名（用于成本记录）
       if (model) this._modelName = model;
+      // 将路由层级注入 metadata
+      const enrichedMetadata = {
+        ...(request.metadata || {}),
+        routerTier: tier,
+      };
       const generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
-        metadata: request.metadata,
+        metadata: enrichedMetadata,
         model,
         onUsage: (usage) => {
           capturedUsage = {

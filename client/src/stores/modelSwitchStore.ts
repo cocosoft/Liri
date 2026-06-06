@@ -10,6 +10,7 @@ import type { CurrentModelInfo, TaskModelConfig } from "../types";
 interface ModelSwitchState {
   currentModelId: string;
   currentProvider: string;
+  routerTier: string;
   costThisSession: number;
   availableTasks: CurrentModelInfo["availableTasks"];
   tasks: TaskModelConfig;
@@ -25,6 +26,7 @@ interface ModelSwitchState {
 export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
   currentModelId: "",
   currentProvider: "deepseek",
+  routerTier: "",
   costThisSession: 0,
   availableTasks: [],
   tasks: {},
@@ -38,6 +40,7 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
       set({
         currentModelId: info.modelId,
         currentProvider: info.provider,
+        routerTier: info.routerTier ?? "",
         costThisSession: info.costThisSession,
         availableTasks: info.availableTasks,
         isLoading: false,

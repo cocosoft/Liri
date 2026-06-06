@@ -11,6 +11,7 @@ const AVAILABLE_COMMANDS = [
   '/help',
   '/onboard',
   '/clear',
+  '/router',
   '/exit',
   '/quit',
   '/ink',

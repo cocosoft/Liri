@@ -7,49 +7,42 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import {
-  type AIProvider,
-  type ProviderConfig,
-  type ProviderValidationResult,
-} from './AIProvider';
+import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
+import {
+  BaseAIProvider,
+  type BaseProviderOptions,
+} from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
-const DEFAULT_MODEL = '';
 
-export class OllamaProvider implements AIProvider {
-  readonly id = 'ollama';
-  readonly displayName = 'Ollama (Local)';
+export class OllamaProvider extends BaseAIProvider {
   private baseUrl: string;
-  private defaultModel: string;
   private timeout: number;
   private cachedModels: string[] | null = null;
-  private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('ollama');
+  /**
+   * 初始化 Ollama Provider。
+   * Ollama 为本地服务，无需 API Key。
+   *
+   * @param options - 基础选项
+   * @param _extraConfig - 扩展配置
+   */
+  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+    super(options, _extraConfig);
 
-    this.baseUrl = (
-      providerCfg?.baseUrl ||
-      config.baseUrl ||
-      process.env.OLLAMA_BASE_URL ||
-      DEFAULT_BASE_URL
-    ).replace(/\/+$/, '');
-    this.defaultModel = (config.model ||
-      process.env.OLLAMA_DEFAULT_MODEL ||
-      DEFAULT_MODEL) as string;
-    this.timeout =
-      (config.timeout as number) ||
-      parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10);
-    this.adapter = new TransportProviderAdapter(new OllamaTransport());
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.timeout = parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10);
+
+    if (!this.transport) {
+      this.transport = new TransportProviderAdapter(new OllamaTransport());
+    }
   }
 
   async chat(
@@ -61,11 +54,11 @@ export class OllamaProvider implements AIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = options?.model || this.defaultModel;
+    const model = this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -92,7 +85,7 @@ export class OllamaProvider implements AIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
+      return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -113,11 +106,11 @@ export class OllamaProvider implements AIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || this.defaultModel;
+    const model = this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       maxTokens,
@@ -247,7 +240,7 @@ export class OllamaProvider implements AIProvider {
     promptEvalCount?: number;
     evalCount?: number;
   }> {
-    const model = options?.model || this.defaultModel;
+    const model = this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
@@ -299,7 +292,7 @@ export class OllamaProvider implements AIProvider {
     }
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

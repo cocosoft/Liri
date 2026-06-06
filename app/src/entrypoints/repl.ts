@@ -41,6 +41,7 @@ import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
 import { getConfig } from '../config/index.js';
+import { modelRouter } from '../ai/modelRouter.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
 import { isOfflineMode, isValidApiKey } from '../main.js';
@@ -110,10 +111,16 @@ export async function initializeChatManager(): Promise<ChatManager> {
     await import('../ai/providers/ProviderSyncService.js');
   await syncDBProvidersToRegistry();
 
-  // Step 2: 获取默认 Provider（deepseek），DB 同步优先级最高
-  let provider = providerRegistry.getByType('deepseek');
+  // Step 2: 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
+  const currentModel = modelRouter.resolve('chat');
+  let provider = currentModel ? providerRegistry.getByModel(currentModel) : undefined;
 
-  // Step 3: DB 中无 deepseek 时，从环境变量回退创建
+  // Step 3: 模型未匹配时回退到 deepseek 类型
+  if (!provider) {
+    provider = providerRegistry.getByType('deepseek');
+  }
+
+  // Step 4: DB 中无 deepseek 时，从环境变量回退创建
   if (!provider) {
     const config = getConfig();
     const apiKey =
@@ -125,7 +132,7 @@ export async function initializeChatManager(): Promise<ChatManager> {
     provider = providerRegistry.getOrCreate('deepseek', {
       apiKey,
       baseUrl: process.env.DEEPSEEK_BASE_URL,
-      model: process.env.DEEPSEEK_MODEL,
+      model: currentModel || process.env.DEEPSEEK_MODEL,
     });
 
     // 确保 Provider 使用最新密钥（getOrCreate 可能返回已存在的 stale 实例）
@@ -383,11 +390,15 @@ export async function launchRepl(
     const { ensureGlobalCronSchedulerStarted } =
       await import('../tasks/cron/GlobalCronScheduler');
     const { createCronExecutor } = await import('../tasks/cron/CronExecutor');
-    const provider = providerRegistry.getOrCreate('deepseek', {
-      apiKey: process.env.DEEPSEEK_API_KEY || '',
-      baseUrl: process.env.DEEPSEEK_BASE_URL,
-      model: process.env.DEEPSEEK_MODEL,
-    });
+    const cronModel = modelRouter.resolve('scheduled') || modelRouter.getCurrentModel();
+    let provider = cronModel ? providerRegistry.getByModel(cronModel) : undefined;
+    if (!provider) {
+      provider = providerRegistry.getOrCreate('deepseek', {
+        apiKey: process.env.DEEPSEEK_API_KEY || '',
+        baseUrl: process.env.DEEPSEEK_BASE_URL,
+        model: process.env.DEEPSEEK_MODEL,
+      });
+    }
     const realExecutor = createCronExecutor(provider);
     await ensureGlobalCronSchedulerStarted({ executeJob: realExecutor });
     ui.showInfo('Cron 调度器已启动 (AI 执行引擎就绪)');
@@ -536,6 +547,19 @@ export async function launchRepl(
     }
 
     try {
+      if (trimmedLine.startsWith('.model ')) {
+        // 运行时切换模型
+        const modelName = trimmedLine.slice(7).trim();
+        if (!modelName) {
+          ui.showInfo(`当前模型: ${modelRouter.getCurrentModel() || '(未设置)'}`);
+        } else {
+          modelRouter.setCurrentModel(modelName);
+          ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);
+        }
+        rl.prompt();
+        return;
+      }
+
       if (trimmedLine.startsWith('/')) {
         const parts = trimmedLine.slice(1).split(' ');
         const commandName = parts[0];

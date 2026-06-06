@@ -1,28 +1,40 @@
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
+import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, BuddyIcon, ThemeIcon, SettingsIcon, LogIcon } from "../../assets/icons";
 
 interface MenuItem {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
   path?: string;
   action?: () => void;
 }
 
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
-  { id: "home", label: "首页", icon: "🏠", path: "/" },
-  { id: "chat", label: "聊天", icon: "💬", path: "/chat" },
-  { id: "tasks", label: "任务", icon: "🎯", path: "/tasks" },
-  { id: "coding", label: "开发", icon: "⌨️", path: "/dev" },
-  { id: "cron", label: "定时", icon: "⏰", path: "/cron" },
-  { id: "knowledge", label: "知识库", icon: "📚", path: "/knowledge" },
+  { id: "home", label: "首页", icon: HomeIcon, path: "/" },
+  { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
+  { id: "tasks", label: "任务", icon: TaskIcon, path: "/tasks" },
+  { id: "coding", label: "开发", icon: DevIcon, path: "/dev/terminal" },
+  { id: "cron", label: "定时", icon: CronIcon, path: "/cron" },
+  { id: "knowledge", label: "知识库", icon: KnowledgeIcon, path: "/knowledge" },
+];
+
+/** 管理折叠：模型/技能/MCP/频道/文件 */
+const MANAGEMENT_ITEMS: MenuItem[] = [
+  { id: "models", label: "模型", icon: ModelIcon, path: "/models" },
+  { id: "skills", label: "技能", icon: SkillIcon, path: "/skills" },
+  { id: "files", label: "文件", icon: FileIcon, path: "/files" },
+  { id: "mcp", label: "MCP", icon: McpIcon, path: "/market/mcp" },
+  { id: "channels", label: "频道", icon: ChannelIcon, path: "/channels" },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
-  { id: "buddy", label: "伙伴", icon: "🤝", path: "/buddy" },
-  { id: "theme", label: "主题", icon: "🌙" },
-  { id: "settings", label: "设置", icon: "⚙️", path: "/settings" },
+  { id: "buddy", label: "伙伴", icon: BuddyIcon, path: "/buddy" },
+  { id: "logs", label: "日志", icon: LogIcon, path: "/logs" },
+  { id: "theme", label: "主题", icon: ThemeIcon },
+  { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
 ];
 
 function MenuButton({ item, isActive, onNavigate }: {
@@ -63,15 +75,15 @@ function MenuButton({ item, isActive, onNavigate }: {
         }`}
         title={isDark ? "切换到浅色模式" : "切换到深色模式"}
       >
-        <span className="text-xl leading-none h-6 flex items-center justify-center">
-          {isDark ? "☀️" : "🌙"}
-        </span>
+        <ThemeIcon size={20} />
         <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
           {isDark ? "浅色" : "深色"}
         </span>
       </button>
     );
   }
+
+  const IconComponent = item.icon;
 
   return (
     <button
@@ -83,9 +95,7 @@ function MenuButton({ item, isActive, onNavigate }: {
       }`}
       title={item.label}
     >
-      <span className="text-xl leading-none h-6 flex items-center justify-center">
-        {item.icon}
-      </span>
+      <IconComponent size={20} />
       <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
         {item.label}
       </span>
@@ -96,17 +106,22 @@ function MenuButton({ item, isActive, onNavigate }: {
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const activeRoute = location.pathname.replace("/", "") || "home";
+  const [showManagement, setShowManagement] = useState(false);
 
   const isActive = (path: string) => {
     const normalizedPath = path.replace("/", "") || "home";
     return (
       activeRoute === normalizedPath ||
-      activeRoute.startsWith(normalizedPath + "/")
+      activeRoute.startsWith(normalizedPath + "/") ||
+      // 开发工具子路由
+      (normalizedPath.startsWith("dev/") &&
+       activeRoute.startsWith("dev/"))
     );
   };
 
   return (
     <aside className="w-20 bg-gray-100 dark:bg-gray-900 flex flex-col h-full">
+      {/* 高频导航 */}
       <div className="flex-1 overflow-y-auto p-1">
         <div className="space-y-0.5">
           {HIGH_FREQUENCY_ITEMS.map((item) => (
@@ -120,6 +135,39 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
+      {/* 管理折叠按钮 */}
+      <div className="p-1 border-t border-gray-300 dark:border-gray-700">
+        <button
+          onClick={() => setShowManagement(!showManagement)}
+          className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
+            showManagement || MANAGEMENT_ITEMS.some((m) => isActive(m.path || ""))
+              ? "bg-blue-600 text-white"
+              : "text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700"
+          }`}
+          title="管理"
+        >
+          <SettingsIcon size={20} />
+          <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
+            管理
+          </span>
+        </button>
+
+        {/* 展开的管理项 */}
+        {showManagement && (
+          <div className="mt-0.5 space-y-0.5">
+            {MANAGEMENT_ITEMS.map((item) => (
+              <MenuButton
+                key={item.id}
+                item={item}
+                isActive={isActive(item.path || "")}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 系统导航 */}
       <div className="p-1 border-t border-gray-300 dark:border-gray-700">
         <div className="space-y-0.5">
           {SYSTEM_ITEMS.map((item) => (
@@ -143,17 +191,18 @@ function MobileBottomNav() {
   const activeRoute = location.pathname.replace("/", "") || "home";
 
   const items: MenuItem[] = [
-    { id: "home", label: "首页", icon: "🏠", path: "/" },
-    { id: "chat", label: "聊天", icon: "💬", path: "/chat" },
-    { id: "tasks", label: "任务", icon: "🎯", path: "/tasks" },
-    { id: "cron", label: "定时", icon: "⏰", path: "/cron" },
-    { id: "settings", label: "设置", icon: "⚙️", path: "/settings" },
+    { id: "home", label: "首页", icon: HomeIcon, path: "/" },
+    { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
+    { id: "tasks", label: "任务", icon: TaskIcon, path: "/tasks" },
+    { id: "cron", label: "定时", icon: CronIcon, path: "/cron" },
+    { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
   ];
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-around py-1 z-50 safe-area-bottom">
       {items.map((item) => {
         const isActive = activeRoute === (item.path?.replace("/", "") || "home");
+        const IconComponent = item.icon;
         return (
           <button
             key={item.id}
@@ -162,8 +211,8 @@ function MobileBottomNav() {
               isActive ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
-            <span className="text-xs">{item.label}</span>
+            <IconComponent size={18} />
+            <span className="text-xs mt-0.5">{item.label}</span>
           </button>
         );
       })}

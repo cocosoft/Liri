@@ -60,7 +60,7 @@ export {
 export type { LoggerConfig } from './logs/Logger.js';
 
 export { StructuredLogger } from './logs/StructuredLogger.js';
-export type { StructuredLogEntry } from './logs/StructuredLogger.js';
+export type { StructuredLogEntry } from './logs/LogMemory.js';
 
 export { logConfigManager, LogConfigManager } from './logs/config/LogConfig.js';
 export type { LogTarget, LogConfiguration } from './logs/config/LogConfig.js';
@@ -265,3 +265,7 @@ export type {
   ArchivalMaintenanceResult,
   ArchivalSchedulerConfig,
 } from './archival/index.js';
+
+// LLM 跟踪模块
+export { LLMTracker } from './llm/LLMTracker.js';
+export type { LLMCallRecord, SessionLLMStats, SessionSummary, SessionDetail } from './llm/LLMTracker.js';

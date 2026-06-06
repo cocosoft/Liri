@@ -22,6 +22,7 @@ import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
 import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
+import { modelRouter } from '@modules/ai/modelRouter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -95,15 +96,20 @@ export class ChatCommand {
           providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
       }
     } else if (!this.llmClient) {
-      const config = getConfig();
-      const apiKey =
-        config['ai.deepseek.apiKey'] ||
-        config.ai?.deepseek?.apiKey ||
-        process.env.DEEPSEEK_API_KEY ||
-        '';
-      this.llmClient = providerRegistry.getOrCreate('deepseek', {
-        apiKey,
-      }) as unknown as ToolAwareClient;
+      const chatModel = modelRouter.resolve('chat');
+      let provider = chatModel ? providerRegistry.getByModel(chatModel) : undefined;
+
+      if (!provider) {
+        const config = getConfig();
+        const apiKey =
+          config['ai.deepseek.apiKey'] ||
+          config.ai?.deepseek?.apiKey ||
+          process.env.DEEPSEEK_API_KEY ||
+          '';
+        provider = providerRegistry.getOrCreate('deepseek', { apiKey });
+      }
+
+      this.llmClient = provider as unknown as ToolAwareClient;
     }
 
     if (!this.toolRegistry || !this.toolExecutor) {

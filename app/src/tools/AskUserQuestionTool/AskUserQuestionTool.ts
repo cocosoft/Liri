@@ -96,17 +96,37 @@ export class AskUserQuestionTool extends BaseTool {
     return true;
   }
 
+  /**
+   * 标记此工具需要用户交互
+   * ChatManager.streamMessage() 检测到此标记后，
+   * 会 yield question 分块到 UI 层并等待用户输入
+   */
+  override requiresUserInteraction(): boolean {
+    return true;
+  }
+
   override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
-    const result = askUserQuestion({
+    // 优先使用 ChatManager 注入的用户真实答案（来自 UI 层的选择）
+    const userAnswers = (input._userAnswers as string[]) ||
+      // 回退：使用选项标签作为默认答案（保持向后兼容）
+      (input.options as { label: string }[])?.map((o) => o.label) || [];
+
+    const result: AskUserQuestionResult = {
+      questionId: `q_${Date.now()}`,
       question: input.question as string,
-      header: input.header as string,
-      options: input.options as { label: string; description: string }[],
-      multiSelect: input.multiSelect as boolean | undefined,
-    });
+      answers: userAnswers,
+      timestamp: Date.now(),
+    };
+
+    // 记录到历史（仅当有真实答案时）
+    if (userAnswers.length > 0) {
+      questions.push(result);
+    }
+
     return createToolResult(JSON.stringify(result, null, 2));
   }
 }

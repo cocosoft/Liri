@@ -4,7 +4,7 @@
  */
 
 import type { ChatMessage } from '../models/types.js';
-import type { AIProvider, ProviderConfig } from '../providers/AIProvider.js';
+import type { AIProvider } from '../providers/AIProvider.js';
 import { OllamaProvider } from '@modules/ai/providers/OllamaProvider';
 import type {
   Intent,
@@ -65,10 +65,11 @@ export class LocalAgent {
       this.config.routing.fallbackToCloud
     );
     this.ollamaProvider = new OllamaProvider({
-      baseUrl: this.config.ollama?.baseUrl,
-      model: this.config.ollama?.defaultModel,
-      timeout: this.config.ollama?.timeout,
-    } as ProviderConfig);
+      providerId: 'ollama',
+      displayName: 'Ollama (Local)',
+      defaultBaseUrl: this.config.ollama?.baseUrl || 'http://localhost:11434',
+      defaultModel: this.config.ollama?.defaultModel || '',
+    });
     this.commandExecutor = new LocalCommandExecutor();
     this.simpleQAEngine = new SimpleQAEngine();
     this.simpleQAEngine.registerHandlers([
@@ -508,6 +509,38 @@ export class LocalAgent {
 
   async isOllamaAvailable(): Promise<boolean> {
     return this.ollamaProvider.isAvailable();
+  }
+
+  /**
+   * 为 SmartRouter JudgeService 做四级分类
+   * 调本地 Ollama 模型极简分类，返回 tier 标签。
+   */
+  async classifyForJudge(
+    message: string
+  ): Promise<'simple' | 'medium' | 'complex' | 'reasoning'> {
+    if (!(await this.isOllamaAvailable())) {
+      throw new Error('Ollama 不可用，无法本地分类');
+    }
+
+    const prompt = `Classify this message into one of: simple, medium, complex, reasoning. Reply with ONLY the single word.
+Message: ${message}`;
+
+    const result = await this.ollamaProvider.generate(prompt, {
+      model: this.config.ollama?.defaultModel || undefined,
+      temperature: 0.1,
+      maxTokens: 10,
+    });
+
+    const tier = result.response.trim().toLowerCase();
+
+    if (['simple', 'medium', 'complex', 'reasoning'].includes(tier)) {
+      return tier as 'simple' | 'medium' | 'complex' | 'reasoning';
+    }
+
+    // 关键词兜底
+    if (tier.includes('simple')) return 'simple';
+    if (tier.includes('complex') || tier.includes('reason')) return 'reasoning';
+    return 'medium';
   }
 
   getRuleEngine(): IRuleEngine {

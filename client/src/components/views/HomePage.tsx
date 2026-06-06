@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBackendStore } from "../../stores/backendStore";
+import { ChatIcon, KnowledgeIcon, GaugeIcon, DashboardIcon, TaskIcon, CronIcon, FileIcon, DevIcon, SettingsIcon } from "../../assets/icons";
+import type { BaseIconProps } from "../../assets/icons";
 
 interface NavCardProps {
-  icon: string;
+  icon: React.ComponentType<BaseIconProps>;
   title: string;
   description: string;
   path: string;
 }
 
-function NavCard({ icon, title, description, path }: NavCardProps) {
+function NavCard({ icon: IconComponent, title, description, path }: NavCardProps) {
   const navigate = useNavigate();
 
   return (
@@ -17,7 +19,9 @@ function NavCard({ icon, title, description, path }: NavCardProps) {
       onClick={() => navigate(path)}
       className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all hover:-translate-y-1 text-center"
     >
-      <div className="text-4xl mb-4 flex justify-center">{icon}</div>
+      <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+        <IconComponent size={28} className="text-blue-600 dark:text-blue-400" />
+      </div>
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
         {title}
       </h3>
@@ -34,11 +38,6 @@ function HomePage() {
   const getStatusColor = () => {
     if (status.running) return "text-green-600 dark:text-green-400";
     return "text-red-600 dark:text-red-400";
-  };
-
-  const getStatusIcon = () => {
-    if (status.running) return "🟢";
-    return "🔴";
   };
 
   const handleStart = async () => {
@@ -70,7 +69,7 @@ function HomePage() {
         <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{getStatusIcon()}</span>
+              <div className={`w-3 h-3 rounded-full ${status.running ? "bg-green-500" : "bg-red-500"}`} />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Backend 服务
@@ -120,61 +119,61 @@ function HomePage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <NavCard
-            icon="💬"
+            icon={ChatIcon}
             title="聊天"
             description="与 AI 助手对话，处理各种任务"
             path="/chat"
           />
           <NavCard
-            icon="📚"
+            icon={KnowledgeIcon}
             title="知识库"
             description="管理文档，进行知识检索"
             path="/knowledge"
           />
           <NavCard
-            icon="💰"
+            icon={GaugeIcon}
             title="成本"
             description="查看 API 调用消费记录"
             path="/cost"
           />
           <NavCard
-            icon="📊"
+            icon={DashboardIcon}
             title="仪表盘"
             description="系统概览和统计数据"
             path="/dashboard"
           />
           <NavCard
-            icon="🎯"
+            icon={TaskIcon}
             title="任务"
             description="Agent 任务管理，AI 多步推理执行"
             path="/tasks"
           />
           <NavCard
-            icon="⏰"
+            icon={CronIcon}
             title="定时任务"
             description="Cron 定时调度，自动化执行"
             path="/cron"
           />
           <NavCard
-            icon="📁"
+            icon={FileIcon}
             title="文件"
             description="管理和操作文件系统"
             path="/files"
           />
           <NavCard
-            icon="💻"
+            icon={DevIcon}
             title="终端"
             description="访问命令行终端"
             path="/terminal"
           />
           <NavCard
-            icon="📈"
+            icon={GaugeIcon}
             title="监控"
             description="实时监控系统状态"
             path="/monitor"
           />
           <NavCard
-            icon="⚙️"
+            icon={SettingsIcon}
             title="设置"
             description="系统配置和管理功能"
             path="/settings"

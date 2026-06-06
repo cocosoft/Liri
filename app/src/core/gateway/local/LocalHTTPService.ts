@@ -19,6 +19,9 @@ import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
 import { getMonitoringService } from '@modules/monitoring/MonitoringService';
 import { analyticsService } from '@modules/analytics/AnalyticsService';
 import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitorService';
+import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
+import { SandboxPermission } from '@modules/sandbox/types/SandboxTypes';
+import { resolveOutputDir, resolveDownloadsDir, resolveAttachmentsDir, resolvePyappHome } from '@modules/core/paths';
 import type {
   ChatRequest,
   ChatStreamChunk,
@@ -864,6 +867,9 @@ export class LocalHTTPService {
     if (req.method === 'POST' && url === '/v1/memory/search') {
       return this.handleSearchMemories(req, res);
     }
+    if (req.method === 'POST' && url === '/v1/memory/create-from-file') {
+      return this.handleCreateMemoryFromFile(req, res);
+    }
 
     // ---- Semantic Index ----
     if (req.method === 'POST' && url === '/v1/semantic/index') {
@@ -888,6 +894,14 @@ export class LocalHTTPService {
     }
     if (req.method === 'POST' && url === '/v1/files/detect') {
       return this.handleDetectFileType(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/files/send-to-ai') {
+      return this.handleSendFileToAI(req, res);
+    }
+
+    // ---- Workspaces ----
+    if (req.method === 'GET' && url === '/v1/workspaces') {
+      return this.handleListWorkspaces(req, res);
     }
 
     // ---- Knowledge ----
@@ -942,6 +956,9 @@ export class LocalHTTPService {
       return this.handleExportToNotebook(req, res);
     }
     if (req.method === 'POST' && url === '/v1/knowledge/import-from-file') {
+      return this.handleImportFromFile(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/knowledge/ingest') {
       return this.handleImportFromFile(req, res);
     }
     if (req.method === 'POST' && url === '/v1/knowledge/batch-delete') {
@@ -1094,6 +1111,14 @@ export class LocalHTTPService {
       );
     }
 
+    // ---- Router（智能路由）----
+    if (req.method === 'GET' && url === '/v1/router/config') {
+      return this.handleRouterGetConfig(req, res);
+    }
+    if (req.method === 'PUT' && url === '/v1/router/config') {
+      return this.handleRouterUpdateConfig(req, res);
+    }
+
     // ---- Settings ----
     if (req.method === 'GET' && url === '/v1/settings/data-directory') {
       return this.handleGetDataDirectory(req, res);
@@ -1236,6 +1261,22 @@ export class LocalHTTPService {
     }
     if (req.method === 'GET' && url.startsWith('/v1/monitor/logs')) {
       return this.handleMonitorLogs(req, res);
+    }
+    if (req.method === 'POST' && url === '/v1/monitor/logs/export') {
+      return this.handleExportLogs(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/monitor/sessions') {
+      return this.handleMonitorSessions(req, res);
+    }
+    if (req.method === 'GET' && url.match(/^\/v1\/monitor\/sessions\/(.+)$/)) {
+      return this.handleMonitorSessionDetail(
+        req,
+        res,
+        url.match(/^\/v1\/monitor\/sessions\/(.+)$/)![1]
+      );
+    }
+    if (req.method === 'GET' && url === '/v1/monitor/cost') {
+      return this.handleMonitorCost(req, res);
     }
     if (req.method === 'GET' && url === '/v1/health/report') {
       return this.handleHealthReport(req, res);
@@ -1714,7 +1755,7 @@ export class LocalHTTPService {
   }
 
   /**
-   * 处理日志查询请求 GET /v1/monitor/logs?level=...&search=...&limit=20&offset=0
+   * 处理日志查询请求 GET /v1/monitor/logs?level=...&search=...&source=...&limit=20&offset=0
    */
   private async handleMonitorLogs(
     req: http.IncomingMessage,
@@ -1724,6 +1765,7 @@ export class LocalHTTPService {
       const urlObj = new URL(req.url!, `http://${req.headers.host}`);
       const level = urlObj.searchParams.get('level');
       const search = urlObj.searchParams.get('search');
+      const source = urlObj.searchParams.get('source');
       const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
       const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
 
@@ -1740,6 +1782,10 @@ export class LocalHTTPService {
       });
 
       let filtered = entries;
+
+      if (source && source !== 'all') {
+        filtered = filtered.filter((e) => e.source === source);
+      }
 
       if (search) {
         const lowerSearch = search.toLowerCase();
@@ -1764,7 +1810,8 @@ export class LocalHTTPService {
           entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
         message: entry.message,
         timestamp: new Date(entry.timestamp).getTime(),
-        source: entry.module,
+        source: entry.source,
+        module: entry.module,
         details: entry.data
           ? JSON.stringify(entry.data)
           : entry.error
@@ -1777,6 +1824,192 @@ export class LocalHTTPService {
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ logs: [], total: 0 }));
+    }
+  }
+
+  /**
+   * 处理日志导出请求 POST /v1/monitor/logs/export
+   * 支持导出为 JSON 或 CSV 格式
+   */
+  private async handleExportLogs(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      let body = '';
+      await new Promise((resolve) => {
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', resolve);
+      });
+
+      const params = JSON.parse(body) || {};
+      const format = params.format || 'json';
+      const level = params.level;
+      const source = params.source;
+      const search = params.search;
+
+      const levelMap: Record<string, LogLevel> = {
+        debug: LogLevel.DEBUG,
+        info: LogLevel.INFO,
+        warn: LogLevel.WARN,
+        error: LogLevel.ERROR,
+      };
+
+      const entries = StructuredLogger.queryLogs({
+        level: level && levelMap[level] ? levelMap[level] : undefined,
+        limit: 10000,
+      });
+
+      let filtered = entries;
+
+      if (source && source !== 'all') {
+        filtered = filtered.filter((e) => e.source === source);
+      }
+
+      if (search) {
+        const lowerSearch = search.toLowerCase();
+        filtered = filtered.filter((e) => {
+          const inMessage =
+            e.message && e.message.toLowerCase().includes(lowerSearch);
+          const inData = e.data
+            ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch)
+            : false;
+          const inModule =
+            e.module && e.module.toLowerCase().includes(lowerSearch);
+          return inMessage || inData || inModule;
+        });
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `logs-${timestamp}`;
+
+      if (format === 'csv') {
+        const csvHeader = 'timestamp,level,module,source,message,data\n';
+        const csvRows = filtered.map((entry) => {
+          const dataStr = entry.data ? JSON.stringify(entry.data).replace(/"/g, '""') : '';
+          return [
+            `"${entry.timestamp}"`,
+            `"${entry.level}"`,
+            `"${entry.module || ''}"`,
+            `"${entry.source || ''}"`,
+            `"${entry.message.replace(/"/g, '""')}"`,
+            `"${dataStr}"`,
+          ].join(',');
+        });
+
+        const csvContent = csvHeader + csvRows.join('\n');
+
+        res.writeHead(200, {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}.csv"`,
+        });
+        res.end(csvContent);
+      } else {
+        const exportData = {
+          exportTime: new Date().toISOString(),
+          total: filtered.length,
+          filters: { level, source, search },
+          logs: filtered.map((entry) => ({
+            timestamp: entry.timestamp,
+            level: entry.level,
+            module: entry.module,
+            source: entry.source,
+            message: entry.message,
+            data: entry.data,
+            traceId: entry.traceId,
+            error: entry.error,
+          })),
+        };
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}.json"`,
+        });
+        res.end(JSON.stringify(exportData, null, 2));
+      }
+    } catch (error) {
+      logger.error('导出日志失败', { error: String(error) });
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '导出日志失败' }));
+    }
+  }
+
+  /**
+   * 处理 LLM 会话列表请求 GET /v1/monitor/sessions
+   */
+  private async handleMonitorSessions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+      const llmTracker = getLLMTracker();
+      
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const limit = parseInt(urlObj.searchParams.get('limit') || '20', 10);
+      const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
+
+      const sessions = llmTracker.getAllSessions();
+      const total = sessions.length;
+      const paginated = sessions.slice(offset, offset + limit);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ sessions: paginated, total }));
+    } catch (error) {
+      logger.error('获取会话列表失败', { error: String(error) });
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '获取会话列表失败' }));
+    }
+  }
+
+  /**
+   * 处理 LLM 会话详情请求 GET /v1/monitor/sessions/{sessionId}
+   */
+  private async handleMonitorSessionDetail(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+      const llmTracker = getLLMTracker();
+
+      const sessionDetail = llmTracker.getSessionDetail(sessionId);
+
+      if (!sessionDetail) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: '会话不存在' }));
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(sessionDetail));
+    } catch (error) {
+      logger.error('获取会话详情失败', { error: String(error) });
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '获取会话详情失败' }));
+    }
+  }
+
+  /**
+   * 处理成本统计请求 GET /v1/monitor/cost
+   */
+  private async handleMonitorCost(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+      const llmTracker = getLLMTracker();
+
+      const globalSummary = llmTracker.getGlobalSummary();
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(globalSummary));
+    } catch (error) {
+      logger.error('获取成本统计失败', { error: String(error) });
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '获取成本统计失败' }));
     }
   }
 
@@ -2521,12 +2754,18 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { modelRouter } = await import('@modules/ai/modelRouter');
+      const { providerRegistry } =
+        await import('@modules/ai/providers/ProviderRegistry');
+      const { getLastActiveTier } = await import('@modules/ai/router/SmartRouter');
       const modelId = modelRouter.getCurrentModel();
+      const provider = providerRegistry.getByModel(modelId);
+      const routerTier = getLastActiveTier();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           modelId,
-          provider: 'deepseek',
+          provider: provider?.id || modelId,
+          routerTier,
           taskType: 'chat',
           costThisSession: 0,
           availableTasks: [
@@ -3445,6 +3684,89 @@ export class LocalHTTPService {
       const result = await coreAPI.detectFileType(filePath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理发送文件给AI分析请求
+   * POST /v1/files/send-to-ai
+   * 读取文件内容，将其作为用户消息发送给AI
+   */
+  private async handleSendFileToAI(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { filePath } = JSON.parse(body);
+
+      if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
+        return;
+      }
+
+      // 沙箱权限检查
+      if (!this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+        return;
+      }
+
+      const { readFile } = await import('node:fs/promises');
+      const { existsSync } = await import('node:fs');
+      const { basename } = await import('node:path');
+
+      if (!existsSync(filePath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'File not found' } }));
+        return;
+      }
+
+      const content = await readFile(filePath, 'utf-8');
+      const fileName = basename(filePath);
+
+      // 将文件内容作为消息发送给AI
+      const chatManager = createChatManager();
+
+      const message = `请分析以下文件内容（文件名: ${fileName}）:\n\n${content}`;
+      await chatManager.sendMessage(message);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, fileName, size: content.length }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== Workspaces Handlers ==========
+
+  /**
+   * 处理列出工作空间请求
+   * GET /v1/workspaces
+   */
+  private async handleListWorkspaces(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { buildEntries } = await import(
+        '@modules/commands/builtin/workspace/WorkspaceStorage'
+      );
+      const entries = await buildEntries();
+
+      const workspaces = entries.map((entry) => ({
+        id: entry.meta.id,
+        name: entry.name,
+        description: entry.meta.description,
+        createdAt: new Date(entry.meta.createdAt).getTime(),
+        updatedAt: new Date(entry.meta.updatedAt).getTime(),
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(workspaces));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -4706,6 +5028,13 @@ export class LocalHTTPService {
         return;
       }
 
+      // 沙箱权限检查
+      if (!this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+        return;
+      }
+
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
       const { readFile, writeFile, mkdir } = await import('node:fs/promises');
@@ -5814,6 +6143,68 @@ export class LocalHTTPService {
     }
   }
 
+  // ========== Router（智能路由）==========
+
+  /**
+   * 获取 SmartRouter 当前配置与最近一次路由决策
+   */
+  private async handleRouterGetConfig(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      const core = getCoreAPI();
+      const router = core.getSmartRouter();
+
+      const config = router?.getConfig() || null;
+      const lastDecision = core.getLastRouteDecision();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        data: {
+          enabled: config?.enabled ?? false,
+          config,
+          lastDecision,
+          active: router !== null,
+        },
+      }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 更新 SmartRouter 配置（运行时动态切换）
+   */
+  private async handleRouterUpdateConfig(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { config } = JSON.parse(body);
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      const core = getCoreAPI();
+      const router = core.getSmartRouter();
+
+      if (!router) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'SmartRouter 未初始化' }));
+        return;
+      }
+
+      router.updateConfig(config);
+      this.broadcastEvent('router:updated', { config });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
   private clients = new Set<http.ServerResponse>();
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -5876,6 +6267,53 @@ export class LocalHTTPService {
     logger.error('API 错误', { error: message });
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: { message, type: 'api_error' } }));
+  }
+
+  /**
+   * 检查文件路径是否在允许的白名单范围内
+   * 验证文件操作是否符合沙箱安全规则
+   * @param filePath 要检查的文件路径
+   * @param permission 需要的权限类型
+   * @returns 是否允许操作
+   */
+  private checkFilePathPermission(
+    filePath: string,
+    permission: SandboxPermission
+  ): boolean {
+    // 定义允许的目录白名单
+    const allowedDirs = [
+      resolveOutputDir(),
+      resolveDownloadsDir(),
+      resolveAttachmentsDir(),
+      resolvePyappHome(),
+    ];
+
+    // 检查路径是否在白名单范围内
+    const normalizedPath = path.resolve(filePath);
+    const isAllowed = allowedDirs.some((dir) => {
+      const normalizedDir = path.resolve(dir);
+      return normalizedPath.startsWith(normalizedDir);
+    });
+
+    if (!isAllowed) {
+      logger.warn(`文件路径不在白名单范围内: ${filePath}`, {
+        module: 'LocalHTTPService',
+        context: { permission, allowedDirs },
+      });
+      return false;
+    }
+
+    // 检查工作空间权限（如果存在活动工作空间）
+    const activeWorkspace = globalWorkspaceManager.get('default');
+    if (activeWorkspace && !activeWorkspace.hasPermission(permission)) {
+      logger.warn(`工作空间缺少必要权限: ${permission}`, {
+        module: 'LocalHTTPService',
+        context: { workspaceId: 'default' },
+      });
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -8694,6 +9132,67 @@ export class LocalHTTPService {
 
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memory }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理从文件创建记忆请求
+   * POST /v1/memory/create-from-file
+   * 读取文件内容，将其存入记忆系统
+   */
+  private async handleCreateMemoryFromFile(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { filePath, name, tags } = JSON.parse(body);
+
+      if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
+        return;
+      }
+
+      // 沙箱权限检查
+      if (!this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+        return;
+      }
+
+      const { readFile } = await import('node:fs/promises');
+      const { existsSync } = await import('node:fs');
+      const { basename } = await import('node:path');
+
+      if (!existsSync(filePath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'File not found' } }));
+        return;
+      }
+
+      const content = await readFile(filePath, 'utf-8');
+      const fileName = basename(filePath);
+
+      const mm = await this.getMemoryManager();
+      const now = new Date();
+      const memory = await mm.createMemory({
+        content,
+        metadata: {
+          name: name || fileName,
+          description: `从文件 ${fileName} 导入`,
+          type: 'knowledge',
+          createdAt: now,
+          updatedAt: now,
+          tags: tags || ['file-import'],
+          source: filePath,
+        },
+      });
+
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, memory, fileName }));
     } catch (err) {
       this.sendError(res, err);
     }

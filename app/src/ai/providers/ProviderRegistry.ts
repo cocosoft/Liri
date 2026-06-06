@@ -178,52 +178,106 @@ export class ProviderRegistry {
       case 'anthropic':
         return (cfg) => {
           const { AnthropicProvider: AP } = require('./AnthropicProvider');
-          return new AP(cfg);
+          return new AP({
+            providerId: 'anthropic',
+            displayName: 'Anthropic Claude',
+            defaultBaseUrl: 'https://api.anthropic.com',
+            envApiKey: 'ANTHROPIC_API_KEY',
+            defaultModel: (cfg?.model as string) || '',
+          });
         };
       case 'openai':
         return (cfg) => {
           const { OpenAIProvider: OP } = require('./OpenAIProvider');
-          return new OP(cfg);
+          return new OP({
+            providerId: 'openai',
+            displayName: 'OpenAI',
+            defaultBaseUrl: 'https://api.openai.com/v1',
+            envApiKey: 'OPENAI_API_KEY',
+            defaultModel: (cfg?.model as string) || '',
+          });
         };
       case 'google':
         return (cfg) => {
           const { GoogleProvider: GP } = require('./GoogleProvider');
-          return new GP(cfg);
+          return new GP({
+            providerId: 'google',
+            displayName: 'Google Gemini',
+            defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+            envApiKey: 'GOOGLE_API_KEY',
+            defaultModel: (cfg?.model as string) || '',
+          });
         };
       case 'deepseek':
         return (cfg) => {
           const { DeepSeekProvider: DSP } = require('./DeepSeekProvider');
-          return new DSP(cfg);
+          return new DSP({
+            providerId: 'deepseek',
+            displayName: 'DeepSeek',
+            defaultBaseUrl: 'https://api.deepseek.com',
+            envApiKey: 'DEEPSEEK_API_KEY',
+            defaultModel: (cfg?.model as string) || 'deepseek-v4-flash',
+          });
         };
       case 'bedrock':
         return (cfg) => {
           const { BedrockProvider: BP } = require('./BedrockProvider');
-          return new BP(cfg);
+          return new BP({
+            providerId: 'bedrock',
+            displayName: 'AWS Bedrock',
+            defaultModel: (cfg?.model as string) || '',
+          }, cfg);
         };
       case 'azure-openai':
         return (cfg) => {
           const { AzureOpenAIProvider: AZ } = require('./AzureOpenAIProvider');
-          return new AZ(cfg);
+          return new AZ({
+            providerId: 'azure-openai',
+            displayName: 'Azure OpenAI',
+            defaultModel: (cfg?.model as string) || '',
+          }, cfg);
         };
       case 'moonshot':
         return (cfg) => {
           const { MoonshotProvider: MP } = require('./MoonshotProvider');
-          return new MP(cfg);
+          return new MP({
+            providerId: 'moonshot',
+            displayName: 'Moonshot (Kimi)',
+            defaultBaseUrl: 'https://api.moonshot.cn/v1',
+            envApiKey: 'MOONSHOT_API_KEY',
+            defaultModel: (cfg?.model as string) || '',
+          });
         };
       case 'grok':
         return (cfg) => {
           const { GrokProvider: GP } = require('./GrokProvider');
-          return new GP(cfg);
+          return new GP({
+            providerId: 'grok',
+            displayName: 'Grok (X.AI)',
+            defaultBaseUrl: 'https://api.x.ai/v1',
+            envApiKey: 'GROK_API_KEY',
+            defaultModel: (cfg?.model as string) || '',
+          });
         };
       case 'ollama':
         return (cfg) => {
           const { OllamaProvider: OP } = require('./OllamaProvider');
-          return new OP(cfg);
+          return new OP({
+            providerId: 'ollama',
+            displayName: 'Ollama (Local)',
+            defaultBaseUrl: 'http://localhost:11434',
+            defaultModel: (cfg?.model as string) || '',
+          });
         };
       case 'vertex-ai':
         return (cfg) => {
           const { VertexAIProvider: VP } = require('./VertexAIProvider');
-          return new VP(cfg);
+          return new VP({
+            providerId: 'vertex-ai',
+            displayName: 'Google Vertex AI',
+            defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
+            defaultModel: (cfg?.model as string) || '',
+          }, cfg);
         };
       default:
         return null;

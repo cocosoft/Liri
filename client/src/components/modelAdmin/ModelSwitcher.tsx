@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { modelService } from "../../services/modelService";
 import type { ModelInfo } from "../../types";
@@ -23,6 +24,7 @@ function getProviderColor(provider: string): string {
 }
 
 function ModelSwitcher({ onClose }: ModelSwitcherProps) {
+  const navigate = useNavigate();
   const { currentModelId, switchModel, tasks } = useModelSwitchStore();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -183,7 +185,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
         <div className="p-2 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => {
-              window.location.href = "/models";
+              navigate("/models");
               onClose();
             }}
             className="w-full px-3 py-2 text-xs text-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"

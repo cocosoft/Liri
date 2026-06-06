@@ -1,28 +1,23 @@
-import Anthropic from '@anthropic-ai/sdk';
+/**
+ * Anthropic (Claude) 提供商
+ * 使用 Messages API + fetch，取代 @anthropic-ai/sdk
+ */
 import type { ChatMessage, ChatResponse, LLMConfig } from '../models/types';
-import type { ThinkingConfig } from '../clients/thinking';
 import type {
-  AIProvider,
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
   ThinkingProviderChunk,
 } from './AIProvider';
-import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import {
-  withRetry,
-  is529Error,
-  MAX_529_RETRIES,
-  BASE_DELAY_MS,
-  type RetryConfig,
-} from '@modules/query/withRetry';
-import { feature } from '@modules/core';
+  BaseAIProvider,
+  type BaseProviderOptions,
+} from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -31,67 +26,34 @@ const BETA_HEADERS = {
   STRUCTURED_OUTPUTS: 'structured-outputs-2024-08-01',
 } as const;
 
-export class AnthropicProvider implements AIProvider {
-  readonly id = 'anthropic';
-  readonly displayName = 'Anthropic Claude';
-  private anthropic: Anthropic;
+export class AnthropicProvider extends BaseAIProvider {
   private config: LLMConfig;
-  private retryConfig: RetryConfig;
-  private consecutive529Errors = 0;
-  private toolRegistry: ToolRegistry | null = null;
-  private toolExecutor: IToolExecutor | null = null;
-  private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('anthropic');
+  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+    super(options, _extraConfig);
 
-    const apiKey =
-      providerCfg?.apiKey ||
-      (config.apiKey as string) ||
-      process.env.ANTHROPIC_API_KEY ||
-      '';
-    const baseUrl =
-      providerCfg?.baseUrl ||
-      (config.baseUrl as string) ||
-      'https://api.anthropic.com';
+    const apiKey = this.resolveApiKey() || '';
+    const baseUrl = (this.resolveBaseUrl() || 'https://api.anthropic.com').replace(/\/+$/, '');
 
     this.config = {
       apiKey,
       baseUrl,
-      model: (config.model as string) || '',
-      maxTokens: (config.maxTokens as number) || 4096,
-      temperature: (config.temperature as number) || 1.0,
+      model: options.defaultModel || '',
+      maxTokens: 4096,
+      temperature: 1.0,
     };
 
-    this.retryConfig = {
-      maxRetries: 10,
-      initialDelayMs: BASE_DELAY_MS,
-      maxDelayMs: 60000,
-      jitterFactor: 0.1,
-    };
-
-    this.anthropic = new Anthropic({
-      apiKey: apiKey || undefined,
-      baseURL: baseUrl,
-      maxRetries: 2,
-      timeout: (config.timeout as number) || 120000,
-    });
-
-    this.adapter = new TransportProviderAdapter(
-      new MessagesApiTransport()
-    );
+    if (!this.transport) {
+      this.transport = new TransportProviderAdapter(
+        new MessagesApiTransport()
+      );
+    }
   }
 
-  setToolRegistry(registry: ToolRegistry | null): void {
-    this.toolRegistry = registry;
-  }
-
-  setToolExecutor(executor: IToolExecutor | null): void {
-    this.toolExecutor = executor;
-  }
-
-  supportsThinking(model: string): boolean {
+  /**
+   * 判断指定模型是否支持 thinking。
+   */
+  override supportsThinking(model: string): boolean {
     return (
       model.includes('claude-sonnet-4') ||
       model.includes('opus-4') ||
@@ -99,23 +61,11 @@ export class AnthropicProvider implements AIProvider {
     );
   }
 
-  supportsStructuredOutputs(model: string): boolean {
+  /**
+   * 判断指定模型是否支持结构化输出。
+   */
+  override supportsStructuredOutputs(model: string): boolean {
     return model.includes('claude-sonnet-4') || model.includes('opus-4');
-  }
-
-  async preconnect(): Promise<void> {
-    try {
-      await fetch(this.config.baseUrl || 'https://api.anthropic.com', {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000),
-      });
-    } catch {
-      // 预连接失败不影响主流程
-    }
-  }
-
-  notifyCompaction(): void {
-    this.consecutive529Errors = 0;
   }
 
   async listModels(): Promise<string[]> {
@@ -124,7 +74,7 @@ export class AnthropicProvider implements AIProvider {
     );
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -148,40 +98,24 @@ export class AnthropicProvider implements AIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const model = options?.model || this.config.model || '';
+    const model = options?.model || this.config.model || this.resolveModel('chat');
 
-    return withRetry(
-      async () => {
-        if (this.consecutive529Errors >= MAX_529_RETRIES) {
-          this.consecutive529Errors = 0;
-          throw new AppError(
-            '529 overload: max retries exceeded',
-            ErrorCategory.EXECUTION,
-            ErrorSeverity.HIGH,
-            '1000'
-          );
-        }
-        const result = await this.sendRequest(model, messages, options);
-        this.consecutive529Errors = 0;
-        return result;
-      },
-      this.retryConfig,
-      (_error, _attempt, _delay) => {
-        if (is529Error(_error)) {
-          this.consecutive529Errors++;
-        }
-      }
-    );
+    return this.withRetry(async () => {
+      return this.sendRequest(model, messages, options);
+    });
   }
 
   async *chatStream(
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
-    const model = options?.model || this.config.model || '';
-    const { systemPrompt } = this.adapter.splitMessages(messages);
+    const model = options?.model || this.config.model || this.resolveModel('chat');
+    const apiKey = this.resolveApiKey() || this.config.apiKey || '';
+    const baseUrl = (this.resolveBaseUrl() || 'https://api.anthropic.com').replace(/\/+$/, '');
 
-    const requestBody = this.adapter.buildRequest({
+    const { systemPrompt } = this.transport!.splitMessages(messages);
+
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -191,53 +125,125 @@ export class AnthropicProvider implements AIProvider {
       stream: true,
     });
 
-    const stream = (await this.anthropic.messages.create({
-      ...requestBody,
-      stream: true,
-    } as Anthropic.MessageCreateParams)) as unknown as AsyncIterable<{
-      type: string;
-      delta?: { type: string; text: string; thinking: string };
-    }>;
+    const response = await fetch(`${baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-    let fullContent = '';
-
-    for await (const event of stream) {
-      if (
-        event.type === 'content_block_delta' &&
-        event.delta?.type === 'text_delta'
-      ) {
-        fullContent += event.delta.text;
-        yield event.delta.text;
-      } else if (
-        event.type === 'content_block_delta' &&
-        event.delta?.type === 'thinking_delta' &&
-        event.delta.thinking
-      ) {
-        yield { type: 'thinking', content: event.delta.thinking };
-      }
+    if (!response.ok) {
+      throw new AppError(
+        `Anthropic API error: ${response.status} ${response.statusText}`,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR',
+        { status: response.status, statusText: response.statusText }
+      );
     }
 
-    return {
-      content: fullContent,
-      stop_reason: 'stop',
-      usage: {
-        prompt_tokens: 0,
-        cache_read_input_tokens: 0,
-        cache_creation_input_tokens: 0,
-        completion_tokens: 0,
-        total_tokens: 0,
-      },
-    };
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new AppError(
+        'Anthropic stream: no response body',
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR'
+      );
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+    let fullContent = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (!data) continue;
+
+            try {
+              const parsed = JSON.parse(data) as Record<string, unknown>;
+              const type = parsed.type as string;
+
+              // content_block_delta → text 或 thinking
+              if (type === 'content_block_delta') {
+                const delta = (parsed.delta || {}) as Record<string, unknown>;
+                const deltaType = delta.type as string | undefined;
+
+                if (deltaType === 'text_delta' && delta.text) {
+                  fullContent += delta.text as string;
+                  yield delta.text as string;
+                } else if (deltaType === 'thinking_delta' && delta.thinking) {
+                  yield { type: 'thinking', content: delta.thinking as string };
+                }
+              }
+            } catch {
+              // JSON 解析失败，跳过该行
+            }
+          }
+        }
+      }
+
+      return {
+        content: fullContent,
+        stop_reason: 'stop',
+        usage: {
+          prompt_tokens: 0,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+        },
+      };
+    } finally {
+      reader.releaseLock();
+    }
   }
 
+  /**
+   * 构建 Anthropic Messages API 的通用请求头。
+   */
+  private buildHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-key': this.resolveApiKey() || this.config.apiKey || '',
+      'anthropic-version': '2023-06-01',
+    };
+
+    if (this.config.model?.includes('claude-sonnet-4') || this.config.model?.includes('opus-4')) {
+      headers['anthropic-beta'] = BETA_HEADERS.STRUCTURED_OUTPUTS;
+    }
+
+    return headers;
+  }
+
+  /**
+   * 发送非流式请求。
+   */
   private async sendRequest(
     model: string,
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const { systemPrompt } = this.adapter.splitMessages(messages);
+    const baseUrl = (this.resolveBaseUrl() || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const { systemPrompt } = this.transport!.splitMessages(messages);
 
-    const requestBody = this.adapter.buildRequest({
+    const requestBody = this.transport!.buildRequest({
       model,
       messages,
       tools: options?.tools,
@@ -246,12 +252,25 @@ export class AnthropicProvider implements AIProvider {
       temperature: options?.temperature,
     });
 
-    const response = (await this.anthropic.messages.create(
-      requestBody as unknown as Anthropic.MessageCreateParams
-    )) as unknown as Record<string, unknown>;
+    const response = await fetch(`${baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify(requestBody),
+    });
 
-    return this.adapter.toChatResponse(
-      this.adapter.normalizeResponse(response),
+    if (!response.ok) {
+      throw new AppError(
+        `Anthropic API error: ${response.status} ${response.statusText}`,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR',
+        { status: response.status, statusText: response.statusText }
+      );
+    }
+
+    const data = (await response.json()) as Record<string, unknown>;
+    return this.transport!.toChatResponse(
+      this.transport!.normalizeResponse(data),
       model
     );
   }

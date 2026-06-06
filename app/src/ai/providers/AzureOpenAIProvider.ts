@@ -5,33 +5,26 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
-  AIProvider,
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
-import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
-import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ModelRegistry } from '../models/ModelRegistry';
 
-export class AzureOpenAIProvider implements AIProvider {
-  readonly id = 'azure-openai';
-  readonly displayName = 'Azure OpenAI';
+export class AzureOpenAIProvider extends BaseAIProvider {
   private config: ProviderConfig;
   private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    const registry = ModelRegistry.getInstance();
-    const providerCfg = registry.getProviderConfig('azure-openai');
-
+  constructor(
+    options: BaseProviderOptions,
+    extraConfig?: Record<string, unknown>
+  ) {
+    super(options);
     this.config = {
       apiVersion: '2024-02-15-preview',
-      ...(providerCfg
-        ? { baseUrl: providerCfg.baseUrl, apiKey: providerCfg.apiKey }
-        : {}),
-      ...config,
+      ...(extraConfig || {}),
     };
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
@@ -57,7 +50,7 @@ export class AzureOpenAIProvider implements AIProvider {
     return [];
   }
 
-  validateConfig(config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -71,16 +64,13 @@ export class AzureOpenAIProvider implements AIProvider {
     return { valid: errors.length === 0, errors, warnings };
   }
 
-  setToolRegistry(registry: ToolRegistry | null): void {}
-
-  setToolExecutor(executor: IToolExecutor | null): void {}
-
   private async sendRequest(
     messages: ChatMessage[],
     options?: ChatOptions,
     stream?: boolean
   ): Promise<ChatResponse> {
     const apiKey =
+      this.resolveApiKey() ||
       (this.config.apiKey as string) ||
       process.env['AZURE_OPENAI_API_KEY'] ||
       '';

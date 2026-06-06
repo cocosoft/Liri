@@ -1,5 +1,7 @@
 /**
  * LocalMainSessionTask - 主会话后台化任务
+ * @deprecated 无实际进程实现，仅注释说明。配套 LocalAgentTask 已标记为 deprecated。
+ * 该文件将在未来版本中删除。
  *
  * 当用户在查询期间执行后台操作（如 Ctrl+B）时：
  * - 查询在后台继续运行

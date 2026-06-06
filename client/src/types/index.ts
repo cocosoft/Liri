@@ -231,10 +231,21 @@ export interface FileEntry {
   modified_at?: number;
 }
 
+export interface WorkspaceInfo {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type FileCategory = "output" | "downloads" | "attachments" | "knowledge" | "memory";
+
 /** 当前模型状态（用于状态栏） */
 export interface CurrentModelInfo {
   modelId: string;
   provider: string;
+  routerTier?: string;
   taskType: string;
   costThisSession: number;
   availableTasks: Array<{ type: string; label: string; icon: string }>;
@@ -585,12 +596,15 @@ export interface Alert {
   source?: string;
 }
 
+export type LogSource = 'logger' | 'structured' | 'otel' | 'llm' | 'all';
+
 export interface LogEntry {
   id: string;
   level: "debug" | "info" | "warn" | "error";
   message: string;
   timestamp: number;
-  source?: string;
+  source: string;
+  module?: string;
   details?: string;
 }
 

@@ -52,28 +52,88 @@ function createProviderByType(
 ): AIProvider | null {
   switch (type) {
     case 'anthropic':
-      return new AnthropicProvider(config);
+      return new AnthropicProvider({
+        providerId: 'anthropic',
+        displayName: 'Anthropic Claude',
+        defaultBaseUrl: 'https://api.anthropic.com',
+        envApiKey: 'ANTHROPIC_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
     case 'openai':
-      return new OpenAIProvider(config);
+      return new OpenAIProvider({
+        providerId: 'openai',
+        displayName: 'OpenAI',
+        defaultBaseUrl: 'https://api.openai.com/v1',
+        envApiKey: 'OPENAI_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
     case 'deepseek':
-      return new DeepSeekProvider(config);
+      return new DeepSeekProvider({
+        providerId: 'deepseek',
+        displayName: 'DeepSeek',
+        defaultBaseUrl: 'https://api.deepseek.com',
+        envApiKey: 'DEEPSEEK_API_KEY',
+        defaultModel: (config?.model as string) || 'deepseek-v4-flash',
+      });
     case 'google':
-      return new GoogleProvider(config);
+      return new GoogleProvider({
+        providerId: 'google',
+        displayName: 'Google Gemini',
+        defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        envApiKey: 'GOOGLE_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
     case 'ollama':
-      return new OllamaProvider(config);
+      return new OllamaProvider({
+        providerId: 'ollama',
+        displayName: 'Ollama (Local)',
+        defaultBaseUrl: 'http://localhost:11434',
+        defaultModel: (config?.model as string) || '',
+      });
     case 'moonshot':
-      return new MoonshotProvider(config);
+      return new MoonshotProvider({
+        providerId: 'moonshot',
+        displayName: 'Moonshot (Kimi)',
+        defaultBaseUrl: 'https://api.moonshot.cn/v1',
+        envApiKey: 'MOONSHOT_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
     case 'grok':
-      return new GrokProvider(config);
+      return new GrokProvider({
+        providerId: 'grok',
+        displayName: 'Grok (X.AI)',
+        defaultBaseUrl: 'https://api.x.ai/v1',
+        envApiKey: 'GROK_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
     case 'bedrock':
-      return new BedrockProvider(config);
+      return new BedrockProvider({
+        providerId: 'bedrock',
+        displayName: 'AWS Bedrock',
+        defaultModel: (config?.model as string) || '',
+      }, config);
     case 'vertex':
-      return new VertexAIProvider(config);
+      return new VertexAIProvider({
+        providerId: 'vertex-ai',
+        displayName: 'Google Vertex AI',
+        defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
+        defaultModel: (config?.model as string) || '',
+      }, config);
     case 'azure':
-      return new AzureOpenAIProvider(config);
+      return new AzureOpenAIProvider({
+        providerId: 'azure-openai',
+        displayName: 'Azure OpenAI',
+        defaultModel: (config?.model as string) || '',
+      }, config);
     default:
       // custom → 默认用 OpenAI 兼容格式
-      return new OpenAIProvider(config);
+      return new OpenAIProvider({
+        providerId: 'custom',
+        displayName: 'Custom OpenAI-compatible',
+        defaultBaseUrl: (config?.baseUrl as string) || 'https://api.openai.com/v1',
+        envApiKey: 'OPENAI_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
   }
 }
 
@@ -110,15 +170,20 @@ function syncOneProvider(record: ProviderRecord): void {
   }
 
   // 覆盖 provider 的 id 和 displayName 为 DB 中的值
-  const wrapped: AIProvider = {
-    ...provider,
-    get id() {
-      return registryId;
+  // 使用 Object.create 保留原型链（确保 chat、chatStream 等原型方法可用）
+  const wrapped = Object.create(provider) as AIProvider;
+  Object.defineProperties(wrapped, {
+    id: {
+      get() { return registryId; },
+      configurable: true,
+      enumerable: true,
     },
-    get displayName() {
-      return record.name;
+    displayName: {
+      get() { return record.name; },
+      configurable: true,
+      enumerable: true,
     },
-  };
+  });
 
   if (providerRegistry.has(registryId)) {
     providerRegistry.unregister(registryId);

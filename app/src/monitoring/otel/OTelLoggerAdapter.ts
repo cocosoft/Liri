@@ -6,10 +6,8 @@
 
 import { trace } from '@opentelemetry/api';
 import { LogLevel } from '../logs/Logger.js';
-import {
-  StructuredLogger,
-  type StructuredLogEntry,
-} from '../logs/StructuredLogger.js';
+import { StructuredLogger } from '../logs/StructuredLogger.js';
+import type { StructuredLogEntry } from '../logs/LogMemory.js';
 import { OTelTracing } from './OTelTracing.js';
 
 /** Span 计数器追踪映射（traceId → counter） */

@@ -8,6 +8,8 @@ import type {
   PostSamplingHookContext,
 } from '../types/PostSampling';
 import { CostTracker } from '@modules/cost/CostTracker';
+import { calculateModelCost, getCanonicalModelName } from '@modules/cost/ModelPricing';
+import { getLLMTracker } from '@modules/monitoring/llm/getLLMTracker';
 
 /**
  * 创建成本追踪Hook
@@ -17,6 +19,8 @@ import { CostTracker } from '@modules/cost/CostTracker';
 export function createCostTrackingHook(
   costTracker: CostTracker
 ): PostSamplingHook {
+  const llmTracker = getLLMTracker();
+
   return async (context: PostSamplingHookContext): Promise<void> => {
     const { messages, toolUseContext } = context;
 
@@ -24,7 +28,10 @@ export function createCostTrackingHook(
       return;
     }
 
+    const sessionId = toolUseContext.session.id;
     const model = (toolUseContext as any).model || 'default';
+    const provider = (toolUseContext as any).provider || 'unknown';
+    const requestId = (toolUseContext as any).requestId || `${Date.now()}`;
 
     for (const message of messages) {
       const msg = message as any;
@@ -35,7 +42,37 @@ export function createCostTrackingHook(
         const outputTokens = usage.output_tokens || 0;
         const cacheReadTokens = usage.cache_read_input_tokens || 0;
         const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
+        const reasoningTokens = usage.reasoning_tokens || 0;
 
+        // 计算成本
+        const canonicalModelName = getCanonicalModelName(model);
+        const costUsd = calculateModelCost(
+          canonicalModelName,
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheCreationTokens
+        );
+
+        // 记录到 LLMTracker
+        llmTracker.recordLLMCall({
+          sessionId,
+          requestId,
+          model,
+          provider,
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheCreateTokens: cacheCreationTokens,
+          reasoningTokens,
+          costUsd,
+          durationMs: (toolUseContext as any).durationMs || 0,
+          request: (toolUseContext as any).request,
+          response: msg,
+          title: (toolUseContext as any).title,
+        });
+
+        // 记录到 CostTracker
         costTracker.addCost(
           model,
           inputTokens,

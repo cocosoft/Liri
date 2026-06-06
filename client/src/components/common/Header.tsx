@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
+import { DashboardIcon, DevIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
 
+/**
+ * 页面顶部 Header
+ * 右侧放置全局性快捷入口：仪表盘、终端、用户中心、帮助中心、更新检查
+ */
 function Header() {
   const navigate = useNavigate();
-  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const [showUpdateMenu, setShowUpdateMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const {
     checking,
@@ -19,14 +24,14 @@ function Header() {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowHelpMenu(false);
+        setShowUpdateMenu(false);
       }
     };
-    if (showHelpMenu) {
+    if (showUpdateMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showHelpMenu]);
+  }, [showUpdateMenu]);
 
   useEffect(() => {
     startPeriodicCheck(86400000);
@@ -35,6 +40,7 @@ function Header() {
 
   return (
     <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+      {/* Logo */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate("/")}
@@ -51,67 +57,72 @@ function Header() {
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* 右上：全局快捷入口 */}
+      <div className="flex items-center gap-1">
+        {/* 仪表盘 */}
         <button
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+          title="仪表盘"
         >
-          <span>📊</span>
+          <DashboardIcon size={16} />
           <span>仪表盘</span>
         </button>
 
+        {/* 终端 */}
         <button
-          onClick={() => navigate("/terminal")}
+          onClick={() => navigate("/dev")}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+          title="开发者工具"
         >
-          <span>💻</span>
+          <DevIcon size={16} />
           <span>终端</span>
         </button>
 
+        {/* 分隔线 */}
+        <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+        {/* 用户中心 */}
         <button
-          onClick={() => navigate("/apikeys")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+          onClick={() => navigate("/user")}
+          className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+          title="用户中心"
         >
-          <span>👤</span>
-          <span>用户中心</span>
+          <UserIcon size={18} />
         </button>
 
+        {/* 帮助中心 */}
+        <button
+          onClick={() => navigate("/help")}
+          className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+          title="帮助中心"
+        >
+          <HelpIcon size={18} />
+        </button>
+
+        {/* 更新检查 */}
         <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setShowHelpMenu(!showHelpMenu)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
+            onClick={() => setShowUpdateMenu(!showUpdateMenu)}
+            className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+            title="检查更新"
           >
-            <span>❓</span>
-            <span>帮助中心</span>
+            <BellIcon size={16} />
             {result?.available && (
-              <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-red-500" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
             )}
-            <svg
-              className={`w-3.5 h-3.5 transition-transform ${showHelpMenu ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
           </button>
 
-          {showHelpMenu && (
+          {showUpdateMenu && (
             <div className="absolute right-0 mt-1 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50">
               <div className="px-4 py-2.5 text-xs text-gray-400 dark:text-gray-500 font-medium border-b border-gray-100 dark:border-gray-700">
-                帮助与反馈
+                软件更新
               </div>
 
-              {/* 检查更新 */}
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+              <div className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    软件更新
+                    检查更新
                   </span>
                   <button
                     onClick={check}

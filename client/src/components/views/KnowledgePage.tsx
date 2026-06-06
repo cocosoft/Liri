@@ -6,9 +6,10 @@ import type { KnowledgeFile, KnowledgeSearchResult } from "../../types";
 import KnowledgeBaseList from "../Knowledge/KnowledgeBaseList";
 import KnowledgeEditor from "../Knowledge/KnowledgeEditor";
 import PendingCompilePanel from "../Knowledge/PendingCompilePanel";
+import SemanticIndexPage from "./SemanticIndexPage";
 import { SkeletonCard } from "../common/Skeleton";
 
-type ActiveTab = "knowledge" | "search-demo" | "stats";
+type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
 
 function KnowledgePage() {
   const store = useKnowledgeStore();
@@ -182,6 +183,7 @@ function KnowledgePage() {
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: "knowledge", label: "知识库" },
     { key: "search-demo", label: "检索演示" },
+    { key: "semantic", label: "语义索引" },
     { key: "stats", label: "知识统计" },
   ];
 
@@ -611,6 +613,13 @@ function KnowledgePage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ========== 语义索引 ========== */}
+        {activeTab === "semantic" && (
+          <div className="flex-1 overflow-y-auto">
+            <SemanticIndexPage />
           </div>
         )}
 

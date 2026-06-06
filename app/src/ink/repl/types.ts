@@ -19,6 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 import type { Message } from '@modules/chat/types/message';
+import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI';
 
 export interface DisplayMessage {
   id: string;
@@ -70,7 +71,7 @@ export interface StreamStats {
   currentSpeed: number;
 }
 
-export type StreamState = 'idle' | 'streaming' | 'paused' | 'done';
+export type StreamState = 'idle' | 'streaming' | 'paused' | 'question' | 'done';
 
 export interface ReplInkProps {
   chatManager: ChatManager;
@@ -85,8 +86,18 @@ export interface ChatManager {
       onStream?: (chunk: string) => void;
       onComplete?: (message: Message) => void;
     }
-  ): AsyncGenerator<string, Message, unknown>;
+  ): AsyncGenerator<string | ChatStreamChunk, Message, unknown>;
   getCurrentSession(): { id: string } | undefined;
   getSessionMessages?(sessionId: string): Message[];
   createSession?(params: { title: string }): { id: string };
+  /**
+   * 解析待处理的用户交互
+   * 当 LLM 调用 ask_user_question 等需要用户输入的工具时，
+   * 用户回答后通过此方法恢复工具执行
+   *
+   * @param questionId 问题ID
+   * @param answers 用户选择的答案列表
+   * @returns 是否成功解析
+   */
+  resolveInteraction(questionId: string, answers: string[]): boolean;
 }

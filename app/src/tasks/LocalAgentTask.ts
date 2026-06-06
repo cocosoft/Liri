@@ -1,5 +1,7 @@
 /**
  * 本地Agent任务
+ * @deprecated `launchAgent()` 返回 mock 对象，无真实进程入口。智能路由功能已由 SmartRouter 替代。
+ * 该文件将在未来版本中删除。请勿在新代码中使用。
  */
 
 import type { AgentDefinition } from './types';

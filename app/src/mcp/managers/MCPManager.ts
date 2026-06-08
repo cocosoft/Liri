@@ -3,8 +3,9 @@
  * 负责管理MCP系统的高级功能
  */
 
-import { MCPServerManager } from './MCPServerManager.js';
 import { MCPServerConfig, MCPToolDefinition } from '../types';
+import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
+import type { MCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -52,7 +53,7 @@ export class MCPManager {
   private resourceCache: Map<string, Map<string, ResourceInfo>> = new Map(); // serverName -> resourcePath -> ResourceInfo
 
   constructor() {
-    this.serverManager = new MCPServerManager();
+    this.serverManager = getMCPServerManager();
   }
 
   /**

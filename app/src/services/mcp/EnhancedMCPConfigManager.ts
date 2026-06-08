@@ -213,6 +213,23 @@ export class EnhancedMCPConfigManager {
   }
 
   /**
+   * 添加自动发现的服务器配置
+   * 自动发现的结果具有最低优先级，存在同名用户配置时不会覆盖
+   * @param name 服务器名称
+   * @param config 服务器配置
+   */
+  addDiscoveredServer(name: string, config: Partial<ScopedMcpServerConfig>): void {
+    if (!this.configs[name]) {
+      const scopedConfig: ScopedMcpServerConfig = {
+        ...config,
+        scope: 'dynamic',
+      } as ScopedMcpServerConfig;
+      this.configs[name] = scopedConfig;
+      logger.info(`Discovered MCP server added: ${name}`);
+    }
+  }
+
+  /**
    * 删除配置
    */
   removeConfig(name: string): void {

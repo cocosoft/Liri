@@ -1,7 +1,7 @@
 import { Skill, SkillSource } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import { createSkillCommand } from '@modules/skills/utils/skillParser';
-import { MCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
+import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -11,11 +11,10 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 从MCP服务器加载技能
  */
 export class MCPSkillLoader extends SkillLoader {
-  private mcpserverManager: MCPServerManager;
+  private mcpserverManager = getMCPServerManager();
 
-  constructor(mcpserverManager?: MCPServerManager) {
+  constructor() {
     super();
-    this.mcpserverManager = mcpserverManager || new MCPServerManager();
   }
 
   /**
@@ -49,22 +48,6 @@ export class MCPSkillLoader extends SkillLoader {
     }
 
     return skills;
-  }
-
-  /**
-   * 设置MCP服务器管理器
-   * @param manager MCP服务器管理器
-   */
-  setMCPServerManager(manager: MCPServerManager): void {
-    this.mcpserverManager = manager;
-  }
-
-  /**
-   * 获取MCP服务器管理器
-   * @returns MCP服务器管理器
-   */
-  getMCPServerManager(): MCPServerManager {
-    return this.mcpserverManager;
   }
 
   /**

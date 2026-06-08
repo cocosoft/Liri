@@ -4,6 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 
 /**
  * 发现的 MCP Server 条目
@@ -72,6 +73,17 @@ export class MCPAutoDiscovery {
       if (!fs.existsSync(resolved)) continue;
 
       this.scanDirectory(resolved, now, 0);
+    }
+
+    // 将发现结果同步到配置管理器
+    for (const entry of this.discovered.values()) {
+      if (entry.enabled) {
+        enhancedMcpConfigManager.addDiscoveredServer(entry.name, {
+          command: entry.command,
+          args: entry.args,
+          env: entry.env,
+        });
+      }
     }
 
     return Array.from(this.discovered.values());

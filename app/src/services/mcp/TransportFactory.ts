@@ -3,13 +3,13 @@
  * 负责创建不同类型的传输层实例
  */
 
-import { MCPTransport } from '../../mcp/transports/MCPTransport';
-import { HTTPTransport } from '../../mcp/transports/HTTPTransport';
-import { StdioTransport } from '../../mcp/transports/StdioTransport';
-import { WebSocketTransport } from '../../mcp/transports/WebSocketTransport';
-import { SSETransport } from '../../mcp/transports/SSETransport';
+import { MCPTransport } from './transports/MCPTransport';
+import { HTTPTransport } from './transports/HTTPTransport';
+import { StdioTransport } from './transports/StdioTransport';
+import { WebSocketTransport } from './transports/WebSocketTransport';
+import { SSETransport } from './transports/SSETransport';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import type { MCPServerConfig } from '../../mcp/types';
+import type { MCPServerConfig } from './types';
 import type { McpTlsConfig } from './transports/McpTlsManager';
 
 /**

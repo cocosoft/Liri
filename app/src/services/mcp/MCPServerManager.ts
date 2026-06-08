@@ -44,15 +44,15 @@ export class MCPServerManager {
   /**
    * 初始化服务器管理器
    */
-  constructor() {
+  constructor() {}
+
+  /**
+   * 初始化服务器管理器
+   */
+  async initialize(): Promise<void> {
     this.startHealthChecks();
     this.startAutoReconnect();
   }
-
-  /**
-   * 初始化（空实现，保持兼容性）
-   */
-  async initialize(): Promise<void> {}
 
   /**
    * 添加服务器

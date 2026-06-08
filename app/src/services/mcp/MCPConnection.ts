@@ -12,12 +12,12 @@ import {
   MCPServerConfig,
   MCPToolDefinition,
   MCPServerStatus,
-} from '@modules/mcp/types';
-import { TransportFactory } from '@modules/mcp/transports/TransportFactory';
-import { MCPTransport } from '@modules/mcp/transports/MCPTransport';
-import { mcpAuthManager } from '@modules/mcp/auth/MCPAuth.js';
+} from './types';
+import { TransportFactory } from './TransportFactory';
+import { MCPTransport } from './transports/MCPTransport';
+import { mcpAuthManager } from './auth/MCPAuth';
 import { feature } from '@modules/featureflags';
-import { MCPOAuthConfig } from '@modules/mcp/auth/types.js';
+import type { MCPOAuthConfig } from './auth/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**

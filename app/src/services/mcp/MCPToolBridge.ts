@@ -8,6 +8,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { getToolManager } from '@modules/tools/ToolManager';
+import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import type { Tool } from '@modules/tools/types/Tool';
@@ -84,6 +85,15 @@ export class MCPToolBridge {
 
       this.registeredMcpTools.set(wrapper.name, wrapper);
       getToolManager().registerTool(wrapper);
+
+      // 同步注册到 MCPToolRegistry（增强层缓存）
+      mcpToolRegistry.registerTool(
+        serverName,
+        wrapper.name,
+        wrapper.description,
+        (toolData as any).inputJSONSchema || {},
+        wrapper
+      );
     }
 
     logger.info(

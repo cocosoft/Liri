@@ -92,16 +92,6 @@ export {
 } from './managers/MCPServerManager.js';
 export { MCPServerConnection } from './managers/MCPServerConnection.js';
 
-// ── 工具管理 ──
-export {
-  MCPToolManager as MCPToolManagerImpl,
-  globalMCPToolManager,
-} from './management/MCPToolManager.js';
-export type {
-  ToolCallContext,
-  ToolCallResult,
-} from './management/MCPToolManager.js';
-
 // ── 工具注册表 ──
 export { MCPToolRegistry } from './MCPToolRegistry.js';
 export type { MCPToolInfo } from './MCPToolRegistry.js';

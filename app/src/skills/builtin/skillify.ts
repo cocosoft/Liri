@@ -3,21 +3,25 @@
  * 对标 CC 的 skillify 技能
  */
 
-import { Skill } from '../SkillManager.js';
+import { Skill, SkillSource, SkillLoadMethod } from '../types/index.js';
 
 const skillifySkill: Skill = {
   name: 'skillify',
   description: '将工具调用或命令序列转化为可复用的技能',
+  source: SkillSource.BUILTIN,
+  loadMethod: SkillLoadMethod.FILE_SYSTEM,
+  loadedFrom: 'builtin',
   version: '1.0.0',
-  author: 'Liri',
-  execute: async (args: any[]) => {
-    const action = args[0] || 'help';
-    const skillName = args[1] || '';
-    const description = args.slice(2).join(' ') || '';
+  impl: {
+    kind: 'executable',
+    execute: async (args: unknown[]) => {
+      const action = String(args[0] || 'help');
+      const skillName = String(args[1] || '');
+      const description = args.slice(2).join(' ') || '';
 
-    switch (action) {
-      case 'create':
-        return `技能创建成功！
+      switch (action) {
+        case 'create':
+          return `技能创建成功！
 
 技能名称: ${skillName}
 描述: ${description}
@@ -29,8 +33,8 @@ const skillifySkill: Skill = {
 要编辑该技能，请运行:
   edit ~/.pyapp/skills/${skillName}.md`;
 
-      case 'from-tool':
-        return `将工具转化为技能
+        case 'from-tool':
+          return `将工具转化为技能
 
 工具: ${skillName}
 新技能名称: ${skillName}-skill
@@ -46,8 +50,8 @@ description: ${description || `${skillName} 工具的封装技能`}
 
 使用 /${skillName}-skill 调用`;
 
-      case 'list':
-        return `已注册的自定义技能
+        case 'list':
+          return `已注册的自定义技能
 
 1. review-code     - 代码审查
 2. deploy-app      - 应用部署
@@ -56,9 +60,9 @@ description: ${description || `${skillName} 工具的封装技能`}
 
 使用 skillify create <name> <desc> 创建新技能`;
 
-      case 'help':
-      default:
-        return `技能化工具 (Skillify)
+        case 'help':
+        default:
+          return `技能化工具 (Skillify)
 
 将命令序列或工具调用封装为可复用的技能。
 
@@ -70,7 +74,8 @@ description: ${description || `${skillName} 工具的封装技能`}
 示例:
   skillify create review-code 代码审查工作流
   skillify from-tool deploy 自动化部署流程`;
-    }
+      }
+    },
   },
 };
 

@@ -4,6 +4,9 @@
  * 追踪技能调用频率、成功率、耗时等指标
  */
 
+import type { SkillRegistry } from './SkillRegistry';
+import type { SkillDB } from './persistence/SkillDB';
+
 /**
  * 技能使用记录
  */
@@ -37,17 +40,68 @@ export interface SkillUsageSummary {
 
 /**
  * 技能使用统计追踪器
+ * 内存缓存 + DB 持久化双重存储
  */
 export class SkillUsageTracker {
   private records: SkillUsageRecord[] = [];
   private maxRecords: number;
+  private skillDB: SkillDB | null;
+  private dbInitialized = false;
 
   /**
    * 构造函数
    * @param maxRecords 最大记录数
+   * @param skillDB 可选的 DB 持久化实例
    */
-  constructor(maxRecords: number = 10000) {
+  constructor(maxRecords: number = 10000, skillDB?: SkillDB) {
     this.maxRecords = maxRecords;
+    this.skillDB = skillDB ?? null;
+  }
+
+  /**
+   * 从 DB 加载历史记录
+   */
+  async loadFromDB(): Promise<void> {
+    if (!this.skillDB || this.dbInitialized) return;
+
+    try {
+      const records = await this.skillDB.queryUsageByTime(0, this.maxRecords);
+      this.records = records;
+      this.dbInitialized = true;
+    } catch {
+      // DB 不可用时继续使用纯内存模式
+    }
+  }
+
+  /**
+   * 订阅 SkillRegistry 事件自动追踪
+   */
+  subscribeToRegistry(registry: SkillRegistry): void {
+    // 技能注册时自动记录溯源
+    registry.on('registered', (_event, skill) => {
+      if (skill) {
+        this.track({
+          skillName: skill.name,
+          durationMs: 0,
+          success: true,
+          source: skill.source,
+          triggeredBy: 'system',
+        });
+      }
+    });
+
+    // 技能注销时记录
+    registry.on('unregistered', (_event, skill) => {
+      if (skill) {
+        this.track({
+          skillName: skill.name,
+          durationMs: 0,
+          success: true,
+          source: skill.source,
+          triggeredBy: 'system',
+        });
+      }
+    });
   }
 
   /**
@@ -62,6 +116,12 @@ export class SkillUsageTracker {
 
     this.records.push(full);
 
+    // 异步持久化到 DB
+    if (this.skillDB) {
+      this.skillDB.insertUsage(full).catch(() => {});
+    }
+
+    // 内存上限裁剪
     if (this.records.length > this.maxRecords) {
       this.records = this.records.slice(-this.maxRecords);
     }
@@ -225,11 +285,13 @@ let globalTracker: SkillUsageTracker | null = null;
 
 /**
  * 获取全局技能使用统计追踪器
+ * @param skillDB 可选的 DB 持久化实例
+ * @param maxRecords 最大记录数
  * @returns SkillUsageTracker 实例
  */
-export function getSkillUsageTracker(maxRecords?: number): SkillUsageTracker {
+export function getSkillUsageTracker(skillDB?: SkillDB, maxRecords?: number): SkillUsageTracker {
   if (!globalTracker) {
-    globalTracker = new SkillUsageTracker(maxRecords);
+    globalTracker = new SkillUsageTracker(maxRecords, skillDB);
   }
 
   return globalTracker;

@@ -1,9 +1,17 @@
+/**
+ * Skills CLI 命令
+ * 基于 SkillRegistry 的统一命令行管理接口
+ */
+
+import { join } from 'path';
 import { Command } from 'commander';
-import { skillManager } from '../managers/SkillManager';
-import { UserSkillLoader } from '../loaders/sources/UserSkillLoader';
-import { ProjectSkillLoader } from '../loaders/sources/ProjectSkillLoader';
+import { SkillRegistry } from '../SkillRegistry';
+import { SkillSource } from '../types';
+import { FileSkillLoader } from '../loaders/sources/FileSkillLoader';
+import { BundledSkillLoader } from '../loaders/sources/BundledSkillLoader';
 import { PluginSkillLoader } from '../loaders/sources/PluginSkillLoader';
 import { MCPSkillLoader } from '../loaders/sources/MCPSkillLoader';
+import { resolveUserSkillsDir, resolveDataDir } from '../../core/paths';
 
 // 颜色输出
 const chalk = {
@@ -14,6 +22,34 @@ const chalk = {
   cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
   bold: (text: string) => `\x1b[1m${text}\x1b[0m`,
 };
+
+/**
+ * 创建注册表并加载所有技能
+ */
+async function loadAllSkills(): Promise<SkillRegistry> {
+  const registry = new SkillRegistry();
+
+  // 收集所有加载器
+  const loaders = [
+    new BundledSkillLoader(),
+    new FileSkillLoader({ directories: [resolveUserSkillsDir()], source: SkillSource.THIRD_PARTY, loadedFrom: 'user' }),
+    new FileSkillLoader({ directories: [join(resolveDataDir(), 'skills')], source: SkillSource.OFFICIAL, loadedFrom: 'project' }),
+    new PluginSkillLoader(),
+    new MCPSkillLoader(),
+  ];
+
+  // 并行加载
+  const results = await Promise.all(
+    loaders.map((loader) => loader.loadSkills())
+  );
+
+  // 批量注册
+  for (const skills of results) {
+    registry.registerBatch(skills);
+  }
+
+  return registry;
+}
 
 /**
  * 注册Skills CLI命令
@@ -31,27 +67,19 @@ export function registerSkillsCommands(program: Command): void {
     .action(async (options: any) => {
       try {
         console.log(chalk.blue('Loading skills...'));
+        const registry = await loadAllSkills();
 
-        // 注册加载器
-        skillManager.registerLoader(new UserSkillLoader());
-        skillManager.registerLoader(new ProjectSkillLoader());
-        skillManager.registerLoader(new PluginSkillLoader());
-        skillManager.registerLoader(new MCPSkillLoader());
+        let skills = registry.getAll();
 
-        // 加载技能
-        await skillManager.loadSkills();
-
-        // 构建过滤条件
-        const filter: any = {};
+        // 按来源过滤
         if (options.source) {
-          filter.source = options.source;
-        }
-        if (options.invocable) {
-          filter.userInvocable = true;
+          skills = skills.filter((s) => s.source === options.source);
         }
 
-        // 获取技能列表
-        const skills = skillManager.getSkills(filter);
+        // 按可调用性过滤
+        if (options.invocable) {
+          skills = skills.filter((s) => s.userInvocable !== false);
+        }
 
         if (skills.length === 0) {
           console.log(chalk.yellow('No skills found.'));
@@ -65,7 +93,9 @@ export function registerSkillsCommands(program: Command): void {
           console.log(chalk.blue(`Description: ${skill.description}`));
           console.log(chalk.yellow(`Source: ${skill.source}`));
           console.log(
-            chalk.cyan(`User invocable: ${skill.userInvocable ? 'Yes' : 'No'}`)
+            chalk.cyan(
+              `User invocable: ${skill.userInvocable !== false ? 'Yes' : 'No'}`
+            )
           );
           console.log(chalk.cyan('─'.repeat(80)));
         });
@@ -82,18 +112,9 @@ export function registerSkillsCommands(program: Command): void {
     .action(async (skillName: string) => {
       try {
         console.log(chalk.blue(`Loading skill details for ${skillName}...`));
+        const registry = await loadAllSkills();
 
-        // 注册加载器
-        skillManager.registerLoader(new UserSkillLoader());
-        skillManager.registerLoader(new ProjectSkillLoader());
-        skillManager.registerLoader(new PluginSkillLoader());
-        skillManager.registerLoader(new MCPSkillLoader());
-
-        // 加载技能
-        await skillManager.loadSkills();
-
-        // 获取技能
-        const skill = skillManager.getSkill(skillName);
+        const skill = registry.get(skillName);
 
         if (!skill) {
           console.log(chalk.red(`Skill not found: ${skillName}`));
@@ -103,39 +124,49 @@ export function registerSkillsCommands(program: Command): void {
         console.log(chalk.bold('Skill details:'));
         console.log(chalk.cyan('═'.repeat(80)));
         console.log(chalk.green(`Name: ${skill.name}`));
-        console.log(chalk.blue(`Display name: ${skill.userFacingName()}`));
         console.log(chalk.blue(`Description: ${skill.description}`));
         console.log(chalk.yellow(`Source: ${skill.source}`));
         console.log(chalk.yellow(`Loaded from: ${skill.loadedFrom}`));
-        console.log(
-          chalk.cyan(`User invocable: ${skill.userInvocable ? 'Yes' : 'No'}`)
-        );
+        console.log(chalk.cyan(`Load method: ${skill.loadMethod}`));
         console.log(
           chalk.cyan(
-            `Allowed tools: ${skill.allowedTools.length > 0 ? skill.allowedTools.join(', ') : 'None'}`
+            `Kind: ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`
           )
         );
         console.log(
           chalk.cyan(
-            `Arguments: ${skill.argNames ? skill.argNames.join(', ') : 'None'}`
+            `User invocable: ${skill.userInvocable !== false ? 'Yes' : 'No'}`
           )
         );
         console.log(
-          chalk.cyan(`Argument hint: ${skill.argumentHint || 'None'}`)
+          chalk.cyan(
+            `Allowed tools: ${skill.allowedTools && skill.allowedTools.length > 0 ? skill.allowedTools.join(', ') : 'None'}`
+          )
+        );
+        console.log(
+          chalk.cyan(
+            `Argument hint: ${skill.argumentHint || 'None'}`
+          )
         );
         console.log(chalk.cyan(`When to use: ${skill.whenToUse || 'None'}`));
         console.log(chalk.cyan(`Version: ${skill.version || 'None'}`));
         console.log(chalk.cyan(`Model: ${skill.model || 'None'}`));
         console.log(chalk.cyan(`Effort: ${skill.effort || 'None'}`));
         console.log(
-          chalk.cyan(`Paths: ${skill.paths ? skill.paths.join(', ') : 'None'}`)
+          chalk.cyan(
+            `Paths: ${skill.paths ? skill.paths.join(', ') : 'None'}`
+          )
         );
         console.log(
-          chalk.cyan(`Content length: ${skill.contentLength} characters`)
+          chalk.cyan(
+            `Content length: ${skill.contentLength || 0} characters`
+          )
         );
         console.log(chalk.cyan('═'.repeat(80)));
       } catch (error: any) {
-        console.error(chalk.red(`Error getting skill info: ${error.message}`));
+        console.error(
+          chalk.red(`Error getting skill info: ${error.message}`)
+        );
       }
     });
 
@@ -150,29 +181,35 @@ export function registerSkillsCommands(program: Command): void {
           console.log(chalk.yellow(`Arguments: ${args.join(' ')}`));
         }
 
-        // 注册加载器
-        skillManager.registerLoader(new UserSkillLoader());
-        skillManager.registerLoader(new ProjectSkillLoader());
-        skillManager.registerLoader(new PluginSkillLoader());
-        skillManager.registerLoader(new MCPSkillLoader());
+        const registry = await loadAllSkills();
+        const skill = registry.get(skillName);
 
-        // 加载技能
-        await skillManager.loadSkills();
+        if (!skill) {
+          console.log(chalk.red(`Skill not found: ${skillName}`));
+          return;
+        }
 
         // 解析参数
         const parsedArgs = parseArguments(args);
 
-        // 执行技能
+        // 根据受歧视联合路由
         console.log(chalk.blue('Executing skill...'));
-        const result = await skillManager.executeSkill(
-          skillName,
-          parsedArgs,
-          {}
-        );
 
-        console.log(chalk.bold('Skill execution result:'));
-        console.log(chalk.cyan('═'.repeat(80)));
-        console.log(chalk.green(JSON.stringify(result, null, 2)));
+        if (skill.impl.kind === 'executable') {
+          const result = await skill.impl.execute(parsedArgs);
+          console.log(chalk.bold('Skill execution result:'));
+          console.log(chalk.cyan('═'.repeat(80)));
+          console.log(chalk.green(JSON.stringify(result, null, 2)));
+        } else {
+          const prompt = await skill.impl.getPromptForCommand(
+            parsedArgs,
+            {}
+          );
+          console.log(chalk.bold('Skill prompt:'));
+          console.log(chalk.cyan('═'.repeat(80)));
+          console.log(chalk.green(JSON.stringify(prompt, null, 2)));
+        }
+
         console.log(chalk.cyan('═'.repeat(80)));
       } catch (error: any) {
         console.error(chalk.red(`Error running skill: ${error.message}`));
@@ -186,23 +223,8 @@ export function registerSkillsCommands(program: Command): void {
     .action(async () => {
       try {
         console.log(chalk.blue('Reloading skills...'));
-
-        // 清理缓存
-        skillManager.clearCache();
-        console.log(chalk.yellow('Cache cleared.'));
-
-        // 注册加载器
-        skillManager.registerLoader(new UserSkillLoader());
-        skillManager.registerLoader(new ProjectSkillLoader());
-        skillManager.registerLoader(new PluginSkillLoader());
-        skillManager.registerLoader(new MCPSkillLoader());
-
-        // 加载技能
-        await skillManager.loadSkills();
-
-        // 获取技能列表
-        const skills = skillManager.getSkills();
-
+        const registry = await loadAllSkills();
+        const skills = registry.getAll();
         console.log(
           chalk.green(`Successfully reloaded ${skills.length} skills.`)
         );

@@ -1,8 +1,10 @@
 /**
- * 技能 Hub 集中仓库
- * 对标 Hermes SkillHub，提供集中式技能索引和分发
+ * 技能 Hub（只读投影层）
+ * 从 SkillRegistry 重建只读索引，提供搜索/查询语义。
+ * 本身不提供写入能力，所有数据来自 Registry。
  */
-import type { Skill, SkillLoader, SkillSource } from './types';
+import type { Skill, SkillSource } from './types';
+import type { SkillRegistry } from './SkillRegistry';
 
 /**
  * 技能条目（Hub 中的元数据）
@@ -31,28 +33,54 @@ export interface SkillHubSearchFilter {
 }
 
 /**
- * 技能 Hub
+ * 技能 Hub（只读投影）
+ *
+ * 职责：
+ * - 从 SkillRegistry 重建只读快照
+ * - 提供高效的搜索/查询接口
+ * - 事件驱动：监听 Registry 事件自动刷新
  */
 export class SkillHub {
   private entries: Map<string, SkillHubEntry> = new Map();
-  private indexBySource: Map<SkillSource, Set<string>> = new Map();
+  private indexBySource: Map<string, Set<string>> = new Map();
 
   /**
-   * 注册技能到 Hub
-   * @param skill 技能对象
+   * 从 Registry 重建索引
+   * 清空当前状态，将所有技能重新投影到 Hub 中
+   * @param registry SkillRegistry 实例
    */
-  registerSkill(skill: Skill): void {
-    const now = Date.now();
-    const existing = this.entries.get(skill.name);
+  refreshFromRegistry(registry: SkillRegistry): void {
+    this.entries.clear();
+    this.indexBySource.clear();
 
-    const entry: SkillHubEntry = {
+    const skills = registry.getAll();
+    const now = Date.now();
+
+    for (const skill of skills) {
+      const entry: SkillHubEntry = this.toEntry(skill, now);
+
+      this.entries.set(skill.name, entry);
+
+      const srcKey = String(skill.source);
+      if (!this.indexBySource.has(srcKey)) {
+        this.indexBySource.set(srcKey, new Set());
+      }
+      this.indexBySource.get(srcKey)!.add(skill.name);
+    }
+  }
+
+  /**
+   * 将 Skill 转换为 HubEntry
+   */
+  private toEntry(skill: Skill, now: number = Date.now()): SkillHubEntry {
+    return {
       name: skill.name,
       source: skill.source,
       loadedFrom: skill.loadedFrom,
       description: skill.description,
-      userInvocable: skill.userInvocable,
+      userInvocable: skill.userInvocable ?? true,
       version: skill.version,
-      registeredAt: existing ? existing.registeredAt : now,
+      registeredAt: now,
       updatedAt: now,
       metadata: {
         hasAllowedTools: skill.allowedTools && skill.allowedTools.length > 0,
@@ -61,39 +89,6 @@ export class SkillHub {
         contentLength: skill.contentLength,
       },
     };
-
-    this.entries.set(skill.name, entry);
-
-    if (!this.indexBySource.has(skill.source)) {
-      this.indexBySource.set(skill.source, new Set());
-    }
-    this.indexBySource.get(skill.source)!.add(skill.name);
-  }
-
-  /**
-   * 批量注册技能
-   * @param skills 技能列表
-   */
-  registerSkills(skills: Skill[]): void {
-    for (const skill of skills) {
-      this.registerSkill(skill);
-    }
-  }
-
-  /**
-   * 从 Hub 移除技能
-   * @param skillName 技能名称
-   */
-  unregisterSkill(skillName: string): void {
-    const entry = this.entries.get(skillName);
-    if (entry) {
-      const sourceSet = this.indexBySource.get(entry.source);
-      if (sourceSet) {
-        sourceSet.delete(skillName);
-      }
-    }
-
-    this.entries.delete(skillName);
   }
 
   /**
@@ -149,7 +144,7 @@ export class SkillHub {
    * @returns 技能条目列表
    */
   getBySource(source: SkillSource): SkillHubEntry[] {
-    const nameSet = this.indexBySource.get(source);
+    const nameSet = this.indexBySource.get(String(source));
     if (!nameSet) return [];
 
     return Array.from(nameSet)

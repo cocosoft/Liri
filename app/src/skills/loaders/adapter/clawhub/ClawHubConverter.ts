@@ -1,13 +1,35 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
- * SkillConverter
- * 技能格式转换器，负责在 ClawHub 技能格式与 Liri 插件系统格式之间进行双向转换。
+ * ClawHubConverter
+ * ClawHub 技能格式 ↔ Liri 统一 Skill 格式的转换器。
  * 支持 claw.json（主流）、skill.yaml 两种清单格式的解析与生成。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { PluginRegistration } from '@modules/plugins/types/PluginTypes';
-import { PluginState } from '@modules/plugins/types/PluginTypes';
-import type { InstalledSkill, ClawHubSkillMeta } from './ClawHubAdapter';
+import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
+import type { Skill } from '@modules/skills/types';
+import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
+import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -29,13 +51,9 @@ interface ClawJsonManifest {
     readme?: string;
     dependencies?: string[];
     permissions?: string[];
-    /** 入口文件路径 */
     entry?: string;
-    /** 主文件路径 */
     main?: string;
-    /** 执行的钩子 */
     hooks?: Record<string, string>;
-    /** 技能配置 */
     config?: Record<string, unknown>;
   };
 }
@@ -54,21 +72,12 @@ const CLAWHUB_TO_PYAPP_PERMISSIONS: Record<string, string> = {
 };
 
 /**
- * SkillConverter
- * 支持 ClawHub 与 Liri 内部格式的互转。
+ * ClawHubConverter
  */
-export class SkillConverter {
-  /**
-   * 构造函数
-   */
-  constructor() {
-    // 无额外初始化
-  }
-
+export class ClawHubConverter {
   /**
    * 将 claw.json 内容解析为 ClawHubSkillMeta
    * @param content claw.json 的字符串内容
-   * @returns 标准化的技能元数据
    */
   parseClawJson(content: string): ClawHubSkillMeta {
     try {
@@ -105,7 +114,6 @@ export class SkillConverter {
   /**
    * 生成 claw.json 清单内容
    * @param meta 技能元数据
-   * @returns claw.json 的 JSON 字符串
    */
   generateClawJson(meta: ClawHubSkillMeta): string {
     const manifest: ClawJsonManifest = {
@@ -131,9 +139,7 @@ export class SkillConverter {
 
   /**
    * 解析 skill.yaml 内容
-   * 暂为占位实现，后续可引入 yaml 解析库
    * @param content YAML 字符串内容
-   * @returns 标准化的技能元数据
    */
   parseSkillYaml(content: string): ClawHubSkillMeta {
     logger.warn('skill.yaml 解析暂未完整实现，返回默认值');
@@ -168,29 +174,50 @@ export class SkillConverter {
   }
 
   /**
-   * 将 InstalledSkill 转换为 PluginRegistration
-   * 用于注册到 PluginRegistry
+   * 将 InstalledClawHubSkill 转换为 Liri 统一 Skill 类型
    * @param installed 已安装的技能
-   * @returns 兼容 PluginRegistry 的注册项
    */
-  toPluginRegistration(installed: InstalledSkill): PluginRegistration {
+  toSkill(installed: InstalledClawHubSkill): Skill {
+    return {
+      name: installed.meta.name,
+      description: installed.meta.description,
+      source: SkillSource.THIRD_PARTY,
+      loadMethod: SkillLoadMethod.ADAPTER,
+      loadedFrom: `clawhub:${installed.meta.id}`,
+      version: installed.meta.version,
+      author: installed.meta.author,
+      aliases: [installed.meta.id],
+      dependencies: installed.meta.dependencies,
+      impl: {
+        kind: 'executable',
+        execute: async () => {
+          return `[ClawHub] 执行技能: ${installed.meta.name} (路径: ${installed.installPath})`;
+        },
+      },
+    };
+  }
+
+  /**
+   * 将 InstalledClawHubSkill 转换为第三方搜索结果
+   * @param installed 已安装的技能
+   */
+  toSearchResult(installed: InstalledClawHubSkill): ThirdPartySkillSearchResult {
     return {
       id: installed.meta.id,
       name: installed.meta.name,
       version: installed.meta.version,
-      path: installed.installPath,
-      state: installed.enabled ? PluginState.ENABLED : PluginState.DISABLED,
-      registeredAt: new Date(installed.installedAt),
-      enabled: installed.enabled,
-      dependencies: installed.meta.dependencies || [],
-      dependents: [],
+      description: installed.meta.description,
+      author: installed.meta.author,
+      license: installed.meta.license,
+      category: installed.meta.category,
+      tags: installed.meta.tags,
+      installed: installed.enabled,
     };
   }
 
   /**
    * 将 ClawHub 权限声明转换为 Liri 权限检查路径
    * @param clawhubPermissions ClawHub 权限声明列表
-   * @returns Liri 权限检查路径列表
    */
   convertPermissions(clawhubPermissions?: string[]): string[] {
     if (!clawhubPermissions || clawhubPermissions.length === 0) {

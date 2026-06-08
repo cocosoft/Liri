@@ -3,7 +3,7 @@
  * 负责执行技能并管理执行过程
  */
 
-import type { Skill, SkillContext, SkillResult } from '../types/skill';
+import type { Skill, SkillContext, SkillResult } from './types';
 import { SkillRegistry } from './SkillRegistry';
 import { ParallelExecutor } from '../tools/executor/ParallelExecutor';
 
@@ -39,8 +39,16 @@ export class SkillExecutor {
     }
 
     try {
+      // 根据受歧视联合类型路由执行路径
+      if (skill.impl.kind !== 'executable') {
+        return {
+          success: false,
+          error: `Skill '${skillName}' is not executable (kind: ${skill.impl.kind})`,
+        };
+      }
+
       // 验证技能执行条件
-      if (skill.validate && !skill.validate(context)) {
+      if (skill.impl.validate && !skill.impl.validate(context)) {
         return {
           success: false,
           error: `Skill '${skillName}' validation failed`,
@@ -49,14 +57,15 @@ export class SkillExecutor {
 
       // 执行技能
       const startTime = Date.now();
-      const result = await skill.execute(context);
+      const result = await skill.impl.execute(context);
       const durationMs = Date.now() - startTime;
 
       // 添加上下文信息
       return {
         ...result,
+        success: true,
         usage: {
-          ...result.usage,
+          ...result?.usage,
           durationMs,
         },
       };

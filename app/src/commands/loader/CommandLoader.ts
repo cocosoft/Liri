@@ -325,17 +325,21 @@ export class SkillCommandLoader implements CommandLoader {
     const commands: Command[] = [];
 
     try {
-      const { skillManager } =
-        await import('../../skills/managers/SkillManager.js');
-      const skills = skillManager.getSkills({ userInvocable: true });
+      const { SkillRegistry } = await import('../../skills/SkillRegistry.js');
+      const { BundledSkillLoader } = await import('../../skills/loaders/sources/BundledSkillLoader.js');
+      const registry = new SkillRegistry();
+      const loader = new BundledSkillLoader();
+      const loadedSkills = await loader.loadSkills();
+      registry.registerBatch(loadedSkills);
+      const skills = registry.getAll().filter((s) => s.userInvocable !== false);
 
       // 将技能转换为命令
       for (const skill of skills) {
         const command: Command = {
           type: 'prompt',
           name: skill.name,
-          description: skill.description,
-          hasUserSpecifiedDescription: skill.hasUserSpecifiedDescription,
+          description: skill.description || '',
+          hasUserSpecifiedDescription: false,
           aliases: [],
           argumentHint: skill.argumentHint,
           whenToUse: skill.whenToUse,
@@ -345,7 +349,9 @@ export class SkillCommandLoader implements CommandLoader {
           loadedFrom: 'skill',
           isHidden: skill.isHidden,
           load: async () => ({
-            getPromptForCommand: skill.getPromptForCommand.bind(skill),
+            getPromptForCommand: skill.impl.kind === 'prompt'
+              ? (skill.impl as any).getPromptForCommand?.bind(skill.impl)
+              : undefined,
           }),
         };
         commands.push(command);

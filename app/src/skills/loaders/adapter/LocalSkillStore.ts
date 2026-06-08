@@ -1,29 +1,87 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
- * LocalSkillStore
- * 本地技能存储管理，负责技能的持久化存储与索引维护。
- * 技能文件存储在 <LIRI_HOME>/skills/ 目录下，通过 index.json 维护元数据索引。
+ * LocalSkillStore（泛型版）
+ * 通用本地技能存储管理，负责第三方技能的持久化存储与索引维护。
+ * 通过泛型参数 T 适配不同市场的内部技能格式。
+ * 技能文件存储在 <skillsPath>/ 目录下，通过 index.json 维护元数据索引。
  */
 
-import { join, basename, extname } from 'path';
+import { join } from 'path';
 import {
   existsSync,
-  readdirSync,
   readFileSync,
   writeFileSync,
   mkdirSync,
-  unlinkSync,
-  rmSync,
-  copyFileSync,
 } from 'fs';
 import { resolveUserSkillsDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
-  InstalledSkill,
-  ClawHubSkillMeta,
-  SkillSearchResult,
-} from './ClawHubAdapter';
+  InstalledThirdPartySkill,
+  LocalSkillSearchResult,
+} from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 技能索引文件结构
+ */
+interface SkillIndex {
+  version: string;
+  updatedAt: number;
+  skills: Record<string, InstalledThirdPartySkill>;
+}
+
+const INDEX_FILE = 'index.json';
+const INDEX_VERSION = '1.0';
+
+/**
+ * 搜索字段提取器
+ * 各适配器提供此函数，从内部技能格式中提取搜索所需字段。
+ */
+export type SearchFieldExtractor<T extends InstalledThirdPartySkill = InstalledThirdPartySkill> = (
+  skill: T
+) => {
+  name: string;
+  description: string;
+  tags?: string[];
+  category?: string;
+  id: string;
+};
+
+/**
+ * 默认搜索字段提取器（直接从 meta 中提取）
+ */
+function defaultSearchExtractor(
+  skill: InstalledThirdPartySkill
+): ReturnType<SearchFieldExtractor> {
+  return {
+    id: skill.meta.id,
+    name: skill.meta.name,
+    description: skill.meta.description,
+    tags: skill.meta.tags,
+    category: skill.meta.category,
+  };
+}
 
 /**
  * LocalSkillStore 配置
@@ -34,22 +92,11 @@ export interface LocalSkillStoreConfig {
 }
 
 /**
- * 技能索引文件结构
- */
-interface SkillIndex {
-  version: string;
-  updatedAt: number;
-  skills: Record<string, InstalledSkill>;
-}
-
-const INDEX_FILE = 'index.json';
-const INDEX_VERSION = '1.0';
-
-/**
  * LocalSkillStore
- * 管理本地技能目录，提供技能增删改查和索引维护能力。
+ * 泛型本地技能存储，管理第三方技能目录。
+ * 参数 T 为适配器内部技能类型（需满足 InstalledThirdPartySkill 约束）。
  */
-export class LocalSkillStore {
+export class LocalSkillStore<T extends InstalledThirdPartySkill = InstalledThirdPartySkill> {
   private skillsPath: string;
   private index: SkillIndex = {
     version: INDEX_VERSION,
@@ -57,13 +104,19 @@ export class LocalSkillStore {
     skills: {},
   };
   private initialized = false;
+  private searchExtractor: SearchFieldExtractor<T>;
 
   /**
    * 构造函数
    * @param config 存储配置
+   * @param searchExtractor 搜索字段提取器（可选，默认从 meta 提取）
    */
-  constructor(config: LocalSkillStoreConfig = {}) {
+  constructor(
+    config: LocalSkillStoreConfig = {},
+    searchExtractor?: SearchFieldExtractor<T>
+  ) {
     this.skillsPath = config.skillsPath || resolveUserSkillsDir();
+    this.searchExtractor = searchExtractor || (defaultSearchExtractor as SearchFieldExtractor<T>);
   }
 
   /**
@@ -136,34 +189,31 @@ export class LocalSkillStore {
 
   /**
    * 获取所有已安装技能
-   * @returns 已安装技能列表
    */
-  async getAllSkills(): Promise<InstalledSkill[]> {
-    return Object.values(this.index.skills);
+  async getAllSkills(): Promise<T[]> {
+    return Object.values(this.index.skills) as T[];
   }
 
   /**
    * 获取所有已安装技能（同步版本，用于回退加载器）
-   * @returns 已安装技能列表
    */
-  getAllSkillsSync(): InstalledSkill[] {
-    return Object.values(this.index.skills);
+  getAllSkillsSync(): T[] {
+    return Object.values(this.index.skills) as T[];
   }
 
   /**
    * 根据 ID 获取技能
    * @param skillId 技能 ID
-   * @returns 技能信息或 null
    */
-  async getSkill(skillId: string): Promise<InstalledSkill | null> {
-    return this.index.skills[skillId] || null;
+  async getSkill(skillId: string): Promise<T | null> {
+    return (this.index.skills[skillId] as T) || null;
   }
 
   /**
    * 添加技能到索引
    * @param skill 已安装的技能
    */
-  async addSkill(skill: InstalledSkill): Promise<void> {
+  async addSkill(skill: T): Promise<void> {
     this.index.skills[skill.meta.id] = skill;
     this.saveIndex();
   }
@@ -173,7 +223,7 @@ export class LocalSkillStore {
    * @param skillId 技能 ID
    * @param skill 更新后的技能信息
    */
-  async updateSkill(skillId: string, skill: InstalledSkill): Promise<void> {
+  async updateSkill(skillId: string, skill: T): Promise<void> {
     if (this.index.skills[skillId]) {
       this.index.skills[skillId] = skill;
       this.saveIndex();
@@ -205,7 +255,6 @@ export class LocalSkillStore {
   /**
    * 获取技能的安装目录路径
    * @param skillId 技能 ID
-   * @returns 技能目录路径
    */
   getSkillInstallPath(skillId: string): string {
     return join(this.skillsPath, skillId);
@@ -215,14 +264,13 @@ export class LocalSkillStore {
    * 在本地已安装技能中搜索
    * @param query 搜索关键词
    * @param options 搜索选项
-   * @returns 搜索结果
    */
   async searchLocal(
     query: string,
     options?: { category?: string; tags?: string[] }
-  ): Promise<SkillSearchResult[]> {
+  ): Promise<LocalSkillSearchResult[]> {
     const lowerQuery = query.toLowerCase();
-    const skills = Object.values(this.index.skills);
+    const skills = Object.values(this.index.skills) as T[];
 
     return skills
       .filter((skill) => {
@@ -230,20 +278,22 @@ export class LocalSkillStore {
           return false;
         }
 
+        const fields = this.searchExtractor(skill);
+
         const matchesQuery =
           !query ||
-          skill.meta.name.toLowerCase().includes(lowerQuery) ||
-          skill.meta.description.toLowerCase().includes(lowerQuery) ||
-          skill.meta.tags?.some((tag) =>
+          fields.name.toLowerCase().includes(lowerQuery) ||
+          fields.description.toLowerCase().includes(lowerQuery) ||
+          fields.tags?.some((tag) =>
             tag.toLowerCase().includes(lowerQuery)
           );
 
         const matchesCategory =
-          !options?.category || skill.meta.category === options.category;
+          !options?.category || fields.category === options.category;
 
         const matchesTags =
           !options?.tags?.length ||
-          options.tags.some((tag) => skill.meta.tags?.includes(tag));
+          options.tags.some((tag) => fields.tags?.includes(tag));
 
         return matchesQuery && matchesCategory && matchesTags;
       })
@@ -256,7 +306,6 @@ export class LocalSkillStore {
 
   /**
    * 导出已安装技能数据
-   * @returns 序列化的技能数据
    */
   exportData(): string {
     return JSON.stringify(this.index, null, 2);

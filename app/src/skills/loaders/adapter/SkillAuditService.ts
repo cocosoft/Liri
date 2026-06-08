@@ -1,7 +1,28 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
  * SkillAuditService
- * 技能操作审计日志服务，记录所有技能安装、卸载、更新、启用/禁用等操作。
- * 审计日志写入 <SKILLS_DIR>/audit/ 目录，便于排查和安全审查。
+ * 通用技能操作审计日志服务，记录所有技能安装、卸载、更新、启用/禁用等操作。
+ * 审计日志写入 <SKILLS_DIR>/audit/ 目录，JSON Lines 格式。
  */
 
 import { join } from 'path';
@@ -10,7 +31,6 @@ import {
   mkdirSync,
   appendFileSync,
   readFileSync,
-  writeFileSync,
 } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -34,29 +54,20 @@ export enum SkillAuditAction {
  * 审计日志条目
  */
 export interface SkillAuditEntry {
-  /** 条目唯一 ID */
   id: string;
-  /** 操作时间（毫秒时间戳） */
   timestamp: number;
-  /** 操作类型 */
   action: SkillAuditAction;
-  /** 技能 ID */
   skillId: string;
-  /** 技能名称 */
   skillName: string;
-  /** 技能版本 */
   skillVersion?: string;
-  /** 操作详情 */
   details?: Record<string, unknown>;
-  /** 是否成功 */
   success: boolean;
-  /** 失败原因 */
   error?: string;
 }
 
 /**
  * SkillAuditService
- * 技能审计服务，以 JSON Lines 格式写入审计日志文件。
+ * 通用审计服务，以 JSON Lines 格式写入审计日志文件。
  */
 export class SkillAuditService {
   private auditDir: string;
@@ -96,7 +107,6 @@ export class SkillAuditService {
 
   /**
    * 记录审计日志
-   * @param entry 审计条目
    */
   private writeEntry(entry: SkillAuditEntry): void {
     try {
@@ -186,8 +196,6 @@ export class SkillAuditService {
 
   /**
    * 查询审计日志
-   * @param options 查询选项
-   * @returns 审计条目列表
    */
   query(options?: {
     action?: SkillAuditAction;
@@ -222,15 +230,12 @@ export class SkillAuditService {
     if (options?.action) {
       filtered = filtered.filter((e) => e.action === options.action);
     }
-
     if (options?.skillId) {
       filtered = filtered.filter((e) => e.skillId === options.skillId);
     }
-
     if (options?.startTime) {
       filtered = filtered.filter((e) => e.timestamp >= options.startTime!);
     }
-
     if (options?.endTime) {
       filtered = filtered.filter((e) => e.timestamp <= options.endTime!);
     }

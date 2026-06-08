@@ -22,7 +22,33 @@
  * 技能系统索引文件
  */
 
-export * from './SkillManager.js';
+// 统一类型定义
+export * from './types/index.js';
+
+// SkillRegistry（事件化运行时）
+export { SkillRegistry } from './SkillRegistry.js';
+export type { RegistryEvent, RegistryEventHandler } from './SkillRegistry.js';
+
+// 抽象基类
+export { SkillLoader as SkillLoaderBase } from './loaders/SkillLoader.js';
+
+// 具体 Loader 实现
+export { BundledSkillLoader } from './loaders/sources/BundledSkillLoader.js';
+export { FileSkillLoader } from './loaders/sources/FileSkillLoader.js';
+export type { FileSkillLoaderConfig } from './loaders/sources/FileSkillLoader.js';
+
+// 第三方适配器体系
+export { ThirdPartySkillAdapter } from './loaders/adapter/ThirdPartySkillAdapter.js';
+export type { ThirdPartySkillSearchResult } from './loaders/adapter/ThirdPartySkillAdapter.js';
+export {
+  ThirdPartyAdapterRegistry,
+  thirdPartyAdapterRegistry,
+} from './loaders/adapter/ThirdPartyAdapterRegistry.js';
+export {
+  AggregatedSkillSearch,
+} from './loaders/adapter/AggregatedSkillSearch.js';
+export type { AggregatedSearchItem } from './loaders/adapter/AggregatedSkillSearch.js';
+
 export {
   SkillPreprocessor,
   getSkillPreprocessor,
@@ -55,15 +81,17 @@ export {
   resetSkillUsageTracker,
 } from './SkillUsageTracker';
 export type { SkillUsageRecord, SkillUsageSummary } from './SkillUsageTracker';
-export { SkillSyncService, skillSyncService } from './SkillSyncService';
-export type { SkillSyncResult } from './SkillSyncService';
 export { SkillGuard, skillGuard } from './SkillGuard';
 export type { SkillGuardResult } from './SkillGuard';
 export {
   SkillProvenanceTracker,
   skillProvenanceTracker,
+  getSkillProvenanceTracker,
 } from './SkillProvenanceTracker';
 export type {
   SkillProvenanceEntry,
   ProvenanceSource,
 } from './SkillProvenanceTracker';
+
+// 持久化层
+export { SkillDB, getSkillDB } from './persistence/index.js';

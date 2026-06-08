@@ -98,7 +98,7 @@ export class MCPSkillLoader extends SkillLoader {
               .join('\n')
           : 'None'
       }\n`,
-      source: SkillSource.MCP,
+      source: SkillSource.THIRD_PARTY,
       loadedFrom: `mcp:${serverId}`,
     });
   }
@@ -108,6 +108,6 @@ export class MCPSkillLoader extends SkillLoader {
    * @returns 技能来源
    */
   getSource(): SkillSource {
-    return SkillSource.MCP;
+    return SkillSource.THIRD_PARTY;
   }
 }

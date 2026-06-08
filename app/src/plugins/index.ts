@@ -39,7 +39,7 @@ import {
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
 import { RegistrationStub } from './stub/RegistrationStub';
-import { ClawHubAdapter } from '@modules/services/clawhub/ClawHubAdapter';
+import { ClawHubAdapter } from '@modules/skills/loaders/adapter/clawhub/ClawHubAdapter';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {

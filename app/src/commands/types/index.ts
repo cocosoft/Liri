@@ -179,11 +179,6 @@ export interface CommandContext {
   pluginManager?: unknown;
 
   /**
-   * 技能管理器
-   */
-  skillManager?: unknown;
-
-  /**
    * 工具管理器
    */
   toolManager?: unknown;

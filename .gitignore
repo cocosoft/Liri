@@ -180,3 +180,5 @@ app/backend/
 client/scripts/
 app/minesweeper.html
 DOCS/
+
+output/

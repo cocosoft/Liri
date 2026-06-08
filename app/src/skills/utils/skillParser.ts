@@ -7,7 +7,10 @@ import { readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { SkillSource, SkillLoadMethod } from '../types';
 import type { Skill } from '../types';
+// Re-export for downstream consumers
+export { SkillSource, SkillLoadMethod };
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface SkillFrontmatter {
@@ -82,18 +85,6 @@ export interface SkillDefinition {
    * 文件大小
    */
   fileSize: number;
-}
-
-/**
- * 技能来源枚举
- */
-export enum SkillSource {
-  BUILTIN = 'builtin',
-  BUNDLED = 'bundled',
-  USER = 'user',
-  PROJECT = 'project',
-  PLUGIN = 'plugin',
-  MCP = 'mcp',
 }
 
 export class SkillParser {
@@ -462,12 +453,12 @@ export function createSkillCommand(options: CreateSkillCommandOptions): Skill {
   const { skillName, frontmatter: fm, content, source, loadedFrom } = options;
   const fm_ = fm as Record<string, unknown>;
   const skill: Skill = {
-    type: 'prompt',
     name: skillName,
     description: (fm_.description as string) || '',
-    hasUserSpecifiedDescription: !!fm_.description,
-    allowedTools: (fm_['allowed-tools'] as string[]) || [],
-    argNames: (fm_.arguments as string[]) || [],
+    source,
+    loadMethod: SkillLoadMethod.FILE_SYSTEM,
+    loadedFrom,
+    aliases: (fm_.arguments as string[]) || [],
     argumentHint: fm_['argument-hint'] as string | undefined,
     whenToUse: fm_.when_to_use as string | undefined,
     version: fm_.version as string | undefined,
@@ -483,10 +474,10 @@ export function createSkillCommand(options: CreateSkillCommandOptions): Skill {
     contentLength: content.length,
     isHidden: false,
     progressMessage: `Running ${skillName}...`,
-    userFacingName: () => skillName,
-    source,
-    loadedFrom,
-    getPromptForCommand: async () => [{ type: 'text', text: content }],
+    impl: {
+      kind: 'prompt',
+      getPromptForCommand: async () => [{ type: 'text', text: content }],
+    },
   };
   return skill;
 }

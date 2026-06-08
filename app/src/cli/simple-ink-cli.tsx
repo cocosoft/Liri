@@ -106,7 +106,7 @@ const SkillsList = ({
   skills,
   onMenuChange,
 }: {
-  skills: Map<string, any>;
+  skills: import('@modules/skills/types').Skill[];
   onMenuChange: (menu: string) => void;
 }) => {
   return (
@@ -116,21 +116,18 @@ const SkillsList = ({
       </Text>
       <Newline />
 
-      {skills.size === 0 ? (
+      {skills.length === 0 ? (
         <Text color="gray">No skills found.</Text>
       ) : (
-        Array.from(skills.entries()).map(([name, skillInfo]) => (
-          <Box key={name} flexDirection="column" marginBottom={1}>
-            <Text bold>{name}</Text>
-            <Text color="gray">Description: {skillInfo.skill.description}</Text>
-            <Text color="gray">Version: {skillInfo.skill.version}</Text>
-            <Text color="gray">Author: {skillInfo.skill.author}</Text>
-            <Text color={skillInfo.state === 'initialized' ? 'green' : 'red'}>
-              State: {skillInfo.state}
+        skills.map((skill) => (
+          <Box key={skill.name} flexDirection="column" marginBottom={1}>
+            <Text bold>{skill.name}</Text>
+            <Text color="gray">Description: {skill.description}</Text>
+            <Text color="gray">Version: {skill.version || 'N/A'}</Text>
+            <Text color="gray">Source: {skill.source}</Text>
+            <Text color={skill.impl.kind === 'executable' ? 'green' : 'yellow'}>
+              Kind: {skill.impl.kind === 'executable' ? 'Executable' : 'Prompt'}
             </Text>
-            {skillInfo.error && (
-              <Text color="red">Error: {skillInfo.error}</Text>
-            )}
           </Box>
         ))
       )}
@@ -210,7 +207,7 @@ const ProfileReport = ({
  */
 const App = () => {
   const [currentMenu, setCurrentMenu] = useState('main');
-  const [skills, setSkills] = useState<Map<string, any>>(new Map());
+  const [skills, setSkills] = useState<import('@modules/skills/types').Skill[]>([]);
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -218,10 +215,13 @@ const App = () => {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        const { getSkillManager } = await import('../skills/SkillManager');
-        const skillManager = await getSkillManager();
-        await skillManager.initialize();
-        setSkills(skillManager.getSkills());
+        const { SkillRegistry } = await import('../skills/SkillRegistry');
+        const { BundledSkillLoader } = await import('../skills/loaders/sources/BundledSkillLoader');
+        const registry = new SkillRegistry();
+        const loader = new BundledSkillLoader();
+        const loadedSkills = await loader.loadSkills();
+        registry.registerBatch(loadedSkills);
+        setSkills(registry.getAll());
 
         const { getToolManager } = await import('../tools/ToolManager');
         const toolManager = getToolManager();

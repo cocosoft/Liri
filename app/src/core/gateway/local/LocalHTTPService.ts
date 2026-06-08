@@ -6731,10 +6731,24 @@ export class LocalHTTPService {
 
   /**
    * 获取 ClawHubAdapter 实例
+   * 优先从 ThirdPartyAdapterRegistry 获取，fallback 到直接 import
    */
   private async getClawHubAdapter(): Promise<any> {
+    // 优先从注册表获取
+    try {
+      const { thirdPartyAdapterRegistry } =
+        await import('@modules/skills/loaders/adapter/ThirdPartyAdapterRegistry');
+      const registered = thirdPartyAdapterRegistry.get('clawhub');
+      if (registered) {
+        return registered;
+      }
+    } catch {
+      // 注册表不可用时 fallback
+    }
+
+    // Fallback: 直接 import
     const { ClawHubAdapter } =
-      await import('@modules/services/clawhub/ClawHubAdapter');
+      await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter');
 
     const adapter = ClawHubAdapter.getInstance();
 
@@ -6775,86 +6789,73 @@ export class LocalHTTPService {
     try {
       const { resolveProjectRoot, resolvePyappHome } =
         await import('@modules/core/paths');
-      const { scanSkillsFromDirectory } =
-        await import('@modules/services/skillSearch');
-      const { readFile, stat } = await import('fs/promises');
+      const { parseSkillFrontmatter } =
+        await import('@modules/skills/utils/skillParser');
+      const { readdir, readFile, stat } = await import('fs/promises');
       const { existsSync } = await import('fs');
-      const pathMod = await import('node:path');
+      const { join } = await import('node:path');
 
       const skills: Record<string, any>[] = [];
       const seen = new Set<string>();
 
       const scanDir = async (dir: string, source: string) => {
         if (!existsSync(dir)) return;
-        const results = await scanSkillsFromDirectory(dir);
-        for (const s of results) {
-          if (seen.has(s.name)) continue;
-          seen.add(s.name);
-
-          // 提取 SKILL.md frontmatter 中的更多字段
-          let version = '1.0.0';
-          let author = '';
-          let category = '';
+        const entries = await readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+          const filePath = join(dir, entry.name);
           try {
-            const content = await readFile(s.filePath, 'utf-8');
-            const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-            if (fmMatch) {
-              const lines = fmMatch[1].split('\n');
-              for (const line of lines) {
-                const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
-                if (m) {
-                  if (m[1] === 'version') version = m[2].trim();
-                  if (m[1] === 'author') author = m[2].trim();
-                  if (m[1] === 'category') category = m[2].trim();
-                }
-              }
+            const content = await readFile(filePath, 'utf-8');
+            const parsed = parseSkillFrontmatter(content);
+            const name = entry.name.replace(/\.md$/, '');
+            const description = (parsed.frontmatter as any)?.description || '';
+            const fm = parsed.frontmatter as Record<string, any>;
+            const version = fm?.version || '1.0.0';
+            const author = fm?.author || '';
+            const category = fm?.category || 'general';
+
+            if (seen.has(name)) continue;
+            seen.add(name);
+
+            let createdAt = 0;
+            let updatedAt = 0;
+            try {
+              const st = await stat(filePath);
+              createdAt = st.birthtimeMs;
+              updatedAt = st.mtimeMs;
+            } catch {
+              /* use defaults */
             }
-          } catch {
-            /* use defaults */
-          }
 
-          let createdAt = 0;
-          let updatedAt = 0;
-          try {
-            const st = await stat(s.filePath);
-            createdAt = st.birthtimeMs;
-            updatedAt = st.mtimeMs;
+            skills.push({
+              id: name,
+              name,
+              description,
+              status: 'enabled',
+              category,
+              parameters: [],
+              createdAt,
+              updatedAt,
+              usageCount: 0,
+              lastUsedAt: null,
+              source,
+              version,
+              filePath,
+              frontmatter: { author, version, category },
+            });
           } catch {
-            /* use defaults */
+            /* skip malformed files */
           }
-
-          skills.push({
-            id: s.name,
-            name: s.name,
-            description: s.description || '',
-            status: 'enabled',
-            category: category || 'general',
-            parameters: [],
-            createdAt,
-            updatedAt,
-            usageCount: 0,
-            lastUsedAt: null,
-            source,
-            version,
-            filePath: s.filePath,
-            frontmatter: { author, version, category },
-          });
         }
       };
 
       // 扫描内置技能
       const projectRoot = resolveProjectRoot();
-      const builtinDir = pathMod.join(
-        projectRoot,
-        'app',
-        'src',
-        'builtin',
-        'skills'
-      );
+      const builtinDir = join(projectRoot, 'app', 'src', 'builtin', 'skills');
       await scanDir(builtinDir, 'builtin');
 
       // 扫描用户技能
-      const userSkillsDir = pathMod.join(resolvePyappHome(), 'skills');
+      const userSkillsDir = join(resolvePyappHome(), 'skills');
       await scanDir(userSkillsDir, 'user');
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

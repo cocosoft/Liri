@@ -1,8 +1,12 @@
 /**
+ *
  * 技能策展器
  * 对标 Hermes curator 的 pin/archive/consolidate/patch 生命周期管理
  * 支持 7 天间隔自动调度
+ * 内存缓存 + DB 持久化双重存储
  */
+
+import type { SkillDB } from './persistence/SkillDB';
 
 /**
  * 策展操作类型
@@ -56,13 +60,63 @@ export class SkillCurator {
   private states: Map<string, SkillCurationState> = new Map();
   private config: CuratorConfig;
   private scheduleTimer: ReturnType<typeof setInterval> | null = null;
+  private skillDB: SkillDB | null;
+  private dbInitialized = false;
 
   /**
    * 构造函数
    * @param config 策展配置
+   * @param skillDB 可选的 DB 持久化实例
    */
-  constructor(config?: Partial<CuratorConfig>) {
+  constructor(config?: Partial<CuratorConfig>, skillDB?: SkillDB) {
     this.config = { ...DEFAULT_CURATOR_CONFIG, ...config };
+    this.skillDB = skillDB ?? null;
+  }
+
+  /**
+   * 从 DB 加载历史策展状态
+   */
+  async loadFromDB(): Promise<void> {
+    if (!this.skillDB || this.dbInitialized) return;
+
+    try {
+      const loaded = await this.skillDB.loadAllCuration();
+      this.states = loaded;
+      this.dbInitialized = true;
+    } catch {
+      // DB 不可用时继续使用纯内存模式
+    }
+  }
+
+  /**
+   * 订阅 SkillRegistry 事件自动同步
+   */
+  subscribeToRegistry(registry: import('./SkillRegistry').SkillRegistry): void {
+    registry.on('unregistered', (_event, skill) => {
+      if (skill) {
+        this.removeState(skill.name);
+      }
+    });
+
+    registry.on('cleared', () => {
+      this.clearAll();
+    });
+  }
+
+  /**
+   * 持久化当前状态到 DB
+   */
+  private async persistToDB(skillName: string): Promise<void> {
+    if (!this.skillDB) return;
+
+    try {
+      const state = this.states.get(skillName);
+      if (state) {
+        await this.skillDB.saveCuration(state);
+      }
+    } catch {
+      // 静默处理 DB 错误
+    }
   }
 
   /**
@@ -95,6 +149,7 @@ export class SkillCurator {
 
     state.pinned = true;
     this.recordAction(skillName, 'pin', '技能已固定');
+    this.persistToDB(skillName);
   }
 
   /**
@@ -106,6 +161,7 @@ export class SkillCurator {
 
     state.pinned = false;
     this.recordAction(skillName, 'pin', '技能已取消固定');
+    this.persistToDB(skillName);
   }
 
   /**
@@ -118,6 +174,7 @@ export class SkillCurator {
     state.archived = true;
     state.lastCuratedAt = Date.now();
     this.recordAction(skillName, 'archive', '技能已归档');
+    this.persistToDB(skillName);
   }
 
   /**
@@ -130,6 +187,7 @@ export class SkillCurator {
     state.archived = false;
     state.lastCuratedAt = Date.now();
     this.recordAction(skillName, 'archive', '技能已取消归档');
+    this.persistToDB(skillName);
   }
 
   /**
@@ -154,6 +212,11 @@ export class SkillCurator {
       sourceState.lastCuratedAt = Date.now();
       this.recordAction(sourceName, 'consolidate', `已合并到: ${targetName}`);
     }
+
+    this.persistToDB(targetName);
+    for (const sourceName of sourceNames) {
+      this.persistToDB(sourceName);
+    }
   }
 
   /**
@@ -167,6 +230,7 @@ export class SkillCurator {
     state.patchedAt = Date.now();
     state.lastCuratedAt = Date.now();
     this.recordAction(skillName, 'patch', patchDetails);
+    this.persistToDB(skillName);
   }
 
   /**
@@ -314,6 +378,10 @@ export class SkillCurator {
    */
   removeState(skillName: string): void {
     this.states.delete(skillName);
+
+    if (this.skillDB) {
+      this.skillDB.deleteCuration(skillName).catch(() => {});
+    }
   }
 
   /**
@@ -331,11 +399,13 @@ let globalCurator: SkillCurator | null = null;
 
 /**
  * 获取全局技能策展器
+ * @param skillDB 可选的 DB 持久化实例
+ * @param config 策展配置
  * @returns SkillCurator 实例
  */
-export function getSkillCurator(config?: Partial<CuratorConfig>): SkillCurator {
+export function getSkillCurator(skillDB?: SkillDB, config?: Partial<CuratorConfig>): SkillCurator {
   if (!globalCurator) {
-    globalCurator = new SkillCurator(config);
+    globalCurator = new SkillCurator(config, skillDB);
   }
 
   return globalCurator;

@@ -22,13 +22,32 @@
  * 技能命令
  * 管理和查看技能
  */
+import { join } from 'path';
 import type { Command, CommandContext } from '@modules/commands/types';
-import { skillManager } from '@modules/skills/managers/SkillManager.js';
-import { UserSkillLoader } from '@modules/skills/loaders/sources/UserSkillLoader.js';
-import { ProjectSkillLoader } from '@modules/skills/loaders/sources/ProjectSkillLoader.js';
+import { SkillRegistry } from '@modules/skills/SkillRegistry.js';
+import { SkillSource } from '@modules/skills/types';
+import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader.js';
 import { PluginSkillLoader } from '@modules/skills/loaders/sources/PluginSkillLoader.js';
 import { MCPSkillLoader } from '@modules/skills/loaders/sources/MCPSkillLoader.js';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader.js';
+import { resolveUserSkillsDir, resolveDataDir } from '@modules/core/paths';
+
+/** 加载所有技能到注册表 */
+async function loadAllSkills(): Promise<SkillRegistry> {
+  const registry = new SkillRegistry();
+  const loaders = [
+    new BundledSkillLoader(),
+    new FileSkillLoader({ directories: [resolveUserSkillsDir()], source: SkillSource.THIRD_PARTY, loadedFrom: 'user' }),
+    new FileSkillLoader({ directories: [join(resolveDataDir(), 'skills')], source: SkillSource.OFFICIAL, loadedFrom: 'project' }),
+    new PluginSkillLoader(),
+    new MCPSkillLoader(),
+  ];
+  const results = await Promise.all(loaders.map((l) => l.loadSkills()));
+  for (const skills of results) {
+    registry.registerBatch(skills);
+  }
+  return registry;
+}
 
 /**
  * 技能命令
@@ -42,15 +61,7 @@ export const skillCommand: Command = {
   whenToUse: '当你需要管理或查看系统技能时',
   load: async () => ({
     execute: async (args: string, context: CommandContext) => {
-      // 注册加载器
-      skillManager.registerLoader(new BundledSkillLoader());
-      skillManager.registerLoader(new UserSkillLoader());
-      skillManager.registerLoader(new ProjectSkillLoader());
-      skillManager.registerLoader(new PluginSkillLoader());
-      skillManager.registerLoader(new MCPSkillLoader());
-
-      // 加载技能
-      await skillManager.loadSkills();
+      let registry = await loadAllSkills();
 
       const parts = args.split(/\s+/);
       const subcommand = parts[0];
@@ -59,7 +70,7 @@ export const skillCommand: Command = {
       switch (subcommand) {
         case '': {
           // 没有子命令，显示技能概览
-          const skills = skillManager.getSkills({ userInvocable: true });
+          const skills = registry.getAll().filter((s) => s.userInvocable !== false);
           const loadedCount = skills.length;
 
           let content = `🧰 技能概览\n\n`;
@@ -90,7 +101,7 @@ export const skillCommand: Command = {
         }
 
         case 'list': {
-          const skills = skillManager.getSkills();
+          const skills = registry.getAll();
           if (skills.length === 0) {
             return {
               success: true,
@@ -131,7 +142,7 @@ export const skillCommand: Command = {
               message: '请提供技能名称: /skill info <技能名>',
             };
           }
-          const skill = skillManager.getSkill(restArgs);
+          const skill = registry.get(restArgs);
           if (!skill) {
             return {
               success: false,
@@ -167,7 +178,7 @@ export const skillCommand: Command = {
 
         case 'enable': {
           const enableSkill = restArgs;
-          const skillToEnable = skillManager.getSkill(enableSkill);
+          const skillToEnable = registry.get(enableSkill);
           if (skillToEnable) {
             return {
               success: true,
@@ -186,7 +197,7 @@ export const skillCommand: Command = {
 
         case 'disable': {
           const disableSkill = restArgs;
-          const skillToDisable = skillManager.getSkill(disableSkill);
+          const skillToDisable = registry.get(disableSkill);
           if (skillToDisable) {
             return {
               success: true,
@@ -204,8 +215,8 @@ export const skillCommand: Command = {
         }
 
         case 'reload': {
-          await skillManager.loadSkills(true);
-          const skills = skillManager.getSkills();
+          registry = await loadAllSkills();
+          const skills = registry.getAll();
           return {
             success: true,
             type: 'text',
@@ -216,7 +227,7 @@ export const skillCommand: Command = {
 
         default: {
           // 尝试作为技能名称处理
-          const skill = skillManager.getSkill(subcommand);
+          const skill = registry.get(subcommand);
           if (skill) {
             // 显示技能详情
             let content = `📄 ${skill.name}\n\n`;

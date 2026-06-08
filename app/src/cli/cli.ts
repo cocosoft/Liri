@@ -2,9 +2,10 @@
 //
 
 import { getUIEnhancer } from '../ui/UIEnhancer';
-import { getSkillManager } from '../skills/SkillManager';
 import { getToolManager } from '../tools/ToolManager';
 import { profileReport } from '../utils/startupProfiler';
+import { SkillRegistry } from '../skills/SkillRegistry';
+import { BundledSkillLoader } from '../skills/loaders/sources/BundledSkillLoader';
 
 const ui = getUIEnhancer();
 
@@ -46,15 +47,16 @@ async function runCLI() {
     ui.showInfo('Welcome to Liri CLI. Type help for available commands.');
     ui.showSeparator();
 
-    // 初始化必要的服务
-    const skillManager = await getSkillManager();
-    await skillManager.initialize();
+    // 初始化技能注册表
+    const skillRegistry = new SkillRegistry();
+    const bundledLoader = new BundledSkillLoader();
+    const bundledSkills = await bundledLoader.loadSkills();
+    skillRegistry.registerBatch(bundledSkills);
 
     const toolManager = getToolManager();
-    // ToolManager不需要initialize方法，它在构造时已经加载了内置工具
 
     // 显示主菜单
-    await showMainMenu(skillManager, toolManager);
+    await showMainMenu(skillRegistry, toolManager);
   } catch (error) {
     ui.showError(
       `Error starting CLI: ${error instanceof Error ? error.message : String(error)}`
@@ -67,13 +69,13 @@ async function runCLI() {
 /**
  * 显示主菜单
  */
-async function showMainMenu(skillManager: any, toolManager: any) {
+async function showMainMenu(skillRegistry: SkillRegistry, toolManager: any) {
   while (true) {
     const choice = await ui.showMenu('Main Menu', mainMenuOptions);
 
     switch (choice) {
       case 'skills':
-        await showSkillsMenu(skillManager);
+        await showSkillsMenu(skillRegistry);
         break;
       case 'tools':
         await showToolsMenu(toolManager);
@@ -91,19 +93,19 @@ async function showMainMenu(skillManager: any, toolManager: any) {
 /**
  * 显示技能菜单
  */
-async function showSkillsMenu(skillManager: any) {
+async function showSkillsMenu(skillRegistry: SkillRegistry) {
   while (true) {
     const choice = await ui.showMenu('Skills Menu', skillsMenuOptions);
 
     switch (choice) {
       case 'list':
-        await listSkills(skillManager);
+        await listSkills(skillRegistry);
         break;
       case 'execute':
-        await executeSkill(skillManager);
+        await executeSkill(skillRegistry);
         break;
       case 'reload':
-        await reloadSkills(skillManager);
+        await reloadSkills(skillRegistry);
         break;
       case 'back':
         return;
@@ -131,25 +133,22 @@ async function showToolsMenu(toolManager: any) {
 /**
  * 列出所有技能
  */
-async function listSkills(skillManager: any) {
-  const skills = skillManager.getSkills();
+async function listSkills(skillRegistry: SkillRegistry) {
+  const skills = skillRegistry.getAll();
 
-  if (skills.size === 0) {
+  if (skills.length === 0) {
     ui.showInfo('No skills found.');
     return;
   }
 
   ui.showSubtitle('Available Skills');
 
-  for (const [name, skillInfo] of skills) {
-    ui.showInfo(`Name: ${name}`);
-    ui.showInfo(`Description: ${skillInfo.skill.description}`);
-    ui.showInfo(`Version: ${skillInfo.skill.version}`);
-    ui.showInfo(`Author: ${skillInfo.skill.author}`);
-    ui.showInfo(`State: ${skillInfo.state}`);
-    if (skillInfo.error) {
-      ui.showError(`Error: ${skillInfo.error}`);
-    }
+  for (const skill of skills) {
+    ui.showInfo(`Name: ${skill.name}`);
+    ui.showInfo(`Description: ${skill.description}`);
+    ui.showInfo(`Version: ${skill.version || 'N/A'}`);
+    ui.showInfo(`Source: ${skill.source}`);
+    ui.showInfo(`Kind: ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`);
     ui.showSeparator();
   }
 }
@@ -157,23 +156,23 @@ async function listSkills(skillManager: any) {
 /**
  * 执行技能
  */
-async function executeSkill(skillManager: any) {
-  const skills = skillManager.getSkills();
+async function executeSkill(skillRegistry: SkillRegistry) {
+  const skills = skillRegistry.getAll();
 
-  if (skills.size === 0) {
+  if (skills.length === 0) {
     ui.showInfo('No skills found.');
     return;
   }
 
-  const skillOptions = (Array.from(skills.entries()) as [string, any][])
-    .filter(([_, info]) => info.state === 'initialized')
-    .map(([name, info]) => ({
-      value: name,
-      label: `${name} - ${info.skill.description}`,
+  const skillOptions = skills
+    .filter((s) => s.userInvocable !== false)
+    .map((s) => ({
+      value: s.name,
+      label: `${s.name} - ${s.description}`,
     }));
 
   if (skillOptions.length === 0) {
-    ui.showInfo('No initialized skills found.');
+    ui.showInfo('No invocable skills found.');
     return;
   }
 
@@ -195,7 +194,17 @@ async function executeSkill(skillManager: any) {
   const loading = ui.showLoading(`Executing skill ${skillName}...`);
 
   try {
-    const result = await skillManager.executeSkill(skillName, args);
+    const skill = skillRegistry.get(skillName);
+    if (!skill) throw new Error(`Skill ${skillName} not found`);
+
+    let result: unknown;
+    if (skill.impl.kind === 'executable') {
+      result = await skill.impl.execute(args);
+    } else {
+      const prompt = await skill.impl.getPromptForCommand(args.join(' '), {});
+      result = prompt;
+    }
+
     loading.stop();
     ui.showSuccess(`Skill ${skillName} executed successfully`);
     if (result) {
@@ -213,11 +222,15 @@ async function executeSkill(skillManager: any) {
 /**
  * 重新加载技能
  */
-async function reloadSkills(skillManager: any) {
+async function reloadSkills(skillRegistry: SkillRegistry) {
   const loading = ui.showLoading('Reloading skills...');
 
   try {
-    await skillManager.reloadAllSkills();
+    // 重新创建注册表
+    skillRegistry.clear();
+    const bundledLoader = new BundledSkillLoader();
+    const bundledSkills = await bundledLoader.loadSkills();
+    skillRegistry.registerBatch(bundledSkills);
     loading.stop();
     ui.showSuccess('Skills reloaded successfully');
   } catch (error) {
@@ -285,11 +298,12 @@ function handleCommandLineArgs() {
       case 'skills':
         if (args[1] === 'list') {
           // 直接列出技能
-          getSkillManager().then((skillManager) => {
-            skillManager.initialize().then(() => {
-              listSkills(skillManager);
-              ui.cleanup();
-            });
+          const registry = new SkillRegistry();
+          const bundledLoader = new BundledSkillLoader();
+          bundledLoader.loadSkills().then((skills) => {
+            registry.registerBatch(skills);
+            listSkills(registry);
+            ui.cleanup();
           });
           return;
         }

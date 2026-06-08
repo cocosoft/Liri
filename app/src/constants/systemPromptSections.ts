@@ -30,17 +30,42 @@ import { readProjectFiles } from '@modules/context/ProjectFileReader';
 import { basename, join } from 'path';
 import { resolveProjectRoot } from '@modules/core/paths';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
+import { SkillRegistry } from '@modules/skills/SkillRegistry';
+import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';
+import { SkillSource } from '@modules/skills/types';
+
+/** 内建技能目录 */
+const BUILTIN_SKILLS_DIR = join(
+  resolveProjectRoot(),
+  'app',
+  'src',
+  'builtin',
+  'skills'
+);
+
+/** 技能注册表单例 */
+export const skillRegistry = new SkillRegistry();
 
 /** 技能注入服务单例 */
-export const skillInjectionService = new SkillInjectionService({
-  builtinSkillsDir: join(
-    resolveProjectRoot(),
-    'app',
-    'src',
-    'builtin',
-    'skills'
-  ),
-});
+export const skillInjectionService = new SkillInjectionService(skillRegistry);
+
+/**
+ * 初始化内建技能（从文件加载并注册到 Registry）
+ * 在应用启动时调用一次即可
+ */
+export async function initBuiltinSkills(): Promise<void> {
+  const loader = new FileSkillLoader({
+    directories: [BUILTIN_SKILLS_DIR],
+    source: SkillSource.OFFICIAL,
+    loadedFrom: 'builtin',
+    recursive: true,
+    skillFileName: 'SKILL.md',
+  });
+  const skills = await loader.loadSkills();
+  for (const skill of skills) {
+    skillRegistry.register(skill);
+  }
+}
 
 /**
  * 构建上下文隔离的记忆块

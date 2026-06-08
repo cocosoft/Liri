@@ -651,6 +651,47 @@ async function startDeferredPrefetches(): Promise<void> {
           // 更新检查失败不影响启动
         }
       })(),
+
+      // 初始化内置技能（BundledSkillLoader → SkillRegistry 注册）
+      (async () => {
+        try {
+          const { initBuiltinSkills } = await import('../constants/systemPromptSections.js');
+          await initBuiltinSkills();
+          logger.info('内置技能初始化完成');
+        } catch (error) {
+          logger.warning('内置技能初始化失败（非关键）', { error });
+        }
+      })(),
+
+      // 初始化技能生命周期（辅助组件 DB 持久化 + 事件订阅）
+      (async () => {
+        try {
+          const { skillRegistry } = await import('../constants/systemPromptSections.js');
+          const { getSkillDB, initializeSkillLifecycle } = await import('../skills/persistence/index.js');
+          const skillDB = getSkillDB();
+          await initializeSkillLifecycle(skillRegistry, skillDB);
+          logger.info('技能生命周期初始化完成');
+        } catch (error) {
+          logger.warning('技能生命周期初始化失败（非关键）', { error });
+        }
+      })(),
+
+      // 注册第三方适配器（ClawHubAdapter → ThirdPartyAdapterRegistry）
+      (async () => {
+        try {
+          const { ClawHubAdapter } = await import('../skills/loaders/adapter/clawhub/ClawHubAdapter.js');
+          const { thirdPartyAdapterRegistry, getSkillHub } = await import('../skills/index.js');
+          const { skillRegistry } = await import('../constants/systemPromptSections.js');
+          const adapter = ClawHubAdapter.getInstance();
+          await adapter.initialize();
+          // 注入 SkillRegistry 引用，使安装/卸载操作同步通知 Registry
+          adapter.setSkillRegistry(skillRegistry);
+          thirdPartyAdapterRegistry.register(adapter);
+          logger.info('ClawHubAdapter 已注册到 ThirdPartyAdapterRegistry');
+        } catch (error) {
+          logger.warning('ClawHubAdapter 注册失败（非关键）', { error });
+        }
+      })(),
     ];
 
     // 并行执行所有预加载任务

@@ -1,6 +1,8 @@
 /**
- * 技能服务
- * 提供技能加载和管理功能
+ * 技能服务 — SkillRegistry 的轻量封装
+ *
+ * 提供对外兼容接口（SkillDefinition），内部委托 SkillRegistry 管理存储。
+ * 额外职责：技能文件提取、自定义技能加载、市场技能管理。
  */
 
 import { constants as fsConstants } from 'fs';
@@ -16,29 +18,80 @@ import type {
   SkillInfo,
   SkillExecutionResult,
   SkillServiceConfig,
-} from '../models/types';
+} from '../types';
 import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-
-// 内部技能注册表
-const skills: SkillDefinition[] = [];
+import { SkillRegistry } from '../SkillRegistry';
+import { SkillSource, SkillLoadMethod } from '../types';
+import type { Skill } from '../types';
 
 /**
  * 技能服务类
+ *
+ * 职责：
+ * - 存储层委托给 SkillRegistry（不维护独立数组）
+ * - 提供 SkillDefinition → Skill 的桥接转换
+ * - 负责文件提取、自定义技能加载、市场管理
  */
 export class SkillService {
   private config: SkillServiceConfig;
+  private registry: SkillRegistry;
 
   /**
    * 构造函数
    * @param config 技能服务配置
+   * @param registry 可选的 SkillRegistry 实例（不传则新建）
    */
-  constructor(config: SkillServiceConfig = {}) {
+  constructor(config: SkillServiceConfig = {}, registry?: SkillRegistry) {
     this.config = {
       skillsDir: config.skillsDir || join(getConfigHomeDir(), 'skills'),
       enableMarketplace: config.enableMarketplace ?? false,
       marketplaceApiUrl:
         config.marketplaceApiUrl ?? 'https://api.pyapp.dev/skills',
+    };
+    this.registry = registry ?? new SkillRegistry();
+  }
+
+  /**
+   * 获取内部 Registry 实例
+   */
+  getRegistry(): SkillRegistry {
+    return this.registry;
+  }
+
+  /**
+   * 将 SkillDefinition 转换为统一 Skill 类型
+   */
+  private toSkill(definition: SkillDefinition): Skill {
+    return {
+      name: definition.name,
+      description: definition.description,
+      source: SkillSource.THIRD_PARTY,
+      loadMethod: SkillLoadMethod.FILE_SYSTEM,
+      loadedFrom: 'skill-service',
+      aliases: definition.aliases,
+      argumentHint: definition.argumentHint,
+      whenToUse: definition.whenToUse,
+      allowedTools: definition.allowedTools,
+      userInvocable: definition.userInvocable ?? true,
+      model: definition.model,
+      agent: definition.agent,
+      disableModelInvocation: definition.disableModelInvocation,
+      context: definition.context,
+      isEnabled: definition.isEnabled,
+      impl: {
+        kind: 'prompt',
+        getPromptForCommand: async (args: any, toolUseContext: any) => {
+          const result = await definition.getPromptForCommand(
+            args,
+            toolUseContext ?? args
+          );
+          return result.map((r: any) => ({
+            type: r.type || 'text',
+            text: r.text || String(r),
+          }));
+        },
+      },
     };
   }
 
@@ -47,18 +100,9 @@ export class SkillService {
    * @param definition 技能定义
    */
   registerSkill(definition: SkillDefinition): void {
-    // 检查技能是否已存在
-    const existingSkill = skills.find(
-      (skill) => skill.name === definition.name
-    );
-    if (existingSkill) {
-      logger.info(`Skill ${definition.name} already registered, overwriting`);
-      const index = skills.indexOf(existingSkill);
-      skills[index] = definition;
-    } else {
-      skills.push(definition);
-      logger.info(`Registered skill: ${definition.name}`);
-    }
+    const skill = this.toSkill(definition);
+    this.registry.register(skill);
+    logger.info(`Registered skill: ${definition.name}`);
   }
 
   /**
@@ -66,21 +110,52 @@ export class SkillService {
    * @param definitions 技能定义列表
    */
   registerSkills(definitions: SkillDefinition[]): void {
-    definitions.forEach((definition) => this.registerSkill(definition));
+    const skills = definitions.map((d) => this.toSkill(d));
+    this.registry.registerBatch(skills);
   }
 
   /**
-   * 获取所有技能
+   * 获取所有技能（以 SkillDefinition[] 形式返回）
    */
   getSkills(): SkillDefinition[] {
-    return [...skills];
+    return this.registry
+      .getAll()
+      .map((skill) => this.toDefinition(skill))
+      .filter(Boolean) as SkillDefinition[];
+  }
+
+  /**
+   * 将 Skill 转回 SkillDefinition（字段子集）
+   */
+  private toDefinition(skill: Skill): SkillDefinition | null {
+    if (skill.impl.kind !== 'prompt') return null;
+
+    const promptImpl = skill.impl;
+
+    return {
+      name: skill.name,
+      description: skill.description,
+      aliases: skill.aliases,
+      whenToUse: skill.whenToUse,
+      argumentHint: skill.argumentHint,
+      allowedTools: skill.allowedTools,
+      model: skill.model,
+      disableModelInvocation: skill.disableModelInvocation,
+      userInvocable: skill.userInvocable,
+      isEnabled: skill.isEnabled,
+      context: skill.context,
+      agent: skill.agent,
+      getPromptForCommand: async (args: string, context: any) => {
+        return promptImpl.getPromptForCommand(args, context);
+      },
+    };
   }
 
   /**
    * 获取技能信息列表
    */
   getSkillInfos(): SkillInfo[] {
-    return skills.map((skill) => ({
+    return this.registry.getAll().map((skill) => ({
       name: skill.name,
       description: skill.description,
       aliases: skill.aliases || [],
@@ -96,10 +171,9 @@ export class SkillService {
    * @param name 技能名称
    */
   getSkill(name: string): SkillDefinition | undefined {
-    return skills.find(
-      (skill) =>
-        skill.name === name || (skill.aliases && skill.aliases.includes(name))
-    );
+    const skill = this.registry.get(name);
+    if (!skill) return undefined;
+    return this.toDefinition(skill) ?? undefined;
   }
 
   /**
@@ -114,7 +188,7 @@ export class SkillService {
     context: ToolUseContext
   ): Promise<SkillExecutionResult> {
     try {
-      const skill = this.getSkill(name);
+      const skill = this.registry.get(name);
       if (!skill) {
         return {
           success: false,
@@ -132,22 +206,21 @@ export class SkillService {
         };
       }
 
-      // 提取技能文件
-      let skillRoot: string | undefined;
-      if (skill.files && Object.keys(skill.files).length > 0) {
-        skillRoot = await this.extractSkillFiles(skill.name, skill.files);
+      // 执行技能（prompt 模式）
+      let prompt: { type: string; text: string }[] = [];
+      if (skill.impl.kind === 'prompt') {
+        prompt = await skill.impl.getPromptForCommand(args, context);
+      } else if (skill.impl.kind === 'executable') {
+        const result = await skill.impl.execute(context);
+        return {
+          success: true,
+          result: { prompt: [{ type: 'text', text: String(result) }] },
+        };
       }
 
-      // 获取技能提示
-      const prompt = await skill.getPromptForCommand(args, context);
-
-      // 执行技能（这里简化处理，实际实现需要调用AI模型）
       return {
         success: true,
-        result: {
-          prompt,
-          skillRoot,
-        },
+        result: { prompt },
       };
     } catch (error) {
       logger.error(`Error executing skill ${name}:`, { error: String(error) });
@@ -193,7 +266,6 @@ export class SkillService {
     dir: string,
     files: Record<string, string>
   ): Promise<void> {
-    // 按父目录分组
     const byParent = new Map<string, [string, string][]>();
     for (const [relPath, content] of Object.entries(files)) {
       const target = this.resolveSkillFilePath(dir, relPath);
@@ -204,7 +276,6 @@ export class SkillService {
       else byParent.set(parent, [entry]);
     }
 
-    // 创建目录并写入文件
     await Promise.all(
       [...byParent].map(async ([parent, entries]) => {
         await mkdir(parent, { recursive: true, mode: 0o700 });
@@ -294,8 +365,6 @@ export class SkillService {
       const manifestContent = await readFile(manifestPath, 'utf8');
       const manifest = JSON.parse(manifestContent);
 
-      // 这里简化处理，实际实现需要加载技能的JavaScript/TypeScript文件
-      // 并注册技能
       logger.info(`Loaded custom skill from ${skillDir}: ${manifest.name}`);
     } catch (error) {
       logger.error(`Failed to load skill from ${skillDir}:`, {
@@ -313,7 +382,6 @@ export class SkillService {
     }
 
     try {
-      // 这里简化处理，实际实现需要调用市场API
       logger.debug('Fetching skills from marketplace');
       return [];
     } catch (error) {
@@ -334,7 +402,6 @@ export class SkillService {
     }
 
     try {
-      // 这里简化处理，实际实现需要调用市场API下载和安装技能
       logger.info(`Installing marketplace skill: ${skillId}`);
       return true;
     } catch (error) {
@@ -351,13 +418,10 @@ export class SkillService {
    */
   async uninstallSkill(skillName: string): Promise<boolean> {
     try {
-      // 从注册表中移除技能
-      const index = skills.findIndex((skill) => skill.name === skillName);
-      if (index === -1) {
+      if (!this.registry.has(skillName)) {
         return false;
       }
-
-      skills.splice(index, 1);
+      this.registry.unregister(skillName);
       logger.info(`Uninstalled skill: ${skillName}`);
       return true;
     } catch (error) {
@@ -372,13 +436,14 @@ export class SkillService {
 /**
  * 创建技能服务实例
  * @param config 技能服务配置
+ * @param registry 可选的 SkillRegistry 实例
  */
 export function createSkillService(
-  config: SkillServiceConfig = {}
+  config: SkillServiceConfig = {},
+  registry?: SkillRegistry
 ): SkillService {
-  return new SkillService(config);
+  return new SkillService(config, registry);
 }
 
-// 导出默认服务实例
 const skillService = createSkillService();
 export default skillService;

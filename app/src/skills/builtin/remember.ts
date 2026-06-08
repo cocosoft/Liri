@@ -2,15 +2,20 @@
  * Remember技能 - 记忆功能
  */
 
-import { Skill } from '../SkillManager.js';
+import { Skill, SkillSource, SkillLoadMethod } from '../types/index.js';
 
 const rememberSkill: Skill = {
   name: 'remember',
   description: 'Store information to remember for later conversations',
+  source: SkillSource.BUILTIN,
+  loadMethod: SkillLoadMethod.FILE_SYSTEM,
+  loadedFrom: 'builtin',
   version: '1.0.0',
-  author: 'Liri',
-  execute: async (args: any[]) => {
-    return `Remembering information...\n\nContent: ${args.join(' ') || 'No content provided'}\n\nThis information has been stored for future reference.`;
+  impl: {
+    kind: 'executable',
+    execute: async (args: unknown[]) => {
+      return `Remembering information...\n\nContent: ${args.join(' ') || 'No content provided'}\n\nThis information has been stored for future reference.`;
+    },
   },
 };
 

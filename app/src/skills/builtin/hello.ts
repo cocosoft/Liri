@@ -3,15 +3,20 @@
  * 用于测试技能系统
  */
 
-import { Skill } from '../SkillManager.js';
+import { Skill, SkillSource, SkillLoadMethod } from '../types/index.js';
 
 const helloSkill: Skill = {
   name: 'hello',
   description: '向用户问好',
+  source: SkillSource.BUILTIN,
+  loadMethod: SkillLoadMethod.FILE_SYSTEM,
+  loadedFrom: 'builtin',
   version: '1.0.0',
-  author: 'Liri',
-  execute: async (args: any[]) => {
-    return `Hello, ${args[0] || 'world'}!`;
+  impl: {
+    kind: 'executable',
+    execute: async (args: unknown[]) => {
+      return `Hello, ${args[0] || 'world'}!`;
+    },
   },
 };
 

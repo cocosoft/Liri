@@ -79,14 +79,9 @@ export function validateSkill(skill: Skill): {
     errors.push('allowedTools must be an array');
   }
 
-  // 验证userFacingName方法
-  if (typeof skill.userFacingName !== 'function') {
-    errors.push('userFacingName must be a function');
-  }
-
-  // 验证getPromptForCommand方法
-  if (typeof skill.getPromptForCommand !== 'function') {
-    errors.push('getPromptForCommand must be a function');
+  // 验证getPromptForCommand方法（prompt技能）
+  if (skill.impl.kind === 'prompt' && typeof skill.impl.getPromptForCommand !== 'function') {
+    errors.push('prompt skill must have a getPromptForCommand function');
   }
 
   return {

@@ -2,15 +2,17 @@
  * 技能注入服务
  * 三级缓存 + 条件激活
  * 管理技能的加载、缓存、条件匹配和系统提示注入
+ *
+ * 数据源：SkillRegistry（唯一事实来源），不再自建文件扫描管线
  */
 
-import { readdir, readFile, mkdir, writeFile } from 'fs/promises';
+import { readFile, mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { Skill } from '../types';
-import { SkillSource } from '../types';
-import { SkillParser, type SkillDefinition } from '../utils/skillParser';
+import { SkillSource, SkillLoadMethod } from '../types';
+import { SkillRegistry } from '../SkillRegistry';
 import {
   SkillConditionMatcher,
   type ConditionContext,
@@ -23,40 +25,32 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 技能注入配置
  */
 export interface SkillInjectionConfig {
-  skillsDirs: string[];
-  builtinSkillsDir?: string;
+  /** 最大激活技能数 */
   maxActiveSkills: number;
+  /** 快照缓存 TTL（ms） */
   cacheTtlMs: number;
-  enableL2Cache: boolean;
-  enableL3Cache: boolean;
+  /** 是否启用快照缓存 */
   enableSnapshotCache: boolean;
+  /** 快照缓存路径 */
   snapshotCachePath?: string;
 }
 
 /**
- * 三级缓存容器
+ * 缓存容器
  */
 interface SkillCache {
-  /** L1: 当前激活的技能（内存中最快） */
+  /** L1: 当前条件激活的技能 */
   l1: Map<string, Skill>;
-  /** L2: 已解析的技能定义（disk→parsed） */
-  l2: Map<string, SkillDefinition>;
-  /** L3: 源文件元数据（disk→file info） */
-  l3: Map<string, { path: string; mtimeMs: number }>;
-  /** L2.5: 磁盘快照缓存（序列化后的注入提示词） */
+  /** L2.5: 磁盘快照缓存 */
   snapshotPrompt: string | null;
   snapshotMtime: string;
-  /** L2 上次刷新时间 */
+  /** 上次刷新时间 */
   lastRefresh: number;
 }
 
 const DEFAULT_CONFIG: SkillInjectionConfig = {
-  skillsDirs: [join(resolvePyappHome(), 'skills')],
-  builtinSkillsDir: '',
   maxActiveSkills: 10,
   cacheTtlMs: 300_000,
-  enableL2Cache: true,
-  enableL3Cache: true,
   enableSnapshotCache: true,
   snapshotCachePath: join(
     resolvePyappHome(),
@@ -67,20 +61,24 @@ const DEFAULT_CONFIG: SkillInjectionConfig = {
 
 /**
  * 技能注入服务
- * 维护三级缓存，提供条件激活和系统提示注入能力
+ * 从 SkillRegistry 读取技能，应用条件匹配后注入到系统提示
  */
 export class SkillInjectionService {
   private config: SkillInjectionConfig;
   private cache: SkillCache;
   private matcher: SkillConditionMatcher;
+  private registry: SkillRegistry;
   private listeners: Array<() => void> = [];
 
-  constructor(config?: Partial<SkillInjectionConfig>) {
+  /**
+   * @param registry SkillRegistry 实例（不传则新建）
+   * @param config 可选配置
+   */
+  constructor(registry?: SkillRegistry, config?: Partial<SkillInjectionConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.registry = registry ?? new SkillRegistry();
     this.cache = {
       l1: new Map(),
-      l2: new Map(),
-      l3: new Map(),
       snapshotPrompt: null,
       snapshotMtime: '',
       lastRefresh: 0,
@@ -89,6 +87,14 @@ export class SkillInjectionService {
       platform: process.platform,
       os: process.platform,
     });
+  }
+
+  /**
+   * 设置 SkillRegistry 实例
+   */
+  setRegistry(registry: SkillRegistry): void {
+    this.registry = registry;
+    this.invalidateCache();
   }
 
   /**
@@ -106,111 +112,28 @@ export class SkillInjectionService {
   }
 
   /**
-   * 刷新所有缓存层
+   * 刷新：从 Registry 同步技能，重新应用条件匹配
    */
   async refreshAll(): Promise<void> {
-    await this.refreshL3();
-    await this.refreshL2();
-    this.refreshL1();
-    this.cache.lastRefresh = Date.now();
-    await this.writeSnapshotCache();
-  }
-
-  /**
-   * 刷新 L3：扫描源文件目录
-   */
-  private async refreshL3(): Promise<void> {
-    if (!this.config.enableL3Cache) return;
-    this.cache.l3.clear();
-
-    const scanDir = async (
-      dir: string,
-      isSubdirStyle: boolean
-    ): Promise<void> => {
-      if (!existsSync(dir)) return;
-      try {
-        const entries = await readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          let skillName: string;
-          let fullPath: string;
-          if (isSubdirStyle) {
-            if (!entry.isDirectory()) continue;
-            const skillFile = join(dir, entry.name, 'SKILL.md');
-            if (!existsSync(skillFile)) continue;
-            skillName = entry.name;
-            fullPath = skillFile;
-          } else {
-            if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-            skillName = entry.name.replace(/\.md$/, '');
-            fullPath = join(dir, entry.name);
-          }
-          const stats = await readFile(fullPath).then(
-            () => ({ mtimeMs: Date.now() }),
-            () => ({ mtimeMs: 0 })
-          );
-          this.cache.l3.set(skillName, {
-            path: fullPath,
-            mtimeMs: stats.mtimeMs,
-          });
-        }
-      } catch (error) {
-        logger.warn(`L3 cache refresh failed for ${dir}`, {
-          error: String(error),
-        });
-      }
-    };
-
-    for (const dir of this.config.skillsDirs) {
-      await scanDir(dir, false);
-    }
-
-    if (this.config.builtinSkillsDir) {
-      await scanDir(this.config.builtinSkillsDir, true);
-    }
-  }
-
-  /**
-   * 刷新 L2：解析技能定义
-   */
-  private async refreshL2(): Promise<void> {
-    if (!this.config.enableL2Cache) return;
-
-    for (const [name, meta] of this.cache.l3) {
-      try {
-        const content = await readFile(meta.path, 'utf-8');
-        const parser = new SkillParser();
-        const definition = await parser.parseSkillFile(
-          meta.path,
-          SkillSource.USER
-        );
-        this.cache.l2.set(name, definition);
-      } catch (error) {
-        logger.warn(`L2 cache refresh failed for ${name}`, {
-          error: String(error),
-        });
-      }
-    }
-  }
-
-  /**
-   * 刷新 L1：条件激活
-   */
-  private refreshL1(): void {
     this.cache.l1.clear();
+
+    const allSkills = this.registry.getAll();
     let activated = 0;
 
-    for (const [, def] of this.cache.l2) {
+    for (const skill of allSkills) {
       if (activated >= this.config.maxActiveSkills) break;
       if (
         this.matcher.evaluate(
-          (def.frontmatter ?? {}) as unknown as Record<string, unknown>
+          (skill.config ?? {}) as unknown as Record<string, unknown>
         )
       ) {
-        this.cache.l1.set(def.name, this.definitionToSkill(def));
+        this.cache.l1.set(skill.name, skill);
         activated++;
       }
     }
 
+    this.cache.lastRefresh = Date.now();
+    await this.writeSnapshotCache();
     this.notifyListeners();
   }
 
@@ -251,9 +174,6 @@ export class SkillInjectionService {
   /**
    * 构建技能上下文，注入到系统提示中
    * 对标 Hermes SkillInjector.inject_skills()
-   *
-   * 生成可供 LLM 感知的可用技能描述，
-   * 追加到系统提示末尾，使 Agent 能够在推理中利用可用技能。
    *
    * @param systemPrompt 原始系统提示
    * @returns 注入技能描述后的系统提示
@@ -328,20 +248,21 @@ export class SkillInjectionService {
       this.cache.l1.clear();
       for (const s of snapshot.skills) {
         const skill: Skill = {
-          type: 'prompt',
           name: s.name,
           description: s.description,
-          hasUserSpecifiedDescription: false,
+          source: s.source ?? SkillSource.THIRD_PARTY,
+          loadMethod: SkillLoadMethod.FILE_SYSTEM,
+          loadedFrom: '',
           allowedTools: s.allowedTools ?? [],
           userInvocable: true,
           disableModelInvocation: false,
           contentLength: s.contentLength,
           isHidden: false,
           progressMessage: `Executing ${s.name}...`,
-          source: s.source ?? SkillSource.USER,
-          loadedFrom: '',
-          userFacingName: () => s.name,
-          getPromptForCommand: async () => [{ type: 'text', text: '' }],
+          impl: {
+            kind: 'prompt',
+            getPromptForCommand: async () => [{ type: 'text', text: '' }],
+          },
         };
         this.cache.l1.set(s.name, skill);
       }
@@ -402,12 +323,14 @@ export class SkillInjectionService {
   }
 
   /**
-   * 计算 L3 源文件的 mtime 签名
+   * 计算快照 mtime 签名
    */
   private async computeSnapshotMtime(): Promise<string> {
-    const entries = Array.from(this.cache.l3.entries());
-    entries.sort(([a], [b]) => a.localeCompare(b));
-    return entries.map(([name, meta]) => `${name}:${meta.mtimeMs}`).join('|');
+    const allSkills = this.registry.getAll();
+    const entries = allSkills
+      .map((s) => `${s.name}:${s.version ?? '1.0.0'}`)
+      .sort();
+    return entries.join('|');
   }
 
   /**
@@ -423,27 +346,11 @@ export class SkillInjectionService {
   }
 
   /**
-   * 转换 SkillDefinition 为 Skill
+   * 使缓存失效
    */
-  private definitionToSkill(def: SkillDefinition): Skill {
-    return {
-      type: 'prompt',
-      name: def.name,
-      description: def.description ?? '',
-      hasUserSpecifiedDescription: false,
-      allowedTools: (def.frontmatter?.['allowed-tools'] as string[]) ?? [],
-      userInvocable: (def.frontmatter?.['user-invocable'] as boolean) ?? true,
-      disableModelInvocation:
-        (def.frontmatter?.['disable-model-invocation'] as boolean) ?? false,
-      contentLength: def.content?.length ?? 0,
-      isHidden: false,
-      progressMessage: `Executing ${def.name}...`,
-      source:
-        (def.frontmatter?.['skill-source'] as SkillSource) ?? SkillSource.USER,
-      loadedFrom: def.filePath ?? '',
-      userFacingName: () => def.name,
-      getPromptForCommand: async () => [{ type: 'text', text: def.content }],
-    };
+  private invalidateCache(): void {
+    this.cache.l1.clear();
+    this.cache.lastRefresh = 0;
   }
 
   private notifyListeners(): void {

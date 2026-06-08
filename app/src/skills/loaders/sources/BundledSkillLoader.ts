@@ -3,7 +3,7 @@
  * 加载编程式的内置技能（类似CC源码中的bundled skills）
  */
 
-import { Skill, SkillSource } from '@modules/skills/types';
+import { Skill, SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 
 /**
@@ -691,11 +691,9 @@ export class BundledSkillLoader extends SkillLoader {
   async loadSkills(): Promise<Skill[]> {
     return bundledSkills.map(
       (def): Skill => ({
-        type: 'prompt',
         name: def.name,
         description: def.description,
         aliases: def.aliases,
-        hasUserSpecifiedDescription: true,
         allowedTools: def.allowedTools || [],
         argumentHint: def.argumentHint,
         whenToUse: def.whenToUse,
@@ -703,16 +701,19 @@ export class BundledSkillLoader extends SkillLoader {
         disableModelInvocation: false,
         contentLength: 0,
         progressMessage: '',
-        source: SkillSource.BUNDLED,
+        source: SkillSource.BUILTIN,
+        loadMethod: SkillLoadMethod.EMBEDDED,
         loadedFrom: 'bundled',
         isHidden: !(def.userInvocable ?? true),
-        userFacingName: () => def.name,
-        getPromptForCommand: def.getPromptForCommand,
+        impl: {
+          kind: 'prompt',
+          getPromptForCommand: def.getPromptForCommand,
+        },
       })
     );
   }
 
   getSource(): SkillSource {
-    return SkillSource.BUNDLED;
+    return SkillSource.BUILTIN;
   }
 }

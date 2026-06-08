@@ -11,7 +11,8 @@ import {
   AlternateScreen,
 } from '@modules/ink';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { getSkillManager } from '@modules/skills/SkillManager';
+import { SkillRegistry } from '@modules/skills/SkillRegistry';
+import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools/ToolManager';
 import { profileReport } from '@modules/utils/startupProfiler';
 import { CompanionSprite } from '@modules/buddy/CompanionSprite';
@@ -72,7 +73,7 @@ const SkillsMenu = ({
   onMenuChange,
   onSkillExecute,
 }: {
-  skills: Map<string, any>;
+  skills: import('@modules/skills/types').Skill[];
   onMenuChange: (menu: string) => void;
   onSkillExecute: (skillName: string) => void;
 }) => {
@@ -141,7 +142,7 @@ const SkillsList = ({
   skills,
   onMenuChange,
 }: {
-  skills: Map<string, any>;
+  skills: import('@modules/skills/types').Skill[];
   onMenuChange: (menu: string) => void;
 }) => {
   return (
@@ -152,23 +153,20 @@ const SkillsList = ({
       <Box height={1} />
 
       <ScrollBox width="100%" height="80%">
-        {skills.size === 0 ? (
+        {skills.length === 0 ? (
           <Text color="gray">No skills found.</Text>
         ) : (
-          Array.from(skills.entries()).map(([name, skillInfo]) => (
-            <Box key={name} marginBottom={2}>
-              <Text bold>{name}</Text>
+          skills.map((skill) => (
+            <Box key={skill.name} marginBottom={2}>
+              <Text bold>{skill.name}</Text>
               <Text color="gray">
-                Description: {skillInfo.skill.description}
+                Description: {skill.description}
               </Text>
-              <Text color="gray">Version: {skillInfo.skill.version}</Text>
-              <Text color="gray">Author: {skillInfo.skill.author}</Text>
-              <Text color={skillInfo.state === 'initialized' ? 'green' : 'red'}>
-                State: {skillInfo.state}
+              <Text color="gray">Version: {skill.version || 'N/A'}</Text>
+              <Text color="gray">Source: {skill.source}</Text>
+              <Text color={skill.impl.kind === 'executable' ? 'green' : 'yellow'}>
+                Kind: {skill.impl.kind === 'executable' ? 'Executable' : 'Prompt'}
               </Text>
-              {skillInfo.error && (
-                <Text color="red">Error: {skillInfo.error}</Text>
-              )}
             </Box>
           ))
         )}
@@ -368,7 +366,7 @@ const TasksView = ({
  */
 const App = () => {
   const [currentMenu, setCurrentMenu] = useState('main');
-  const [skills, setSkills] = useState<Map<string, any>>(new Map());
+  const [skills, setSkills] = useState<import('@modules/skills/types').Skill[]>([]);
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -379,9 +377,11 @@ const App = () => {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        const skillManager = await getSkillManager();
-        await skillManager.initialize();
-        setSkills(skillManager.getSkills());
+        const registry = new SkillRegistry();
+        const loader = new BundledSkillLoader();
+        const skills = await loader.loadSkills();
+        registry.registerBatch(skills);
+        setSkills(registry.getAll());
 
         const toolManager = getToolManager();
         setTools((toolManager as any).getTools());

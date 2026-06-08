@@ -20,6 +20,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 
 ### 1.3 开发规范
 - 技术栈：TypeScript + Rust；禁止模拟数据；方法禁止重复；禁止 `any` 类型（`@typescript-eslint/no-explicit-any: error`），新代码零 any
+- **向后兼容策略**：当前应用无正式用户，所有重构/迁移**无需考虑向后兼容**。旧类型、旧文件、旧接口可直接删除或重写，无需保留兼容层或 deprecation 过渡期。待有用户后重新评估此策略。
 
 ### 1.4 环境变量规范
 前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)

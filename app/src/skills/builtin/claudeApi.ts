@@ -3,18 +3,22 @@
  * 对标 CC 的 claudeApi 技能
  */
 
-import { Skill } from '../SkillManager.js';
+import { Skill, SkillSource, SkillLoadMethod } from '../types/index.js';
 
 const claudeApiSkill: Skill = {
   name: 'claudeApi',
   description: '提供 Claude API 使用指南，包括消息API、工具使用、流式响应等',
+  source: SkillSource.BUILTIN,
+  loadMethod: SkillLoadMethod.FILE_SYSTEM,
+  loadedFrom: 'builtin',
   version: '1.0.0',
-  author: 'Liri',
-  execute: async (args: any[]) => {
-    const topic = args[0] || 'overview';
+  impl: {
+    kind: 'executable',
+    execute: async (args: unknown[]) => {
+      const topic = String(args[0] || 'overview');
 
-    const guides: Record<string, string> = {
-      overview: `Claude API 使用指南
+      const guides: Record<string, string> = {
+        overview: `Claude API 使用指南
 
 Claude API 提供以下核心功能：
 1. 消息 API (Messages API) - 发送消息并获取回复
@@ -33,7 +37,7 @@ Claude API 提供以下核心功能：
       "max_tokens": 1024,
       "messages": [{"role": "user", "content": "Hello, Claude!"}]
     }`,
-      messages: `Messages API 详解
+        messages: `Messages API 详解
 
 请求格式:
   {
@@ -53,7 +57,7 @@ Claude API 提供以下核心功能：
   - system: 系统提示（可选）
 
 注意：消息列表必须以 user 角色开始和结束`,
-      tools: `Tool Use 功能
+        tools: `Tool Use 功能
 
 Claude 可以调用你定义的函数/工具：
 
@@ -76,7 +80,7 @@ Claude 可以调用你定义的函数/工具：
 
 Claude 会返回 tool_use 类型的 content block，
 你需要执行该调用并把结果通过 tool_result 返回。`,
-      streaming: `流式响应 (Streaming)
+        streaming: `流式响应 (Streaming)
 
 使用 SSE (Server-Sent Events) 实现实时响应：
 
@@ -91,10 +95,11 @@ Claude 会返回 tool_use 类型的 content block，
   - message_delta: 消息增量
   - message_stop: 消息结束
   - ping: 心跳`,
-    };
+      };
 
-    const guide = guides[topic] || guides.overview;
-    return `## Claude API 指南\n\n${guide}\n\n---\n使用 /claudeApi <topic> 查看特定主题。\n可用主题: overview, messages, tools, streaming`;
+      const guide = guides[topic] || guides.overview;
+      return `## Claude API 指南\n\n${guide}\n\n---\n使用 /claudeApi <topic> 查看特定主题。\n可用主题: overview, messages, tools, streaming`;
+    },
   },
 };
 

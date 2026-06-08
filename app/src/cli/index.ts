@@ -550,10 +550,14 @@ program
       console.log(chalk.cyan('═'.repeat(60)));
       console.log();
 
-      // 动态导入技能管理器
-      const { skillManager } = await import('../skills/managers/SkillManager');
-
-      const skills = skillManager.getSkills();
+      // 使用新的 SkillRegistry
+      const { SkillRegistry } = await import('../skills/SkillRegistry');
+      const { BundledSkillLoader } = await import('../skills/loaders/sources/BundledSkillLoader');
+      const registry = new SkillRegistry();
+      const loader = new BundledSkillLoader();
+      const skillsList = await loader.loadSkills();
+      registry.registerBatch(skillsList);
+      const skills = registry.getAll();
 
       if (skills.length === 0) {
         console.log(chalk.yellow('⚠'), 'No skills available');
@@ -566,11 +570,7 @@ program
             chalk.bold(skill.name)
           );
           console.log(`   ${chalk.gray(skill.description)}`);
-          if (skill.argumentHint) {
-            console.log(
-              `   ${chalk.gray('Usage:')} ${skill.name} ${skill.argumentHint}`
-            );
-          }
+          console.log(`   ${chalk.gray('Kind:')} ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`);
           console.log();
         });
       }

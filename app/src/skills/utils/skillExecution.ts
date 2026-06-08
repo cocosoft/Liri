@@ -30,7 +30,10 @@ export async function executeSkill(
     );
 
     // 获取技能提示
-    const prompt = await skill.getPromptForCommand(args, executionContext);
+    if (skill.impl.kind !== 'prompt') {
+      throw new Error(`Skill ${skill.name} is not a prompt skill`);
+    }
+    const prompt = await skill.impl.getPromptForCommand(args, executionContext);
 
     // 处理执行结果
     return processExecutionResult(prompt, skill);

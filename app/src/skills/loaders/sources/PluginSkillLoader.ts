@@ -73,7 +73,7 @@ export class PluginSkillLoader extends SkillLoader {
                 skillName,
                 frontmatter,
                 content: markdownContent,
-                source: SkillSource.PLUGIN,
+                source: SkillSource.THIRD_PARTY,
                 loadedFrom: 'plugin',
               });
 
@@ -98,6 +98,6 @@ export class PluginSkillLoader extends SkillLoader {
    * @returns 技能来�?
    */
   getSource(): SkillSource {
-    return SkillSource.PLUGIN;
+    return SkillSource.THIRD_PARTY;
   }
 }

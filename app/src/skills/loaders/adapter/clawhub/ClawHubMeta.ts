@@ -18,31 +18,52 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-/**
- * 内置技能
- */
-
-import type { SkillService } from '../services/skillService';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-
-const logger = new Logger({ level: LogLevel.INFO });
-
-// 导入内置技能
-import debugSkill from './debug';
-import loopSkill from './loop';
-import stuckSkill from './stuck';
-import verifySkill from './verify';
 
 /**
- * 初始化内置技能
- * @param skillService 技能服务实例
+ * ClawHub 技能元数据类型
+ * 扩展通用 ThirdPartySkillMeta，添加 ClawHub 特有字段。
  */
-export function initBundledSkills(skillService: SkillService): void {
-  // 注册内置技能
-  debugSkill(skillService);
-  loopSkill(skillService);
-  stuckSkill(skillService);
-  verifySkill(skillService);
 
-  logger.info('Bundled skills initialized');
+import type {
+  ThirdPartySkillMeta,
+  InstalledThirdPartySkill,
+} from '../types';
+
+/**
+ * ClawHub 技能元数据（扩展通用格式）
+ * @deprecated 通过 ClawHubConverter.toSkill() 转换为统一 Skill 类型
+ */
+export interface ClawHubSkillMeta extends ThirdPartySkillMeta {
+  /** 图标 URL 或 base64 */
+  icon?: string;
+  /** 详细说明 */
+  readme?: string;
+  /** 依赖列表 */
+  dependencies?: string[];
+  /** ClawHub 权限声明 */
+  permissions?: string[];
+  /** 清单格式版本 */
+  manifestVersion?: string;
+  /** 来源标识 */
+  source?: string;
+}
+
+/**
+ * 已安装的 ClawHub 技能
+ */
+export interface InstalledClawHubSkill extends InstalledThirdPartySkill {
+  meta: ClawHubSkillMeta;
+}
+
+/**
+ * ClawHub 技能搜索结果（内部格式）
+ */
+export interface ClawHubSearchResult {
+  skill: ClawHubSkillMeta;
+  /** 来源标识 */
+  source: string;
+  /** 相关度分数 */
+  score?: number;
+  /** 是否已安装 */
+  installed?: boolean;
 }

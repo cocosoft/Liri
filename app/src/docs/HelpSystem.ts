@@ -553,11 +553,9 @@ Notebook 创建和执行工具（替代 NotebookEditTool）。
 ## 技能来源
 
 技能来自以下来源：
-- **内置技能** (bundled) - 随应用一起发布的核心技能
-- **用户技能** (user) - 用户自定义的技能
-- **项目技能** (project) - 项目级别的技能
-- **插件技能** (plugin) - 通过插件安装的技能
-- **MCP技能** (mcp) - 通过MCP协议获取的技能
+- **官方技能** (official) - 官方发布的内建技能，随应用一起分发
+- **社区技能** (community) - 社区贡献的技能，通过市场或仓库获取
+- **第三方技能** (third-party) - 外部来源注册的技能（插件、MCP 协议等）
 `,
       relatedTopics: ['commands', 'tools'],
       keywords: ['技能', 'skill', '列表'],

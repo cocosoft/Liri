@@ -1289,8 +1289,8 @@ export class ExtensibilityService {
 
     // 注册技能系统模块
     this.moduleManager.registerLazyModule('skills', async () => {
-      const { SkillManager } = await import('../../skills/SkillManager.js');
-      const skillManager = new SkillManager();
+      const { SkillRegistry } = await import('../../skills/SkillRegistry.js');
+      const skillRegistry = new SkillRegistry();
       return {
         metadata: {
           id: 'skills',
@@ -1314,7 +1314,7 @@ export class ExtensibilityService {
           logger.info('Skills module destroyed');
         },
         getProvider: <T>(name: string): T | undefined =>
-          name === 'skillManager' ? (skillManager as T) : undefined,
+          name === 'skillRegistry' ? (skillRegistry as T) : undefined,
         registerProvider: (name: string, provider: unknown): void => {},
         unregisterProvider: (name: string): void => {},
       };

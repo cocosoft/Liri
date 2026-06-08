@@ -1,9 +1,27 @@
 /**
- * 插件类型定义
+ * 插件类型定义 — 插件开发者 API 层
+ *
+ * 本文件作为插件开发者 API 类型定义，与 PluginTypes.ts（插件管理基础设施类型）分工不同。
+ * 为便于消费者迁移，重导出 PluginTypes.ts 的非冲突类型。
  */
 
+// === 重导出 PluginTypes.ts 的非冲突类型（P0 类型统一） ===
+// PluginState/PluginType/PluginEventType 是 enum（运行时值），统一用 value re-export
+export type {
+  PluginEvent,
+  PluginDependencyResolution,
+  PluginConfig,
+  PluginRegistration,
+  LoadedPlugin,
+  PluginLoadResult,
+} from './PluginTypes.js';
+export { PluginState, PluginType, PluginEventType } from './PluginTypes.js';
+
+// ====================================================
+
 /**
- * 插件生命周期状态
+ * 插件生命周期状态（5态 — 插件开发者视角）
+ * 注意：区别于 PluginState（8态 — 管理基础设施视角）
  */
 export enum PluginStatus {
   /**

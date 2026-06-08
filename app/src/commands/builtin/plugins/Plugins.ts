@@ -3,6 +3,10 @@
  * 插件管理和状态查看
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { NpmDistributor } from '@modules/plugins/distribution/NpmDistributor';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 interface PluginInfo {
   name: string;
@@ -21,6 +25,14 @@ interface PluginsData {
   errorCount: number;
 }
 
+interface NpmPluginListEntry {
+  name: string;
+  version: string;
+  capability: string;
+  status: 'active' | 'inactive' | 'error';
+  source: 'npm' | 'local' | 'bundled';
+}
+
 const pluginsCommand = {
   /**
    * 执行 plugins 命令
@@ -32,6 +44,22 @@ const pluginsCommand = {
     try {
       const cleanArgs = args.trim().toLowerCase();
       const useJson = cleanArgs.includes('--json');
+      const parts = args.trim().split(/\s+/);
+      const firstArg = parts[0] || '';
+
+      // 处理 npm 管理子命令
+      if (firstArg === 'install') {
+        return await installPlugin(parts[1] || '');
+      }
+      if (firstArg === 'remove' || firstArg === 'uninstall') {
+        return await removePlugin(parts[1] || '');
+      }
+      if (firstArg === 'update') {
+        return await updatePlugin(parts[1] || '');
+      }
+      if (firstArg === 'search') {
+        return await searchPlugins(parts.slice(1).join(' '));
+      }
 
       if (
         cleanArgs === 'help' ||
@@ -51,6 +79,10 @@ const pluginsCommand = {
 
       if (cleanArgs === '--list' || cleanArgs === '-l') {
         return await this.listPlugins(useJson);
+      }
+
+      if (cleanArgs === 'list') {
+        return await listNpmPlugins();
       }
 
       if (cleanArgs === '--test' || cleanArgs === '-t') {
@@ -90,6 +122,10 @@ const pluginsCommand = {
   /plugins --test (-t)        - 测试插件连接
   /plugins status             - 显示插件系统状态
   /plugins --json             - 以 JSON 格式输出
+  /plugins install <name>    - 从 npm 安装插件
+  /plugins remove <name>     - 移除已安装插件
+  /plugins update [name]     - 更新插件（不指定名称则更新全部）
+  /plugins search <query>    - 搜索插件
   /plugins help               - 显示此帮助
 
 子命令说明:
@@ -97,6 +133,10 @@ const pluginsCommand = {
   --status (-s) 显示插件系统的状态概览和统计信息
   --test (-t)   测试所有插件的连接和状态检查
   status        显示插件系统总体状态（加载、启用、禁用等统计）
+  install       从 npm 仓库安装插件
+  remove        卸载已安装的插件
+  update        更新指定插件或全部插件
+  search        搜索可用的插件
   --json        以 JSON 格式输出结果（可与其他子命令组合）
 
 状态说明:
@@ -284,7 +324,7 @@ const pluginsCommand = {
 
       if (registrations.length > 0) {
         for (const reg of registrations) {
-          const loaded = loadedPlugins.find((lp: any) => lp.id === reg.id);
+          const loaded = loadedPlugins.find((lp) => lp.id === reg.id);
           plugins.push({
             name: reg.name,
             version: reg.version,
@@ -296,25 +336,7 @@ const pluginsCommand = {
         }
       }
     } catch {
-      // 插件系统未初始化，使用插件管理器作为备选
-      try {
-        const { pluginManager } =
-          await import('@modules/plugins/PluginManager.js');
-        const allPlugins = pluginManager.getAllPlugins() || [];
-
-        for (const plugin of allPlugins) {
-          plugins.push({
-            name: plugin.name,
-            version: plugin.manifest?.version || '0.0.0',
-            state: plugin.enabled ? 'ACTIVATED' : 'DEACTIVATED',
-            path: plugin.path || '',
-            dependencies: [],
-            error: undefined,
-          });
-        }
-      } catch {
-        // 两个数据源都不可用，返回空数据
-      }
+      // 插件系统未初始化，返回空数据
     }
 
     return {
@@ -370,5 +392,154 @@ const pluginsCommand = {
     }
   },
 };
+
+// ============================================================
+// npm 插件管理功能（从 plugins/PluginCommand 合并）
+// ============================================================
+
+/**
+ * 从 npm 安装插件
+ */
+async function installPlugin(name: string): Promise<CommandResult> {
+  if (!name) {
+    return {
+      success: false,
+      type: 'error',
+      error: '请指定插件名称: /plugins install <name>',
+    };
+  }
+
+  try {
+    const distributor = new NpmDistributor();
+    const result = await distributor.install(name);
+    logger.info('插件安装结果', {
+      name,
+      success: result.success,
+      version: result.version,
+    });
+    return {
+      success: result.success,
+      type: 'text',
+      message: result.success
+        ? `插件 ${name} v${result.version} 安装成功`
+        : `插件安装失败: ${result.error}`,
+      data: result,
+    };
+  } catch (error) {
+    logger.error('插件安装失败', error as Error);
+    return {
+      success: false,
+      type: 'error',
+      error: `插件安装失败: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * 列出通过 npm 安装的插件
+ */
+async function listNpmPlugins(): Promise<CommandResult> {
+  try {
+    const distributor = new NpmDistributor();
+    const installed = await distributor.listInstalled();
+    const entries: NpmPluginListEntry[] = installed.map((p) => ({
+      name: p.name,
+      version: p.version || '?',
+      capability: p.capability || 'tool',
+      status: 'active' as const,
+      source: 'npm' as const,
+    }));
+
+    const lines =
+      entries.length === 0
+        ? ['没有安装的 npm 插件']
+        : entries.map(
+            (e) => `  ${e.name} v${e.version} [${e.capability}] ${e.status}`
+          );
+
+    return {
+      success: true,
+      type: 'text',
+      message: `已安装 npm 插件 (${entries.length}):\n${lines.join('\n')}`,
+      data: entries,
+    };
+  } catch (error) {
+    logger.error('列出 npm 插件失败', error as Error);
+    return {
+      success: false,
+      type: 'error',
+      error: `列出插件失败: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * 移除已安装的插件
+ */
+async function removePlugin(name: string): Promise<CommandResult> {
+  if (!name) {
+    return {
+      success: false,
+      type: 'error',
+      error: '请指定要移除的插件名称: /plugins remove <name>',
+    };
+  }
+
+  try {
+    const distributor = new NpmDistributor();
+    const ok = await distributor.remove(name);
+    logger.info('插件移除结果', { name, success: ok });
+    return {
+      success: ok,
+      type: 'text',
+      message: ok ? `插件 ${name} 已移除` : `插件 ${name} 移除失败`,
+    };
+  } catch (error) {
+    logger.error('插件移除失败', error as Error);
+    return {
+      success: false,
+      type: 'error',
+      error: `插件移除失败: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * 更新插件
+ */
+async function updatePlugin(name: string): Promise<CommandResult> {
+  try {
+    const distributor = new NpmDistributor();
+    const target = name || 'all';
+    const results = await distributor.update(target);
+    const msgs = results.map(
+      (r) => `  ${r.name}: ${r.success ? `v${r.version}` : r.error}`
+    );
+    return {
+      success: results.every((r) => r.success),
+      type: 'text',
+      message: `更新结果:\n${msgs.join('\n')}`,
+      data: results,
+    };
+  } catch (error) {
+    logger.error('插件更新失败', error as Error);
+    return {
+      success: false,
+      type: 'error',
+      error: `插件更新失败: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * 搜索插件
+ */
+async function searchPlugins(query: string): Promise<CommandResult> {
+  return {
+    success: true,
+    type: 'text',
+    message: `搜索: "${query}" — 请访问 npm registry 或 PyAPP Hub 搜索插件`,
+  };
+}
 
 export default pluginsCommand;

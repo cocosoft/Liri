@@ -387,14 +387,6 @@ export class PluginCommandLoader implements CommandLoader {
 
     const commands: Command[] = [];
 
-    try {
-      const { pluginManager } = await import('../../plugins/PluginManager.js');
-      const pluginCommands = await pluginManager.getCommands();
-      commands.push(...pluginCommands);
-    } catch (error) {
-      logger.error('Failed to load plugin commands:', { error });
-    }
-
     return commands;
   }
 

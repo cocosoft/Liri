@@ -154,6 +154,29 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
+   * 获取已启用插件（短名别名）
+   */
+  getEnabled(): PluginRegistration[] {
+    return this.getEnabledPlugins();
+  }
+
+  /**
+   * 获取已禁用插件
+   */
+  getDisabled(): PluginRegistration[] {
+    return Array.from(this.registry.values()).filter(
+      (plugin) => !plugin.enabled
+    );
+  }
+
+  /**
+   * 获取已禁用插件（完整风格别名）
+   */
+  getDisabledPlugins(): PluginRegistration[] {
+    return this.getDisabled();
+  }
+
+  /**
    * 获取插件数量
    */
   getPluginCount(): number {

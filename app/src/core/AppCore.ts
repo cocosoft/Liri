@@ -12,6 +12,8 @@ import {
   ModuleDefinition,
 } from './ModuleDependencyManager.js';
 import { PluginEcosystem, EcosystemConfig } from './PluginEcosystem.js';
+import { pluginSystem } from '@modules/plugins/index.js';
+import type { PluginSystem } from '@modules/plugins/index.js';
 import { PluginSDK, Plugin, PluginSDKConfig } from './PluginSDK.js';
 import { StartupProfiler } from '@modules/utils/startupProfiler.js';
 import {
@@ -387,9 +389,16 @@ export class AppCore {
 
   /**
    * 初始化插件系统
+   * 启动 PluginSystem（懒加载核心），并绑定到 PluginEcosystem（展示层）
    */
   private async initializePluginSystem(): Promise<void> {
-    // 注册示例插件
+    // 初始化 PluginSystem（懒加载模式，注册内核服务）
+    await pluginSystem.initialize();
+
+    // 绑定到 PluginEcosystem，使展示层可查询 PluginSystem 数据
+    this.ecosystem.bindPluginSystem(pluginSystem);
+
+    // 注册示例插件（通过 SDK）
     const examplePlugin = PluginSDK.createExamplePlugin();
     await this.pluginSDK.registerPlugin(examplePlugin);
 
@@ -639,7 +648,16 @@ export class AppCore {
   }
 
   /**
-   * 获取插件生态系统
+   * 获取插件系统
+   * 返回 PluginSystem 实例（数据源）
+   */
+  getPluginSystem(): PluginSystem {
+    return pluginSystem;
+  }
+
+  /**
+   * 获取插件生态系统（Deprecated）
+   * @deprecated 请使用 getPluginSystem() 代替
    */
   getEcosystem(): PluginEcosystem {
     return this.ecosystem;

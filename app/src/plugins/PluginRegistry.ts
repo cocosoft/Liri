@@ -1,119 +1,148 @@
 /**
- * 插件注册表
- * 负责管理插件的注册和查询
- * 支持回退加载机制（§5 向后兼容性保障 — 措施3）
+ * 插件注册表（兼容层，委派至 core/PluginRegistry）
+ *
+ * 保持与旧导入路径 @modules/plugins/PluginRegistry 的兼容性。
+ * 新代码请直接使用 @modules/plugins/core/PluginRegistry。
  */
 
-import type { LoadedPlugin } from '../types/plugin';
+import { PluginRegistry as CorePluginRegistry } from './core/PluginRegistry';
+import type { PluginRegistration } from './types/PluginTypes';
+import type { LoadedPlugin } from './types/PluginTypes';
 
 /**
- * 回退加载器类型
- * 当 get() 直接查找失败时，回调此函数尝试从其他来源加载插件
+ * 将 PluginRegistration 转为 LoadedPlugin
  */
-export type FallbackLoader = (pluginName: string) => LoadedPlugin | undefined;
+function toLoadedPlugin(reg: PluginRegistration): LoadedPlugin {
+  return {
+    id: reg.id,
+    name: reg.name,
+    version: reg.version,
+    path: reg.path,
+    state: reg.state,
+    enabled: reg.enabled,
+    dependencies: reg.dependencies,
+    dependents: reg.dependents,
+  };
+}
 
 export class PluginRegistry {
-  private plugins: Map<string, LoadedPlugin> = new Map();
-  private fallbackLoader: FallbackLoader | null = null;
+  private core: CorePluginRegistry;
+
+  constructor() {
+    this.core = new CorePluginRegistry();
+  }
+
+  /**
+   * 获取核心注册表实例
+   */
+  getCore(): CorePluginRegistry {
+    return this.core;
+  }
 
   /**
    * 注册插件
-   * @param plugin 要注册的插件
    */
   register(plugin: LoadedPlugin): void {
-    this.plugins.set(plugin.name, plugin);
+    this.core.registerPlugin({
+      id: plugin.id,
+      name: plugin.name,
+      version: plugin.version,
+      path: plugin.path,
+      state: plugin.state,
+      registeredAt: new Date(),
+      enabled: plugin.enabled,
+      dependencies: plugin.dependencies ?? [],
+      dependents: plugin.dependents ?? [],
+    });
   }
 
   /**
    * 注销插件
-   * @param pluginName 插件名称
    */
   unregister(pluginName: string): void {
-    this.plugins.delete(pluginName);
+    this.core.unregisterPlugin(pluginName);
   }
 
   /**
-   * 设置回退加载器（§5 措施3）
-   * 当 get() 直接查找失败时，自动从回退加载器获取并注册
-   * @param fallback 回退加载函数
+   * 设置回退加载器
    */
-  setFallback(fallback: FallbackLoader): void {
-    this.fallbackLoader = fallback;
+  setFallback(fallback: (pluginName: string) => LoadedPlugin | undefined): void {
+    this.core.setFallback((pluginId: string) => {
+      const result = fallback(pluginId);
+      if (!result) return undefined;
+
+      return {
+        id: result.id,
+        name: result.name,
+        version: result.version,
+        path: result.path,
+        state: result.state,
+        registeredAt: new Date(),
+        enabled: result.enabled,
+        dependencies: result.dependencies ?? [],
+        dependents: result.dependents ?? [],
+      };
+    });
   }
 
   /**
    * 清除回退加载器
    */
   clearFallback(): void {
-    this.fallbackLoader = null;
+    this.core.clearFallback();
   }
 
   /**
    * 获取插件
-   * 优先从注册表查找；如果未找到，调用回退加载器自动加载并注册
-   * @param pluginName 插件名称
-   * @returns 插件对象或undefined
    */
   get(pluginName: string): LoadedPlugin | undefined {
-    const existing = this.plugins.get(pluginName);
-    if (existing) return existing;
+    const reg = this.core.getPlugin(pluginName);
+    if (!reg) return undefined;
 
-    if (this.fallbackLoader) {
-      const fallbackPlugin = this.fallbackLoader(pluginName);
-      if (fallbackPlugin) {
-        this.register(fallbackPlugin);
-        return fallbackPlugin;
-      }
-    }
-
-    return undefined;
+    return toLoadedPlugin(reg);
   }
 
   /**
    * 获取所有插件
-   * @returns 插件数组
    */
   getAll(): LoadedPlugin[] {
-    return Array.from(this.plugins.values());
+    return this.core.getAllPlugins().map(toLoadedPlugin);
   }
 
   /**
-   * 获取启用的插件
-   * @returns 启用的插件数组
+   * 获取已启用插件
    */
   getEnabled(): LoadedPlugin[] {
-    return this.getAll().filter((plugin) => plugin.enabled);
+    return this.core.getEnabled().map(toLoadedPlugin);
   }
 
   /**
-   * 获取禁用的插件
-   * @returns 禁用的插件数组
+   * 获取已禁用插件
    */
   getDisabled(): LoadedPlugin[] {
-    return this.getAll().filter((plugin) => !plugin.enabled);
+    return this.core.getDisabled().map(toLoadedPlugin);
   }
 
   /**
    * 清空注册表
    */
   clear(): void {
-    this.plugins.clear();
+    for (const plugin of this.core.getAllPlugins()) {
+      this.core.unregisterPlugin(plugin.id);
+    }
   }
 
   /**
    * 检查插件是否存在
-   * @param pluginName 插件名称
-   * @returns 是否存在
    */
   has(pluginName: string): boolean {
-    return this.plugins.has(pluginName);
+    return this.core.getPlugin(pluginName) !== undefined;
   }
 
   /**
    * 获取插件数量
-   * @returns 插件数量
    */
   size(): number {
-    return this.plugins.size;
+    return this.core.getPluginCount();
   }
 }

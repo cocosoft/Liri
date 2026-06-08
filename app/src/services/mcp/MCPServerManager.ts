@@ -7,12 +7,12 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
-  MCPServerConfig,
-  MCPServerConnectionInfo,
+  type MCPServerConfig,
+  type MCPServerConnectionInfo,
   MCPServerStatus,
-  MCPToolDefinition,
-  ScopedMcpServerConfig,
-} from '@modules/mcp/types';
+  type MCPToolDefinition,
+  type ScopedMcpServerConfig,
+} from './types';
 import { MCPConnection } from './MCPConnection';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 

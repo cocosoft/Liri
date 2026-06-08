@@ -1,6 +1,12 @@
 /**
- * 插件类型定义
+ * 插件类型定义（P0 类型统一 — 从 @modules/plugins/types/PluginTypes 引用核心类型）
  */
+
+// === 从 PluginTypes 导入并重导出核心类型 ===
+import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
+export type { LoadedPlugin };
+
+// ====================================
 
 /**
  * 插件清单
@@ -70,32 +76,6 @@ export interface CommandMetadata {
     default?: any;
   }>;
   [key: string]: any;
-}
-
-/**
- * 已加载的插件
- */
-export interface LoadedPlugin {
-  name: string;
-  manifest: PluginManifest;
-  path: string;
-  source: string;
-  repository: string;
-  enabled: boolean;
-  isBuiltin: boolean;
-  sha?: string;
-  commandsPath?: string;
-  commandsPaths?: string[];
-  commandsMetadata?: Record<string, CommandMetadata>;
-  agentsPath?: string;
-  agentsPaths?: string[];
-  skillsPath?: string;
-  skillsPaths?: string[];
-  outputStylesPath?: string;
-  outputStylesPaths?: string[];
-  hooksConfig?: PluginHooks;
-  mcpServers?: PluginMcpServer[];
-  settings?: Record<string, unknown>;
 }
 
 /**

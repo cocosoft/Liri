@@ -12,6 +12,7 @@
 
 import type { PluginRegistry } from '../PluginRegistry';
 import type { LoadedPlugin } from '../../types/plugin';
+import { PluginState } from '../types/PluginTypes.js';
 
 /**
  * 存根注册选项
@@ -45,7 +46,10 @@ export class RegistrationStub {
     options: StubOptions = {}
   ): LoadedPlugin {
     const plugin: LoadedPlugin = {
+      id: name,
       name,
+      version: options.version || '1.0.0',
+      state: PluginState.ACTIVATED,
       manifest: {
         name,
         version: options.version || '1.0.0',
@@ -104,7 +108,10 @@ export class RegistrationStub {
       if (!match) return undefined;
 
       return {
+        id: match.name,
         name: match.name,
+        version: match.version,
+        state: PluginState.ACTIVATED,
         manifest: {
           name: match.name,
           version: match.version,

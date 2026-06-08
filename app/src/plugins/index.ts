@@ -53,6 +53,7 @@ import {
   PluginEventType,
   PluginEvent,
 } from './types/PluginTypes';
+import type { PluginInfo } from './types/PluginDisplay.js';
 import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -521,6 +522,57 @@ export class PluginSystem {
   getAllPlugins(): LoadedPlugin[] {
     if (!this._loader) return [];
     return this.loader.getAllPlugins();
+  }
+
+  /**
+   * 获取插件信息列表（展示层）
+   * 将 LoadedPlugin 转换为轻量级 PluginInfo 用于 UI 展示
+   */
+  getPluginInfoList(): PluginInfo[] {
+    const plugins = this.getAllPlugins();
+    return plugins.map((p) => ({
+      id: p.id,
+      name: p.name,
+      version: p.version,
+      description: (p.manifest as Record<string, unknown> | undefined)
+        ?.description as string | undefined || '',
+      author: (p.manifest as Record<string, unknown> | undefined)
+        ?.author as string | undefined || 'Unknown',
+      tags: (p.manifest as Record<string, unknown> | undefined)
+        ?.tags as string[] | undefined || [],
+      category: (p.manifest as Record<string, unknown> | undefined)
+        ?.category as string | undefined || 'uncategorized',
+      installed: true,
+      enabled: p.enabled,
+      path: p.path,
+    }));
+  }
+
+  /**
+   * 搜索插件（按名称/类别/标签）
+   */
+  searchPlugins(query?: string, category?: string, tags?: string[]): PluginInfo[] {
+    let results = this.getPluginInfoList();
+
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      results = results.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lowerQuery) ||
+          p.description.toLowerCase().includes(lowerQuery) ||
+          p.id.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    if (category) {
+      results = results.filter((p) => p.category === category);
+    }
+
+    if (tags && tags.length > 0) {
+      results = results.filter((p) => tags.some((tag) => p.tags.includes(tag)));
+    }
+
+    return results;
   }
 
   getActivatedPlugins(): LoadedPlugin[] {

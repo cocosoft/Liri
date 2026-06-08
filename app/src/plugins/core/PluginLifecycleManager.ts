@@ -180,7 +180,7 @@ export class PluginLifecycleManager extends EventEmitter {
       // 更新插件状态
       plugin.state = PluginState.ACTIVATED;
       plugin.activatedAt = new Date();
-      plugin.stats.activateCount++;
+      if (plugin.stats) plugin.stats.activateCount++;
 
       // 执行启动后钩子
       await this.executeLifecycleHooks(
@@ -197,7 +197,7 @@ export class PluginLifecycleManager extends EventEmitter {
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
-      plugin.stats.errorCount++;
+      if (plugin.stats) plugin.stats.errorCount++;
 
       this.emitLifecycleEvent(PluginLifecycleEvent.ERROR, plugin, { error });
 
@@ -247,7 +247,7 @@ export class PluginLifecycleManager extends EventEmitter {
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
-      plugin.stats.errorCount++;
+      if (plugin.stats) plugin.stats.errorCount++;
 
       this.emitLifecycleEvent(PluginLifecycleEvent.ERROR, plugin, { error });
 

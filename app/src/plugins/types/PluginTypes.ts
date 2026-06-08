@@ -122,6 +122,19 @@ export interface PluginMetadata {
  * 插件配置
  */
 export interface PluginConfig {
+  /** 插件仓库配置 */
+  repositories?: Record<string, {
+    name: string;
+    url: string;
+    type: 'git' | 'npm' | 'local';
+  }>;
+
+  /** 启用的插件列表 */
+  enabled?: string[];
+
+  /** 禁用的插件列表 */
+  disabled?: string[];
+
   /** 配置项 */
   [key: string]: unknown;
 }
@@ -246,7 +259,8 @@ export interface Plugin {
 }
 
 /**
- * 已加载插件
+ * 已加载插件（融合版 — 兼容 PluginTypes / types/plugin / plugins/types/index 三套消费者）
+ * 新增字段均为可选，通过 Partial<> 策略覆盖所有使用方需求
  */
 export interface LoadedPlugin {
   /** 插件ID */
@@ -265,13 +279,55 @@ export interface LoadedPlugin {
   path: string;
 
   /** 插件配置 */
-  config: PluginConfig;
+  config?: PluginConfig;
+
+  /** 插件清单（来自 types/plugin.ts 消费方） */
+  manifest?: Record<string, unknown>;
+
+  /** 是否启用 */
+  enabled: boolean;
+
+  /** 插件来源 */
+  source?: string;
+
+  /** 插件仓库 */
+  repository?: string;
+
+  /** 是否为内置插件 */
+  isBuiltin?: boolean;
 
   /** 插件实例 */
   instance?: unknown;
 
   /** 错误信息 */
   error?: string;
+
+  /** Git 提交 SHA */
+  sha?: string;
+
+  /** 命令路径列表 */
+  commandsPaths?: string[];
+
+  /** 代理路径列表 */
+  agentsPaths?: string[];
+
+  /** 技能路径列表 */
+  skillsPaths?: string[];
+
+  /** 钩子配置 */
+  hooksConfig?: Record<string, unknown>;
+
+  /** MCP 服务器配置 */
+  mcpServers?: Array<Record<string, unknown>>;
+
+  /** 设置 */
+  settings?: Record<string, unknown>;
+
+  /** 依赖列表 */
+  dependencies?: string[];
+
+  /** 被依赖列表 */
+  dependents?: string[];
 
   /** 加载时间 */
   loadedAt?: Date;
@@ -283,16 +339,13 @@ export interface LoadedPlugin {
   deactivatedAt?: Date;
 
   /** 统计信息 */
-  stats: {
+  stats?: {
     /** 加载次数 */
     loadCount: number;
-
     /** 激活次数 */
     activateCount: number;
-
     /** 错误次数 */
     errorCount: number;
-
     /** 最后使用时间 */
     lastUsedAt?: Date;
   };

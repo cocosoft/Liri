@@ -2,9 +2,11 @@
 import { AgentTool } from '../models/types';
 import { AgentStrategy } from '../models/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { pluginSystem } from '@modules/plugins';
+import { PluginState } from '@modules/plugins/types/PluginTypes';
 
 const logger = new Logger({ level: LogLevel.INFO });
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 interface AgentPlugin {
   id: string;
@@ -127,6 +129,9 @@ export class PluginLoader {
 
       await plugin.initialize({ sandboxId: sandbox.id });
       this.plugins.set(plugin.id, plugin);
+
+      // 注册到 PluginSystem，使 Agent 插件对其他模块可见
+      this.registerToPluginSystem(plugin);
 
       const loadTime = Date.now() - startTime;
       this.loadHistory.push({ success: true, plugin, loadTime });
@@ -433,5 +438,27 @@ export class PluginLoader {
       }
     }
     return dependents;
+  }
+
+  /**
+   * 将 Agent 插件注册到 PluginSystem，使其对其他模块可见
+   */
+  private registerToPluginSystem(plugin: AgentPlugin): void {
+    try {
+      const registry = pluginSystem.getRegistry();
+      registry.registerPlugin({
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        path: '',
+        state: PluginState.ACTIVATED,
+        enabled: true,
+        dependencies: [],
+        dependents: [],
+        registeredAt: new Date(),
+      });
+    } catch (error) {
+      logger.warning(`Failed to register agent plugin to PluginSystem: ${plugin.id}`, { error });
+    }
   }
 }

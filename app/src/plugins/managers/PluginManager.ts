@@ -3,7 +3,7 @@
  * 代理到 PluginSystem 的单例，消除双轨实现
  */
 
-import type { LoadedPlugin, PluginLoadResult } from '../types';
+import type { LoadedPlugin } from '../types';
 import { pluginSystem } from '../index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -31,7 +31,7 @@ export class PluginManager {
   public async loadPlugin(pluginId: string): Promise<LoadedPlugin> {
     const result = await pluginSystem.loadPlugin(pluginId);
     if (result.success && result.plugin) {
-      return result.plugin as unknown as LoadedPlugin;
+      return result.plugin;
     }
     throw new AppError(
       `Failed to load plugin: ${pluginId}`,
@@ -44,7 +44,9 @@ export class PluginManager {
   /**
    * 加载多个插件
    */
-  public async loadPlugins(pluginIds: string[]): Promise<PluginLoadResult> {
+  public async loadPlugins(
+    pluginIds: string[]
+  ): Promise<{ enabled: LoadedPlugin[]; disabled: LoadedPlugin[]; errors: string[] }> {
     const enabled: LoadedPlugin[] = [];
     const disabled: LoadedPlugin[] = [];
 
@@ -52,7 +54,7 @@ export class PluginManager {
       try {
         const result = await pluginSystem.loadPlugin(id);
         if (result.success && result.plugin) {
-          enabled.push(result.plugin as unknown as LoadedPlugin);
+          enabled.push(result.plugin);
         } else {
           disabled.push({ repository: id } as LoadedPlugin);
         }
@@ -68,18 +70,14 @@ export class PluginManager {
    * 获取所有插件
    */
   public getAllPlugins(): LoadedPlugin[] {
-    const loader = pluginSystem.getLoader();
-    const plugins = loader.getAllPlugins();
-    return plugins as unknown as LoadedPlugin[];
+    return pluginSystem.getLoader().getAllPlugins();
   }
 
   /**
    * 根据插件标识符获取插件
    */
   public getPlugin(pluginId: string): LoadedPlugin | undefined {
-    const loader = pluginSystem.getLoader();
-    const corePlugin = loader.getPlugin(pluginId);
-    return corePlugin as unknown as LoadedPlugin | undefined;
+    return pluginSystem.getLoader().getPlugin(pluginId);
   }
 
   /**
@@ -123,6 +121,25 @@ export class PluginManager {
    */
   public hasPlugin(pluginId: string): boolean {
     return pluginSystem.getLoader().getPlugin(pluginId) !== undefined;
+  }
+
+  /**
+   * 重新加载插件（用于热加载）
+   * 停用后重新加载并激活
+   */
+  public async reloadPlugin(pluginId: string): Promise<void> {
+    const exists = this.hasPlugin(pluginId);
+    if (!exists) return;
+
+    if (this.isPluginEnabled(pluginId)) {
+      this.disablePlugin(pluginId);
+    }
+
+    this.uninstallPlugin(pluginId);
+
+    await this.loadPlugin(pluginId);
+
+    this.enablePlugin(pluginId);
   }
 
   /**

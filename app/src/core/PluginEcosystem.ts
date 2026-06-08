@@ -1,8 +1,30 @@
-//
 /**
- * 插件和技能生态系统
- * 提供插件注册、发现、管理和市场功能
+ * 插件和技能生态系统（薄代理层）
+ *
+ * 数据已迁入 PluginSystem，本文件作为向后兼容的薄代理，
+ * 保留 Terminal UI 展示方法，数据查询委托给 PluginSystem。
  */
+
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 import { logger } from '@modules/utils/log.js';
 import {
@@ -12,8 +34,16 @@ import {
 } from '@modules/ui/TerminalComponents.js';
 import chalk from 'chalk';
 
+import type {
+  PluginInfo,
+  SkillInfo,
+  MarketplaceEntry,
+  EcosystemConfig,
+} from '@modules/plugins/types/index.js';
+import type { PluginSystem } from '@modules/plugins/index.js';
+
 /**
- * 获取徽章文本（鉴于TerminalComponents没有getBadgeText方法，使用chalk直接创建）
+ * 获取徽章文本
  */
 function getBadgeText(text: string, color: string): string {
   const colorMap: Record<string, typeof chalk> = {
@@ -27,65 +57,12 @@ function getBadgeText(text: string, color: string): string {
   return styler(` ${text} `);
 }
 
-/**
- * 插件信息
- */
-export interface PluginInfo {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  author: string;
-  tags: string[];
-  category: string;
-  rating?: number;
-  downloads?: number;
-  installed?: boolean;
-  enabled?: boolean;
-  path?: string;
-  entryPoint?: string;
-}
-
-/**
- * 技能信息
- */
-export interface SkillInfo {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  author: string;
-  tags: string[];
-  category: string;
-  pluginId?: string;
-  rating?: number;
-  usageCount?: number;
-  installed?: boolean;
-  enabled?: boolean;
-  path?: string;
-}
-
-/**
- * 插件市场条目
- */
-export interface MarketplaceEntry {
-  plugin: PluginInfo;
-  skills: SkillInfo[];
-  lastUpdated: string;
-  size: string;
-  dependencies: string[];
-}
-
-/**
- * 生态系统配置
- */
-export interface EcosystemConfig {
-  marketplaceUrl?: string;
-  localPluginPath?: string;
-  localSkillPath?: string;
-  autoUpdate?: boolean;
-  allowThirdParty?: boolean;
-}
+export type {
+  PluginInfo,
+  SkillInfo,
+  MarketplaceEntry,
+  EcosystemConfig,
+};
 
 /**
  * 插件和技能生态系统
@@ -95,6 +72,7 @@ export class PluginEcosystem {
   private skills: Map<string, SkillInfo> = new Map();
   private marketplace: Map<string, MarketplaceEntry> = new Map();
   private config: EcosystemConfig;
+  private pluginSystem: PluginSystem | null = null;
 
   constructor(config?: EcosystemConfig) {
     this.config = {
@@ -104,6 +82,14 @@ export class PluginEcosystem {
       allowThirdParty: true,
       ...config,
     };
+  }
+
+  /**
+   * 绑定 PluginSystem 实例（可选）
+   * 绑定时，getAllPlugins() 等方法将委托给 PluginSystem
+   */
+  bindPluginSystem(system: PluginSystem): void {
+    this.pluginSystem = system;
   }
 
   /**
@@ -234,9 +220,37 @@ export class PluginEcosystem {
 
   /**
    * 获取插件
+   * 优先从 PluginSystem 查询，fallback 到本地
    */
   getPlugin(pluginId: string): PluginInfo | undefined {
-    return this.plugins.get(pluginId);
+    // 先查本地注册的插件
+    const local = this.plugins.get(pluginId);
+    if (local) return local;
+
+    // 再查 PluginSystem
+    if (this.pluginSystem) {
+      const psPlugin = this.pluginSystem.getPlugin(pluginId);
+      if (psPlugin) {
+        return {
+          id: psPlugin.id,
+          name: psPlugin.name,
+          version: psPlugin.version,
+          description: (psPlugin.manifest as Record<string, unknown> | undefined)
+            ?.description as string | undefined || '',
+          author: (psPlugin.manifest as Record<string, unknown> | undefined)
+            ?.author as string | undefined || 'Unknown',
+          tags: (psPlugin.manifest as Record<string, unknown> | undefined)
+            ?.tags as string[] | undefined || [],
+          category: (psPlugin.manifest as Record<string, unknown> | undefined)
+            ?.category as string | undefined || 'uncategorized',
+          installed: true,
+          enabled: psPlugin.enabled,
+          path: psPlugin.path,
+        };
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -248,8 +262,12 @@ export class PluginEcosystem {
 
   /**
    * 获取所有插件
+   * 优先从 PluginSystem 获取，fallback 到本地
    */
   getAllPlugins(): PluginInfo[] {
+    if (this.pluginSystem) {
+      return this.pluginSystem.getPluginInfoList();
+    }
     return Array.from(this.plugins.values());
   }
 
@@ -273,7 +291,11 @@ export class PluginEcosystem {
    * 按类别搜索插件
    */
   searchPlugins(category?: string, tags?: string[]): PluginInfo[] {
-    let results = this.getAllPlugins();
+    if (this.pluginSystem) {
+      return this.pluginSystem.searchPlugins(undefined, category, tags);
+    }
+
+    let results = Array.from(this.plugins.values());
 
     if (category) {
       results = results.filter((p) => p.category === category);
@@ -429,7 +451,7 @@ export class PluginEcosystem {
    * 显示插件详情
    */
   showPluginDetails(pluginId: string): void {
-    const plugin = this.plugins.get(pluginId);
+    const plugin = this.getPlugin(pluginId);
     if (!plugin) {
       TerminalComponents.printError(`未找到插件: ${pluginId}`);
       return;

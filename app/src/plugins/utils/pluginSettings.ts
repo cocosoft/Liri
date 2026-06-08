@@ -89,12 +89,15 @@ export function enablePlugin(
 ): void {
   const config = readPluginConfig(configPath);
 
+  const enabled = config.enabled ?? [];
+  const disabled = config.disabled ?? [];
+
   // 从禁用列表中移除
-  config.disabled = config.disabled.filter((id) => id !== pluginId);
+  config.disabled = disabled.filter((id) => id !== pluginId);
 
   // 添加到启用列表
-  if (!config.enabled.includes(pluginId)) {
-    config.enabled.push(pluginId);
+  if (!enabled.includes(pluginId)) {
+    config.enabled = [...enabled, pluginId];
   }
 
   writePluginConfig(configPath, config);
@@ -110,13 +113,15 @@ export function disablePlugin(
   pluginId: string
 ): void {
   const config = readPluginConfig(configPath);
+  const enabled = config.enabled ?? [];
+  const disabled = config.disabled ?? [];
 
   // 从启用列表中移除
-  config.enabled = config.enabled.filter((id) => id !== pluginId);
+  config.enabled = enabled.filter((id) => id !== pluginId);
 
   // 添加到禁用列表
-  if (!config.disabled.includes(pluginId)) {
-    config.disabled.push(pluginId);
+  if (!disabled.includes(pluginId)) {
+    config.disabled = [...disabled, pluginId];
   }
 
   writePluginConfig(configPath, config);
@@ -132,12 +137,14 @@ export function removePlugin(
   pluginId: string
 ): void {
   const config = readPluginConfig(configPath);
+  const enabled = config.enabled ?? [];
+  const disabled = config.disabled ?? [];
 
   // 从启用列表中移除
-  config.enabled = config.enabled.filter((id) => id !== pluginId);
+  config.enabled = enabled.filter((id) => id !== pluginId);
 
   // 从禁用列表中移除
-  config.disabled = config.disabled.filter((id) => id !== pluginId);
+  config.disabled = disabled.filter((id) => id !== pluginId);
 
   writePluginConfig(configPath, config);
 }
@@ -154,7 +161,7 @@ export function addPluginRepository(
   repository: PluginRepository
 ): void {
   const config = readPluginConfig(configPath);
-  config.repositories[name] = repository;
+  config.repositories = { ...(config.repositories ?? {}), [name]: repository };
   writePluginConfig(configPath, config);
 }
 
@@ -168,7 +175,9 @@ export function removePluginRepository(
   name: string
 ): void {
   const config = readPluginConfig(configPath);
-  delete config.repositories[name];
+  if (config.repositories) {
+    delete config.repositories[name];
+  }
   writePluginConfig(configPath, config);
 }
 
@@ -183,7 +192,7 @@ export function isPluginEnabled(
   pluginId: string
 ): boolean {
   const config = readPluginConfig(configPath);
-  return config.enabled.includes(pluginId);
+  return (config.enabled ?? []).includes(pluginId);
 }
 
 /**
@@ -198,6 +207,7 @@ export function isPluginInstalled(
 ): boolean {
   const config = readPluginConfig(configPath);
   return (
-    config.enabled.includes(pluginId) || config.disabled.includes(pluginId)
+    (config.enabled ?? []).includes(pluginId) ||
+    (config.disabled ?? []).includes(pluginId)
   );
 }

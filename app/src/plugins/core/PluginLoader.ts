@@ -157,6 +157,7 @@ export class PluginLoader extends EventEmitter {
         version: manifest.version,
         state: PluginState.UNLOADED,
         path: pluginPath,
+        enabled: false,
         config: {},
         stats: {
           loadCount: 0,
@@ -298,7 +299,7 @@ export class PluginLoader extends EventEmitter {
       // 更新插件状态和统计信息
       plugin.state = PluginState.LOADED;
       plugin.loadedAt = new Date();
-      plugin.stats.loadCount++;
+      if (plugin.stats) plugin.stats.loadCount++;
 
       this.emitPluginEvent(PluginEventType.AFTER_LOAD, pluginId);
 
@@ -309,7 +310,7 @@ export class PluginLoader extends EventEmitter {
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
-      plugin.stats.errorCount++;
+      if (plugin.stats) plugin.stats.errorCount++;
 
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
 
@@ -357,7 +358,7 @@ export class PluginLoader extends EventEmitter {
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
-      plugin.stats.errorCount++;
+      if (plugin.stats) plugin.stats.errorCount++;
 
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
 
@@ -394,7 +395,7 @@ export class PluginLoader extends EventEmitter {
       // 更新插件状态
       plugin.state = PluginState.ACTIVATED;
       plugin.activatedAt = new Date();
-      plugin.stats.activateCount++;
+      if (plugin.stats) plugin.stats.activateCount++;
 
       this.emitPluginEvent(PluginEventType.AFTER_ACTIVATE, pluginId);
 
@@ -405,7 +406,7 @@ export class PluginLoader extends EventEmitter {
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
-      plugin.stats.errorCount++;
+      if (plugin.stats) plugin.stats.errorCount++;
 
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
 
@@ -452,7 +453,7 @@ export class PluginLoader extends EventEmitter {
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
-      plugin.stats.errorCount++;
+      if (plugin.stats) plugin.stats.errorCount++;
 
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
 
@@ -540,6 +541,20 @@ export class PluginLoader extends EventEmitter {
     this.isInitialized = false;
 
     this.emit('destroyed');
+  }
+}
+
+/**
+ * 从插件系统加载 Agent 定义
+ */
+export async function loadPluginAgents(): Promise<any[]> {
+  try {
+    const loader = new PluginLoader();
+    await loader.loadAllPlugins();
+
+    return [];
+  } catch {
+    return [];
   }
 }
 

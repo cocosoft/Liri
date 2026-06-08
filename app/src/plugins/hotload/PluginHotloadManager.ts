@@ -21,7 +21,8 @@ import {
 import { resolve, extname, basename, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { PluginState } from '../types/PluginTypes';
-import { pluginManager } from '../PluginManager';
+import { PluginManager } from '../managers/PluginManager';
+const pluginManager = PluginManager.getInstance();
 import {
   ActivationContextManager,
   type ActivationContext,

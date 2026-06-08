@@ -31,9 +31,10 @@ export class PluginSkillLoader extends SkillLoader {
 
       for (const plugin of plugins) {
         const pluginId = plugin.repository;
-        // 检查插件是否有技�?
+        // 检查插件是否有技能
         if (plugin.manifest && plugin.manifest.skills) {
-          for (const skillPath of plugin.manifest.skills) {
+          const skillPaths = plugin.manifest.skills as string[];
+          for (const skillPath of skillPaths) {
             try {
               const skillFilePath = join(plugin.path, skillPath);
 

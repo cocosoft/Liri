@@ -68,10 +68,6 @@ async function loadAgentsFromPlugin(
     // 检查插件的agentsPath和agentsPaths
     const agentPaths = [];
 
-    if (plugin.agentsPath) {
-      agentPaths.push(plugin.agentsPath);
-    }
-
     if (plugin.agentsPaths) {
       agentPaths.push(...plugin.agentsPaths);
     }

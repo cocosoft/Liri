@@ -5,7 +5,8 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
-import { PluginEcosystem, PluginInfo, SkillInfo } from './PluginEcosystem.js';
+import { PluginEcosystem } from './PluginEcosystem.js';
+import type { PluginInfo, SkillInfo } from '@modules/plugins/types/index.js';
 import {
   ModuleDependencyManager,
   ModuleDefinition,

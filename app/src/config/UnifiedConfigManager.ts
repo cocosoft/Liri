@@ -28,7 +28,7 @@ import {
   type ConfigDiff,
   type VersionInfo,
 } from './version/VersionController.js';
-import { ConfigManager } from './ConfigManager.js';
+import { configManager } from './ConfigManager.js';
 import {
   saveUserSettings,
   updateUserSettings,
@@ -115,7 +115,6 @@ export class UnifiedConfigManager {
   private configLoader: ConfigLoader;
   private hotReloader: HotReloader;
   private versionController: VersionController;
-  private configManager: ConfigManager;
   private mergedConfig: Record<string, unknown>;
   private initialized: boolean;
   private syncSourcesLoaded: boolean;
@@ -130,7 +129,6 @@ export class UnifiedConfigManager {
     this.configLoader = new ConfigLoader();
     this.hotReloader = new HotReloader(options?.hotReloadConfig);
     this.versionController = new VersionController(options?.maxSnapshots);
-    this.configManager = new ConfigManager();
     this.mergedConfig = {};
     this.initialized = false;
     this.syncSourcesLoaded = false;
@@ -173,7 +171,7 @@ export class UnifiedConfigManager {
    * 获取指定源的配置
    */
   getSourceConfig(source: SettingSource): Record<string, unknown> | undefined {
-    return this.configManager.getSourceConfig(source);
+    return configManager.getSourceConfig(source);
   }
 
   /**
@@ -183,7 +181,7 @@ export class UnifiedConfigManager {
     source: EditableSettingSource,
     config: Record<string, unknown>
   ): void {
-    this.configManager.setSourceConfig(source, config);
+    configManager.setSourceConfig(source, config);
   }
 
   /**
@@ -234,7 +232,7 @@ export class UnifiedConfigManager {
     }
 
     current[keys[keys.length - 1]!] = value;
-    this.configManager.setSourceConfig(source, root);
+    configManager.setSourceConfig(source, root);
   }
 
   /**
@@ -335,8 +333,8 @@ export class UnifiedConfigManager {
   /**
    * 获取底层ConfigManager（兼容接口）
    */
-  getConfigManager(): ConfigManager {
-    return this.configManager;
+  getConfigManager() {
+    return configManager;
   }
 
   /**
@@ -364,7 +362,7 @@ export class UnifiedConfigManager {
    * 设置命令行标志配置
    */
   setFlagSettings(flags: Record<string, unknown>): void {
-    this.configManager.setSourceConfig('flagSettings', flags);
+    configManager.setSourceConfig('flagSettings', flags);
   }
 
   /**
@@ -372,7 +370,7 @@ export class UnifiedConfigManager {
    * 从各设置文件同步加载：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
   loadSyncSources(): void {
-    this.configManager.loadSyncSources();
+    configManager.loadSyncSources();
     this.syncSourcesLoaded = true;
     this.cacheLastRefresh = Date.now();
   }
@@ -381,7 +379,7 @@ export class UnifiedConfigManager {
    * 刷新同步设置源
    */
   refreshSyncSources(): void {
-    this.configManager.refreshSyncSources();
+    configManager.refreshSyncSources();
     this.cacheLastRefresh = Date.now();
   }
 
@@ -391,7 +389,7 @@ export class UnifiedConfigManager {
   getSettingWithSource(
     key: string
   ): { value: unknown; source: SettingSource } | undefined {
-    const result = this.configManager.getSettingWithSource(key);
+    const result = configManager.getSettingWithSource(key);
     if (result) {
       return { value: result.value, source: result.source as SettingSource };
     }
@@ -431,8 +429,8 @@ export class UnifiedConfigManager {
    */
   rebuildMergedConfig(): void {
     const previous = this.mergedConfig;
-    this.configManager.loadSyncSources();
-    this.mergedConfig = this.configManager.getMergedConfig();
+    configManager.loadSyncSources();
+    this.mergedConfig = configManager.getMergedConfig();
     this.versionController.snapshot(this.mergedConfig, 'source_update');
 
     const changedKeys = this.detectChangedKeys(previous, this.mergedConfig);

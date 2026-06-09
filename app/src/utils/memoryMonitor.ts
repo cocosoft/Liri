@@ -304,7 +304,7 @@ export class ResourceManager {
         this.resources.delete(name);
         logger.debug('Resource unregistered', { name });
       } catch (error) {
-        logger.error('Failed to cleanup resource', error as Error, { name });
+        logger.error('Failed to cleanup resource: ' + String(error), { name });
       }
     }
   }
@@ -335,14 +335,14 @@ export class ResourceManager {
               result
                 .then(() => resolve())
                 .catch((error) => {
-                  logger.error('Failed to cleanup resource', error, { name });
+                  logger.error('Failed to cleanup resource: ' + String(error), { name });
                   resolve();
                 });
             } else {
               resolve();
             }
           } catch (error) {
-            logger.error('Failed to cleanup resource', error as Error, {
+            logger.error('Failed to cleanup resource: ' + String(error), {
               name,
             });
             resolve();

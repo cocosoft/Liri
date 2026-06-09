@@ -23,12 +23,22 @@
  * ModelRouter — 统一模型路由层
  *
  * 职责：作为全系统获取模型名的唯一入口，根据任务类型解析出具体模型 ID。
+ *       运行时按任务类型（TaskType）从 ConfigManager 静态路由。
+ *       不参与管理 API 的应用级模型配置（由 AppModelRouter 负责）。
  * 配置源：ConfigManager（持久化到 config.json），向前兼容 process.env 读取。
  *
  * 设计原则：
  * - 调用方只需告知任务类型，无需关心模型名来源
  * - 为未来智能路由（SmartRouter）预留扩展点：本类的 resolve() 可被子类覆盖
  * - 保持无状态（所有状态来自 ConfigManager），可安全用于各处
+ *
+ * 与 SmartRouter 的关系：
+ *   SmartRouter 持有 ModelRouter 实例作为兜底（fallbackToModelRouter），
+ *   当智能路由开关关闭或无配置时回退到此静态路由。
+ *
+ * 与 AppModelRouter 的关系：
+ *   AppModelRouter 按应用类型（AppModelTarget）从 SQLite 路由，
+ *   仅由 ModelManagementAPI 使用，不参与运行时 chat 请求。
  */
 
 import { configManager } from '@modules/config/ConfigManager';

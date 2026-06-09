@@ -22,6 +22,8 @@
  * Gateway 命令
  * 管理消息通道的注册、启停和状态查看
  * 已统一：list/status 从 ChannelRegistry 获取数据，start/stop/diagnostics 通过 ChannelManager
+ *
+ * @deprecated 基于旧 ChannelManager 体系，待迁移至 channels/ 新 IChannelPlugin 体系
  */
 import type { Command } from '@modules/commands/types';
 import { getChannelManager } from '../../../core/gateway/ChannelManager';

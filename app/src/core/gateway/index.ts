@@ -20,8 +20,14 @@
 // SOFTWARE.
 /**
  * @deprecated 请使用 channels/ 目录下的 IChannelPlugin 体系替代。
- *   core/gateway/ 为遗留 Gateway Channel 体系，
- *   新实现已统一到 channels/ 目录。
+ *   core/gateway/ 为遗留 Gateway Channel 体系，实现于 2025 年。
+ *   新体系位于 channels/ 目录，包含 ChannelRegistry、IChannelPlugin、
+ *   ChannelManager 等统一接口。
+ *
+ *   注意：新旧体系当前深度交织——channels/registry/ChannelRegistry
+ *   仍从本文件导入 ChannelPluginRegistry 类型。迁移时应确保
+ *   新体系不再依赖旧类型后方可移除此模块。
+ *
  *   此模块将在未来版本中移除。
  */
 export {

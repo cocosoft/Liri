@@ -1,15 +1,15 @@
 /**
- * 启动性能分析工具
- * 用于测量和报告应用启动过程中各个阶段的时间消耗
+ * 启动性能分析工具（兼容导出）
+ *
+ * 实际实现已迁移至 performance/StartupProfiler。
+ * 此文件保留作为兼容入口。
  */
 
-// 导出新的性能分析实现
 export * from '../performance/StartupProfiler.js';
 
 /**
  * 启动性能分析器类
  * 用于测量和报告应用初始化各个阶段的时间消耗
- * @deprecated 请使用新的性能分析系统
  */
 export class StartupProfiler {
   private checkpoints: Array<{
@@ -24,25 +24,19 @@ export class StartupProfiler {
     this.startTime = performance.now();
   }
 
-  /**
-   * 开始性能分析
-   */
+  /** 开始性能分析 */
   start(): void {
     this.startTime = performance.now();
     this.checkpoints = [];
     this.stopped = false;
   }
 
-  /**
-   * 停止性能分析
-   */
+  /** 停止性能分析 */
   stop(): void {
     this.stopped = true;
   }
 
-  /**
-   * 添加检查点
-   */
+  /** 添加检查点 */
   checkpoint(name: string): void {
     const now = performance.now();
     const duration = now - this.startTime;
@@ -54,9 +48,7 @@ export class StartupProfiler {
     });
   }
 
-  /**
-   * 获取所有检查点
-   */
+  /** 获取所有检查点 */
   getCheckpoints(): Array<{
     name: string;
     timestamp: number;
@@ -65,9 +57,7 @@ export class StartupProfiler {
     return [...this.checkpoints];
   }
 
-  /**
-   * 生成性能报告
-   */
+  /** 生成性能报告 */
   generateReport(): {
     totalDuration: number;
     checkpoints: Array<{ name: string; timestamp: number; duration: number }>;
@@ -84,9 +74,7 @@ export class StartupProfiler {
     };
   }
 
-  /**
-   * 打印性能报告
-   */
+  /** 打印性能报告 */
   printReport(): void {
     const report = this.generateReport();
 
@@ -100,10 +88,7 @@ export class StartupProfiler {
   }
 }
 
-/**
- * 创建启动性能分析器
- * @deprecated 请使用新的性能分析系统
- */
+/** 创建启动性能分析器 */
 export function createStartupProfiler(): StartupProfiler {
   return new StartupProfiler();
 }

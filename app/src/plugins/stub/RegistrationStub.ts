@@ -10,9 +10,10 @@
  * - 第三方未插件化的模块需要统一发现
  */
 
-import type { PluginRegistry } from '../PluginRegistry';
+import type { PluginRegistry } from '../core/PluginRegistry';
 import type { LoadedPlugin } from '../../types/plugin';
 import { PluginState } from '../types/PluginTypes.js';
+import type { PluginRegistration } from '../types/PluginTypes.js';
 
 /**
  * 存根注册选项
@@ -66,7 +67,18 @@ export class RegistrationStub {
       (plugin as any).moduleExports = options.moduleExports;
     }
 
-    registry.register(plugin);
+    const registration: PluginRegistration = {
+      id: plugin.id,
+      name: plugin.name,
+      version: plugin.version,
+      path: plugin.path,
+      state: plugin.state,
+      registeredAt: new Date(),
+      enabled: plugin.enabled,
+      dependencies: [],
+      dependents: [],
+    };
+    registry.registerPlugin(registration);
 
     return plugin;
   }

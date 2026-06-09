@@ -264,7 +264,7 @@ export class SecurityAudit {
 
     switch (event.type) {
       case AuditEventType.ERROR:
-        logger.error(message, undefined, metadata);
+        logger.error(message, metadata);
         break;
       case AuditEventType.WARNING:
         logger.warn(message, metadata);

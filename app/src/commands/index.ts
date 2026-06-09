@@ -30,18 +30,6 @@ export type {
 } from './types/index.js';
 
 export { commandRegistry } from './registry/index.js';
-export {
-  EnhancedCommandRegistry,
-  enhancedCommandRegistry,
-  CommandCategory,
-} from './registry/index.js';
-export type {
-  CommandPermission,
-  CommandDependency,
-  CommandMetadata,
-  DependencyGraph,
-  IEnhancedCommandRegistry,
-} from './registry/index.js';
 
 export { CommandExecutor, commandExecutor } from './executor/index.js';
 

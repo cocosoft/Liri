@@ -8,16 +8,6 @@
  */
 export {
   commandRegistry,
-  EnhancedCommandRegistry,
-  enhancedCommandRegistry,
-  CommandCategory,
-} from './registry/index.js';
-export type {
-  CommandPermission,
-  CommandDependency,
-  CommandMetadata,
-  DependencyGraph,
-  IEnhancedCommandRegistry,
 } from './registry/index.js';
 export { CommandExecutor, commandExecutor } from './executor/index.js';
 export {

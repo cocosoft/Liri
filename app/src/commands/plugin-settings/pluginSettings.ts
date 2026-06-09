@@ -4,7 +4,7 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { PluginRegistry } from '@modules/plugins/PluginRegistry.js';
+import { PluginRegistry } from '@modules/plugins/core/PluginRegistry.js';
 import {
   readPluginConfig,
   writePluginConfig,
@@ -31,7 +31,7 @@ export async function executePluginSettings(
       return listAllPluginSettings();
     }
 
-    const plugin = pluginRegistry.get(params.plugin);
+    const plugin = pluginRegistry.getPlugin(params.plugin);
 
     if (!plugin) {
       return {
@@ -71,7 +71,7 @@ export async function executePluginSettings(
  * 列出所有插件的设置
  */
 function listAllPluginSettings(): CommandResult {
-  const plugins = pluginRegistry.getAll();
+  const plugins = pluginRegistry.getAllPlugins();
 
   if (plugins.length === 0) {
     return {
@@ -110,7 +110,7 @@ function listAllPluginSettings(): CommandResult {
  */
 function getPluginSetting(pluginName: string, key?: string): CommandResult {
   const settings = readPluginConfig();
-  const plugin = pluginRegistry.get(pluginName);
+  const plugin = pluginRegistry.getPlugin(pluginName);
 
   if (!plugin) {
     return {
@@ -187,7 +187,7 @@ function setPluginSetting(
     };
   }
 
-  const plugin = pluginRegistry.get(pluginName);
+  const plugin = pluginRegistry.getPlugin(pluginName);
 
   if (!plugin) {
     return {
@@ -266,7 +266,7 @@ function setPluginSetting(
  * 列出插件的所有配置项
  */
 function listPluginSettings(pluginName: string): CommandResult {
-  const plugin = pluginRegistry.get(pluginName);
+  const plugin = pluginRegistry.getPlugin(pluginName);
 
   if (!plugin) {
     return {
@@ -322,7 +322,7 @@ function listPluginSettings(pluginName: string): CommandResult {
  * 重置插件设置为默认值
  */
 function resetPluginSettings(pluginName: string): CommandResult {
-  const plugin = pluginRegistry.get(pluginName);
+  const plugin = pluginRegistry.getPlugin(pluginName);
 
   if (!plugin) {
     return {

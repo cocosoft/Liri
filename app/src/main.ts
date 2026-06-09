@@ -329,23 +329,6 @@ function setupWindowsSecurity(): void {
 }
 
 /**
- * 初始化模块系统
- * @deprecated 已由 ModuleRegistry.bootstrap() 替代。
- * launch() 中已使用 bootstrap()，此函数不再被调用。
- * 将在未来版本中移除。
- */
-async function initializeModuleSystem(): Promise<void> {
-  try {
-    const { quickInitialize } = await import('./modules/index');
-    await quickInitialize();
-    logger.info('模块系统初始化完成');
-  } catch (error) {
-    logger.error('模块系统初始化失败', error as Error);
-    throw error;
-  }
-}
-
-/**
  * 启动后异步展示精简版健康报告
  * 不阻塞 REPL 启动，仅作为信息提示
  */

@@ -19,6 +19,9 @@ import {
   loadModelsConfig,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const API_PROVIDER_KEYS: APIProvider[] = [
   'firstParty',
@@ -281,7 +284,10 @@ export class ModelRegistry {
 
     // 2. fallback: YAML 内置定价（作为默认值，但用户可修改覆盖）
     const model = this.getModel(modelName);
-    if (model?.pricing) return model.pricing;
+    if (model?.pricing) {
+      logger.debug('Model pricing fallback to YAML', { modelName, pricing: model.pricing });
+      return model.pricing;
+    }
 
     return null;
   }

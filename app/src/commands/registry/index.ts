@@ -19,15 +19,3 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export { CommandRegistry, commandRegistry } from './CommandRegistry.js';
-export {
-  EnhancedCommandRegistry,
-  enhancedCommandRegistry,
-  CommandCategory,
-} from './EnhancedCommandRegistry.js';
-export type {
-  CommandPermission,
-  CommandDependency,
-  CommandMetadata,
-  DependencyGraph,
-  IEnhancedCommandRegistry,
-} from './EnhancedCommandRegistry.js';

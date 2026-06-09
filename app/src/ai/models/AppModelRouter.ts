@@ -20,10 +20,24 @@
 // SOFTWARE.
 
 /**
- * 应用模型路由配置
+ * AppModelRouter — 应用模型路由
  *
- * 支持 per-app 模型配置：不同的应用类型（CLI/API/Agent/Tool/Plugin）可以使用不同的模型。
- * 对标 CC 源码 cc-switch/src-tauri/src/app_config.rs (AppType)
+ * 职责：按应用类型（AppModelTarget）从 SQLite 路由模型配置。
+ *       仅由 ModelManagementAPI 使用（管理通道），不参与运行时 chat 请求。
+ *
+ * 与 ModelRouter 的关系：
+ *   两者都管"模型选择"，但维度不同——ModelRouter 按任务类型（TaskType）
+ *   从 ConfigManager 静态路由，AppModelRouter 按应用类型从 SQLite 路由。
+ *   两者是互补关系，不是冲突。
+ *
+ * 与 SmartRouter 的关系：
+ *   无直接交互。SmartRouter 走运行时决策管线，AppModelRouter 走管理 API。
+ *
+ * 数据源：
+ *   SQLite 表 app_model_configs，通过 resolveDbPath() 获取。
+ *
+ * 支持 per-app 模型配置：不同的应用类型（CLI/API/Agent/Tool/Plugin）
+ * 可以使用不同的模型。对标 CC 源码 cc-switch/src-tauri/src/app_config.rs (AppType)
  */
 
 import { Database } from 'sqlite3';

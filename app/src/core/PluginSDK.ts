@@ -218,12 +218,10 @@ export class PluginSDK {
             `[${pluginId}:${skillId}] ${message}`,
             args[0] as Record<string, unknown> | undefined
           ),
-        error: (message: string, ...args: unknown[]) =>
-          logger.error(
-            `[${pluginId}:${skillId}] ${message}`,
-            args[0] as Error | undefined,
-            args[1] as Record<string, unknown> | undefined
-          ),
+        error: (message: string, ...args: unknown[]) => {
+          const fullMsg = `[${pluginId}:${skillId}] ${message}${args[0] ? ' ' + String(args[0]) : ''}`;
+          logger.error(fullMsg, args[1] as Record<string, unknown> | undefined);
+        },
       },
     };
 
@@ -295,12 +293,10 @@ export class PluginSDK {
             `[${plugin.id}] ${message}`,
             args[0] as Record<string, unknown> | undefined
           ),
-        error: (message: string, ...args: unknown[]) =>
-          logger.error(
-            `[${plugin.id}] ${message}`,
-            args[0] as Error | undefined,
-            args[1] as Record<string, unknown> | undefined
-          ),
+        error: (message: string, ...args: unknown[]) => {
+          const fullMsg = `[${plugin.id}] ${message}${args[0] ? ' ' + String(args[0]) : ''}`;
+          logger.error(fullMsg, args[1] as Record<string, unknown> | undefined);
+        },
       },
 
       config: {

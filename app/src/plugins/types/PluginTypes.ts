@@ -410,6 +410,9 @@ export interface PluginRegistration {
 
   /** 被依赖关系 */
   dependents: string[];
+
+  /** 插件清单（可选，用于兼容旧版 LoadedPlugin 的 manifest 访问） */
+  manifest?: Record<string, unknown>;
 }
 
 /**

@@ -22,8 +22,11 @@
 /**
  * SmartRouter — 智能路由主决策管线
  *
+ * 职责：运行时智能决策管线，通过 LLM Judge 动态判断请求复杂度，
+ *       分配不同 tier 的模型处理。持有 ModelRouter 实例作为无配置时的兜底。
+ *
  * 五层决策：
- * 1. 开关检测：用户关闭 → 直通 ModelRouter
+ * 1. 开关检测：用户关闭 → 直通 ModelRouter（fallbackToModelRouter）
  * 2. 快速通道：SimpleQA / 规则引擎命中 → 直接返回（零 token 消耗）
  * 3. 会话黏性：同 session 已有决策 → 复用上次 tier
  * 4. LLM Judge：JudgeService 分级
@@ -33,9 +36,12 @@
  * Phase 2 扩展：
  * - execute()：带 FallbackChain + RetryPolicy 的执行
  *
- * Phase 3 扩展：
- * - orchestrate()：带 TaskDecomposer + OrchEngine 的自动编排
- * - AdaptiveRouter：基于历史执行的自适应路由优化
+ * 与 ModelRouter 的关系：
+ *   本类持有 ModelRouter 作为兜底路由，当开关关闭或无智能决策时回退。
+ *   两者是分层嵌套关系，不是并列竞争。
+ *
+ * 与 AppModelRouter 的关系：
+ *   AppModelRouter 走管理 API 通道，与 SmartRouter 无直接交互。
  */
 
 import type { AIProvider } from '../providers/AIProvider.js';

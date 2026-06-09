@@ -135,6 +135,86 @@ async function request<T>(
   }
 }
 
+// ─── http（旧 API，后向兼容）─────────────────────
+
+export class HTTPClientError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public body?: unknown,
+  ) {
+    super(message);
+    this.name = "HTTPClientError";
+  }
+
+  toString(): string {
+    return `${this.name}: ${this.message} (status: ${this.status})`;
+  }
+}
+
+/** 旧 http 对象（后向兼容）。返回原始数据，错误时抛 HTTPClientError。 */
+export const http = {
+  async get<T>(
+    path: string,
+    options?: { params?: Record<string, unknown> },
+  ): Promise<T> {
+    let url = path;
+    if (options?.params) {
+      const params = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.set(key, String(value));
+        }
+      });
+      url += `?${params.toString()}`;
+    }
+    const res = await request<T>("GET", url, undefined);
+    if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
+      throw new HTTPClientError(error.message, error.code, error);
+    }
+    return res.data as T;
+  },
+
+  async post<T>(path: string, body?: unknown): Promise<T> {
+    const res = await request<T>("POST", path, body);
+    if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
+      throw new HTTPClientError(error.message, error.code, error);
+    }
+    return res.data as T;
+  },
+
+  async put<T>(path: string, body: unknown): Promise<T> {
+    const res = await request<T>("PUT", path, body);
+    if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
+      throw new HTTPClientError(error.message, error.code, error);
+    }
+    return res.data as T;
+  },
+
+  async patch<T>(path: string, body?: unknown): Promise<T> {
+    const res = await request<T>("PATCH", path, body);
+    if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
+      throw new HTTPClientError(error.message, error.code, error);
+    }
+    return res.data as T;
+  },
+
+  async delete<T>(path: string): Promise<T> {
+    const res = await request<T>("DELETE", path);
+    if (!res.ok) {
+      const error = res.error || { code: 500, message: '未知错误' };
+      throw new HTTPClientError(error.message, error.code, error);
+    }
+    return res.data as T;
+  },
+};
+
+// ─── httpClient（新 API）────────────────────────
+
 export const httpClient = {
   get<T = unknown>(path: string, config?: HttpClientConfig): Promise<ApiResponse<T>> {
     return request<T>("GET", path, undefined, config);
@@ -199,103 +279,5 @@ export const httpClient = {
     });
 
     return controller;
-  },
-};
-
-// ─── 向后兼容：http（旧 API） ─────────────────────
-
-export class HTTPClientError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public body?: unknown,
-  ) {
-    super(message);
-    this.name = "HTTPClientError";
-  }
-
-  toString(): string {
-    return `${this.name}: ${this.message} (status: ${this.status})`;
-  }
-}
-
-/** 旧的 http 对象，兼容所有现有 service。返回原始数据，错误时抛 HTTPClientError。 */
-export const http = {
-  async get<T>(
-    path: string,
-    options?: { params?: Record<string, unknown> },
-  ): Promise<T> {
-    let url = path;
-    if (options?.params) {
-      const params = new URLSearchParams();
-      Object.entries(options.params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.set(key, String(value));
-        }
-      });
-      url += `?${params.toString()}`;
-    }
-    const res = await request<T>("GET", url, undefined);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(
-        error.message,
-        error.code,
-        error,
-      );
-    }
-    return res.data as T;
-  },
-
-  async post<T>(path: string, body?: unknown): Promise<T> {
-    const res = await request<T>("POST", path, body);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(
-        error.message,
-        error.code,
-        error,
-      );
-    }
-    return res.data as T;
-  },
-
-  async put<T>(path: string, body: unknown): Promise<T> {
-    const res = await request<T>("PUT", path, body);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(
-        error.message,
-        error.code,
-        error,
-      );
-    }
-    return res.data as T;
-  },
-
-  async patch<T>(path: string, body?: unknown): Promise<T> {
-    const res = await request<T>("PATCH", path, body);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(
-        error.message,
-        error.code,
-        error,
-      );
-    }
-    return res.data as T;
-  },
-
-  async delete<T>(path: string): Promise<T> {
-    const res = await request<T>("DELETE", path);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(
-        error.message,
-        error.code,
-        error,
-      );
-    }
-    return res.data as T;
   },
 };

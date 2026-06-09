@@ -1,6 +1,5 @@
 /**
  * Permission Audit Logger
- * 对标CC源码 permission/logging/PermissionAuditLogger.ts
  * 权限审计日志，记录所有权限决策供后续审查
  */
 
@@ -10,6 +9,9 @@ import type {
   PermissionDecision,
 } from '../PermissionContext.js';
 
+/**
+ * @deprecated 使用 {@link DataAuditEventType} — 从 `@modules/core/data-models` 导入
+ */
 export type AuditEventType =
   | 'permission_check'
   | 'permission_granted'
@@ -20,6 +22,11 @@ export type AuditEventType =
   | 'policy_violation'
   | 'admin_override';
 
+/**
+ * 审计日志条目
+ *
+ * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
+ */
 export interface AuditLogEntry {
   id: string;
   eventType: AuditEventType;

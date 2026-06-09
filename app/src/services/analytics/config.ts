@@ -5,17 +5,19 @@
  * 参考 CC源码 cc_code/backend/services/analytics/config.ts
  */
 
+import { configManager } from '@modules/config';
+
 export function isAnalyticsDisabled(): boolean {
   return (
-    process.env.NODE_ENV === 'test' ||
-    process.env.ANALYTICS_DISABLED === 'true' ||
-    process.env.Liri_TELEMETRY_DISABLED === 'true'
+    configManager.env('NODE_ENV') === 'test' ||
+    configManager.env('ANALYTICS_DISABLED') === 'true' ||
+    configManager.env('LIRI_TELEMETRY_DISABLED') === 'true'
   );
 }
 
 export function isFeedbackSurveyDisabled(): boolean {
   return (
-    process.env.NODE_ENV === 'test' ||
-    process.env.Liri_TELEMETRY_DISABLED === 'true'
+    configManager.env('NODE_ENV') === 'test' ||
+    configManager.env('Liri_TELEMETRY_DISABLED') === 'true'
   );
 }

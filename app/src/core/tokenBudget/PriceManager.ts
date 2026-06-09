@@ -6,11 +6,11 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
-import type { ModelPricing } from './types';
+import type { ModelPriceTable } from './types';
 
 export interface CostCalculationResult {
   cost: number;
-  pricing: ModelPricing;
+  pricing: ModelPriceTable;
   details: {
     inputCost: number;
     outputCost: number;

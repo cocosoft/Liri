@@ -6,6 +6,7 @@
 
 import { logger } from '@modules/utils/log.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { TTLCache } from '@modules/utils/cache';
 
 /**
  * OAuth授权服务器元数据
@@ -210,43 +211,24 @@ export class OAuthDiscovery {
  * 缓存Discovery结果，避免重复网络请求
  */
 export class MetadataCache {
-  private cache: Map<string, CachedMetadata>;
-  private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24小时
+  private cache: TTLCache<OAuthMetadata>;
 
   constructor() {
-    this.cache = new Map();
+    this.cache = new TTLCache<OAuthMetadata>(100, 24 * 60 * 60 * 1000);
   }
 
   /**
    * 获取缓存的元数据
-   * @param issuer OAuth发行者URL
    */
   async get(issuer: string): Promise<OAuthMetadata | null> {
-    const cached = this.cache.get(issuer);
-
-    if (!cached) {
-      return null;
-    }
-
-    if (this.isExpired(cached)) {
-      logger.debug(`OAuth metadata cache expired for ${issuer}`);
-      this.cache.delete(issuer);
-      return null;
-    }
-
-    return cached.metadata;
+    return this.cache.get(issuer);
   }
 
   /**
    * 缓存元数据
-   * @param issuer OAuth发行者URL
-   * @param metadata OAuth元数据
    */
   async set(issuer: string, metadata: OAuthMetadata): Promise<void> {
-    this.cache.set(issuer, {
-      metadata,
-      cachedAt: Date.now(),
-    });
+    this.cache.set(issuer, metadata);
     logger.debug(`OAuth metadata cached for ${issuer}`);
   }
 
@@ -265,29 +247,14 @@ export class MetadataCache {
   }
 
   /**
-   * 检查缓存是否过期
-   */
-  private isExpired(cached: CachedMetadata): boolean {
-    return Date.now() - cached.cachedAt > this.CACHE_TTL_MS;
-  }
-
-  /**
    * 获取缓存状态
    */
   getStatus(): { size: number; entries: string[] } {
     return {
-      size: this.cache.size,
-      entries: Array.from(this.cache.keys()),
+      size: this.cache.size(),
+      entries: [],
     };
   }
-}
-
-/**
- * 缓存的元数据接口
- */
-interface CachedMetadata {
-  metadata: OAuthMetadata;
-  cachedAt: number;
 }
 
 /**

@@ -7,9 +7,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
-export class AtomicWriteError extends Error {
-  override cause?: unknown;
+export class AtomicWriteError extends AppError {
   public readonly path: string;
   public readonly tmpPath: string;
 
@@ -17,11 +17,11 @@ export class AtomicWriteError extends Error {
     message: string,
     details: { path: string; tmpPath: string; cause?: unknown }
   ) {
-    super(message);
-    Object.defineProperty(this, 'name', { value: 'AtomicWriteError' });
+    super(message, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, undefined, { path: details.path, tmpPath: details.tmpPath });
+    this.name = 'AtomicWriteError';
     this.path = details.path;
     this.tmpPath = details.tmpPath;
-    this.cause = details.cause;
+    if (details.cause instanceof Error) this.cause = details.cause;
   }
 }
 

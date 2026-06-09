@@ -1,4 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -825,7 +826,7 @@ export function createPerformanceProfiler(
   options?: PerformanceProfilerOptions
 ): PerformanceProfiler {
   return new PerformanceProfiler({
-    enabled: process.env.NODE_ENV !== 'production',
+    enabled: configManager.env('NODE_ENV') !== 'production',
     samplingInterval: 100,
     maxEvents: 1000,
     slowThreshold: 100,

@@ -19,6 +19,7 @@ import type { AIProvider } from '../providers/AIProvider';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
+import { configManager } from '../../config/index.js';
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;
@@ -227,9 +228,9 @@ export function createAIService(
   const defaultConfig: AIServiceConfig = {
     defaultModel: '',
     apiKey:
-      process.env.ANTHROPIC_API_KEY ||
-      process.env.OPENAI_API_KEY ||
-      process.env.DEEPSEEK_API_KEY ||
+      configManager.env('ANTHROPIC_API_KEY') ||
+      configManager.env('OPENAI_API_KEY') ||
+      configManager.env('DEEPSEEK_API_KEY') ||
       '',
     baseUrl: '',
     timeout: 60000,
@@ -261,9 +262,9 @@ export function createAIServiceWithScrubbing(
   const service = new AIServiceImpl({
     defaultModel: '',
     apiKey:
-      process.env.ANTHROPIC_API_KEY ||
-      process.env.OPENAI_API_KEY ||
-      process.env.DEEPSEEK_API_KEY ||
+      configManager.env('ANTHROPIC_API_KEY') ||
+      configManager.env('OPENAI_API_KEY') ||
+      configManager.env('DEEPSEEK_API_KEY') ||
       '',
     baseUrl: '',
     timeout: 60000,

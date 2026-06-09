@@ -22,6 +22,7 @@ import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitor
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { SandboxPermission } from '@modules/sandbox/types/SandboxTypes';
 import { resolveOutputDir, resolveDownloadsDir, resolveAttachmentsDir, resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 import type {
   ChatRequest,
   ChatStreamChunk,
@@ -111,7 +112,7 @@ export class LocalHTTPService {
 
   constructor(config: LocalHTTPConfig) {
     this.config = config;
-    this.apiSecret = process.env.LIRI_API_SECRET || '';
+    this.apiSecret = configManager.env('LIRI_API_SECRET') || '';
   }
 
   /**
@@ -3848,11 +3849,12 @@ export class LocalHTTPService {
           await import('../../../services/voice/services/localSTTProvider');
         STTRegistry.register(new LocalSTTProvider());
 
-        if (process.env.OPENAI_API_KEY) {
+        const openAIApiKey = configManager.env('OPENAI_API_KEY');
+        if (openAIApiKey) {
           const { CloudSTTProvider } =
             await import('../../../services/voice/services/cloudSTTProvider');
           STTRegistry.register(
-            new CloudSTTProvider({ apiKey: process.env.OPENAI_API_KEY })
+            new CloudSTTProvider({ apiKey: openAIApiKey })
           );
         }
       }

@@ -25,12 +25,13 @@
  */
 
 import type { Command } from '@modules/commands/types';
+import { configManager } from '@modules/config';
 
 /**
  * 检查是否有API Key认证
  */
 function hasApiKeyAuth(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY || !!process.env.Liri_API_KEY;
+  return !!configManager.env('ANTHROPIC_API_KEY') || !!configManager.env('Liri_API_KEY');
 }
 
 /**
@@ -48,7 +49,7 @@ export default (): Command => ({
   type: 'local',
   name: 'login',
   description: hasApiKeyAuth() ? '切换Liri账户' : '登录您的Liri账户',
-  isEnabled: () => !isEnvTruthy(process.env.DISABLE_LOGIN_COMMAND),
+  isEnabled: () => !isEnvTruthy(configManager.env('DISABLE_LOGIN_COMMAND')),
   load: async () => {
     const { executeLogin } = await import('./login.js');
     return {

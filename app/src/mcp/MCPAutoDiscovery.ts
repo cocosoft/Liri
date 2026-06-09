@@ -2,6 +2,8 @@
  * MCP Server 自动发现
  * 对标平安科技：扫描目录/workspace 发现可用的 MCP Server
  */
+
+import { configManager } from '@modules/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
@@ -37,8 +39,8 @@ const DEFAULT_DISCOVERY_CONFIG: MCPDiscoveryConfig = {
   scanPaths: [
     './mcp_servers',
     './.mcp',
-    `${process.env.HOME || process.env.USERPROFILE}/.mcp`,
-    `${process.env.HOME || process.env.USERPROFILE}/.config/mcp`,
+    `${configManager.env('HOME') || configManager.env('USERPROFILE')}/.mcp`,
+    `${configManager.env('HOME') || configManager.env('USERPROFILE')}/.config/mcp`,
   ],
   scanRecursive: true,
   maxDepth: 2,
@@ -268,7 +270,7 @@ export class MCPAutoDiscovery {
   private resolvePath(p: string): string {
     if (p.startsWith('~')) {
       return path.join(
-        process.env.HOME || process.env.USERPROFILE || '',
+        configManager.env('HOME') || configManager.env('USERPROFILE') || '',
         p.slice(1)
       );
     }

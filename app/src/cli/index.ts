@@ -25,6 +25,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { configManager } from '@modules/config';
 import {
   readFileSync,
   existsSync,
@@ -589,7 +590,7 @@ program
 // ========== Auth Commands ==========
 
 const cliHandler = createCLIHandler({
-  verbose: process.env.VERBOSE === 'true',
+  verbose: configManager.env('VERBOSE') === 'true',
 });
 
 program

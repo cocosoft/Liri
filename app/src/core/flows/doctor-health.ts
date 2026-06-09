@@ -3,7 +3,12 @@ import type {
   HealthCheckReport,
   FlowConfigProvider,
 } from './types.js';
+import { HealthChecker } from '../../monitoring/health/HealthChecker.js';
 
+/**
+ * @deprecated 请使用 monitoring/health/HealthChecker 注册新的健康检查。
+ * doctor-health 是 flows 模块的适配层，新健康检查应直接注册到 HealthChecker。
+ */
 export type HealthCheck = {
   name: string;
   severity: 'info' | 'warning' | 'error';
@@ -11,6 +16,30 @@ export type HealthCheck = {
     configProvider: FlowConfigProvider
   ) => HealthCheckResult | Promise<HealthCheckResult>;
 };
+
+/** 共享的 HealthChecker 实例，用于统一健康检查注册 */
+const healthChecker = new HealthChecker();
+
+/** 获取共享的 HealthChecker 实例 */
+export function getHealthChecker(): HealthChecker {
+  return healthChecker;
+}
+
+/** 运行时的 configProvider，在 runHealthChecks 时注入 */
+let currentConfigProvider: FlowConfigProvider | null = null;
+
+/** 将 flow 的 HealthCheckResult severity 映射为 HealthChecker 的 HealthStatus */
+function toHealthStatus(
+  ok: boolean,
+  severity: 'info' | 'warning' | 'error'
+): 'healthy' | 'degraded' | 'unhealthy' | 'unknown' {
+  if (ok) return 'healthy';
+  switch (severity) {
+    case 'error':   return 'unhealthy';
+    case 'warning': return 'degraded';
+    case 'info':    return 'healthy';
+  }
+}
 
 const healthChecks: Map<string, HealthCheck> = new Map();
 
@@ -87,9 +116,25 @@ const DEFAULT_HEALTH_CHECKS: HealthCheck[] = [
 
 /**
  * 注册健康检查项。
+ * 同时代理到 HealthChecker，确保统一的健康检查视图。
  */
 export function registerHealthCheck(check: HealthCheck): void {
   healthChecks.set(check.name, check);
+
+  // 代理到 HealthChecker，使 flows 的检查对 monitoring 系统可见
+  healthChecker.registerCheck(
+    `flows:${check.name}`,
+    async () => {
+      const cp = currentConfigProvider;
+      if (!cp) return { status: 'unknown' as const };
+      const result = await check.check(cp);
+      return {
+        status: toHealthStatus(result.ok, result.severity),
+        details: { message: result.message ?? '', check: result.check, severity: result.severity },
+      };
+    },
+    { critical: check.severity === 'error' }
+  );
 }
 
 /**
@@ -105,6 +150,7 @@ export function registerHealthChecks(checks: HealthCheck[]): void {
  * 注销健康检查项。
  */
 export function unregisterHealthCheck(name: string): boolean {
+  healthChecker.unregisterCheck(`flows:${name}`);
   return healthChecks.delete(name);
 }
 
@@ -125,6 +171,7 @@ export function initializeDefaultHealthChecks(): void {
 export async function runHealthChecks(
   configProvider: FlowConfigProvider
 ): Promise<HealthCheckReport> {
+  currentConfigProvider = configProvider;
   initializeDefaultHealthChecks();
 
   const results: HealthCheckResult[] = [];
@@ -143,6 +190,9 @@ export async function runHealthChecks(
       });
     }
   }
+
+  // 同步运行 HealthChecker，利用其超时/历史记录能力
+  await healthChecker.runAllChecks();
 
   const passed = results.filter((r) => r.ok).length;
   const warnings = results.filter(

@@ -6,6 +6,7 @@
 import type { AIProvider } from '@modules/ai/providers';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -76,21 +77,13 @@ export interface IEmbeddingService {
 }
 
 /**
- * 嵌入缓存条目
- */
-interface CacheEntry {
-  result: EmbeddingResult;
-  timestamp: number;
-}
-
-/**
  * 内存缓存的向量嵌入服务
  * 包含 OpenAI/DeepSeek 兼容的调用接口
  */
 export class EmbeddingService implements IEmbeddingService {
   private config: EmbeddingServiceConfig;
   private aiProvider?: AIProvider;
-  private cache: Map<string, CacheEntry> = new Map();
+  private cache: TTLCache<EmbeddingResult>;
 
   constructor(config: EmbeddingServiceConfig, aiProvider?: AIProvider) {
     this.config = {
@@ -99,6 +92,10 @@ export class EmbeddingService implements IEmbeddingService {
       ...config,
     };
     this.aiProvider = aiProvider;
+    this.cache = new TTLCache<EmbeddingResult>(
+      this.config.maxCacheSize || 1000,
+      24 * 60 * 60 * 1000
+    );
   }
 
   /**
@@ -106,22 +103,6 @@ export class EmbeddingService implements IEmbeddingService {
    */
   private hash(text: string, model: string): string {
     return `${model}:${text}`;
-  }
-
-  /**
-   * 清理过期/超出大小限制的缓存
-   */
-  private cleanCache(): void {
-    if (this.cache.size <= (this.config.maxCacheSize || 1000)) {
-      return;
-    }
-    const keys = Array.from(this.cache.entries())
-      .sort(([_, a], [__, b]) => a.timestamp - b.timestamp)
-      .map(([key]) => key);
-    const removeCount = keys.length - (this.config.maxCacheSize || 1000);
-    for (let i = 0; i < removeCount; i++) {
-      this.cache.delete(keys[i]);
-    }
   }
 
   /**
@@ -220,8 +201,9 @@ export class EmbeddingService implements IEmbeddingService {
     const useModel = model || this.config.defaultModel;
     const cacheKey = this.hash(text, useModel);
 
-    if (this.config.enableCache && this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!.result;
+    if (this.config.enableCache) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
     }
 
     let result: EmbeddingResult;
@@ -232,11 +214,7 @@ export class EmbeddingService implements IEmbeddingService {
     }
 
     if (this.config.enableCache) {
-      this.cache.set(cacheKey, {
-        result,
-        timestamp: Date.now(),
-      });
-      this.cleanCache();
+      this.cache.set(cacheKey, result);
     }
     return result;
   }

@@ -23,24 +23,28 @@
  */
 
 export {
+  PermissionMode,
   PERMISSION_MODES,
   PERMISSION_MODE_NAMES,
   PERMISSION_MODE_SYMBOLS,
-  type PermissionMode,
+  getPermissionModeDescription,
+  shouldAvoidPermissionPrompts,
 } from './PermissionMode';
 
-export type {
+export {
   PermissionBehavior,
   PermissionRuleSource,
+} from './types/PermissionRule';
+
+export type {
   PermissionRuleValue,
   PermissionRule,
+} from './types/PermissionRule';
+
+export type {
+  PermissionRuleEntry,
   PermissionUpdateDestination,
   PermissionUpdate,
-} from './PermissionRule';
-
-export {
-  permissionRuleValueFromString,
-  permissionRuleValueToString,
 } from './PermissionRule';
 
 export type {
@@ -97,7 +101,6 @@ export * from './EnhancedPermissionEngine.js';
 
 export {
   PermissionCacheKey,
-  PermissionCacheItem,
   PermissionCache,
   PermissionRuleValidator,
   permissionCache,

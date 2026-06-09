@@ -363,6 +363,7 @@ export function delay(ms: number): Promise<void> {
 
 /**
  * 重试函数
+ * @deprecated 请使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync
  */
 export async function retry<T>(
   fn: () => Promise<T>,

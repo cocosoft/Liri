@@ -10,19 +10,19 @@ export const ACP_ERROR_CODES = [
 
 export type AcpRuntimeErrorCode = (typeof ACP_ERROR_CODES)[number];
 
-export class AcpRuntimeError extends Error {
-  readonly code: AcpRuntimeErrorCode;
-  override readonly cause?: unknown;
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
+export class AcpRuntimeError extends AppError {
+  declare readonly code: AcpRuntimeErrorCode;
 
   constructor(
     code: AcpRuntimeErrorCode,
     message: string,
     options?: { cause?: unknown }
   ) {
-    super(message);
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.HIGH, code);
     this.name = 'AcpRuntimeError';
-    this.code = code;
-    this.cause = options?.cause;
+    if (options?.cause instanceof Error) this.cause = options.cause;
   }
 
   toJSON(): Record<string, unknown> {

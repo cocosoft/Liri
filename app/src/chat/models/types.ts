@@ -37,6 +37,8 @@ export enum ChatMessageType {
 
 /**
  * 聊天消息
+ *
+ * @deprecated 使用 {@link DataMessage} — 从 `@modules/core/data-models` 导入
  */
 export interface ChatMessage extends AIMessage {
   type: ChatMessageType;

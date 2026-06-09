@@ -13,6 +13,7 @@ import {
   rollbackConsolidationLock,
   recordConsolidation,
 } from './ConsolidationLock';
+import { configManager } from '@modules/config';
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
@@ -291,7 +292,7 @@ export async function initAutoDream(): Promise<void> {
     );
 
     const memoryRoot =
-      process.env.AUTO_MEM_PATH || join(resolveKnowledgeDir(), 'default');
+      configManager.env('AUTO_MEM_PATH') || join(resolveKnowledgeDir(), 'default');
     const transcriptDir = process.cwd();
 
     const extra = `

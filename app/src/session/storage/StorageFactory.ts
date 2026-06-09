@@ -6,6 +6,7 @@
 import type { UnifiedSessionStorage } from './UnifiedStorage.js';
 import { StorageConfig, StorageType } from './UnifiedStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 
 /**
  * 存储实例注册表
@@ -145,8 +146,8 @@ export class StorageFactory {
    * @returns 存储实例
    */
   static createFromEnv(): UnifiedSessionStorage {
-    const sessionDbPath = process.env.SESSION_DB_PATH;
-    const sessionFsPath = process.env.SESSION_FS_PATH;
+    const sessionDbPath = configManager.env('SESSION_DB_PATH');
+    const sessionFsPath = configManager.env('SESSION_FS_PATH');
 
     if (sessionDbPath && sessionFsPath) {
       return this.createHybridStorage(sessionDbPath, sessionFsPath);

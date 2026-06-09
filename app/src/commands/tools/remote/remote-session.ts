@@ -4,6 +4,7 @@
  */
 
 import { TerminalUIIntegration } from '@modules/ui/TerminalUIIntegration.js';
+import { configManager } from '@modules/config';
 import {
   RemoteSessionManager,
   RemoteSessionConfig,
@@ -70,7 +71,7 @@ export class RemoteSessionCLI {
       const sshConfig: SSHConfig = {
         host,
         port: options.port ? parseInt(options.port, 10) : 22,
-        username: options.username || process.env.USER || 'root',
+        username: options.username || configManager.env('USER') || 'root',
         privateKey: options.key,
       };
 

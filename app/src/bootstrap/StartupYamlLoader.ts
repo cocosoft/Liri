@@ -6,6 +6,8 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { Logger } from '../monitoring/logs/Logger.js';
+import { configManager } from '@modules/config';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';
 import { DEFAULT_STARTUP_CONFIG } from './StartupConfig.js';
 
@@ -20,9 +22,9 @@ const FILE_NAMES = ['startup.yaml', 'startup.yml'];
 /**
  * YAML 解析错误
  */
-export class YamlParseError extends Error {
+export class YamlParseError extends AppError {
   constructor(message: string, line?: number) {
-    super(line !== undefined ? `第 ${line} 行: ${message}` : message);
+    super(line !== undefined ? `第 ${line} 行: ${message}` : message, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH);
     this.name = 'YamlParseError';
   }
 }
@@ -310,7 +312,7 @@ export function parseYaml(content: string): Record<string, unknown> {
  * 搜索 startup.yaml 文件
  */
 function findStartupFile(): string | null {
-  const cwd = process.env.LIRI_PROJECT_DIR || process.cwd();
+  const cwd = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
 
   for (const dir of SEARCH_PATHS) {
     for (const name of FILE_NAMES) {

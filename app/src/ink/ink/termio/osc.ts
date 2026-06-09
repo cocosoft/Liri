@@ -3,6 +3,7 @@
  * OSC (Operating System Command) Types and Parser
  */
 
+import { configManager } from '@modules/config';
 import { Buffer } from 'buffer';
 import { env } from '../../utils/env.js';
 import { execFileNoThrow } from '../../utils/execFileNoThrow.js';
@@ -34,11 +35,11 @@ export function osc(...parts: (string | number)[]): string {
  * wrapped \x07 is opaque DCS payload and tmux never sees the bell.
  */
 export function wrapForMultiplexer(sequence: string): string {
-  if (process.env['TMUX']) {
+  if (configManager.env('TMUX')) {
     const escaped = sequence.replaceAll('\x1b', '\x1b\x1b');
     return `\x1bPtmux;${escaped}\x1b\\`;
   }
-  if (process.env['STY']) {
+  if (configManager.env('STY')) {
     return `\x1bP${sequence}\x1b\\`;
   }
   return sequence;
@@ -64,9 +65,9 @@ export type ClipboardPath = 'native' | 'tmux-buffer' | 'osc52';
 
 export function getClipboardPath(): ClipboardPath {
   const nativeAvailable =
-    process.platform === 'darwin' && !process.env['SSH_CONNECTION'];
+    process.platform === 'darwin' && !configManager.env('SSH_CONNECTION');
   if (nativeAvailable) return 'native';
-  if (process.env['TMUX']) return 'tmux-buffer';
+  if (configManager.env('TMUX')) return 'tmux-buffer';
   return 'osc52';
 }
 
@@ -89,9 +90,9 @@ function tmuxPassthrough(payload: string): string {
  * Returns true if the buffer was loaded successfully.
  */
 export async function tmuxLoadBuffer(text: string): Promise<boolean> {
-  if (!process.env['TMUX']) return false;
+  if (!configManager.env('TMUX')) return false;
   const args =
-    process.env['LC_TERMINAL'] === 'iTerm2'
+    configManager.env('LC_TERMINAL') === 'iTerm2'
       ? ['load-buffer', '-']
       : ['load-buffer', '-w', '-'];
   const { code } = await execFileNoThrow('tmux', args, {
@@ -148,7 +149,7 @@ export async function setClipboard(text: string): Promise<string> {
   // Gated on SSH_CONNECTION (not SSH_TTY) since tmux panes inherit SSH_TTY
   // forever but SSH_CONNECTION is in tmux's default update-environment and
   // clears on local attach. Fire-and-forget.
-  if (!process.env['SSH_CONNECTION']) copyNative(text);
+  if (!configManager.env('SSH_CONNECTION')) copyNative(text);
 
   const tmuxBufferLoaded = await tmuxLoadBuffer(text);
 
@@ -466,29 +467,5 @@ export const CLEAR_TAB_STATUS = osc(
  * DCS-passthrough carries the sequence to the outer terminal.
  */
 export function supportsTabStatus(): boolean {
-  return process.env.USER_TYPE === 'ant';
-}
-
-/**
- * Emit an OSC 21337 tab-status sequence. Omitted fields are left unchanged
- * by the receiving terminal; `null` sends an empty value to clear.
- * `;` and `\` in status text are escaped per the spec.
- */
-export function tabStatus(fields: TabStatusAction): string {
-  const parts: string[] = [];
-  const rgb = (c: Color) =>
-    c.type === 'rgb'
-      ? `#${[c.r, c.g, c.b].map((n) => n.toString(16).padStart(2, '0')).join('')}`
-      : '';
-  if ('indicator' in fields)
-    parts.push(`indicator=${fields.indicator ? rgb(fields.indicator) : ''}`);
-  if ('status' in fields)
-    parts.push(
-      `status=${fields.status?.replaceAll('\\', '\\\\').replaceAll(';', '\\;') ?? ''}`
-    );
-  if ('statusColor' in fields)
-    parts.push(
-      `status-color=${fields.statusColor ? rgb(fields.statusColor) : ''}`
-    );
-  return osc(OSC.TAB_STATUS, parts.join(';'));
+  return configManager.env('USER_TYPE') === 'ant';
 }

@@ -26,6 +26,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { configManager } from '@modules/config';
 import { init } from './init.js';
 import { createMcpCommand } from '@modules/mcp/cli/mcpCommand.js';
 import {
@@ -88,7 +89,7 @@ async function runDoctor(): Promise<void> {
   console.log(chalk.green('✓') + `  平台: ${process.platform} ${process.arch}`);
   console.log(chalk.green('✓') + `  CWD: ${process.cwd()}`);
   console.log(chalk.green('✓') + `  PID: ${process.pid}`);
-  if (process.env.DEEPSEEK_API_KEY) {
+  if (configManager.env('DEEPSEEK_API_KEY')) {
     console.log(chalk.green('✓') + '  DEEPSEEK_API_KEY 已配置');
   } else {
     console.log(chalk.yellow('⚠') + '  DEEPSEEK_API_KEY 未配置');

@@ -3,7 +3,7 @@
  * 对标 Hermes BillingRoute
  * 实现多模型 → 多定价策略的动态路由
  */
-import type { ModelPricing } from '../../cost/types';
+import type { ModelTokenUsage } from '../../cost/types';
 
 /**
  * 计费路由决策
@@ -12,7 +12,7 @@ export interface BillingRouteDecision {
   /** 选中的模型 */
   model: string;
   /** 定价方案 */
-  pricing: ModelPricing;
+  pricing: ModelTokenUsage;
   /** 路由原因 */
   reason: string;
   /** 预估成本（USD） */
@@ -52,7 +52,7 @@ export interface BillingRouteConfig {
  */
 export interface ModelPricingEntry {
   model: string;
-  pricing: ModelPricing;
+  pricing: ModelTokenUsage;
   quality: number;
   averageLatencyMs: number;
   contextWindow: number;
@@ -201,7 +201,7 @@ export class BillingRoute {
    * @returns 成本（USD）
    */
   private calculateCost(
-    pricing: ModelPricing,
+    pricing: ModelTokenUsage,
     inputTokens: number,
     outputTokens: number
   ): number {

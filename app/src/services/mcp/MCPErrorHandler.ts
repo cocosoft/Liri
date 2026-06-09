@@ -40,10 +40,12 @@ export enum MCPErrorType {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * MCP错误类
  */
-export class MCPError extends Error {
+export class MCPError extends AppError {
   public type: MCPErrorType;
   public serverName?: string;
   public details?: unknown;
@@ -54,7 +56,7 @@ export class MCPError extends Error {
     serverName?: string,
     details?: unknown
   ) {
-    super(message);
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.MEDIUM, type);
     this.name = 'MCPError';
     this.type = type;
     this.serverName = serverName;

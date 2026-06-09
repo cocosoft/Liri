@@ -30,7 +30,7 @@ export interface TokenUsage {
   reasoningTokens?: number;
 }
 
-export interface ModelPricing {
+export interface ModelTokenUsage {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;

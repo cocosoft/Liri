@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
+import { configManager } from '@modules/config';
 import { resolveDataSubDir } from '@modules/core/paths';
 import type { AnalyticsEvent } from './types';
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
@@ -17,10 +18,10 @@ export interface StorageConfig {
 }
 
 export const DEFAULT_STORAGE_CONFIG: StorageConfig = {
-  baseDir: process.env.ANALYTICS_STORAGE_DIR || resolveDataSubDir('analytics'),
+  baseDir: configManager.env('ANALYTICS_STORAGE_DIR') || resolveDataSubDir('analytics'),
   maxFileSize: 50 * 1024 * 1024,
   rotationCount: 5,
-  enabled: process.env.ANALYTICS_PERSISTENCE_ENABLED !== 'false',
+  enabled: configManager.env('ANALYTICS_PERSISTENCE_ENABLED') !== 'false',
 };
 
 export class AnalyticsPersistenceService {

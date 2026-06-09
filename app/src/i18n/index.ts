@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import { configManager } from '@modules/config';
+
 /**
  * 国际化 (i18n) 框架
  *
@@ -296,9 +298,9 @@ export function onLanguageChange(cb: Listener): () => void {
  */
 export function detectSystemLanguage(): LanguageCode {
   const locale =
-    process.env.LC_ALL ||
-    process.env.LC_MESSAGES ||
-    process.env.LANG ||
+    configManager.env('LC_ALL') ||
+    configManager.env('LC_MESSAGES') ||
+    configManager.env('LANG') ||
     Intl.DateTimeFormat().resolvedOptions().locale;
   if (locale.startsWith('zh')) return 'zh-CN';
   return 'en';

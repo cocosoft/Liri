@@ -73,8 +73,7 @@ export * from './tracker/ErrorTracker';
 // 错误恢复器
 export * from './recovery/ErrorRecoverer';
 
-// 重试策略
-export * from './recovery/RetryStrategies';
+// 重试策略（标准实现在 query/withRetry.ts，已删除旧实现）
 
 // 网络错误处理子模块
 export {
@@ -105,22 +104,7 @@ export * from './warning/ErrorWarner';
 // 专门错误处理策略
 export * from './handlers/SpecializedErrorHandlers';
 
-// 错误服务层
-export * from './services/ErrorService';
-
-// 错误管理器
-export * from './ErrorManager';
-
-// 增强错误管理器
-export { EnhancedErrorManager } from './EnhancedErrorManager';
-export type {
-  EnhancedErrorManagerConfig,
-  ErrorCorrelation,
-  ErrorLifecycle,
-} from './EnhancedErrorManager';
-
-// 高级错误分析器
-export * from './AdvancedErrorAnalyzer';
+// 高级错误分析（预留）
 
 /**
  * 初始化错误处理系统

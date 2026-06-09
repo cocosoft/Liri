@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolveLogsDir } from '@modules/core/paths';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 /**
  * 导出数据

@@ -1,11 +1,10 @@
-//
 /**
  * 网络请求管理器
  * 用于优化网络请求，实现请求缓存、重试、超时处理等功能
  */
 
 import { logger } from './log.js';
-import { getGlobalCache } from './cacheManager.js';
+import { CacheFactory } from '@modules/cache/CacheFactory';
 
 /**
  * HTTP方法
@@ -50,14 +49,18 @@ export interface NetworkResponse<T = unknown> {
 /**
  * 网络错误
  */
-export class NetworkError extends Error {
+/**
+ * 网络管理器内部错误
+ * 注意：使用 NetworkManagerError 避免与 error/types 中标准 NetworkError 同名冲突
+ */
+export class NetworkManagerError extends Error {
   constructor(
     message: string,
     public status?: number,
     public response?: NetworkResponse
   ) {
     super(message);
-    this.name = 'NetworkError';
+    this.name = 'NetworkManagerError';
   }
 }
 
@@ -65,7 +68,7 @@ export class NetworkError extends Error {
  * 网络请求管理器
  */
 export class NetworkManager {
-  private requestCache = getGlobalCache<NetworkResponse>();
+  private requestCache = CacheFactory.getOrCreate<NetworkResponse>('network');
   private activeRequests = new Map<string, Promise<NetworkResponse>>();
 
   /**
@@ -199,7 +202,7 @@ export class NetworkManager {
         const data = await this.parseResponse(response);
 
         if (!options.validateStatus?.(response.status)) {
-          throw new NetworkError(
+          throw new NetworkManagerError(
             `Request failed with status ${response.status}`,
             response.status,
             {
@@ -225,10 +228,10 @@ export class NetworkManager {
         attempt++;
 
         if (attempt > retry) {
-          if (error instanceof NetworkError) {
+          if (error instanceof NetworkManagerError) {
             throw error;
           }
-          throw new NetworkError(
+          throw new NetworkManagerError(
             error instanceof Error ? error.message : 'Network request failed',
             undefined
           );
@@ -242,7 +245,7 @@ export class NetworkManager {
       }
     }
 
-    throw new NetworkError('Network request failed after all retries');
+    throw new NetworkManagerError('Network request failed after all retries');
   }
 
   /**
@@ -359,14 +362,15 @@ export function cachedNetworkRequest(expiry?: number) {
 
     descriptor.value = async function (...args: unknown[]) {
       const cacheKey = `${propertyKey}:${JSON.stringify(args)}`;
-      const cachedValue = getGlobalCache<unknown>().get(cacheKey);
+      const cache = CacheFactory.getOrCreate<unknown>('network-cached');
+      const cachedValue = cache.get(cacheKey);
 
       if (cachedValue !== null) {
         return cachedValue;
       }
 
       const result = await originalMethod.apply(this, args);
-      getGlobalCache<unknown>().set(cacheKey, result, expiry);
+      cache.set(cacheKey, result, expiry);
       return result;
     };
   };

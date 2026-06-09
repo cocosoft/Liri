@@ -1,5 +1,8 @@
 /**
  * Cron调度器核心
+ *
+ * @deprecated 此调度器为旧版 JSON 文件持久化实现，请使用 @modules/tasks/cron/CronScheduler（基于 SQLite 持久化）。
+ * 此文件将在未来版本中移除。
  */
 
 import type {
@@ -79,6 +82,9 @@ const cronTaskMap: Map<string, string> = new Map();
 
 /**
  * 创建Cron调度器
+ *
+ * @deprecated 请使用 @modules/tasks/cron/CronScheduler（SQLite 持久化）替代。
+ * 此函数将在未来版本中移除。
  */
 export function createCronScheduler(
   options: CronSchedulerOptions
@@ -480,6 +486,9 @@ export function createCronScheduler(
  * 创建内存调度器
  * 替代 EnhancedTaskScheduler，提供基于内存的任务调度
  * 支持重试策略、任务依赖、状态回调等增强特性
+ *
+ * @deprecated 请使用 @modules/tasks/cron/CronScheduler（基于 SQLite 持久化）替代。
+ * 此函数将在未来版本中移除。
  */
 export function createInMemoryScheduler(
   options: InMemorySchedulerOptions

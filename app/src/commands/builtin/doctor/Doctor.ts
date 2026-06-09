@@ -11,6 +11,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { DoctorCheck, runDoctorChecks } from './DoctorCheck.js';
+import { configManager } from '@modules/config';
 
 /**
  * 诊断检查结果
@@ -285,15 +286,15 @@ async function checkNetworkConnectivity(): Promise<DiagnosisResult[]> {
   checks.push({
     check: 'API 服务连接',
     status:
-      process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+      configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY')
         ? 'pass'
         : 'warning',
     message:
-      process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+      configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY')
         ? 'API 密钥已配置'
         : '未配置 API 密钥',
     suggestion:
-      process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+      configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY')
         ? undefined
         : '请配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY',
   });
@@ -331,7 +332,7 @@ async function checkFileSystem(): Promise<DiagnosisResult[]> {
  * 检查安全配置
  */
 function checkSecurityConfiguration(): 'pass' | 'warning' | 'fail' {
-  const hasApiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+  const hasApiKey = configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY');
 
   if (!hasApiKey) {
     return 'warning';
@@ -505,8 +506,8 @@ async function checkBasicNetwork(): Promise<DiagnosisResult[]> {
     },
     {
       check: 'API 服务连接',
-      status: process.env.DEEPSEEK_API_KEY ? 'pass' : 'warning',
-      message: process.env.DEEPSEEK_API_KEY
+      status: configManager.env('DEEPSEEK_API_KEY') ? 'pass' : 'warning',
+      message: configManager.env('DEEPSEEK_API_KEY')
         ? 'API 密钥已配置'
         : '未配置 API 密钥',
     },

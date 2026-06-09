@@ -8,6 +8,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands/types';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 获取记忆文件目录
@@ -316,7 +317,7 @@ const memoryCommand = {
       await writeFile(filePath, defaultContent, 'utf8');
     }
 
-    const editor = process.env.VISUAL || process.env.EDITOR || 'notepad';
+    const editor = configManager.env('VISUAL') || configManager.env('EDITOR') || 'notepad';
 
     if (useJson) {
       return {

@@ -5,8 +5,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { PermissionDecision } from '../PermissionResult';
-import type { PermissionRule } from '../PermissionRule';
-import { permissionRuleValueFromString } from '../PermissionRule';
+import type { PermissionRuleEntry } from '../PermissionRule';
+import type { ICache, CacheStats } from '@modules/cache/models/types';
+import { TTLCache } from '@modules/utils/cache';
+import { PermissionBehavior, PermissionRuleSource, permissionRuleValueFromString } from '../types/PermissionRule';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -20,43 +22,35 @@ export interface PermissionCacheKey {
 }
 
 /**
- * 权限缓存项
- */
-export interface PermissionCacheItem {
-  decision: PermissionDecision;
-  timestamp: number;
-  expiry: number;
-}
-
-/**
  * 权限缓存
  */
-export class PermissionCache {
-  private cache: Map<string, PermissionCacheItem> = new Map();
+export class PermissionCache implements ICache<PermissionCacheKey, PermissionDecision> {
+  private cache: TTLCache<PermissionDecision>;
   private defaultExpiry: number = 5 * 60 * 1000;
+  private hits = 0;
+  private misses = 0;
+  private expirations = 0;
+  private cleanups = 0;
+
+  constructor() {
+    this.cache = new TTLCache<PermissionDecision>(10000, this.defaultExpiry);
+  }
 
   private generateKey(key: PermissionCacheKey): string {
     return `${key.toolName}:${key.inputHash}:${key.permissionMode}`;
   }
 
-  private isExpired(item: PermissionCacheItem): boolean {
-    return Date.now() > item.timestamp + item.expiry;
-  }
-
   get(key: PermissionCacheKey): PermissionDecision | null {
     const cacheKey = this.generateKey(key);
-    const item = this.cache.get(cacheKey);
+    const result = this.cache.get(cacheKey);
 
-    if (!item) {
+    if (result === null) {
+      this.misses++;
       return null;
     }
 
-    if (this.isExpired(item)) {
-      this.cache.delete(cacheKey);
-      return null;
-    }
-
-    return item.decision;
+    this.hits++;
+    return result;
   }
 
   set(
@@ -65,14 +59,18 @@ export class PermissionCache {
     expiry?: number
   ): void {
     const cacheKey = this.generateKey(key);
-    const item: PermissionCacheItem = {
-      decision,
-      timestamp: Date.now(),
-      expiry: expiry || this.defaultExpiry,
-    };
-
-    this.cache.set(cacheKey, item);
+    this.cache.set(cacheKey, decision, expiry ?? this.defaultExpiry);
     logger.debug(`Permission cache set for ${cacheKey}`);
+  }
+
+  has(key: PermissionCacheKey): boolean {
+    const cacheKey = this.generateKey(key);
+    return this.cache.has(cacheKey);
+  }
+
+  delete(key: PermissionCacheKey): boolean {
+    const cacheKey = this.generateKey(key);
+    return this.cache.delete(cacheKey);
   }
 
   clear(): void {
@@ -80,33 +78,21 @@ export class PermissionCache {
     logger.debug('Permission cache cleared');
   }
 
-  clearToolCache(toolName: string): void {
-    for (const key of this.cache.keys()) {
-      if (key.startsWith(`${toolName}:`)) {
-        this.cache.delete(key);
-      }
-    }
-    logger.debug(`Permission cache cleared for tool ${toolName}`);
-  }
-
   size(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 
-  cleanup(): void {
-    const now = Date.now();
-    let deleted = 0;
-
-    for (const [key, item] of this.cache.entries()) {
-      if (now > item.timestamp + item.expiry) {
-        this.cache.delete(key);
-        deleted++;
-      }
-    }
-
-    if (deleted > 0) {
-      logger.debug(`Permission cache cleanup: deleted ${deleted} items`);
-    }
+  /**
+   * 获取缓存统计信息
+   */
+  getStats(): CacheStats {
+    return {
+      size: this.cache.size(),
+      hits: this.hits,
+      misses: this.misses,
+      expirations: this.expirations,
+      cleanups: this.cleanups,
+    };
   }
 }
 
@@ -117,7 +103,7 @@ export class PermissionRuleValidator {
   static validateRule(ruleString: string): {
     valid: boolean;
     error?: string;
-    rule?: PermissionRule;
+    rule?: PermissionRuleEntry;
   } {
     const ruleValue = permissionRuleValueFromString(ruleString);
     if (!ruleValue) {
@@ -143,8 +129,8 @@ export class PermissionRuleValidator {
     return {
       valid: true,
       rule: {
-        source: 'session' as const,
-        ruleBehavior: 'allow' as const,
+        source: PermissionRuleSource.SESSION,
+        ruleBehavior: PermissionBehavior.ALLOW,
         ruleValue,
       },
     };
@@ -153,10 +139,10 @@ export class PermissionRuleValidator {
   static validateRules(rules: string[]): {
     valid: boolean;
     errors: string[];
-    validRules: PermissionRule[];
+    validRules: PermissionRuleEntry[];
   } {
     const errors: string[] = [];
-    const validRules: PermissionRule[] = [];
+    const validRules: PermissionRuleEntry[] = [];
 
     for (const ruleString of rules) {
       const result = this.validateRule(ruleString);
@@ -170,7 +156,7 @@ export class PermissionRuleValidator {
     return { valid: errors.length === 0, errors, validRules };
   }
 
-  static isOverlyBroadRule(rule: PermissionRule): boolean {
+  static isOverlyBroadRule(rule: PermissionRuleEntry): boolean {
     if (
       rule.ruleValue.toolName === '*' &&
       rule.ruleValue.ruleContent === undefined

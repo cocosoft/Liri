@@ -326,20 +326,72 @@ export class ModuleRegistry {
    * 使用方式（main.ts 入口处）：
    *
    *   import { moduleRegistry } from './modules/ModuleRegistry';
-   *   await moduleRegistry.bootstrap();
+   *   await moduleRegistry.bootstrap({ mode: 'repl' });
    *
    * 该方法是整个模块系统的唯一推荐入口，替代直接调用
-   * ModuleInitializer.registerAllModules / initializeEssentialModules / scheduleDeferredModules。
+   * ModuleInitializer.registerAllModules / initializeEssentialModules / scheduleDeferredModules，
+   * 以及 entrypoints/init.ts 中的 init() 函数。
+   *
+   * @param options - 启动选项（模式、调试标志等）
    */
-  public async bootstrap(): Promise<void> {
+  public async bootstrap(options?: BootstrapOptions): Promise<void> {
     const moduleInitializerModule = await import('./ModuleInitializer');
     moduleInitializerModule.moduleInitializer.registerAllModules();
 
     this.useContainer(getDIContainer());
 
+    // 初始化环境（startup.yaml → 配置系统 → 数据目录 → 优雅关闭）
+    // 此步骤在模块初始化之前执行，确保配置系统就绪
+    if (options?.skipEnvInit !== true) {
+      await this.initializeEnvironment();
+    }
+
+    // 初始化必需模块（CRITICAL 优先级）
     await moduleInitializerModule.moduleInitializer.initializeEssentialModules();
+
+    // 在后台调度延迟模块的异步加载
     moduleInitializerModule.moduleInitializer.scheduleDeferredModules();
   }
+
+  /**
+   * 初始化运行环境
+   *
+   * 封装了 entrypoints/init.ts:init() 的环境初始化逻辑：
+   * - startup.yaml 加载
+   * - 配置系统启用
+   * - 数据目录确保
+   * - 优雅关闭注册
+   *
+   * init.ts 中的工具/插件/命令/监控/模型管理/Gateway 等模块级
+   * 初始化由各模块的 initialize() 生命周期管理，不属于环境初始化范畴。
+   */
+  private async initializeEnvironment(): Promise<void> {
+    try {
+      const { init } = await import('../entrypoints/init');
+      await init();
+    } catch (error) {
+      logger.warning('环境初始化失败（非致命）', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
+/**
+ * 启动选项
+ * 传递给 ModuleRegistry.bootstrap() 的统一启动配置
+ */
+export interface BootstrapOptions {
+  /** 启动模式 */
+  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test';
+  /** 调试模式 */
+  debug?: boolean;
+  /** 详细输出 */
+  verbose?: boolean;
+  /** 命令行参数 */
+  args?: string[];
+  /** 跳过环境初始化（用于测试） */
+  skipEnvInit?: boolean;
 }
 
 /**

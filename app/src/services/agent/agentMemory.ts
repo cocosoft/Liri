@@ -9,6 +9,8 @@ import { getProjectRoot } from '../../bootstrap/state.js';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
 import { getCwd } from '@modules/utils/cwd';
 
+import { configManager } from '@modules/config';
+
 /**
  * 查找规范的Git根目录
  */
@@ -94,10 +96,11 @@ function sanitizeAgentTypeForPath(agentType: string): string {
  * 返回本地Agent内存目录，特定于项目且不签入VCS
  */
 function getLocalAgentMemoryDir(dirName: string): string {
-  if (process.env.Liri_REMOTE_MEMORY_DIR) {
+  const remoteMemoryDir = configManager.env('Liri_REMOTE_MEMORY_DIR');
+  if (remoteMemoryDir) {
     return (
       path.join(
-        process.env.Liri_REMOTE_MEMORY_DIR,
+        remoteMemoryDir,
         'projects',
         findCanonicalGitRoot(getProjectRoot()) ?? getProjectRoot(),
         'agent-memory-local',
@@ -150,11 +153,12 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
   }
 
   // 本地范围：根据环境变量决定
-  if (process.env.Liri_REMOTE_MEMORY_DIR) {
+  const remoteMemoryDir = configManager.env('Liri_REMOTE_MEMORY_DIR');
+  if (remoteMemoryDir) {
     if (
       normalizedPath.includes(path.sep + 'agent-memory-local' + path.sep) &&
       normalizedPath.startsWith(
-        path.join(process.env.Liri_REMOTE_MEMORY_DIR, 'projects') + path.sep
+        path.join(remoteMemoryDir, 'projects') + path.sep
       )
     ) {
       return true;
@@ -227,7 +231,7 @@ export function loadAgentMemoryPrompt(
   // 异步创建目录（非阻塞）
   void ensureMemoryDirExists(memoryDir);
 
-  const extraGuidelines = process.env.Liri_MEMORY_EXTRA_GUIDELINES;
+  const extraGuidelines = configManager.env('Liri_MEMORY_EXTRA_GUIDELINES');
   return buildMemoryPrompt({
     displayName: 'Persistent Agent Memory',
     memoryDir,

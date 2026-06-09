@@ -5,6 +5,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 import { getOauthConfig } from './oauthConfig.js';
 import { oauthService } from '@modules/oauth';
 import type {
@@ -121,10 +122,10 @@ export class DefaultAuthManager implements AuthManager {
 
   private loadApiKeyFromEnv(): string {
     return (
-      process.env.Liri_API_KEY ||
-      process.env.ANTHROPIC_API_KEY ||
-      process.env.DEEPSEEK_API_KEY ||
-      process.env.OPENAI_API_KEY ||
+      configManager.env('Liri_API_KEY') ||
+      configManager.env('ANTHROPIC_API_KEY') ||
+      configManager.env('DEEPSEEK_API_KEY') ||
+      configManager.env('OPENAI_API_KEY') ||
       ''
     );
   }
@@ -264,19 +265,19 @@ export class DefaultAuthManager implements AuthManager {
     switch (provider) {
       case 'aws':
         return {
-          accessKey: process.env.AWS_ACCESS_KEY_ID || '',
-          secretKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-          sessionToken: process.env.AWS_SESSION_TOKEN,
+          accessKey: configManager.env('AWS_ACCESS_KEY_ID') || '',
+          secretKey: configManager.env('AWS_SECRET_ACCESS_KEY') || '',
+          sessionToken: configManager.env('AWS_SESSION_TOKEN'),
         };
       case 'gcp':
         return {
-          accessKey: process.env.GCP_ACCESS_KEY || '',
-          secretKey: process.env.GCP_SECRET_KEY || '',
+          accessKey: configManager.env('GCP_ACCESS_KEY') || '',
+          secretKey: configManager.env('GCP_SECRET_KEY') || '',
         };
       case 'azure':
         return {
-          accessKey: process.env.AZURE_ACCESS_KEY || '',
-          secretKey: process.env.AZURE_SECRET_KEY || '',
+          accessKey: configManager.env('AZURE_ACCESS_KEY') || '',
+          secretKey: configManager.env('AZURE_SECRET_KEY') || '',
         };
       default:
         return null;

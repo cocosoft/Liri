@@ -15,6 +15,7 @@ import {
 } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
@@ -78,7 +79,7 @@ export class AnthropicProvider extends BaseAIProvider {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (!config.apiKey && !process.env.ANTHROPIC_API_KEY) {
+    if (!config.apiKey && !configManager.env('ANTHROPIC_API_KEY')) {
       errors.push('API key is required (config.apiKey or ANTHROPIC_API_KEY)');
     }
 

@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 
 export const DANGEROUS_FILES = [
@@ -44,7 +45,7 @@ export function checkReadPermissionForTool(
 ): PermissionResult {
   if (containsPathTraversal(filePath)) {
     return {
-      behavior: 'deny',
+      behavior: PermissionBehavior.DENY,
       message: '路径遍历攻击被拒绝',
       decisionReason: { type: 'config', source: 'security' },
     };
@@ -52,7 +53,7 @@ export function checkReadPermissionForTool(
 
   if (!isWithinWorkingDirectory(filePath, cwd)) {
     return {
-      behavior: 'ask',
+      behavior: PermissionBehavior.ASK,
       message: `文件在工作目录外: ${filePath}`,
       decisionReason: { type: 'config', source: 'filesystem' },
     };
@@ -60,13 +61,13 @@ export function checkReadPermissionForTool(
 
   if (isInDangerousDirectory(filePath)) {
     return {
-      behavior: 'ask',
+      behavior: PermissionBehavior.ASK,
       message: `文件在受保护目录中: ${filePath}`,
       decisionReason: { type: 'config', source: 'filesystem' },
     };
   }
 
-  return { behavior: 'allow', decisionReason: { type: 'default' } };
+  return { behavior: PermissionBehavior.ALLOW, decisionReason: { type: 'default' } };
 }
 
 export function checkWritePermissionForTool(
@@ -74,17 +75,17 @@ export function checkWritePermissionForTool(
   cwd: string
 ): PermissionResult {
   const readResult = checkReadPermissionForTool(filePath, cwd);
-  if (readResult.behavior !== 'allow') {
+  if (readResult.behavior !== PermissionBehavior.ALLOW) {
     return readResult;
   }
 
   if (isDangerousFile(filePath)) {
     return {
-      behavior: 'deny',
+      behavior: PermissionBehavior.DENY,
       message: `受保护文件不可写入: ${path.basename(filePath)}`,
       decisionReason: { type: 'config', source: 'security' },
     };
   }
 
-  return { behavior: 'allow', decisionReason: { type: 'default' } };
+  return { behavior: PermissionBehavior.ALLOW, decisionReason: { type: 'default' } };
 }

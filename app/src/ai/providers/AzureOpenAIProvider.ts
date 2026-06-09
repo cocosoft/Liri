@@ -3,6 +3,7 @@
  * 扩展 OpenAI 兼容 API，覆盖 Azure 端点
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
   ProviderConfig,
@@ -54,10 +55,10 @@ export class AzureOpenAIProvider extends BaseAIProvider {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (!config.apiKey && !process.env['AZURE_OPENAI_API_KEY']) {
+    if (!config.apiKey && !configManager.env('AZURE_OPENAI_API_KEY')) {
       errors.push('AZURE_OPENAI_API_KEY is required');
     }
-    if (!config.baseUrl && !process.env['AZURE_OPENAI_ENDPOINT']) {
+    if (!config.baseUrl && !configManager.env('AZURE_OPENAI_ENDPOINT')) {
       errors.push('AZURE_OPENAI_ENDPOINT is required');
     }
 
@@ -72,11 +73,11 @@ export class AzureOpenAIProvider extends BaseAIProvider {
     const apiKey =
       this.resolveApiKey() ||
       (this.config.apiKey as string) ||
-      process.env['AZURE_OPENAI_API_KEY'] ||
+      configManager.env('AZURE_OPENAI_API_KEY') ||
       '';
     const endpoint =
       (this.config.baseUrl as string) ||
-      process.env['AZURE_OPENAI_ENDPOINT'] ||
+      configManager.env('AZURE_OPENAI_ENDPOINT') ||
       '';
     const deployment = (this.config.deployment as string) || '';
     const apiVersion =

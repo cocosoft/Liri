@@ -1,13 +1,14 @@
+/**
+ * CostCacheManager — 成本计算缓存
+ *
+ * 基于 CacheService 实现的带 TTL 的成本计算结果缓存。
+ * 避免重复计算相同模型/Token 组合的成本，提升性能。
+ */
+
+import { CacheService } from '@modules/cache/services/CacheService';
 import { logForDebugging } from '../utils/debug.js';
 import { calculateModelCost } from './ModelPricing.js';
 import type { ICache, CacheStats } from '@modules/cache/models/types';
-
-interface CacheEntry<T> {
-  value: T;
-  expireAt: number;
-  hitCount: number;
-  createdAt: number;
-}
 
 interface CostCacheKey {
   modelName: string;
@@ -20,9 +21,18 @@ interface CostCacheKey {
 }
 
 export class CostCacheManager implements ICache<string, number> {
-  private costCache: Map<string, CacheEntry<number>> = new Map();
+  /** 基于 CacheService 的内存缓存，TTL 默认 5 分钟 */
+  private cache: CacheService<number>;
   private maxCacheSize: number = 1000;
   private defaultTTL: number = 5 * 60 * 1000;
+
+  constructor() {
+    this.cache = new CacheService<number>({
+      maxSize: this.maxCacheSize,
+      defaultTTL: this.defaultTTL,
+      cleanupInterval: 60_000,
+    });
+  }
 
   private generateCacheKey(key: CostCacheKey): string {
     return JSON.stringify({
@@ -37,60 +47,32 @@ export class CostCacheManager implements ICache<string, number> {
   }
 
   get(key: string): number | null {
-    const entry = this.costCache.get(key);
-    if (!entry) return null;
-
-    if (Date.now() > entry.expireAt) {
-      this.costCache.delete(key);
-      return null;
-    }
-
-    entry.hitCount++;
-    return entry.value;
+    return this.cache.get(key) ?? null;
   }
 
   set(key: string, value: number, ttl?: number): void {
-    this.cleanupIfNeeded();
-    const expireAt = Date.now() + (ttl ?? this.defaultTTL);
-    this.costCache.set(key, {
-      value,
-      expireAt,
-      hitCount: 0,
-      createdAt: Date.now(),
-    });
+    this.cache.set(key, value, ttl ?? this.defaultTTL);
   }
 
   delete(key: string): boolean {
-    const existed = this.costCache.has(key);
-    this.costCache.delete(key);
-    return existed;
+    return this.cache.delete(key);
   }
 
   clear(): void {
-    this.costCache.clear();
+    this.cache.clear();
     logForDebugging('成本缓存已清空');
   }
 
   has(key: string): boolean {
-    return this.get(key) !== null;
+    return this.cache.has(key);
   }
 
   size(): number {
-    return this.costCache.size;
+    return this.cache.size();
   }
 
   getStats(): CacheStats {
-    let totalHits = 0;
-    for (const entry of this.costCache.values()) {
-      totalHits += entry.hitCount;
-    }
-    return {
-      size: this.costCache.size,
-      hits: totalHits,
-      misses: 0,
-      expirations: 0,
-      cleanups: 0,
-    };
+    return this.cache.getStats();
   }
 
   getCacheStats(): CacheStats {
@@ -150,44 +132,12 @@ export class CostCacheManager implements ICache<string, number> {
     return cost;
   }
 
+  /** 清理过期缓存（委托给 CacheService） */
   cleanup(): number {
-    let removedCount = 0;
-    const now = Date.now();
-
-    for (const [key, entry] of this.costCache.entries()) {
-      if (now > entry.expireAt) {
-        this.costCache.delete(key);
-        removedCount++;
-      }
-    }
-
-    if (removedCount > 0) {
-      logForDebugging('已清理过期缓存', { removedCount });
-    }
-
-    return removedCount;
-  }
-
-  private cleanupIfNeeded(): void {
-    if (this.costCache.size <= this.maxCacheSize) {
-      return;
-    }
-
-    const removed = this.cleanup();
-    if (this.costCache.size <= this.maxCacheSize) {
-      return;
-    }
-
-    const entries = Array.from(this.costCache.entries()).sort(
-      (a, b) => a[1].hitCount - b[1].hitCount
-    );
-
-    const toRemove = entries.slice(0, entries.length - this.maxCacheSize);
-    for (const [key] of toRemove) {
-      this.costCache.delete(key);
-    }
-
-    logForDebugging('已清理低命中缓存', { removedCount: toRemove.length });
+    const stats = this.cache.getStats();
+    this.cache.cleanup();
+    const newStats = this.cache.getStats();
+    return newStats.cleanups - stats.cleanups;
   }
 
   getCacheStatsInfo(): {
@@ -195,21 +145,16 @@ export class CostCacheManager implements ICache<string, number> {
     maxSize: number;
     totalHits: number;
   } {
-    let totalHits = 0;
-    for (const entry of this.costCache.values()) {
-      totalHits += entry.hitCount;
-    }
-
+    const stats = this.cache.getStats();
     return {
-      size: this.costCache.size,
+      size: stats.size,
       maxSize: this.maxCacheSize,
-      totalHits,
+      totalHits: stats.hits,
     };
   }
 
   setMaxCacheSize(size: number): void {
     this.maxCacheSize = size;
-    this.cleanupIfNeeded();
     logForDebugging('缓存最大大小已更新', { maxSize: size });
   }
 

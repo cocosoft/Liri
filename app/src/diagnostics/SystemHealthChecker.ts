@@ -12,6 +12,7 @@ import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
@@ -318,7 +319,7 @@ export class SystemHealthChecker extends EventEmitter {
     const warnings: string[] = [];
     const suggestions: string[] = [];
 
-    if (!process.env.OAUTH_ENCRYPTION_KEY) {
+    if (!configManager.env('OAUTH_ENCRYPTION_KEY')) {
       warnings.push('OAUTH_ENCRYPTION_KEY');
       suggestions.push(
         '设置 OAUTH_ENCRYPTION_KEY 环境变量以确保 OAuth 令牌加密安全'

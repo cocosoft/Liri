@@ -3,6 +3,7 @@
  */
 
 import type { PromptVariant, SuggestionSource } from './types';
+import { configManager } from '@modules/config';
 
 export interface SuggestionEvent {
   type: 'suppressed' | 'shown' | 'accepted' | 'ignored';
@@ -56,7 +57,7 @@ export function logSuggestionSuppressed(
   analyticsData.suppressReasons[reason] =
     (analyticsData.suppressReasons[reason] || 0) + 1;
 
-  if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+  if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
     console.log(`[PromptSuggestion] Suppressed: ${reason}`, {
       suggestion,
       promptId,
@@ -84,7 +85,7 @@ export function logSuggestionShown(
   analyticsData.suggestionShown++;
   analyticsData.totalSuggestions++;
 
-  if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+  if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
     console.log(`[PromptSuggestion] Shown: ${suggestion}`, {
       promptId,
       source,
@@ -118,7 +119,7 @@ export function logSuggestionAccepted(
       (totalTime + timeToAcceptMs) / analyticsData.suggestionAccepted;
   }
 
-  if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+  if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
     console.log(`[PromptSuggestion] Accepted: ${suggestion}`, {
       userInput,
       promptId,
@@ -145,7 +146,7 @@ export function logSuggestionIgnored(
 
   analyticsData.suggestionIgnored++;
 
-  if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+  if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
     console.log(`[PromptSuggestion] Ignored: ${suggestion}`, {
       promptId,
       timeToIgnoreMs,

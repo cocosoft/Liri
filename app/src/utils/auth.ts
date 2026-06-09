@@ -10,6 +10,7 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
+import { configManager } from '@modules/config';
 
 export interface AuthSession {
   oauthToken: string;
@@ -31,9 +32,9 @@ const SESSION_FILE = join(CONFIG_DIR, 'session.json');
 
 function resolveApiKeyFromEnv(): string | undefined {
   return (
-    process.env.ANTHROPIC_API_KEY ||
-    process.env.CLAUDE_API_KEY ||
-    process.env.Liri_API_KEY
+    configManager.env('ANTHROPIC_API_KEY') ||
+    configManager.env('CLAUDE_API_KEY') ||
+    configManager.env('Liri_API_KEY')
   );
 }
 

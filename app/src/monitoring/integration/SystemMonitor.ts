@@ -7,7 +7,7 @@
 import os from 'os';
 import type { NetworkInterfaceInfo } from 'os';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 /**
  * 系统信息

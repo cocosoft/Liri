@@ -1,3 +1,5 @@
+import { configManager } from '@modules/config';
+
 export interface DatadogConfig {
   apiKey: string;
   appKey: string;
@@ -11,15 +13,15 @@ export interface DatadogConfig {
 }
 
 export const DEFAULT_DATADOG_CONFIG: DatadogConfig = {
-  apiKey: process.env.DD_API_KEY || '',
-  appKey: process.env.DD_APP_KEY || '',
-  site: process.env.DD_SITE || 'datadoghq.com',
-  serviceName: process.env.DD_SERVICE || 'Liri',
-  env: process.env.DD_ENV || 'production',
-  version: process.env.DD_VERSION || '1.0.0',
-  enabled: process.env.DD_ENABLED === 'true' || !!process.env.DD_API_KEY,
-  flushInterval: parseInt(process.env.DD_FLUSH_INTERVAL || '10000', 10),
-  batchSize: parseInt(process.env.DD_BATCH_SIZE || '100', 10),
+  apiKey: configManager.env('DD_API_KEY') || '',
+  appKey: configManager.env('DD_APP_KEY') || '',
+  site: configManager.env('DD_SITE') || 'datadoghq.com',
+  serviceName: configManager.env('DD_SERVICE') || 'Liri',
+  env: configManager.env('DD_ENV') || 'production',
+  version: configManager.env('DD_VERSION') || '1.0.0',
+  enabled: configManager.env('DD_ENABLED') === 'true' || !!configManager.env('DD_API_KEY'),
+  flushInterval: parseInt(configManager.env('DD_FLUSH_INTERVAL') || '10000', 10),
+  batchSize: parseInt(configManager.env('DD_BATCH_SIZE') || '100', 10),
 };
 
 export interface DatadogMetric {
@@ -58,7 +60,7 @@ export class DatadogMetricsClient {
   constructor(config?: Partial<DatadogConfig>) {
     this.config = { ...DEFAULT_DATADOG_CONFIG, ...config };
     this.hostname =
-      process.env.HOSTNAME || process.env.COMPUTERNAME || 'unknown';
+      configManager.env('HOSTNAME') || configManager.env('COMPUTERNAME') || 'unknown';
   }
 
   get isEnabled(): boolean {

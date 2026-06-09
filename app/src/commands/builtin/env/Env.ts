@@ -3,6 +3,7 @@
  * 显示环境变量与系统信息
  */
 import { arch, platform } from 'node:os';
+import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
@@ -109,11 +110,11 @@ function getSystemInfo(): string[] {
  * 检测终端类型
  */
 function detectTerminal(): string | null {
-  if (process.env.TERM_PROGRAM) {
-    return process.env.TERM_PROGRAM;
+  if (configManager.env('TERM_PROGRAM')) {
+    return configManager.env('TERM_PROGRAM');
   }
-  if (process.env.WT_SESSION) return 'windows-terminal';
-  if (process.env.TERM) return process.env.TERM;
+  if (configManager.env('WT_SESSION')) return 'windows-terminal';
+  if (configManager.env('TERM')) return configManager.env('TERM');
   return null;
 }
 

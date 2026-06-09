@@ -3,6 +3,7 @@
  */
 
 import fs from 'fs';
+import { configManager } from '@modules/config';
 
 /**
  * mTLS 配置
@@ -19,9 +20,9 @@ export interface MTLSConfig {
 export function getMTLSConfig(): MTLSConfig | undefined {
   try {
     // 检查环境变量
-    const certPath = process.env.MTLS_CERT_PATH;
-    const keyPath = process.env.MTLS_KEY_PATH;
-    const passphrase = process.env.MTLS_PASSPHRASE;
+    const certPath = configManager.env('MTLS_CERT_PATH');
+    const keyPath = configManager.env('MTLS_KEY_PATH');
+    const passphrase = configManager.env('MTLS_PASSPHRASE');
 
     if (!certPath || !keyPath) {
       return undefined;

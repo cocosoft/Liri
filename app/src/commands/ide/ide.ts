@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
@@ -33,15 +34,15 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     alias: ['vscode', 'code'],
     commonPaths: [
       join(
-        process.env.LOCALAPPDATA || '',
+        configManager.env('LOCALAPPDATA') || '',
         'Programs\\Microsoft VS Code\\bin\\code.cmd'
       ),
       join(
-        process.env['ProgramW6432'] || '',
+        configManager.env('ProgramW6432') || '',
         'Microsoft VS Code\\bin\\code.cmd'
       ),
       join(
-        process.env['ProgramFiles(x86)'] || '',
+        configManager.env('ProgramFiles(x86)') || '',
         'Microsoft VS Code\\bin\\code.cmd'
       ),
     ],
@@ -51,9 +52,9 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'cursor',
     alias: ['cursor'],
     commonPaths: [
-      join(process.env.LOCALAPPDATA || '', 'Programs\\cursor\\Cursor.exe'),
+      join(configManager.env('LOCALAPPDATA') || '', 'Programs\\cursor\\Cursor.exe'),
       join(
-        process.env.USERPROFILE || '',
+        configManager.env('USERPROFILE') || '',
         'AppData\\Local\\Programs\\cursor\\Cursor.exe'
       ),
     ],
@@ -63,7 +64,7 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'trae',
     alias: ['trae'],
     commonPaths: [
-      join(process.env.LOCALAPPDATA || '', 'Programs\\Trae\\Trae.exe'),
+      join(configManager.env('LOCALAPPDATA') || '', 'Programs\\Trae\\Trae.exe'),
     ],
   },
   {
@@ -71,7 +72,7 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'windsurf',
     alias: ['windsurf'],
     commonPaths: [
-      join(process.env.LOCALAPPDATA || '', 'Programs\\Windsurf\\Windsurf.exe'),
+      join(configManager.env('LOCALAPPDATA') || '', 'Programs\\Windsurf\\Windsurf.exe'),
     ],
   },
   {
@@ -79,8 +80,8 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'zed',
     alias: ['zed'],
     commonPaths: [
-      join(process.env.LOCALAPPDATA || '', 'Programs\\Zed\\zed.exe'),
-      join(process.env.USERPROFILE || '', '.cargo\\bin\\zed.exe'),
+      join(configManager.env('LOCALAPPDATA') || '', 'Programs\\Zed\\zed.exe'),
+      join(configManager.env('USERPROFILE') || '', '.cargo\\bin\\zed.exe'),
     ],
   },
   {
@@ -89,11 +90,11 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     alias: ['idea', 'intellij'],
     commonPaths: [
       join(
-        process.env['ProgramW6432'] || '',
+        configManager.env('ProgramW6432') || '',
         'JetBrains\\IntelliJ IDEA\\bin\\idea64.exe'
       ),
       join(
-        process.env['ProgramFiles(x86)'] || '',
+        configManager.env('ProgramFiles(x86)') || '',
         'JetBrains\\IntelliJ IDEA\\bin\\idea64.exe'
       ),
     ],
@@ -104,11 +105,11 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     alias: ['pycharm'],
     commonPaths: [
       join(
-        process.env['ProgramW6432'] || '',
+        configManager.env('ProgramW6432') || '',
         'JetBrains\\PyCharm\\bin\\pycharm64.exe'
       ),
       join(
-        process.env['ProgramFiles(x86)'] || '',
+        configManager.env('ProgramFiles(x86)') || '',
         'JetBrains\\PyCharm\\bin\\pycharm64.exe'
       ),
     ],
@@ -119,11 +120,11 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     alias: ['webstorm'],
     commonPaths: [
       join(
-        process.env['ProgramW6432'] || '',
+        configManager.env('ProgramW6432') || '',
         'JetBrains\\WebStorm\\bin\\webstorm64.exe'
       ),
       join(
-        process.env['ProgramFiles(x86)'] || '',
+        configManager.env('ProgramFiles(x86)') || '',
         'JetBrains\\WebStorm\\bin\\webstorm64.exe'
       ),
     ],
@@ -232,10 +233,10 @@ function scanStartMenuPrograms(): IDEDetection[] {
   const results: IDEDetection[] = [];
   const startMenuDirs = [
     join(
-      process.env.ProgramData || '',
+      configManager.env('ProgramData') || '',
       'Microsoft\\Windows\\Start Menu\\Programs'
     ),
-    join(process.env.APPDATA || '', 'Microsoft\\Windows\\Start Menu\\Programs'),
+    join(configManager.env('APPDATA') || '', 'Microsoft\\Windows\\Start Menu\\Programs'),
   ];
 
   const knownIDEs: Record<string, { name: string; command: string }> = {

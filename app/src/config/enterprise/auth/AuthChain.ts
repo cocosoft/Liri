@@ -14,6 +14,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '../../ConfigManager.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -100,7 +101,7 @@ export class ApiKeyAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const validKey = process.env['LIRI_ENTERPRISE_API_KEY'];
+    const validKey = configManager.env('LIRI_ENTERPRISE_API_KEY');
     if (!validKey) {
       logger.info('LIRI_ENTERPRISE_API_KEY 未配置，跳过 API Key 认证');
       return null;

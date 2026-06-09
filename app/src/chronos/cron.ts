@@ -1,6 +1,5 @@
 /**
  * Cron expression parsing and scheduling module
- * Based on CC source: cc_code/backend/utils/cron.ts
  *
  * Supports three schedule input modes (aligned with OpenClaw):
  *   1. Standard 5-field cron: "0 8 * * *"
@@ -198,6 +197,10 @@ function expandField(field: string, range: FieldRange): number[] | null {
 
 /**
  * Parse 5-field cron expression
+ *
+ * @deprecated 请使用 @modules/tasks/cron/CronParser 中的 computeNextCronRun / isValidCronExpr。
+ * 此函数将在未来版本中移除。
+ *
  * @param expr cron expression string
  * @returns Parsed fields or null
  */
@@ -223,6 +226,10 @@ export function parseCronExpression(expr: string): CronFields | null {
 
 /**
  * Compute next cron run time
+ *
+ * @deprecated 请使用 @modules/tasks/cron/CronParser 中的 computeNextCronRun。
+ * 此函数将在未来版本中移除。
+ *
  * @param fields Parsed cron fields
  * @param from Start time
  * @returns Next run time
@@ -390,6 +397,10 @@ export function cronToHuman(cron: string, utc: boolean = false): string {
 
 /**
  * Validate a schedule expression (supports cron, every, at, macro).
+ *
+ * @deprecated 请使用 @modules/tasks/cron/CronParser 中的 isValidCronExpr。
+ * 此函数将在未来版本中移除。
+ *
  * @param expr schedule expression string
  * @returns Whether valid
  */

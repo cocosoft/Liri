@@ -203,34 +203,50 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
   try {
     const { costPersistenceService } =
       await import('./CostPersistenceService.js');
-    const { getCostAnalyticsTracker } =
-      await import('../analytics/CostAnalyticsTracker.js');
     const { getCostRecordRepository } =
       await import('./CostRecordRepository.js');
     const { costTracker } = await import('./CostTracker.js');
 
-    const tracker = getCostAnalyticsTracker();
-    const sessionSummary = tracker.getSessionCost();
-    const sessionState = costTracker.getSessionCostState();
+    const modelUsage = costTracker.getModelUsage();
+    const totalCost = costTracker.getTotalCostUSD();
+    const totalInputTokens = costTracker.getTotalInputTokens();
+    const totalOutputTokens = costTracker.getTotalOutputTokens();
+    const totalCacheReadTokens = costTracker.getTotalCacheReadInputTokens();
+    const totalCacheCreationTokens = costTracker.getTotalCacheCreationInputTokens();
 
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    for (const mc of Object.values(sessionSummary.modelBreakdown)) {
-      totalInputTokens += mc.inputTokens;
-      totalOutputTokens += mc.outputTokens;
+    let totalRequests = 0;
+    const modelBreakdown: Record<string, {
+      model: string;
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }> = {};
+
+    for (const [model, usage] of Object.entries(modelUsage)) {
+      totalRequests += usage.requestCount;
+      modelBreakdown[model] = {
+        model,
+        totalCost: usage.costUSD,
+        totalTokens: usage.inputTokens + usage.outputTokens,
+        requestCount: usage.requestCount,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      };
     }
 
     await costPersistenceService.initialize();
 
     const sessionData = {
-      totalCost: sessionSummary.totalCost,
+      totalCost,
       totalInputTokens,
       totalOutputTokens,
-      totalCacheReadTokens: sessionState.totalCacheReadInputTokens,
-      totalCacheCreationTokens: sessionState.totalCacheCreationInputTokens,
-      totalRequests: sessionSummary.totalRequests,
-      modelBreakdown: sessionSummary.modelBreakdown,
-      successfulRequests: sessionSummary.totalRequests,
+      totalCacheReadTokens,
+      totalCacheCreationTokens,
+      totalRequests,
+      modelBreakdown,
+      successfulRequests: totalRequests,
       failedRequests: 0,
     };
 

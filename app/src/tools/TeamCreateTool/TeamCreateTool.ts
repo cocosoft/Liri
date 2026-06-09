@@ -12,6 +12,7 @@ import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolveDataSubDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 团队成员
@@ -127,7 +128,7 @@ export class TeamCreateTool extends BaseTool<
   }
 
   override isEnabled(): boolean {
-    return process.env.ENABLE_TEAMMATE !== 'false'; // 默认启用
+    return configManager.env('ENABLE_TEAMMATE') !== 'false'; // 默认启用
   }
 
   override isDestructive(): boolean {

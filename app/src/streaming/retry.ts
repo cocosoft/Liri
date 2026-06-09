@@ -1,67 +1,17 @@
 /**
  * 流式请求重试与错误恢复
  *
- * 提供流式请求的重试逻辑和断路器模式支持。
+ * @deprecated 请使用 @modules/utils/withRetry 中的 StreamingCircuitBreaker。
+ *   当前文件保留为兼容层，新代码请直接导入 @modules/utils/withRetry。
  */
+
 import { ApiError } from '../services/api';
+export { StreamingCircuitBreaker } from '../utils/withRetry';
 
-export interface RetryConfig {
-  maxRetries: number;
-  baseDelayMs: number;
-  maxDelayMs: number;
-}
-
-const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  maxRetries: 3,
-  baseDelayMs: 1000,
-  maxDelayMs: 30000,
-};
-
-export class StreamingCircuitBreaker {
-  private consecutiveFailures: number = 0;
-  private lastFailureTime: number = 0;
-  private readonly maxConsecutiveFailures: number;
-  private readonly resetTimeoutMs: number;
-
-  constructor(
-    maxConsecutiveFailures: number = 3,
-    resetTimeoutMs: number = 60000
-  ) {
-    this.maxConsecutiveFailures = maxConsecutiveFailures;
-    this.resetTimeoutMs = resetTimeoutMs;
-  }
-
-  recordFailure(): void {
-    this.consecutiveFailures++;
-    this.lastFailureTime = Date.now();
-  }
-
-  recordSuccess(): void {
-    this.consecutiveFailures = 0;
-  }
-
-  isOpen(): boolean {
-    if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
-      const elapsed = Date.now() - this.lastFailureTime;
-      if (elapsed >= this.resetTimeoutMs) {
-        this.consecutiveFailures = 0;
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }
-
-  getFailureCount(): number {
-    return this.consecutiveFailures;
-  }
-
-  reset(): void {
-    this.consecutiveFailures = 0;
-    this.lastFailureTime = 0;
-  }
-}
-
+/**
+ * 判断流式错误是否可重试
+ * 已迁移至标准重试模块
+ */
 export function shouldRetryStreaming(error: unknown): boolean {
   if (error instanceof ApiError) {
     if (error.status === 429) return true;
@@ -72,6 +22,10 @@ export function shouldRetryStreaming(error: unknown): boolean {
   return false;
 }
 
+/**
+ * 指数退避重试（流式专用）
+ * 已迁移至标准重试模块
+ */
 export async function retryWithBackoff<T>(
   operation: () => Promise<T>,
   config: Partial<RetryConfig> = {}
@@ -100,3 +54,15 @@ export async function retryWithBackoff<T>(
 
   throw lastError;
 }
+
+export interface RetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000,
+};

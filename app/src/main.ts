@@ -55,6 +55,7 @@ import {
   ensureDataDirectories,
 } from '@modules/core/paths';
 import { modelRouter } from '@modules/ai/modelRouter';
+import { configManager } from './config/index.js';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -125,7 +126,7 @@ export function isValidApiKey(key: string | undefined | null): boolean {
  */
 async function isAIConfigured(): Promise<boolean> {
   try {
-    if (isValidApiKey(process.env.DEEPSEEK_API_KEY)) return true;
+    if (isValidApiKey(configManager.env('DEEPSEEK_API_KEY'))) return true;
     const { getConfig } = await import('./config/index.js');
     const config = getConfig();
     const ai = (config as Record<string, unknown>).ai as
@@ -195,7 +196,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   console.log('');
 
   // 若 HTTP 服务已在运行，提示用户可通过浏览器完成初始化
-  if (process.env.LIRI_HTTP_STARTED === '1') {
+  if (configManager.env('LIRI_HTTP_STARTED') === '1') {
     console.log('  💻 也可打开浏览器访问前端页面完成初始化配置。');
     console.log('');
   }
@@ -329,6 +330,9 @@ function setupWindowsSecurity(): void {
 
 /**
  * 初始化模块系统
+ * @deprecated 已由 ModuleRegistry.bootstrap() 替代。
+ * launch() 中已使用 bootstrap()，此函数不再被调用。
+ * 将在未来版本中移除。
  */
 async function initializeModuleSystem(): Promise<void> {
   try {
@@ -358,22 +362,20 @@ async function displayStartupHealthReport(): Promise<void> {
 
 /**
  * 启动 CLI 模式
+ * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
+ * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
-async function launchCLI(options: LaunchOptions): Promise<void> {
-  const { init } = await import('./entrypoints/init');
-  await init();
-
+async function launchCLI(_options: LaunchOptions): Promise<void> {
   const { main } = await import('./entrypoints/cli');
   await main();
 }
 
 /**
  * 启动 REPL 模式
+ * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
+ * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchREPL(options: LaunchOptions): Promise<void> {
-  const { init } = await import('./entrypoints/init');
-  await init();
-
   // 解析 --model 参数并设为全局模型
   const modelArg = parseModelFromArgs(options.args);
   if (modelArg) {
@@ -472,11 +474,10 @@ function parseModelFromArgs(args?: string[]): string | undefined {
 
 /**
  * 启动 MCP 服务器模式
+ * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
+ * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchMCPServer(options: LaunchOptions): Promise<void> {
-  const { init } = await import('./entrypoints/init');
-  await init();
-
   const { startMCPServer } = await import('./entrypoints/mcp');
   await startMCPServer(
     resolveProjectRoot(),
@@ -487,11 +488,10 @@ async function launchMCPServer(options: LaunchOptions): Promise<void> {
 
 /**
  * 启动后台守护进程模式
+ * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
+ * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchDaemon(options: LaunchOptions): Promise<void> {
-  const { init } = await import('./entrypoints/init');
-  await init();
-
   logger.info('后台守护进程模式启动（当前复用 REPL 模式）');
   const { launchRepl } = await import('./entrypoints/repl');
   await launchRepl({ useLegacyRepl: true });
@@ -499,11 +499,10 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
 
 /**
  * 启动测试模式
+ * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
+ * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
-async function launchTest(options: LaunchOptions): Promise<void> {
-  const { init } = await import('./entrypoints/init');
-  await init();
-
+async function launchTest(_options: LaunchOptions): Promise<void> {
   logger.info('测试模式启动');
 }
 
@@ -546,20 +545,27 @@ export async function launch(options: LaunchOptions): Promise<void> {
     if (process.platform === 'darwin') {
       startKeychainPrefetch(
         ['Liri', 'com.liri.api-key'],
-        process.env.USER || ''
+        configManager.env('USER') || ''
       );
     }
     profilePhaseEnd('T0_preroll');
     profileCheckpoint('T0_preroll_end');
 
-    // T1: 模块系统初始化（仅 CRITICAL 模块）
+    // T1: 模块系统初始化 — 使用 ModuleRegistry.bootstrap() 统一入口
+    // 替代旧的 initializeModuleSystem() → quickInitialize() 路径
     profileCheckpoint('module_init_start');
     profilePhaseStart('T1_module_init');
 
     // 显示加载提示（在 T1 执行期间给用户进度反馈）
     process.stdout.write('⏳ Liri 正在加载模块...\r');
 
-    await initializeModuleSystem();
+    const { moduleRegistry } = await import('./modules/ModuleRegistry');
+    await moduleRegistry.bootstrap({
+      mode: options.mode as any,
+      args: options.args,
+      debug: options.debug,
+      verbose: options.verbose,
+    });
 
     // 清除加载提示行
     process.stdout.write('\x1b[K');
@@ -667,16 +673,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T2_dispatch');
     profileCheckpoint('T2_dispatch_end');
 
-    // T3: 启动完成后，在后台调度延迟模块加载
-    profilePhaseStart('T3_deferred_load');
-    try {
-      const { moduleInitializer } = await import('./modules/ModuleInitializer');
-      moduleInitializer.scheduleDeferredModules();
-    } catch (e) {
-      logger.warning('调度延迟模块加载失败（非致命）', e as Error);
-    }
-    profilePhaseEnd('T3_deferred_load');
-
+    // T3: 延迟模块加载已由 ModuleRegistry.bootstrap() 内部调度
+    // 不再需要在此重复调用 scheduleDeferredModules()
     profilePhaseEnd('launch_total');
 
     const { totalDuration, phaseSummary } = getPhaseSummary();

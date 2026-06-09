@@ -25,6 +25,7 @@ import { execSync } from 'child_process';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * Git 工作树创建选项
@@ -525,9 +526,9 @@ export class AppCore {
       const terminalState = {
         cwd: process.cwd(),
         env: {
-          TERM: process.env.TERM,
-          SHELL: process.env.SHELL,
-          LANG: process.env.LANG,
+          TERM: configManager.env('TERM'),
+          SHELL: configManager.env('SHELL'),
+          LANG: configManager.env('LANG'),
         },
         timestamp: new Date().toISOString(),
       };

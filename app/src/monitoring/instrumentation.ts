@@ -32,14 +32,20 @@ import { isEnvTruthy } from '../utils/envUtils.js';
 import { getProxyUrl, shouldBypassProxy } from '../utils/proxy.js';
 import { getCACertificates } from '../utils/caCerts.js';
 import { getMTLSConfig } from '../utils/mtls.js';
-import { errorMessage } from '../utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 import { logForDebugging } from '../utils/debug.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 
 const DEFAULT_METRICS_EXPORT_INTERVAL_MS = 60000;
 const DEFAULT_TRACES_EXPORT_INTERVAL_MS = 5000;
 
-class TelemetryTimeoutError extends Error {}
+class TelemetryTimeoutError extends AppError {
+  constructor(message: string) {
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.LOW);
+    this.name = 'TelemetryTimeoutError';
+  }
+}
 
 function telemetryTimeout(ms: number, message: string): Promise<never> {
   return new Promise((_, reject) => {
@@ -54,33 +60,36 @@ function telemetryTimeout(ms: number, message: string): Promise<never> {
 }
 
 export function bootstrapTelemetry() {
-  if (process.env.USER_TYPE === 'ant') {
+  if (configManager.env('USER_TYPE') === 'ant') {
     // Read from ANT_ prefixed variables that are defined at build time
-    if (process.env.ANT_OTEL_METRICS_EXPORTER) {
-      process.env.OTEL_METRICS_EXPORTER = process.env.ANT_OTEL_METRICS_EXPORTER;
+    const antMetricsExporter = configManager.env('ANT_OTEL_METRICS_EXPORTER');
+    if (antMetricsExporter) {
+      process.env.OTEL_METRICS_EXPORTER = antMetricsExporter;
     }
-    if (process.env.ANT_OTEL_LOGS_EXPORTER) {
-      process.env.OTEL_LOGS_EXPORTER = process.env.ANT_OTEL_LOGS_EXPORTER;
+    const antLogsExporter = configManager.env('ANT_OTEL_LOGS_EXPORTER');
+    if (antLogsExporter) {
+      process.env.OTEL_LOGS_EXPORTER = antLogsExporter;
     }
-    if (process.env.ANT_OTEL_TRACES_EXPORTER) {
-      process.env.OTEL_TRACES_EXPORTER = process.env.ANT_OTEL_TRACES_EXPORTER;
+    const antTracesExporter = configManager.env('ANT_OTEL_TRACES_EXPORTER');
+    if (antTracesExporter) {
+      process.env.OTEL_TRACES_EXPORTER = antTracesExporter;
     }
-    if (process.env.ANT_OTEL_EXPORTER_OTLP_PROTOCOL) {
-      process.env.OTEL_EXPORTER_OTLP_PROTOCOL =
-        process.env.ANT_OTEL_EXPORTER_OTLP_PROTOCOL;
+    const antOtlpProtocol = configManager.env('ANT_OTEL_EXPORTER_OTLP_PROTOCOL');
+    if (antOtlpProtocol) {
+      process.env.OTEL_EXPORTER_OTLP_PROTOCOL = antOtlpProtocol;
     }
-    if (process.env.ANT_OTEL_EXPORTER_OTLP_ENDPOINT) {
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
-        process.env.ANT_OTEL_EXPORTER_OTLP_ENDPOINT;
+    const antOtlpEndpoint = configManager.env('ANT_OTEL_EXPORTER_OTLP_ENDPOINT');
+    if (antOtlpEndpoint) {
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = antOtlpEndpoint;
     }
-    if (process.env.ANT_OTEL_EXPORTER_OTLP_HEADERS) {
-      process.env.OTEL_EXPORTER_OTLP_HEADERS =
-        process.env.ANT_OTEL_EXPORTER_OTLP_HEADERS;
+    const antOtlpHeaders = configManager.env('ANT_OTEL_EXPORTER_OTLP_HEADERS');
+    if (antOtlpHeaders) {
+      process.env.OTEL_EXPORTER_OTLP_HEADERS = antOtlpHeaders;
     }
   }
 
   // Set default tempoality to 'delta' because it's the more sane default
-  if (!process.env.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE) {
+  if (!configManager.env('OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE')) {
     process.env.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = 'delta';
   }
 }
@@ -96,10 +105,11 @@ export function parseExporterTypes(value: string | undefined): string[] {
 }
 
 async function getOtlpReaders() {
-  const exporterTypes = parseExporterTypes(process.env.OTEL_METRICS_EXPORTER);
+  const exporterTypes = parseExporterTypes(configManager.env('OTEL_METRICS_EXPORTER') ?? '');
   const exportInterval = parseInt(
-    process.env.OTEL_METRIC_EXPORT_INTERVAL ||
-      DEFAULT_METRICS_EXPORT_INTERVAL_MS.toString()
+    configManager.env('OTEL_METRIC_EXPORT_INTERVAL') ||
+      DEFAULT_METRICS_EXPORT_INTERVAL_MS.toString(),
+    10
   );
 
   const exporters = [];
@@ -123,8 +133,8 @@ async function getOtlpReaders() {
       exporters.push(consoleExporter);
     } else if (exporterType === 'otlp') {
       const protocol =
-        process.env.OTEL_EXPORTER_OTLP_METRICS_PROTOCOL?.trim() ||
-        process.env.OTEL_EXPORTER_OTLP_PROTOCOL?.trim();
+        configManager.env('OTEL_EXPORTER_OTLP_METRICS_PROTOCOL')?.trim() ||
+        configManager.env('OTEL_EXPORTER_OTLP_PROTOCOL')?.trim();
 
       const httpConfig = getOTLPExporterConfig();
 
@@ -179,8 +189,8 @@ async function getOtlpTraceExporters() {
       exporters.push(new ConsoleSpanExporter());
     } else if (exporterType === 'otlp') {
       const protocol =
-        process.env.OTEL_EXPORTER_OTLP_TRACES_PROTOCOL?.trim() ||
-        process.env.OTEL_EXPORTER_OTLP_PROTOCOL?.trim();
+        configManager.env('OTEL_EXPORTER_OTLP_TRACES_PROTOCOL')?.trim() ||
+        configManager.env('OTEL_EXPORTER_OTLP_PROTOCOL')?.trim();
 
       const httpConfig = getOTLPExporterConfig();
 
@@ -219,12 +229,12 @@ async function getOtlpTraceExporters() {
 }
 
 export function isTelemetryEnabled() {
-  return isEnvTruthy(process.env.Liri_ENABLE_TELEMETRY);
+  return isEnvTruthy(configManager.env('Liri_ENABLE_TELEMETRY'));
 }
 
 function parseOtelHeadersEnvVar(): Record<string, string> {
   const headers: Record<string, string> = {};
-  const envHeaders = process.env.OTEL_EXPORTER_OTLP_HEADERS;
+  const envHeaders = configManager.env('OTEL_EXPORTER_OTLP_HEADERS');
   if (envHeaders) {
     for (const pair of envHeaders.split(',')) {
       const [key, ...valueParts] = pair.split('=');
@@ -256,7 +266,7 @@ function getOTLPExporterConfig() {
   }
 
   // Check if we should bypass proxy for OTEL endpoint
-  const otelEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  const otelEndpoint = configManager.env('OTEL_EXPORTER_OTLP_ENDPOINT');
   if (!proxyUrl || (otelEndpoint && shouldBypassProxy(otelEndpoint))) {
     // No proxy configured or OTEL endpoint should bypass proxy
     const caCerts = getCACertificates();
@@ -316,7 +326,7 @@ export async function initializeTelemetry() {
   // Add customer exporters (if enabled)
   const telemetryEnabled = isTelemetryEnabled();
   logForDebugging(
-    `[3P telemetry] isTelemetryEnabled=${telemetryEnabled} (Liri_ENABLE_TELEMETRY=${process.env.Liri_ENABLE_TELEMETRY})`
+    `[3P telemetry] isTelemetryEnabled=${telemetryEnabled} (Liri_ENABLE_TELEMETRY=${configManager.env('Liri_ENABLE_TELEMETRY')})`
   );
   if (telemetryEnabled) {
     readers.push(...(await getOtlpReaders()));
@@ -393,7 +403,7 @@ export async function initializeTelemetry() {
         (exporter) =>
           new BatchSpanProcessor(exporter, {
             scheduledDelayMillis: parseInt(
-              process.env.OTEL_TRACES_EXPORT_INTERVAL ||
+              configManager.env('OTEL_TRACES_EXPORT_INTERVAL') ||
                 DEFAULT_TRACES_EXPORT_INTERVAL_MS.toString()
             ),
           })
@@ -427,7 +437,7 @@ export async function flushTelemetry(): Promise<void> {
     return;
   }
 
-  const timeoutMs = parseInt(process.env.Liri_OTEL_FLUSH_TIMEOUT_MS || '5000');
+  const timeoutMs = parseInt(configManager.env('Liri_OTEL_FLUSH_TIMEOUT_MS') || '5000');
 
   try {
     const flushPromises = [meterProvider.forceFlush()];

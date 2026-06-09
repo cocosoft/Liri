@@ -10,6 +10,7 @@
  */
 
 import { resolveProjectRoot } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 import {
   watch,
   FSWatcher,
@@ -375,7 +376,7 @@ export class PluginHotloadManager {
    * @returns 插件目录绝对路径
    */
   private getPluginDirectory(): string | null {
-    const envDir = process.env.PLUGIN_DIR;
+    const envDir = configManager.env('PLUGIN_DIR');
     if (envDir) {
       return resolve(envDir);
     }

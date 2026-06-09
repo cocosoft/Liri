@@ -20,6 +20,7 @@ import {
 } from 'path';
 import { homedir } from 'os';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
+import { configManager } from '@modules/config';
 
 const MAX_MEMORY_CHARACTER_COUNT = 40000;
 const MAX_INCLUDE_DEPTH = 5;
@@ -286,8 +287,8 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   private getManagedClaudeRulesDir(): string | null {
     if (process.platform === 'win32') {
       const programData =
-        process.env.PROGRAMDATA ||
-        join(process.env.SYSTEMDRIVE || 'C:', 'ProgramData');
+        configManager.env('PROGRAMDATA') ||
+        join(configManager.env('SYSTEMDRIVE') || 'C:', 'ProgramData');
       return join(programData, 'Claude');
     }
     return '/etc/claude-code';

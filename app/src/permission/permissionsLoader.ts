@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, resolveDataDir } from '@modules/core/paths';
-import type { PermissionRuleSource } from './PermissionRule';
+import { PermissionRuleSource } from './types/PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';
 
@@ -74,15 +74,15 @@ export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
     'local_settings.json'
   );
 
-  context = loadPermissionsFromSettings(userSettings, 'userSettings', context);
+  context = loadPermissionsFromSettings(userSettings, PermissionRuleSource.USER_SETTINGS, context);
   context = loadPermissionsFromSettings(
     projectSettings,
-    'projectSettings',
+    PermissionRuleSource.PROJECT_SETTINGS,
     context
   );
   context = loadPermissionsFromSettings(
     localSettings,
-    'localSettings',
+    PermissionRuleSource.LOCAL_SETTINGS,
     context
   );
 

@@ -8,6 +8,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { platform } from 'os';
+import { configManager } from '@modules/config';
 
 const execAsync = promisify(exec);
 
@@ -47,7 +48,7 @@ const BELL_CHAR = '\x07';
 export async function sendNotification(
   notif: NotificationOptions
 ): Promise<NotificationResult> {
-  const channel = process.env.Liri_NOTIFICATION_CHANNEL || DEFAULT_CHANNEL;
+  const channel = configManager.env('Liri_NOTIFICATION_CHANNEL') || DEFAULT_CHANNEL;
 
   if (channel === 'notifications_disabled') {
     return { channel: 'notifications_disabled', success: true };

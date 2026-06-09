@@ -34,6 +34,8 @@
  * @module
  */
 
+import { configManager } from '@modules/config';
+
 // 核心类型
 export type {
   TraceRecord,
@@ -111,10 +113,10 @@ export function createAITracePlugin(deps?: MonitoringDeps): AITracePlugin {
   }
 
   const config: TraceConfig = {
-    traceDir: process.env.AI_TRACE_DIR || 'traces',
-    mode: (process.env.AI_TRACE_MODE as TraceConfig['mode']) || 'all',
-    slowThresholdMs: Number(process.env.AI_TRACE_SLOW_THRESHOLD) || 30000,
-    liveViewPort: Number(process.env.AI_TRACE_LIVE_VIEW_PORT) || 0,
+    traceDir: configManager.env('AI_TRACE_DIR') || 'traces',
+    mode: (configManager.env('AI_TRACE_MODE') as TraceConfig['mode']) || 'all',
+    slowThresholdMs: Number(configManager.env('AI_TRACE_SLOW_THRESHOLD')) || 30000,
+    liveViewPort: Number(configManager.env('AI_TRACE_LIVE_VIEW_PORT')) || 0,
   };
 
   globalPlugin = new AITracePlugin(config, deps || undefined);

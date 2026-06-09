@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveProjectRoot, resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 发现源类型
@@ -197,7 +198,7 @@ export class PluginDiscovery {
     this.scanPaths.set('user', [path.join(resolvePyappHome(), 'plugins')]);
     this.scanPaths.set('project', [path.join(cwd, '.pyapp', 'plugins')]);
     this.scanPaths.set('global', [
-      process.env.LIRI_PLUGIN_PATH || path.join(cwd, 'plugins'),
+      configManager.env('LIRI_PLUGIN_PATH') || path.join(cwd, 'plugins'),
     ]);
   }
 }

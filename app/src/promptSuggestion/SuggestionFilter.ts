@@ -3,6 +3,7 @@
  */
 
 import type { PromptVariant, SuggestionSource } from './types';
+import { configManager } from '@modules/config';
 
 interface Analytics {
   logSuggestionSuppressed: (
@@ -24,7 +25,7 @@ function getAnalytics(): Analytics {
         promptId?: PromptVariant,
         source?: SuggestionSource
       ) => {
-        if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+        if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
           console.log(`[PromptSuggestion Filter] Suppressed: ${reason}`, {
             suggestion,
             promptId,

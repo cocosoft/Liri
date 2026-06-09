@@ -1,15 +1,8 @@
-//
 import type { PermissionMode } from './PermissionMode';
 import { shouldAvoidPermissionPrompts } from './PermissionMode';
-import type {
-  PermissionBehavior,
-  PermissionRule,
-  PermissionRuleSource,
-} from './PermissionRule';
-import {
-  permissionRuleValueFromString,
-  permissionRuleValueToString,
-} from './PermissionRule';
+import { PermissionBehavior, PermissionRuleSource } from './types/PermissionRule';
+import { permissionRuleValueFromString } from './types/PermissionRule';
+import type { PermissionRuleEntry } from './PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 
 export interface ToolPermissionContext {
@@ -37,43 +30,43 @@ export function getEmptyToolPermissionContext(): ToolPermissionContext {
 }
 
 const RULE_SOURCES: PermissionRuleSource[] = [
-  'userSettings',
-  'projectSettings',
-  'localSettings',
-  'flagSettings',
-  'policySettings',
-  'cliArg',
-  'command',
-  'session',
+  PermissionRuleSource.USER_SETTINGS,
+  PermissionRuleSource.PROJECT_SETTINGS,
+  PermissionRuleSource.LOCAL_SETTINGS,
+  PermissionRuleSource.FLAG_SETTINGS,
+  PermissionRuleSource.POLICY_SETTINGS,
+  PermissionRuleSource.CLI_ARG,
+  PermissionRuleSource.COMMAND,
+  PermissionRuleSource.SESSION,
 ];
 
 export function getAllowRules(
   context: ToolPermissionContext
-): PermissionRule[] {
+): PermissionRuleEntry[] {
   return RULE_SOURCES.flatMap((source) =>
     (context.alwaysAllowRules[source] || []).map((ruleString) => ({
       source,
-      ruleBehavior: 'allow' as PermissionBehavior,
+      ruleBehavior: PermissionBehavior.ALLOW,
       ruleValue: permissionRuleValueFromString(ruleString),
     }))
   );
 }
 
-export function getDenyRules(context: ToolPermissionContext): PermissionRule[] {
+export function getDenyRules(context: ToolPermissionContext): PermissionRuleEntry[] {
   return RULE_SOURCES.flatMap((source) =>
     (context.alwaysDenyRules[source] || []).map((ruleString) => ({
       source,
-      ruleBehavior: 'deny' as PermissionBehavior,
+      ruleBehavior: PermissionBehavior.DENY,
       ruleValue: permissionRuleValueFromString(ruleString),
     }))
   );
 }
 
-export function getAskRules(context: ToolPermissionContext): PermissionRule[] {
+export function getAskRules(context: ToolPermissionContext): PermissionRuleEntry[] {
   return RULE_SOURCES.flatMap((source) =>
     (context.alwaysAskRules[source] || []).map((ruleString) => ({
       source,
-      ruleBehavior: 'ask' as PermissionBehavior,
+      ruleBehavior: PermissionBehavior.ASK,
       ruleValue: permissionRuleValueFromString(ruleString),
     }))
   );
@@ -96,10 +89,10 @@ function matchRuleValue(
 }
 
 export function getRuleByContentsForToolName(
-  rules: PermissionRule[],
+  rules: PermissionRuleEntry[],
   toolName: string,
   input?: Record<string, unknown>
-): PermissionRule | undefined {
+): PermissionRuleEntry | undefined {
   return rules.find((r) => matchRuleValue(r.ruleValue, toolName, input));
 }
 
@@ -110,7 +103,7 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
 ): PermissionResult<Input> {
   if (context.mode === 'bypass' && context.isBypassPermissionsModeAvailable) {
     return {
-      behavior: 'allow',
+      behavior: PermissionBehavior.ALLOW,
       decisionReason: { type: 'config', source: 'bypass' },
     };
   }
@@ -119,7 +112,7 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
   const matchedDeny = getRuleByContentsForToolName(denyRules, toolName, input);
   if (matchedDeny) {
     return {
-      behavior: 'deny',
+      behavior: PermissionBehavior.DENY,
       decisionReason: {
         type: 'rule',
         rule: matchedDeny,
@@ -137,7 +130,7 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
   );
   if (matchedAllow && context.mode !== 'plan') {
     return {
-      behavior: 'allow',
+      behavior: PermissionBehavior.ALLOW,
       updatedInput: input,
       decisionReason: {
         type: 'rule',
@@ -151,7 +144,7 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
   const matchedAsk = getRuleByContentsForToolName(askRules, toolName, input);
   if (matchedAsk) {
     return {
-      behavior: 'ask',
+      behavior: PermissionBehavior.ASK,
       decisionReason: {
         type: 'rule',
         rule: matchedAsk,
@@ -162,25 +155,25 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
 
   if (context.mode === 'acceptEdits') {
     return {
-      behavior: 'allow',
+      behavior: PermissionBehavior.ALLOW,
       decisionReason: { type: 'config', source: 'acceptEdits' },
     };
   }
 
   if (context.mode === 'plan') {
     return {
-      behavior: 'ask',
+      behavior: PermissionBehavior.ASK,
       decisionReason: { type: 'config', source: 'plan' },
     };
   }
 
   if (shouldAvoidPermissionPrompts(context.mode as PermissionMode)) {
     return {
-      behavior: 'deny',
+      behavior: PermissionBehavior.DENY,
       message: `Permission denied: ${toolName} requires approval, but don't ask mode is enabled`,
       decisionReason: { type: 'config', source: 'dontAsk' },
     };
   }
 
-  return { behavior: 'allow', decisionReason: { type: 'default' } };
+  return { behavior: PermissionBehavior.ALLOW, decisionReason: { type: 'default' } };
 }

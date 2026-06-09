@@ -10,6 +10,7 @@ import type {
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
@@ -38,7 +39,7 @@ export class OllamaProvider extends BaseAIProvider {
     super(options, _extraConfig);
 
     this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
-    this.timeout = parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10);
+    this.timeout = parseInt(configManager.env('OLLAMA_TIMEOUT') || '30000', 10);
 
     if (!this.transport) {
       this.transport = new TransportProviderAdapter(new OllamaTransport());
@@ -296,7 +297,7 @@ export class OllamaProvider extends BaseAIProvider {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (!config.baseUrl && !process.env.OLLAMA_BASE_URL) {
+    if (!config.baseUrl && !configManager.env('OLLAMA_BASE_URL')) {
       warnings.push(
         'No baseUrl configured, using default: ' + DEFAULT_BASE_URL
       );

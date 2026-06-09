@@ -10,6 +10,8 @@ export type QueryLogEntryType = 'api_call' | 'tool_call' | 'query';
 
 /**
  * 查询日志条目
+ *
+ * @deprecated 考虑使用 {@link DataAuditEvent} 作为通用审计基类 — 从 `@modules/core/data-models` 导入
  */
 export interface QueryLogEntry {
   /** 唯一标识 */

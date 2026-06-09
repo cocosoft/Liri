@@ -52,6 +52,7 @@ import { ModelRegistry } from '../models/ModelRegistry';
 import type { APIProvider } from '../models/ModelConfigs';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import type { TransportStreamEvent } from '../transports/types';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -242,7 +243,7 @@ export abstract class BaseAIProvider implements AIProvider {
 
     // 2. 环境变量回退
     if (this.options.envApiKey) {
-      const envKey = process.env[this.options.envApiKey];
+      const envKey = configManager.env(this.options.envApiKey);
       if (envKey) return envKey;
     }
 

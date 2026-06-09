@@ -9,6 +9,7 @@ import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type { IChannelPlugin, MessageContext } from './types/IChannel';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -65,172 +66,172 @@ export async function setupChannelsFromConfig(): Promise<{
   }> = [
     {
       type: 'telegram',
-      enabled: !!process.env.TELEGRAM_BOT_TOKEN,
+      enabled: !!configManager.env('TELEGRAM_BOT_TOKEN'),
       importPath: '../channels/telegram/TelegramChannel',
       exportKey: 'telegramChannel',
     },
     {
       type: 'discord',
-      enabled: !!process.env.DISCORD_TOKEN,
+      enabled: !!configManager.env('DISCORD_TOKEN'),
       importPath: '../channels/discord/DiscordChannel',
       exportKey: 'discordChannel',
     },
     {
       type: 'qq',
-      enabled: !!process.env.QQ_APP_ID && !!process.env.QQ_APP_SECRET,
+      enabled: !!configManager.env('QQ_APP_ID') && !!configManager.env('QQ_APP_SECRET'),
       importPath: '../channels/qq/QQChannel',
       exportKey: 'qqChannel',
     },
     {
       type: 'dingtalk',
       enabled:
-        !!process.env.DINGTALK_APP_KEY && !!process.env.DINGTALK_APP_SECRET,
+        !!configManager.env('DINGTALK_APP_KEY') && !!configManager.env('DINGTALK_APP_SECRET'),
       importPath: '../channels/dingtalk/DingTalkChannel',
       exportKey: 'dingtalkChannel',
     },
     {
       type: 'feishu',
-      enabled: !!process.env.FEISHU_APP_ID && !!process.env.FEISHU_APP_SECRET,
+      enabled: !!configManager.env('FEISHU_APP_ID') && !!configManager.env('FEISHU_APP_SECRET'),
       importPath: '../channels/feishu/FeishuChannel',
       exportKey: 'feishuChannel',
     },
     {
       type: 'wechat',
-      enabled: !!process.env.WECHAT_BOT_HTTP_URL,
+      enabled: !!configManager.env('WECHAT_BOT_HTTP_URL'),
       importPath: '../channels/wechat/WechatChannel',
       exportKey: 'wechatChannel',
     },
     {
       type: 'slack',
       enabled:
-        !!process.env.SLACK_BOT_TOKEN && !!process.env.SLACK_SIGNING_SECRET,
+        !!configManager.env('SLACK_BOT_TOKEN') && !!configManager.env('SLACK_SIGNING_SECRET'),
       importPath: '../channels/slack/index',
       exportKey: 'slackChannelPlugin',
     },
     {
       type: 'line',
       enabled:
-        !!process.env.LINE_CHANNEL_ACCESS_TOKEN &&
-        !!process.env.LINE_CHANNEL_SECRET,
+        !!configManager.env('LINE_CHANNEL_ACCESS_TOKEN') &&
+        !!configManager.env('LINE_CHANNEL_SECRET'),
       importPath: '../channels/line/index',
       exportKey: 'lineChannelPlugin',
     },
     {
       type: 'irc',
-      enabled: !!process.env.IRC_SERVER && !!process.env.IRC_NICK,
+      enabled: !!configManager.env('IRC_SERVER') && !!configManager.env('IRC_NICK'),
       importPath: '../channels/irc/index',
       exportKey: 'ircChannelPlugin',
     },
     {
       type: 'nostr',
-      enabled: !!process.env.NOSTR_PRIVATE_KEY || !!process.env.NOSTR_RELAYS,
+      enabled: !!configManager.env('NOSTR_PRIVATE_KEY') || !!configManager.env('NOSTR_RELAYS'),
       importPath: '../channels/nostr/index',
       exportKey: 'nostrChannelPlugin',
     },
     {
       type: 'email',
-      enabled: !!process.env.EMAIL_HOST && !!process.env.EMAIL_USER,
+      enabled: !!configManager.env('EMAIL_HOST') && !!configManager.env('EMAIL_USER'),
       importPath: '../channels/email/EmailChannel',
       exportKey: 'emailChannelPlugin',
     },
     {
       type: 'sms',
-      enabled: !!process.env.SMS_FROM_NUMBER,
+      enabled: !!configManager.env('SMS_FROM_NUMBER'),
       importPath: '../channels/sms/SmsChannel',
       exportKey: 'smsChannelPlugin',
     },
     {
       type: 'webhook',
-      enabled: !!process.env.WEBHOOK_LISTEN_PORT,
+      enabled: !!configManager.env('WEBHOOK_LISTEN_PORT'),
       importPath: '../channels/webhook/WebhookChannel',
       exportKey: 'webhookChannelPlugin',
     },
     {
       type: 'wecom',
       enabled:
-        !!process.env.WECOM_CORP_ID &&
-        !!process.env.WECOM_CORP_SECRET &&
-        !!process.env.WECOM_AGENT_ID,
+        !!configManager.env('WECOM_CORP_ID') &&
+        !!configManager.env('WECOM_CORP_SECRET') &&
+        !!configManager.env('WECOM_AGENT_ID'),
       importPath: '../channels/wecom/WeComChannel',
       exportKey: 'wecomChannel',
     },
     {
       type: 'googlechat',
-      enabled: !!process.env.GOOGLECHAT_SERVICE_ACCOUNT,
+      enabled: !!configManager.env('GOOGLECHAT_SERVICE_ACCOUNT'),
       importPath: '../channels/googlechat/index',
       exportKey: 'googleChatChannelPlugin',
     },
     {
       type: 'msteams',
       enabled:
-        !!process.env.MSTEAMS_BOT_ID && !!process.env.MSTEAMS_BOT_PASSWORD,
+        !!configManager.env('MSTEAMS_BOT_ID') && !!configManager.env('MSTEAMS_BOT_PASSWORD'),
       importPath: '../channels/msteams/index',
       exportKey: 'msteamsChannelPlugin',
     },
     {
       type: 'zalo',
-      enabled: !!process.env.ZALO_APP_ID && !!process.env.ZALO_APP_SECRET,
+      enabled: !!configManager.env('ZALO_APP_ID') && !!configManager.env('ZALO_APP_SECRET'),
       importPath: '../channels/zalo/index',
       exportKey: 'zaloChannelPlugin',
     },
     {
       type: 'yuanbao',
-      enabled: !!process.env.YUANBAO_APP_ID && !!process.env.YUANBAO_APP_KEY,
+      enabled: !!configManager.env('YUANBAO_APP_ID') && !!configManager.env('YUANBAO_APP_KEY'),
       importPath: '../channels/yuanbao/index',
       exportKey: 'yuanbaoChannelPlugin',
     },
     {
       type: 'whatsapp',
       enabled:
-        !!process.env.WHATSAPP_PHONE_NUMBER_ID &&
-        !!process.env.WHATSAPP_ACCESS_TOKEN,
+        !!configManager.env('WHATSAPP_PHONE_NUMBER_ID') &&
+        !!configManager.env('WHATSAPP_ACCESS_TOKEN'),
       importPath: '../channels/whatsapp/index',
       exportKey: 'whatsAppChannelPlugin',
     },
     {
       type: 'signal',
-      enabled: !!process.env.SIGNAL_ACCOUNT,
+      enabled: !!configManager.env('SIGNAL_ACCOUNT'),
       importPath: '../channels/signal/index',
       exportKey: 'signalChannelPlugin',
     },
     {
       type: 'matrix',
       enabled:
-        !!process.env.MATRIX_HOMESERVER_URL &&
-        !!process.env.MATRIX_ACCESS_TOKEN,
+        !!configManager.env('MATRIX_HOMESERVER_URL') &&
+        !!configManager.env('MATRIX_ACCESS_TOKEN'),
       importPath: '../channels/matrix/index',
       exportKey: 'matrixChannelPlugin',
     },
     {
       type: 'facebook',
-      enabled: !!process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
+      enabled: !!configManager.env('FACEBOOK_PAGE_ACCESS_TOKEN'),
       importPath: '../channels/facebookmessenger/index',
       exportKey: 'facebookMessengerChannelPlugin',
     },
     {
       type: 'twitter',
       enabled:
-        !!process.env.TWITTER_API_KEY && !!process.env.TWITTER_API_SECRET_KEY,
+        !!configManager.env('TWITTER_API_KEY') && !!configManager.env('TWITTER_API_SECRET_KEY'),
       importPath: '../channels/twitter/index',
       exportKey: 'twitterChannelPlugin',
     },
     {
       type: 'claude',
       enabled:
-        !!process.env.CLAUDE_CHANNEL_ENABLED && !!process.env.CLAUDE_API_KEY,
+        !!configManager.env('CLAUDE_CHANNEL_ENABLED') && !!configManager.env('CLAUDE_API_KEY'),
       importPath: '../channels/claude/index',
       exportKey: 'claudeChannelPlugin',
     },
     {
       type: 'mattermost',
-      enabled: !!process.env.MATTERMOST_URL && !!process.env.MATTERMOST_TOKEN,
+      enabled: !!configManager.env('MATTERMOST_URL') && !!configManager.env('MATTERMOST_TOKEN'),
       importPath: '../channels/mattermost/MattermostChannel',
       exportKey: 'mattermostChannel',
     },
     {
       type: 'bluebubbles',
       enabled:
-        !!process.env.BLUEBUBBLES_URL && !!process.env.BLUEBUBBLES_PASSWORD,
+        !!configManager.env('BLUEBUBBLES_URL') && !!configManager.env('BLUEBUBBLES_PASSWORD'),
       importPath: '../channels/bluebubbles/BlueBubblesChannel',
       exportKey: 'bluebubblesChannelPlugin',
     },
@@ -257,7 +258,7 @@ export async function setupChannelsFromConfig(): Promise<{
 
   // DB 来源的通道不受 MAX_CHANNELS 限制（前端显式配置的凭据 → 始终注册）
   const MAX_ENV_CHANNELS = 3;
-  const priorityStr = process.env.CHANNEL_PRIORITY || '';
+  const priorityStr = configManager.env('CHANNEL_PRIORITY') || '';
 
   // 环境变量通道按优先级选择（上限 MAX_ENV_CHANNELS）
   let selectedEnvDefs: typeof channelCandidates;

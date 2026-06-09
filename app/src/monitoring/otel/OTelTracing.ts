@@ -22,7 +22,7 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 /**
  * 追踪配置

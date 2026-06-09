@@ -4,14 +4,9 @@
  * 实现统一的OAuthProvider接口
  */
 
-import {
-  OAuthProvider,
-  OAuthProviderConfig,
-  AuthorizeOptions,
-  OAuthToken,
-  UserInfo,
-} from '@modules/oauth';
+import { OAuthProvider, OAuthProviderConfig, AuthorizeOptions, OAuthToken, UserInfo } from '@modules/oauth';
 import { OAuthClient, OAuthConfig } from '@modules/oauth';
+import { configManager } from '@modules/config';
 
 /**
  * Core OAuth提供者
@@ -25,15 +20,15 @@ export class CoreOAuthProvider implements OAuthProvider {
   constructor() {
     this.config = {
       authorizeUrl:
-        process.env.OAUTH_AUTH_URL || 'https://auth.pyapp.dev/oauth/authorize',
+        configManager.env('OAUTH_AUTH_URL') || 'https://auth.pyapp.dev/oauth/authorize',
       tokenUrl:
-        process.env.OAUTH_TOKEN_URL || 'https://auth.pyapp.dev/oauth/token',
+        configManager.env('OAUTH_TOKEN_URL') || 'https://auth.pyapp.dev/oauth/token',
       profileUrl:
-        process.env.OAUTH_PROFILE_URL ||
+        configManager.env('OAUTH_PROFILE_URL') ||
         'https://auth.pyapp.dev/oauth/userinfo',
-      clientId: (process.env.OAUTH_CLIENT_ID || '') as string,
-      clientSecret: (process.env.OAUTH_CLIENT_SECRET || '') as string,
-      redirectUri: (process.env.OAUTH_REDIRECT_URI ||
+      clientId: (configManager.env('OAUTH_CLIENT_ID') || '') as string,
+      clientSecret: (configManager.env('OAUTH_CLIENT_SECRET') || '') as string,
+      redirectUri: (configManager.env('OAUTH_REDIRECT_URI') ||
         'pyapp://oauth/callback') as string,
       scopes: ['openid', 'profile', 'email', 'api'],
     };

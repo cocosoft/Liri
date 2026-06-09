@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -382,7 +383,7 @@ export class TeamHelper {
 export function getTeamDir(teamName: string): string {
   const { getEnvironmentVariable } = require('../../utils/envUtils');
   const baseDir =
-    process.env.Liri_TEAM_DIR || join(resolvePyappHome(), 'teams');
+    configManager.env('Liri_TEAM_DIR') || join(resolvePyappHome(), 'teams');
   return join(baseDir, teamName);
 }
 

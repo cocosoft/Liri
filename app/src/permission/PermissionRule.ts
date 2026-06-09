@@ -1,24 +1,16 @@
-export type PermissionBehavior = 'allow' | 'deny' | 'ask';
+/**
+ * 权限规则类型定义
+ * 只包含顶层特有的类型，共享类型统一在 types/PermissionRule.ts 中定义
+ */
 
-export type PermissionRuleSource =
-  | 'userSettings'
-  | 'projectSettings'
-  | 'localSettings'
-  | 'flagSettings'
-  | 'policySettings'
-  | 'cliArg'
-  | 'command'
-  | 'session';
-
-export type PermissionRuleValue = {
-  toolName: string;
-  ruleContent?: string;
-};
-
-export type PermissionRule = {
-  source: PermissionRuleSource;
-  ruleBehavior: PermissionBehavior;
-  ruleValue: PermissionRuleValue;
+/**
+ * 权限规则条目（简单传输对象）
+ * 用于运行时规则操作，区别于 types/PermissionRule 中的完整领域模型
+ */
+export type PermissionRuleEntry = {
+  source: import('./types/PermissionRule.js').PermissionRuleSource;
+  ruleBehavior: import('./types/PermissionRule.js').PermissionBehavior;
+  ruleValue: import('./types/PermissionRule.js').PermissionRuleValue;
 };
 
 export type PermissionUpdateDestination =
@@ -32,37 +24,15 @@ export type PermissionUpdate =
   | {
       type: 'addRules';
       destination: PermissionUpdateDestination;
-      rules: PermissionRule[];
+      rules: PermissionRuleEntry[];
     }
   | {
       type: 'replaceRules';
       destination: PermissionUpdateDestination;
-      rules: PermissionRule[];
+      rules: PermissionRuleEntry[];
     }
   | {
       type: 'removeRules';
       destination: PermissionUpdateDestination;
       toolNames: string[];
     };
-
-export function permissionRuleValueFromString(
-  ruleString: string
-): PermissionRuleValue {
-  const matches = ruleString.match(/^([^(]+)(?:\(([^)]+)\))?$/);
-  if (!matches) {
-    return { toolName: ruleString };
-  }
-  return {
-    toolName: matches[1],
-    ruleContent: matches[2],
-  };
-}
-
-export function permissionRuleValueToString(
-  ruleValue: PermissionRuleValue
-): string {
-  if (ruleValue.ruleContent) {
-    return `${ruleValue.toolName}(${ruleValue.ruleContent})`;
-  }
-  return ruleValue.toolName;
-}

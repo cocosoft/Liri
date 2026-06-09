@@ -11,6 +11,7 @@ import {
 } from './EmbeddingBase';
 import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
+import { configManager } from '@modules/config';
 
 /**
  * 嵌入模型配置
@@ -45,7 +46,7 @@ export class EmbeddingManager {
     }
 
     // 注册内置提供者工厂
-    if (config?.openai || process.env.OPENAI_API_KEY) {
+    if (config?.openai || configManager.env('OPENAI_API_KEY')) {
       const provider = new OpenAIEmbeddingProvider(config?.openai);
       this.providers.set('openai', provider);
     }

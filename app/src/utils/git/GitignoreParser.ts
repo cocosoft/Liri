@@ -9,6 +9,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname, join, relative, normalize } from 'path';
 import { existsSync } from 'fs';
 import { resolveGitDir } from './GitFilesystem';
+import { configManager } from '@modules/config';
 
 export interface IgnoreRule {
   pattern: string;
@@ -21,12 +22,12 @@ export interface IgnoreRule {
 const GLOBAL_GITIGNORE_BASE =
   process.platform === 'win32'
     ? join(
-        process.env.USERPROFILE || 'C:\\Users\\Default',
+        configManager.env('USERPROFILE') || 'C:\\Users\\Default',
         '.config',
         'git',
         'ignore'
       )
-    : join(process.env.HOME || '/root', '.config', 'git', 'ignore');
+    : join(configManager.env('HOME') || '/root', '.config', 'git', 'ignore');
 
 function getGlobalGitignorePath(): string {
   return GLOBAL_GITIGNORE_BASE;

@@ -7,6 +7,8 @@
  * 负责 MCP 服务器的策略过滤、企业配置检测、命令/资源配置过滤。
  */
 
+import { configManager } from '@modules/config';
+
 export interface MCPServerPolicy {
   allowedServers?: string[];
   blockedServers?: string[];
@@ -35,7 +37,7 @@ export function filterMcpServersByPolicy(
 }
 
 export function doesEnterpriseMcpConfigExist(): boolean {
-  return process.env.Liri_ENTERPRISE_MCP_CONFIG === 'true';
+  return configManager.env('Liri_ENTERPRISE_MCP_CONFIG') === 'true';
 }
 
 export function excludeCommandsByServer(

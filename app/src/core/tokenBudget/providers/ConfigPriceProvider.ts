@@ -5,12 +5,12 @@
  */
 
 import type { IPriceProvider, PricingResult } from './IPriceProvider';
-import type { ModelPricing } from '@modules/core/tokenBudget/types';
+import type { ModelPriceTable } from '@modules/core/tokenBudget/types';
 
 export interface UserPricingConfig {
   models?: Record<
     string,
-    ModelPricing & { contextWindow?: number; supportsPromptCache?: boolean }
+    ModelPriceTable & { contextWindow?: number; supportsPromptCache?: boolean }
   >;
   remoteUrl?: string;
 }

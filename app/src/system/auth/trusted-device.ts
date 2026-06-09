@@ -4,6 +4,7 @@
  */
 
 import { randomBytes } from 'crypto';
+import { configManager } from '@modules/config';
 
 const TRUSTED_DEVICE_TOKEN_KEY = 'Liri_TRUSTED_DEVICE_TOKEN';
 
@@ -22,7 +23,7 @@ function clearStoredToken(): void {
 }
 
 export function getTrustedDeviceToken(): string | undefined {
-  return process.env.Liri_TRUSTED_DEVICE_TOKEN || getStoredToken();
+  return configManager.env('Liri_TRUSTED_DEVICE_TOKEN') || getStoredToken();
 }
 
 export function clearTrustedDeviceToken(): void {

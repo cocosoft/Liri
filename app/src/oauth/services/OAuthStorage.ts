@@ -7,6 +7,7 @@ import { join } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { CryptoUtils } from '@modules/security/services/CryptoUtils.js';
 import { resolveOAuthDir, ensureDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * OAuth Token数据结构
@@ -167,7 +168,7 @@ export class OAuthStorageImpl implements OAuthStorage {
    * 实际应用中应从环境变量或安全配置中获取
    */
   private getDefaultEncryptionKey(): string {
-    const key = process.env.OAUTH_ENCRYPTION_KEY;
+    const key = configManager.env('OAUTH_ENCRYPTION_KEY');
     if (!key) {
       logger.warn(
         'OAUTH_ENCRYPTION_KEY not set, using default key (NOT SECURE FOR PRODUCTION)'

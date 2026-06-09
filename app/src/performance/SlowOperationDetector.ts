@@ -6,6 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveLogsDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 import path from 'path';
 import fs from 'fs';
 
@@ -64,12 +65,12 @@ export class SlowOperationDetector {
     this.config = {
       enabled: true,
       thresholdMs: parseInt(
-        process.env.Liri_SLOW_OPERATION_THRESHOLD_MS || '100'
+        configManager.env('Liri_SLOW_OPERATION_THRESHOLD_MS') || '100'
       ),
       logLevel: 'warn',
       maxSlowOperations: 1000,
       logFilePath: path.join(resolveLogsDir(), 'slow_operations.log'),
-      includeStack: process.env.NODE_ENV !== 'production',
+      includeStack: configManager.env('NODE_ENV') !== 'production',
       sampleRate: 1.0,
     };
     this.lastReset = Date.now();

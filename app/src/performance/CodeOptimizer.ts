@@ -157,6 +157,9 @@ export async function timeout<T>(
 /**
  * 重试函数
  * 当函数执行失败时自动重试
+ *
+ * @deprecated 请使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync
+ *
  * @param fn 要执行的函数
  * @param maxRetries 最大重试次数
  * @param delay 重试延迟（毫秒）

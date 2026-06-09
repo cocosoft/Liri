@@ -36,6 +36,10 @@ export interface NotificationOptions {
   priority?: 'low' | 'medium' | 'high';
   duration?: number;
   persistent?: boolean;
+  /** 通知去重键：相同 key 的通知会覆盖旧通知（从 notification/NotificationSystem 移植） */
+  key?: string;
+  /** 合并函数：当 key 存在时，使用此函数合并新旧通知（从 notification/NotificationSystem 移植） */
+  fold?: (existing: Notification, incoming: NotificationOptions) => Partial<NotificationOptions>;
   action?: {
     label: string;
     handler: () => void;
@@ -50,6 +54,8 @@ export class NotificationService {
   private store = appStateStore as unknown as NotificationStore;
   private actionHandlers: Map<string, () => void> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
+  /** 通知去重键 → 通知 ID 映射（从 notification/NotificationSystem 移植） */
+  private notificationKeys: Map<string, string> = new Map();
 
   private constructor() {}
 
@@ -69,6 +75,33 @@ export class NotificationService {
    * @returns 通知ID
    */
   show(options: NotificationOptions): string {
+    // 处理 folding：如果 key 已存在，使用 fold 函数合并或直接覆盖
+    if (options.key) {
+      const existingId = this.notificationKeys.get(options.key);
+      if (existingId) {
+        this.removeTimer(existingId);
+
+        if (options.fold) {
+          // 查找已有通知并调用 fold 合并
+          const existing = this.getAll().find((n) => n.id === existingId);
+          if (existing) {
+            const merged = options.fold(existing, options);
+            this.store.removeNotification(existingId);
+            this.notificationKeys.delete(options.key);
+            this.actionHandlers.delete(existingId);
+
+            // 使用合并后的选项创建新通知
+            return this.show({ ...options, ...merged });
+          }
+        }
+
+        // 无 fold 或未找到已有通知，直接移除旧的
+        this.store.removeNotification(existingId);
+        this.notificationKeys.delete(options.key);
+        this.actionHandlers.delete(existingId);
+      }
+    }
+
     const notification: Omit<Notification, 'id' | 'timestamp'> = {
       type: options.type || 'info',
       title: options.title,
@@ -83,6 +116,11 @@ export class NotificationService {
     const notifications: Notification[] = state.notifications || [];
     const latestNotification = notifications[notifications.length - 1];
     const notificationId = latestNotification.id;
+
+    // 记录 key 映射
+    if (options.key) {
+      this.notificationKeys.set(options.key, notificationId);
+    }
 
     if (!options.persistent && options.duration !== 0) {
       this.scheduleAutoDismiss(notificationId, options.duration);
@@ -172,13 +210,18 @@ export class NotificationService {
    * @param id 通知ID
    */
   dismiss(id: string): void {
-    const timer = this.timers.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(id);
-    }
+    this.removeTimer(id);
 
     this.actionHandlers.delete(id);
+
+    // 清理 key 映射
+    for (const [key, nid] of this.notificationKeys) {
+      if (nid === id) {
+        this.notificationKeys.delete(key);
+        break;
+      }
+    }
+
     this.store.removeNotification(id);
   }
 
@@ -191,6 +234,7 @@ export class NotificationService {
     }
     this.timers.clear();
     this.actionHandlers.clear();
+    this.notificationKeys.clear();
     this.store.clearNotifications();
   }
 
@@ -234,6 +278,18 @@ export class NotificationService {
       this.dismiss(id);
     }, timeout);
     this.timers.set(id, timer);
+  }
+
+  /**
+   * 移除通知的定时器
+   * @param id 通知ID
+   */
+  private removeTimer(id: string): void {
+    const timer = this.timers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      this.timers.delete(id);
+    }
   }
 }
 

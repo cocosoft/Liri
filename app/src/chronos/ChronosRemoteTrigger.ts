@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { configManager } from '@modules/config';
 
 const execAsync = promisify(exec);
 
@@ -11,10 +12,10 @@ export interface RemoteTriggerConfig {
 }
 
 export const DEFAULT_TRIGGER_CONFIG: RemoteTriggerConfig = {
-  webhookUrl: process.env.CHRONOS_WEBHOOK_URL,
-  webhookSecret: process.env.CHRONOS_WEBHOOK_SECRET,
+  webhookUrl: configManager.env('CHRONOS_WEBHOOK_URL'),
+  webhookSecret: configManager.env('CHRONOS_WEBHOOK_SECRET'),
   allowedEvents: ['push', 'schedule', 'manual'],
-  enabled: process.env.CHRONOS_REMOTE_TRIGGER_ENABLED === 'true',
+  enabled: configManager.env('CHRONOS_REMOTE_TRIGGER_ENABLED') === 'true',
 };
 
 export interface TriggerResult {
@@ -164,7 +165,7 @@ export class PushNotificationService {
   private enabled: boolean;
 
   constructor() {
-    this.enabled = process.env.PUSH_NOTIFICATION_ENABLED !== 'false';
+    this.enabled = configManager.env('PUSH_NOTIFICATION_ENABLED') !== 'false';
   }
 
   get isEnabled(): boolean {

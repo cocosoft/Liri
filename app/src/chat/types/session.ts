@@ -1,5 +1,7 @@
 /**
  * 会话状态
+ *
+ * @deprecated 使用 {@link DataSessionStatus} — 从 `@modules/core/data-models` 导入
  */
 export enum SessionState {
   /**
@@ -25,6 +27,8 @@ export enum SessionState {
 
 /**
  * 会话元数据
+ *
+ * @deprecated 使用 {@link DataSessionMetadata} — 从 `@modules/core/data-models` 导入
  */
 export interface SessionMetadata {
   /**
@@ -85,6 +89,8 @@ export interface SessionMetadata {
 
 /**
  * 会话接口
+ *
+ * @deprecated 使用 {@link DataSession} — 从 `@modules/core/data-models` 导入
  */
 export interface ChatSession {
   /**
@@ -190,6 +196,8 @@ export interface SessionStorage {
 
 /**
  * 创建会话的参数
+ *
+ * @deprecated 使用 {@link DataCreateSessionParams} — 从 `@modules/core/data-models` 导入
  */
 export interface CreateSessionParams {
   /**

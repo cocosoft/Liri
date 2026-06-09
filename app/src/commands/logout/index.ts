@@ -25,6 +25,7 @@
  */
 
 import type { Command } from '@modules/commands/types';
+import { configManager } from '@modules/config';
 
 /**
  * 检查环境变量是否为真值
@@ -41,7 +42,7 @@ const logout: Command = {
   type: 'local',
   name: 'logout',
   description: '登出您的Liri账户',
-  isEnabled: () => !isEnvTruthy(process.env.DISABLE_LOGOUT_COMMAND),
+  isEnabled: () => !isEnvTruthy(configManager.env('DISABLE_LOGOUT_COMMAND')),
   load: async () => {
     const { executeLogout } = await import('./logout.js');
     return {

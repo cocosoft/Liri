@@ -13,14 +13,16 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 超时错误
  */
-export class DagTimeoutError extends Error {
+export class DagTimeoutError extends AppError {
   constructor(message: string) {
-    super(message);
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.HIGH);
     this.name = 'DagTimeoutError';
   }
 }
@@ -28,11 +30,11 @@ export class DagTimeoutError extends Error {
 /**
  * 循环依赖错误
  */
-export class DagCycleError extends Error {
+export class DagCycleError extends AppError {
   readonly cycle: string[];
 
   constructor(cycle: string[]) {
-    super(`检测到循环依赖: ${cycle.join(' → ')}`);
+    super(`检测到循环依赖: ${cycle.join(' → ')}`, ErrorCategory.OPERATION, ErrorSeverity.HIGH);
     this.name = 'DagCycleError';
     this.cycle = cycle;
   }

@@ -5,6 +5,7 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { configManager } from '@modules/config';
 
 /**
  * 执行登出
@@ -16,7 +17,7 @@ export async function executeLogout(
   try {
     // 清除API Key
     const hadToken = !!(
-      process.env.Liri_API_KEY || process.env.ANTHROPIC_API_KEY
+      configManager.env('Liri_API_KEY') || configManager.env('ANTHROPIC_API_KEY')
     );
 
     delete process.env.Liri_API_KEY;

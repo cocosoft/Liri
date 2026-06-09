@@ -11,7 +11,7 @@ import {
 } from '@opentelemetry/api';
 import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 /**
  * Span类型

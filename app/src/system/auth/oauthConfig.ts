@@ -5,6 +5,7 @@
  */
 
 import type { OAuthConfig } from './oauth-types.js';
+import { configManager } from '@modules/config';
 
 const Liri_INFERENCE_SCOPE = 'user:inference';
 const Liri_PROFILE_SCOPE = 'user:profile';
@@ -61,7 +62,7 @@ function loadClientIdFromKeychain(): string | null {
  */
 function getDefaultClientId(): string {
   return (
-    process.env.Liri_OAUTH_CLIENT_ID ||
+    configManager.env('Liri_OAUTH_CLIENT_ID') ||
     loadClientIdFromKeychain() ||
     '00000000-0000-0000-0000-000000000000'
   );
@@ -129,8 +130,8 @@ export interface OAuthProviderConfig extends OAuthConfig {
  * 获取自定义OAuth配置
  */
 function getCustomOAuthConfig(): OAuthConfig {
-  const baseApiUrl = process.env.CUSTOM_OAUTH_API_BASE_URL || '';
-  const clientId = process.env.CUSTOM_OAUTH_CLIENT_ID || '';
+  const baseApiUrl = configManager.env('CUSTOM_OAUTH_API_BASE_URL') || '';
+  const clientId = configManager.env('CUSTOM_OAUTH_CLIENT_ID') || '';
 
   return {
     authorizeUrl: `${baseApiUrl}/oauth/authorize`,
@@ -160,11 +161,11 @@ export function getOAuthProviders(): Map<string, OAuthProviderConfig> {
   });
 
   // 自定义提供商（如果启用）
-  if (process.env.CUSTOM_OAUTH_ENABLED === 'true') {
+  if (configManager.env('CUSTOM_OAUTH_ENABLED') === 'true') {
     const customConfig = getCustomOAuthConfig();
     providers.set('custom', {
       providerId: 'custom',
-      providerName: process.env.CUSTOM_OAUTH_PROVIDER_NAME || 'Custom OAuth',
+      providerName: configManager.env('CUSTOM_OAUTH_PROVIDER_NAME') || 'Custom OAuth',
       ...customConfig,
       enabled: true,
       priority: 2,
@@ -175,7 +176,7 @@ export function getOAuthProviders(): Map<string, OAuthProviderConfig> {
 }
 
 export function getOauthConfig(inferenceOnly: boolean = false): OAuthConfig {
-  const baseApiUrl = process.env.Liri_API_BASE_URL || DEFAULT_API_BASE_URL;
+  const baseApiUrl = configManager.env('Liri_API_BASE_URL') || DEFAULT_API_BASE_URL;
   const clientId = getDefaultClientId();
 
   const scopes = inferenceOnly ? [Liri_INFERENCE_SCOPE] : ALL_OAUTH_SCOPES;

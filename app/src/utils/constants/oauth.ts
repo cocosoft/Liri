@@ -3,6 +3,8 @@
  * 提供OAuth 2.0认证所需的常量定义
  */
 
+import { configManager } from '@modules/config';
+
 export const Liri_INFERENCE_SCOPE = 'user:inference';
 export const Liri_PROFILE_SCOPE = 'user:profile';
 const CONSOLE_SCOPE = 'org:create_api_key';
@@ -27,11 +29,11 @@ export const ALL_OAUTH_SCOPES = Array.from(
 );
 
 export function getOAuthConfigType(): 'prod' | 'staging' | 'local' {
-  if (process.env.Liri_USER_TYPE === 'ant') {
-    if (process.env.USE_LOCAL_OAUTH === 'true') {
+  if (configManager.env('Liri_USER_TYPE') === 'ant') {
+    if (configManager.env('USE_LOCAL_OAUTH') === 'true') {
       return 'local';
     }
-    if (process.env.USE_STAGING_OAUTH === 'true') {
+    if (configManager.env('USE_STAGING_OAUTH') === 'true') {
       return 'staging';
     }
   }
@@ -39,7 +41,7 @@ export function getOAuthConfigType(): 'prod' | 'staging' | 'local' {
 }
 
 export function getFileSuffixForOAuthConfig(): string {
-  if (process.env.Liri_CUSTOM_OAUTH_URL) {
+  if (configManager.env('Liri_CUSTOM_OAUTH_URL')) {
     return '-custom-oauth';
   }
   switch (getOAuthConfigType()) {

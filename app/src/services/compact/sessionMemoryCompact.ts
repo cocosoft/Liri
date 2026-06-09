@@ -1,3 +1,5 @@
+import { configManager } from '@modules/config';
+
 export interface SessionMemoryCompactResult {
   summary: string;
   originalTokens: number;
@@ -44,7 +46,7 @@ export function resetSessionMemoryCompactConfig(): void {
 }
 
 export function shouldUseSessionMemoryCompaction(): boolean {
-  const envVal = process.env.ENABLE_SESSION_MEMORY_COMPACT;
+  const envVal = configManager.env('ENABLE_SESSION_MEMORY_COMPACT');
   if (envVal === undefined) return false;
   return envVal === 'true';
 }

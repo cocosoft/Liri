@@ -20,6 +20,8 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 审计事件
+ *
+ * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
  */
 export interface AuditEvent extends GovernanceEvent {
   auditId: string;

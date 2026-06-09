@@ -8,6 +8,7 @@
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { generateSessionId } from '@modules/system/state/index.js';
 import type { SessionId } from '@modules/system/state/index.js';
+import { configManager } from '@modules/config';
 export type { SessionId };
 export { generateSessionId };
 
@@ -65,9 +66,9 @@ let startupState: AppStartupState = {
   startTime: Date.now(),
   phase: 'initializing',
 
-  originalCwd: process.env.LIRI_PROJECT_DIR || process.cwd(),
-  projectRoot: process.env.LIRI_PROJECT_DIR || process.cwd(),
-  cwd: process.env.LIRI_PROJECT_DIR || process.cwd(),
+  originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+  projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+  cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
   sessionId: generateSessionId(),
   parentSessionId: undefined,
   isInteractive: true,
@@ -283,9 +284,9 @@ export function resetStartupState(): void {
     skillsInitialized: false,
     startTime: Date.now(),
     phase: 'initializing',
-    originalCwd: process.env.LIRI_PROJECT_DIR || process.cwd(),
-    projectRoot: process.env.LIRI_PROJECT_DIR || process.cwd(),
-    cwd: process.env.LIRI_PROJECT_DIR || process.cwd(),
+    originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+    projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+    cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
     sessionId: generateSessionId(),
     parentSessionId: undefined,
     isInteractive: true,

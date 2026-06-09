@@ -9,6 +9,7 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -65,7 +66,7 @@ export function hasIncompleteScratchpad(content: string): boolean {
  * 获取默认轨迹目录
  */
 function getTrajectoryDir(): string {
-  const dir = process.env.Liri_TRAJECTORY_DIR || DEFAULT_TRAJECTORY_DIR;
+  const dir = configManager.env('Liri_TRAJECTORY_DIR') || DEFAULT_TRAJECTORY_DIR;
   if (!existsSync(dir)) {
     try {
       const { mkdirSync } = require('fs');

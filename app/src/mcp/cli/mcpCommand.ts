@@ -4,6 +4,7 @@
  */
 
 import { Command } from 'commander';
+import { configManager } from '@modules/config';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
@@ -14,7 +15,7 @@ import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 export function createMcpCommand(): Command {
   const mcpCommand = new Command('mcp');
   const serverManager = getMCPServerManager();
-  const configPath = process.env.MCP_CONFIG_PATH || './mcp.config.json';
+  const configPath = configManager.env('MCP_CONFIG_PATH') || './mcp.config.json';
 
   mcpCommand
     .description('Manage MCP (Model Context Protocol) servers and tools')

@@ -33,6 +33,8 @@ export interface RemoteSettingsPayload {
   timestamp: number;
 }
 
+import { configManager } from '@modules/config';
+
 export interface RemoteSettingsClientConfig {
   apiUrl: string;
   apiKey?: string;
@@ -43,15 +45,15 @@ export interface RemoteSettingsClientConfig {
 }
 
 export const DEFAULT_REMOTE_SETTINGS_CONFIG: RemoteSettingsClientConfig = {
-  apiUrl: process.env.REMOTE_SETTINGS_API_URL || '',
-  apiKey: process.env.REMOTE_SETTINGS_API_KEY,
+  apiUrl: configManager.env('REMOTE_SETTINGS_API_URL') || '',
+  apiKey: configManager.env('REMOTE_SETTINGS_API_KEY'),
   pollInterval: parseInt(
-    process.env.REMOTE_SETTINGS_POLL_INTERVAL || '300000',
+    configManager.env('REMOTE_SETTINGS_POLL_INTERVAL') || '300000',
     10
   ),
   timeout: 10000,
   cacheTTL: 600_000,
   enabled:
-    process.env.REMOTE_SETTINGS_ENABLED === 'true' ||
-    !!process.env.REMOTE_SETTINGS_API_URL,
+    configManager.env('REMOTE_SETTINGS_ENABLED') === 'true' ||
+    !!configManager.env('REMOTE_SETTINGS_API_URL'),
 };

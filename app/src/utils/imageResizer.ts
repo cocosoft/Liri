@@ -17,12 +17,14 @@ import {
 
 const execAsync = promisify(exec);
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * 图片缩放错误
  */
-export class ImageResizeError extends Error {
+export class ImageResizeError extends AppError {
   constructor(message: string) {
-    super(message);
+    super(message, ErrorCategory.FILESYSTEM, ErrorSeverity.MEDIUM);
     this.name = 'ImageResizeError';
   }
 }

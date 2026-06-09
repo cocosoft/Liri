@@ -81,6 +81,10 @@ export function safeJsonParse<T>(text: string, fallback: T): T {
   }
 }
 
+/**
+ * 带重试的函数执行
+ * @deprecated 请使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync
+ */
 export function retry<T>(
   fn: () => Promise<T>,
   options: {

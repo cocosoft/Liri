@@ -1,6 +1,5 @@
 /**
  * 安全审计类型定义
- * 对齐 OpenClaw security/audit.types.ts 设计
  */
 
 export type AuditSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
@@ -17,6 +16,7 @@ export type AuditCategory =
   | 'network'
   | 'general';
 
+/** @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入 */
 export interface SecurityAuditFinding {
   id: string;
   severity: AuditSeverity;
@@ -41,6 +41,7 @@ export interface DeepAuditResults {
   sandboxFindings: SecurityAuditFinding[];
 }
 
+/** @deprecated 使用 {@link DataAuditEvent} 基类 — 从 `@modules/core/data-models` 导入 */
 export interface SecurityAuditReport {
   summary: SecurityAuditSummary;
   findings: SecurityAuditFinding[];

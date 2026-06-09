@@ -13,6 +13,7 @@ import { initModuleBridge } from './ModuleBridgeInit.js';
 import { createAcpWebSocketServer } from '@modules/acp/server.js';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
+import { configManager } from '@modules/config';
 import type { AcpRuntime } from '@modules/acp/runtime/types.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -25,7 +26,7 @@ const logger = new Logger({ level: LogLevel.INFO });
  * - ACP_REMOTE_AUTH_TOKEN: 可选的 Bearer 认证 Token
  */
 function resolveAcpRemoteConfig(): AcpWebSocketServerConfig | null {
-  const portStr = process.env.ACP_REMOTE_PORT || '';
+  const portStr = configManager.env('ACP_REMOTE_PORT') || '';
   const port = parseInt(portStr, 10);
 
   if (!portStr || isNaN(port) || port <= 0) {
@@ -33,10 +34,10 @@ function resolveAcpRemoteConfig(): AcpWebSocketServerConfig | null {
   }
 
   return {
-    host: process.env.ACP_REMOTE_HOST || '127.0.0.1',
+    host: configManager.env('ACP_REMOTE_HOST') || '127.0.0.1',
     port,
-    path: process.env.ACP_REMOTE_PATH || '/acp',
-    authToken: process.env.ACP_REMOTE_AUTH_TOKEN || undefined,
+    path: configManager.env('ACP_REMOTE_PATH') || '/acp',
+    authToken: configManager.env('ACP_REMOTE_AUTH_TOKEN') || undefined,
     maxMessageSize: 1 * 1024 * 1024,
   };
 }

@@ -1,35 +1,21 @@
 import type { AcpRuntimeCapabilities } from '../runtime/types.js';
-
-interface CacheEntry<T> {
-  value: T;
-  expiresAt: number;
-}
+import { TTLCache } from '@modules/utils/cache';
 
 export class RuntimeCapabilitiesCache {
-  private cache: Map<string, CacheEntry<AcpRuntimeCapabilities>> = new Map();
+  private cache: TTLCache<AcpRuntimeCapabilities>;
   private ttlMs: number;
 
   constructor(ttlMs: number = 60_000) {
     this.ttlMs = ttlMs;
+    this.cache = new TTLCache<AcpRuntimeCapabilities>(1000, ttlMs);
   }
 
   set(key: string, capabilities: AcpRuntimeCapabilities): void {
-    this.cache.set(key, {
-      value: capabilities,
-      expiresAt: Date.now() + this.ttlMs,
-    });
+    this.cache.set(key, capabilities, this.ttlMs);
   }
 
   get(key: string): AcpRuntimeCapabilities | null {
-    const entry = this.cache.get(key);
-    if (!entry) {
-      return null;
-    }
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return null;
-    }
-    return entry.value;
+    return this.cache.get(key);
   }
 
   invalidate(key: string): void {
@@ -41,7 +27,7 @@ export class RuntimeCapabilitiesCache {
   }
 
   get size(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 }
 

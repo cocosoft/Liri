@@ -3,6 +3,7 @@
  */
 
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 检查环境变量是否为真值
@@ -25,8 +26,8 @@ export function getEnv(name: string, defaultValue?: string): string {
  */
 export function isDevMode(): boolean {
   return (
-    isEnvTruthy(process.env.NODE_ENV) &&
-    process.env.NODE_ENV?.toLowerCase() === 'development'
+    isEnvTruthy(configManager.env('NODE_ENV')) &&
+    configManager.env('NODE_ENV')?.toLowerCase() === 'development'
   );
 }
 

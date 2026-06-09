@@ -9,6 +9,7 @@ import { isAnalyticsDisabled } from './config';
 import { attachAnalyticsSink } from './index';
 import type { AnalyticsSink } from './index';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -39,7 +40,7 @@ class FileSink implements AnalyticsSink {
   private flushPath: string;
 
   constructor(flushPath?: string) {
-    this.flushPath = flushPath || process.env.ANALYTICS_LOG_PATH || '';
+    this.flushPath = flushPath || configManager.env('ANALYTICS_LOG_PATH') || '';
     if (this.flushPath) {
       this.flushInterval = setInterval(() => this.flush(), 30000);
     }
@@ -91,7 +92,7 @@ export function initializeAnalyticsSink(options?: {
   type?: 'console' | 'file';
   flushPath?: string;
 }): void {
-  const type = options?.type || process.env.ANALYTICS_SINK_TYPE || 'console';
+  const type = options?.type || configManager.env('ANALYTICS_SINK_TYPE') || 'console';
 
   let sink: AnalyticsSink;
   switch (type) {

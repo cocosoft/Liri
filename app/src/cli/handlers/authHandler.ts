@@ -13,6 +13,7 @@ import { createGitHubOAuthProvider } from '@modules/oauth/providers/GitHubOAuthP
 import { createGoogleOAuthProvider } from '@modules/oauth/providers/GoogleOAuthProvider';
 import { AuthorizationCodeFlow } from '@modules/oauth/flows/AuthorizationCodeFlow';
 import type { OAuthConfig } from '@modules/oauth/types';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -33,14 +34,14 @@ export class AuthHandler {
    */
   private registerBuiltinProviders(): void {
     // Provider 注册需要 clientId/clientSecret，运行时从环境变量动态读取
-    const githubClientId = process.env.OAUTH_GITHUB_CLIENT_ID || '';
-    const githubClientSecret = process.env.OAUTH_GITHUB_CLIENT_SECRET || '';
-    const googleClientId = process.env.OAUTH_GOOGLE_CLIENT_ID || '';
-    const googleClientSecret = process.env.OAUTH_GOOGLE_CLIENT_SECRET || '';
+    const githubClientId = configManager.env('OAUTH_GITHUB_CLIENT_ID') || '';
+    const githubClientSecret = configManager.env('OAUTH_GITHUB_CLIENT_SECRET') || '';
+    const googleClientId = configManager.env('OAUTH_GOOGLE_CLIENT_ID') || '';
+    const googleClientSecret = configManager.env('OAUTH_GOOGLE_CLIENT_SECRET') || '';
 
     if (githubClientId && githubClientSecret) {
       const redirectUri =
-        process.env.OAUTH_GITHUB_REDIRECT_URI ||
+        configManager.env('OAUTH_GITHUB_REDIRECT_URI') ||
         'http://localhost:3000/callback';
       const provider = createGitHubOAuthProvider(
         githubClientId,
@@ -53,7 +54,7 @@ export class AuthHandler {
 
     if (googleClientId && googleClientSecret) {
       const redirectUri =
-        process.env.OAUTH_GOOGLE_REDIRECT_URI ||
+        configManager.env('OAUTH_GOOGLE_REDIRECT_URI') ||
         'http://localhost:3000/callback';
       const provider = createGoogleOAuthProvider(
         googleClientId,
@@ -103,7 +104,7 @@ export class AuthHandler {
         oauthConfig.authorizeUrl = 'https://github.com/login/oauth/authorize';
         oauthConfig.tokenUrl = 'https://github.com/login/oauth/access_token';
         oauthConfig.profileUrl = 'https://api.github.com/user';
-        oauthConfig.clientId = process.env.OAUTH_GITHUB_CLIENT_ID || '';
+        oauthConfig.clientId = configManager.env('OAUTH_GITHUB_CLIENT_ID') || '';
         oauthConfig.scopes = ['read:user', 'user:email'];
       } else if (provider === 'google') {
         oauthConfig.authorizeUrl =
@@ -111,7 +112,7 @@ export class AuthHandler {
         oauthConfig.tokenUrl = 'https://oauth2.googleapis.com/token';
         oauthConfig.profileUrl =
           'https://www.googleapis.com/oauth2/v3/userinfo';
-        oauthConfig.clientId = process.env.OAUTH_GOOGLE_CLIENT_ID || '';
+        oauthConfig.clientId = configManager.env('OAUTH_GOOGLE_CLIENT_ID') || '';
         oauthConfig.scopes = ['openid', 'email', 'profile'];
       }
 

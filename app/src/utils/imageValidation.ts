@@ -14,10 +14,12 @@ export interface OversizedImage {
   size: number;
 }
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * 图片大小超限错误
  */
-export class ImageSizeError extends Error {
+export class ImageSizeError extends AppError {
   constructor(oversizedImages: OversizedImage[], maxSize: number) {
     let message: string;
     const firstImage = oversizedImages[0];
@@ -33,7 +35,7 @@ export class ImageSizeError extends Error {
           .join(', ') +
         `. Please resize these images before sending.`;
     }
-    super(message);
+    super(message, ErrorCategory.VALIDATION, ErrorSeverity.LOW);
     this.name = 'ImageSizeError';
   }
 }

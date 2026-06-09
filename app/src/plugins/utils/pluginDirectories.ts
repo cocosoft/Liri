@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 获取插件目录
@@ -13,7 +14,7 @@ import { resolvePyappHome } from '@modules/core/paths';
  */
 export function getPluginsDirectory(): string {
   const baseDir =
-    process.env.Liri_PLUGINS_DIR || join(resolvePyappHome(), 'plugins');
+    configManager.env('Liri_PLUGINS_DIR') || join(resolvePyappHome(), 'plugins');
 
   // 确保目录存在
   if (!existsSync(baseDir)) {
@@ -44,7 +45,7 @@ export function getPluginCachePath(): string {
  */
 export function getPluginSeedDirs(): string[] {
   // 可以从环境变量或配置文件中获取种子目录
-  const seedDirs = process.env.PY_COPILOT_PLUGIN_SEED_DIRS || '';
+  const seedDirs = configManager.env('PY_COPILOT_PLUGIN_SEED_DIRS') || '';
   return seedDirs.split(';').filter((dir) => dir.trim() !== '');
 }
 

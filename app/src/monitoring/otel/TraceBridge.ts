@@ -5,7 +5,7 @@
 
 import { SpanStatusCode, Span } from '@opentelemetry/api';
 import { OTelTracing } from './OTelTracing.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 export interface TraceEvent {
   name: string;

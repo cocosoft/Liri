@@ -5,6 +5,7 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
+import { configManager } from '@modules/config';
 import {
   getPerformanceConfig,
   performanceConfigManager,
@@ -149,8 +150,8 @@ export class MemoryManager {
 
     // 记录内存使用情况
     if (
-      process.env.USER_TYPE === 'ant' ||
-      process.env.NODE_ENV === 'development'
+      configManager.env('USER_TYPE') === 'ant' ||
+      configManager.env('NODE_ENV') === 'development'
     ) {
       logForDebugging('内存使用情况', snapshot.memory);
     }

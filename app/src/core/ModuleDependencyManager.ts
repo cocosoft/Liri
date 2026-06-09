@@ -1,4 +1,3 @@
-//
 /**
  * 模块依赖管理系统
  * 负责管理模块的依赖关系、加载顺序和循环依赖检测
@@ -78,6 +77,11 @@ interface DependencyNode {
 
 /**
  * 模块依赖管理器
+ *
+ * @deprecated 请使用 modules/ModuleRegistry 替代。
+ * ModuleRegistry 提供了统一的模块注册、依赖解析、生命周期管理
+ * 和 DI 容器集成（useContainer(getDIContainer())）。
+ * 此文件将在未来版本中移除。
  */
 export class ModuleDependencyManager {
   private modules: Map<string, ModuleInstance> = new Map();
@@ -476,6 +480,8 @@ export class ModuleDependencyManager {
 
 /**
  * 创建模块依赖管理器
+ *
+ * @deprecated 请使用 modules/ModuleRegistry 替代。
  */
 export function createModuleDependencyManager(): ModuleDependencyManager {
   return new ModuleDependencyManager();

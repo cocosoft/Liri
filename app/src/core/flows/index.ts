@@ -52,6 +52,7 @@ export {
   initializeDefaultHealthChecks,
   runHealthChecks,
   listHealthChecks,
+  getHealthChecker,
 } from './doctor-health.js';
 export type { HealthCheck } from './doctor-health.js';
 

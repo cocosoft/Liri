@@ -1,10 +1,15 @@
 /**
  * GatewaySetup — 通道自动配置工厂
  * 根据应用配置自动创建和注册 Telegram/WebSocket 通道
+ *
+ * @deprecated 旧通道启动路径（受 GATEWAY_LEGACY_DISABLED 环境变量控制）。
+ *   新路径见 channels/setupChannels.ts 及 channels/registry/ChannelRegistry。
+ *   当 GATEWAY_LEGACY_DISABLED=true 时，此模块不会被调用。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { cliConfigManager } from '../../cli/config';
+import { configManager } from '@modules/config';
 import { getChannelManager } from './ChannelManager';
 import { getCoreAPI } from '../../runtime/api/CoreAPIImpl';
 import { TelegramChannel } from './TelegramChannel';
@@ -48,6 +53,12 @@ export async function setupGatewayFromConfig(
     errors: [],
   };
 
+  // 止血开关：设置 GATEWAY_LEGACY_DISABLED=true 可禁用旧 Gateway 系统
+  if (configManager.env('GATEWAY_LEGACY_DISABLED') === 'true') {
+    logger.info('Gateway 旧通道已通过 GATEWAY_LEGACY_DISABLED 全局禁用');
+    return result;
+  }
+
   const gatewayConfig = cliConfigManager.getGatewayConfig();
 
   if (!gatewayConfig.enabled) {
@@ -71,7 +82,7 @@ export async function setupGatewayFromConfig(
     } else {
       try {
         const token =
-          gatewayConfig.telegram.token || process.env.TELEGRAM_BOT_TOKEN || '';
+          gatewayConfig.telegram.token || configManager.env('TELEGRAM_BOT_TOKEN') || '';
 
         if (!token) {
           const errMsg =

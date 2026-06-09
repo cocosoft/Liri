@@ -15,7 +15,7 @@ import {
   createDenyDecision,
   createAskDecision,
 } from './types/PermissionDecision';
-import { PermissionMode } from './types/PermissionMode';
+import { PermissionMode } from './PermissionMode';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
@@ -437,7 +437,7 @@ export class EnhancedPermissionEngine {
       case PermissionMode.DONT_ASK:
         defaultBehavior = PermissionBehavior.ALLOW;
         break;
-      case PermissionMode.BYPASS_PERMISSIONS:
+      case PermissionMode.BYPASS:
         return createAllowDecision('Bypass mode: all permissions granted');
       case PermissionMode.ACCEPT_EDITS:
         defaultBehavior = PermissionBehavior.ALLOW;

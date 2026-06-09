@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, resolveMemoryDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 export interface ProjectFiles {
   pyAppMd: string | null;
@@ -65,7 +66,7 @@ export function readProjectFiles(cwd: string): ProjectFiles {
 }
 
 export function readUserPyAppMd(): string | null {
-  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const home = configManager.env('HOME') || configManager.env('USERPROFILE') || '';
   if (!home) return null;
   return (
     safeReadFile(path.join(resolvePyappHome(), 'Liri.md')) ||

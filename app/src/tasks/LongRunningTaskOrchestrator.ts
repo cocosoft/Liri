@@ -13,6 +13,7 @@
  */
 
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 import { taskOrchestrator } from './TaskOrchestrator';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
 import { LifecycleTracker } from './LifecycleTracker';
@@ -122,7 +123,7 @@ export class LongRunningTaskOrchestrator {
           // FIXME: 迁移到新的 AIService API（generate/stream 替代 chat）
           const service = createAIService({
             defaultModel: '',
-            apiKey: process.env.ANTHROPIC_API_KEY || '',
+            apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
           } as any);
           const response = await (service as any).chat({
             messages: [

@@ -7,6 +7,7 @@
 import { resolve, normalize, sep } from 'path';
 import { existsSync, statSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -348,7 +349,7 @@ export class IsolationManager {
           '/etc',
           '/sys',
           '/proc',
-          process.env.SystemRoot || 'C:\\Windows',
+          configManager.env('SystemRoot') || 'C:\\Windows',
         ],
         defaultDeny: true,
       },

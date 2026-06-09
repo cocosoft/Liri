@@ -40,7 +40,7 @@ import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
-import { getConfig } from '../config/index.js';
+import { getConfig, configManager } from '../config/index.js';
 import { modelRouter } from '../ai/modelRouter.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
@@ -124,15 +124,15 @@ export async function initializeChatManager(): Promise<ChatManager> {
   if (!provider) {
     const config = getConfig();
     const apiKey =
+      configManager.env('DEEPSEEK_API_KEY') ||
       config['ai.deepseek.apiKey'] ||
       config.ai?.deepseek?.apiKey ||
-      process.env.DEEPSEEK_API_KEY ||
       '';
 
     provider = providerRegistry.getOrCreate('deepseek', {
       apiKey,
-      baseUrl: process.env.DEEPSEEK_BASE_URL,
-      model: currentModel || process.env.DEEPSEEK_MODEL,
+      baseUrl: configManager.env('DEEPSEEK_BASE_URL'),
+      model: currentModel || configManager.env('DEEPSEEK_MODEL'),
     });
 
     // 确保 Provider 使用最新密钥（getOrCreate 可能返回已存在的 stale 实例）
@@ -281,7 +281,7 @@ export async function launchRepl(
     const cfg = getConfig();
     const configApiKey =
       cfg['ai.deepseek.apiKey'] || cfg.ai?.deepseek?.apiKey || '';
-    const effectiveKey = process.env.DEEPSEEK_API_KEY || configApiKey;
+    const effectiveKey = configManager.env('DEEPSEEK_API_KEY') || configApiKey;
     if (isOfflineMode || !isValidApiKey(effectiveKey)) {
       ui.showWarning('AI 对话功能不可用：未检测到有效的 API 密钥');
       ui.showInfo('配置方法（任选其一）:');
@@ -394,9 +394,9 @@ export async function launchRepl(
     let provider = cronModel ? providerRegistry.getByModel(cronModel) : undefined;
     if (!provider) {
       provider = providerRegistry.getOrCreate('deepseek', {
-        apiKey: process.env.DEEPSEEK_API_KEY || '',
-        baseUrl: process.env.DEEPSEEK_BASE_URL,
-        model: process.env.DEEPSEEK_MODEL,
+        apiKey: configManager.env('DEEPSEEK_API_KEY') || '',
+        baseUrl: configManager.env('DEEPSEEK_BASE_URL'),
+        model: configManager.env('DEEPSEEK_MODEL'),
       });
     }
     const realExecutor = createCronExecutor(provider);

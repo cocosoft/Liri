@@ -17,8 +17,9 @@ import {
   scheduleToDisplayText,
 } from '@modules/chronos/cron';
 import { resolveDbPath } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
-const CRON_DATA_DIR = process.env.CRON_DATA_DIR || '';
+const CRON_DATA_DIR = configManager.env('CRON_DATA_DIR') || '';
 
 function getStorePath(): string {
   if (CRON_DATA_DIR) {

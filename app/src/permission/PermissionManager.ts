@@ -6,7 +6,7 @@
 import { PermissionChecker, Tool } from './checkers/PermissionChecker';
 import { RuleManager, RuleContext } from './managers/RuleManager';
 import { DenialTracker } from './trackers/DenialTracker';
-import { PermissionMode } from './types/PermissionMode';
+import { PermissionMode } from './PermissionMode';
 import {
   PermissionDecision,
   PermissionDecisionType,
@@ -193,7 +193,7 @@ export class PermissionManager {
 
     // 3. 根据权限模式执行不同的检查逻辑
     switch (this.mode) {
-      case PermissionMode.BYPASS_PERMISSIONS:
+      case PermissionMode.BYPASS:
         return this.handleBypassPermissions();
       case PermissionMode.DONT_ASK:
         return this.handleDontAsk(toolOrName, input, permissionContext);

@@ -42,46 +42,30 @@ export function loadBuiltinTools(factory: ToolFactory): Tool[] {
   return tools;
 }
 
+import { TTLCache } from '@modules/utils/cache';
+
 /**
  * 工具执行缓存
  */
 class ToolExecutionCache {
-  private cache: Map<string, { result: any; timestamp: number }> = new Map();
-  private maxCacheSize = 100;
-  private cacheExpiryMs = 5 * 60 * 1000; // 5分钟过期
+  private cache: TTLCache<unknown>;
+
+  constructor() {
+    this.cache = new TTLCache(100, 5 * 60 * 1000);
+  }
 
   /**
    * 获取缓存结果
-   * @param key 缓存键
-   * @returns 缓存结果或undefined
    */
-  get(key: string): any {
-    const cached = this.cache.get(key);
-    if (cached) {
-      const now = Date.now();
-      if (now - cached.timestamp < this.cacheExpiryMs) {
-        return cached.result;
-      } else {
-        this.cache.delete(key);
-      }
-    }
-    return undefined;
+  get(key: string): unknown {
+    return this.cache.get(key);
   }
 
   /**
    * 设置缓存结果
-   * @param key 缓存键
-   * @param result 执行结果
    */
-  set(key: string, result: any): void {
-    if (this.cache.size >= this.maxCacheSize) {
-      // 移除最旧的缓存项
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) {
-        this.cache.delete(oldestKey);
-      }
-    }
-    this.cache.set(key, { result, timestamp: Date.now() });
+  set(key: string, result: unknown): void {
+    this.cache.set(key, result);
   }
 
   /**
@@ -93,10 +77,9 @@ class ToolExecutionCache {
 
   /**
    * 获取缓存大小
-   * @returns 缓存大小
    */
   size(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 }
 

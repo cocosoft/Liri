@@ -90,10 +90,13 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 | `paths.md` | 磁盘IO时 | 路径使用规范 |
 | `frontend.md` | 前端开发 | 前端规则 |
 | `architecture.md` | 架构/重构 | 架构原则 |
+| `architecture-compliance.md` | 架构/代码审查 | 架构合规规则（R01-R04，AI 可执行） |
 | `development-workflow.md` | 开发任务 | 开发流程 |
 | `versioning.md` | 版本规划 | 版本管理 |
 | `operations.md` | 部署/安全 | 运维Checklist |
 | `benchmark-rules.md` | 手动`#Rule` | 对标分析规范 |
+
+> **架构合规规则**（`architecture-compliance.md`）基于 6 轮双轨制扫描 + 实现模式深度分析制定，配套检查脚本 `scripts/lint-architecture.ts`（`bun run lint:arch`）。涉及基础设施复用、数据模型统一、模块边界控制等场景时必须查阅。
 
 #### 1.6.1 前后端接口清单（强制）
 

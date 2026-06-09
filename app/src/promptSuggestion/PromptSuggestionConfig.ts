@@ -4,6 +4,7 @@
 
 import { getPromptSuggestionDatabase } from './database/PromptSuggestionDatabase';
 import type { SuggestionSource } from './types';
+import { configManager } from '@modules/config';
 
 interface EnvUtils {
   isEnvDefinedFalsy: (value: string | undefined) => boolean;
@@ -143,10 +144,10 @@ function getSwarmChecker(): SwarmChecker {
   if (!swarmChecker) {
     swarmChecker = {
       isAgentSwarmsEnabled: () => {
-        return process.env.AGENT_SWARMS_ENABLED === 'true';
+        return configManager.env('AGENT_SWARMS_ENABLED') === 'true';
       },
       isTeammate: () => {
-        return process.env.IS_TEAMMATE === 'true';
+        return configManager.env('IS_TEAMMATE') === 'true';
       },
     };
   }
@@ -159,7 +160,7 @@ function getSwarmChecker(): SwarmChecker {
  */
 export function shouldEnablePromptSuggestion(): boolean {
   const log = getAnalytics().logEvent;
-  const envOverride = process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION;
+  const envOverride = configManager.env('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION');
 
   if (envUtils.isEnvDefinedFalsy(envOverride)) {
     log('tengu_prompt_suggestion_init', {
@@ -242,7 +243,7 @@ export function getSuggestionSuppressReason(appState: AppState): string | null {
     return 'plan_mode';
   }
 
-  if (process.env.USER_TYPE === 'external' && !isRateLimitAllowed()) {
+  if (configManager.env('USER_TYPE') === 'external' && !isRateLimitAllowed()) {
     return 'rate_limit';
   }
 
@@ -253,7 +254,7 @@ export function getSuggestionSuppressReason(appState: AppState): string | null {
  * 检查速率限制是否允许
  */
 function isRateLimitAllowed(): boolean {
-  return process.env.RATE_LIMIT_STATUS === 'allowed';
+  return configManager.env('RATE_LIMIT_STATUS') === 'allowed';
 }
 
 /**
@@ -300,7 +301,7 @@ export async function getPromptSuggestionConfig(): Promise<{
   enabled: boolean;
   source: string;
 }> {
-  const envOverride = process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION;
+  const envOverride = configManager.env('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION');
 
   if (envUtils.isEnvDefinedFalsy(envOverride)) {
     return { enabled: false, source: 'env' };

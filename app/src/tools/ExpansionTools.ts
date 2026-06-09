@@ -13,6 +13,7 @@ import type {
 import { execSync } from 'child_process';
 import * as os from 'os';
 import * as fs from 'fs';
+import { configManager } from '@modules/config';
 
 // ─── 决策工具 ─────────────────────────────────────────────────────────────────
 
@@ -1220,7 +1221,7 @@ export function createReviewAssignTool(): Tool {
       const prNumber = input.prNumber as number;
       const reviewer = input.reviewer as string;
 
-      const token = process.env.GITHUB_TOKEN || process.env.GIT_TOKEN || '';
+      const token = configManager.env('GITHUB_TOKEN') || configManager.env('GIT_TOKEN') || '';
 
       try {
         let url = '';

@@ -5,15 +5,9 @@
 
 import fs from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-interface CacheEntry<T> {
-  value: T;
-  timestamp: number;
-  expiresAt: number | null;
-  ttl: number;
-}
 
 export interface CacheConfig {
   ttl: number;
@@ -27,12 +21,13 @@ const DEFAULT_CACHE_CONFIG: CacheConfig = {
 
 export class ContextCacheService {
   private static instance: ContextCacheService;
-  private cache: Map<string, CacheEntry<any>> = new Map();
+  private cache: TTLCache<unknown>;
   private fileWatchers: Map<string, fs.FSWatcher> = new Map();
   private config: CacheConfig;
 
   private constructor(config: Partial<CacheConfig> = {}) {
     this.config = { ...DEFAULT_CACHE_CONFIG, ...config };
+    this.cache = new TTLCache<unknown>(this.config.maxSize, this.config.ttl);
   }
 
   static getInstance(config?: Partial<CacheConfig>): ContextCacheService {
@@ -43,41 +38,16 @@ export class ContextCacheService {
   }
 
   set<T>(key: string, value: T, ttl?: number): void {
-    if (this.cache.size >= this.config.maxSize) {
-      this.evictOldest();
-    }
-    const now = Date.now();
-    const entryTTL = ttl || this.config.ttl;
-    this.cache.set(key, {
-      value,
-      timestamp: now,
-      expiresAt: now + entryTTL,
-      ttl: entryTTL,
-    });
+    this.cache.set(key, value, ttl ?? this.config.ttl);
   }
 
   get<T>(key: string): T | undefined {
-    const entry = this.cache.get(key);
-    if (!entry) {
-      return undefined;
-    }
-    if (entry.expiresAt && Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return undefined;
-    }
-    return entry.value as T;
+    const value = this.cache.get(key);
+    return value === null ? undefined : (value as T);
   }
 
   has(key: string): boolean {
-    const entry = this.cache.get(key);
-    if (!entry) {
-      return false;
-    }
-    if (entry.expiresAt && Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return false;
-    }
-    return true;
+    return this.cache.has(key);
   }
 
   delete(key: string): boolean {
@@ -88,21 +58,8 @@ export class ContextCacheService {
     this.cache.clear();
   }
 
-  clearExpired(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.expiresAt && now > entry.expiresAt) {
-        this.cache.delete(key);
-      }
-    }
-  }
-
   size(): number {
-    return this.cache.size;
-  }
-
-  keys(): string[] {
-    return Array.from(this.cache.keys());
+    return this.cache.size();
   }
 
   clearFileWatchers(): void {
@@ -172,14 +129,11 @@ export class ContextCacheService {
     size: number;
     maxSize: number;
     ttl: number;
-    keys?: string[];
-    memoryUsage?: number;
   } {
     return {
-      size: this.cache.size,
+      size: this.cache.size(),
       maxSize: this.config.maxSize,
       ttl: this.config.ttl,
-      keys: Array.from(this.cache.keys()),
     };
   }
 
@@ -209,20 +163,6 @@ export class ContextCacheService {
       return result;
     } as T;
     return memoized;
-  }
-
-  private evictOldest(): void {
-    let oldestKey: string | null = null;
-    let oldestTimestamp = Infinity;
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.timestamp < oldestTimestamp) {
-        oldestTimestamp = entry.timestamp;
-        oldestKey = key;
-      }
-    }
-    if (oldestKey) {
-      this.cache.delete(oldestKey);
-    }
   }
 }
 

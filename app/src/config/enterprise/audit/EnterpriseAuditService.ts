@@ -30,7 +30,9 @@ export enum AuditEventType {
 /** 审计事件严重级别 */
 export type AuditSeverity = 'info' | 'warning' | 'error' | 'critical';
 
-/** 审计事件 */
+/**
+ * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
+ */
 export interface AuditEvent {
   /** 事件唯一 ID */
   id: string;
@@ -62,7 +64,9 @@ export interface AuditEvent {
   failureReason?: string;
 }
 
-/** 审计查询过滤器 */
+/**
+ * @deprecated 使用 {@link DataAuditQuery} — 从 `@modules/core/data-models` 导入
+ */
 export interface AuditQuery {
   startTime?: number;
   endTime?: number;

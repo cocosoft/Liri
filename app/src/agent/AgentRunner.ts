@@ -5,6 +5,7 @@
 import { randomUUID } from 'crypto';
 import { AgentSwarmManager, SwarmTask, SwarmResult } from './swarms';
 import { feature } from '../core/featureFlags';
+import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export type SubagentType =
@@ -144,7 +145,7 @@ export class AgentRunner {
   }
 
   isBackgroundTasksDisabled(): boolean {
-    return process.env.Liri_DISABLE_BACKGROUND_TASKS === 'true';
+    return configManager.env('Liri_DISABLE_BACKGROUND_TASKS') === 'true';
   }
 
   getActiveCount(): number {

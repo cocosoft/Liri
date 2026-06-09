@@ -156,13 +156,17 @@ export class LRUCache<T = unknown> {
 }
 
 /**
- * TTL缓存类（带过期时间的缓存）
+ * TTL缓存类（带过期时间的缓存，实现 ICache 接口）
  */
-export class TTLCache<T = unknown> {
+export class TTLCache<T = unknown> implements ICache<string, T> {
   private cache: Map<string, TTLCacheEntry<T>> = new Map();
   private maxSize: number;
   private defaultTtl: number;
   private accessOrder: string[] = [];
+  private hits = 0;
+  private misses = 0;
+  private expirations = 0;
+  private cleanups = 0;
 
   /**
    * 构造函数
@@ -199,20 +203,24 @@ export class TTLCache<T = unknown> {
   /**
    * 获取缓存
    * @param key 键
-   * @returns 值或undefined
+   * @returns 值或null
    */
-  get(key: string): T | undefined {
+  get(key: string): T | null {
     const item = this.cache.get(key);
 
     if (!item) {
-      return undefined;
+      this.misses++;
+      return null;
     }
 
     if (item.expiresAt && Date.now() > item.expiresAt) {
       this.delete(key);
-      return undefined;
+      this.expirations++;
+      this.misses++;
+      return null;
     }
 
+    this.hits++;
     this.touch(key);
     return item.value;
   }
@@ -231,6 +239,7 @@ export class TTLCache<T = unknown> {
 
     if (item.expiresAt && Date.now() > item.expiresAt) {
       this.delete(key);
+      this.expirations++;
       return false;
     }
 
@@ -300,6 +309,24 @@ export class TTLCache<T = unknown> {
     for (const key of expiredKeys) {
       this.delete(key);
     }
+
+    if (expiredKeys.length > 0) {
+      this.expirations += expiredKeys.length;
+      this.cleanups++;
+    }
+  }
+
+  /**
+   * 获取缓存统计信息
+   */
+  getStats(): CacheStats {
+    return {
+      size: this.cache.size,
+      hits: this.hits,
+      misses: this.misses,
+      expirations: this.expirations,
+      cleanups: this.cleanups,
+    };
   }
 }
 

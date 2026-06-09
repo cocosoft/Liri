@@ -8,6 +8,7 @@ import { ToolResult } from '../types/ToolResult';
 import { ToolProgressData } from '../types/ToolProgressData';
 import * as fs from 'fs';
 import * as path from 'path';
+import { configManager } from '@modules/config';
 
 /**
  * 工具工具类
@@ -325,7 +326,7 @@ export function checkPathAccessibility(
 
   const suggestions: string[] = [];
 
-  const projectDir = process.env.LIRI_PROJECT_DIR || process.cwd();
+  const projectDir = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
   const resolvedProject = path.resolve(projectDir);
 
   if (

@@ -9,7 +9,7 @@ import { modelManager } from '@modules/ai/models/ModelManager.js';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
 import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
 import { costTracker } from '@modules/cost/CostTracker.js';
-import { getConfig } from '@modules/config/index.js';
+import { getConfig, configManager } from '@modules/config/index.js';
 import { ToolRegistry } from '@modules/tools/index.js';
 import { FileReadTool } from '@modules/tools/FileReadTool/FileReadTool.js';
 import { FileWriteTool } from '@modules/tools/FileWriteTool/FileWriteTool.js';
@@ -104,7 +104,7 @@ export class ChatCommand {
         const apiKey =
           config['ai.deepseek.apiKey'] ||
           config.ai?.deepseek?.apiKey ||
-          process.env.DEEPSEEK_API_KEY ||
+          configManager.env('DEEPSEEK_API_KEY') ||
           '';
         provider = providerRegistry.getOrCreate('deepseek', { apiKey });
       }
@@ -326,18 +326,18 @@ export class ChatCommand {
         configured:
           !!config['ai.deepseek.apiKey'] ||
           !!config.ai?.deepseek?.apiKey ||
-          !!process.env.DEEPSEEK_API_KEY,
+          !!configManager.env('DEEPSEEK_API_KEY'),
       },
       {
         name: 'Anthropic',
         key: 'anthropic',
         configured:
-          !!config.ai?.anthropic?.apiKey || !!process.env.ANTHROPIC_API_KEY,
+          !!config.ai?.anthropic?.apiKey || !!configManager.env('ANTHROPIC_API_KEY'),
       },
       {
         name: 'OpenAI',
         key: 'openai',
-        configured: !!config.ai?.openai?.apiKey || !!process.env.OPENAI_API_KEY,
+        configured: !!config.ai?.openai?.apiKey || !!configManager.env('OPENAI_API_KEY'),
       },
       { name: 'Azure', key: 'azure', configured: !!config.ai?.azure?.apiKey },
       {

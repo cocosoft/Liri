@@ -3,6 +3,8 @@
  * 提供统一的打印输出功能
  */
 
+import { configManager } from '@modules/config';
+
 export interface PrintOptions {
   bold?: boolean;
   italic?: boolean;
@@ -106,7 +108,7 @@ export function printError(text: string): void {
 }
 
 export function printDebug(text: string): void {
-  if (process.env.Liri_DEBUG === 'true') {
+  if (configManager.env('Liri_DEBUG') === 'true') {
     console.log(formatText(text, { color: 'magenta', prefix: '🔍  ' }));
   }
 }

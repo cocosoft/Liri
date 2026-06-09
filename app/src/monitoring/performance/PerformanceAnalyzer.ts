@@ -1,6 +1,10 @@
 /**
  * 性能分析器
  * 提供详细的性能分析和报告功能
+ *
+ * @deprecated 请使用 @modules/performance/PerformanceAnalyzer 替代。
+ * 此文件为完全冗余的实现（零外部引用），与 performance/PerformanceAnalyzer.ts 功能重叠。
+ * 此文件将在未来版本中移除。
  */
 
 import chalk from 'chalk';

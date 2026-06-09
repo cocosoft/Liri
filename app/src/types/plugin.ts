@@ -6,6 +6,8 @@
 import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 export type { LoadedPlugin };
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 // ====================================
 
 /**
@@ -131,13 +133,16 @@ export interface PluginManager {
   clearCache(): void;
 }
 
-export class PluginError extends Error {
+/**
+ * 插件错误类
+ */
+export class PluginError extends AppError {
   constructor(
     message: string,
     public readonly pluginName?: string,
-    public readonly code?: string
+    code?: string
   ) {
-    super(message);
+    super(message, ErrorCategory.EXECUTION, ErrorSeverity.MEDIUM, code);
     this.name = 'PluginError';
   }
 }

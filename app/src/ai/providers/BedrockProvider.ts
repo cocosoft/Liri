@@ -4,6 +4,7 @@
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 import type {
   ChatMessage,
   ChatResponse,
@@ -62,13 +63,13 @@ export class BedrockProvider extends BaseAIProvider {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (!config.accessKeyId && !process.env['AWS_ACCESS_KEY_ID']) {
+    if (!config.accessKeyId && !configManager.env('AWS_ACCESS_KEY_ID')) {
       errors.push('AWS_ACCESS_KEY_ID is required');
     }
-    if (!config.secretAccessKey && !process.env['AWS_SECRET_ACCESS_KEY']) {
+    if (!config.secretAccessKey && !configManager.env('AWS_SECRET_ACCESS_KEY')) {
       errors.push('AWS_SECRET_ACCESS_KEY is required');
     }
-    if (!config.region && !process.env['AWS_REGION']) {
+    if (!config.region && !configManager.env('AWS_REGION')) {
       warnings.push('AWS_REGION not set, defaulting to us-east-1');
     }
 
@@ -91,19 +92,19 @@ export class BedrockProvider extends BaseAIProvider {
       options?.model || (this.config.model as string) || bedrockModels[0];
     const region =
       (this.config.region as string) ||
-      process.env['AWS_REGION'] ||
+      configManager.env('AWS_REGION') ||
       'us-east-1';
     const accessKey =
       (this.config.accessKeyId as string) ||
-      process.env['AWS_ACCESS_KEY_ID'] ||
+      configManager.env('AWS_ACCESS_KEY_ID') ||
       '';
     const secretKey =
       (this.config.secretAccessKey as string) ||
-      process.env['AWS_SECRET_ACCESS_KEY'] ||
+      configManager.env('AWS_SECRET_ACCESS_KEY') ||
       '';
     const sessionToken =
       (this.config.sessionToken as string) ||
-      process.env['AWS_SESSION_TOKEN'] ||
+      configManager.env('AWS_SESSION_TOKEN') ||
       '';
 
     const endpoint = `https://bedrock-runtime.${region}.amazonaws.com/model/${model}/converse${stream ? '-stream' : ''}`;

@@ -7,6 +7,8 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { TTLCache } from '@modules/utils/cache';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -43,10 +45,11 @@ export interface SystemContextInfo {
  */
 export class SystemContextService {
   private static instance: SystemContextService;
-  private cache: Map<string, { value: any; timestamp: number }> = new Map();
-  private cacheTTL: number = 60000; // 1分钟缓存
+  private cache: TTLCache<unknown>;
 
-  private constructor() {}
+  private constructor() {
+    this.cache = new TTLCache(100, 60000);
+  }
 
   /**
    * 获取单例实例
@@ -122,7 +125,7 @@ export class SystemContextService {
    * @returns git状态信息
    */
   async getGitStatus(cwd?: string): Promise<GitStatusInfo | null> {
-    if (process.env.NODE_ENV === 'test') {
+    if (configManager.env('NODE_ENV') === 'test') {
       return null;
     }
 
@@ -231,21 +234,14 @@ export class SystemContextService {
    * 从缓存获取值
    */
   private getFromCache<T>(key: string): T | null {
-    const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
-      return cached.value;
-    }
-    return null;
+    return this.cache.get(key) as T | null;
   }
 
   /**
    * 设置缓存
    */
-  private setCache(key: string, value: any): void {
-    this.cache.set(key, {
-      value,
-      timestamp: Date.now(),
-    });
+  private setCache(key: string, value: unknown): void {
+    this.cache.set(key, value);
   }
 }
 

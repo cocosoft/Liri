@@ -13,6 +13,7 @@ import { join, dirname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 安全存储数据接口
@@ -234,7 +235,7 @@ export class SecureStorage extends EventEmitter {
       return this.encryptionKey;
     }
 
-    const key = process.env.LIRI_ENCRYPTION_KEY;
+    const key = configManager.env('LIRI_ENCRYPTION_KEY');
     if (!key) {
       throw new AppError(
         'LIRI_ENCRYPTION_KEY environment variable is required',

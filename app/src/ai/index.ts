@@ -106,18 +106,7 @@ export {
   getThinkingBudgetForModel,
   shouldEnableThinkingByDefault,
 } from './clients/thinking';
-export {
-  withRetry,
-  createRetryWrapper,
-  onRetryEvent,
-  offRetryEvent,
-} from './clients/retry';
-export type {
-  RetryConfig,
-  RetryContext,
-  RetryResult,
-  RetryEvent,
-} from './clients/retry';
+// withRetry 标准实现在 query/withRetry.ts
 
 export { LLMInputValidator } from './utils/LLMInputValidator';
 export type { ValidationResult as LLMValidationResult } from './utils/LLMInputValidator';

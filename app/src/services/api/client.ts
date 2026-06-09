@@ -5,6 +5,7 @@
  * 提供统一的 HTTP 请求、重试、超时和错误处理能力。
  */
 import { ApiError, ApiConnectionError, ApiTimeoutError } from './errors';
+import { configManager } from '@modules/config';
 
 export interface ApiClientConfig {
   baseUrl: string;
@@ -28,10 +29,10 @@ export class ApiClient {
     this.config = {
       baseUrl:
         config.baseUrl ||
-        process.env.API_BASE_URL ||
+        configManager.env('API_BASE_URL') ||
         'https://api.anthropic.com',
-      apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY,
-      oauthToken: config.oauthToken || process.env.OAUTH_TOKEN,
+      apiKey: config.apiKey || configManager.env('ANTHROPIC_API_KEY'),
+      oauthToken: config.oauthToken || configManager.env('OAUTH_TOKEN'),
       maxRetries: config.maxRetries ?? 3,
       timeoutMs: config.timeoutMs ?? 600000,
       defaultHeaders: {

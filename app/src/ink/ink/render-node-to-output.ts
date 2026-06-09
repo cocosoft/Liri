@@ -13,6 +13,7 @@ import {
   squashTextNodesToSegments,
 } from './squash-text-nodes.js';
 import type { Color } from './styles.js';
+import { configManager } from '@modules/config';
 import { isXtermJs } from './terminal.js';
 import { widestLine } from './widest-line.js';
 import wrapText from './wrap-text.js';
@@ -21,7 +22,7 @@ import wrapText from './wrap-text.js';
 // and drain must agree on terminal detection. TERM_PROGRAM check is the sync
 // fallback; isXtermJs() is the authoritative XTVERSION-probe result.
 function isXtermJsHost(): boolean {
-  return process.env.TERM_PROGRAM === 'vscode' || isXtermJs();
+  return configManager.env('TERM_PROGRAM') === 'vscode' || isXtermJs();
 }
 
 // Per-frame scratch: set when any node's yoga position/size differs from

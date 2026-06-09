@@ -1,5 +1,7 @@
 /**
  * 消息类型枚举
+ *
+ * @deprecated 使用 {@link DataMessageType} — 从 `@modules/core/data-models` 导入
  */
 export enum MessageType {
   USER = 'user',
@@ -14,6 +16,8 @@ export enum MessageType {
 
 /**
  * 消息角色枚举
+ *
+ * @deprecated 使用 {@link DataMessageRole} — 从 `@modules/core/data-models` 导入
  */
 export enum MessageRole {
   USER = 'user',
@@ -24,6 +28,8 @@ export enum MessageRole {
 
 /**
  * 内容块类型
+ *
+ * @deprecated 使用 {@link DataContentBlock} — 从 `@modules/core/data-models` 导入
  */
 export enum ContentBlockType {
   TEXT = 'text',
@@ -117,6 +123,8 @@ export interface FrontendMessageBlock {
 
 /**
  * 统一消息接口
+ *
+ * @deprecated 使用 {@link DataMessage} — 从 `@modules/core/data-models` 导入
  */
 export interface UnifiedMessage {
   id: string;

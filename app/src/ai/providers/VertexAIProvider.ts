@@ -7,6 +7,7 @@
  */
 import { createSign } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
+import { configManager } from '@modules/config';
 import type {
   ChatMessage,
   ChatResponse,
@@ -63,18 +64,18 @@ export class VertexAIProvider extends BaseAIProvider {
     const cfg = extraConfig || {};
 
     this.projectId = (cfg.projectId ||
-      process.env.GOOGLE_PROJECT_ID ||
+      configManager.env('GOOGLE_PROJECT_ID') ||
       '') as string;
     this.region =
       (cfg.region as string) ||
-      process.env.GOOGLE_REGION ||
+      configManager.env('GOOGLE_REGION') ||
       DEFAULT_REGION;
     this.defaultModel = (cfg.model ||
-      process.env.VERTEX_AI_MODEL ||
+      configManager.env('VERTEX_AI_MODEL') ||
       '') as string;
     this.timeout =
       (cfg.timeout as number) ||
-      parseInt(process.env.VERTEX_AI_TIMEOUT || '120000', 10);
+      parseInt(configManager.env('VERTEX_AI_TIMEOUT') || '120000', 10);
     this.adapter = new TransportProviderAdapter(new GeminiTransport());
   }
 
@@ -282,8 +283,8 @@ export class VertexAIProvider extends BaseAIProvider {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    if (!config.projectId && !process.env.GOOGLE_PROJECT_ID) {
+    const credPath = configManager.env('GOOGLE_APPLICATION_CREDENTIALS');
+    if (!config.projectId && !configManager.env('GOOGLE_PROJECT_ID')) {
       errors.push(
         'Project ID is required (config.projectId or GOOGLE_PROJECT_ID)'
       );
@@ -399,7 +400,7 @@ export class VertexAIProvider extends BaseAIProvider {
   private loadServiceAccount(): ServiceAccountKey {
     if (this.serviceAccount) return this.serviceAccount;
 
-    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const credPath = configManager.env('GOOGLE_APPLICATION_CREDENTIALS');
     if (!credPath) {
       throw new AppError(
         'GOOGLE_APPLICATION_CREDENTIALS environment variable is not set',

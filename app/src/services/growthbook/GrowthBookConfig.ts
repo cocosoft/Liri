@@ -1,3 +1,5 @@
+import { configManager } from '@modules/config';
+
 export interface GrowthBookUserAttributes {
   id: string;
   sessionId: string;
@@ -25,17 +27,17 @@ export interface GrowthBookConfig {
 }
 
 export const DEFAULT_GROWTHBOOK_CONFIG: GrowthBookConfig = {
-  apiHost: process.env.GROWTHBOOK_API_HOST || 'https://cdn.growthbook.io',
-  clientKey: process.env.GROWTHBOOK_CLIENT_KEY || '',
-  enabled: process.env.GROWTHBOOK_ENABLED !== 'false',
+  apiHost: configManager.env('GROWTHBOOK_API_HOST') || 'https://cdn.growthbook.io',
+  clientKey: configManager.env('GROWTHBOOK_CLIENT_KEY') || '',
+  enabled: configManager.env('GROWTHBOOK_ENABLED') !== 'false',
   remoteEval: true,
   timeout: 5000,
   refreshInterval: 60_000,
-  enableDebugLogging: process.env.DEBUG_GROWTHBOOK === 'true',
+  enableDebugLogging: configManager.env('DEBUG_GROWTHBOOK') === 'true',
 };
 
 export function getApiBaseUrlHost(): string | undefined {
-  const baseUrl = process.env.API_BASE_URL;
+  const baseUrl = configManager.env('API_BASE_URL');
   if (!baseUrl) return undefined;
   try {
     const host = new URL(baseUrl).host;

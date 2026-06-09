@@ -13,6 +13,7 @@ import {
 } from './AlertSchema.js';
 import { alertRuleService } from '../AlertRuleService.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -75,7 +76,7 @@ export class AlertPresetLoader {
 
     const presetsDir = this.config.presetsDir;
     if (!presetsDir || !fs.existsSync(presetsDir)) {
-      const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
+      const projectRoot = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
       const fallbackDir = path.join(
         projectRoot,
         'app',

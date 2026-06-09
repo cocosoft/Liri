@@ -8,6 +8,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { platform, homedir } from 'os';
+import { configManager } from '@modules/config';
 import { delimiter, join, sep } from 'path';
 
 const execAsync = promisify(exec) as (
@@ -92,8 +93,8 @@ export class InstallationTypeDetector {
    */
   private async determineInstallationType(): Promise<InstallationType> {
     if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'test'
+      configManager.env('NODE_ENV') === 'development' ||
+      configManager.env('NODE_ENV') === 'test'
     ) {
       return 'development';
     }

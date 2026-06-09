@@ -3,6 +3,7 @@
  * OpenAI 兼容 API
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
@@ -62,7 +63,7 @@ export class GrokProvider extends BaseAIProvider {
   override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
 
-    if (!config.apiKey && !process.env['GROK_API_KEY']) {
+    if (!config.apiKey && !configManager.env('GROK_API_KEY')) {
       errors.push('GROK_API_KEY is required');
     }
 
@@ -79,7 +80,7 @@ export class GrokProvider extends BaseAIProvider {
     },
     stream?: boolean
   ): Promise<ChatResponse> {
-    const apiKey = this.resolveApiKey() || process.env['GROK_API_KEY'] || '';
+    const apiKey = this.resolveApiKey() || configManager.env('GROK_API_KEY') || '';
     const model = this.resolveModel('chat', options);
 
     const requestBody = this.transport!.buildRequest({

@@ -19,6 +19,8 @@ export enum AuditEventType {
 
 /**
  * 审计日志条目
+ *
+ * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
  */
 export interface AuditEntry {
   id: string;

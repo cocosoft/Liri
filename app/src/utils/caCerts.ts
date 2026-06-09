@@ -4,6 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { configManager } from '@modules/config';
 
 /**
  * 获取CA证书
@@ -11,8 +12,9 @@ import path from 'path';
 export function getCACertificates(): string[] | undefined {
   try {
     // 检查环境变量
-    if (process.env.NODE_EXTRA_CA_CERTS) {
-      const caCertPath = process.env.NODE_EXTRA_CA_CERTS;
+    const caCertEnv = configManager.env('NODE_EXTRA_CA_CERTS');
+    if (caCertEnv) {
+      const caCertPath = caCertEnv;
       if (fs.existsSync(caCertPath)) {
         const caCert = fs.readFileSync(caCertPath, 'utf8');
         return [caCert];

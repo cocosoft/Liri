@@ -4,6 +4,7 @@
  */
 import os from 'node:os';
 import path from 'node:path';
+import { configManager } from '@modules/config';
 
 /**
  * 获取用户主目录
@@ -81,7 +82,7 @@ export function getCrossPlatformProtectedFiles(): string[] {
   }
 
   const home = homeDir();
-  const sysRoot = process.env.SystemRoot || 'C:\\Windows';
+  const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
 
   // Windows 受保护文件列表：逐一映射，避免多个 Unix 路径指向同一 Windows 路径
   const windowsProtected: string[] = [
@@ -126,8 +127,8 @@ export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
   }
 
   const home = homeDir();
-  const sysRoot = process.env.SystemRoot || 'C:\\Windows';
-  const programData = process.env.ProgramData || 'C:\\ProgramData';
+  const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
+  const programData = configManager.env('ProgramData') || 'C:\\ProgramData';
 
   return [
     // Windows 系统目录（替换 /etc/systemd/system/、/etc/init.d/）

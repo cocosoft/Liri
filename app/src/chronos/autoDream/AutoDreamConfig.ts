@@ -3,6 +3,8 @@
  * 用于检查自动内存整合是否启用
  */
 
+import { configManager } from '@modules/config';
+
 interface AutoDreamConfig {
   enabled: boolean;
   minHours: number;
@@ -22,16 +24,16 @@ export function getAutoDreamConfig(): AutoDreamConfig {
     return cachedConfig;
   }
 
-  const envEnabled = process.env.AUTO_DREAM_ENABLED;
+  const envEnabled = configManager.env('AUTO_DREAM_ENABLED');
   const enabled =
     envEnabled !== undefined ? envEnabled === 'true' : DEFAULT_CONFIG.enabled;
 
-  const envMinHours = process.env.AUTO_DREAM_MIN_HOURS;
+  const envMinHours = configManager.env('AUTO_DREAM_MIN_HOURS');
   const minHours = envMinHours
     ? parseInt(envMinHours, 10)
     : DEFAULT_CONFIG.minHours;
 
-  const envMinSessions = process.env.AUTO_DREAM_MIN_SESSIONS;
+  const envMinSessions = configManager.env('AUTO_DREAM_MIN_SESSIONS');
   const minSessions = envMinSessions
     ? parseInt(envMinSessions, 10)
     : DEFAULT_CONFIG.minSessions;

@@ -42,6 +42,7 @@ import { AzureOpenAIProvider } from './AzureOpenAIProvider';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord, ProviderType } from './ProviderManager';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -142,7 +143,7 @@ function createProviderByType(
  */
 function recordToConfig(record: ProviderRecord): ProviderConfig {
   const config: ProviderConfig = {
-    apiKey: record.apiKey || process.env.DEEPSEEK_API_KEY || '',
+    apiKey: record.apiKey || configManager.env('DEEPSEEK_API_KEY') || '',
     baseUrl: record.baseUrl,
   };
 

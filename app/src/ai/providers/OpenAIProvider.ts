@@ -34,6 +34,7 @@ import type {
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
@@ -261,7 +262,7 @@ export class OpenAIProvider extends BaseAIProvider {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (!config.apiKey && !process.env.OPENAI_API_KEY) {
+    if (!config.apiKey && !configManager.env('OPENAI_API_KEY')) {
       errors.push('API key is required (config.apiKey or OPENAI_API_KEY)');
     }
 

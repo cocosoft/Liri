@@ -3,11 +3,11 @@
  * 所有价格获取逻辑都实现此接口
  */
 
-import type { ModelPricing } from '@modules/core/tokenBudget/types';
+import type { ModelPriceTable } from '@modules/core/tokenBudget/types';
 
 export interface PricingResult {
   model: string;
-  pricing: ModelPricing;
+  pricing: ModelPriceTable;
   contextWindow: number;
   supportsPromptCache: boolean;
   source: 'builtin' | 'config' | 'remote' | 'custom';

@@ -93,12 +93,12 @@ interface BridgeApiDeps {
 /**
  * Bridge致命错误
  */
-export class BridgeFatalError extends Error {
+export class BridgeFatalError extends AppError {
   readonly status: number;
   /** 服务器提供的错误类型 */
   readonly errorType: string | undefined;
   constructor(message: string, status: number, errorType?: string) {
-    super(message);
+    super(message, ErrorCategory.NETWORK, ErrorSeverity.HIGH, String(status));
     this.name = 'BridgeFatalError';
     this.status = status;
     this.errorType = errorType;

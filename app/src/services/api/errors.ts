@@ -3,15 +3,23 @@
  *
  * 参考 CC源码 cc_code/backend/services/api/errors.ts
  * 提供统一的 API 错误层次结构，支持错误分类和友好提示。
+ *
+ * 继承 AppError 接入统一错误处理体系，使用 ErrorCategory.API 分类。
  */
 
-export class ApiError extends Error {
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error/types';
+
+export class ApiError extends AppError {
   public readonly status: number;
   public readonly errorBody: string;
   public readonly isApiError: boolean = true;
 
   constructor(message: string, status: number, errorBody: string = '') {
-    super(message);
+    super(message, ErrorCategory.API, ErrorSeverity.MEDIUM, String(status));
     this.name = 'ApiError';
     this.status = status;
     this.errorBody = errorBody;
@@ -37,18 +45,23 @@ export class ApiError extends Error {
   }
 }
 
-export class ApiConnectionError extends Error {
+export class ApiConnectionError extends AppError {
   constructor(message: string) {
-    super(message);
+    super(
+      message,
+      ErrorCategory.NETWORK,
+      ErrorSeverity.MEDIUM,
+      'CONNECTION_ERROR'
+    );
     this.name = 'ApiConnectionError';
   }
 }
 
-export class ApiTimeoutError extends Error {
+export class ApiTimeoutError extends AppError {
   public readonly timeoutMs: number;
 
   constructor(message: string, timeoutMs: number) {
-    super(message);
+    super(message, ErrorCategory.NETWORK, ErrorSeverity.MEDIUM, 'TIMEOUT');
     this.name = 'ApiTimeoutError';
     this.timeoutMs = timeoutMs;
   }

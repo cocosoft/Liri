@@ -3,6 +3,8 @@
  * 管理环境变量的安全应用，防止恶意配置劫持
  */
 
+import { configManager } from '@modules/config';
+
 /**
  * 提供商托管的环境变量集合
  * 当 LIRI_PROVIDER_MANAGED_BY_HOST 启用时，这些变量不会从设置源应用
@@ -138,7 +140,7 @@ export type TrustedSettingSource = (typeof TRUSTED_SETTING_SOURCES)[number];
 function withoutSSHTunnelVars(
   env: Record<string, string> | undefined
 ): Record<string, string> {
-  if (!env || !process.env.LIRI_UNIX_SOCKET) return env || {};
+  if (!env || !configManager.env('LIRI_UNIX_SOCKET')) return env || {};
   const {
     LIRI_UNIX_SOCKET: _1,
     LIRI_BASE_URL: _2,
@@ -207,7 +209,7 @@ export function applySafeConfigEnvironmentVariables(
 ): void {
   if (ccdSpawnEnvKeys === undefined) {
     ccdSpawnEnvKeys =
-      process.env.LIRI_ENTRYPOINT === 'liri-desktop'
+      configManager.env('LIRI_ENTRYPOINT') === 'liri-desktop'
         ? new Set(Object.keys(process.env))
         : null;
   }

@@ -344,7 +344,7 @@ export class RuleManager {
     // 如果提供了上下文，添加从上下文中获取的规则
     if (context) {
       const contextRules: PermissionRule[] = [];
-      let contextRulesSource: Partial<Record<PermissionRuleSource, string[]>>;
+      let contextRulesSource: Partial<Record<PermissionRuleSource, string[]>> = {};
 
       switch (behavior) {
         case PermissionBehavior.ALLOW:

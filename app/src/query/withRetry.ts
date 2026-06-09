@@ -1,7 +1,18 @@
 /**
  * 实现指数退避重试、529过载处理、瞬态错误检测
  * 支持可配置的重试条件和自定义重试判断
+ *
+ * @deprecated 核心重试功能已迁移至 @modules/utils/withRetry。
+ *   新代码优先使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync。
+ *   本模块的 RetryableErrorType 已在 utils/withRetry 中重新导出。
+ *   本模块的扩展功能（categorizeAPIError, withRetryGenerator, withRetryEnhanced, withRetryWithTimeout,
+ *   withRetryWithTimeout, createExponentialBackoffStrategy, createFixedDelayStrategy）将在后续版本中迁移。
+ *
+ *   已知冲突（不可直接 re-export，因命名冲突）：
+ *   - withRetry / RetryConfig / DEFAULT_RETRY_CONFIG：本模块与 utils/withRetry 签名不同
  */
+
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const INITIAL_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 60000;
@@ -115,12 +126,12 @@ export function isStaleConnectionError(error: unknown): boolean {
 /**
  * 不可重试错误（参考CC源码 CannotRetryError）
  */
-export class CannotRetryError extends Error {
+export class CannotRetryError extends AppError {
   constructor(
     public readonly originalError: unknown,
     message?: string
   ) {
-    super(message || 'Cannot retry error');
+    super(message || 'Cannot retry error', ErrorCategory.OPERATION, ErrorSeverity.LOW);
     this.name = 'CannotRetryError';
     if (originalError instanceof Error && originalError.stack) {
       this.stack = originalError.stack;

@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -156,7 +157,7 @@ export class GitContextService {
    */
   async getGitStatus(): Promise<GitStatusInfo | null> {
     // 检查是否为测试环境
-    if (process.env.NODE_ENV === 'test') {
+    if (configManager.env('NODE_ENV') === 'test') {
       return null;
     }
 

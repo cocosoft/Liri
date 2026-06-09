@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto';
 import { getPlatform } from '@modules/utils/platform';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { isEnvTruthy } from '@modules/utils/envUtils';
+import { configManager } from '@modules/config';
 
 import type {
   RecordingAvailability,
@@ -370,7 +371,7 @@ export class VoiceService {
    * 检查录音可用性
    */
   async checkRecordingAvailability(): Promise<RecordingAvailability> {
-    if (isEnvTruthy(process.env.Liri_REMOTE)) {
+    if (isEnvTruthy(configManager.env('Liri_REMOTE'))) {
       return {
         available: false,
         reason:

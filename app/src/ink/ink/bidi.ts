@@ -15,6 +15,7 @@
  * also lacks bidi. We enable bidi reordering when running on Windows or
  * inside Windows Terminal (covers WSL).
  */
+import { configManager } from '@modules/config';
 import bidiFactory from 'bidi-js';
 
 type ClusteredChar = {
@@ -31,8 +32,8 @@ function needsBidi(): boolean {
   if (needsSoftwareBidi === undefined) {
     needsSoftwareBidi =
       process.platform === 'win32' ||
-      typeof process.env['WT_SESSION'] === 'string' || // WSL in Windows Terminal
-      process.env['TERM_PROGRAM'] === 'vscode'; // VS Code integrated terminal (xterm.js)
+      typeof configManager.env('WT_SESSION') === 'string' || // WSL in Windows Terminal
+      configManager.env('TERM_PROGRAM') === 'vscode'; // VS Code integrated terminal (xterm.js)
   }
   return needsSoftwareBidi;
 }

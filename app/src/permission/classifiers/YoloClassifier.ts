@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -99,14 +100,6 @@ const DEFAULT_CONFIG: YoloClassifierConfig = {
 };
 
 /**
- * 缓存条目
- */
-interface CacheEntry {
-  result: YoloClassifierResult;
-  timestamp: number;
-}
-
-/**
  * 分类请求
  */
 interface ClassificationRequest {
@@ -121,10 +114,11 @@ interface ClassificationRequest {
  */
 export class YoloClassifier {
   private config: YoloClassifierConfig;
-  private cache: Map<string, CacheEntry> = new Map();
+  private cache: TTLCache<YoloClassifierResult>;
 
   constructor(config: Partial<YoloClassifierConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.cache = new TTLCache<YoloClassifierResult>(100, this.config.cacheTtlMs);
   }
 
   /**
@@ -248,31 +242,14 @@ export class YoloClassifier {
    * 获取缓存结果
    */
   private getCachedResult(key: string): YoloClassifierResult | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    if (Date.now() - entry.timestamp > this.config.cacheTtlMs) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.result;
+    return this.cache.get(key);
   }
 
   /**
    * 设置缓存结果
    */
   private setCachedResult(key: string, result: YoloClassifierResult): void {
-    // 限制缓存大小
-    if (this.cache.size > 100) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) this.cache.delete(oldestKey);
-    }
-
-    this.cache.set(key, {
-      result,
-      timestamp: Date.now(),
-    });
+    this.cache.set(key, result, this.config.cacheTtlMs);
   }
 
   /**

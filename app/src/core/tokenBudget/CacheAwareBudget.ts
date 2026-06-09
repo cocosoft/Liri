@@ -4,7 +4,7 @@
  */
 
 import { priceManager } from './PriceManager';
-import type { ModelPricing, TokenUsageDetail } from './types';
+import type { ModelPriceTable, TokenUsageDetail } from './types';
 
 export interface CacheEfficiencyResult {
   efficiency: number;
@@ -47,7 +47,7 @@ export function calculateCost(
   outputTokens: number,
   cacheReadTokens: number,
   cacheCreationTokens: number,
-  pricing: ModelPricing
+  pricing: ModelPriceTable
 ): number {
   const inputCost = (inputTokens / 1_000_000) * pricing.inputPer1M;
   const outputCost = (outputTokens / 1_000_000) * pricing.outputPer1M;

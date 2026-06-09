@@ -101,6 +101,14 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
+/**
+ * CLI 配置管理器
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ * CliConfigManager 维护独立的 config.json 文件，与主 ConfigManager 的 GlobalConfig 系统分离。
+ * Gateway/alias 等配置应迁移到主配置系统的多源合并机制中。
+ * 此文件将在未来版本中移除。
+ */
 export class CliConfigManager {
   private config: Config;
   private configPath: string;
@@ -294,6 +302,8 @@ export class CliConfigManager {
 
 /**
  * 创建 CLI 配置管理器实例
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代。
  */
 export function createCliConfigManager(
   options?: ConfigOptions
@@ -303,5 +313,7 @@ export function createCliConfigManager(
 
 /**
  * 全局 CLI 配置管理器实例
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代。
  */
 export const cliConfigManager = createCliConfigManager();

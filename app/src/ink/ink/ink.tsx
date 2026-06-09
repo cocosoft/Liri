@@ -26,6 +26,7 @@ const getYogaCounters = () => ({
 });
 import { logForDebugging, logError } from '../../utils/debug';
 import { isEnvTruthy } from '../../utils/envUtils';
+import { configManager } from '@modules/config';
 import { colorize } from './colorize.js';
 import App from './components/App.js';
 import type {
@@ -378,7 +379,7 @@ export default class Ink {
       // onRecoverableError
       noop // onDefaultTransitionIndicator
     );
-    if ((process.env.NODE_ENV ?? 'production') === 'development') {
+    if ((configManager.env('NODE_ENV') ?? 'production') === 'development') {
       reconciler.injectIntoDevTools({
         bundleType: 0,
         // Reporting React DOM's version, not Ink's

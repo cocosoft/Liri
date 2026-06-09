@@ -54,14 +54,18 @@ export type EmbedOptions =
       signal?: AbortSignal;
     };
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
+
 /** 嵌入错误 */
-export class EmbeddingError extends Error {
+export class EmbeddingError extends AppError {
   constructor(
     message: string,
-    public override readonly cause?: unknown,
+    cause?: unknown,
   ) {
-    super(message);
+    super(message, ErrorCategory.DATA, ErrorSeverity.MEDIUM);
     this.name = 'EmbeddingError';
+    if (cause instanceof Error) this.cause = cause;
   }
 }
 
@@ -109,7 +113,7 @@ export async function embedAll(
 export async function probeOllama(
   opts: { baseUrl?: string; signal?: AbortSignal } = {},
 ): Promise<{ ok: true; models: string[] } | { ok: false; error: string }> {
-  const baseUrl = opts.baseUrl ?? process.env.OLLAMA_URL ?? DEFAULT_OLLAMA_URL;
+  const baseUrl = opts.baseUrl ?? configManager.env('OLLAMA_URL') ?? DEFAULT_OLLAMA_URL;
   try {
     const res = await fetch(`${baseUrl}/api/tags`, { signal: opts.signal });
     if (!res.ok) return { ok: false, error: `Ollama returned ${res.status}` };
@@ -130,8 +134,8 @@ async function embedOllama(
   text: string,
   opts: Extract<EmbedOptions, { provider?: 'ollama' }>,
 ): Promise<Float32Array> {
-  const baseUrl = opts.baseUrl ?? process.env.OLLAMA_URL ?? DEFAULT_OLLAMA_URL;
-  const model = opts.model ?? process.env.EMBED_MODEL ?? DEFAULT_EMBED_MODEL;
+  const baseUrl = opts.baseUrl ?? configManager.env('OLLAMA_URL') ?? DEFAULT_OLLAMA_URL;
+  const model = opts.model ?? configManager.env('EMBED_MODEL') ?? DEFAULT_EMBED_MODEL;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const { controller } = composeAbort(opts.signal, timeoutMs, 'embedding timeout');
 

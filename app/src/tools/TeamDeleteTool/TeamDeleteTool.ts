@@ -13,6 +13,7 @@ import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
 import { resolveDataSubDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -91,7 +92,7 @@ export class TeamDeleteTool extends BaseTool<
   }
 
   override isEnabled(): boolean {
-    return process.env.ENABLE_TEAMMATE !== 'false'; // 默认启用
+    return configManager.env('ENABLE_TEAMMATE') !== 'false'; // 默认启用
   }
 
   override isDestructive(): boolean {

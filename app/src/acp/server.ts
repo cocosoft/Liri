@@ -1,6 +1,33 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * AcpWebSocketServer — ACP WebSocket 远程桥接服务器
+ *
+ * 基于 Node.js 内置 http + net 模块实现 RFC 6455 WebSocket 服务器，
+ * 无需第三方依赖。接受远程 ACP 客户端连接，将消息路由到 AcpRuntime。
+ */
+
 import type {
   AcpServerOptions,
-  SessionId,
   AcpWebSocketServerConfig,
 } from './types.js';
 import type {
@@ -9,34 +36,26 @@ import type {
   AcpRuntimeSessionMode,
   AcpRuntimePromptMode,
 } from './runtime/types.js';
-import type { AcpSessionStore } from './session.js';
 import { getDefaultSessionStore } from './session.js';
+import type { AcpSessionStore } from './session.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import type { Duplex } from 'node:stream';
 import * as crypto from 'node:crypto';
+import { computeAcceptHash } from './websocket.js';
+import { AcpWsClient } from './AcpWsClient.js';
+import type { AcpClientMessage } from './AcpWsClient.js';
+import { AcpGateway } from './AcpGateway.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-/** RFC 6455 WebSocket 魔术 GUID */
-const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-
-/** WebSocket 操作码 */
-const enum OpCode {
-  CONTINUATION = 0x0,
-  TEXT = 0x1,
-  BINARY = 0x2,
-  CLOSE = 0x8,
-  PING = 0x9,
-  PONG = 0xa,
-}
+// 向后兼容导出（类型定义已迁移至 AcpGateway.ts）
+export { AcpGateway, createAcpGateway } from './AcpGateway.js';
+export type { AgentSideConnection, GatewayClient } from './AcpGateway.js';
 
 /**
  * ACP WebSocket 远程桥接服务器
- *
- * 基于 Node.js 内置 http + crypto 模块实现 RFC 6455 WebSocket 服务器，
- * 无需第三方依赖。接受远程 ACP 客户端连接，将消息路由到 AcpRuntime。
  */
 export class AcpWebSocketServer {
   readonly name = 'acp-remote-bridge';
@@ -117,16 +136,17 @@ export class AcpWebSocketServer {
         reject(err);
       });
 
-      this.httpServer.listen(this.config.port, this.config.host, () => {
-        const addr = this.httpServer!.address();
-        const port =
-          typeof addr === 'object' && addr ? addr.port : this.config.port;
-        logger.info(
-          `[ACP] 远程桥接 WebSocket 服务器已启动: ws://${this.config.host}:${port}${this.config.path}`
-        );
-        this.started = true;
-        resolve();
-      });
+      this.httpServer.listen(
+        this.config.port,
+        this.config.host,
+        () => {
+          logger.info(
+            `[ACP] 远程桥接服务器已启动: ws://${this.config.host}:${this.config.port}${this.config.path}`
+          );
+          this.started = true;
+          resolve();
+        }
+      );
     });
   }
 
@@ -195,10 +215,7 @@ export class AcpWebSocketServer {
       return;
     }
 
-    const acceptHash = crypto
-      .createHash('sha1')
-      .update(key + MAGIC_GUID)
-      .digest('base64');
+    const acceptHash = computeAcceptHash(key);
 
     const responseHeaders = [
       'HTTP/1.1 101 Switching Protocols',
@@ -465,290 +482,6 @@ export class AcpWebSocketServer {
       );
     });
   }
-}
-
-/**
- * ACP 客户端消息结构
- */
-interface AcpClientMessage {
-  type: string;
-  requestId?: string;
-  payload?: Record<string, unknown>;
-}
-
-/**
- * ACP WebSocket 客户端连接包装
- */
-class AcpWsClient {
-  readonly id: string;
-  private socket: net.Socket | Duplex;
-  private onDisconnect: () => void;
-  private messageHandlers: Array<(text: string) => void> = [];
-  private maxMessageSize: number;
-
-  constructor(
-    id: string,
-    socket: net.Socket | Duplex,
-    onDisconnect: () => void
-  ) {
-    this.id = id;
-    this.socket = socket;
-    this.onDisconnect = onDisconnect;
-    this.maxMessageSize = 1 * 1024 * 1024;
-
-    let buffer = Buffer.alloc(0);
-
-    this.socket.on('data', (data: Buffer) => {
-      buffer = Buffer.concat([buffer, data]);
-      this.processFrames(buffer, (remaining: Buffer) => {
-        buffer = Buffer.from(remaining);
-      });
-    });
-
-    this.socket.on('close', () => {
-      this.onDisconnect();
-    });
-
-    this.socket.on('error', (err: Error) => {
-      logger.warning(`[ACP] 客户端异常: ${this.id}`, err);
-    });
-  }
-
-  /**
-   * 设置最大消息大小（字节）
-   */
-  setMaxMessageSize(size: number): void {
-    this.maxMessageSize = size;
-  }
-
-  /**
-   * 注册消息处理器
-   */
-  onMessage(handler: (text: string) => void): void {
-    this.messageHandlers.push(handler);
-  }
-
-  /**
-   * 注册断开处理器
-   */
-  onClose(handler: () => void): void {
-    this.socket.on('close', () => {
-      handler();
-    });
-  }
-
-  /**
-   * 发送文本消息（WebSocket 帧编码）
-   */
-  send(text: string): void {
-    if (this.socket.destroyed) return;
-
-    const payload = Buffer.from(text, 'utf-8');
-    const frame = this.encodeFrame(OpCode.TEXT, payload);
-
-    try {
-      this.socket.write(frame);
-    } catch {
-      this.socket.destroy();
-    }
-  }
-
-  /**
-   * 关闭连接
-   */
-  close(code?: number, reason?: string): void {
-    if (this.socket.destroyed) return;
-
-    const closePayload = Buffer.alloc(
-      2 + (reason ? Buffer.byteLength(reason, 'utf-8') : 0)
-    );
-    closePayload.writeUInt16BE(code || 1000, 0);
-    if (reason) {
-      closePayload.write(reason, 2, 'utf-8');
-    }
-
-    try {
-      this.socket.write(this.encodeFrame(OpCode.CLOSE, closePayload));
-    } catch {
-      // 忽略关闭时的写入错误
-    }
-
-    this.socket.end();
-    this.socket.destroy();
-  }
-
-  /**
-   * 解析 WebSocket 帧
-   */
-  private processFrames(
-    buffer: Buffer,
-    onRemaining: (remaining: Buffer) => void
-  ): void {
-    let offset = 0;
-
-    while (offset < buffer.length) {
-      if (buffer.length - offset < 2) break;
-
-      const firstByte = buffer[offset];
-      const secondByte = buffer[offset + 1];
-      const opcode = firstByte & 0x0f;
-      const masked = (secondByte & 0x80) !== 0;
-      let payloadLength = secondByte & 0x7f;
-      let headerLength = 2;
-
-      if (payloadLength === 126) {
-        headerLength += 2;
-        if (buffer.length - offset < headerLength) break;
-        payloadLength = buffer.readUInt16BE(offset + 2);
-      } else if (payloadLength === 127) {
-        headerLength += 8;
-        if (buffer.length - offset < headerLength) break;
-        const bigLen = buffer.readBigUInt64BE(offset + 2);
-        if (bigLen > BigInt(this.maxMessageSize)) {
-          this.close(1009, 'Message too large');
-          return;
-        }
-        payloadLength = Number(bigLen);
-      }
-
-      if (payloadLength > this.maxMessageSize) {
-        this.close(1009, 'Message too large');
-        return;
-      }
-
-      const maskLength = masked ? 4 : 0;
-      const totalLength = headerLength + maskLength + payloadLength;
-
-      if (buffer.length - offset < totalLength) break;
-
-      let maskKey: Buffer | null = null;
-      let payloadOffset = offset + headerLength;
-
-      if (masked) {
-        maskKey = buffer.subarray(payloadOffset, payloadOffset + 4);
-        payloadOffset += 4;
-      }
-
-      let payload = buffer.subarray(
-        payloadOffset,
-        payloadOffset + payloadLength
-      );
-
-      if (maskKey) {
-        for (let i = 0; i < payload.length; i++) {
-          payload[i] = payload[i] ^ maskKey[i % 4];
-        }
-      }
-
-      if (opcode === OpCode.TEXT) {
-        const text = payload.toString('utf-8');
-        for (const handler of this.messageHandlers) {
-          handler(text);
-        }
-      } else if (opcode === OpCode.CLOSE) {
-        this.socket.end();
-        this.socket.destroy();
-        return;
-      } else if (opcode === OpCode.PING) {
-        this.socket.write(this.encodeFrame(OpCode.PONG, payload));
-      }
-
-      offset += totalLength;
-    }
-
-    onRemaining(buffer.subarray(offset));
-  }
-
-  /**
-   * 编码 WebSocket 帧（服务端→客户端，不掩码）
-   */
-  private encodeFrame(opcode: number, payload: Buffer): Buffer {
-    let header: Buffer;
-
-    if (payload.length < 126) {
-      header = Buffer.alloc(2);
-      header[0] = 0x80 | opcode;
-      header[1] = payload.length;
-    } else if (payload.length < 65536) {
-      header = Buffer.alloc(4);
-      header[0] = 0x80 | opcode;
-      header[1] = 126;
-      header.writeUInt16BE(payload.length, 2);
-    } else {
-      header = Buffer.alloc(10);
-      header[0] = 0x80 | opcode;
-      header[1] = 127;
-      header.writeBigUInt64BE(BigInt(payload.length), 2);
-    }
-
-    return Buffer.concat([header, payload]);
-  }
-}
-
-export interface AgentSideConnection {
-  send(event: string, data: unknown): void;
-  on(event: string, handler: (...args: unknown[]) => void): void;
-  close(): void;
-}
-
-export interface GatewayClient {
-  id: string;
-  connectedAt: number;
-  sessionId?: SessionId;
-  connection: AgentSideConnection;
-}
-
-export class AcpGateway {
-  private clients: Map<string, GatewayClient> = new Map();
-  private runtime: AcpRuntime;
-  private sessionStore: AcpSessionStore;
-  private options: AcpServerOptions;
-
-  constructor(
-    runtime: AcpRuntime,
-    sessionStore: AcpSessionStore,
-    options: AcpServerOptions = {}
-  ) {
-    this.runtime = runtime;
-    this.sessionStore = sessionStore;
-    this.options = options;
-  }
-
-  getClient(clientId: string): GatewayClient | undefined {
-    return this.clients.get(clientId);
-  }
-
-  listClients(): GatewayClient[] {
-    return Array.from(this.clients.values());
-  }
-
-  registerClient(client: GatewayClient): void {
-    this.clients.set(client.id, client);
-  }
-
-  unregisterClient(clientId: string): boolean {
-    return this.clients.delete(clientId);
-  }
-
-  getRuntime(): AcpRuntime {
-    return this.runtime;
-  }
-
-  getSessionStore(): AcpSessionStore {
-    return this.sessionStore;
-  }
-
-  getOptions(): AcpServerOptions {
-    return this.options;
-  }
-}
-
-export function createAcpGateway(
-  runtime: AcpRuntime,
-  sessionStore: AcpSessionStore,
-  options?: AcpServerOptions
-): AcpGateway {
-  return new AcpGateway(runtime, sessionStore, options);
 }
 
 /**

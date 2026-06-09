@@ -10,16 +10,18 @@ import type {
   MCPPromptDefinition,
 } from '../types/MCPTypes';
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * MCP协议错误
  */
-export class MCPProtocolError extends Error {
+export class MCPProtocolError extends AppError {
   constructor(
     message: string,
     public code: string,
     public data?: unknown
   ) {
-    super(message);
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.MEDIUM, code);
     this.name = 'MCPProtocolError';
   }
 }

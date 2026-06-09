@@ -54,6 +54,8 @@ export enum AuditEventSeverity {
 
 /**
  * 审计事件
+ *
+ * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
  */
 export interface AuditEvent {
   /** 事件ID */

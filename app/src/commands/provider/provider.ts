@@ -27,6 +27,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 import { join } from 'path';
 import {
   providerManager,
@@ -624,27 +625,27 @@ async function handleSeed(): Promise<CommandResult> {
     apiKey?: string;
   }> = [];
 
-  const dsKey = process.env.DEEPSEEK_API_KEY;
+  const dsKey = configManager.env('DEEPSEEK_API_KEY');
   if (dsKey) {
     presets.push({
       name: 'DeepSeek',
       providerType: 'deepseek',
-      baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+      baseUrl: configManager.env('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com',
       apiKey: dsKey,
     });
   }
 
-  const oaiKey = process.env.OPENAI_API_KEY;
+  const oaiKey = configManager.env('OPENAI_API_KEY');
   if (oaiKey) {
     presets.push({
       name: 'OpenAI',
       providerType: 'openai',
-      baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+      baseUrl: configManager.env('OPENAI_BASE_URL') || 'https://api.openai.com/v1',
       apiKey: oaiKey,
     });
   }
 
-  const anthKey = process.env.ANTHROPIC_API_KEY;
+  const anthKey = configManager.env('ANTHROPIC_API_KEY');
   if (anthKey) {
     presets.push({
       name: 'Anthropic',
@@ -654,19 +655,19 @@ async function handleSeed(): Promise<CommandResult> {
     });
   }
 
-  const googKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const googKey = configManager.env('GOOGLE_API_KEY') || configManager.env('GEMINI_API_KEY');
   if (googKey) {
     presets.push({
       name: 'Google Gemini',
       providerType: 'google',
       baseUrl:
-        process.env.GOOGLE_AI_BASE_URL ||
+        configManager.env('GOOGLE_AI_BASE_URL') ||
         'https://generativelanguage.googleapis.com',
       apiKey: googKey,
     });
   }
 
-  const sfKey = process.env.SILICONFLOW_API_KEY;
+  const sfKey = configManager.env('SILICONFLOW_API_KEY');
   if (sfKey) {
     presets.push({
       name: 'SiliconFlow',

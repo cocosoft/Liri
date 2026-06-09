@@ -35,6 +35,7 @@ import type { ChatOptions, ProviderConfig, ProviderValidationResult, ThinkingPro
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
@@ -321,7 +322,7 @@ export class DeepSeekProvider extends BaseAIProvider {
   override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
-    if (!this.apiKey && !config.apiKey && !process.env.DEEPSEEK_API_KEY) {
+    if (!this.apiKey && !config.apiKey && !configManager.env('DEEPSEEK_API_KEY')) {
       errors.push('API key is required (config.apiKey or DEEPSEEK_API_KEY)');
     }
     return { valid: errors.length === 0, errors, warnings };

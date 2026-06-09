@@ -6,7 +6,8 @@
 import { diag, DiagLogLevel } from '@opentelemetry/api';
 import type { DiagLogger } from '@opentelemetry/api';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
+import { configManager } from '@modules/config';
 
 /**
  * OpenTelemetry诊断日志记录器
@@ -94,7 +95,7 @@ export function setupOtelDiagnostics(
  * @returns 诊断日志级别
  */
 export function getDiagLogLevelFromEnv(): DiagLogLevel {
-  const envLevel = process.env.OTEL_LOG_LEVEL?.toLowerCase();
+  const envLevel = configManager.env('OTEL_LOG_LEVEL')?.toLowerCase();
   switch (envLevel) {
     case 'verbose':
       return DiagLogLevel.VERBOSE;

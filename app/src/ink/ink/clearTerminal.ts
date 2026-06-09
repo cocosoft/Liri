@@ -3,6 +3,7 @@
  * Detects modern terminals that support ESC[3J for clearing scrollback.
  */
 
+import { configManager } from '@modules/config';
 import {
   CURSOR_HOME,
   csi,
@@ -14,16 +15,16 @@ import {
 const CURSOR_HOME_WINDOWS = csi(0, 'f');
 
 function isWindowsTerminal(): boolean {
-  return process.platform === 'win32' && !!process.env.WT_SESSION;
+  return process.platform === 'win32' && !!configManager.env('WT_SESSION');
 }
 
 function isMintty(): boolean {
   // mintty 3.1.5+ sets TERM_PROGRAM to 'mintty'
-  if (process.env.TERM_PROGRAM === 'mintty') {
+  if (configManager.env('TERM_PROGRAM') === 'mintty') {
     return true;
   }
   // GitBash/MSYS2/MINGW use mintty and set MSYSTEM
-  if (process.platform === 'win32' && process.env.MSYSTEM) {
+  if (process.platform === 'win32' && configManager.env('MSYSTEM')) {
     return true;
   }
   return false;
@@ -38,8 +39,8 @@ function isModernWindowsTerminal(): boolean {
   // VS Code integrated terminal on Windows with ConPTY support
   if (
     process.platform === 'win32' &&
-    process.env.TERM_PROGRAM === 'vscode' &&
-    process.env.TERM_PROGRAM_VERSION
+    configManager.env('TERM_PROGRAM') === 'vscode' &&
+    configManager.env('TERM_PROGRAM_VERSION')
   ) {
     return true;
   }

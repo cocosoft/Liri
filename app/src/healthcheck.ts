@@ -6,6 +6,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getMonitoringService } from './monitoring/index.js';
 import { getExtensibilityService } from './core/extensibility/index.js';
+import { pluginSystem } from './plugins/index.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -44,13 +45,12 @@ async function healthCheck() {
       }
     }
 
-    // 检查插件系统
-    const pluginLoader = extensibilityService.getPluginLoader();
-    const plugins = pluginLoader.listPlugins();
+    // 检查插件系统（通过 plugins/ PluginSystem 统一查询，消除双轨运行）
+    const plugins = pluginSystem.getAllPlugins();
     console.log(`\n3. 插件状态:`);
     console.log(`   - 加载的插件数: ${plugins.length}`);
     plugins.forEach((plugin) => {
-      console.log(`   - ${plugin.metadata.name}: ${plugin.state}`);
+      console.log(`   - ${plugin.name}: ${plugin.state}`);
     });
 
     // 检查配置系统

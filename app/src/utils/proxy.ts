@@ -3,22 +3,23 @@
  */
 
 import { isEnvTruthy } from './envUtils.js';
+import { configManager } from '@modules/config';
 
 /**
  * 获取代理URL
  */
 export function getProxyUrl(): string | undefined {
   // 优先使用HTTPS代理
-  if (process.env.HTTPS_PROXY) {
-    return process.env.HTTPS_PROXY;
+  if (configManager.env('HTTPS_PROXY')) {
+    return configManager.env('HTTPS_PROXY');
   }
   // 其次使用HTTP代理
-  if (process.env.HTTP_PROXY) {
-    return process.env.HTTP_PROXY;
+  if (configManager.env('HTTP_PROXY')) {
+    return configManager.env('HTTP_PROXY');
   }
   // 最后使用ALL_PROXY
-  if (process.env.ALL_PROXY) {
-    return process.env.ALL_PROXY;
+  if (configManager.env('ALL_PROXY')) {
+    return configManager.env('ALL_PROXY');
   }
   return undefined;
 }
@@ -28,7 +29,7 @@ export function getProxyUrl(): string | undefined {
  */
 export function shouldBypassProxy(url: string): boolean {
   // 检查是否在NO_PROXY环境变量中
-  const noProxy = process.env.NO_PROXY;
+  const noProxy = configManager.env('NO_PROXY');
   if (!noProxy) {
     return false;
   }

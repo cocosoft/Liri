@@ -1,4 +1,5 @@
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
+import { configManager } from '@modules/config';
 
 export type FirstPartyEventSchema = {
   eventId: string;
@@ -42,10 +43,10 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
     this.maxBatchSize = options?.maxBatchSize || 50;
     this.flushInterval = options?.flushInterval || 10000;
     this.sessionId = options?.sessionId || `session_${Date.now()}`;
-    this.deviceId = options?.deviceId || process.env.DEVICE_ID || 'unknown';
+    this.deviceId = options?.deviceId || configManager.env('DEVICE_ID') || 'unknown';
     this.platform = process.platform;
-    this.sourceVersion = process.env.APP_VERSION || '1.0.0';
-    this.endpoint = options?.endpoint || process.env.FIRST_PARTY_EVENT_ENDPOINT;
+    this.sourceVersion = configManager.env('APP_VERSION') || '1.0.0';
+    this.endpoint = options?.endpoint || configManager.env('FIRST_PARTY_EVENT_ENDPOINT');
     this.enabled = options?.enabled !== false;
   }
 

@@ -25,6 +25,7 @@
  */
 
 import { execSync, spawn, type ChildProcess } from 'node:child_process';
+import { configManager } from '@modules/config';
 
 export type CliRunnerMode = 'direct' | 'bundle-mcp' | 'pipe';
 
@@ -88,7 +89,7 @@ export class CliRunner {
 
     try {
       const shellPath = opts.shell
-        ? process.env.ComSpec || process.env.SHELL || 'cmd.exe'
+        ? configManager.env('ComSpec') || configManager.env('SHELL') || 'cmd.exe'
         : undefined;
 
       const stdout = execSync(command, {

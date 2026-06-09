@@ -3,6 +3,7 @@
  * 检测当前 Shell 环境并验证钩子兼容性
  */
 
+import { configManager } from '@modules/config';
 import { execSync } from 'child_process';
 
 /**
@@ -244,14 +245,14 @@ export class ShellHookDetector {
    * @returns 检测到的 Shell 类型
    */
   private detectShellType(): ShellType {
-    const shellEnv = process.env.SHELL || '';
+    const shellEnv = configManager.env('SHELL') || '';
 
     if (shellEnv.includes('fish')) return 'fish';
     if (shellEnv.includes('zsh')) return 'zsh';
     if (shellEnv.includes('bash')) return 'bash';
 
     if (process.platform === 'win32') {
-      const psEnv = process.env.PSModulePath || '';
+      const psEnv = configManager.env('PSModulePath') || '';
 
       if (psEnv) return 'powershell';
     }
@@ -368,8 +369,8 @@ export class ShellHookDetector {
    * @returns 是否 Git Bash
    */
   private checkGitBash(): boolean {
-    const path = process.env.PATH || '';
-    const shell = process.env.SHELL || '';
+    const path = configManager.env('PATH') || '';
+    const shell = configManager.env('SHELL') || '';
 
     return (
       path.includes('Git') ||
@@ -384,7 +385,7 @@ export class ShellHookDetector {
    * @returns 是否 Cygwin
    */
   private checkCygwin(): boolean {
-    const path = process.env.PATH || '';
+    const path = configManager.env('PATH') || '';
 
     return path.includes('/cygdrive/') || path.includes('cygwin');
   }
@@ -395,7 +396,7 @@ export class ShellHookDetector {
    * @returns 环境文件路径
    */
   private getEnvFilePath(shell: ShellType): string {
-    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const home = configManager.env('HOME') || configManager.env('USERPROFILE') || '';
 
     switch (shell) {
       case 'bash':

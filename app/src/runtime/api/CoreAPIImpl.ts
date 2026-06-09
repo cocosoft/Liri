@@ -26,6 +26,7 @@
  */
 
 import * as fs from 'fs';
+import { configManager } from '@modules/config';
 import type { CoreAPI } from './CoreAPI';
 import type {
   ChatRequest,
@@ -137,8 +138,8 @@ export class CoreAPIImpl implements CoreAPI {
     this.fileTypeDetector = options?.fileTypeDetector ?? new FileTypeDetector();
     this._modelName =
       options?.modelName ??
-      process.env.DEEPSEEK_MODEL ??
-      process.env.AI_MODEL ??
+      configManager.env('DEEPSEEK_MODEL') ??
+      configManager.env('AI_MODEL') ??
       '';
   }
 

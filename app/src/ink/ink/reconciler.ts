@@ -4,6 +4,7 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { appendFileSync } from 'fs';
 import createReconciler from 'react-reconciler';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 // 替换缺失的 getYogaCounters 导入
@@ -41,7 +42,7 @@ import applyStyles, { type Styles, type TextStyles } from './styles.js';
 // We need to conditionally perform devtools connection to avoid
 // accidentally breaking other third-party code.
 // See https://github.com/vadimdemedes/ink/issues/384
-if (process.env.NODE_ENV === 'development') {
+if (configManager.env('NODE_ENV') === 'development') {
   try {
     void import('./devtools.js');
   } catch (error: any) {
@@ -186,7 +187,7 @@ export function getOwnerChain(fiber: unknown): string[] {
 let debugRepaints: boolean | undefined;
 export function isDebugRepaintsEnabled(): boolean {
   if (debugRepaints === undefined) {
-    debugRepaints = isEnvTruthy(process.env.CLAUDE_CODE_DEBUG_REPAINTS);
+    debugRepaints = isEnvTruthy(configManager.env('CLAUDE_CODE_DEBUG_REPAINTS'));
   }
   return debugRepaints;
 }
@@ -194,7 +195,7 @@ export function isDebugRepaintsEnabled(): boolean {
 export const dispatcher = new Dispatcher();
 
 // --- COMMIT INSTRUMENTATION (temp debugging) ---
-const COMMIT_LOG = process.env.CLAUDE_CODE_COMMIT_LOG;
+const COMMIT_LOG = configManager.env('CLAUDE_CODE_COMMIT_LOG');
 let _commits = 0;
 let _lastLog = 0;
 let _lastCommitAt = 0;
@@ -277,7 +278,7 @@ const reconciler: any = createReconciler({
       }
     }
 
-    if (process.env.NODE_ENV === 'test') {
+    if (configManager.env('NODE_ENV') === 'test') {
       if (rootNode.childNodes.length === 0 && rootNode.hasRenderedContent) {
         return;
       }

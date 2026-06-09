@@ -10,6 +10,8 @@ export type ThinkingConfig =
   | { type: 'enabled'; budgetTokens: number }
   | { type: 'disabled' };
 
+import { configManager } from '@modules/config';
+
 export interface ThinkingOptions {
   effort?: ThinkingEffort;
   budgetTokens?: number;
@@ -120,13 +122,13 @@ export function getThinkingBudgetForModel(
 }
 
 export function shouldEnableThinkingByDefault(): boolean {
-  if (process.env.MAX_THINKING_TOKENS) {
-    return parseInt(process.env.MAX_THINKING_TOKENS, 10) > 0;
+  if (configManager.env('MAX_THINKING_TOKENS')) {
+    return parseInt(configManager.env('MAX_THINKING_TOKENS')!, 10) > 0;
   }
 
   if (
-    process.env.DISABLE_THINKING === 'true' ||
-    process.env.DISABLE_THINKING === '1'
+    configManager.env('DISABLE_THINKING') === 'true' ||
+    configManager.env('DISABLE_THINKING') === '1'
   ) {
     return false;
   }

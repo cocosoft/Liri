@@ -3,15 +3,17 @@
  * 实现命令执行超时控制
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * 超时错误
  */
-export class TimeoutError extends Error {
+export class TimeoutError extends AppError {
   public readonly timeoutMs: number;
   public readonly command?: string;
 
   constructor(message: string, timeoutMs: number, command?: string) {
-    super(message);
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.HIGH);
     this.name = 'TimeoutError';
     this.timeoutMs = timeoutMs;
     this.command = command;

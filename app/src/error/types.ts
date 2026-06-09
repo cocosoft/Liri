@@ -37,6 +37,7 @@ export enum ErrorCategory {
   DATABASE = 'database',
   RESOURCE = 'resource',
   DATA = 'data',
+  OPERATION = 'operation',
   UNKNOWN = 'unknown',
 }
 
@@ -351,55 +352,15 @@ export class DatabaseError extends AppError {
 /**
  * 中止错误类
  */
-export class AbortError extends Error {
+export class AbortError extends AppError {
   constructor(message?: string) {
-    super(message || 'Operation was aborted');
-    this.name = 'AbortError';
-  }
-}
-
-/**
- * Fallback触发错误类
- * 当主流程失败并触发fallback时抛出此错误
- * 兼容 CC 源码的 FallbackTriggeredError 接口（含 originalModel / fallbackModel）
- */
-export class FallbackTriggeredError extends Error {
-  /**
-   * 原始模型名称（CC 兼容）
-   */
-  readonly originalModel?: string;
-
-  /**
-   * Fallback 模型名称（CC 兼容）
-   */
-  readonly fallbackModel?: string;
-
-  constructor(
-    message: string,
-    public readonly originalError?: Error,
-    public readonly fallbackType?: string,
-    options?: { originalModel?: string; fallbackModel?: string }
-  ) {
-    super(message);
-    this.name = 'FallbackTriggeredError';
-    this.originalModel = options?.originalModel;
-    this.fallbackModel = options?.fallbackModel;
-  }
-
-  /**
-   * 以 CC 兼容签名构造（model fallback 场景）
-   */
-  static fromModelFallback(
-    originalModel: string,
-    fallbackModel: string,
-    originalError?: Error
-  ): FallbackTriggeredError {
-    return new FallbackTriggeredError(
-      `Model fallback triggered: ${originalModel} -> ${fallbackModel}`,
-      originalError,
-      'model_fallback',
-      { originalModel, fallbackModel }
+    super(
+      message || 'Operation was aborted',
+      ErrorCategory.OPERATION,
+      ErrorSeverity.LOW,
+      'ABORT'
     );
+    this.name = 'AbortError';
   }
 }
 
@@ -464,148 +425,21 @@ export class TelemetrySafeError extends AppError {
 }
 
 /**
- * 安全遥测错误类（双消息设计）
- *
- * 显式分离用户消息和遥测消息：
- * - message: 完整消息，可包含路径等详细信息（用于日志和用户显示）
- * - telemetryMessage: 安全消息，不含敏感信息（用于遥测上报）
- *
- * 使用示例:
- * throw new SafeTelemetryError(
- *   `文件 /home/user/.ssh/id_rsa 不存在`,  // 完整消息
- *   'SSH key file not found'                // 遥测消息
- * );
- */
-export class SafeTelemetryError extends Error {
-  readonly telemetryMessage: string;
-
-  constructor(message: string, telemetryMessage?: string) {
-    super(message);
-    this.name = 'SafeTelemetryError';
-    this.telemetryMessage = telemetryMessage ?? message;
-  }
-
-  /**
-   * 从现有错误创建安全遥测错误
-   */
-  static fromError(
-    error: Error,
-    telemetryMessage?: string
-  ): SafeTelemetryError {
-    return new SafeTelemetryError(error.message, telemetryMessage);
-  }
-
-  /**
-   * 获取用于遥测上报的安全错误对象
-   */
-  toTelemetryObject(): { message: string; name: string; stack?: string } {
-    return {
-      message: this.telemetryMessage,
-      name: this.name,
-      stack: this.stack,
-    };
-  }
-}
-
-/**
- * 畸形命令错误类
- */
-export class MalformedCommandError extends Error {
-  constructor(message: string = 'Malformed command') {
-    super(message);
-    this.name = 'MalformedCommandError';
-  }
-}
-
-/**
- * 传送操作错误类
- */
-export class TeleportOperationError extends Error {
-  constructor(
-    message: string,
-    public readonly formattedMessage: string
-  ) {
-    super(message);
-    this.name = 'TeleportOperationError';
-  }
-}
-
-/**
- * 轻量级网络错误类
- *
- * 相比 AppError 更轻量，不包含分类和严重程度字段，
- * 适用于性能敏感场景或简单错误处理。
- */
-export class LightweightNetworkError extends Error {
-  constructor(
-    message: string,
-    readonly code?: string,
-    readonly timeout?: number
-  ) {
-    super(message);
-    this.name = 'LightweightNetworkError';
-  }
-}
-
-/**
- * 轻量级文件错误类
- *
- * 相比 AppError 更轻量，专注于文件系统错误的核心信息。
- */
-export class LightweightFileError extends Error {
-  constructor(
-    message: string,
-    readonly path?: string,
-    readonly errno?: string
-  ) {
-    super(message);
-    this.name = 'LightweightFileError';
-  }
-}
-
-/**
- * 轻量级 API 错误类
- *
- * 相比 AppError 更轻量，专注于 API 错误的核心信息。
- */
-export class LightweightAPIError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-    readonly endpoint?: string
-  ) {
-    super(message);
-    this.name = 'LightweightAPIError';
-  }
-}
-
-/**
- * 轻量级配置错误类
- *
- * 相比 AppError 更轻量，专注于配置错误的核心信息。
- */
-export class LightweightConfigError extends Error {
-  constructor(
-    message: string,
-    readonly key?: string,
-    readonly value?: string
-  ) {
-    super(message);
-    this.name = 'LightweightConfigError';
-  }
-}
-
-/**
  * 模块错误类
  * 用于模块系统内部错误报告
  */
-export class ModuleError extends Error {
+export class ModuleError extends AppError {
   constructor(
     message: string,
     public readonly moduleId?: string,
     public readonly errorCode?: string
   ) {
-    super(message);
+    super(
+      message,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.MEDIUM,
+      errorCode ?? 'MODULE_ERROR'
+    );
     this.name = 'ModuleError';
   }
 }

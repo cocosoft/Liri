@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 /**
  * 告警级别

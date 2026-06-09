@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@modules/utils/log.js';
-import { toError, isAbortError, errorMessage } from '@modules/utils/errors.js';
+import { toError, isAbortError, errorMessage } from '@modules/error/utils';
 
 /**
  * 错误处理选项

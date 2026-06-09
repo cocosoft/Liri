@@ -16,6 +16,7 @@ import {
   BRIDGE_SAFE_COMMANDS,
 } from '@modules/commands/constants/CommandConstants.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -333,7 +334,7 @@ export class CommandManager {
    */
   private checkClaudeAIAvailability(): boolean {
     // 简化实现，实际应根据环境变量或配置检查
-    return process.env.CLAUDE_AI_ENABLED === 'true';
+    return configManager.env('CLAUDE_AI_ENABLED') === 'true';
   }
 
   /**
@@ -349,7 +350,7 @@ export class CommandManager {
    */
   private checkDesktopAvailability(): boolean {
     // 检查是否在桌面环境中运行
-    return process.env.DESKTOP_ENV === 'true' || typeof window !== 'undefined';
+    return configManager.env('DESKTOP_ENV') === 'true' || typeof window !== 'undefined';
   }
 
   /**
@@ -358,7 +359,7 @@ export class CommandManager {
   private checkMobileAvailability(): boolean {
     // 检查是否在移动端环境中运行
     return (
-      process.env.MOBILE_ENV === 'true' ||
+      configManager.env('MOBILE_ENV') === 'true' ||
       (typeof navigator !== 'undefined' && /mobile/i.test(navigator.userAgent))
     );
   }
@@ -368,7 +369,7 @@ export class CommandManager {
    */
   private checkBridgeAvailability(): boolean {
     // 检查Bridge模式是否启用
-    return process.env.BRIDGE_MODE === 'true';
+    return configManager.env('BRIDGE_MODE') === 'true';
   }
 
   /**

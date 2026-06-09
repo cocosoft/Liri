@@ -5,6 +5,8 @@
  * 提前清除旧的工具结果可减少重写的数据量。
  */
 
+import { configManager } from '@modules/config';
+
 export interface TimeBasedMCConfig {
   enabled: boolean;
   gapThresholdMinutes: number;
@@ -23,7 +25,7 @@ const TIME_BASED_MC_CONFIG_DEFAULTS: TimeBasedMCConfig = {
  */
 export function getTimeBasedMCConfig(): TimeBasedMCConfig {
   try {
-    const configStr = process.env.TIME_BASED_MC_CONFIG;
+    const configStr = configManager.env('TIME_BASED_MC_CONFIG');
     if (configStr) {
       const parsed = JSON.parse(configStr);
       return {

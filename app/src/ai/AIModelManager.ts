@@ -21,6 +21,7 @@ import {
 } from './models/ModelAliases.js';
 import { modelManager } from './models/ModelManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 
 export const MODEL_ALIASES = ['best', 'pro', 'flash', 'fast'] as const;
 
@@ -34,8 +35,8 @@ export class AIModelManager {
   private constructor() {
     this.defaultThinkingEffort = DEFAULT_THINKING_EFFORT;
     this.thinkingEnabled =
-      process.env.DISABLE_THINKING !== 'true' &&
-      process.env.DISABLE_THINKING !== '1';
+      configManager.env('DISABLE_THINKING') !== 'true' &&
+      configManager.env('DISABLE_THINKING') !== '1';
     // 构造函数中验证 modelManager 可用性，避免运行时委托调用失败
     this.ensureModelManager();
   }
@@ -197,7 +198,7 @@ export class AIModelManager {
   }
 
   getDefaultThinkingEffort(): ThinkingEffort {
-    const envEffort = process.env.THINKING_EFFORT as ThinkingEffort | undefined;
+    const envEffort = configManager.env('THINKING_EFFORT') as ThinkingEffort | undefined;
     if (envEffort && ['low', 'medium', 'high'].includes(envEffort)) {
       return envEffort;
     }

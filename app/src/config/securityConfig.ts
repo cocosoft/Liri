@@ -3,6 +3,8 @@
  * 管理所有安全相关的配置选项
  */
 
+import { configManager } from './ConfigManager.js';
+
 /**
  * 安全配置接口
  */
@@ -100,77 +102,75 @@ export class SecurityConfigManager {
    */
   private loadFromEnvironment(): void {
     // 安全审计配置
-    if (process.env.SECURITY_AUDIT_ENABLED) {
-      this.config.securityAuditEnabled =
-        process.env.SECURITY_AUDIT_ENABLED === 'true';
+    const auditEnabled = configManager.env('SECURITY_AUDIT_ENABLED');
+    if (auditEnabled) {
+      this.config.securityAuditEnabled = auditEnabled === 'true';
     }
-    if (process.env.SECURITY_AUDIT_LOG_FILE) {
-      this.config.securityAuditLogFile = process.env.SECURITY_AUDIT_LOG_FILE;
+    const auditLogFile = configManager.env('SECURITY_AUDIT_LOG_FILE');
+    if (auditLogFile) {
+      this.config.securityAuditLogFile = auditLogFile;
     }
-    if (process.env.SECURITY_AUDIT_RETENTION_DAYS) {
-      this.config.securityAuditRetentionDays = parseInt(
-        process.env.SECURITY_AUDIT_RETENTION_DAYS
-      );
+    const auditRetentionDays = configManager.env('SECURITY_AUDIT_RETENTION_DAYS');
+    if (auditRetentionDays) {
+      this.config.securityAuditRetentionDays = parseInt(auditRetentionDays);
     }
-    if (process.env.SECURITY_AUDIT_MAX_LOG_SIZE) {
-      this.config.securityAuditMaxLogSize = parseInt(
-        process.env.SECURITY_AUDIT_MAX_LOG_SIZE
-      );
+    const auditMaxLogSize = configManager.env('SECURITY_AUDIT_MAX_LOG_SIZE');
+    if (auditMaxLogSize) {
+      this.config.securityAuditMaxLogSize = parseInt(auditMaxLogSize);
     }
-    if (process.env.SECURITY_AUDIT_VERBOSE) {
-      this.config.securityAuditVerbose =
-        process.env.SECURITY_AUDIT_VERBOSE === 'true';
+    const auditVerbose = configManager.env('SECURITY_AUDIT_VERBOSE');
+    if (auditVerbose) {
+      this.config.securityAuditVerbose = auditVerbose === 'true';
     }
 
     // 安全功能配置
-    if (process.env.SECURITY_INPUT_VALIDATION_ENABLED) {
-      this.config.securityInputValidationEnabled =
-        process.env.SECURITY_INPUT_VALIDATION_ENABLED === 'true';
+    const inputValidation = configManager.env('SECURITY_INPUT_VALIDATION_ENABLED');
+    if (inputValidation) {
+      this.config.securityInputValidationEnabled = inputValidation === 'true';
     }
-    if (process.env.SECURITY_OUTPUT_ENCODING_ENABLED) {
-      this.config.securityOutputEncodingEnabled =
-        process.env.SECURITY_OUTPUT_ENCODING_ENABLED === 'true';
+    const outputEncoding = configManager.env('SECURITY_OUTPUT_ENCODING_ENABLED');
+    if (outputEncoding) {
+      this.config.securityOutputEncodingEnabled = outputEncoding === 'true';
     }
-    if (process.env.SECURITY_DANGEROUS_COMMAND_CHECK) {
-      this.config.securityDangerousCommandCheck =
-        process.env.SECURITY_DANGEROUS_COMMAND_CHECK === 'true';
+    const dangerousCommand = configManager.env('SECURITY_DANGEROUS_COMMAND_CHECK');
+    if (dangerousCommand) {
+      this.config.securityDangerousCommandCheck = dangerousCommand === 'true';
     }
-    if (process.env.SECURITY_PATH_TRAVERSAL_CHECK) {
-      this.config.securityPathTraversalCheck =
-        process.env.SECURITY_PATH_TRAVERSAL_CHECK === 'true';
+    const pathTraversal = configManager.env('SECURITY_PATH_TRAVERSAL_CHECK');
+    if (pathTraversal) {
+      this.config.securityPathTraversalCheck = pathTraversal === 'true';
     }
-    if (process.env.SECURITY_XSS_PROTECTION_ENABLED) {
-      this.config.securityXssProtectionEnabled =
-        process.env.SECURITY_XSS_PROTECTION_ENABLED === 'true';
+    const xssProtection = configManager.env('SECURITY_XSS_PROTECTION_ENABLED');
+    if (xssProtection) {
+      this.config.securityXssProtectionEnabled = xssProtection === 'true';
     }
-    if (process.env.SECURITY_UNICODE_SANITIZATION_ENABLED) {
-      this.config.securityUnicodeSanitizationEnabled =
-        process.env.SECURITY_UNICODE_SANITIZATION_ENABLED === 'true';
+    const unicodeSanitization = configManager.env('SECURITY_UNICODE_SANITIZATION_ENABLED');
+    if (unicodeSanitization) {
+      this.config.securityUnicodeSanitizationEnabled = unicodeSanitization === 'true';
     }
-    if (process.env.SECURITY_PERMISSION_ENFORCEMENT) {
-      this.config.securityPermissionEnforcement =
-        process.env.SECURITY_PERMISSION_ENFORCEMENT === 'true';
+    const permissionEnforcement = configManager.env('SECURITY_PERMISSION_ENFORCEMENT');
+    if (permissionEnforcement) {
+      this.config.securityPermissionEnforcement = permissionEnforcement === 'true';
     }
 
     // 安全限制配置
-    if (process.env.SECURITY_MAX_INPUT_LENGTH) {
-      this.config.securityMaxInputLength = parseInt(
-        process.env.SECURITY_MAX_INPUT_LENGTH
-      );
+    const maxInputLength = configManager.env('SECURITY_MAX_INPUT_LENGTH');
+    if (maxInputLength) {
+      this.config.securityMaxInputLength = parseInt(maxInputLength);
     }
-    if (process.env.SECURITY_MAX_FILE_PATH_LENGTH) {
-      this.config.securityMaxFilePathLength = parseInt(
-        process.env.SECURITY_MAX_FILE_PATH_LENGTH
-      );
+    const maxFilePathLength = configManager.env('SECURITY_MAX_FILE_PATH_LENGTH');
+    if (maxFilePathLength) {
+      this.config.securityMaxFilePathLength = parseInt(maxFilePathLength);
     }
-    if (process.env.SECURITY_ALLOWED_PROTOCOLS) {
-      this.config.securityAllowedProtocols =
-        process.env.SECURITY_ALLOWED_PROTOCOLS.split(',');
+    const allowedProtocols = configManager.env('SECURITY_ALLOWED_PROTOCOLS');
+    if (allowedProtocols) {
+      this.config.securityAllowedProtocols = allowedProtocols.split(',');
     }
 
     // 日志配置
-    if (process.env.SECURITY_LOG_LEVEL) {
-      const level = process.env.SECURITY_LOG_LEVEL.toLowerCase();
+    const logLevel = configManager.env('SECURITY_LOG_LEVEL');
+    if (logLevel) {
+      const level = logLevel.toLowerCase();
       if (['debug', 'info', 'warn', 'error'].includes(level)) {
         this.config.securityLogLevel = level as
           | 'debug'

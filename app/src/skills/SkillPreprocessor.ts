@@ -5,6 +5,7 @@
  */
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { configManager } from '@modules/config';
 
 /**
  * 预处理选项
@@ -98,11 +99,11 @@ export class SkillPreprocessor {
     );
     result = result.replace(
       /\$\{HOME\}/g,
-      process.env.HOME || process.env.USERPROFILE || ''
+      configManager.env('HOME') || configManager.env('USERPROFILE') || ''
     );
     result = result.replace(
       /\$\{TMPDIR\}/g,
-      process.env.TMPDIR || process.env.TEMP || '/tmp'
+      configManager.env('TMPDIR') || configManager.env('TEMP') || '/tmp'
     );
     result = result.replace(/\$\{CWD\}/g, process.cwd());
     result = result.replace(/\$\{OS\}/g, process.platform);

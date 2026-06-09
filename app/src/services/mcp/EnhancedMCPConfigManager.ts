@@ -11,6 +11,7 @@ import {
   resolveProjectRoot,
 } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -364,7 +365,7 @@ export class EnhancedMCPConfigManager {
    */
   loadMcpConfigFromEnv(): Record<string, MCPServerConfig> {
     const servers: Record<string, MCPServerConfig> = {};
-    const mcpConfigEnv = process.env.MCP_SERVERS;
+    const mcpConfigEnv = configManager.env('MCP_SERVERS');
 
     if (mcpConfigEnv) {
       try {

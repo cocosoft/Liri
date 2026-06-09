@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 技能源类型
@@ -51,7 +52,7 @@ export class SkillConfigManager {
       enableTelemetry: false,
       allowedSources: ['user', 'project', 'plugin', 'mcp', 'bundled'],
     };
-    const effectiveCwd = process.env.LIRI_PROJECT_DIR || process.cwd();
+    const effectiveCwd = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
     this.configPath = path.join(resolvePyappHome(), 'skill-config.json');
     this.loadDefaults();
   }
@@ -176,7 +177,7 @@ export class SkillConfigManager {
    * 加载默认配置
    */
   private loadDefaults(): void {
-    const effectiveCwd = process.env.LIRI_PROJECT_DIR || process.cwd();
+    const effectiveCwd = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
 
     this.registerSource({
       name: 'builtin',

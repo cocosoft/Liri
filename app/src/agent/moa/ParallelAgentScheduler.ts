@@ -4,6 +4,7 @@
  */
 
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger();
 
@@ -270,9 +271,9 @@ export class ParallelAgentScheduler {
 /**
  * 超时错误
  */
-class TimeoutError extends Error {
+class TimeoutError extends AppError {
   constructor(message: string) {
-    super(message);
+    super(message, ErrorCategory.OPERATION, ErrorSeverity.HIGH);
     this.name = 'TimeoutError';
   }
 }

@@ -8,6 +8,7 @@
 import { randomUUID } from 'crypto';
 import type { ChatMessage } from '@modules/ai/models/types';
 import { getSubAgentEngine } from './SubAgentEngine';
+import { configManager } from '@modules/config';
 import type {
   SubAgentEngine,
   SubAgentProgressEvent,
@@ -50,7 +51,7 @@ export interface ForkSubagentResult {
 }
 
 export function isForkSubagentEnabled(): boolean {
-  const disabled = process.env.DISABLE_FORK_SUBAGENT === 'true';
+  const disabled = configManager.env('DISABLE_FORK_SUBAGENT') === 'true';
   return !disabled;
 }
 

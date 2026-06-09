@@ -7,6 +7,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -91,7 +92,7 @@ export function isWSL(): boolean {
 function isTermux(): boolean {
   return (
     isEnvVarTruthy('PREFIX') &&
-    (process.env.PREFIX ?? '').includes('com.termux')
+    (configManager.env('PREFIX') ?? '').includes('com.termux')
   );
 }
 

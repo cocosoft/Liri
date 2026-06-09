@@ -8,6 +8,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { OAuthService } from '@modules/oauth';
 import { executePostLogin } from '@modules/system/auth/post-login.js';
+import { configManager } from '@modules/config';
 
 /**
  * 登录结果
@@ -44,7 +45,7 @@ export async function executeLogin(
     const params = parseLoginArgs(args);
 
     const existingToken =
-      process.env.Liri_API_KEY || process.env.ANTHROPIC_API_KEY;
+      configManager.env('Liri_API_KEY') || configManager.env('ANTHROPIC_API_KEY');
 
     if (existingToken && !params.force) {
       return {

@@ -234,7 +234,7 @@ export class ModelRouter {
     if (flatCurrent) return flatCurrent;
 
     // 向前兼容：读取旧 process.env
-    const envModel = process.env.Liri_MODEL || process.env.DEEPSEEK_MODEL || process.env.AI_MODEL;
+    const envModel = configManager.env('Liri_MODEL') || configManager.env('DEEPSEEK_MODEL') || configManager.env('AI_MODEL');
     if (envModel) return envModel;
 
     return '';
@@ -254,11 +254,11 @@ export class ModelRouter {
     // 向前兼容：读取旧 process.env
     const envTasks: TaskModelConfig = {};
     const envMap: Record<string, string | undefined> = {
-      chat: process.env.Liri_TASK_CHAT,
-      coding: process.env.Liri_TASK_CODING,
-      translation: process.env.Liri_TASK_TRANSLATION,
-      quick: process.env.Liri_TASK_QUICK,
-      embedding: process.env.Liri_TASK_EMBEDDING,
+      chat: configManager.env('Liri_TASK_CHAT'),
+      coding: configManager.env('Liri_TASK_CODING'),
+      translation: configManager.env('Liri_TASK_TRANSLATION'),
+      quick: configManager.env('Liri_TASK_QUICK'),
+      embedding: configManager.env('Liri_TASK_EMBEDDING'),
     };
     for (const [key, val] of Object.entries(envMap)) {
       if (val) (envTasks as Record<string, string>)[key] = val;

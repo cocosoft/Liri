@@ -3,6 +3,8 @@
  * 用于在命令行中显示彩色文本
  */
 
+import { configManager } from '@modules/config';
+
 export interface ColorOptions {
   bold?: boolean;
   underline?: boolean;
@@ -111,7 +113,7 @@ export class ColorFormatter {
    * 检查终端是否支持颜色
    */
   static supportsColor(): boolean {
-    return process.stdout.isTTY && !process.env.NO_COLOR;
+    return process.stdout.isTTY && !configManager.env('NO_COLOR');
   }
 
   /**

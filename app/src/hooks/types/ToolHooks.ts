@@ -1,7 +1,7 @@
 /**
  * 工具Hook类型定义
  */
-import { PermissionMode } from '@modules/permission/types/PermissionMode';
+import { PermissionMode } from '@modules/permission';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 
 /**

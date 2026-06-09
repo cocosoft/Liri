@@ -1,3 +1,4 @@
+import { configManager } from '@modules/config';
 import type { SecurityAnalysisResult, RiskLevel } from './types';
 
 export interface ReadOnlyValidationOptions {
@@ -9,7 +10,7 @@ export interface ReadOnlyValidationOptions {
 }
 
 export const DEFAULT_READONLY_CONFIG: ReadOnlyValidationOptions = {
-  enforceReadOnly: process.env.READONLY_MODE === 'true',
+  enforceReadOnly: configManager.env('READONLY_MODE') === 'true',
   allowGitReadOnly: true,
   allowPackageManagerReadOnly: false,
   allowedCommands: [

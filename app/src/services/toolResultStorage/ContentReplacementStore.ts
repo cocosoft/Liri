@@ -1,3 +1,4 @@
+import { configManager } from '@modules/config';
 import type {
   ContentReplacementState,
   ContentReplacementRecord,
@@ -133,7 +134,7 @@ export function applyContentReplacement(
 export function provisionContentReplacementState(
   initialRecords?: ContentReplacementRecord[]
 ): ContentReplacementState | undefined {
-  const enabled = process.env.ENABLE_CONTENT_REPLACEMENT !== 'false';
+  const enabled = configManager.env('ENABLE_CONTENT_REPLACEMENT') !== 'false';
   if (!enabled) return undefined;
   if (initialRecords && initialRecords.length > 0) {
     return reconstructContentReplacementState(initialRecords);
@@ -153,7 +154,7 @@ export function reconstructContentReplacementState(
 }
 
 export function getPerMessageBudgetLimit(): number {
-  const envLimit = process.env.MAX_TOOL_RESULTS_PER_MESSAGE_CHARS;
+  const envLimit = configManager.env('MAX_TOOL_RESULTS_PER_MESSAGE_CHARS');
   if (envLimit) {
     const parsed = parseInt(envLimit, 10);
     if (!isNaN(parsed) && parsed > 0) return parsed;

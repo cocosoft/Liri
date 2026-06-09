@@ -15,6 +15,7 @@ import {
 import { parsePositiveIntFromFrontmatter } from '@modules/utils/frontmatterParser';
 import { EFFORT_LEVELS, parseEffortValue } from '@modules/utils/effort';
 import { PermissionMode } from '@modules/permission/PermissionMode';
+import { configManager } from '@modules/config';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
 
@@ -115,7 +116,7 @@ export function parseAgentFromMarkdown(
     // 解析isolation模式
     type IsolationMode = 'worktree' | 'remote';
     const VALID_ISOLATION_MODES: IsolationMode[] = ['worktree'];
-    if (process.env.USER_TYPE === 'ant') {
+    if (configManager.env('USER_TYPE') === 'ant') {
       VALID_ISOLATION_MODES.push('remote');
     }
     const isolationRaw = frontmatter['isolation'] as string | undefined;

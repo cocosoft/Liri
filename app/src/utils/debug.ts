@@ -3,12 +3,13 @@
  */
 
 import { isEnvTruthy } from './envUtils.js';
+import { configManager } from '@modules/config';
 
 /**
  * 检查是否启用了调试模式
  */
 export function isDebugMode(): boolean {
-  return isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.Liri_DEBUG);
+  return isEnvTruthy(configManager.env('DEBUG')) || isEnvTruthy(configManager.env('Liri_DEBUG'));
 }
 
 /**
@@ -45,7 +46,7 @@ export function logForDebugging(
  * 检查是否需要格式化输出
  */
 export function getHasFormattedOutput(): boolean {
-  return !isEnvTruthy(process.env.Liri_STREAM_JSON);
+  return !isEnvTruthy(configManager.env('Liri_STREAM_JSON'));
 }
 
 /**

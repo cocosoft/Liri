@@ -1,4 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -24,12 +25,11 @@ export enum BridgeErrorType {
 /**
  * 桥接错误类
  */
-export class BridgeError extends Error {
+export class BridgeError extends AppError {
   public readonly type: BridgeErrorType;
-  public readonly code?: string;
+  public override readonly code?: string;
   public readonly statusCode?: number;
   public readonly isRetryable: boolean;
-  public readonly context?: Record<string, unknown>;
 
   constructor(
     message: string,
@@ -41,13 +41,12 @@ export class BridgeError extends Error {
       context?: Record<string, unknown>;
     } = {}
   ) {
-    super(message);
+    super(message, ErrorCategory.NETWORK, ErrorSeverity.MEDIUM, type, options.context);
     this.name = 'BridgeError';
     this.type = type;
     this.code = options.code;
     this.statusCode = options.statusCode;
     this.isRetryable = options.isRetryable ?? this.defaultIsRetryable();
-    this.context = options.context;
 
     Error.captureStackTrace(this, this.constructor);
   }

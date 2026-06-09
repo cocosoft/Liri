@@ -18,6 +18,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import { configManager } from '@modules/config';
+
 export enum LimitType {
   DAILY_MESSAGES = 'daily_messages',
   DAILY_TOKENS = 'daily_tokens',
@@ -65,14 +67,14 @@ export interface LimitCheckResult {
 }
 
 export const DEFAULT_POLICY_CONFIG: PolicyLimitConfig = {
-  apiUrl: process.env.POLICY_LIMITS_API_URL || '',
-  apiKey: process.env.POLICY_LIMITS_API_KEY,
+  apiUrl: configManager.env('POLICY_LIMITS_API_URL') || '',
+  apiKey: configManager.env('POLICY_LIMITS_API_KEY'),
   pollInterval: parseInt(
-    process.env.POLICY_LIMITS_POLL_INTERVAL || '60000',
+    configManager.env('POLICY_LIMITS_POLL_INTERVAL') || '60000',
     10
   ),
   timeout: 5000,
-  enabled: process.env.POLICY_LIMITS_ENABLED === 'true',
+  enabled: configManager.env('POLICY_LIMITS_ENABLED') === 'true',
   defaultLimits: new Map([
     [
       LimitType.DAILY_TOKENS,

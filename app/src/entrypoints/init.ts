@@ -24,7 +24,7 @@
  * 负责应用的初始化配置和系统设�?
  */
 
-import { enableConfigs } from '@modules/config';
+import { configManager, enableConfigs } from '@modules/config';
 import { initializeCommands } from '@modules/commands/index.js';
 import { getExtensibilityService } from '@modules/core/extensibility/index.js';
 import {
@@ -92,6 +92,11 @@ async function loadUserDataDirectory(): Promise<void> {
   }
 }
 
+/**
+ * @deprecated 环境初始化已集成到 ModuleRegistry.bootstrap()。
+ * bootstrap() 内部通过 initializeEnvironment() 调用此函数，
+ * 不再需要外部直接调用。将在未来版本中移除。
+ */
 export async function init(): Promise<void> {
   // 记录初始化开�?
   profileCheckpoint('init_function_start');
@@ -159,8 +164,14 @@ export async function init(): Promise<void> {
         }
       })(),
 
-      // 初始化可扩展性服务（包含插件系统�?
+      // 初始化可扩展性服务（包含插件系统）
+      // Extensibility 子系统止血开关：设置 USE_LEGACY_EXTENSIBILITY=true 可启用旧的独立子系统
+      // 默认跳过，使用 plugins/ PluginSystem 作为唯一插件入口
       (async () => {
+        if (configManager.env('USE_LEGACY_EXTENSIBILITY') !== 'true') {
+          profileCheckpoint('load_plugins_skip');
+          return { success: true, duration: 0, skipped: true };
+        }
         profileCheckpoint('load_plugins_start');
         getStartupChainProfiler().markPhaseStart('extensibility_init');
         const startTime = Date.now();
@@ -306,39 +317,45 @@ export async function init(): Promise<void> {
           const { getCoreAPI } = await import('../runtime/api/CoreAPIImpl.js');
           getCoreAPI();
 
-          // 预创建 ChannelManager 单例
-          const { getChannelManager } =
-            await import('../core/gateway/ChannelManager.js');
-          getChannelManager();
+          // Gateway 旧通道止血开关：设置 GATEWAY_LEGACY_DISABLED=true 可禁用旧 Gateway 系统
+          const gatewayLegacyDisabled = configManager.env('GATEWAY_LEGACY_DISABLED') === 'true';
 
-          // 根据配置自动注册并启动 Gateway 通道
-          try {
-            const { setupGatewayFromConfig } =
-              await import('../core/gateway/GatewaySetup.js');
-            const result = await setupGatewayFromConfig();
-            if (result.registeredChannels > 0) {
-              logger.info(
-                `Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`
-              );
-            }
-            if (result.errors.length > 0) {
-              logger.warning('Gateway 通道启动存在错误', {
-                errors: result.errors,
+          if (!gatewayLegacyDisabled) {
+            // 预创建 ChannelManager 单例
+            const { getChannelManager } =
+              await import('../core/gateway/ChannelManager.js');
+            getChannelManager();
+
+            // 根据配置自动注册并启动 Gateway 通道
+            try {
+              const { setupGatewayFromConfig } =
+                await import('../core/gateway/GatewaySetup.js');
+              const result = await setupGatewayFromConfig();
+              if (result.registeredChannels > 0) {
+                logger.info(
+                  `Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`
+                );
+              }
+              if (result.errors.length > 0) {
+                logger.warning('Gateway 通道启动存在错误', {
+                  errors: result.errors,
+                });
+              }
+            } catch (setupError) {
+              logger.debug('Gateway 通道自动启动失败（非关键）', {
+                error: setupError,
               });
             }
-          } catch (setupError) {
-            logger.debug('Gateway 通道自动启动失败（非关键）', {
-              error: setupError,
-            });
+          } else {
+            logger.info('Gateway 旧通道已通过 GATEWAY_LEGACY_DISABLED 禁用');
           }
 
-          // 通道已由 Gateway 系统（ChannelPluginRegistry）统一管理
-          // ChannelRegistry（channels/registry/）作为其薄代理自动同步
-
-          // 注册 Gateway 优雅关闭处理
-          const { disconnectAllChannels } =
-            await import('../core/gateway/index.js');
-          registerShutdownHandler(() => disconnectAllChannels());
+          // 注册 Gateway 优雅关闭处理（仅旧通道启用时）
+          if (!gatewayLegacyDisabled) {
+            const { disconnectAllChannels } =
+              await import('../core/gateway/index.js');
+            registerShutdownHandler(() => disconnectAllChannels());
+          }
 
           const duration = Date.now() - startTime;
           if (duration > 100) {

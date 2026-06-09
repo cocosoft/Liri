@@ -18,6 +18,7 @@ import {
 } from 'fs/promises';
 import { logForDebugging } from '../utils/debug.js';
 import { isEnvTruthy } from '../utils/envUtils.js';
+import { configManager } from '@modules/config';
 import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
 import {
   type PersistentCacheItem,
@@ -613,7 +614,7 @@ let globalCacheSystem: CacheSystem | null = null;
  */
 export function getCacheSystem(): CacheSystem {
   if (!globalCacheSystem) {
-    const cacheDir = process.env.Liri_CACHE_DIR || resolveCacheDir();
+    const cacheDir = configManager.env('Liri_CACHE_DIR') || resolveCacheDir();
     globalCacheSystem = createCacheSystem({ cacheDir });
   }
   return globalCacheSystem;

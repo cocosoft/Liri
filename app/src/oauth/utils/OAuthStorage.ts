@@ -13,6 +13,7 @@ import type {
   ITokenStorage,
 } from '../types/OAuthStorageTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -145,7 +146,7 @@ class OAuthTokenStorage implements ITokenStorage {
    * 获取加密密钥
    */
   private async getEncryptionKey(): Promise<Buffer> {
-    const key = process.env.OAUTH_ENCRYPTION_KEY;
+    const key = configManager.env('OAUTH_ENCRYPTION_KEY');
     if (!key) {
       throw new AppError(
         'OAUTH_ENCRYPTION_KEY environment variable is required',

@@ -4,6 +4,8 @@
  */
 
 import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 
 /**
  * 直接连接配置
@@ -18,9 +20,9 @@ export interface DirectConnectConfig {
 /**
  * 直接连接错误
  */
-export class DirectConnectError extends Error {
+export class DirectConnectError extends AppError {
   constructor(message: string) {
-    super(message);
+    super(message, ErrorCategory.NETWORK, ErrorSeverity.MEDIUM);
     this.name = 'DirectConnectError';
   }
 }
@@ -128,7 +130,7 @@ export class DirectConnectManager {
 
       // 模拟环境中直接触发onopen
       if (
-        process.env.NODE_ENV === 'test' ||
+        configManager.env('NODE_ENV') === 'test' ||
         typeof globalThis === 'undefined' ||
         !('window' in globalThis)
       ) {

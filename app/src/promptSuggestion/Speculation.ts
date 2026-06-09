@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '@modules/config';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import {
@@ -23,7 +24,7 @@ let currentState: SpeculationState = { ...IDLE_SPECULATION_STATE };
  * 获取Speculation临时目录路径
  */
 function getOverlayPath(id: string): string {
-  const tempDir = process.env.TEMP || process.env.TMP || '/tmp';
+  const tempDir = configManager.env('TEMP') || configManager.env('TMP') || '/tmp';
   return join(tempDir, 'speculation', String(process.pid), id);
 }
 
@@ -32,11 +33,11 @@ function getOverlayPath(id: string): string {
  */
 function safeRemoveOverlay(overlayPath: string): void {
   try {
-    if (process.env.DEBUG_SPECULATION === 'true') {
+    if (configManager.env('DEBUG_SPECULATION') === 'true') {
       console.log(`[Speculation] Would remove overlay: ${overlayPath}`);
     }
   } catch (error) {
-    if (process.env.DEBUG_SPECULATION === 'true') {
+    if (configManager.env('DEBUG_SPECULATION') === 'true') {
       logger.error('[Speculation] Error removing overlay:', error);
     }
   }
@@ -89,7 +90,7 @@ export async function startSpeculation(
   setAppState?: (state: Partial<SpeculationState>) => void
 ): Promise<SpeculationResult | null> {
   if (currentState.status === 'active') {
-    if (process.env.DEBUG_SPECULATION === 'true') {
+    if (configManager.env('DEBUG_SPECULATION') === 'true') {
       console.log('[Speculation] Already active, skipping');
     }
     return null;
@@ -111,7 +112,7 @@ export async function startSpeculation(
     setAppState(getSpeculationState());
   }
 
-  if (process.env.DEBUG_SPECULATION === 'true') {
+  if (configManager.env('DEBUG_SPECULATION') === 'true') {
     console.log('[Speculation] Started', { id, suggestion, overlayPath });
   }
 
@@ -133,7 +134,7 @@ export function abortSpeculation(): void {
     return;
   }
 
-  if (process.env.DEBUG_SPECULATION === 'true') {
+  if (configManager.env('DEBUG_SPECULATION') === 'true') {
     console.log('[Speculation] Aborted', { id: currentState.id });
   }
 
@@ -149,7 +150,7 @@ export async function acceptSpeculation(): Promise<boolean> {
     return false;
   }
 
-  if (process.env.DEBUG_SPECULATION === 'true') {
+  if (configManager.env('DEBUG_SPECULATION') === 'true') {
     console.log('[Speculation] Accepted', { id: currentState.id });
   }
 
@@ -162,11 +163,11 @@ export async function acceptSpeculation(): Promise<boolean> {
  * 检查是否应该启用Speculation
  */
 export function shouldEnableSpeculation(): boolean {
-  if (process.env.DEBUG_SPECULATION === 'false') {
+  if (configManager.env('DEBUG_SPECULATION') === 'false') {
     return false;
   }
 
-  const envOverride = process.env.CLAUDE_CODE_ENABLE_SPECULATION;
+  const envOverride = configManager.env('CLAUDE_CODE_ENABLE_SPECULATION');
   if (envOverride === 'false' || envOverride === '0') {
     return false;
   }

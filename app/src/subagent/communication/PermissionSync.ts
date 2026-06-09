@@ -2,6 +2,7 @@
  * 权限同步
  */
 import { PermissionRequest, PermissionResponse } from '../SubAgentCommunicator';
+import { TTLCache } from '@modules/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -10,8 +11,12 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 权限同步
  */
 export class PermissionSync {
-  private permissionCache: Map<string, PermissionResponse> = new Map();
+  private permissionCache: TTLCache<PermissionResponse>;
   private pendingRequests: Map<string, PermissionRequest> = new Map();
+
+  constructor() {
+    this.permissionCache = new TTLCache<PermissionResponse>(1000, 5 * 60 * 1000);
+  }
 
   /**
    * 发送权限请求
@@ -69,7 +74,7 @@ export class PermissionSync {
     if (request) {
       // 检查缓存
       const cacheKey = this.generateCacheKey(request);
-      return this.permissionCache.get(cacheKey);
+      return this.permissionCache.get(cacheKey) ?? undefined;
     }
 
     return undefined;
@@ -83,7 +88,7 @@ export class PermissionSync {
   checkPermission(request: PermissionRequest): PermissionResponse | undefined {
     // 检查缓存
     const cacheKey = this.generateCacheKey(request);
-    return this.permissionCache.get(cacheKey);
+    return this.permissionCache.get(cacheKey) ?? undefined;
   }
 
   /**
@@ -124,7 +129,7 @@ export class PermissionSync {
    * @returns 缓存大小
    */
   getCacheSize(): number {
-    return this.permissionCache.size;
+    return this.permissionCache.size();
   }
 
   /**

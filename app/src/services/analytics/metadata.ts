@@ -5,6 +5,8 @@
  * 参考 CC源码 cc_code/backend/services/analytics/metadata.ts
  */
 
+import { configManager } from '@modules/config';
+
 export interface EventMetadata {
   sessionId?: string;
   model?: string;
@@ -21,7 +23,7 @@ export function getDefaultMetadata(
   return {
     timestamp: new Date().toISOString(),
     platform: process.platform,
-    version: process.env.Liri_VERSION || '1.0.0',
+    version: configManager.env('Liri_VERSION') || '1.0.0',
     ...extra,
   };
 }

@@ -6,6 +6,7 @@
 
 import { isEnvTruthy } from '../utils/envUtils.js';
 import { logForDebugging } from '../utils/debug.js';
+import { configManager } from '@modules/config';
 
 /**
  * 从环境变量获取数字值
@@ -81,13 +82,13 @@ export interface PerformanceConfig {
  */
 const DEFAULT_CONFIG: PerformanceConfig = {
   startupProfiling: {
-    enabled: isEnvTruthy(process.env.Liri_PROFILE_STARTUP),
-    sampleRate: process.env.USER_TYPE === 'ant' ? 1.0 : 0.005,
+    enabled: isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP')),
+    sampleRate: configManager.env('USER_TYPE') === 'ant' ? 1.0 : 0.005,
   },
   slowOperations: {
     thresholdMs: getEnvNumber(
       'Liri_SLOW_OPERATION_THRESHOLD_MS',
-      process.env.NODE_ENV === 'development' ? 20 : 300
+      configManager.env('NODE_ENV') === 'development' ? 20 : 300
     ),
     enabled: true,
   },
@@ -105,7 +106,7 @@ const DEFAULT_CONFIG: PerformanceConfig = {
     expirationMs: getEnvNumber('Liri_CACHE_EXPIRATION_MS', 3600000),
   },
   lazyLoading: {
-    enabled: isEnvTruthy(process.env.Liri_LAZY_LOADING_ENABLED),
+    enabled: isEnvTruthy(configManager.env('Liri_LAZY_LOADING_ENABLED')),
     preloadThresholdMs: getEnvNumber('Liri_PRELOAD_THRESHOLD_MS', 100),
   },
 };
@@ -146,13 +147,13 @@ export class PerformanceConfigManager {
   reloadFromEnvironment(): void {
     this.config = {
       startupProfiling: {
-        enabled: isEnvTruthy(process.env.Liri_PROFILE_STARTUP),
-        sampleRate: process.env.USER_TYPE === 'ant' ? 1.0 : 0.005,
+        enabled: isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP')),
+        sampleRate: configManager.env('USER_TYPE') === 'ant' ? 1.0 : 0.005,
       },
       slowOperations: {
         thresholdMs: getEnvNumber(
           'Liri_SLOW_OPERATION_THRESHOLD_MS',
-          process.env.NODE_ENV === 'development' ? 20 : 300
+          configManager.env('NODE_ENV') === 'development' ? 20 : 300
         ),
         enabled: true,
       },
@@ -170,7 +171,7 @@ export class PerformanceConfigManager {
         expirationMs: getEnvNumber('Liri_CACHE_EXPIRATION_MS', 3600000),
       },
       lazyLoading: {
-        enabled: isEnvTruthy(process.env.Liri_LAZY_LOADING_ENABLED),
+        enabled: isEnvTruthy(configManager.env('Liri_LAZY_LOADING_ENABLED')),
         preloadThresholdMs: getEnvNumber('Liri_PRELOAD_THRESHOLD_MS', 100),
       },
     };

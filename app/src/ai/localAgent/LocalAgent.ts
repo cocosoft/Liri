@@ -20,6 +20,7 @@ import { LocalCommandExecutor } from './CommandExecutor.js';
 import { SkillProvider } from './SkillProvider.js';
 import { MCPProvider } from './MCPProvider.js';
 import { SimpleQAEngine } from './SimpleQAEngine.js';
+import { configManager } from '@modules/config';
 import { ToolDispatcher } from './ToolDispatcher.js';
 import { LocalAgentCache } from './LocalAgentCache.js';
 import { DateTimeHandler } from './handlers/DateTimeHandler.js';
@@ -583,9 +584,9 @@ export function createLocalAgent(
   const defaultConfig: LocalAgentConfig = {
     ollama: {
       enabled: false,
-      baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-      defaultModel: process.env.OLLAMA_DEFAULT_MODEL || '',
-      timeout: parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10),
+      baseUrl: configManager.env('OLLAMA_BASE_URL') || 'http://localhost:11434',
+      defaultModel: configManager.env('OLLAMA_DEFAULT_MODEL') || '',
+      timeout: parseInt(configManager.env('OLLAMA_TIMEOUT') || '30000', 10),
     },
     routing: {
       strategy: 'local-first',

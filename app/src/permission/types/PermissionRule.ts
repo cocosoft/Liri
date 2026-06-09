@@ -21,6 +21,11 @@ export enum PermissionBehavior {
    * 询问是否使用工具
    */
   ASK = 'ask',
+
+  /**
+   * 透传（不拦截，放行）
+   */
+  PASSTHROUGH = 'passthrough',
 }
 
 /**

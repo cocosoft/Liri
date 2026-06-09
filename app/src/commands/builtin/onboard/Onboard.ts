@@ -15,7 +15,7 @@ import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@modules/core/paths';
 import { createInterface } from 'readline';
-import { setConfigValue, getConfig } from '@modules/config';
+import { setConfigValue, getConfig, configManager } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
 import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
 import {
@@ -439,11 +439,11 @@ function detectExistingConfig(): {
     // 忽略
   }
 
-  if (!apiKeyConfigured && process.env.DEEPSEEK_API_KEY) {
+  if (!apiKeyConfigured && configManager.env('DEEPSEEK_API_KEY')) {
     apiKeyConfigured = true;
     apiKeyMasked = '**** (from .env)';
   }
-  if (!provider && process.env.DEEPSEEK_API_KEY) {
+  if (!provider && configManager.env('DEEPSEEK_API_KEY')) {
     provider = 'deepseek';
   }
 
@@ -868,12 +868,12 @@ const onboardCommand = {
           (providerConfig as Record<string, unknown>).apiKey
         ) {
           aiKeyStatus = '✅ 已配置';
-        } else if (process.env.DEEPSEEK_API_KEY) {
+        } else if (configManager.env('DEEPSEEK_API_KEY')) {
           aiKeyStatus = '✅ 已配置（来自 .env）';
         } else {
           aiKeyStatus = '⚠️ 未配置（需设置 API 密钥）';
         }
-      } else if (process.env.DEEPSEEK_API_KEY) {
+      } else if (configManager.env('DEEPSEEK_API_KEY')) {
         aiProvider = 'deepseek（来自 .env）';
         aiKeyStatus = '✅ 已配置';
       }

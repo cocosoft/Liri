@@ -58,16 +58,18 @@ export interface OAuthAuthResult {
   scopes: string[];
 }
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * OAuth错误类型
  */
-export class OAuthError extends Error {
+export class OAuthError extends AppError {
   constructor(
     message: string,
-    public code: string,
+    code: string,
     public statusCode?: number
   ) {
-    super(message);
+    super(message, ErrorCategory.API, ErrorSeverity.MEDIUM, code);
     this.name = 'OAuthError';
   }
 }

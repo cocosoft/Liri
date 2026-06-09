@@ -3,6 +3,7 @@ import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { resolveDataSubDir } from '@modules/core/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { configManager } from '@modules/config';
 
 export interface RecordedMessage {
   id: string;
@@ -201,6 +202,6 @@ export class SessionRecorder {
   }
 
   static getStorageDir(): string {
-    return process.env.VCR_STORAGE_DIR || resolveDataSubDir('vcr_recordings');
+    return configManager.env('VCR_STORAGE_DIR') || resolveDataSubDir('vcr_recordings');
   }
 }

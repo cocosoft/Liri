@@ -1,4 +1,4 @@
-//
+import { configManager } from '@modules/config';
 import { coerce } from 'semver';
 import type { Writable } from 'stream';
 import { env } from '../utils/env.js';
@@ -31,34 +31,34 @@ export function isProgressReportingAvailable(): boolean {
 
   // Explicitly exclude Windows Terminal, which interprets OSC 9;4 as
   // notifications rather than progress indicators
-  if (process.env.WT_SESSION) {
+  if (configManager.env('WT_SESSION')) {
     return false;
   }
 
   // ConEmu supports OSC 9;4 for progress (all versions)
   if (
-    process.env.ConEmuANSI ||
-    process.env.ConEmuPID ||
-    process.env.ConEmuTask
+    configManager.env('ConEmuANSI') ||
+    configManager.env('ConEmuPID') ||
+    configManager.env('ConEmuTask')
   ) {
     return true;
   }
 
-  const version = coerce(process.env.TERM_PROGRAM_VERSION);
+  const version = coerce(configManager.env('TERM_PROGRAM_VERSION'));
   if (!version) {
     return false;
   }
 
   // Ghostty 1.2.0+ supports OSC 9;4 for progress
   // https://ghostty.org/docs/install/release-notes/1-2-0
-  if (process.env.TERM_PROGRAM === 'ghostty') {
+  if (configManager.env('TERM_PROGRAM') === 'ghostty') {
     return gte(version.version, '1.2.0');
   }
 
   // iTerm2 3.6.6+ supports OSC 9;4 for progress
   // https://iterm2.com/downloads.html
-  if (process.env.TERM_PROGRAM === 'iTerm.app') {
-    return gte(version.version, '3.6.6');
+  if (configManager.env('TERM_PROGRAM') === 'iTerm.app') {
+    return gte(version, '3.6.6');
   }
 
   return false;
@@ -72,10 +72,10 @@ export function isSynchronizedOutputSupported(): boolean {
   // tmux parses and proxies every byte but doesn't implement DEC 2026.
   // BSU/ESU pass through to the outer terminal but tmux has already
   // broken atomicity by chunking. Skip to save 16 bytes/frame + parser work.
-  if (process.env.TMUX) return false;
+  if (configManager.env('TMUX')) return false;
 
-  const termProgram = process.env.TERM_PROGRAM;
-  const term = process.env.TERM;
+  const termProgram = configManager.env('TERM_PROGRAM');
+  const term = configManager.env('TERM');
 
   // Modern terminals with known DEC 2026 support
   if (
@@ -91,7 +91,7 @@ export function isSynchronizedOutputSupported(): boolean {
   }
 
   // kitty sets TERM=xterm-kitty or KITTY_WINDOW_ID
-  if (term?.includes('kitty') || process.env.KITTY_WINDOW_ID) return true;
+  if (term?.includes('kitty') || configManager.env('KITTY_WINDOW_ID')) return true;
 
   // Ghostty may set TERM=xterm-ghostty without TERM_PROGRAM
   if (term === 'xterm-ghostty') return true;
@@ -103,13 +103,13 @@ export function isSynchronizedOutputSupported(): boolean {
   if (term?.includes('alacritty')) return true;
 
   // Zed uses the alacritty_terminal crate which supports DEC 2026
-  if (process.env.ZED_TERM) return true;
+  if (configManager.env('ZED_TERM')) return true;
 
   // Windows Terminal
-  if (process.env.WT_SESSION) return true;
+  if (configManager.env('WT_SESSION')) return true;
 
   // VTE-based terminals (GNOME Terminal, Tilix, etc.) since VTE 0.68
-  const vteVersion = process.env.VTE_VERSION;
+  const vteVersion = configManager.env('VTE_VERSION');
   if (vteVersion) {
     const version = parseInt(vteVersion, 10);
     if (version >= 6800) return true;
@@ -142,7 +142,7 @@ export function setXtversionName(name: string): void {
  *  SSH — query/reply goes through the pty). Early calls may miss the probe
  *  reply — call lazily (e.g. in an event handler) if SSH detection matters. */
 export function isXtermJs(): boolean {
-  if (process.env.TERM_PROGRAM === 'vscode') return true;
+  if (configManager.env('TERM_PROGRAM') === 'vscode') return true;
   return xtversionName?.startsWith('xterm.js') ?? false;
 }
 
@@ -176,7 +176,7 @@ export function supportsExtendedKeys(): boolean {
  *  mid-stream. WT_SESSION catches WSL-in-Windows-Terminal where platform
  *  is linux but output still routes through conhost. */
 export function hasCursorUpViewportYankBug(): boolean {
-  return process.platform === 'win32' || !!process.env.WT_SESSION;
+  return process.platform === 'win32' || !!configManager.env('WT_SESSION');
 }
 
 // Computed once at module load — terminal capabilities don't change mid-session.

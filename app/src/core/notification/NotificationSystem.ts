@@ -1,6 +1,9 @@
 /**
  * 通知系统实现
  * 参考CC源码 cc_code/backend/context/notifications.tsx 实现
+ *
+ * @deprecated 标准通知服务为 core/notifications/NotificationService.ts。
+ *   本模块 0 引用，保留仅作参考，新代码请使用 NotificationService。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

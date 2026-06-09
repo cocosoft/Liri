@@ -5,7 +5,7 @@
 
 import { MetricsService } from '../metrics/MetricsService.js';
 import { OTelMetrics } from './OTelMetrics.js';
-import { errorMessage } from '@modules/utils/errors.js';
+import { errorMessage } from '@modules/error/utils';
 
 export interface MetricsBridgeConfig {
   syncIntervalMs: number;

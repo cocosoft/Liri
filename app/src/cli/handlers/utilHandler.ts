@@ -4,6 +4,7 @@
  */
 
 import { CLIHandler } from './cliHandler.js';
+import { configManager } from '@modules/config';
 
 export interface UtilHandlerOptions {
   verbose?: boolean;
@@ -230,7 +231,7 @@ export class UtilHandler {
       delete process.env.Liri_DEBUG;
       console.log('调试模式已关闭');
     } else {
-      const status = process.env.Liri_DEBUG ? '开启' : '关闭';
+      const status = configManager.env('Liri_DEBUG') ? '开启' : '关闭';
       console.log(`调试模式: ${status}`);
       console.log(`Node版本: ${process.version}`);
       console.log(`平台: ${process.platform}`);

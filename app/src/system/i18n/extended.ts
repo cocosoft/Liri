@@ -4,6 +4,8 @@
  * 在现有 core/i18n/ 基础上扩展翻译注册和管理能力
  */
 
+import { configManager } from '@modules/config';
+
 /**
  * 翻译条目
  */
@@ -28,7 +30,7 @@ export type SupportedLocale = 'zh' | 'en' | 'ja' | 'ko';
  */
 export function detectSystemLocale(): SupportedLocale {
   const envLocale =
-    process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES;
+    configManager.env('LANG') || configManager.env('LC_ALL') || configManager.env('LC_MESSAGES');
 
   if (envLocale) {
     const normalized = envLocale.toLowerCase();

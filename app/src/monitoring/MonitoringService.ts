@@ -8,6 +8,7 @@ import path from 'path';
 import { resolveLogsDir } from '@modules/core/paths';
 import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
+import { configManager } from '@modules/config';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
@@ -124,7 +125,7 @@ export class MonitoringService {
    */
   private loadAlertPresets(): void {
     try {
-      const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
+      const projectRoot = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
       const presetsDir = path.join(
         projectRoot,
         'app',
@@ -391,7 +392,7 @@ export class MonitoringService {
     // 检查CPU使用（正确计算方式）
     // 注意：process.cpuUsage()返回的是微秒数，需要与时间差比较
     // 这里我们简化处理，只在开发环境显示警告
-    if (process.env.NODE_ENV !== 'production') {
+    if (configManager.env('NODE_ENV') !== 'production') {
       const cpuPercent =
         (cpuUsage.user + cpuUsage.system) / (Date.now() - this.startTime) / 10;
       if (cpuPercent > this.config.alertThresholds.cpuUsage) {
@@ -462,7 +463,7 @@ export class MonitoringService {
         pid: process.pid,
         title: process.title,
         version: process.version,
-        env: process.env.NODE_ENV || 'development',
+        env: configManager.env('NODE_ENV') || 'development',
       },
     };
   }

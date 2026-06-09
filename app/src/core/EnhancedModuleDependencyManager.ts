@@ -119,6 +119,11 @@ export interface OptimizationSuggestion {
 
 /**
  * 增强版模块依赖管理器
+ *
+ * @deprecated 请使用 modules/ModuleRegistry 替代。
+ * ModuleRegistry 提供了统一的模块注册、依赖解析、生命周期管理
+ * 和 DI 容器集成（useContainer(getDIContainer())）。
+ * 此文件将在未来版本中移除。
  */
 export class EnhancedModuleDependencyManager {
   private modules: Map<string, EnhancedModuleInstance> = new Map();

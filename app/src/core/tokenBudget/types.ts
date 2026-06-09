@@ -31,7 +31,7 @@ export type APIProviderType =
   | 'openai'
   | 'deepseek';
 
-export interface ModelPricing {
+export interface ModelPriceTable {
   inputPer1M: number;
   outputPer1M: number;
   cacheWritePer1M: number;

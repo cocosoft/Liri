@@ -5,6 +5,7 @@
  */
 
 import type { Tool } from '../types/Tool';
+import { configManager } from '@modules/config';
 
 /**
  * 工具搜索工具名称
@@ -128,7 +129,7 @@ export type ToolSearchMode = 'tst' | 'tst-auto' | 'standard';
  * @returns 工具搜索模式
  */
 export function getToolSearchMode(): ToolSearchMode {
-  const value = process.env.ENABLE_TOOL_SEARCH;
+  const value = configManager.env('ENABLE_TOOL_SEARCH');
 
   // 未设置时默认启用工具搜索
   if (!value) {

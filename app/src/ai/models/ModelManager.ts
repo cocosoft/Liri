@@ -19,6 +19,7 @@ import {
   type ModelKey,
 } from './ModelConfigs.js';
 import { ModelRegistry } from './ModelRegistry.js';
+import { configManager } from '@modules/config';
 
 /**
  * 用户订阅类型
@@ -109,7 +110,7 @@ export class ModelManager {
   }
 
   getDefaultOpusModel(): string {
-    return process.env.ANTHROPIC_DEFAULT_OPUS_MODEL || this.modelStrings.opus46;
+    return configManager.env('ANTHROPIC_DEFAULT_OPUS_MODEL') || this.modelStrings.opus46;
   }
 
   getDefaultSonnetModel(): string {
@@ -120,7 +121,7 @@ export class ModelManager {
 
   getDefaultHaikuModel(): string {
     return (
-      process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || this.modelStrings.haiku45
+      configManager.env('ANTHROPIC_DEFAULT_HAIKU_MODEL') || this.modelStrings.haiku45
     );
   }
 
@@ -292,7 +293,7 @@ export class ModelManager {
    * 当主力模型不可用时自动回退
    */
   getFallbackModel(): string {
-    const fallback = process.env.Liri_FALLBACK_MODEL;
+    const fallback = configManager.env('Liri_FALLBACK_MODEL');
     if (fallback) return fallback;
     return this.getSmallFastModel();
   }
@@ -316,7 +317,7 @@ export class ModelManager {
    * 获取当前模型
    */
   getCurrentModel(): string {
-    const envModel = process.env.Liri_MODEL;
+    const envModel = configManager.env('Liri_MODEL');
     if (envModel) {
       const modelKey = getModelKeyByName(envModel);
       if (modelKey) {

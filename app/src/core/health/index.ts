@@ -18,6 +18,16 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
+/**
+ * 健康检查模块统一导出
+ *
+ * ════════════════════════════════════════════════════
+ * HealthStatus 类型已统一为 UnifiedHealthStatus（2026-06 架构治理）
+ * 新代码请从本模块导入 UnifiedHealthStatus，而非自行定义。
+ * ════════════════════════════════════════════════════
+ */
+
 export {
   DependencyHealthChecker,
   getDependencyHealthChecker,
@@ -33,3 +43,9 @@ export {
   moduleHealthRegistry,
 } from './ModuleHealthRegistry';
 export type { ModuleHealth, ModuleHealthCheck } from './ModuleHealthRegistry';
+export type { UnifiedHealthStatus } from './types.js';
+export {
+  HEALTH_SEVERITY,
+  isAcceptable,
+  mergeHealthStatuses,
+} from './types.js';

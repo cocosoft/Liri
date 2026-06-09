@@ -8,6 +8,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { DiskSpaceMonitor } from '../../core/delivery/monitor/DiskSpaceMonitor';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 诊断级别
@@ -600,7 +601,7 @@ export class DaemonDiagnostics {
    */
   private checkSecurityStatus(): DiagnosticsCheck {
     const isRoot = process.getuid && process.getuid() === 0;
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = configManager.env('NODE_ENV') === 'production';
 
     return {
       name: 'security',

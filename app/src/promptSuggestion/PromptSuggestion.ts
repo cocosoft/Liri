@@ -2,6 +2,7 @@
  * Prompt Suggestion核心服务模块
  */
 
+import { configManager } from '@modules/config';
 import {
   SUGGESTION_PROMPT,
   SUGGESTION_PROMPTS,
@@ -59,7 +60,7 @@ function getAnalytics(): Analytics {
   if (!analytics) {
     analytics = {
       logSuggestionSuppressed: (reason, suggestion, promptId, source) => {
-        if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+        if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
           console.log(`[PromptSuggestion] Suppressed: ${reason}`, {
             suggestion,
             promptId,
@@ -74,7 +75,7 @@ function getAnalytics(): Analytics {
         promptId,
         generationRequestId
       ) => {
-        if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
+        if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
           console.log(`[PromptSuggestion] Outcome`, {
             suggestion,
             userInput,
@@ -147,7 +148,7 @@ export async function generateSuggestion(
   promptId: PromptVariant,
   cacheSafeParams: CacheSafeParams
 ): Promise<GenerateSuggestionResult> {
-  if (process.env.MOCK_PROMPT_SUGGESTION === 'true') {
+  if (configManager.env('MOCK_PROMPT_SUGGESTION') === 'true') {
     return {
       suggestion: 'run the tests',
       generationRequestId: 'mock-' + Date.now(),

@@ -7,6 +7,7 @@ import {
   type ProviderMetadata,
   type ProviderType,
 } from './ProviderCatalog.js';
+import { configManager } from '@modules/config';
 
 /**
  * 发现策略
@@ -177,7 +178,7 @@ export class ProviderDiscovery {
     const results: DiscoveryResult[] = [];
 
     try {
-      const configPath = process.env.LIRI_PROVIDER_CONFIG;
+      const configPath = configManager.env('LIRI_PROVIDER_CONFIG');
       if (!configPath) return results;
 
       const fs = require('node:fs');
@@ -206,7 +207,7 @@ export class ProviderDiscovery {
   private discoverFromEnvironment(): DiscoveryResult[] {
     const results: DiscoveryResult[] = [];
 
-    if (process.env.OPENAI_API_KEY) {
+    if (configManager.env('OPENAI_API_KEY')) {
       results.push({
         provider: {
           id: 'openai-env',
@@ -233,7 +234,7 @@ export class ProviderDiscovery {
       });
     }
 
-    if (process.env.ANTHROPIC_API_KEY) {
+    if (configManager.env('ANTHROPIC_API_KEY')) {
       results.push({
         provider: {
           id: 'anthropic-env',

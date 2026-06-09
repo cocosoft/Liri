@@ -13,6 +13,7 @@
  */
 
 import { spawn } from 'child_process';
+import { configManager } from '@modules/config';
 import { basename } from 'path';
 
 export type TerminalInfo = {
@@ -279,14 +280,14 @@ export async function detectTerminal(): Promise<TerminalInfo | null> {
       return { name: 'Windows Terminal', command: 'wt.exe' };
     }
     // Check if running in Windows Terminal via env
-    if (process.env.WT_SESSION) {
+    if (configManager.env('WT_SESSION')) {
       return { name: 'Windows Terminal', command: 'wt.exe' };
     }
     return { name: 'PowerShell', command: 'powershell.exe' };
   }
 
   if (process.platform === 'darwin') {
-    const termProgram = process.env.TERM_PROGRAM;
+    const termProgram = configManager.env('TERM_PROGRAM');
     if (termProgram) {
       const normalized = termProgram.replace(/\.app$/i, '').toLowerCase();
       const match = MACOS_TERMINALS.find(
@@ -298,7 +299,7 @@ export async function detectTerminal(): Promise<TerminalInfo | null> {
   }
 
   if (process.platform === 'linux') {
-    const term = process.env.TERM || process.env.TERMINAL;
+    const term = configManager.env('TERM') || configManager.env('TERMINAL');
     if (term) {
       for (const t of LINUX_TERMINALS) {
         if (t === term || basename(term) === t) {

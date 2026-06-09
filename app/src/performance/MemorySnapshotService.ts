@@ -6,6 +6,7 @@
 import path from 'path';
 import fs from 'fs';
 import { resolveDataSubDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 
 /**
  * 内存快照配置
@@ -151,7 +152,7 @@ export class MemorySnapshotService {
         pid: process.pid,
         title: process.title,
         version: process.version,
-        env: process.env.NODE_ENV || 'development',
+        env: configManager.env('NODE_ENV') || 'development',
       };
     }
 

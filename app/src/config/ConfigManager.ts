@@ -72,7 +72,7 @@ function stableStringify(value: unknown): string {
  * 配置原子修改冲突错误
  * 在 mutateConfigFile() 检测到外部修改时抛出
  */
-export class ConfigMutationConflictError extends Error {
+export class ConfigMutationConflictError extends AppError {
   readonly expectedHash: string | null;
   readonly actualHash: string | null;
 
@@ -80,7 +80,7 @@ export class ConfigMutationConflictError extends Error {
     message: string,
     params: { expectedHash: string | null; actualHash: string | null }
   ) {
-    super(message);
+    super(message, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH, undefined, params);
     this.name = 'ConfigMutationConflictError';
     this.expectedHash = params.expectedHash;
     this.actualHash = params.actualHash;
@@ -368,7 +368,7 @@ export class ConfigManager {
    * @returns 全局配置
    */
   private loadConfigFromFile(): GlobalConfig {
-    if (!this.configReadingAllowed && process.env.NODE_ENV !== 'test') {
+    if (!this.configReadingAllowed && this.env('NODE_ENV') !== 'test') {
       throw new AppError(
         '配置系统在启用前不可访问',
         ErrorCategory.EXECUTION,
@@ -682,7 +682,7 @@ export class ConfigManager {
    * 启动配置新鲜度监控
    */
   private startFreshnessWatcher(): void {
-    if (this.freshnessWatcherStarted || process.env.NODE_ENV === 'test') {
+    if (this.freshnessWatcherStarted || this.env('NODE_ENV') === 'test') {
       return;
     }
 
@@ -809,6 +809,19 @@ export class ConfigManager {
       hashChecks: 0,
       hashMismatches: 0,
     };
+  }
+
+  /**
+   * 获取环境变量值（统一入口）
+   * 
+   * 所有 process.env 读取应优先通过此方法访问，便于集中管理和审计。
+   * 当前为轻量代理层，后续可扩展为支持默认值、类型转换、变量白名单等功能。
+   * 
+   * @param name 环境变量名称
+   * @param defaultValue 可选默认值
+   */
+  env(name: string, defaultValue?: string): string | undefined {
+    return process.env[name] ?? defaultValue;
   }
 
   /**

@@ -8,6 +8,7 @@ import * as path from 'path';
 import { homedir } from 'os';
 import { execSync } from 'child_process';
 import { realpath } from 'fs/promises';
+import { configManager } from '@modules/config';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -206,7 +207,7 @@ async function detectApk(): Promise<boolean> {
  */
 export async function getCurrentInstallationType(): Promise<InstallationType> {
   // 开发模式
-  if (process.env.NODE_ENV === 'development') {
+  if (configManager.env('NODE_ENV') === 'development') {
     return 'development';
   }
 
@@ -284,7 +285,7 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
  * 获取安装路径
  */
 export async function getInstallationPath(): Promise<string> {
-  if (process.env.NODE_ENV === 'development') {
+  if (configManager.env('NODE_ENV') === 'development') {
     return process.cwd();
   }
 
@@ -375,7 +376,7 @@ export async function detectConfigurationIssues(
 
   // 检查PATH中是否包含.local/bin（原生安装）
   if (type === 'native') {
-    const pathEnv = process.env.PATH || '';
+    const pathEnv = configManager.env('PATH') || '';
     const pathDirectories = pathEnv.split(path.delimiter);
     const localBinPath = path.join(homedir(), '.local', 'bin');
 

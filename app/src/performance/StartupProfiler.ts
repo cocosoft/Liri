@@ -15,14 +15,15 @@ import { logForDebugging } from '../utils/debug.js';
 import { getConfigHomeDir, isEnvTruthy } from '../utils/envUtils.js';
 import fs from 'fs';
 import { getPerformanceConfig } from './PerformanceConfig.js';
+import { configManager } from '@modules/config';
 
 // 模块级状态 - 在模块加载时决定
-const DETAILED_PROFILING = isEnvTruthy(process.env.Liri_PROFILE_STARTUP);
+const DETAILED_PROFILING = isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP'));
 
 // 采样率：100% 内部用户，0.5% 外部用户
 const STATSIG_SAMPLE_RATE = 0.005;
 const STATSIG_LOGGING_SAMPLED =
-  process.env.USER_TYPE === 'ant' || Math.random() < STATSIG_SAMPLE_RATE;
+  configManager.env('USER_TYPE') === 'ant' || Math.random() < STATSIG_SAMPLE_RATE;
 
 // 启动阶段定义
 const PHASE_DEFINITIONS: Record<string, [string, string]> = {

@@ -1,14 +1,18 @@
+import { APIError as BaseAPIError, ErrorSeverity } from '../types';
+
 /**
  * 轻量 API 错误类型
  * 替代 @anthropic-ai/sdk/error.js，消除 SDK 依赖
+ *
+ * @deprecated 保留用于 API 场景分类（含 headers 字段）。
+ *   新代码直接使用 @modules/error/types 中的 APIError。
  */
 
 /**
  * Anthropic SDK APIError 的轻量替代。
  * APISceneClassifier 依赖的字段：status、message、headers
  */
-export class APIError extends Error {
-  status: number | undefined;
+export class APIError extends BaseAPIError {
   headers: Record<string, string | undefined> | undefined;
 
   constructor(
@@ -16,9 +20,8 @@ export class APIError extends Error {
     status?: number,
     headers?: Record<string, string | undefined>
   ) {
-    super(message);
+    super(message, status, undefined, ErrorSeverity.HIGH);
     this.name = 'APIError';
-    this.status = status;
     this.headers = headers;
   }
 }

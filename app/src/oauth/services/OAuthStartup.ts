@@ -6,6 +6,7 @@
 
 import { logger } from '@modules/infrastructure';
 import { createOAuthStorage } from '@modules/oauth';
+import { configManager } from '@modules/config';
 
 /**
  * OAuth启动预加载配置
@@ -122,7 +123,7 @@ export class OAuthStartupManager {
     }
 
     try {
-      const apiUrl = process.env.Liri_API_BASE_URL || 'https://api.pyapp.dev';
+      const apiUrl = configManager.env('Liri_API_BASE_URL') || 'https://api.pyapp.dev';
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 

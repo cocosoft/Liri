@@ -1,4 +1,6 @@
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
+import type { HealthStatus } from '@modules/core/health/types.js';
+
+export type { HealthStatus };
 
 export interface HealthCheck {
   name: string;
@@ -164,15 +166,14 @@ export class HealthChecker implements IHealthChecker {
   }
 
   private aggregateResults(checks: HealthCheck[]): HealthCheckResult {
-    const statusOrder: Record<HealthStatus, number> = {
+    const statusOrder: Record<string, number> = {
       healthy: 0,
       degraded: 1,
       unhealthy: 2,
       unknown: 3,
     };
-    let worst: HealthStatus = 'healthy';
 
-    const summary = {
+    const summary: HealthCheckResult['summary'] = {
       total: checks.length,
       healthy: 0,
       degraded: 0,
@@ -181,8 +182,12 @@ export class HealthChecker implements IHealthChecker {
       averageLatency: 0,
     };
 
+    let worst: HealthStatus = 'healthy';
+
     for (const c of checks) {
-      summary[c.status]++;
+      if (c.status in summary) {
+        (summary as Record<string, number>)[c.status]++;
+      }
       if (statusOrder[c.status] > statusOrder[worst]) worst = c.status;
     }
 

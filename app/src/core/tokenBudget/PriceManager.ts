@@ -7,6 +7,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
+import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
 
 export interface CostCalculationResult {
   cost: number;
@@ -56,10 +57,7 @@ export class PriceManager {
 
   private getPricingFromRegistry(model: string): PricingResult | null {
     try {
-      // 延迟加载避免循环依赖
-      const mod = require('@modules/ai/models/ModelRegistry');
-      if (!mod?.ModelRegistry) return null;
-      const registry = mod.ModelRegistry.getInstance();
+      const registry = ModelRegistry.getInstance();
       const pricing = registry.getModelPricing(model);
       if (pricing) {
         return {

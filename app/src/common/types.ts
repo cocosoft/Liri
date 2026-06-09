@@ -268,19 +268,21 @@ export interface CpuMetrics {
   system: number;
 }
 
+import type { HealthStatus as CoreHealthStatus } from '@modules/core/health/types.js';
+
 /**
  * 健康检查类型
  */
 export interface HealthCheck {
   name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: CoreHealthStatus;
   latency?: number;
   message?: string;
   lastCheck?: number;
 }
 
 export interface HealthStatus {
-  overall: 'healthy' | 'degraded' | 'unhealthy';
+  overall: CoreHealthStatus;
   checks: HealthCheck[];
   timestamp: number;
   uptime: number;

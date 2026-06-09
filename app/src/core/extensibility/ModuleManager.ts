@@ -22,6 +22,10 @@
 /**
  * ModuleManager — 模块管理器
  *
+ * @deprecated 请使用 @modules/modules/ModuleRegistry 替代。
+ *   此实现为遗留版本，与 modules/ModuleRegistry 功能重叠。
+ *   新代码不应使用此模块。此文件将在未来版本中移除。
+ *
  * 管理模块的注册、加载、启动、停止、卸载及依赖解析。
  */
 
@@ -267,6 +271,11 @@ export class ModuleManager {
 
   /**
    * 获取提供者
+   *
+   * @deprecated 请使用 @modules/modules/ModuleRegistry 的 resolve 方法替代。
+   *   本方法遍历所有模块查找提供者，是三套服务定位入口之一。
+   *   统一服务定位入口为 modules/ModuleRegistry。
+   *   此方法将在未来版本中移除。
    */
   async getProvider<T>(name: string): Promise<T | undefined> {
     for (const module of this.modules.values()) {

@@ -45,6 +45,10 @@ export type {
 } from './doctor';
 export { feishuProbe } from './probe';
 export type { ProbeResult as FeishuProbeResult } from './probe';
+/**
+ * 消息去重（已迁移至共享模块）
+ * @deprecated 请直接使用 @modules/channels/dedup 的 claimMessage/finalizeMessage
+ */
 export { claimMessage, finalizeMessage } from './dedup';
 export {
   normalizeFeishuApproverId,

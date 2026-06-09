@@ -1,6 +1,10 @@
 /**
- * ChannelManager — 统一通道生命周期管理
+ * ChannelManager — 统一通道生命周期管理（遗留版）
  * 管理所有 GatewayChannel 的注册、启停、消息路由和健康监控
+ *
+ * @deprecated 请使用 channels/registry/ChannelRegistry 替代。
+ *   core/gateway/ 体系后续将统一收敛到 channels/ 体系。
+ *   此模块将在未来版本中移除。
  */
 
 import { EventEmitter } from 'events';
@@ -71,6 +75,11 @@ interface ChannelRegistration {
 /**
  * 通道管理器
  * 负责通道注册、生命周期控制、消息路由和健康监控
+ */
+/**
+ * @deprecated 请使用 @modules/core/events/EventBus 的 EventBusImpl 替代 Node.js EventEmitter。
+ *   此类继承自 Node.js EventEmitter，属于事件孤岛。
+ *   新代码应使用 EventBusImpl 替代。
  */
 export class ChannelManager extends EventEmitter {
   private channels: Map<string, ChannelRegistration> = new Map();

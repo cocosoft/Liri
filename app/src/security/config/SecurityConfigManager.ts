@@ -119,6 +119,11 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
 
 /**
  * 安全配置管理器
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代（全局配置 + 多源合并）。
+ *   本类为独立的文件式安全配置管理，与主配置系统功能重叠。
+ *   安全配置应整合到 @modules/config/ConfigManager 的全局配置中。
+ *   此文件将在未来版本中移除。
  */
 export class SecurityConfigManager extends EventEmitter {
   private config: SecurityConfig;

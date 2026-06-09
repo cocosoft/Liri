@@ -22,6 +22,12 @@
  * Agent Internal Events
  * 对标OpenClaw agents/internal-events.ts
  * Agent内部事件系统
+ *
+ * @deprecated 请使用 @modules/core/events/EventBus 作为统一事件总线。
+ *   本模块实现了独立的 InternalEventBus（自建 Map 管理订阅），
+ *   与 core/events/EventBus 发布-订阅体系功能重叠。
+ *   新的事件处理应基于 @modules/core/events/EventBus。
+ *   此模块将在未来版本中移除。
  */
 
 export { AgentEventType } from './types';

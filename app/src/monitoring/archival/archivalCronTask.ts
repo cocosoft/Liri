@@ -1,8 +1,8 @@
 /**
  * 归档定时任务调度
- * 将 DataArchivalStrategy 集成到 Chronos 调度系统中
- * 支持两种调度方式：
- * 1. setupArchivalScheduler - 基于 InMemoryScheduler 的内存调度（推荐）
+ * 将 DataArchivalStrategy 集成到调度系统中
+ * 支持两种方式：
+ * 1. setupArchivalScheduler - 基于 setInterval + CronParser 的内存调度（推荐）
  * 2. registerArchivalCronTask - 基于 CronTasks.addCronTask 的文件级持久化调度
  */
 
@@ -12,12 +12,7 @@ import type {
   ArchiveResult,
   CleanupResult,
 } from './DataArchivalStrategy.js';
-import { createInMemoryScheduler } from '../../chronos/CronScheduler.js';
-import type {
-  InMemoryScheduler,
-  InMemorySchedulerOptions,
-} from '../../chronos/types.js';
-import { createEnhancedCronTask } from '../../chronos/EnhancedCronTask.js';
+import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
 import {
   addCronTask,
   removeCronTasks,
@@ -51,8 +46,17 @@ export interface ArchivalSchedulerConfig {
   cron?: string;
   archivalConfig?: Partial<ArchivalConfig>;
   incidentManager?: IncidentManager;
-  onTaskComplete?: InMemorySchedulerOptions['onTaskComplete'];
+  onTaskComplete?: (result: ArchivalMaintenanceResult) => void;
 }
+
+/** 轻量级调度器句柄 */
+export interface ArchivalSchedulerHandle {
+  stop(): void;
+  removeTask(id: string): void;
+}
+
+/** 调度检查间隔 */
+const CHECK_INTERVAL_MS = 60_000;
 
 /**
  * 执行归档维护
@@ -94,66 +98,55 @@ export async function executeArchivalMaintenance(
 }
 
 /**
- * 设置归档调度器（基于 InMemoryScheduler 的内存调度）
- * 返回调度器实例，调用方负责管理生命周期
+ * 设置归档调度器（基于 setInterval + CronParser 的内存调度）
+ * 返回调度器句柄，调用方负责管理生命周期
  */
 export function setupArchivalScheduler(
   options?: ArchivalSchedulerConfig
-): InMemoryScheduler {
+): ArchivalSchedulerHandle {
   const cron = options?.cron ?? DEFAULT_ARCHIVAL_CRON;
+  let nextRunMs: number | null = computeNextCronRunMs(cron, Date.now()) ?? null;
+  let timerId: ReturnType<typeof setInterval> | null = setInterval(async () => {
+    if (nextRunMs === null) {
+      nextRunMs = computeNextCronRunMs(cron, Date.now()) ?? null;
+      return;
+    }
 
-  const scheduler = createInMemoryScheduler({
-    onTaskExecute: async (task) => {
-      if (task.id !== ARCHIVAL_TASK_ID) {
-        return { success: false, error: `未知任务: ${task.id}` };
-      }
-
+    const now = Date.now();
+    if (now >= nextRunMs) {
       const result = await executeArchivalMaintenance(
         options?.archivalConfig,
         options?.incidentManager
       );
 
-      const stdout = result.success
-        ? `归档 ${result.archives.filter((a) => a.success).length} 项, 压缩 ${result.compressions.length} 项, 清理 ${result.cleanups.reduce((s, c) => s + c.deletedCount, 0)} 项`
-        : undefined;
+      options?.onTaskComplete?.(result);
 
-      return {
-        success: result.success,
-        stdout,
-        stderr: result.error,
-        error: result.error,
-      };
-    },
-    onTaskComplete: options?.onTaskComplete,
-  });
-
-  const task = createEnhancedCronTask(cron, SYSTEM_ARCHIVAL_PROMPT, true, {
-    durable: false,
-    maxHistory: 10,
-  });
-
-  const archivalTask = {
-    ...task,
-    id: ARCHIVAL_TASK_ID,
-    taskType: '_system',
-    permanent: task.permanent ?? false,
-    recurring: task.recurring ?? true,
-    durable: task.durable ?? false,
-  };
-  scheduler.addTask(archivalTask);
-  scheduler.start();
+      nextRunMs = computeNextCronRunMs(cron, now) ?? null;
+    }
+  }, CHECK_INTERVAL_MS);
 
   logger.info('归档调度器已启动', { cron });
 
-  return scheduler;
+  return {
+    stop(): void {
+      if (timerId !== null) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      nextRunMs = null;
+    },
+    removeTask(_id: string): void {
+      // 定时器调度器只有一个内置任务，stop 即可停止所有
+      this.stop();
+    },
+  };
 }
 
 /**
  * 停止归档调度器
  */
-export function stopArchivalScheduler(scheduler: InMemoryScheduler): void {
+export function stopArchivalScheduler(scheduler: ArchivalSchedulerHandle): void {
   scheduler.stop();
-  scheduler.removeTask(ARCHIVAL_TASK_ID);
   logger.info('归档调度器已停止');
 }
 

@@ -23,6 +23,11 @@
  * ConfigManager — 配置管理器
  *
  * 提供内存配置实现及多配置管理器，支持注册/获取/持久化。
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ *   core/extensibility 中的 ConfigManager 为遗留实现，
+ *   与 config/ConfigManager 功能重叠。
+ *   此模块将在未来版本中移除。
  */
 
 import { Config, ConfigValue } from './types.js';

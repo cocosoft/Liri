@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * LocalHTTPService 模块导出
+ * HTTP 基础设施模块导出
  */
 
 export { LocalHTTPService, getLocalHTTPService } from './LocalHTTPService';

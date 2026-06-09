@@ -22,6 +22,9 @@
 /**
  * EventBus — 可扩展性事件总线
  *
+ * @deprecated 请直接使用 @modules/core/events/EventBus 的标准 EventBus。本封装层通过
+ * USE_LEGACY_EXTENSIBILITY 止血开关控制，默认不加载。
+ *
  * 基于核心 EventBusImpl 的领域封装，提供可扩展性系统专用的事件机制。
  */
 

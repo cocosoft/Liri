@@ -36,9 +36,9 @@ export interface NotificationOptions {
   priority?: 'low' | 'medium' | 'high';
   duration?: number;
   persistent?: boolean;
-  /** 通知去重键：相同 key 的通知会覆盖旧通知（从 notification/NotificationSystem 移植） */
+  /** 通知去重键：相同 key 的通知会覆盖旧通知 */
   key?: string;
-  /** 合并函数：当 key 存在时，使用此函数合并新旧通知（从 notification/NotificationSystem 移植） */
+  /** 合并函数：当 key 存在时，使用此函数合并新旧通知 */
   fold?: (existing: Notification, incoming: NotificationOptions) => Partial<NotificationOptions>;
   action?: {
     label: string;
@@ -54,7 +54,7 @@ export class NotificationService {
   private store = appStateStore as unknown as NotificationStore;
   private actionHandlers: Map<string, () => void> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
-  /** 通知去重键 → 通知 ID 映射（从 notification/NotificationSystem 移植） */
+  /** 通知去重键 → 通知 ID 映射 */
   private notificationKeys: Map<string, string> = new Map();
 
   private constructor() {}

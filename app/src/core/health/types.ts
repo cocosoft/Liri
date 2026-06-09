@@ -25,18 +25,18 @@
  * ════════════════════════════════════════════════════
  * 项目标准健康状态枚举（2026-06 架构治理统一）
  * 所有健康检查模块应使用此类型，避免自行定义。
- * 涵盖所有现有系统的值集：
- *   - diagnostics/SystemHealthChecker: healthy/warning/critical
- *   - core/health/DependencyHealthChecker: healthy/degraded/unhealthy/unknown
- *   - common/types.ts: healthy/degraded/unhealthy
  * ════════════════════════════════════════════════════
  */
 
 /**
- * 统一健康状态枚举
- * 覆盖所有现有健康检查系统的值集
+ * 标准健康状态
+ * 覆盖所有现有健康检查系统的值集：
+ *   - diagnostics/SystemHealthChecker: healthy/warning/critical
+ *   - core/health/DependencyHealthChecker: healthy/degraded/unhealthy/unknown
+ *   - common/types.ts: healthy/degraded/unhealthy
+ *   - monitoring/health/HealthChecker: healthy/degraded/unhealthy/unknown
  */
-export type UnifiedHealthStatus =
+export type HealthStatus =
   | 'healthy'
   | 'warning'
   | 'degraded'
@@ -45,9 +45,15 @@ export type UnifiedHealthStatus =
   | 'critical';
 
 /**
+ * UnifiedHealthStatus 是 HealthStatus 的兼容别名
+ * @deprecated 请直接使用 HealthStatus
+ */
+export type UnifiedHealthStatus = HealthStatus;
+
+/**
  * 健康状态严重程度映射
  */
-export const HEALTH_SEVERITY: Record<UnifiedHealthStatus, number> = {
+export const HEALTH_SEVERITY: Record<HealthStatus, number> = {
   healthy: 0,
   warning: 1,
   degraded: 2,
@@ -59,7 +65,7 @@ export const HEALTH_SEVERITY: Record<UnifiedHealthStatus, number> = {
 /**
  * 判断状态是否健康（healthy 或 warning 视为可接受）
  */
-export function isAcceptable(status: UnifiedHealthStatus): boolean {
+export function isAcceptable(status: HealthStatus): boolean {
   const severity = HEALTH_SEVERITY[status];
   return severity <= HEALTH_SEVERITY.warning;
 }
@@ -69,9 +75,9 @@ export function isAcceptable(status: UnifiedHealthStatus): boolean {
  * 取最严重的那个
  */
 export function mergeHealthStatuses(
-  statuses: UnifiedHealthStatus[]
-): UnifiedHealthStatus {
-  let worst: UnifiedHealthStatus = 'healthy';
+  statuses: HealthStatus[]
+): HealthStatus {
+  let worst: HealthStatus = 'healthy';
   for (const s of statuses) {
     if (HEALTH_SEVERITY[s] > HEALTH_SEVERITY[worst]) {
       worst = s;

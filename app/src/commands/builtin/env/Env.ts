@@ -110,11 +110,13 @@ function getSystemInfo(): string[] {
  * 检测终端类型
  */
 function detectTerminal(): string | null {
-  if (configManager.env('TERM_PROGRAM')) {
-    return configManager.env('TERM_PROGRAM');
+  const termProgram = configManager.env('TERM_PROGRAM');
+  if (termProgram) {
+    return termProgram;
   }
   if (configManager.env('WT_SESSION')) return 'windows-terminal';
-  if (configManager.env('TERM')) return configManager.env('TERM');
+  const term = configManager.env('TERM');
+  if (term) return term;
   return null;
 }
 

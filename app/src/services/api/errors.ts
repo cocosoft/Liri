@@ -13,6 +13,14 @@ import {
   ErrorSeverity,
 } from '@modules/error/types';
 
+/**
+ * API 错误类
+ *
+ * @deprecated 请使用 @modules/error/types 中的 APIError 替代。
+ *   本类为 services/api 模块自定义的 API 错误类型，与 error/types.ts 中的
+ *   标准 APIError 功能重叠。新代码应直接使用 @modules/error/types 的 APIError。
+ *   此类型将在未来版本中移除。
+ */
 export class ApiError extends AppError {
   public readonly status: number;
   public readonly errorBody: string;
@@ -45,6 +53,10 @@ export class ApiError extends AppError {
   }
 }
 
+/**
+ * @deprecated 请使用 @modules/error/types 中的 NetworkError 替代。
+ *   此类型将在未来版本中移除。
+ */
 export class ApiConnectionError extends AppError {
   constructor(message: string) {
     super(
@@ -57,6 +69,10 @@ export class ApiConnectionError extends AppError {
   }
 }
 
+/**
+ * @deprecated 请使用 @modules/error/types 中的 NetworkError 替代。
+ *   此类型将在未来版本中移除。
+ */
 export class ApiTimeoutError extends AppError {
   public readonly timeoutMs: number;
 

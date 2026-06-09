@@ -23,8 +23,9 @@
  * 健康检查模块统一导出
  *
  * ════════════════════════════════════════════════════
- * HealthStatus 类型已统一为 UnifiedHealthStatus（2026-06 架构治理）
- * 新代码请从本模块导入 UnifiedHealthStatus，而非自行定义。
+ * HealthStatus 是项目标准健康状态类型（2026-06 架构治理统一）
+ * 所有模块请使用此类型。DependencyHealthChecker 的 HealthStatus
+ * 已通过 types.js 统一。
  * ════════════════════════════════════════════════════
  */
 
@@ -36,14 +37,13 @@ export type {
   DependencyHealthResult,
   DependencyHealthConfig,
   DependencyType,
-  HealthStatus,
 } from './DependencyHealthChecker';
 export {
   ModuleHealthRegistry,
   moduleHealthRegistry,
 } from './ModuleHealthRegistry';
 export type { ModuleHealth, ModuleHealthCheck } from './ModuleHealthRegistry';
-export type { UnifiedHealthStatus } from './types.js';
+export type { HealthStatus, UnifiedHealthStatus } from './types.js';
 export {
   HEALTH_SEVERITY,
   isAcceptable,

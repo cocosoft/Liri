@@ -27,6 +27,13 @@ export interface RateLimitResult {
 const DEFAULT_BURST_MULTIPLIER = 2;
 const DEFAULT_BURST_WINDOW_MS = 1_000;
 
+/**
+ * 网关速率限制器
+ *
+ * @deprecated core/gateway/ 体系正逐步收敛到 channels/ 体系。
+ *   此模块作为遗留 ChannelManager 的基础设施，将在 future 版本中随 gateway 旧体系一起移除。
+ *   新代码建议使用 streaming/backpressure.ts 的 RateLimiter 或自行实现。
+ */
 export class RateLimiter {
   readonly name = 'RateLimiter';
   private buckets: Map<string, RateLimitBucket> = new Map();

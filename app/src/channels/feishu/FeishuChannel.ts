@@ -24,7 +24,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { claimMessage, finalizeMessage } from './dedup';
+import { claimMessage, finalizeMessage } from '../dedup/index.js';
 
 const FEISHU_META: ChannelMeta = {
   id: 'feishu',

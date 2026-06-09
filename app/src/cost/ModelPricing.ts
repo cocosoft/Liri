@@ -6,6 +6,9 @@
  * ModelConfigs.ts 和 ModelRegistry，此文件仅保留工具函数。
  */
 
+import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
+import { getModelConfigById } from '@modules/ai/models/ModelConfigs';
+
 export interface ModelPricing {
   inputPricePerMillion: number;
   outputPricePerMillion: number;
@@ -27,9 +30,7 @@ export function resetUnknownModelFlag(): void {
 
 function getPricingFromRegistry(modelName: string): ModelPricing | null {
   try {
-    const mod = require('@modules/ai/models/ModelRegistry');
-    if (!mod?.ModelRegistry) return null;
-    const registry = mod.ModelRegistry.getInstance();
+    const registry = ModelRegistry.getInstance();
     const pricing = registry.getModelPricing(modelName);
     if (pricing) {
       const model = registry.getModel(modelName);
@@ -49,11 +50,8 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
 
 export function getCanonicalModelName(modelName: string): string {
   try {
-    const mod = require('@modules/ai/models/ModelConfigs');
-    if (mod?.getModelConfigById) {
-      const config = mod.getModelConfigById(modelName);
-      if (config?.firstParty) return config.firstParty;
-    }
+    const config = getModelConfigById(modelName);
+    if (config?.firstParty) return config.firstParty;
   } catch {
     // 忽略
   }

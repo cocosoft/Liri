@@ -1,5 +1,6 @@
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { getMonitoringService } from '@modules/monitoring/MonitoringService';
+import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 import type { IPCService } from './IPCService';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { BaseTask } from '@modules/tasks/BaseTask';
@@ -23,7 +24,7 @@ export interface ManagedProcess {
 
 export interface ComponentHealth {
   name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: HealthStatusValue;
   lastCheck: number;
   message?: string;
 }

@@ -458,6 +458,46 @@ export const CLEAR_TAB_STATUS = osc(
 );
 
 /**
+ * Generate an OSC 21337 tab-status sequence.
+ *
+ * @param action - Tab status parameters (indicator, status text, status color)
+ * @returns OSC sequence string
+ */
+export function tabStatus(action: {
+  indicator?: Color | null;
+  status?: string | null;
+  statusColor?: Color | null;
+}): string {
+  const parts: string[] = [];
+
+  if (action.indicator) {
+    parts.push(`indicator=${colorToOscSpec(action.indicator)}`);
+  }
+  if (action.status) {
+    parts.push(`status=${action.status}`);
+  }
+  if (action.statusColor) {
+    parts.push(`status-color=${colorToOscSpec(action.statusColor)}`);
+  }
+
+  return osc(OSC.TAB_STATUS, parts.join(';'));
+}
+
+/** Convert a Color to its OSC-compatible string representation */
+function colorToOscSpec(color: Color): string {
+  switch (color.type) {
+    case 'rgb':
+      return `${color.r};${color.g};${color.b}`;
+    case 'named':
+      return color.name;
+    case 'indexed':
+      return String(color.index);
+    case 'default':
+      return 'default';
+  }
+}
+
+/**
  * Gate for emitting OSC 21337 (tab-status indicator). Ant-only while the
  * spec is unstable. Terminals that don't recognize it discard silently, so
  * emission is safe unconditionally — we don't gate on terminal detection

@@ -94,6 +94,11 @@ export interface ConfigVersion {
 
 /**
  * 远程配置管理器
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代（全局配置 + 多源合并）。
+ *   本类为独立的远程配置实现，与主配置系统功能重叠（多源合并、配置热更新）。
+ *   远程配置功能应整合到 @modules/config/ConfigManager 中。
+ *   此文件将在未来版本中移除。
  */
 export class RemoteConfigManager {
   private configs: Map<string, ConfigDefinition> = new Map();

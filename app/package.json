@@ -36,7 +36,7 @@
     "memory": "bun run src/cli.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "lint:arch": "bun run scripts/lint-architecture.ts",
+    "lint:arch": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-architecture.ts",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "codegen": "bun run src/tools/codegen/cli.ts",

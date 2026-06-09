@@ -83,8 +83,9 @@ const cronTaskMap: Map<string, string> = new Map();
 /**
  * 创建Cron调度器
  *
- * @deprecated 请使用 @modules/tasks/cron/CronScheduler（SQLite 持久化）替代。
- * 此函数将在未来版本中移除。
+ * @deprecated 已无消费者。CronBridge 已于 2026-06 迁移至 setInterval 轮询方案，
+ * DreamScheduler 和 archivalCronTask 已迁移至 computeNextCronRunMs + setInterval。
+ * 此文件将在未来版本中移除。
  */
 export function createCronScheduler(
   options: CronSchedulerOptions

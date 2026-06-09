@@ -4,9 +4,9 @@
  *
  * @deprecated 核心重试功能已迁移至 @modules/utils/withRetry。
  *   新代码优先使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync。
- *   本模块的 RetryableErrorType 已在 utils/withRetry 中重新导出。
- *   本模块的扩展功能（categorizeAPIError, withRetryGenerator, withRetryEnhanced, withRetryWithTimeout,
- *   withRetryWithTimeout, createExponentialBackoffStrategy, createFixedDelayStrategy）将在后续版本中迁移。
+ *   categorizaAPIError / APIErrorClassification / RetryableErrorType 已迁移至 utils/withRetry。
+ *   本模块的扩展功能（withRetryGenerator, withRetryEnhanced, withRetryWithTimeout,
+ *   createExponentialBackoffStrategy, createFixedDelayStrategy）将在后续版本中迁移。
  *
  *   已知冲突（不可直接 re-export，因命名冲突）：
  *   - withRetry / RetryConfig / DEFAULT_RETRY_CONFIG：本模块与 utils/withRetry 签名不同

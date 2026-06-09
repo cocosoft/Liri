@@ -262,6 +262,110 @@ export class RetryablePromise<T> {
 // ═══════════════════════════════════════════════════════════
 
 /**
+ * API 错误分类接口
+ * 从 query/withRetry.ts 合并
+ */
+export interface APIErrorClassification {
+  type: RetryableErrorType;
+  retryable: boolean;
+  retryAfterMs?: number;
+}
+
+/**
+ * 分类 API 错误，判断是否可重试及建议延迟
+ * 从 query/withRetry.ts 合并
+ */
+export function categorizeAPIError(error: unknown): APIErrorClassification {
+  const err = error as any;
+  const msg = (err.message || '').toString().toLowerCase();
+  const statusCode = err.status || err.statusCode;
+
+  // 速率限制
+  if (
+    statusCode === 429 ||
+    msg.includes('rate_limit') ||
+    msg.includes('rate limit')
+  ) {
+    const retryAfter = err.retryAfterMs || err.headers?.['retry-after'];
+    return {
+      type: RetryableErrorType.RATE_LIMIT,
+      retryable: true,
+      retryAfterMs: retryAfter ? parseInt(retryAfter) * 1000 : undefined,
+    };
+  }
+
+  // 服务过载
+  if (statusCode === 529 || msg.includes('overloaded')) {
+    return {
+      type: RetryableErrorType.OVERLOADED,
+      retryable: true,
+      retryAfterMs: 5000,
+    };
+  }
+
+  // 过期连接
+  if (msg.includes('econnreset') || msg.includes('epipe')) {
+    return {
+      type: RetryableErrorType.STALE_CONNECTION,
+      retryable: true,
+      retryAfterMs: 1000,
+    };
+  }
+
+  // 其他连接错误
+  if (
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound') ||
+    msg.includes('connection') ||
+    msg.includes('network')
+  ) {
+    return {
+      type: RetryableErrorType.CONNECTION_ERROR,
+      retryable: true,
+    };
+  }
+
+  // 超时
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return {
+      type: RetryableErrorType.TIMEOUT,
+      retryable: true,
+    };
+  }
+
+  // 服务器内部错误
+  if (statusCode === 500) {
+    return {
+      type: RetryableErrorType.INTERNAL_SERVER_ERROR,
+      retryable: true,
+      retryAfterMs: 2000,
+    };
+  }
+
+  // 服务不可用
+  if (statusCode === 503) {
+    return {
+      type: RetryableErrorType.SERVICE_UNAVAILABLE,
+      retryable: true,
+      retryAfterMs: 3000,
+    };
+  }
+
+  // 客户端错误（4xx，除429外）不可重试
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return {
+      type: RetryableErrorType.UNKNOWN,
+      retryable: false,
+    };
+  }
+
+  return {
+    type: RetryableErrorType.UNKNOWN,
+    retryable: false,
+  };
+}
+
+/**
  * 可重试错误类型枚举
  * 从 query/withRetry.ts 合并
  */

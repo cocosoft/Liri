@@ -23,6 +23,11 @@
  * PluginLoader — 插件加载器
  *
  * 负责插件的扫描、加载、卸载、激活/停用及缓存管理。
+ *
+ * @deprecated 请使用 plugins/ 目录下的 PluginSystem 替代。
+ *   core/extensibility 中的 PluginLoader 为遗留实现，
+ *   与 plugins/PluginSystem 功能重叠。
+ *   此模块将在未来版本中移除。
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

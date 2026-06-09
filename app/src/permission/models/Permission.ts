@@ -60,7 +60,11 @@ export interface Resource {
 }
 
 /**
- * 权限规则
+ * 权限规则（数据模型层）
+ *
+ * @remarks 本类型是 permission 模块内部的数据模型，对应数据库存储结构。
+ * 对外接口应使用 @modules/permission/types/PermissionRule 领域模型。
+ * {@link PermissionRule} 为领域模型规范类型，本类型为持久化模型。
  */
 export interface PermissionRule {
   id: string;

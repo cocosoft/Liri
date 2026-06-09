@@ -1,7 +1,6 @@
 /**
  * 系统健康检查服务
  * 提供系统资源检测和健康状态评估功能
- * 参考CC源码: cc_code/backend/utils/doctorDiagnostic.ts
  */
 
 import { EventEmitter } from 'events';
@@ -17,10 +16,8 @@ import { configManager } from '@modules/config';
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
 
-/**
- * 健康状态
- */
-export type HealthStatus = 'healthy' | 'warning' | 'critical';
+import type { HealthStatus } from '@modules/core/health/types.js';
+export type { HealthStatus };
 
 /**
  * 资源使用情况
@@ -557,12 +554,18 @@ export function formatHealthReport(report: SystemHealthReport): string {
   const statusIcon: Record<HealthStatus, string> = {
     healthy: '✅',
     warning: '⚠️',
+    degraded: '⚠️',
+    unhealthy: '❌',
+    unknown: '❓',
     critical: '❌',
   };
 
   const overallText: Record<HealthStatus, string> = {
     healthy: '系统运行正常',
     warning: '存在需要关注的问题',
+    degraded: '系统性能下降',
+    unhealthy: '系统运行异常',
+    unknown: '状态未知',
     critical: '系统运行异常',
   };
 

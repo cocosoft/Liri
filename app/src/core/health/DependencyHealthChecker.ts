@@ -16,10 +16,8 @@ export type DependencyType =
   | 'file_system'
   | 'process';
 
-/**
- * 健康状态
- */
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
+import type { HealthStatus } from './types.js';
+export type { HealthStatus };
 
 /**
  * 依赖健康结果

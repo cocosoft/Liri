@@ -1,4 +1,3 @@
-//
 import {
   AIAgent,
   AgentConfig,
@@ -11,6 +10,7 @@ import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -34,7 +34,7 @@ interface PooledAgent {
   createdAt: number;
   lastUsedAt: number;
   inUse: boolean;
-  healthStatus: 'healthy' | 'degraded' | 'unhealthy';
+  healthStatus: HealthStatusValue;
 }
 
 interface HealthStatus {

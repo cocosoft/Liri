@@ -1,8 +1,8 @@
 /**
  * 插件和技能生态系统（薄代理层）
  *
- * 数据已迁入 PluginSystem，本文件作为向后兼容的薄代理，
- * 保留 Terminal UI 展示方法，数据查询委托给 PluginSystem。
+ * 数据查询委托给 PluginSystem，本地仅保留 SDK 程序化注册的插件/技能。
+ * PluginSystem 绑定前调用相关方法会抛出 AppError。
  */
 
 // MIT License
@@ -26,7 +26,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { logger } from '@modules/utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   TerminalComponents,
   type TableColumn,
@@ -34,13 +35,21 @@ import {
 } from '@modules/ui/TerminalComponents.js';
 import chalk from 'chalk';
 
+import type { PluginSystem } from '@modules/plugins/index.js';
+
 import type {
   PluginInfo,
   SkillInfo,
   MarketplaceEntry,
   EcosystemConfig,
 } from '@modules/plugins/types/index.js';
-import type { PluginSystem } from '@modules/plugins/index.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
+export type { PluginInfo, SkillInfo, MarketplaceEntry, EcosystemConfig };
+
+/** 插件系统未绑定的错误消息 */
+const ERR_NOT_BOUND = 'PluginSystem 未绑定，请在初始化 PluginSystem 后调用 bindPluginSystem()';
 
 /**
  * 获取徽章文本
@@ -57,21 +66,24 @@ function getBadgeText(text: string, color: string): string {
   return styler(` ${text} `);
 }
 
-export type {
-  PluginInfo,
-  SkillInfo,
-  MarketplaceEntry,
-  EcosystemConfig,
-};
-
 /**
- * 插件和技能生态系统
+ * 插件和技能生态系统（薄代理层）
+ *
+ * 职责：
+ * 1. 展示层 UI 方法（showPluginList 等）
+ * 2. PluginSystem 查询的代理
+ * 3. SDK 程序化注册插件的临时存储
  */
 export class PluginEcosystem {
-  private plugins: Map<string, PluginInfo> = new Map();
-  private skills: Map<string, SkillInfo> = new Map();
-  private marketplace: Map<string, MarketplaceEntry> = new Map();
+  /** SDK 注册的插件（PluginSystem 不支持程序化注册） */
+  private sdkPlugins = new Map<string, PluginInfo>();
+  /** SDK 注册的技能 */
+  private sdkSkills = new Map<string, SkillInfo>();
+  /** 市场条目 */
+  private marketplace = new Map<string, MarketplaceEntry>();
+  /** 生态系统配置 */
   private config: EcosystemConfig;
+  /** PluginSystem 实例（绑定后可用） */
   private pluginSystem: PluginSystem | null = null;
 
   constructor(config?: EcosystemConfig) {
@@ -85,94 +97,118 @@ export class PluginEcosystem {
   }
 
   /**
-   * 绑定 PluginSystem 实例（可选）
-   * 绑定时，getAllPlugins() 等方法将委托给 PluginSystem
+   * 绑定 PluginSystem 实例
+   * 必须在所有查询操作之前调用
    */
   bindPluginSystem(system: PluginSystem): void {
     this.pluginSystem = system;
   }
 
-  /**
-   * 注册插件
-   */
-  registerPlugin(plugin: PluginInfo): void {
-    if (this.plugins.has(plugin.id)) {
-      logger.warn(`Plugin ${plugin.id} is already registered`);
-      return;
+  /** 检查 PluginSystem 是否已绑定 */
+  private ensureBound(): PluginSystem {
+    if (!this.pluginSystem) {
+      throw new AppError(ERR_NOT_BOUND, ErrorCategory.EXECUTION, ErrorSeverity.HIGH);
     }
+    return this.pluginSystem;
+  }
 
-    this.plugins.set(plugin.id, {
-      ...plugin,
-      installed: true,
-      enabled: true,
-    });
+  // ==================== PluginSystem 代理查询 ====================
 
-    logger.info(`Registered plugin: ${plugin.name} v${plugin.version}`);
+  /**
+   * 获取插件
+   * 优先查 PluginSystem，fallback 到 SDK 注册
+   */
+  getPlugin(pluginId: string): PluginInfo | undefined {
+    if (this.pluginSystem) {
+      const ps = this.pluginSystem.getPluginInfoList().find(p => p.id === pluginId);
+      if (ps) return ps;
+    }
+    return this.sdkPlugins.get(pluginId);
   }
 
   /**
-   * 注册技能
+   * 获取所有插件
+   * 合并 PluginSystem 和 SDK 注册的插件
+   */
+  getAllPlugins(): PluginInfo[] {
+    const psPlugins = this.pluginSystem
+      ? this.pluginSystem.getPluginInfoList()
+      : [];
+    return [...psPlugins, ...this.sdkPlugins.values()];
+  }
+
+  /**
+   * 搜索插件
+   */
+  searchPlugins(category?: string, tags?: string[]): PluginInfo[] {
+    const results = this.pluginSystem
+      ? this.pluginSystem.searchPlugins(undefined, category, tags)
+      : [];
+
+    let sdkResults = Array.from(this.sdkPlugins.values());
+    if (category) {
+      sdkResults = sdkResults.filter(p => p.category === category);
+    }
+    if (tags?.length) {
+      sdkResults = sdkResults.filter(p => tags.some(tag => p.tags.includes(tag)));
+    }
+
+    return [...results, ...sdkResults];
+  }
+
+  // ==================== SDK 注册/注销 ====================
+
+  /**
+   * 注册插件（SDK 路径）
+   */
+  registerPlugin(plugin: PluginInfo): void {
+    if (this.sdkPlugins.has(plugin.id)) {
+      logger.warn(`Plugin ${plugin.id} is already registered`);
+      return;
+    }
+    this.sdkPlugins.set(plugin.id, { ...plugin, installed: true, enabled: true });
+  }
+
+  /**
+   * 注册技能（SDK 路径）
    */
   registerSkill(skill: SkillInfo): void {
-    if (this.skills.has(skill.id)) {
+    if (this.sdkSkills.has(skill.id)) {
       logger.warn(`Skill ${skill.id} is already registered`);
       return;
     }
-
-    this.skills.set(skill.id, {
-      ...skill,
-      installed: true,
-      enabled: true,
-    });
-
-    logger.info(`Registered skill: ${skill.name} v${skill.version}`);
+    this.sdkSkills.set(skill.id, { ...skill, installed: true, enabled: true });
   }
 
   /**
    * 注销插件
    */
   unregisterPlugin(pluginId: string): boolean {
-    const plugin = this.plugins.get(pluginId);
-    if (!plugin) {
-      return false;
+    const deleted = this.sdkPlugins.delete(pluginId);
+    // 同时删除关联技能
+    for (const [id, skill] of this.sdkSkills) {
+      if (skill.pluginId === pluginId) this.sdkSkills.delete(id);
     }
-
-    // 注销关联的技能
-    const associatedSkills = this.getPluginSkills(pluginId);
-    for (const skill of associatedSkills) {
-      this.unregisterSkill(skill.id);
-    }
-
-    this.plugins.delete(pluginId);
-    logger.info(`Unregistered plugin: ${pluginId}`);
-    return true;
+    if (deleted) logger.info(`Unregistered SDK plugin: ${pluginId}`);
+    return deleted;
   }
 
   /**
    * 注销技能
    */
   unregisterSkill(skillId: string): boolean {
-    const skill = this.skills.get(skillId);
-    if (!skill) {
-      return false;
-    }
-
-    this.skills.delete(skillId);
-    logger.info(`Unregistered skill: ${skillId}`);
-    return true;
+    const deleted = this.sdkSkills.delete(skillId);
+    if (deleted) logger.info(`Unregistered skill: ${skillId}`);
+    return deleted;
   }
 
   /**
    * 启用插件
    */
   enablePlugin(pluginId: string): boolean {
-    const plugin = this.plugins.get(pluginId);
-    if (!plugin) {
-      return false;
-    }
-
+    const plugin = this.sdkPlugins.get(pluginId);
+    if (!plugin) return false;
     plugin.enabled = true;
-    logger.info(`Enabled plugin: ${pluginId}`);
     return true;
   }
 
@@ -180,13 +216,9 @@ export class PluginEcosystem {
    * 禁用插件
    */
   disablePlugin(pluginId: string): boolean {
-    const plugin = this.plugins.get(pluginId);
-    if (!plugin) {
-      return false;
-    }
-
+    const plugin = this.sdkPlugins.get(pluginId);
+    if (!plugin) return false;
     plugin.enabled = false;
-    logger.info(`Disabled plugin: ${pluginId}`);
     return true;
   }
 
@@ -194,13 +226,9 @@ export class PluginEcosystem {
    * 启用技能
    */
   enableSkill(skillId: string): boolean {
-    const skill = this.skills.get(skillId);
-    if (!skill) {
-      return false;
-    }
-
+    const skill = this.sdkSkills.get(skillId);
+    if (!skill) return false;
     skill.enabled = true;
-    logger.info(`Enabled skill: ${skillId}`);
     return true;
   }
 
@@ -208,172 +236,86 @@ export class PluginEcosystem {
    * 禁用技能
    */
   disableSkill(skillId: string): boolean {
-    const skill = this.skills.get(skillId);
-    if (!skill) {
-      return false;
-    }
-
+    const skill = this.sdkSkills.get(skillId);
+    if (!skill) return false;
     skill.enabled = false;
-    logger.info(`Disabled skill: ${skillId}`);
     return true;
   }
 
-  /**
-   * 获取插件
-   * 优先从 PluginSystem 查询，fallback 到本地
-   */
-  getPlugin(pluginId: string): PluginInfo | undefined {
-    // 先查本地注册的插件
-    const local = this.plugins.get(pluginId);
-    if (local) return local;
-
-    // 再查 PluginSystem
-    if (this.pluginSystem) {
-      const psPlugin = this.pluginSystem.getPlugin(pluginId);
-      if (psPlugin) {
-        return {
-          id: psPlugin.id,
-          name: psPlugin.name,
-          version: psPlugin.version,
-          description: (psPlugin.manifest as Record<string, unknown> | undefined)
-            ?.description as string | undefined || '',
-          author: (psPlugin.manifest as Record<string, unknown> | undefined)
-            ?.author as string | undefined || 'Unknown',
-          tags: (psPlugin.manifest as Record<string, unknown> | undefined)
-            ?.tags as string[] | undefined || [],
-          category: (psPlugin.manifest as Record<string, unknown> | undefined)
-            ?.category as string | undefined || 'uncategorized',
-          installed: true,
-          enabled: psPlugin.enabled,
-          path: psPlugin.path,
-        };
-      }
-    }
-
-    return undefined;
-  }
+  // ==================== SDK 技能查询 ====================
 
   /**
-   * 获取技能
+   * 获取 SDK 技能
    */
   getSkill(skillId: string): SkillInfo | undefined {
-    return this.skills.get(skillId);
+    return this.sdkSkills.get(skillId);
   }
 
   /**
-   * 获取所有插件
-   * 优先从 PluginSystem 获取，fallback 到本地
-   */
-  getAllPlugins(): PluginInfo[] {
-    if (this.pluginSystem) {
-      return this.pluginSystem.getPluginInfoList();
-    }
-    return Array.from(this.plugins.values());
-  }
-
-  /**
-   * 获取所有技能
+   * 获取所有 SDK 技能
    */
   getAllSkills(): SkillInfo[] {
-    return Array.from(this.skills.values());
+    return Array.from(this.sdkSkills.values());
   }
 
   /**
    * 获取插件关联的技能
    */
   getPluginSkills(pluginId: string): SkillInfo[] {
-    return Array.from(this.skills.values()).filter(
+    return Array.from(this.sdkSkills.values()).filter(
       (skill) => skill.pluginId === pluginId
     );
   }
 
   /**
-   * 按类别搜索插件
-   */
-  searchPlugins(category?: string, tags?: string[]): PluginInfo[] {
-    if (this.pluginSystem) {
-      return this.pluginSystem.searchPlugins(undefined, category, tags);
-    }
-
-    let results = Array.from(this.plugins.values());
-
-    if (category) {
-      results = results.filter((p) => p.category === category);
-    }
-
-    if (tags && tags.length > 0) {
-      results = results.filter((p) => tags.some((tag) => p.tags.includes(tag)));
-    }
-
-    return results;
-  }
-
-  /**
-   * 按类别搜索技能
+   * 搜索 SDK 技能
    */
   searchSkills(category?: string, tags?: string[]): SkillInfo[] {
     let results = this.getAllSkills();
-
     if (category) {
-      results = results.filter((s) => s.category === category);
+      results = results.filter(s => s.category === category);
     }
-
-    if (tags && tags.length > 0) {
-      results = results.filter((s) => tags.some((tag) => s.tags.includes(tag)));
+    if (tags?.length) {
+      results = results.filter(s => tags.some(tag => s.tags.includes(tag)));
     }
-
     return results;
   }
 
-  /**
-   * 添加市场条目
-   */
+  // ==================== 市场 ====================
+
   addMarketplaceEntry(entry: MarketplaceEntry): void {
     this.marketplace.set(entry.plugin.id, entry);
   }
 
-  /**
-   * 从市场获取插件
-   */
   getMarketplacePlugin(pluginId: string): MarketplaceEntry | undefined {
     return this.marketplace.get(pluginId);
   }
 
-  /**
-   * 获取所有市场条目
-   */
   getAllMarketplaceEntries(): MarketplaceEntry[] {
     return Array.from(this.marketplace.values());
   }
+
+  // ==================== 展示方法 ====================
 
   /**
    * 显示插件列表
    */
   showPluginList(): void {
     const plugins = this.getAllPlugins();
-
     if (plugins.length === 0) {
       TerminalComponents.printInfo('暂无已安装的插件');
       return;
     }
 
     TerminalComponents.printHeader('已安装插件');
-
-    const rows = plugins.map((p) => {
-      const statusBadge = getBadgeText(
-        p.enabled ? '启用' : '禁用',
-        p.enabled ? 'green' : 'gray'
-      );
-
-      return [p.name, p.version, p.author, p.category, statusBadge];
-    });
-
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'].map((h) => ({
-        header: h,
-        width: 12,
-      })),
-      rows.map((r) => ({ cells: r }))
+      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 }) as TableColumn),
+      plugins.map(p => ({
+        cells: [
+          p.name, p.version, p.author, p.category,
+          getBadgeText(p.enabled ? '启用' : '禁用', p.enabled ? 'green' : 'gray'),
+        ],
+      })) as TableRow[],
     );
   }
 
@@ -382,29 +324,20 @@ export class PluginEcosystem {
    */
   showSkillList(): void {
     const skills = this.getAllSkills();
-
     if (skills.length === 0) {
       TerminalComponents.printInfo('暂无已安装的技能');
       return;
     }
 
     TerminalComponents.printHeader('已安装技能');
-
-    const rows = skills.map((s) => {
-      const statusBadge = getBadgeText(
-        s.enabled ? '启用' : '禁用',
-        s.enabled ? 'green' : 'gray'
-      );
-
-      return [s.name, s.version, s.author, s.category, statusBadge];
-    });
-
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'].map((h) => ({
-        header: h,
-        width: 12,
-      })),
-      rows.map((r) => ({ cells: r }))
+      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 }) as TableColumn),
+      skills.map(s => ({
+        cells: [
+          s.name, s.version, s.author, s.category,
+          getBadgeText(s.enabled ? '启用' : '禁用', s.enabled ? 'green' : 'gray'),
+        ],
+      })) as TableRow[],
     );
   }
 
@@ -413,37 +346,24 @@ export class PluginEcosystem {
    */
   showMarketplace(): void {
     const entries = this.getAllMarketplaceEntries();
-
     if (entries.length === 0) {
       TerminalComponents.printInfo('市场暂无可用插件');
       return;
     }
 
     TerminalComponents.printHeader('插件市场');
-
-    const rows = entries.map((e) => {
-      const installed = this.plugins.has(e.plugin.id);
-      const statusBadge = getBadgeText(
-        installed ? '已安装' : '可安装',
-        installed ? 'green' : 'blue'
-      );
-
-      return [
-        e.plugin.name,
-        e.plugin.version,
-        e.plugin.author,
-        e.plugin.category,
-        `${e.skills.length}个技能`,
-        statusBadge,
-      ];
-    });
-
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '技能数', '状态'].map((h) => ({
-        header: h,
-        width: 10,
-      })),
-      rows.map((r) => ({ cells: r }))
+      ['名称', '版本', '作者', '类别', '技能数', '状态'].map(h => ({ header: h, width: 10 }) as TableColumn),
+      entries.map(e => ({
+        cells: [
+          e.plugin.name, e.plugin.version, e.plugin.author, e.plugin.category,
+          `${e.skills.length}个技能`,
+          getBadgeText(
+            this.sdkPlugins.has(e.plugin.id) ? '已安装' : '可安装',
+            this.sdkPlugins.has(e.plugin.id) ? 'green' : 'blue'
+          ),
+        ],
+      })) as TableRow[],
     );
   }
 
@@ -458,7 +378,6 @@ export class PluginEcosystem {
     }
 
     TerminalComponents.printHeader(`插件详情 - ${plugin.name}`);
-
     TerminalComponents.printKeyValue([
       ['ID', plugin.id],
       ['名称', plugin.name],
@@ -473,9 +392,11 @@ export class PluginEcosystem {
     const skills = this.getPluginSkills(pluginId);
     if (skills.length > 0) {
       TerminalComponents.printInfo(`包含 ${skills.length} 个技能:`);
-      TerminalComponents.printList(skills.map((s) => s.name));
+      TerminalComponents.printList(skills.map(s => s.name));
     }
   }
+
+  // ==================== 配置导入/导出 ====================
 
   /**
    * 导出插件配置
@@ -494,22 +415,16 @@ export class PluginEcosystem {
     for (const plugin of config.plugins) {
       this.registerPlugin(plugin);
     }
-
     for (const skill of config.skills) {
       this.registerSkill(skill);
     }
-
-    logger.info(
-      `Imported ${config.plugins.length} plugins and ${config.skills.length} skills`
-    );
+    logger.info(`Imported ${config.plugins.length} plugins and ${config.skills.length} skills`);
   }
 }
 
 /**
- * 创建插件生态系统
+ * 创建插件生态系统实例
  */
-export function createPluginEcosystem(
-  config?: EcosystemConfig
-): PluginEcosystem {
+export function createPluginEcosystem(config?: EcosystemConfig): PluginEcosystem {
   return new PluginEcosystem(config);
 }

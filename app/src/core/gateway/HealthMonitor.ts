@@ -13,6 +13,15 @@ export interface HealthConfig {
   latencyWarningThresholdMs?: number;
 }
 
+/**
+ * 通道健康状态
+ *
+ * @deprecated 请使用 @modules/core/health/types.js 的 HealthStatus（字符串联合类型）作为标准健康状态。
+ *   此 interface 是通道健康检查结果对象（含 connected/latencyMs 等运行时字段），与标准 HealthStatus
+ *   （'healthy'|'degraded'|'unhealthy' 等枚举值）概念不同。
+ *   新代码中如需表示通道健康状态值，应使用 core/health 的 HealthStatus 类型。
+ *   如需完整的健康检查结果对象，请定义新类型（如 ChannelHealthResult）替代。
+ */
 export interface HealthStatus {
   channelName: string;
   connected: boolean;
@@ -49,6 +58,15 @@ export enum HealthEvent {
   LATENCY_WARNING = 'health:latency_warning',
 }
 
+/**
+ * 健康监控器
+ *
+ * @deprecated 请使用 @modules/core/events/EventBus 的 EventBusImpl 替代 Node.js EventEmitter。
+ *   此类继承自 Node.js EventEmitter，属于事件孤岛。
+ *   新代码应通过 EventBusImpl 订阅/发布事件（subscribe/publish），
+ *   而非通过 EventEmitter 的 on/emit。
+ *   此文件将在未来版本中移除或重构。
+ */
 export class HealthMonitor extends EventEmitter {
   readonly name = 'HealthMonitor';
   private config: Required<HealthConfig>;

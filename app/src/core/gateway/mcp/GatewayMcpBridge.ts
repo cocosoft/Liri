@@ -34,6 +34,10 @@ export interface McpCallResponse {
 
 /**
  * 网关 MCP 桥接器
+ *
+ * @deprecated 请使用 @modules/core/events/EventBus 的 EventBusImpl 替代 Node.js EventEmitter。
+ *   此类继承自 Node.js EventEmitter，属于事件孤岛。
+ *   新代码应使用 EventBusImpl 替代。
  */
 export class GatewayMcpBridge extends EventEmitter {
   private tools: Map<string, McpToolDefinition> = new Map();

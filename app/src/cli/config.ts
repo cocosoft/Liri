@@ -1,14 +1,20 @@
 /**
  * CLI配置管理模块
  * 支持配置文件解析、验证和管理
- * 文件 I/O 委托给 ConfigManager（使用文件锁和原子写入）
+ *
+ * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ *   自 2026-06 起 I/O 已打通至主配置系统的用户设置（userSettings），
+ *   不再维护独立 config.json 文件。Gateway/alias 等配置统一存储在
+ *   ~/.pyapp/settings.json 的 cli 键下。此文件将在未来版本中移除。
  */
 
-import { join, resolve } from 'path';
 import { z } from 'zod';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { configManager } from '../config/ConfigManager.js';
-import { resolvePyappHome } from '@modules/core/paths';
+import {
+  loadUserSettings,
+  saveUserSettings,
+  getUserSettingsPath,
+} from '@modules/config/settings/userSettings';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -105,30 +111,25 @@ export type Config = z.infer<typeof ConfigSchema>;
  * CLI 配置管理器
  *
  * @deprecated 请使用 @modules/config/ConfigManager 替代。
- * CliConfigManager 维护独立的 config.json 文件，与主 ConfigManager 的 GlobalConfig 系统分离。
- * Gateway/alias 等配置应迁移到主配置系统的多源合并机制中。
- * 此文件将在未来版本中移除。
+ *   自 2026-06 起 I/O 已打通至主配置系统的用户设置（userSettings），
+ *   不再维护独立 config.json 文件。此文件将在未来版本中移除。
  */
 export class CliConfigManager {
   private config: Config;
-  private configPath: string;
 
-  constructor(options?: ConfigOptions) {
-    const configDir = options?.configDir || resolvePyappHome();
-    const configName = options?.configName || 'config.json';
-
-    this.configPath = join(configDir, configName);
+  constructor(_options?: ConfigOptions) {
     this.config = this.loadConfig();
   }
 
   /**
-   * 加载配置
+   * 从主配置系统用户设置加载 CLI 配置
    */
   private loadConfig(): Config {
     try {
-      const data = configManager.readJsonFile(this.configPath);
-      if (data) {
-        return ConfigSchema.parse(data);
+      const settings = loadUserSettings();
+      const cliConfig = settings.cli;
+      if (cliConfig && typeof cliConfig === 'object') {
+        return ConfigSchema.parse(cliConfig);
       }
     } catch (error) {
       logger.warning(`加载CLI配置失败: ${(error as Error).message}`);
@@ -138,15 +139,15 @@ export class CliConfigManager {
   }
 
   /**
-   * 保存配置
+   * 保存配置到主配置系统用户设置
    */
   save(): void {
-    const result = configManager.writeJsonFile(
-      this.configPath,
-      this.config as unknown as Record<string, unknown>
-    );
-    if (!result) {
-      logger.error(`保存CLI配置失败: ${this.configPath}`);
+    try {
+      const settings = loadUserSettings();
+      settings.cli = this.config as unknown as Record<string, unknown>;
+      saveUserSettings(settings);
+    } catch (error) {
+      logger.error(`保存CLI配置失败: ${(error as Error).message}`);
     }
   }
 
@@ -279,6 +280,13 @@ export class CliConfigManager {
   }
 
   /**
+   * 获取配置文件路径（指向主配置系统的用户设置文件）
+   */
+  getConfigPath(): string {
+    return getUserSettingsPath();
+  }
+
+  /**
    * 验证配置
    */
   validate(): { valid: boolean; errors?: string[] } {
@@ -290,13 +298,6 @@ export class CliConfigManager {
       valid: false,
       errors: result.error.errors.map((e) => e.message),
     };
-  }
-
-  /**
-   * 获取配置文件路径
-   */
-  getConfigPath(): string {
-    return this.configPath;
   }
 }
 

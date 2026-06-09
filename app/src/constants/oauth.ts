@@ -133,8 +133,8 @@ export function loadOauthConfig(): OauthConfig {
     if (!ALLOWED_OAUTH_BASE_URLS.includes(base)) {
       throw new AppError(
         'Liri_CUSTOM_OAUTH_URL is not an approved endpoint.',
-        ErrorCategory.INVALID_INPUT,
-        ErrorSeverity.ERROR
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH
       );
     }
     config = {

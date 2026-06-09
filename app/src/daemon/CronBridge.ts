@@ -1,11 +1,8 @@
 import { Logger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
-import { createCronScheduler } from '../chronos/CronScheduler';
-import { listAllCronTasks, setCronSqliteStore } from '../chronos/CronTasks';
 import { createSqliteCronStore } from '../chronos/service/SqliteCronStore';
-import { initializeTaskResultDelivery } from '../chronos/TaskResultDeliverer';
+import { nextCronRunMs } from '../chronos/CronTasks';
 import { startHealthServer, stopHealthServer } from './HealthServer';
-import type { ScheduledTask as ChronosTask } from '../chronos/types';
 import type { TaskQueue } from './TaskQueue';
 import { TaskPriority } from './TaskPriority';
 import type { ManagedProcess } from './ProcessManager';
@@ -21,7 +18,7 @@ export interface CronBridgeConfig {
 
 export class CronBridge implements ManagedProcess {
   public readonly name = 'cron-bridge';
-  private scheduler: ReturnType<typeof createCronScheduler> | null = null;
+  private timerId: ReturnType<typeof setInterval> | null = null;
   private taskQueue: TaskQueue;
   private config: Required<CronBridgeConfig>;
   private running = false;
@@ -41,11 +38,10 @@ export class CronBridge implements ManagedProcess {
     if (this.running) return;
     this.running = true;
 
-    // 初始化 SQLite cron 存储（替代 JSON 文件持久化）
+    // 初始化 SQLite cron 存储
     try {
       this.sqliteCronStore = createSqliteCronStore();
       await this.sqliteCronStore.init();
-      setCronSqliteStore(this.sqliteCronStore);
       logger.info('SQLite cron store initialized');
 
       // 恢复启动时遗漏的定时任务
@@ -63,35 +59,37 @@ export class CronBridge implements ManagedProcess {
       );
     }
 
-    this.scheduler = createCronScheduler({
-      onFire: (prompt: string) => {
-        this.submitCronTask('cron-prompt-' + Date.now(), prompt);
-      },
-      onFireTask: (task: ChronosTask) => {
-        this.submitCronTask(task.id, task.prompt, task.metadata);
-      },
-      onMissed: (tasks: ChronosTask[]) => {
-        for (const task of tasks) {
-          logger.warning(`错过定时任务: ${task.id}`, { cron: task.cron });
-          this.submitCronTask(task.id, task.prompt, task.metadata);
-        }
-      },
-      isLoading: () => false,
-      assistantMode: false,
-      dir: this.config.dir || undefined,
-      lockIdentity: this.config.lockIdentity,
-    });
+    // 启动轮询定时器（替代旧的 createCronScheduler）
+    const CHECK_INTERVAL_MS = 1000;
+    this.timerId = setInterval(async () => {
+      if (!this.running || !this.sqliteCronStore) return;
 
-    // F-10: 初始化任务结果投递
-    initializeTaskResultDelivery();
+      try {
+        const tasks = await this.sqliteCronStore!.listTasks();
+        const now = Date.now();
+
+        for (const task of tasks) {
+          // 计算该任务上次触发后的下次运行时间
+          const lastRef = task.lastFiredAt ?? task.createdAt;
+          const nextRun = nextCronRunMs(task.cron, lastRef);
+
+          // 若下次运行时间已到且尚未触发，则触发
+          if (nextRun !== null && nextRun <= now) {
+            this.submitCronTask(task.id, task.prompt, task.metadata);
+            await this.sqliteCronStore!.markFired([task.id], now);
+          }
+        }
+      } catch (error) {
+        logger.warning('[CronBridge] 轮询检查失败', { error });
+      }
+    }, CHECK_INTERVAL_MS);
 
     // O-02: 启动健康检查服务
     startHealthServer().catch((error) => {
       logger.warning('[O-02] 健康检查服务启动异常', { error });
     });
 
-    this.scheduler.start();
-    logger.info('CronBridge 已启动，Chronos 定时任务调度已集成');
+    logger.info('CronBridge 已启动（polling 模式）');
     this.reportMetrics(true);
   }
 
@@ -102,9 +100,9 @@ export class CronBridge implements ManagedProcess {
     // O-02: 停止健康检查服务
     stopHealthServer();
 
-    if (this.scheduler) {
-      this.scheduler.stop();
-      this.scheduler = null;
+    if (this.timerId !== null) {
+      clearInterval(this.timerId);
+      this.timerId = null;
     }
 
     if (this.sqliteCronStore) {
@@ -117,7 +115,9 @@ export class CronBridge implements ManagedProcess {
 
   async healthCheck(): Promise<boolean> {
     try {
-      await listAllCronTasks(this.config.dir || undefined);
+      if (this.sqliteCronStore) {
+        await this.sqliteCronStore.listTasks();
+      }
       return true;
     } catch {
       return false;

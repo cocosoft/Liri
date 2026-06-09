@@ -1,6 +1,10 @@
 /**
  * LocalHTTPService 本地 HTTP API 服务
  * 提供 OpenAI 兼容的 API 接口，允许 Tauri 客户端通过 HTTP 调用 CoreAPI
+ *
+ * 注意：本文件位于 core/gateway/local/（遗留 Gateway 体系目录），
+ * 但实际消费 channels/ 目录下的 IChannelPlugin 接口。
+ * 此位置具有误导性，后续应考虑迁移至 modules/ 下的合适位置。
  */
 
 import http from 'node:http';
@@ -3841,18 +3845,18 @@ export class LocalHTTPService {
       }
 
       const { STTRegistry } =
-        await import('../../../services/voice/services/sttRegistry');
+        await import('../../services/voice/services/sttRegistry');
 
       // 自动注册 STT 提供者（如尚未注册）
       if (STTRegistry.getAllProviders().length === 0) {
         const { LocalSTTProvider } =
-          await import('../../../services/voice/services/localSTTProvider');
+          await import('../../services/voice/services/localSTTProvider');
         STTRegistry.register(new LocalSTTProvider());
 
         const openAIApiKey = configManager.env('OPENAI_API_KEY');
         if (openAIApiKey) {
           const { CloudSTTProvider } =
-            await import('../../../services/voice/services/cloudSTTProvider');
+            await import('../../services/voice/services/cloudSTTProvider');
           STTRegistry.register(
             new CloudSTTProvider({ apiKey: openAIApiKey })
           );
@@ -8696,7 +8700,7 @@ export class LocalHTTPService {
 
       // 2. 注册到 ChannelBootstrapper
       const { channelBootstrapper } = await import(
-        '../../../channels/bootstrap/ChannelBootstrapper'
+        '../../channels/bootstrap/ChannelBootstrapper'
       );
       channelBootstrapper.registerPluginChannel(channelType, () => plugin);
 

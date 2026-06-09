@@ -39,6 +39,13 @@ export enum ReporterEvent {
   STATUS_CHANGED = 'reporter:status_changed',
 }
 
+/**
+ * 通道状态上报器
+ *
+ * @deprecated 请使用 @modules/core/events/EventBus 的 EventBusImpl 替代 Node.js EventEmitter。
+ *   此类继承自 Node.js EventEmitter，属于事件孤岛。
+ *   新代码应使用 EventBusImpl 替代。
+ */
 export class ChannelStatusReporter extends EventEmitter {
   readonly name = 'ChannelStatusReporter';
   private channels: Map<string, GatewayChannel> = new Map();

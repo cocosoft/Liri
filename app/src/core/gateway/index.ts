@@ -18,6 +18,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+/**
+ * @deprecated 请使用 channels/ 目录下的 IChannelPlugin 体系替代。
+ *   core/gateway/ 为遗留 Gateway Channel 体系，
+ *   新实现已统一到 channels/ 目录。
+ *   此模块将在未来版本中移除。
+ */
 export {
   ChannelType,
   ChannelStatus,
@@ -105,9 +111,6 @@ export {
   getFrameId,
   computeWebSocketAcceptKey,
 } from './protocol/frames';
-
-export { LocalHTTPService, getLocalHTTPService } from './local';
-export type { LocalHTTPConfig } from './local';
 
 export type {
   RequestFrame,

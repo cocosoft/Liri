@@ -1,4 +1,3 @@
-//
 /**
  * 缓存模块
  * 提供多级缓存系统，包括内存缓存、带过期的内存缓存和持久化缓存
@@ -28,6 +27,10 @@ interface TTLCacheEntry<T> {
 
 /**
  * LRU缓存类（纯JavaScript实现）
+ *
+ * @deprecated 请使用 @modules/cache/services/CacheService（内存缓存 + TTL）替代。
+ *   本类为自建 LRU+TTL 实现，与 @modules/cache 模块的缓存体系功能重叠。
+ *   此文件将在未来版本中移除。
  */
 export class LRUCache<T = unknown> {
   private cache: Map<string, LRUCacheItem<T>> = new Map();
@@ -341,6 +344,10 @@ interface MemoryCacheItem<T> {
 
 /**
  * 内存缓存类（改进版，带LRU和TTL支持）
+ *
+ * @deprecated 请使用 @modules/cache/services/CacheService（内存缓存 + TTL）替代。
+ *   本类为自建 LRU+TTL 实现，与 @modules/cache 模块的缓存体系功能重叠。
+ *   此文件将在未来版本中移除。
  */
 export class MemoryCache<T = unknown> {
   private cache: Map<string, MemoryCacheItem<T>> = new Map();

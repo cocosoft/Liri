@@ -15,7 +15,10 @@ const logger = new Logger({ level: LogLevel.INFO });
 export type PermissionUpdateType = 'allow' | 'deny' | 'never_allow';
 
 /**
- * 权限规则
+ * Agent 同步模块权限规则
+ *
+ * @remarks 这是 agent 同步模块的本地权限规则类型，用于 AI agent 对工具权限的实时同步。
+ * 与 @modules/permission/types/PermissionRule 领域模型不同（本类型更轻量，仅含 tool/type 核心字段）。
  */
 export interface PermissionRule {
   tool: string;

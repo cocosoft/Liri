@@ -194,17 +194,23 @@ export class BillingRoute {
   }
 
   /**
-   * 计算预估成本
-   * @param pricing 定价方案
-   * @param inputTokens 输入 token
-   * @param outputTokens 输出 token
-   * @returns 成本（USD）
-   */
-  private calculateCost(
-    pricing: ModelTokenUsage,
-    inputTokens: number,
-    outputTokens: number
-  ): number {
+ * 计算预估成本
+ *
+ * 注意：pricing 参数的类型为 ModelTokenUsage（字段语义为 token 计数），
+ * 但本方法将其字段值作为每百万 token 价格使用（除以 1,000,000 后相乘）。
+ * 调用方注册 ModelPricingEntry 时，必须确保 pricing 中的值为每百万 token 价格，
+ * 而非实际 token 计数。当前类型系统无法保护此约定，重构时需留意。
+ *
+ * @param pricing 定价方案（传入的字段值必须是每百万 token 价格）
+ * @param inputTokens 输入 token
+ * @param outputTokens 输出 token
+ * @returns 成本（USD）
+ */
+private calculateCost(
+  pricing: ModelTokenUsage,
+  inputTokens: number,
+  outputTokens: number
+): number {
     const inputCost = (inputTokens / 1_000_000) * pricing.inputTokens;
     const outputCost = (outputTokens / 1_000_000) * pricing.outputTokens;
 

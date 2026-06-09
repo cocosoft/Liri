@@ -1,17 +1,15 @@
 /**
  * SessionLifecycleEventBus — 会话生命周期事件总线
  *
- * 基于 core/events/EventBusImpl 实现的类型安全事件总线。
- * 事件分发委托给 EventBusImpl，本层仅提供：
+ * 继承自 EventBusImpl，添加类型安全的事件类型、通配符支持与事件历史。
+ * 无需重新实现 EventBus 接口——所有标准方法（subscribe/publish/once/unsubscribe 等）均继承自父类。
+ * 本层仅提供：
  *   1. 类型安全的事件类型（SessionEventType）
  *   2. 通配符 '*' 支持（监听所有事件）
  *   3. 事件历史记录
  */
 
-import {
-  EventBusImpl,
-  EventBus as CoreEventBus,
-} from '@modules/core/events/EventBus';
+import { EventBusImpl } from '@modules/core/events/EventBus';
 import type { EventSubscription } from '@modules/core/events/EventBus';
 import type {
   SessionLifecycleEvent,
@@ -28,10 +26,7 @@ export interface Subscription {
   unsubscribe: () => void;
 }
 
-export class SessionLifecycleEventBus implements CoreEventBus {
-  /** 底层事件总线，处理实际的事件订阅与分发 */
-  private coreBus = new EventBusImpl();
-
+export class SessionLifecycleEventBus extends EventBusImpl {
   /** 通配符处理器（'*' 监听所有事件），EventBusImpl 原生不支持通配符 */
   private wildcardHandlers = new Set<EventHandler>();
 
@@ -40,22 +35,37 @@ export class SessionLifecycleEventBus implements CoreEventBus {
   private maxHistory: number = 1000;
 
   constructor(maxHistory?: number) {
+    super();
     if (maxHistory !== undefined) this.maxHistory = maxHistory;
   }
 
   /**
-   * 发布事件
+   * 发布会话生命周期事件（带通配符分发与历史记录）
    */
   emit(event: SessionLifecycleEvent): void {
     this.addToHistory(event);
 
-    // 委托给核心 EventBusImpl 分发（类型化事件名）
-    this.coreBus.publish(event.type, event);
+    // 委托父类 EventBusImpl 分发（以事件类型名为 key）
+    super.publish(event.type, event);
 
     // 通配符处理器接收所有事件
     for (const handler of this.wildcardHandlers) {
       this.invokeHandler(handler, event);
     }
+  }
+
+  /**
+   * 发布事件（标准 EventBus 接口覆盖）
+   * 将通用 publish 调用包装为 SessionLifecycleEvent 后交由 emit 处理
+   */
+  override publish<T = any>(event: string, data?: T): void {
+    this.emit({
+      type: event as SessionEventType,
+      sessionKey: '',
+      sessionId: '',
+      timestamp: Date.now(),
+      metadata: data as Record<string, unknown>,
+    } as SessionLifecycleEvent);
   }
 
   /**
@@ -73,7 +83,7 @@ export class SessionLifecycleEventBus implements CoreEventBus {
       };
     }
 
-    const sub = this.coreBus.subscribe(type, handler as any);
+    const sub = super.subscribe(type, handler as any);
 
     return {
       type,
@@ -90,14 +100,14 @@ export class SessionLifecycleEventBus implements CoreEventBus {
       this.wildcardHandlers.delete(handler);
       return;
     }
-    this.coreBus.unsubscribe(type, handler as any);
+    super.unsubscribe(type, handler as any);
   }
 
   /**
    * 清除所有处理器和事件历史
    */
   clear(): void {
-    this.coreBus.unsubscribeAll();
+    super.unsubscribeAll();
     this.wildcardHandlers.clear();
   }
 
@@ -116,68 +126,6 @@ export class SessionLifecycleEventBus implements CoreEventBus {
    */
   clearHistory(): void {
     this.history = [];
-  }
-
-  // ========== Core EventBus 接口实现 ==========
-
-  /**
-   * 订阅事件（标准 EventBus 接口）
-   */
-  subscribe<T = any>(event: string, listener: (event: T) => void | Promise<void>): EventSubscription {
-    const sub = this.on(event as SessionEventType, listener as EventHandler);
-    return { unsubscribe: () => sub.unsubscribe() };
-  }
-
-  /**
-   * 发布事件（标准 EventBus 接口）
-   */
-  publish<T = any>(event: string, data?: T): void {
-    this.emit({
-      type: event as SessionEventType,
-      sessionKey: '',
-      sessionId: '',
-      timestamp: Date.now(),
-      metadata: data as Record<string, unknown>,
-    } as SessionLifecycleEvent);
-  }
-
-  /**
-   * 订阅一次事件
-   */
-  once<T = any>(event: string, listener: (event: T) => void | Promise<void>): EventSubscription {
-    return this.coreBus.once(event, listener);
-  }
-
-  /**
-   * 取消订阅
-   */
-  unsubscribe(event: string, listener: (event: any) => void | Promise<void>): void {
-    this.off(event as SessionEventType, listener as EventHandler);
-  }
-
-  /**
-   * 取消所有订阅
-   */
-  unsubscribeAll(event?: string): void {
-    if (event) {
-      this.coreBus.unsubscribeAll(event);
-    } else {
-      this.clear();
-    }
-  }
-
-  /**
-   * 检查是否有监听器
-   */
-  hasListeners(event: string): boolean {
-    return this.coreBus.hasListeners(event);
-  }
-
-  /**
-   * 获取监听器数量
-   */
-  listenerCount(event: string): number {
-    return this.coreBus.listenerCount(event);
   }
 
   private addToHistory(event: SessionLifecycleEvent): void {

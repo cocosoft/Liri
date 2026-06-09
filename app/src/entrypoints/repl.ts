@@ -39,7 +39,7 @@ import { getUIEnhancer } from '../ui/UIEnhancer.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
-import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
+import { LocalHTTPService } from '@modules/infrastructure/http/LocalHTTPService';
 import { getConfig, configManager } from '../config/index.js';
 import { modelRouter } from '../ai/modelRouter.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';

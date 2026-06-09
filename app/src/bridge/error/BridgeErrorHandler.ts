@@ -132,6 +132,9 @@ export interface RetryState {
 
 /**
  * 重试器类
+ *
+ * @deprecated Bridge 模块专用重试器。新代码应优先使用 @modules/utils/withRetry
+ *   中的 withRetry / withRetryAsync。本类将在后续版本中移除。
  */
 export class RetryHandler {
   private config: RetryConfig;

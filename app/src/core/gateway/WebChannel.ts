@@ -1,7 +1,11 @@
 /**
- * WebChannel — WebSocket 通道适配器
+ * WebChannel — WebSocket 通道适配器（遗留版）
  * 使用 Node.js 内置 http + crypto 模块实现 RFC 6455 WebSocket 服务器
  * 无需第三方依赖
+ *
+ * @deprecated 请使用 channels/webhook/ 或 channels/matrix/ 等 IChannelPlugin 实现替代。
+ *   core/gateway/ 体系后续将统一收敛到 channels/ 体系。
+ *   此模块将在未来版本中移除。
  */
 
 import * as http from 'http';

@@ -37,6 +37,28 @@ export interface TrustState {
   isInteractive: boolean;
   trustDialogAccepted?: boolean;
   workspaceRoot?: string;
+  /** 信任工作区列表 */
+  trustedWorkspaces?: Array<{
+    path: string;
+    trustLevel: string;
+    enabled: boolean;
+  }>;
+  /** 当前活跃工作空间路径 */
+  activeWorkspacePath?: string;
+  /** 用户自定义规则状态 */
+  customRules?: {
+    /** 命令黑白名单 */
+    commandRules?: {
+      blacklist: string[];
+      whitelist: string[];
+      mode: 'whitelist' | 'blacklist';
+    };
+    /** 目录黑白名单 */
+    directoryRules?: {
+      blacklist: string[];
+      whitelist: string[];
+    };
+  };
 }
 
 /**
@@ -583,6 +605,92 @@ export class SecurityManager extends EventEmitter {
    */
   getTrustState(): TrustState {
     return { ...this.trustState };
+  }
+
+  /**
+   * 添加信任工作区
+   * @param path 工作区路径
+   * @param trustLevel 信任级别（chat/work/development）
+   */
+  addTrustedWorkspace(path: string, trustLevel: string = 'development'): void {
+    const workspaces = this.trustState.trustedWorkspaces || [];
+    const exists = workspaces.find((ws) => ws.path === path);
+    if (exists) {
+      exists.trustLevel = trustLevel;
+      exists.enabled = true;
+    } else {
+      workspaces.push({ path, trustLevel, enabled: true });
+    }
+    this.trustState.trustedWorkspaces = workspaces;
+    this.saveSecurityConfig();
+    this.emit('trustStateChanged', this.trustState);
+  }
+
+  /**
+   * 移除信任工作区
+   * @param path 工作区路径
+   */
+  removeTrustedWorkspace(path: string): void {
+    const workspaces = this.trustState.trustedWorkspaces || [];
+    this.trustState.trustedWorkspaces = workspaces.filter(
+      (ws) => ws.path !== path
+    );
+    this.saveSecurityConfig();
+    this.emit('trustStateChanged', this.trustState);
+  }
+
+  /**
+   * 获取信任工作区列表
+   */
+  getTrustedWorkspaces(): Array<{ path: string; trustLevel: string; enabled: boolean }> {
+    return [...(this.trustState.trustedWorkspaces || [])];
+  }
+
+  /**
+   * 检查路径是否在信任工作区内
+   * @param targetPath 待检查路径
+   */
+  isInTrustedWorkspace(targetPath: string): boolean {
+    const workspaces = this.trustState.trustedWorkspaces || [];
+    const normalizedPath = targetPath.replace(/\\/g, '/');
+    return workspaces.some((ws) => {
+      if (!ws.enabled) return false;
+      return normalizedPath.startsWith(ws.path.replace(/\\/g, '/'));
+    });
+  }
+
+  /**
+   * 设置当前活跃工作空间路径
+   * @param path 工作空间路径
+   */
+  setActiveWorkspacePath(path: string): void {
+    this.trustState.activeWorkspacePath = path;
+    this.saveSecurityConfig();
+    this.emit('trustStateChanged', this.trustState);
+  }
+
+  /**
+   * 获取当前活跃工作空间路径
+   */
+  getActiveWorkspacePath(): string | undefined {
+    return this.trustState.activeWorkspacePath;
+  }
+
+  /**
+   * 设置自定义规则
+   * @param rules 自定义规则
+   */
+  setCustomRules(rules: NonNullable<TrustState['customRules']>): void {
+    this.trustState.customRules = rules;
+    this.saveSecurityConfig();
+    this.emit('trustStateChanged', this.trustState);
+  }
+
+  /**
+   * 获取自定义规则
+   */
+  getCustomRules(): TrustState['customRules'] {
+    return this.trustState.customRules;
   }
 
   /**

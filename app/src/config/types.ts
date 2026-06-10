@@ -323,6 +323,88 @@ export interface InternalState {
   migrationVersion?: number;
 }
 
+// ===== 工作空间信任机制类型 =====
+
+/**
+ * 工作空间信任级别
+ */
+export type WorkspaceTrustLevel = 'chat' | 'work' | 'development';
+
+/**
+ * 单个工作空间配置
+ */
+export interface WorkspaceConfig {
+  /** 工作空间路径（绝对路径） */
+  path: string;
+  /** 信任级别 */
+  trustLevel: WorkspaceTrustLevel;
+  /** 自定义路径白名单（可选） */
+  additionalPaths?: string[];
+  /** 是否启用 */
+  enabled: boolean;
+  /** 备注 */
+  label?: string;
+}
+
+/** 单个命令规则 */
+export interface CommandRule {
+  /** 规则字符串（支持 glob/regex） */
+  pattern: string;
+  /** 类型 */
+  type: 'blacklist' | 'whitelist';
+  /** 备注 */
+  label?: string;
+}
+
+/** 目录规则 */
+export interface DirectoryRule {
+  /** 目录路径 */
+  path: string;
+  /** 类型 */
+  type: 'blacklist' | 'whitelist';
+  /** 备注 */
+  label?: string;
+}
+
+/**
+ * 自定义规则配置
+ */
+export interface CustomRulesConfig {
+  /** 命令黑白名单 */
+  commandRules?: {
+    blacklist: CommandRule[];
+    whitelist: CommandRule[];
+    mode: 'whitelist' | 'blacklist';
+  };
+  /** 目录黑白名单 */
+  directoryRules?: {
+    blacklist: DirectoryRule[];
+    whitelist: DirectoryRule[];
+  };
+}
+
+/**
+ * 工作空间权限配置
+ */
+export interface PermissionConfig {
+  /** 信任的工作空间列表 */
+  trustedWorkspaces: WorkspaceConfig[];
+  /** 默认权限模式 */
+  mode: 'default' | 'strict' | 'permissive';
+  /** 用户自定义规则 */
+  customRules?: CustomRulesConfig;
+  /** 全局默认信任级别（chat/work/development），通过 CLI --trust-level 设置 */
+  defaultTrustLevel?: string;
+}
+
+/**
+ * 规则合并工具：用户未配置时使用默认值（零变化），配置了则合并
+ */
+export function loadRules<T>(defaults: T[], userRules: T[] | undefined): T[] {
+  if (!userRules || userRules.length === 0) return defaults;
+  return [...defaults, ...userRules];
+}
+
 /**
  * 全局配置接口
  */
@@ -346,6 +428,9 @@ export interface GlobalConfig {
   env: { [key: string]: string };
   /** 项目配置 */
   projects?: Record<string, ProjectConfig>;
+
+  /** 权限与工作空间配置 */
+  permission?: PermissionConfig;
 
   /** AI 模块配置 */
   ai?: AIConfig;

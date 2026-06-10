@@ -118,8 +118,19 @@ export interface ICompleteSecuritySystem {
   checkCommandSecurity(
     command: string,
     toolName?: string,
-    input?: Record<string, unknown>
+    input?: Record<string, unknown>,
+    cwd?: string
   ): Promise<SecurityDecision>;
+
+  /**
+   * 检查路径是否在信任的工作空间内
+   */
+  isInTrustedWorkspace(targetPath: string): boolean;
+
+  /**
+   * 获取路径对应的信任级别
+   */
+  getTrustLevelForPath(targetPath: string): string | undefined;
 
   getSecurityAnalyzer(): BashSecurityAnalyzer;
   getPermissionManager(): PermissionManager;
@@ -430,9 +441,24 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
   async checkCommandSecurity(
     command: string,
     toolName?: string,
-    input?: Record<string, unknown>
+    input?: Record<string, unknown>,
+    cwd?: string
   ): Promise<SecurityDecision> {
-    return securityIntegrationService.checkSecurity(command, toolName, input);
+    return securityIntegrationService.checkSecurity(command, toolName, input, cwd);
+  }
+
+  /**
+   * 检查路径是否在信任的工作空间内
+   */
+  isInTrustedWorkspace(targetPath: string): boolean {
+    return securityIntegrationService.isInTrustedWorkspace(targetPath);
+  }
+
+  /**
+   * 获取路径对应的信任级别
+   */
+  getTrustLevelForPath(targetPath: string): string | undefined {
+    return securityIntegrationService.getTrustLevelForPath(targetPath);
   }
 
   getSecurityAnalyzer(): BashSecurityAnalyzer {

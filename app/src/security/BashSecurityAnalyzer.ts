@@ -65,6 +65,9 @@ import {
   createDefaultPathValidator,
   isDangerousRemovalPath,
 } from './validation/PathValidator.js';
+import { configManager } from '@modules/config';
+import type { PermissionConfig } from '@modules/config/types';
+import { loadRules } from '@modules/config/types';
 
 const ADDITIONAL_DANGEROUS_COMMANDS = new Set([
   'chgrp',
@@ -78,7 +81,7 @@ const ADDITIONAL_DANGEROUS_COMMANDS = new Set([
   'pkexec',
 ]);
 
-const SENSITIVE_DIRECTORIES = [
+const DEFAULT_SENSITIVE_DIRECTORIES = [
   '/etc',
   '/usr/bin',
   '/usr/sbin',
@@ -93,6 +96,9 @@ const SENSITIVE_DIRECTORIES = [
 export class BashSecurityAnalyzer {
   private allPatterns: SecurityPattern[];
   private pathValidator: PathValidator;
+  private sensitiveDirectories: string[];
+  /** 合并用户黑名单后的危险命令集合 */
+  private dangerousCommands: Set<string>;
 
   constructor() {
     this.allPatterns = [
@@ -105,12 +111,99 @@ export class BashSecurityAnalyzer {
       ...SPECIAL_CHAR_PATTERNS,
     ];
     this.pathValidator = createDefaultPathValidator();
+
+    // 从用户配置加载敏感目录，未配置时使用默认值
+    this.sensitiveDirectories = this.loadSensitiveDirectories();
+
+    // 合并默认危险命令与用户自定义黑名单
+    this.dangerousCommands = this.loadCommandRules();
+  }
+
+  /**
+   * 白名单前置检查：当 config.json 配置了 whitelist 模式时，
+   * 只放行匹配白名单的指令，其余直接拒绝
+   */
+  private checkWhitelistPreCheck(command: string): SecurityAnalysisResult | null {
+    try {
+      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const rules = permission?.customRules?.commandRules;
+      if (!rules || rules.mode !== 'whitelist') return null;
+
+      const whitelistPatterns = rules.whitelist || [];
+      const matched = whitelistPatterns.some((r) =>
+        command.toLowerCase().includes(r.pattern.toLowerCase())
+      );
+
+      if (matched) {
+        return {
+          safe: true,
+          behavior: 'allow' as SecurityBehavior,
+          riskLevel: 'low' as RiskLevel,
+          matchedPatterns: [],
+        };
+      }
+
+      return {
+        safe: false,
+        behavior: 'deny' as SecurityBehavior,
+        riskLevel: 'high' as RiskLevel,
+        matchedPatterns: [`未匹配白名单规则: ${command}`],
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 从用户配置加载敏感目录列表，未配置时降级到硬编码默认值
+   */
+  private loadSensitiveDirectories(): string[] {
+    try {
+      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const blacklist = permission?.customRules?.directoryRules?.blacklist;
+      if (blacklist && blacklist.length > 0) {
+        const userDirs = blacklist
+          .map((r) => r.path)
+          .filter((p: string) => p.startsWith('/'));
+        return loadRules(DEFAULT_SENSITIVE_DIRECTORIES, userDirs.length > 0 ? userDirs : undefined);
+      }
+    } catch {
+      // config 系统未初始化时静默降级
+    }
+    return [...DEFAULT_SENSITIVE_DIRECTORIES];
+  }
+
+  /**
+   * 从用户配置加载命令黑名单，合并到默认危险命令集合
+   * 用户配置的 blacklist 会追加到默认危险命令列表末尾
+   */
+  private loadCommandRules(): Set<string> {
+    const merged = new Set<string>([
+      ...DANGEROUS_BASE_COMMANDS,
+      ...ADDITIONAL_DANGEROUS_COMMANDS,
+    ]);
+
+    try {
+      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const rules = permission?.customRules?.commandRules;
+      if (rules?.blacklist && rules.blacklist.length > 0) {
+        for (const rule of rules.blacklist) {
+          merged.add(rule.pattern.toLowerCase());
+        }
+      }
+    } catch {
+      // config 系统未初始化时静默降级
+    }
+
+    return merged;
   }
 
   /**
    * 分析命令安全性
+   * @param command 命令字符串
+   * @param trustLevel 信任级别（可选），用于信任工作区场景下行为降级
    */
-  analyze(command: string): SecurityAnalysisResult {
+  analyze(command: string, trustLevel?: string): SecurityAnalysisResult {
     if (!command) {
       return {
         safe: true,
@@ -129,6 +222,12 @@ export class BashSecurityAnalyzer {
         riskLevel: 'low',
         matchedPatterns: [],
       };
+    }
+
+    // 前置检查：白名单模式 — 配置了 whitelist 时，只放行匹配的指令
+    {
+      const preCheck = this.checkWhitelistPreCheck(trimmedCommand);
+      if (preCheck) return preCheck;
     }
 
     // 尝试Rust原生安全分析作为第一遍检查
@@ -187,7 +286,7 @@ export class BashSecurityAnalyzer {
             finalBehavior,
             messages
           );
-          return augmentedResult;
+          return this.applyTrustLevelBehavior(augmentedResult, trustLevel);
         }
       } catch {
         // 降级到TypeScript完整分析
@@ -195,7 +294,8 @@ export class BashSecurityAnalyzer {
     }
 
     // TypeScript降级：完整分析
-    return this.runFullAnalysis(trimmedCommand);
+    const result = this.runFullAnalysis(trimmedCommand);
+    return this.applyTrustLevelBehavior(result, trustLevel);
   }
 
   /**
@@ -453,10 +553,7 @@ export class BashSecurityAnalyzer {
    * 检查是否为危险基础命令
    */
   private checkDangerousBaseCommand(baseCommand: string): boolean {
-    return (
-      DANGEROUS_BASE_COMMANDS.has(baseCommand) ||
-      ADDITIONAL_DANGEROUS_COMMANDS.has(baseCommand)
-    );
+    return this.dangerousCommands.has(baseCommand);
   }
 
   /**
@@ -464,7 +561,7 @@ export class BashSecurityAnalyzer {
    */
   private checkSensitiveDirectoryAccess(command: string): boolean {
     const lowerCommand = command.toLowerCase();
-    return SENSITIVE_DIRECTORIES.some(
+    return this.sensitiveDirectories.some(
       (dir) =>
         lowerCommand.includes(dir) ||
         lowerCommand.includes(dir.replace('/', '\\'))
@@ -698,5 +795,42 @@ export class BashSecurityAnalyzer {
       hasUnterminatedQuote: hasUnterminatedQuote(command),
       hasShellQuoteBug: hasShellQuoteBug(command),
     };
+  }
+
+  /**
+   * 根据信任级别降级安全行为
+   * development → 放行非危险命令；work → ask 降级为 allow；chat/无 → 不做处理
+   *
+   * ⚠️ 设计约束（§9.1）：危险命令（behavior === 'deny'）在所有信任级别下均不会被绕过
+   */
+  private applyTrustLevelBehavior(
+    result: SecurityAnalysisResult,
+    trustLevel?: string
+  ): SecurityAnalysisResult {
+    if (!trustLevel) return result;
+
+    // 危险命令在所有信任级别下都不可绕过（§9.1）
+    if (result.behavior === 'deny') return result;
+
+    if (trustLevel === 'development') {
+      return {
+        ...result,
+        safe: true,
+        behavior: 'allow',
+      };
+    }
+
+    if (trustLevel === 'work' && result.behavior === 'ask') {
+      return {
+        ...result,
+        safe: true,
+        behavior: 'allow',
+        message: result.message
+          ? `[信任工作区·work] 低风险已放行: ${result.message}`
+          : undefined,
+      };
+    }
+
+    return result;
   }
 }

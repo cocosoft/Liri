@@ -81,6 +81,10 @@ export enum AuditEventType {
    * 自定义
    */
   CUSTOM = 'custom',
+  /**
+   * 信任工作区放行
+   */
+  WORKSPACE_TRUST_ALLOW = 'workspace_trust_allow',
 }
 
 /**
@@ -433,6 +437,29 @@ export class SecurityAudit {
       description,
       userId,
       data,
+    });
+  }
+
+  /**
+   * 记录信任工作区放行事件
+   * @param workspacePath 工作区路径
+   * @param trustLevel 信任级别
+   * @param operation 放行的操作
+   * @param command 放行的命令（可选）
+   */
+  logWorkspaceTrustAllow(
+    workspacePath: string,
+    trustLevel: string,
+    operation: string,
+    command?: string
+  ): string {
+    return this.logEvent({
+      type: AuditEventType.WORKSPACE_TRUST_ALLOW,
+      severity: AuditEventSeverity.INFO,
+      description: `信任工作区放行: ${workspacePath} (${trustLevel})`,
+      resource: workspacePath,
+      operation,
+      data: { trustLevel, workspacePath, command },
     });
   }
 

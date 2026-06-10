@@ -8,6 +8,9 @@ import { SecurityAnalysisResult, SecurityBehavior } from './types';
 import { SandboxManager } from '@modules/sandbox';
 import { PermissionManager } from './PermissionManager';
 import { PermissionMode } from '@modules/permission';
+import { configManager } from '@modules/config';
+import type { PermissionConfig } from '@modules/config/types';
+import { SecurityAudit } from './SecurityAudit';
 
 /**
  * 安全决策结果
@@ -41,15 +44,33 @@ export class SecurityIntegrationService {
    * @param command 命令字符串
    * @param toolName 工具名称（可选）
    * @param input 工具输入（可选）
+   * @param cwd 命令工作目录（可选），用于信任工作区检测
    * @returns 安全决策
    */
   async checkSecurity(
     command: string,
     toolName?: string,
-    input?: Record<string, unknown>
+    input?: Record<string, unknown>,
+    cwd?: string
   ): Promise<SecurityDecision> {
-    // 1. 执行安全分析
-    const securityAnalysis = this.securityAnalyzer.analyze(command);
+    // 0. 检测工作目录是否在信任工作区内，获取信任级别
+    let trustLevel: string | undefined;
+    if (cwd) {
+      trustLevel = this.getTrustLevelForPath(cwd);
+    }
+
+    // 1. 执行安全分析（传入信任级别以调整行为）
+    const securityAnalysis = this.securityAnalyzer.analyze(command, trustLevel);
+
+    // 1.1 审计日志：信任工作区放行记录
+    if (trustLevel && cwd) {
+      try {
+        const audit = new SecurityAudit();
+        audit.logWorkspaceTrustAllow(cwd, trustLevel, 'command_execution', command);
+      } catch {
+        // 审计日志非阻塞
+      }
+    }
 
     // 如果安全分析直接拒绝，直接返回
     if (securityAnalysis.behavior === 'deny') {
@@ -142,6 +163,74 @@ export class SecurityIntegrationService {
    */
   isSandboxEnabled(): boolean {
     return this.sandboxManager.isSandboxingEnabled();
+  }
+
+  /**
+   * 检查路径是否在信任的工作空间内
+   * @param targetPath 待检查的路径
+   * @returns 是否在信任工作空间内
+   */
+  isInTrustedWorkspace(targetPath: string): boolean {
+    try {
+      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const workspaces = permission?.trustedWorkspaces;
+      if (!workspaces || workspaces.length === 0) return false;
+
+      const normalizedPath = targetPath.replace(/\\/g, '/');
+      return workspaces.some((ws) => {
+        if (!ws.enabled) return false;
+        const wsPath = ws.path.replace(/\\/g, '/');
+        // 前缀匹配必须带路径分隔符或完全相等，防止 /proj 匹配 /proj-other
+        return normalizedPath === wsPath || normalizedPath.startsWith(wsPath + '/');
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 获取路径对应的信任级别
+   * @param targetPath 待检查的路径
+   * @returns 信任级别（chat/work/development），不在信任工作区内返回默认级别或 undefined
+   */
+  getTrustLevelForPath(targetPath: string): string | undefined {
+    try {
+      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const workspaces = permission?.trustedWorkspaces;
+      if (workspaces && workspaces.length > 0) {
+        const normalizedPath = targetPath.replace(/\\/g, '/');
+        for (const ws of workspaces) {
+          if (!ws.enabled) continue;
+          const wsPath = ws.path.replace(/\\/g, '/');
+          if (normalizedPath === wsPath || normalizedPath.startsWith(wsPath + '/')) {
+            return ws.trustLevel || 'development';
+          }
+        }
+      }
+
+      // 无匹配工作区时，回退到全局默认信任级别（通过 --trust-level CLI 参数设置）
+      return this.getDefaultTrustLevel();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * 获取全局默认信任级别
+   * 优先级：permission.defaultTrustLevel（--trust-level CLI 参数）> undefined
+   * @returns 默认信任级别或 undefined
+   */
+  getDefaultTrustLevel(): string | undefined {
+    try {
+      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const defaultTrustLevel = permission?.defaultTrustLevel;
+      if (defaultTrustLevel && ['chat', 'work', 'development'].includes(defaultTrustLevel)) {
+        return defaultTrustLevel;
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**

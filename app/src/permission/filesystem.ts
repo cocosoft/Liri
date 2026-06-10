@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
+import { configManager } from '@modules/config';
 
 export const DANGEROUS_FILES = [
   '.gitconfig',
@@ -15,15 +16,54 @@ export const DANGEROUS_FILES = [
 
 export const DANGEROUS_DIRECTORIES = ['.git', '.vscode', '.idea'] as const;
 
+/**
+ * 获取合并后的危险文件列表（默认 + 用户 config.json 自定义）
+ */
+function getMergedDangerousFiles(): readonly string[] {
+  try {
+    const permission = configManager.getConfigValue<any>('permission');
+    const rules = permission?.customRules?.directoryRules?.blacklist;
+    if (!rules || rules.length === 0) return DANGEROUS_FILES;
+    const userFiles = rules
+      .map((r: any) => r.path)
+      .filter((p: string) => !p.includes('/') && !p.includes('\\'));
+    if (userFiles.length === 0) return DANGEROUS_FILES;
+    return [...DANGEROUS_FILES, ...userFiles];
+  } catch {
+    return DANGEROUS_FILES;
+  }
+}
+
+/**
+ * 获取合并后的危险目录列表（默认 + 用户 config.json 自定义）
+ */
+function getMergedDangerousDirectories(): readonly string[] {
+  try {
+    const permission = configManager.getConfigValue<any>('permission');
+    const rules = permission?.customRules?.directoryRules?.blacklist;
+    if (!rules || rules.length === 0) return DANGEROUS_DIRECTORIES;
+    const userDirs = rules
+      .map((r: any) => r.path)
+      .filter((p: string) => p.includes('/') || p.includes('\\'))
+      .map((p: string) => path.basename(p));
+    if (userDirs.length === 0) return DANGEROUS_DIRECTORIES;
+    return [...DANGEROUS_DIRECTORIES, ...userDirs];
+  } catch {
+    return DANGEROUS_DIRECTORIES;
+  }
+}
+
 export function isDangerousFile(filePath: string): boolean {
   const basename = path.basename(filePath);
-  return (DANGEROUS_FILES as readonly string[]).includes(basename);
+  const merged = getMergedDangerousFiles();
+  return (merged as readonly string[]).includes(basename);
 }
 
 export function isInDangerousDirectory(filePath: string): boolean {
   const parts = filePath.replace(/\\/g, '/').split('/');
+  const merged = getMergedDangerousDirectories();
   return parts.some((p) =>
-    (DANGEROUS_DIRECTORIES as readonly string[]).includes(p)
+    (merged as readonly string[]).includes(p)
   );
 }
 
@@ -36,7 +76,29 @@ export function isWithinWorkingDirectory(
   cwd: string
 ): boolean {
   const resolved = path.resolve(cwd, filePath);
-  return resolved.startsWith(path.resolve(cwd));
+  // 检查是否在 cwd 内
+  if (resolved.startsWith(path.resolve(cwd))) return true;
+
+  // 检查是否在任何信任工作区内（多工作区支持）
+  try {
+    const permission = configManager.getConfigValue<any>('permission');
+    const workspaces = permission?.trustedWorkspaces;
+    if (workspaces && workspaces.length > 0) {
+      const normalizedPath = resolved.replace(/\\/g, '/');
+      for (const ws of workspaces) {
+        if (!ws.enabled) continue;
+        // 用 path.resolve 解析工作区路径，确保与 resolvedPath 在同一前缀级别（含盘符）
+        const wsResolved = path.resolve(ws.path).replace(/\\/g, '/');
+        if (normalizedPath === wsResolved || normalizedPath.startsWith(wsResolved + '/')) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // config 不可用时静默降级，仅使用 cwd 检查
+  }
+
+  return false;
 }
 
 export function checkReadPermissionForTool(

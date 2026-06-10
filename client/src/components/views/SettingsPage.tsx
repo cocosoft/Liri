@@ -9,6 +9,8 @@ import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
 import LocalAgentPanel from "../settings/LocalAgentPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
+import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
+import CustomRulesPanel from "../settings/CustomRulesPanel";
 import VoiceSettings from "../settings/VoiceSettings";
 import {
   ConfigSection,
@@ -17,7 +19,7 @@ import {
 } from "../settings/ConfigComponents";
 import type { BackendStatus } from "../../types";
 import { useApiKeyStore } from "../../stores/authStore";
-import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon } from "../../assets/icons";
+import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
 /** 导航项类型 */
@@ -63,6 +65,8 @@ const NAV_GROUPS: NavGroup[] = [
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     items: [
       { id: "apikeys", label: "API 密钥", icon: KeyIcon, zone: "security" },
+      { id: "trusted-workspaces", label: "信任工作区", icon: FolderOpenIcon, zone: "security" },
+      { id: "custom-rules", label: "自定义规则", icon: WrenchIcon, zone: "security" },
       { id: "permissions", label: "权限管理", icon: ShieldIcon, zone: "security" },
       { id: "oauth", label: "OAuth 认证", icon: LinkIcon, zone: "security" },
     ],
@@ -536,6 +540,10 @@ function SettingsPage() {
         return <RouterConfigContent isDark={isDark} config={config} setConfig={setConfig} />;
       case "apikeys":
         return <ApiKeyContent />;
+      case "trusted-workspaces":
+        return <TrustedWorkspacesPanel isDark={isDark} />;
+      case "custom-rules":
+        return <CustomRulesPanel isDark={isDark} />;
       case "permissions":
         return <PermissionManagementContent isDark={isDark} />;
       case "oauth":

@@ -368,6 +368,9 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const httpPort = parseHttpPortFromArgs(options.args) || 0;
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
 
+  // 解析 --trust-level 参数（场景选择联动）
+  const trustLevelArg = parseTrustLevelFromArgs(options.args);
+
   // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
   const { startHTTPServer } = await import('./entrypoints/repl');
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
@@ -389,6 +392,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     httpPort,
     useLegacyRepl,
     preStartedHttp: httpService ?? undefined,
+    trustLevel: trustLevelArg,
   });
 
   // REPL 完全启动后，初始化通道持久化并后台连接，不阻塞用户交互
@@ -449,6 +453,31 @@ function parseModelFromArgs(args?: string[]): string | undefined {
     }
     if (args[i].startsWith('--model=')) {
       return args[i].split('=')[1];
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * 从命令行参数中解析 --trust-level 值
+ * 用于场景选择联动：聊天(chat)/工作(work)/开发(development)
+ */
+function parseTrustLevelFromArgs(args?: string[]): string | undefined {
+  if (!args) return undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--trust-level' && i + 1 < args.length) {
+      const level = args[i + 1].toLowerCase();
+      if (['chat', 'work', 'development'].includes(level)) {
+        return level;
+      }
+    }
+    if (args[i].startsWith('--trust-level=')) {
+      const level = args[i].split('=')[1].toLowerCase();
+      if (['chat', 'work', 'development'].includes(level)) {
+        return level;
+      }
     }
   }
 
@@ -554,6 +583,37 @@ export async function launch(options: LaunchOptions): Promise<void> {
     process.stdout.write('\x1b[K');
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
+
+    // T1.2: 读取 LIRI_TRUSTED_WORKSPACE 环境变量，映射到 permission.trustedWorkspaces
+    // 仅在 config.json 中无 trustedWorkspaces 配置时注入
+    try {
+      const trustedWorkspace = configManager.env('LIRI_TRUSTED_WORKSPACE');
+      if (trustedWorkspace) {
+        const existing = configManager.getConfigValue<any>('permission');
+        if (!existing?.trustedWorkspaces?.length) {
+          let wsPath = trustedWorkspace;
+          let wsLevel: string = 'development';
+          // 支持语法扩展：LIRI_TRUSTED_WORKSPACE=path|level
+          const pipeIdx = trustedWorkspace.lastIndexOf('|');
+          if (pipeIdx > 0) {
+            wsPath = trustedWorkspace.slice(0, pipeIdx);
+            wsLevel = trustedWorkspace.slice(pipeIdx + 1);
+          }
+          configManager.setConfigValue('permission', {
+            mode: 'default',
+            trustedWorkspaces: [
+              {
+                path: wsPath,
+                trustLevel: wsLevel,
+                enabled: true,
+              },
+            ],
+          });
+        }
+      }
+    } catch {
+      // 非致命：env 读取失败时静默跳过
+    }
 
     // T1.25: 加载模型配置（从 YAML + DB 单一数据源）
     try {

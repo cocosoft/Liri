@@ -1,6 +1,5 @@
 /**
  * 受保护文件路径定义
- * 对标 Hermes agent/file_safety.py，定义精确的文件写入保护列表
  */
 import os from 'node:os';
 import path from 'node:path';
@@ -77,42 +76,58 @@ export const PROTECTED_DIRECTORY_PREFIXES: string[] = (() => {
 export function getCrossPlatformProtectedFiles(): string[] {
   const isWindows = process.platform === 'win32';
 
-  if (!isWindows) {
-    return PROTECTED_FILES.map((p) => normalizePath(p));
+  const baseList = (() => {
+    if (!isWindows) {
+      return PROTECTED_FILES.map((p) => normalizePath(p));
+    }
+
+    const home = homeDir();
+    const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
+
+    // Windows 受保护文件列表：逐一映射，避免多个 Unix 路径指向同一 Windows 路径
+    const windowsProtected: string[] = [
+      // 保留跨平台通用的家目录配置文件
+      path.join(home, '.bashrc'),
+      path.join(home, '.bash_profile'),
+      path.join(home, '.profile'),
+      path.join(home, '.zshrc'),
+      path.join(home, '.zprofile'),
+      path.join(home, '.zshenv'),
+      path.join(home, '.config', 'fish', 'config.fish'),
+      path.join(home, '.ssh', 'authorized_keys'),
+      path.join(home, '.ssh', 'known_hosts'),
+      // Windows 系统注册表配置单元（替换 /etc/passwd、/etc/shadow、/etc/group）
+      path.join(sysRoot, 'System32', 'config', 'SAM'),
+      path.join(sysRoot, 'System32', 'config', 'SECURITY'),
+      path.join(sysRoot, 'System32', 'config', 'SOFTWARE'),
+      // Windows 系统配置（替换 /etc/sudoers）
+      path.join(sysRoot, 'System32', 'GroupPolicy', 'Machine', 'Registry.pol'),
+      // Windows hosts 文件（替换 /etc/hosts）
+      path.join(sysRoot, 'System32', 'drivers', 'etc', 'hosts'),
+      // Windows 计算机名/网络配置（替换 /etc/hostname）
+      path.join(sysRoot, 'System32', 'drivers', 'etc', 'networks'),
+      // Windows 注册表 SYSTEM 配置单元（替换 /etc/fstab）
+      path.join(sysRoot, 'System32', 'config', 'SYSTEM'),
+      // Windows 计划任务目录（替换 /etc/crontab）
+      path.join(sysRoot, 'System32', 'Tasks'),
+    ];
+
+    return windowsProtected.map((p) => normalizePath(p));
+  })();
+
+  // 合并用户自定义规则
+  try {
+    const permission = configManager.getConfigValue<any>('permission');
+    const blacklist = permission?.customRules?.directoryRules?.blacklist;
+    if (blacklist && blacklist.length > 0) {
+      const userPaths = blacklist.map((r: any) => normalizePath(r.path));
+      return [...baseList, ...userPaths];
+    }
+  } catch {
+    // config 系统未初始化时静默降级
   }
 
-  const home = homeDir();
-  const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
-
-  // Windows 受保护文件列表：逐一映射，避免多个 Unix 路径指向同一 Windows 路径
-  const windowsProtected: string[] = [
-    // 保留跨平台通用的家目录配置文件
-    path.join(home, '.bashrc'),
-    path.join(home, '.bash_profile'),
-    path.join(home, '.profile'),
-    path.join(home, '.zshrc'),
-    path.join(home, '.zprofile'),
-    path.join(home, '.zshenv'),
-    path.join(home, '.config', 'fish', 'config.fish'),
-    path.join(home, '.ssh', 'authorized_keys'),
-    path.join(home, '.ssh', 'known_hosts'),
-    // Windows 系统注册表配置单元（替换 /etc/passwd、/etc/shadow、/etc/group）
-    path.join(sysRoot, 'System32', 'config', 'SAM'),
-    path.join(sysRoot, 'System32', 'config', 'SECURITY'),
-    path.join(sysRoot, 'System32', 'config', 'SOFTWARE'),
-    // Windows 系统配置（替换 /etc/sudoers）
-    path.join(sysRoot, 'System32', 'GroupPolicy', 'Machine', 'Registry.pol'),
-    // Windows hosts 文件（替换 /etc/hosts）
-    path.join(sysRoot, 'System32', 'drivers', 'etc', 'hosts'),
-    // Windows 计算机名/网络配置（替换 /etc/hostname）
-    path.join(sysRoot, 'System32', 'drivers', 'etc', 'networks'),
-    // Windows 注册表 SYSTEM 配置单元（替换 /etc/fstab）
-    path.join(sysRoot, 'System32', 'config', 'SYSTEM'),
-    // Windows 计划任务目录（替换 /etc/crontab）
-    path.join(sysRoot, 'System32', 'Tasks'),
-  ];
-
-  return windowsProtected.map((p) => normalizePath(p));
+  return baseList;
 }
 
 /**
@@ -122,32 +137,51 @@ export function getCrossPlatformProtectedFiles(): string[] {
 export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
   const isWindows = process.platform === 'win32';
 
-  if (!isWindows) {
-    return PROTECTED_DIRECTORY_PREFIXES.map((p) => normalizePath(p));
+  const baseList = (() => {
+    if (!isWindows) {
+      return PROTECTED_DIRECTORY_PREFIXES.map((p) => normalizePath(p));
+    }
+
+    const home = homeDir();
+    const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
+    const programData = configManager.env('ProgramData') || 'C:\\ProgramData';
+
+    return [
+      // Windows 系统目录（替换 /etc/systemd/system/、/etc/init.d/）
+      normalizePath(path.join(sysRoot, 'System32', 'Tasks')) + '/',
+      normalizePath(path.join(sysRoot, 'System32', 'GroupPolicy')) + '/',
+      normalizePath(path.join(sysRoot, 'System32', 'config')) + '/',
+      // Windows 程序数据目录（替换 /etc/apt/）
+      normalizePath(path.join(programData)) + '/',
+      // Windows SSL 管理（替换 /etc/ssl/）
+      normalizePath(path.join(sysRoot, 'System32', 'certlm.msc')) + '/',
+      // Windows 服务配置（替换 /etc/systemd/system/）
+      normalizePath(path.join(sysRoot, 'System32', 'drivers', 'etc')) + '/',
+      // 保留跨平台通用的家目录前缀
+      normalizePath(path.join(home, '.ssh')) + '/',
+      normalizePath(path.join(home, '.gnupg')) + '/',
+      normalizePath(path.join(home, '.aws')) + '/',
+      normalizePath(path.join(home, '.config', 'gcloud')) + '/',
+      normalizePath(path.join(home, '.kube')) + '/',
+    ];
+  })();
+
+  // 合并用户自定义规则
+  try {
+    const permission = configManager.getConfigValue<any>('permission');
+    const blacklist = permission?.customRules?.directoryRules?.blacklist;
+    if (blacklist && blacklist.length > 0) {
+      const userPaths = blacklist.map((r: any) => {
+        const p = normalizePath(r.path);
+        return p.endsWith('/') ? p : p + '/';
+      });
+      return [...baseList, ...userPaths];
+    }
+  } catch {
+    // config 系统未初始化时静默降级
   }
 
-  const home = homeDir();
-  const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
-  const programData = configManager.env('ProgramData') || 'C:\\ProgramData';
-
-  return [
-    // Windows 系统目录（替换 /etc/systemd/system/、/etc/init.d/）
-    normalizePath(path.join(sysRoot, 'System32', 'Tasks')) + '/',
-    normalizePath(path.join(sysRoot, 'System32', 'GroupPolicy')) + '/',
-    normalizePath(path.join(sysRoot, 'System32', 'config')) + '/',
-    // Windows 程序数据目录（替换 /etc/apt/）
-    normalizePath(path.join(programData)) + '/',
-    // Windows SSL 管理（替换 /etc/ssl/）
-    normalizePath(path.join(sysRoot, 'System32', 'certlm.msc')) + '/',
-    // Windows 服务配置（替换 /etc/systemd/system/）
-    normalizePath(path.join(sysRoot, 'System32', 'drivers', 'etc')) + '/',
-    // 保留跨平台通用的家目录前缀
-    normalizePath(path.join(home, '.ssh')) + '/',
-    normalizePath(path.join(home, '.gnupg')) + '/',
-    normalizePath(path.join(home, '.aws')) + '/',
-    normalizePath(path.join(home, '.config', 'gcloud')) + '/',
-    normalizePath(path.join(home, '.kube')) + '/',
-  ];
+  return baseList;
 }
 
 /**

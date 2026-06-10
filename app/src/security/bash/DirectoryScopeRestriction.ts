@@ -5,6 +5,7 @@
 
 import { resolve, normalize, relative, sep } from 'path';
 import { existsSync, statSync } from 'fs';
+import { configManager } from '@modules/config';
 
 /**
  * 路径验证结果
@@ -86,6 +87,34 @@ export class DirectoryScopeRestriction {
 
   constructor(config: Partial<DirectoryScopeConfig> = {}) {
     this.config = { ...DEFAULT_SCOPE_CONFIG, ...config };
+
+    // 从用户配置合并 denyDirs
+    try {
+      const permission = configManager.getConfigValue<any>('permission');
+      const blacklist = permission?.customRules?.directoryRules?.blacklist;
+      if (blacklist && blacklist.length > 0) {
+        const userDirs = blacklist
+          .map((r: any) => r.path)
+          .filter((p: string) => p.includes('/') || p.includes('\\'));
+        if (userDirs.length > 0) {
+          this.config.denyDirs = [...this.config.denyDirs, ...userDirs];
+        }
+      }
+
+      // 信任工作区路径自动加入 allowedDirs
+      const workspaces = permission?.trustedWorkspaces;
+      if (workspaces && workspaces.length > 0) {
+        const wsDirs = workspaces
+          .filter((ws: any) => ws.enabled !== false)
+          .map((ws: any) => ws.path)
+          .filter(Boolean);
+        if (wsDirs.length > 0) {
+          this.config.allowedDirs = [...this.config.allowedDirs, ...wsDirs];
+        }
+      }
+    } catch {
+      // config 系统未初始化时静默降级
+    }
   }
 
   /**

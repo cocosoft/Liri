@@ -78,6 +78,8 @@ export interface REPLConfig {
   useLegacyRepl?: boolean;
   /** 已预先启动的 HTTP 服务实例（避免重复启动） */
   preStartedHttp?: LocalHTTPService;
+  /** 场景信任级别（chat/work/development），CLI --trust-level 参数传入 */
+  trustLevel?: string;
 }
 
 /**
@@ -379,6 +381,22 @@ export async function launchRepl(
 
   console.log();
 
+  // 设置默认信任级别（从 CLI --trust-level 参数传入的全局场景）
+  if (finalConfig.trustLevel) {
+    try {
+      const currentConfig = configManager.getConfigValue<Record<string, unknown>>('permission') || {};
+      configManager.setConfigValue('permission', {
+        ...currentConfig,
+        defaultTrustLevel: finalConfig.trustLevel,
+      });
+      ui.showInfo(
+        `场景模式: ${finalConfig.trustLevel === 'chat' ? '聊天' : finalConfig.trustLevel === 'work' ? '工作' : '开发'}`
+      );
+    } catch {
+      // 信任级别设置失败不阻塞 REPL 启动
+    }
+  }
+
   profileCheckpoint('repl_initialize_chat_manager_start');
   getStartupChainProfiler().markPhaseStart('session_init');
   const chatManager = await initializeChatManager();
@@ -547,6 +565,34 @@ export async function launchRepl(
     }
 
     try {
+      if (trimmedLine.startsWith('.scene ') || trimmedLine === '.scene') {
+        // 运行时切换场景信任级别
+        const sceneName = trimmedLine.startsWith('.scene ')
+          ? trimmedLine.slice(7).trim()
+          : '';
+        if (!sceneName) {
+          const current = configManager.getConfigValue<{ defaultTrustLevel?: string }>('permission')?.defaultTrustLevel;
+          const label = current === 'chat' ? '聊天' : current === 'work' ? '工作' : current === 'development' ? '开发' : '未设置';
+          ui.showInfo(`当前场景: ${label}${current ? ` (${current})` : ''}`);
+          ui.showInfo('使用 /scene <chat|work|development> 切换场景');
+        } else {
+          const validLevels = ['chat', 'work', 'development'] as const;
+          if (!validLevels.includes(sceneName as typeof validLevels[number])) {
+            ui.showError(`无效场景: ${sceneName}。可选: chat, work, development`);
+          } else {
+            const currentConfig = configManager.getConfigValue<Record<string, unknown>>('permission') || {};
+            configManager.setConfigValue('permission', {
+              ...currentConfig,
+              defaultTrustLevel: sceneName,
+            });
+            const label = sceneName === 'chat' ? '聊天' : sceneName === 'work' ? '工作' : '开发';
+            ui.showSuccess(`场景已切换至: ${label} (${sceneName})`);
+          }
+        }
+        rl.prompt();
+        return;
+      }
+
       if (trimmedLine.startsWith('.model ')) {
         // 运行时切换模型
         const modelName = trimmedLine.slice(7).trim();

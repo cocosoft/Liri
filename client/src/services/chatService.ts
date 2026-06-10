@@ -6,10 +6,24 @@ function getModelFromConfig(): string {
   return (useConfigStore.getState().config.model as string) || "pyapp-default";
 }
 
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface QuestionData {
+  questionId: string;
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect?: boolean;
+}
+
 export interface StreamChunk {
-  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error";
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question";
   content: string;
   toolCall?: ToolCall;
+  questionData?: QuestionData;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -127,7 +141,7 @@ export const chatService = {
   sendMessage: async (
     content: string,
     sessionId?: string,
-  ): Promise<Message> => {
+  ): Promise<Message & { pendingInteraction?: QuestionData }> => {
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
       messages: [{ role: "user", content }],
@@ -135,16 +149,31 @@ export const chatService = {
     };
     if (sessionId) body.session_id = sessionId;
 
-    const response = await fetchJSON<{
-      id: string;
-      choices: Array<{
-        message: { role: string; content: string };
-        finish_reason: string;
-      }>;
-    }>(`${getBackendBaseUrl()}/v1/chat/completions`, {
+    const response = await fetchJSON<
+      {
+        id: string;
+        choices: Array<{
+          message: { role: string; content: string };
+          finish_reason: string;
+        }>;
+        pending_interaction?: QuestionData;
+      } & Record<string, unknown>
+    >(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: "POST",
       body: JSON.stringify(body),
     });
+
+    // 检测是否返回了待处理的用户交互
+    if (response.pending_interaction) {
+      return {
+        id: response.id,
+        role: "assistant" as const,
+        content: "",
+        timestamp: Date.now(),
+        session_id: sessionId || "default",
+        pendingInteraction: response.pending_interaction,
+      };
+    }
 
     const choice = response.choices[0];
     return {
@@ -258,6 +287,12 @@ export const chatService = {
                       chunk.usage.cache_creation_input_tokens,
                   },
                 };
+              } else if (pyappType === "question" && chunk.__pyapp_question) {
+                yield {
+                  type: "question",
+                  content: "",
+                  questionData: chunk.__pyapp_question,
+                };
               } else if (chunk.choices?.[0]?.delta?.content) {
                 yield {
                   type: "text",
@@ -308,5 +343,24 @@ export const chatService = {
         body: JSON.stringify({ blocks }),
       },
     );
+  },
+
+  submitQuestionAnswer: async (
+    questionId: string,
+    answers: string[],
+    sessionId?: string,
+  ): Promise<{ success: boolean; content?: string }> => {
+    try {
+      const response = await fetchJSON<{ success: boolean; content?: string }>(
+        `${getBackendBaseUrl()}/v1/chat/question-answer`,
+        {
+          method: "POST",
+          body: JSON.stringify({ questionId, answers, sessionId }),
+        },
+      );
+      return response;
+    } catch {
+      return { success: false };
+    }
   },
 };

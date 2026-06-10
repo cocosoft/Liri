@@ -79,19 +79,12 @@ export function parseEffortArg(
 export function modelSupportsThinking(model: string): boolean {
   const canonical = model.toLowerCase();
 
-  if (canonical.includes('claude-3')) {
+  // Claude 3（不含 3.5+）不支持 extended thinking
+  if (canonical.includes('claude-3') && !canonical.includes('claude-3.5')) {
     return false;
   }
 
-  if (
-    canonical.includes('deepseek') ||
-    canonical.includes('gpt-') ||
-    canonical.includes('o1') ||
-    canonical.includes('o3')
-  ) {
-    return false;
-  }
-
+  // DeepSeek、OpenAI o1/o3 等通过 reasoning_content 支持推理内容展示
   return true;
 }
 

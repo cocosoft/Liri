@@ -10,15 +10,29 @@ export interface ToolCall {
   status?: "running" | "completed" | "failed";
 }
 
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface QuestionData {
+  questionId: string;
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect?: boolean;
+}
+
 export interface MessageBlock {
   id: string;
-  type: "text" | "thinking" | "tool_call" | "status";
+  type: "text" | "thinking" | "tool_call" | "status" | "question";
   content: string;
   toolCall?: ToolCall;
   status?: string;
   isStreaming?: boolean;
   toolCallId?: string;
   groupId?: string;
+  questionData?: QuestionData;
 }
 
 export interface ChatMessage {

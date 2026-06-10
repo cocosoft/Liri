@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import type { MessageBlock, TaskCardData, TaskCardTask } from "../../types";
-import StatusBlock from "./StatusBlock";
 import ToolCallBlock from "./ToolCallBlock";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TaskCard from "./TaskCard";
@@ -29,7 +28,7 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     }
   }, [isStreaming]);
 
-  const toolName = React.useMemo(() => {
+  const toolName = useMemo(() => {
     for (const block of blocks) {
       if (block.type === "tool_call" && block.toolCall?.name) {
         const nameMap: Record<string, string> = {
@@ -59,7 +58,7 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     return "🔧 工具执行";
   }, [blocks]);
 
-  const status = React.useMemo(() => {
+  const status = useMemo(() => {
     for (const block of blocks) {
       if (block.type === "tool_call" && block.toolCall?.status) {
         return block.toolCall.status;
@@ -86,44 +85,48 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     return isStreaming ? "running" : "completed";
   }, [blocks, isStreaming]);
 
-  const statusIcon = isStreaming
-    ? "⏳"
-    : status === "completed"
-      ? "✅"
-      : status === "failed"
-        ? "❌"
-        : "🔧";
+  const statusConfig = useMemo(() => {
+    if (isStreaming) {
+      return { icon: "⏳", label: "执行中", color: "#e6c384" };
+    }
+    switch (status) {
+      case "completed":
+        return { icon: "✅", label: "完成", color: "#9ece6a" };
+      case "failed":
+        return { icon: "❌", label: "失败", color: "#f7768e" };
+      default:
+        return { icon: "🔧", label: status, color: "#7aa2f7" };
+    }
+  }, [status, isStreaming]);
 
-  const statusColor = isStreaming
-    ? "#e6c384"
-    : status === "completed"
-      ? "#9ece6a"
-      : status === "failed"
-        ? "#f7768e"
-        : "#7aa2f7";
-
-  const summaryText = React.useMemo(() => {
+  /** 从 tool_call 块提取关键参数摘要 */
+  const summaryText = useMemo(() => {
     for (const block of blocks) {
       if (block.type === "tool_call" && block.toolCall?.arguments) {
-        const args = block.toolCall.arguments;
+        const args = block.toolCall.arguments as Record<string, unknown>;
         const entries = Object.entries(args);
         if (entries.length > 0) {
           const preview = entries
             .slice(0, 2)
             .map(([k, v]) => {
               const keyLabel: Record<string, string> = {
+                file_path: "文件路径",
                 url: "链接",
                 query: "查询",
                 pattern: "模式",
                 command: "命令",
                 path: "路径",
                 keywords: "关键词",
+                code: "代码",
+                language: "语言",
+                content: "内容",
+                output: "输出",
               };
               const label = keyLabel[k] || k;
               const value =
                 typeof v === "string"
-                  ? v.length > 30
-                    ? v.substring(0, 30) + "..."
+                  ? v.length > 40
+                    ? v.substring(0, 40) + "..."
                     : v
                   : String(v);
               return `${label}: ${value}`;
@@ -138,8 +141,29 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     return "";
   }, [blocks]);
 
-  /** 检测是否为 todo_write 工具调用，若是则提取 TaskCard 数据 */
-  const taskCardData = React.useMemo((): TaskCardData | null => {
+  /** 从失败的工具调用中提取错误信息 */
+  const errorMessage = useMemo(() => {
+    for (const block of blocks) {
+      if (
+        block.type === "tool_call" &&
+        block.toolCall?.status === "failed" &&
+        block.toolCall?.result
+      ) {
+        const result = block.toolCall.result;
+        if (result && typeof result === "object" && "error" in (result as Record<string, unknown>)) {
+          const err = (result as Record<string, unknown>).error;
+          return String(err).slice(0, 100);
+        }
+        if (typeof result === "string") {
+          return result.slice(0, 100);
+        }
+      }
+    }
+    return null;
+  }, [blocks]);
+
+  /** 检测是否为 todo_write 工具调用 */
+  const taskCardData = useMemo((): TaskCardData | null => {
     for (const block of blocks) {
       if (
         block.type === "tool_call" &&
@@ -174,27 +198,77 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     return null;
   }, [blocks]);
 
+  /** 过滤冗余状态块：连续相似的 tool 状态只显示最后一条 */
+  const filteredBlocks = useMemo(() => {
+    return blocks.filter((block, idx) => {
+      // 保留非 status 块
+      if (block.type !== "status") return true;
+
+      // 保留第一条 status
+      if (idx === 0) return true;
+
+      const prev = blocks[idx - 1];
+      // 如果上一条也是 status 且都包含相同的工具名，只保留后一条
+      if (prev?.type === "status") {
+        const prevTool = prev.content.match(/(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/);
+        const currTool = block.content.match(/(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/);
+        if (prevTool && currTool && prevTool[1] === currTool[1]) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [blocks]);
+
   if (taskCardData) {
     return <TaskCard data={taskCardData} />;
   }
 
   return (
     <div style={styles.container}>
-      <button onClick={() => setCollapsed(!collapsed)} style={styles.header}>
-        <span>{statusIcon}</span>
-        <span style={styles.title}>{toolName}</span>
-        {summaryText && (
-          <span style={styles.summary}>
-            {collapsed ? `📋 ${summaryText}` : ""}
-          </span>
-        )}
-        <span style={{ ...styles.badge, background: statusColor }}>
-          {hasStreamEnded.current
-            ? "completed"
-            : isStreaming && status === "running"
-              ? "running"
-              : status}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        style={styles.header}
+      >
+        {/* 状态图标 */}
+        <span style={styles.statusIcon}>
+          {isStreaming ? (
+            <span style={styles.pulsingDot} />
+          ) : (
+            statusConfig.icon
+          )}
         </span>
+
+        {/* 工具名称 + 参数摘要 */}
+        <span style={styles.title}>
+          {toolName}
+          {summaryText && (
+            <span style={styles.titleArgs}> — {summaryText}</span>
+          )}
+        </span>
+
+        {/* 错误信息 */}
+        {status === "failed" && errorMessage && (
+          <span style={styles.errorMsg}>{errorMessage}</span>
+        )}
+
+        {/* 状态徽章 */}
+        <span
+          style={{
+            ...styles.badge,
+            background: statusConfig.color,
+            opacity: isStreaming ? 0.8 : 1,
+          }}
+        >
+          {isStreaming ? (
+            <span>{statusConfig.label}…</span>
+          ) : (
+            statusConfig.label
+          )}
+        </span>
+
+        {/* 展开/折叠箭头 */}
         <span style={styles.toggle}>{collapsed ? "▶" : "▼"}</span>
       </button>
 
@@ -209,7 +283,7 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
             </button>
           ) : (
             <div style={styles.blocks}>
-              {blocks.map((block) => (
+              {filteredBlocks.map((block) => (
                 <BlockItem
                   key={block.id}
                   block={block}
@@ -224,6 +298,75 @@ function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
     </div>
   );
 }
+
+/** 组内状态行 — 简洁行内文本，不产生独立卡片边框 */
+function GroupStatusLine({
+  content,
+  isStreaming,
+}: {
+  content: string;
+  isStreaming?: boolean;
+}) {
+  const isRunning = content.includes("Running");
+  const isCompleted = content.includes("completed") || content.includes("✅");
+
+  return (
+    <div style={groupStatusStyles.line}>
+      <span style={groupStatusStyles.dot}>
+        {isRunning ? (
+          <span style={groupStatusStyles.pulse} />
+        ) : isCompleted ? (
+          "✓"
+        ) : (
+          "·"
+        )}
+      </span>
+      <span
+        style={{
+          ...groupStatusStyles.text,
+          color: isRunning ? "#e6c384" : isCompleted ? "#9ece6a" : "#7aa2f7",
+          fontStyle: isRunning ? "italic" : "normal",
+        }}
+      >
+        {content}
+        {isStreaming && <span style={groupStatusStyles.cursor}>|</span>}
+      </span>
+    </div>
+  );
+}
+
+const groupStatusStyles: Record<string, React.CSSProperties> = {
+  line: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "2px 4px",
+    fontSize: "12px",
+  },
+  dot: {
+    fontSize: "11px",
+    flexShrink: 0,
+    width: "14px",
+    textAlign: "center" as const,
+  },
+  pulse: {
+    display: "inline-block",
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    background: "#e6c384",
+    animation: "pulse 1.5s ease-in-out infinite",
+  },
+  text: {
+    flex: 1,
+    textAlign: "left" as const,
+    fontFamily: "inherit",
+  },
+  cursor: {
+    animation: "blink 1s step-end infinite",
+    marginLeft: "2px",
+  },
+};
 
 function BlockItem({
   block,
@@ -240,7 +383,7 @@ function BlockItem({
   switch (block.type) {
     case "status":
       return (
-        <StatusBlock
+        <GroupStatusLine
           content={block.content}
           isStreaming={block.isStreaming || isStreaming}
         />
@@ -287,22 +430,46 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "left",
     fontFamily: "inherit",
   },
+  statusIcon: {
+    fontSize: "14px",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+  },
+  pulsingDot: {
+    display: "inline-block",
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    background: "#e6c384",
+    animation: "pulse 1.5s ease-in-out infinite",
+  },
   title: {
     fontWeight: 600,
     color: "#e0e0e0",
     flexShrink: 0,
-  },
-  summary: {
-    flex: 1,
-    fontSize: "12px",
-    color: "#565f89",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    minWidth: 0,
+  },
+  titleArgs: {
+    fontWeight: 400,
+    fontSize: "12px",
+    color: "#565f89",
+  },
+  errorMsg: {
+    fontSize: "11px",
+    color: "#f7768e",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    maxWidth: "200px",
+    flexShrink: 1,
   },
   badge: {
     fontSize: "11px",
-    padding: "2px 8px",
+    padding: "2px 10px",
     borderRadius: "10px",
     color: "#1a1b26",
     fontWeight: 600,

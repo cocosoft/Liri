@@ -287,11 +287,27 @@ function ToolCallBlock({ toolCall, isStreaming }: ToolCallBlockProps) {
 
   const displayName = toolNameMap[toolCall.name] || toolCall.name;
 
+  // 生成折叠态参数摘要
+  const argSummary = React.useMemo(() => {
+    const args = toolCall.arguments as Record<string, unknown> | undefined;
+    if (!args || Object.keys(args).length === 0) return "";
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(args)) {
+      if (parts.join(", ").length > 30) break;
+      const v = typeof value === "string" ? value : JSON.stringify(value);
+      parts.push(`${key}=${v.length > 15 ? v.slice(0, 15) + "…" : v}`);
+    }
+    return parts.join(", ");
+  }, [toolCall.arguments]);
+
   return (
     <div style={styles.container}>
       <button onClick={() => setExpanded(!expanded)} style={styles.header}>
         <span>{statusIcon}</span>
         <span style={styles.name}>{displayName}</span>
+        {argSummary && (
+          <span style={styles.summary}>{argSummary}</span>
+        )}
         <span style={{ ...styles.badge, background: statusColor }}>
           {isStreaming ? "running" : toolCall.status || "completed"}
         </span>
@@ -357,6 +373,19 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     fontWeight: 500,
     color: "#e0e0e0",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+  },
+  summary: {
+    color: "#565f89",
+    fontSize: "11px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    maxWidth: "200px",
+    flexShrink: 1,
   },
   badge: {
     fontSize: "11px",

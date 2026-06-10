@@ -465,6 +465,9 @@ export class LocalHTTPService {
     if (req.method === 'POST' && url === '/v1/chat/completions') {
       return this.handleChatCompletions(req, res);
     }
+    if (req.method === 'POST' && url === '/v1/chat/question-answer') {
+      return this.handleQuestionAnswer(req, res);
+    }
 
     // ---- Session ----
     if (req.method === 'GET' && url === '/v1/sessions') {
@@ -2958,6 +2961,41 @@ export class LocalHTTPService {
       const response = await coreAPI.chat(chatRequest);
       const chatDurationMs = Date.now() - chatStartTime;
 
+      // 检查是否需要用户交互（非流式路径挂起）
+      if (response.finishReason === 'pending_interaction' && response.pendingInteraction) {
+        logger.info('非流式聊天需要用户交互', {
+          sessionId: request.session_id,
+          questionId: response.pendingInteraction.questionId,
+        });
+
+        const pendingResponse = {
+          id: `chatcmpl-${randomUUID().slice(0, 8)}`,
+          object: 'chat.completion',
+          created: Math.floor(Date.now() / 1000),
+          model: request.model || 'pyapp-default',
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: null,
+              },
+              finish_reason: 'pending_interaction',
+            },
+          ],
+          pending_interaction: response.pendingInteraction,
+          usage: {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+          },
+        };
+
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(pendingResponse));
+        return;
+      }
+
       // 检查 AI 响应是否成功
       if (response.finishReason === 'error' || !response.content) {
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -3205,6 +3243,24 @@ export class LocalHTTPService {
               ],
             })}\n\n`
           );
+        } else if (chunk.type === 'question' && chunk.questionData) {
+          res.write(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'question',
+              __pyapp_question: chunk.questionData,
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: '' },
+                  finish_reason: null,
+                },
+              ],
+            })}\n\n`
+          );
         }
 
         result = await generator.next();
@@ -3274,6 +3330,80 @@ export class LocalHTTPService {
 
       res.write('data: [DONE]\n\n');
       res.end();
+    }
+  }
+
+  /**
+   * 处理 question answer 提交
+   * 用户对 AI 提问的回答，通过此端点提交后解除 SSE 流中的 await 阻塞
+   * POST /v1/chat/question-answer
+   * Body: { questionId: string, answers: string[] }
+   */
+  private async handleQuestionAnswer(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const { questionId, answers, sessionId } = JSON.parse(body);
+
+      if (!questionId || !answers || !Array.isArray(answers)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'questionId 和 answers 是必填项' }));
+        return;
+      }
+
+      const coreAPI = getCoreAPI();
+
+      // 先尝试流式路径的交互解析（_pendingInteraction）
+      const resolved = coreAPI.resolveInteraction(questionId, answers);
+
+      if (resolved) {
+        // 流式路径成功解析
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // 流式路径未命中，尝试非流式路径（pendingInteractions Map）
+      if (!sessionId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: '非流式交互需要 sessionId' }));
+        return;
+      }
+
+      const pendingData = coreAPI.getPendingInteraction(sessionId);
+      if (!pendingData || pendingData.questionId !== questionId) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: '未找到匹配的待处理交互',
+            resolved: false,
+          })
+        );
+        return;
+      }
+
+      // 恢复非流式路径的工具循环
+      const chatResponse = await coreAPI.continueInteraction(
+        sessionId,
+        questionId,
+        answers
+      );
+
+      // 继续成功后，返回完整聊天补全响应
+      // 格式兼容 client.submitQuestionAnswer 期望的 { success: true } 格式
+      const completionResponse: Record<string, unknown> = {
+        success: true,
+        content: chatResponse.content || '',
+        finish_reason: chatResponse.finishReason || 'stop',
+        sessionId,
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(completionResponse));
+    } catch (err) {
+      this.sendError(res, err);
     }
   }
 

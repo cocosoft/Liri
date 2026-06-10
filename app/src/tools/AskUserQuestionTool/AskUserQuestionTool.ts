@@ -111,9 +111,9 @@ export class AskUserQuestionTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     // 优先使用 ChatManager 注入的用户真实答案（来自 UI 层的选择）
-    const userAnswers = (input._userAnswers as string[]) ||
-      // 回退：使用选项标签作为默认答案（保持向后兼容）
-      (input.options as { label: string }[])?.map((o) => o.label) || [];
+    // 如果没有 _userAnswers，说明工具调用走的非交互路径（未经过 streamMessage 的交互检查）
+    // 此时返回空数组，不允许自动回退到全部选项（避免"自我回答"问题）
+    const userAnswers = (input._userAnswers as string[]) || [];
 
     const result: AskUserQuestionResult = {
       questionId: `q_${Date.now()}`,

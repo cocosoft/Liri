@@ -32,6 +32,7 @@ import type {
   ChatRequest,
   ChatResponse,
   ChatStreamChunk,
+  QuestionData,
   ToolCallSpec,
   ToolResult,
   ToolInfo,
@@ -222,6 +223,24 @@ export class CoreAPIImpl implements CoreAPI {
         model,
       });
 
+      // 检查是否返回了待处理的用户交互（非流式路径）
+      const pendingInteraction =
+        (message.metadata as Record<string, unknown> | undefined)
+          ?.pendingInteraction as QuestionData | undefined;
+      if (pendingInteraction) {
+        logger.info('CoreAPI.chat 返回待处理交互', {
+          sessionId: request.sessionId,
+          questionId: pendingInteraction.questionId,
+        });
+        return {
+          content: '',
+          sessionId: message.sessionId || request.sessionId || '',
+          messageId: message.id,
+          finishReason: 'pending_interaction',
+          pendingInteraction,
+        };
+      }
+
       const content =
         typeof message.content === 'string'
           ? message.content
@@ -371,7 +390,7 @@ export class CoreAPIImpl implements CoreAPI {
             pendingEvents.push({
               type: 'status',
               content: isFailed
-                ? `❌ Tool ${toolName} failed`
+                ? `❌ Tool ${toolName} failed${detail ? ` — ${detail.replace(/^失败:\s*/, '')}` : ''}`
                 : `✅ Tool ${toolName} completed`,
               sessionId: finalSessionId,
             } as ChatStreamChunk);
@@ -909,5 +928,60 @@ export class CoreAPIImpl implements CoreAPI {
    */
   getToolManager(): ToolManager {
     return this.toolManager;
+  }
+
+  /**
+   * 解析待处理的用户交互（question 回答）
+   * 当 LLM 通过 ask_user_question 工具向用户提问后，前端调用此方法提交回答
+   */
+  resolveInteraction(questionId: string, answers: string[]): boolean {
+    return this.chatManager.resolveInteraction(questionId, answers);
+  }
+
+  /**
+   * 获取非流式路径中的待处理交互数据
+   */
+  getPendingInteraction(sessionId: string): QuestionData | null {
+    return this.chatManager.getPendingInteraction(sessionId);
+  }
+
+  /**
+   * 继续非流式路径中的交互（用户回答后恢复工具执行）
+   */
+  async continueInteraction(
+    sessionId: string,
+    questionId: string,
+    answers: string[]
+  ): Promise<ChatResponse> {
+    try {
+      const message = await this.chatManager.continueInteraction(
+        sessionId,
+        questionId,
+        answers
+      );
+
+      const content =
+        typeof message.content === 'string'
+          ? message.content
+          : message.content
+              .map((block) => ('value' in block ? block.value : ''))
+              .join('');
+
+      return {
+        content,
+        sessionId: message.sessionId || sessionId,
+        messageId: message.id,
+        finishReason: 'stop',
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error('continueInteraction 失败', { error: msg });
+      return {
+        content: '',
+        sessionId,
+        messageId: '',
+        finishReason: 'error',
+      };
+    }
   }
 }

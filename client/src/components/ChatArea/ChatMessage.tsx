@@ -7,6 +7,7 @@ import ToolCallBlock from "./ToolCallBlock";
 import ToolExecutionGroup from "./ToolExecutionGroup";
 import ToolResultMessage from "./ToolResultMessage";
 import TaskCard from "./TaskCard";
+import QuestionBlock from "./QuestionBlock";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import { useChatStore } from "../../stores/chatStore";
@@ -375,7 +376,18 @@ function AssistantMessage({
       ? message.blocks
       : buildFallbackBlocks(message);
 
-  const renderedContent = renderBlocksWithGroups(blocks, isStreaming);
+  const renderedContent = renderBlocksWithGroups(blocks, !!isStreaming, message.session_id, (content) => {
+    // 非流式路径：QuestionBlock 提交后后端返回了最终内容，追加为新的 assistant 消息
+    const newMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content,
+      timestamp: Date.now(),
+      session_id: message.session_id,
+    };
+    const store = useChatStore.getState();
+    store.addMessage(newMsg);
+  });
   return (
     <div className="text-sm break-words max-w-none space-y-3">
       {renderedContent}
@@ -434,7 +446,9 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
  */
 function renderBlocksWithGroups(
   blocks: MessageBlock[],
-  isStreaming?: boolean,
+  isStreaming: boolean,
+  sessionId?: string,
+  onQuestionResponse?: (content: string) => void,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
@@ -452,6 +466,8 @@ function renderBlocksWithGroups(
           key={block.id}
           block={block}
           isStreaming={isStreaming}
+          sessionId={sessionId}
+          onQuestionResponse={onQuestionResponse}
         />,
       );
       i++;
@@ -490,9 +506,11 @@ function renderBlocksWithGroups(
 interface BlockRendererProps {
   block: MessageBlock;
   isStreaming?: boolean;
+  sessionId?: string;
+  onQuestionResponse?: (content: string) => void;
 }
 
-function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
+function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse }: BlockRendererProps) {
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
   const knownFilePaths = sessionFiles.map((f) => f.path);
@@ -516,6 +534,14 @@ function BlockRenderer({ block, isStreaming }: BlockRendererProps) {
         <ToolCallBlock
           toolCall={block.toolCall}
           isStreaming={block.isStreaming || isStreaming}
+        />
+      ) : null;
+    case "question":
+      return block.questionData ? (
+        <QuestionBlock
+          questionData={block.questionData}
+          sessionId={sessionId}
+          onResponse={onQuestionResponse}
         />
       ) : null;
     case "task_decomposition":

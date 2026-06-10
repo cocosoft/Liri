@@ -44,6 +44,8 @@ export interface ChatResponse {
   messageId?: string;
   toolCalls?: ToolCallSpec[];
   finishReason?: string;
+  /** 非流式路径中，当工具需要用户交互时，返回待处理的提问数据 */
+  pendingInteraction?: QuestionData;
 }
 
 /** 流式聊天数据块 */
@@ -174,6 +176,19 @@ export interface CoreAPI {
   chatStream(
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown>;
+
+  /** 解析待处理的用户交互（question 回答） */
+  resolveInteraction(questionId: string, answers: string[]): boolean;
+
+  /** 获取非流式路径中的待处理交互数据 */
+  getPendingInteraction(sessionId: string): QuestionData | null;
+
+  /** 继续非流式路径中的交互（用户回答后恢复工具执行） */
+  continueInteraction(
+    sessionId: string,
+    questionId: string,
+    answers: string[]
+  ): Promise<ChatResponse>;
 
   // ========== 工具 ==========
 

@@ -231,6 +231,12 @@ export class DeepSeekProvider extends BaseAIProvider {
               | undefined;
             if (!delta) continue;
 
+            // 处理推理内容（DeepSeek R1 的 reasoning_content 字段）
+            const reasoningContent = delta?.['reasoning_content'] as string | undefined;
+            if (reasoningContent) {
+              yield { type: 'thinking', content: reasoningContent };
+            }
+
             // 处理文本内容
             const content = delta?.['content'] as string | undefined;
             if (content) {

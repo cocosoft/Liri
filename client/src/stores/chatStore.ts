@@ -274,12 +274,29 @@ class ChronologicalBlockBuilder {
     }
   }
 
-  /** 添加状态块，连续重复时去重 */
+  /** 添加状态块，自动过滤冗余状态：
+   *  1. "🔧 Running tool: xxx" 中间态 → 直接丢弃，不产生 block
+   *  2. "📦 ✅ Tool xxx completed" 冗余完成态 → 丢弃（与 "✅ xxx completed" 重复）
+   *  3. 连续重复内容跳过
+   */
   addStatus(status: string): void {
+    // 丢弃中间态 "🔧 Running tool: xxx"
+    if (status.includes("🔧") && status.includes("Running tool")) {
+      return;
+    }
+
+    // 丢弃冗余完成态 "📦 ✅ Tool xxx completed"
+    if (status.includes("📦") && status.includes("✅ Tool")) {
+      return;
+    }
+
     const lastBlock = this.blocks[this.blocks.length - 1];
+
+    // 连续重复跳过
     if (lastBlock?.type === "status" && lastBlock.content === status) {
       return;
     }
+
     this.blocks.push({
       id: generateBlockId(),
       type: "status",
@@ -308,8 +325,15 @@ class ChronologicalBlockBuilder {
 
     if (existingIdx !== -1) {
       const existing = this.blocks[existingIdx];
+      // 保留已存在的参数（'start' 阶段的完整参数），避免被 'end' 阶段的空参数覆盖
+      const mergedArgs =
+        toolCall.arguments &&
+        Object.keys(toolCall.arguments as Record<string, unknown>).length > 0
+          ? toolCall.arguments
+          : existing.toolCall?.arguments || toolCall.arguments;
       existing.toolCall = {
         ...toolCall,
+        arguments: mergedArgs,
         status: toolCall.status || ("completed" as const),
       };
       existing.isStreaming = toolCall.status === "running";
@@ -339,6 +363,26 @@ class ChronologicalBlockBuilder {
       block.toolCall.status = status;
       block.isStreaming = status === "running";
     }
+  }
+
+  /** 添加问题块 */
+  addQuestion(questionData: import("../services/chatService").QuestionData): void {
+    this.blocks.push({
+      id: generateBlockId(),
+      type: "question",
+      content: "",
+      questionData: {
+        questionId: questionData.questionId,
+        question: questionData.question,
+        header: questionData.header,
+        options: questionData.options.map((opt: import("../services/chatService").QuestionOption) => ({
+          label: opt.label,
+          description: opt.description,
+        })),
+        multiSelect: questionData.multiSelect,
+      },
+      groupId: this.currentGroupId,
+    });
   }
 
   /** 冻结所有块 */
@@ -408,6 +452,84 @@ function debouncedSaveBlocks(
   }, 800);
 }
 
+/**
+ * think 标签提取器：从 text 块中解析 <think>...</think> 标签内容并转换为 thinking 块。
+ * 当后端未通过 __pyapp_type: 'thinking' 发送推理内容时作兜底。
+ * 支持跨多个文本块的 think 标签（流式传输场景）。
+ */
+function createThinkExtractor() {
+  let thinkBuffer = "";
+  let inThink = false;
+
+  return {
+    extract: function* (
+      chunk: import("../services/chatService").StreamChunk,
+    ): Generator<import("../services/chatService").StreamChunk, void, unknown> {
+      if (chunk.type !== "text" || !chunk.content) {
+        yield chunk;
+        return;
+      }
+
+      const content = chunk.content;
+      let remaining = content;
+      let output = "";
+
+      while (remaining.length > 0) {
+        if (!inThink) {
+          const thinkStart = remaining.indexOf("<think>");
+
+          if (thinkStart === -1) {
+            output += remaining;
+            break;
+          }
+
+          // 输出 think 前的文本
+          output += remaining.slice(0, thinkStart);
+          remaining = remaining.slice(thinkStart + 7);
+          inThink = true;
+          thinkBuffer = "";
+        }
+
+        if (inThink) {
+          const thinkEnd = remaining.indexOf("</think>");
+          if (thinkEnd === -1) {
+            // think 标签未闭合，缓冲剩余内容
+            thinkBuffer += remaining;
+            break;
+          }
+
+          // think 标签闭合，输出缓冲内容
+          thinkBuffer += remaining.slice(0, thinkEnd);
+          if (thinkBuffer) {
+            yield { type: "thinking" as const, content: thinkBuffer };
+          }
+          thinkBuffer = "";
+          inThink = false;
+          remaining = remaining.slice(thinkEnd + 8);
+
+          // 继续检查闭合后是否还有更多 think 标签
+          continue;
+        }
+      }
+
+      if (output) {
+        yield { type: "text" as const, content: output };
+      }
+    },
+    flush: function* (): Generator<
+      import("../services/chatService").StreamChunk,
+      void,
+      unknown
+    > {
+      if (inThink && thinkBuffer) {
+        yield { type: "thinking" as const, content: thinkBuffer };
+        inThink = false;
+        thinkBuffer = "";
+      }
+    },
+  };
+}
+
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   isLoading: false,
@@ -436,12 +558,34 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     try {
       const response = await chatService.sendMessage(content, sessionId);
+
+      // 检测非流式路径的待处理交互
+      if ((response as Message & { pendingInteraction?: unknown }).pendingInteraction) {
+        const pi = (response as Message & { pendingInteraction: import("../services/chatService").QuestionData }).pendingInteraction;
+        const builder = new ChronologicalBlockBuilder();
+        builder.addQuestion(pi);
+        const blocks = builder.getBlocks();
+        const questionMessage: Message = {
+          id: response.id,
+          role: "assistant",
+          content: "",
+          timestamp: Date.now(),
+          session_id: sessionId || "default",
+          blocks,
+        };
+        set({
+          messages: [...get().messages, questionMessage],
+          isLoading: false,
+        });
+        return;
+      }
+
       set({
         messages: [...get().messages, response],
         isLoading: false,
       });
       if (shouldAutoRename(sessionId)) {
-        await doAutoRename(sessionId!, content, response.content);
+        await doAutoRename(sessionId!, content, (response as Message).content);
       }
     } catch (error) {
       set({ error: String(error), isLoading: false });
@@ -474,12 +618,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const generator = chatService.streamMessage(content, sessionId);
       const blockBuilder = new ChronologicalBlockBuilder();
+      const extractor = createThinkExtractor();
 
-      for await (const chunk of generator) {
+      for await (const rawChunk of generator) {
+        const chunks = Array.from(extractor.extract(rawChunk));
+        for (const chunk of chunks) {
+          await processChunk(chunk);
+        }
+      }
+
+      // 处理未闭合的 think 标签
+      for (const chunk of extractor.flush()) {
+        await processChunk(chunk);
+      }
+
+      async function processChunk(chunk: import("../services/chatService").StreamChunk) {
         const current = get().messages;
         const msgIdx = current.findIndex((m) => m.id === assistantId);
 
-        if (msgIdx === -1) continue;
+        if (msgIdx === -1) return;
 
         const msg = current[msgIdx];
         let updatedMsg: Message;
@@ -521,6 +678,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             });
           }
 
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "question" && chunk.questionData) {
+          blockBuilder.addQuestion(chunk.questionData);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "usage" && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
@@ -890,12 +1050,40 @@ function findLastToolCallId(msg: Message): string | undefined {
 }
 
 /**
+ * 规范化 tool_call 格式：将 OpenAI 格式 {id, type: 'function', function: {name, arguments: string}}
+ * 转换为前端 ToolCall 格式 {id, name, arguments: Record}
+ */
+function normalizeToolCall(tc: unknown): ToolCall {
+  const obj = tc as Record<string, unknown>;
+  if (obj && obj.type === "function" && obj.function && typeof obj.function === "object") {
+    const fn = obj.function as Record<string, unknown>;
+    const rawArgs = fn.arguments;
+    let parsedArgs: Record<string, unknown> = {};
+    try {
+      parsedArgs = typeof rawArgs === "string" ? JSON.parse(rawArgs || "{}") : (rawArgs as Record<string, unknown>) || {};
+    } catch {
+      // JSON 解析失败，保留原始字符串
+      parsedArgs = { raw: rawArgs };
+    }
+    return {
+      id: (obj.id as string) || "",
+      name: (fn.name as string) || "",
+      arguments: parsedArgs,
+      status: (obj.status as "running" | "completed" | "failed") || undefined,
+    };
+  }
+  return tc as ToolCall;
+}
+
+/**
  * 智能重建 blocks：基于 content + tool_calls 还原时序
  * 对标流式 ChronologicalBlockBuilder 的输出结构，分配 groupId 确保分组正确
  */
 function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   const newBlocks: MessageBlock[] = [];
-  const toolCalls = msg.tool_calls || [];
+  const rawToolCalls = msg.tool_calls || [];
+  // 统一规范化 tool_calls 格式
+  const toolCalls = rawToolCalls.map(normalizeToolCall);
   const fullText = typeof msg.content === "string" ? msg.content : "";
 
   if (toolCalls.length === 0) {
@@ -1000,8 +1188,15 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     });
   }
 
+  // 处理未能定位到边界的 tool_calls
+  // 连续多个无法定位的 tool_call 使用相同 groupId 以便 ToolExecutionGroup 统一折叠
+  let orphanGroupId = "";
   for (let i = 0; i < toolCalls.length; i++) {
     if (boundaries[i] === -1) {
+      // 每遇到一个新的 orphan 段，生成新 groupId
+      if (!orphanGroupId) {
+        orphanGroupId = generateGroupId();
+      }
       newBlocks.push({
         id: generateBlockId(),
         type: "tool_call",
@@ -1009,8 +1204,11 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
         toolCall: toolCalls[i],
         isStreaming: false,
         toolCallId: toolCalls[i].id,
-        groupId: generateGroupId(),
+        groupId: orphanGroupId,
       });
+    } else {
+      // 遇到有边界的 tool_call，重置 orphanGroupId（下一个 orphan 从新组开始）
+      orphanGroupId = "";
     }
   }
 

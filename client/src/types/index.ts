@@ -27,9 +27,22 @@ export interface Message {
   };
 }
 
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface QuestionData {
+  questionId: string;
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect?: boolean;
+}
+
 export interface MessageBlock {
   id: string;
-  type: "text" | "thinking" | "tool_call" | "status" | "task_decomposition";
+  type: "text" | "thinking" | "tool_call" | "status" | "task_decomposition" | "question";
   content: string;
   toolCall?: ToolCall;
   status?: string;
@@ -37,6 +50,7 @@ export interface MessageBlock {
   toolCallId?: string;
   groupId?: string;
   taskCard?: TaskCardData;
+  questionData?: QuestionData;
 }
 
 /** TaskCard 数据 — 从 TodoWriteTool 的 todo list 映射 */

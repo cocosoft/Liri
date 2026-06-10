@@ -19,6 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import crypto from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -70,7 +71,7 @@ import type {
   ToolDefinition,
 } from '@modules/ai/models/types.js';
 import type { ThinkingProviderChunk } from '@modules/ai/providers/index.js';
-import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
+import type { ChatStreamChunk, QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -102,6 +103,21 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
+
+/** 非流式路径中待恢复的工具循环状态 */
+interface InteractionSavedState {
+  currentRoundMessages: Record<string, unknown>[];
+  currentToolCalls: ParsedToolCall[];
+  processedResults: Array<{
+    normalizedToolCall: ToolCall;
+    result: ToolResult;
+  }>;
+  interactionIdx: number;
+  roundAssistantMsg: Message;
+  toolDefinitions: Record<string, unknown>[];
+  sessionId: string;
+  questionData: QuestionData;
+}
 
 /**
  * 聊天管理器接口
@@ -489,6 +505,26 @@ export interface ChatManager {
    * @returns 是否成功解析（false 表示没有匹配的待处理交互）
    */
   resolveInteraction(questionId: string, answers: string[]): boolean;
+
+  /**
+   * 获取非流式路径中的待处理交互数据
+   * @param sessionId 会话ID
+   * @returns 待处理的提问数据，如果没有则返回 null
+   */
+  getPendingInteraction(sessionId: string): QuestionData | null;
+
+  /**
+   * 继续非流式路径中的交互（用户回答后恢复工具执行）
+   * @param sessionId 会话ID
+   * @param questionId 问题ID
+   * @param answers 用户选择的答案列表
+   * @returns 最终消息
+   */
+  continueInteraction(
+    sessionId: string,
+    questionId: string,
+    answers: string[]
+  ): Promise<Message>;
 }
 
 /**
@@ -571,6 +607,13 @@ export class ChatManagerImpl implements ChatManager {
     promise: Promise<string[]>;
     resolve: (answers: string[]) => void;
   } | null = null;
+
+  /**
+   * 非流式路径中待恢复的工具循环状态
+   * 当 sendMessage 遇到需要用户交互的工具时，将循环状态保存至此 Map，
+   * 等待 continueInteraction() 恢复执行
+   */
+  private pendingInteractions: Map<string, InteractionSavedState> = new Map();
 
   /**
    * 查询引擎
@@ -887,7 +930,25 @@ export class ChatManagerImpl implements ChatManager {
       apiMessages.pop();
     }
 
-    // 第二轮清理：末尾 pop 可能移除了有效 assistant 的 tool 消息，
+    // 中间孤立 tool 消息清理：其 tool_call_id 不在任何前置 assistant 的 tool_calls 中
+    const knownToolCallIds = new Set<string>();
+    for (let i = 0; i < apiMessages.length; i++) {
+      const msg = apiMessages[i];
+      if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
+        for (const tc of msg.tool_calls as Array<{ id?: string }>) {
+          if (tc.id) knownToolCallIds.add(tc.id);
+        }
+      }
+    }
+    for (let i = apiMessages.length - 1; i >= 0; i--) {
+      if (apiMessages[i].role === 'tool' && apiMessages[i].tool_call_id) {
+        if (!knownToolCallIds.has(apiMessages[i].tool_call_id as string)) {
+          apiMessages.splice(i, 1);
+        }
+      }
+    }
+
+    // 第二轮清理：末尾 pop 和中间清理可能移除了有效 assistant 的 tool 消息，
     // 导致 assistant 变为孤立，需要再次清理
     this._sanitizePass(apiMessages);
   }
@@ -1374,6 +1435,81 @@ export class ChatManagerImpl implements ChatManager {
             argsStr
           );
 
+          // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
+          // sendMessage 是非流式路径，无法 yield question 分块到 SSE，
+          // 因此采用"保存状态 + 提前返回"机制，由外部在用户回答后通过
+          // continueInteraction() 恢复工具循环
+          const sendMsgToolObj = (this.toolRegistry as unknown as {
+            getTool: (name: string) => {
+              requiresUserInteraction?: () => boolean;
+            } | undefined;
+          }).getTool?.(normalizedToolCall.name);
+
+          if (sendMsgToolObj?.requiresUserInteraction?.()) {
+            logger.info('sendMessage 检测到需要用户交互的工具', {
+              toolName: normalizedToolCall.name,
+            });
+
+            // 提取界面显示数据
+            const questionId = (parsedArguments.questionId as string) || crypto.randomUUID();
+            const question = parsedArguments.question as string || '请选择';
+            const header = parsedArguments.header as string || '提问';
+            const rawOptions = parsedArguments.options as Array<{ label: string; description?: string }> || [];
+            const multiSelect = parsedArguments.multiSelect as boolean | undefined;
+
+            const questionData: QuestionData = {
+              questionId,
+              question,
+              header,
+              options: rawOptions.map((opt) => ({
+                label: opt.label,
+                description: opt.description || '',
+              })),
+              multiSelect,
+            };
+
+            // 获取当前交互工具在 currentToolCalls 中的索引
+            const interactionIdx = currentToolCalls.findIndex(
+              (tc) => tc.id === toolCall.id
+            );
+
+            // 保存工具循环的完整状态
+            const savedState: InteractionSavedState = {
+              currentRoundMessages: [...currentRoundMessages],
+              currentToolCalls: [...currentToolCalls],
+              processedResults: [...processedResults],
+              interactionIdx: interactionIdx >= 0 ? interactionIdx : 0,
+              roundAssistantMsg,
+              toolDefinitions: [...toolDefinitions],
+              sessionId: session.id,
+              questionData,
+            };
+            this.pendingInteractions.set(session.id, savedState);
+
+            // 将 pendingInteraction 标记写入 assistant 消息元数据
+            roundAssistantMsg.metadata = {
+              ...roundAssistantMsg.metadata,
+              pendingInteraction: questionData,
+            };
+
+            // 更新持久化消息（添加 pendingInteraction 标记）
+            // 使用 messageService 重新保存
+            try {
+              this._addAndPersistMessage(session.id, roundAssistantMsg);
+            } catch {
+              // 重复保存失败不影响主流程
+            }
+
+            logger.info('sendMessage 已保存交互状态并提前返回', {
+              sessionId: session.id,
+              questionId,
+            });
+
+            // 提前返回，工具循环暂停，等待 continueInteraction 恢复
+            return roundAssistantMsg;
+          }
+          // ---- 结束用户交互检查 ----
+
           const toolResult = await this.executeTool({
             id: normalizedToolCall.id,
             name: normalizedToolCall.name,
@@ -1732,6 +1868,43 @@ export class ChatManagerImpl implements ChatManager {
           toolCall.id ||
           `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const toolName = toolCall.name || 'unknown';
+
+        // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
+        // 旧版工具循环是非流式路径，无法 yield question 分块，
+        // 因此对需要交互的工具，跳过执行，返回空结果
+        const legacyToolObj = (this.toolRegistry as unknown as {
+          getTool: (name: string) => {
+            requiresUserInteraction?: () => boolean;
+          } | undefined;
+        }).getTool?.(toolName);
+
+        if (legacyToolObj?.requiresUserInteraction?.()) {
+          logger.warn('旧版工具循环跳过需要用户交互的工具', {
+            toolName,
+          });
+          const toolResult: ToolResult = {
+            toolCallId,
+            toolName,
+            result: { skipped: true, reason: 'user_interaction_required' },
+            error: undefined,
+          };
+          const toolResultMessage =
+            this.messageService.createToolResultMessage(toolResult, {
+              sessionId: session.id,
+            });
+          this._addAndPersistMessage(session.id, toolResultMessage);
+          processedResults.push({
+            normalizedToolCall: {
+              id: toolCallId,
+              name: toolName,
+              arguments: toolCall.arguments || {},
+            },
+            result: toolResult,
+          });
+          continue;
+        }
+        // ---- 结束用户交互检查 ----
+
         const toolResult = await this.executeTool({
           id: toolCallId,
           name: toolName,
@@ -2398,10 +2571,21 @@ export class ChatManagerImpl implements ChatManager {
         const toolGenResult = await toolGen.next();
         let toolResultIter = toolGenResult;
         while (!toolResultIter.done) {
-          const chunk = toolResultIter.value as string;
-          toolResultAccumulatedContent += chunk;
-          options?.onStream?.(chunk);
-          yield chunk;
+          const chunk = toolResultIter.value as string | ThinkingProviderChunk;
+
+          if (typeof chunk === 'string') {
+            toolResultAccumulatedContent += chunk;
+            options?.onStream?.(chunk);
+            yield chunk;
+          } else if (chunk?.type === 'thinking') {
+            const thinkingChunk: ChatStreamChunk = {
+              type: 'thinking',
+              content: chunk.content,
+              sessionId: session.id,
+            };
+            yield thinkingChunk;
+          }
+
           toolResultIter = await toolGen.next();
         }
         const toolResultResponse =
@@ -2512,6 +2696,224 @@ export class ChatManagerImpl implements ChatManager {
     }
     logger.warn('未找到匹配的待处理交互', { questionId });
     return false;
+  }
+
+  /**
+   * 获取非流式路径中的待处理交互数据
+   * @param sessionId 会话ID
+   * @returns 待处理的提问数据，如果没有则返回 null
+   */
+  getPendingInteraction(sessionId: string): QuestionData | null {
+    const state = this.pendingInteractions.get(sessionId);
+    return state?.questionData ?? null;
+  }
+
+  /**
+   * 继续非流式路径中的交互（用户回答后恢复工具执行）
+   * 恢复 sendMessage() 中断的工具循环：注入用户答案执行交互工具，
+   * 执行剩余工具，继续 LLM 多轮递归
+   */
+  async continueInteraction(
+    sessionId: string,
+    questionId: string,
+    answers: string[]
+  ): Promise<Message> {
+    const state = this.pendingInteractions.get(sessionId);
+    if (!state) {
+      throw new AppError(
+        `会话 ${sessionId} 没有待恢复的交互状态`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    if (state.questionData.questionId !== questionId) {
+      throw new AppError(
+        `问题 ID 不匹配: 期望 ${state.questionData.questionId}，实际 ${questionId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    this.pendingInteractions.delete(sessionId);
+    logger.info('恢复非流式交互', { sessionId, questionId, answers });
+
+    const session = this._getLocalSession(sessionId);
+    if (!session) {
+      throw new AppError(
+        `会话 ${sessionId} 不存在`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    // 解构保存的状态
+    let {
+      currentRoundMessages,
+      currentToolCalls,
+      processedResults,
+      interactionIdx,
+      roundAssistantMsg,
+      toolDefinitions,
+    } = state;
+
+    // ----- 执行从 interactionIdx 开始的工具 -----
+    // 先完成当前轮次中 interactionIdx 及之后的工具
+    const remainingTools = currentToolCalls.slice(interactionIdx);
+    const newProcessedResults: Array<{
+      normalizedToolCall: ToolCall;
+      result: ToolResult;
+    }> = [...processedResults];
+
+    for (let i = 0; i < remainingTools.length; i++) {
+      const toolCall = remainingTools[i];
+      const normalizedToolCall: ToolCall = {
+        id: toolCall.id,
+        name: toolCall.name || 'unknown',
+        arguments: toolCall.arguments || {},
+      };
+
+      // 解析参数
+      let parsedArguments: Record<string, unknown>;
+      if (typeof normalizedToolCall.arguments === 'string') {
+        try { parsedArguments = JSON.parse(normalizedToolCall.arguments); }
+        catch { parsedArguments = {}; }
+      } else {
+        parsedArguments = normalizedToolCall.arguments as Record<string, unknown>;
+      }
+
+      // 如果是交互工具（第一个），注入用户答案
+      if (i === 0) {
+        parsedArguments._userAnswers = answers;
+      }
+
+      // 执行工具
+      const toolResult = await this.executeTool({
+        id: normalizedToolCall.id,
+        name: normalizedToolCall.name,
+        arguments: parsedArguments,
+      });
+
+      // 保存工具结果消息
+      const toolResultMessage = this.messageService.createToolResultMessage(
+        toolResult,
+        { sessionId: session.id }
+      );
+      this._addAndPersistMessage(session.id, toolResultMessage);
+
+      newProcessedResults.push({ normalizedToolCall, result: toolResult });
+    }
+
+    // ----- 构建下一轮 LLM 请求 -----
+    let updatedMessages: Record<string, unknown>[];
+    let assistantMsg = roundAssistantMsg;
+
+    // 继续多轮递归工具循环
+    // 使用 assistantMessage 作为累积消息，继续 while 循环
+    while (true) {
+      // 构建包含本轮全部结果的完整请求
+      updatedMessages = [
+        ...currentRoundMessages,
+        {
+          role: 'assistant',
+          content:
+            typeof assistantMsg.content === 'string'
+              ? assistantMsg.content
+              : JSON.stringify(assistantMsg.content),
+          tool_calls: currentToolCalls.map((tc: ParsedToolCall) => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: {
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? tc.arguments
+                  : JSON.stringify(tc.arguments || {}),
+            },
+          })),
+        },
+        ...newProcessedResults.map((pr) => {
+          const toolResultContent = pr.result.result
+            ? typeof pr.result.result === 'string'
+              ? pr.result.result
+              : JSON.stringify(pr.result.result)
+            : pr.result.error || '{}';
+          return {
+            role: 'tool' as const,
+            content: toolResultContent,
+            tool_call_id: pr.normalizedToolCall.id,
+          };
+        }),
+      ];
+
+      // 发送到 LLM
+      const activeClient = this.getLLMClient();
+      const toolResultResponse = await activeClient.sendMessage(
+        updatedMessages as unknown as ChatMessage[],
+        {
+          tools:
+            toolDefinitions.length > 0
+              ? (toolDefinitions as unknown as ToolDefinition[])
+              : undefined,
+        }
+      );
+
+      this.recordChatResponseUsage(session.id, toolResultResponse.usage);
+
+      // 创建本轮 assistant 消息
+      const toolResultAssistantContent =
+        typeof toolResultResponse.content === 'string'
+          ? toolResultResponse.content
+          : JSON.stringify(toolResultResponse.content);
+
+      const toolResultAssistantMsg = this.messageService.createAssistantMessage(
+        toolResultAssistantContent,
+        { sessionId: session.id }
+      );
+      toolResultAssistantMsg.sessionId = session.id;
+
+      if (
+        toolResultResponse.tool_calls &&
+        toolResultResponse.tool_calls.length > 0
+      ) {
+        const toolCallsData = toolResultResponse.tool_calls.map(
+          (tc: ParsedToolCall) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? tc.arguments
+                  : JSON.stringify(tc.arguments || {}),
+            },
+          })
+        );
+        toolResultAssistantMsg.metadata = {
+          ...toolResultAssistantMsg.metadata,
+          tool_calls: toolCallsData,
+        };
+      }
+      this._addAndPersistMessage(session.id, toolResultAssistantMsg);
+
+      // 检查是否有新的工具调用
+      if (
+        toolResultResponse.tool_calls &&
+        toolResultResponse.tool_calls.length > 0
+      ) {
+        // 继续下一轮
+        currentRoundMessages = [...updatedMessages];
+        currentToolCalls = [...toolResultResponse.tool_calls];
+        newProcessedResults.length = 0; // 清空，重新累积
+        assistantMsg = toolResultAssistantMsg;
+        continue;
+      }
+
+      // 没有更多工具调用，返回最终消息
+      return toolResultAssistantMsg;
+    }
   }
 
   /**

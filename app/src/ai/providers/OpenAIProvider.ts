@@ -31,7 +31,7 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
+import type { ProviderConfig, ProviderValidationResult, ThinkingProviderChunk } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
@@ -129,7 +129,7 @@ export class OpenAIProvider extends BaseAIProvider {
       maxTokens?: number;
       temperature?: number;
     }
-  ): AsyncGenerator<string, ChatResponse, unknown> {
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     const model = this.resolveModel('chat', options);
     const requestBody = this.transport!.buildRequest({
       model,
@@ -206,6 +206,13 @@ export class OpenAIProvider extends BaseAIProvider {
 
             const choice = (parsed.choices as Record<string, unknown>[])?.[0];
             const delta = choice?.delta as Record<string, unknown> | undefined;
+
+            // 处理推理内容（OpenAI o1/o3 的 reasoning_content 字段）
+            const reasoningContent = delta?.['reasoning_content'] as string | undefined;
+            if (reasoningContent) {
+              yield { type: 'thinking', content: reasoningContent };
+            }
+
             const content = delta?.content as string | undefined;
             if (content) {
               fullContent += content;

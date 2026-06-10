@@ -30,6 +30,7 @@ import ChannelsPage from "./components/views/ChannelsPage";
 import SettingsPage from "./components/views/SettingsPage";
 import BuddyPage from "./components/views/BuddyPage";
 import SkillMarketPage from "./components/views/SkillMarketPage";
+import PermissionPage from "./components/views/PermissionPage";
 import UserPage from "./components/views/UserPage";
 import HelpPage from "./components/views/HelpPage";
 import MCPMarketPage from "./components/views/MCPMarketPage";
@@ -269,6 +270,14 @@ function App() {
               }
             />
             <Route
+              path="/permissions"
+              element={
+                <AuthGuard>
+                  <PermissionPage />
+                </AuthGuard>
+              }
+            />
+            <Route
               path="/user"
               element={
                 <AuthGuard>
@@ -356,7 +365,7 @@ function App() {
         {(() => {
           // 全宽页面（不显示右侧面板）
           const fullWidthPages = ["/settings", "/help", "/user", "/dashboard", "/login",
-            "/buddy", "/dream", "/memory", "/skills", "/market/skills", "/market/mcp"];
+            "/buddy", "/dream", "/memory", "/skills", "/permissions", "/market/skills", "/market/mcp"];
           if (fullWidthPages.includes(location.pathname)) return null;
 
           // 聊天页面显示文件预览

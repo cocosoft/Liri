@@ -930,21 +930,20 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
 
   const allUnknown = boundaries.every((b) => b === -1);
   if (allUnknown) {
-    const segment = Math.floor(fullText.length / (toolCalls.length + 1));
-    let cursor = 0;
+    // 当无法在文本中定位工具名边界时，放弃等分猜测（必然产生错乱块）。
+    // 将所有文本作为一个 text block，tool_call 依次追加在后面。
+    // 虽无法精确还原 text/tool_call 的交错顺序，但至少不会数据错乱。
+    const gid = generateGroupId();
+    if (fullText && fullText.trim()) {
+      newBlocks.push({
+        id: generateBlockId(),
+        type: "text",
+        content: fullText,
+        isStreaming: false,
+        groupId: gid,
+      });
+    }
     for (let i = 0; i < toolCalls.length; i++) {
-      const gid = generateGroupId();
-      const slice = fullText.slice(cursor, cursor + segment);
-
-      if (slice && slice.trim()) {
-        newBlocks.push({
-          id: generateBlockId(),
-          type: "text",
-          content: slice,
-          isStreaming: false,
-          groupId: gid,
-        });
-      }
       newBlocks.push({
         id: generateBlockId(),
         type: "tool_call",
@@ -953,17 +952,6 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
         isStreaming: false,
         toolCallId: toolCalls[i].id,
         groupId: gid,
-      });
-      cursor += segment;
-    }
-    const tail = fullText.slice(cursor);
-    if (tail && tail.trim()) {
-      newBlocks.push({
-        id: generateBlockId(),
-        type: "text",
-        content: tail,
-        isStreaming: false,
-        groupId: generateGroupId(),
       });
     }
     return newBlocks;

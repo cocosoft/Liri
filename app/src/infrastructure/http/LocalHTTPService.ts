@@ -37,6 +37,7 @@ import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handle
 import { handleHealthReport, handleAnalyticsDashboard, handleCostSummary, handleCostRecords, handleCostRange, setAnalyticsDependencies } from './handlers/analytics-handlers';
 import { handleListModels, handleSystemSkillFileContent, handleTestModel, handleGetCurrentModel, handleSwitchModel, handleGetTasks, handleSaveTasks, handleSetDefaultModel } from './handlers/model-handlers';
 import { handleChatCompletions, handleQuestionAnswer } from './handlers/chat-handlers';
+import { handleFileRegistryList, handleFileRegistryDetail, handleFileRegistrySearch, handleFileRegistryStats, handleFileRegistryDelete, handleFileHealth } from './handlers/files-handlers';
 import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -918,6 +919,26 @@ export class LocalHTTPService {
     }
     if (req.method === 'POST' && url === '/v1/files/send-to-ai') {
       return this.handleSendFileToAI(req, res);
+    }
+
+    // ---- Files: Registry API ----
+    if (req.method === 'GET' && url === '/v1/files/health') {
+      return this.handleFileHealth(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/files/registry/list') {
+      return this.handleFileRegistryList(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/files/registry/detail') {
+      return this.handleFileRegistryDetail(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/files/registry/search') {
+      return this.handleFileRegistrySearch(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/files/registry/stats') {
+      return this.handleFileRegistryStats(req, res);
+    }
+    if (req.method === 'DELETE' && url === '/v1/files/registry/delete') {
+      return this.handleFileRegistryDelete(req, res);
     }
 
     // ---- Workspaces ----
@@ -2229,6 +2250,68 @@ export class LocalHTTPService {
     } catch (err) {
       this.sendError(res, err);
     }
+  }
+
+  // ========== File Registry Handlers ==========
+
+  /**
+   * 处理文件列表查询请求 — 委托到 files-handlers.ts
+   */
+  private async handleFileRegistryList(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFileRegistryList(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 处理文件详情查询请求 — 委托到 files-handlers.ts
+   */
+  private async handleFileRegistryDetail(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFileRegistryDetail(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 处理文件全文搜索请求 — 委托到 files-handlers.ts
+   */
+  private async handleFileRegistrySearch(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFileRegistrySearch(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 处理文件统计请求 — 委托到 files-handlers.ts
+   */
+  private async handleFileRegistryStats(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFileRegistryStats(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 处理文件软删除请求 — 委托到 files-handlers.ts
+   */
+  private async handleFileRegistryDelete(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFileRegistryDelete(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 处理文件健康检查请求 — 委托到 files-handlers.ts
+   */
+  private async handleFileHealth(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFileHealth(this._handlerCtx, req, res);
   }
 
   // ========== Workspaces Handlers ==========

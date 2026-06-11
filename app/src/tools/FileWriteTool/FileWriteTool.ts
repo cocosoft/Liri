@@ -3,7 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir, resolveInboundDir } from '@modules/core/paths';
 import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {
@@ -150,6 +150,9 @@ export class FileWriteTool extends BaseTool {
         });
       }
 
+      // 注册到 FileRegistry（异步执行，不阻塞响应返回）
+      this.registerWriteToFileRegistry(input);
+
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',
@@ -203,6 +206,39 @@ export class FileWriteTool extends BaseTool {
 
   override getPath(input: Record<string, unknown>): string {
     return (input.file_path as string) || '';
+  }
+
+  /**
+   * 将写入的文件注册到 FileRegistry
+   * 异步执行，不阻塞工具调用响应
+   */
+  private registerWriteToFileRegistry(input: Record<string, unknown>): void {
+    const filePath = input.file_path as string;
+    const content = input.content as string;
+    if (!filePath || content === undefined) return;
+
+    Promise.resolve().then(async () => {
+      try {
+        const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+        const { FileSource } = await import('@modules/services/file/types');
+
+        const resolved = resolveFilePath(filePath);
+        const registry = FileRegistry.getInstance();
+        await registry.initDatabase();
+
+        await registry.registerFile({
+          originalName: path.basename(resolved),
+          content,
+          source: FileSource.TOOL_WRITE,
+          sourceId: 'file_write_tool',
+          mimeType: 'text/plain',
+          description: `FileWriteTool 写入: ${filePath}`,
+          storeZone: 'inbound',
+        });
+      } catch {
+        // 静默失败，不干扰工具调用主流程
+      }
+    });
   }
 
   override async preparePermissionMatcher(

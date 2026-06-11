@@ -43,6 +43,8 @@ export interface ArtifactConfig {
 }
 
 import { resolveArtifactsDir } from '@modules/core/paths';
+import { FileRegistry } from '@modules/services/file/FileRegistry';
+import { FileSource } from '@modules/services/file/types';
 
 const DEFAULT_CONFIG: ArtifactConfig = {
   artifactsDir: resolveArtifactsDir(),
@@ -117,6 +119,25 @@ export class SessionArtifacts {
     logger.debug(
       `制品已保存: ${sessionId}/${finalFilename} (${data.length} bytes)`
     );
+
+    // 异步注册到 FileRegistry（不阻塞主流程）
+    Promise.resolve().then(async () => {
+      try {
+        const registry = FileRegistry.getInstance();
+        await registry.initDatabase();
+        await registry.registerFile({
+          originalName: finalFilename,
+          content: data,
+          source: FileSource.ARTIFACT,
+          sourceId: sessionId,
+          description: `会话制品: ${type} - ${sessionId}`,
+          storeZone: 'artifact',
+        });
+      } catch {
+        // 注册失败不影响主流程
+      }
+    });
+
     return meta;
   }
 

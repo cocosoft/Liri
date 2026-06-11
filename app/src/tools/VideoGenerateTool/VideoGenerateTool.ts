@@ -7,6 +7,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { resolveOutputDir } from '@modules/core/paths';
+import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 export interface VideoGenerateParams {
   prompt: string;
@@ -108,6 +109,14 @@ export class VideoGenerateTool extends BaseTool {
           success: false,
           error: 'duration must be between 5 and 60 seconds',
         };
+      }
+
+      // 异步注册生成的视频到 FileRegistry（当 provider 返回真实 URL 时生效）
+      const videoUrl = '';
+      if (videoUrl) {
+        Promise.resolve().then(async () => {
+          await registerGeneratedMedia(videoUrl, params.prompt, 'video', 'mp4');
+        });
       }
 
       return {

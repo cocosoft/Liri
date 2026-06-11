@@ -7,6 +7,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { resolveOutputDir } from '@modules/core/paths';
+import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 export interface MusicGenerateParams {
   prompt: string;
@@ -120,6 +121,15 @@ export class MusicGenerateTool extends BaseTool {
           success: false,
           error: 'duration must be between 15 and 300 seconds',
         };
+      }
+
+      // 异步注册生成的音乐到 FileRegistry（当 provider 返回真实 URL 时生效）
+      const musicUrl = '';
+      if (musicUrl) {
+        Promise.resolve().then(async () => {
+          const format = params.format || 'mp3';
+          await registerGeneratedMedia(musicUrl, params.prompt, 'music', format);
+        });
       }
 
       return {

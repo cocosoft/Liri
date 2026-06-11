@@ -367,6 +367,42 @@ export function resolveKnowledgeDir(
   return join(resolvePyappHome(env), 'knowledge');
 }
 
+/** 知识库 raw 目录（~/.pyapp/knowledge/raw/） */
+export function resolveKnowledgeRawDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveKnowledgeDir(env), 'raw');
+}
+
+/** 入站文件 inbound 基础目录（~/.pyapp/knowledge/raw/inbound/） */
+export function resolveInboundBaseDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveKnowledgeRawDir(env), 'inbound');
+}
+
+/**
+ * 按来源和时间分层的入站文件目录
+ *
+ * 格式：{inboundBase}/{source}/{YYYY}/{MM}/{DD}/
+ * 示例：~/.pyapp/knowledge/raw/inbound/upload/2026/06/11/
+ *
+ * @param source - 来源标识（如 'upload', 'channel_telegram', 'tool_write'）
+ * @param date - 日期（默认当天），用于按天归档
+ * @param env - 环境变量
+ */
+export function resolveInboundDir(
+  source: string,
+  date?: Date,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const d = date ?? new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return join(resolveInboundBaseDir(env), source, String(y), m, day);
+}
+
 /** 用户技能目录（~/.pyapp/skills/） */
 export function resolveUserSkillsDir(
   env: NodeJS.ProcessEnv = process.env
@@ -472,6 +508,8 @@ export function ensureDataDirectories(
     resolvePyappHome(env),
     resolveUserMemoryDir(env),
     resolveKnowledgeDir(env),
+    resolveKnowledgeRawDir(env),
+    resolveInboundBaseDir(env),
     resolveUserSkillsDir(env),
     resolveUserPermissionsDir(env),
     resolveOutputDir(env),
@@ -515,6 +553,8 @@ export const SOUL_PATH = resolveSoulPath();
 export const USER_PROFILE_PATH = resolveUserProfilePath();
 export const USER_MEMORY_DIR = resolveUserMemoryDir();
 export const KNOWLEDGE_DIR = resolveKnowledgeDir();
+export const KNOWLEDGE_RAW_DIR = resolveKnowledgeRawDir();
+export const INBOUND_DIR = resolveInboundBaseDir();
 export const USER_SKILLS_DIR = resolveUserSkillsDir();
 export const USER_PERMISSIONS_DIR = resolveUserPermissionsDir();
 export const USER_ATTACHMENTS_DIR = resolveAttachmentsDir();

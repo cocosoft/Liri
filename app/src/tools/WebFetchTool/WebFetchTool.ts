@@ -17,7 +17,10 @@ import type {
   ValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
-import { resolveDownloadsDir } from '@modules/core/paths';
+import { resolveDownloadsDir, resolveInboundDir } from '@modules/core/paths';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * WebFetch 输入模式
@@ -102,6 +105,13 @@ export class WebFetchTool extends BaseTool {
       description: 'Maximum content length in characters',
       required: false,
       default: 500000,
+    },
+    {
+      name: 'saveToFile',
+      type: 'boolean',
+      description: '将抓取内容保存到文件并注册到文件系统',
+      required: false,
+      default: false,
     },
   ];
 
@@ -294,6 +304,12 @@ export class WebFetchTool extends BaseTool {
         },
       });
 
+      // 若开启 saveToFile，保存到 downloads 目录并注册到 FileRegistry
+      const saveToFile = input.saveToFile as boolean;
+      if (saveToFile && content.length > 0) {
+        this.saveToFileAndRegister(url, content, contentType, startTime).catch(() => {});
+      }
+
       return createToolResult(result, {
         newMessages: [
           {
@@ -378,6 +394,55 @@ export class WebFetchTool extends BaseTool {
     isList?: boolean;
   } {
     return { isSearch: false, isRead: true };
+  }
+
+  /**
+   * 将获取的内容保存到 downloads 目录并注册到 FileRegistry
+   */
+  private async saveToFileAndRegister(
+    url: string,
+    content: string,
+    contentType: string,
+    startTime: number
+  ): Promise<void> {
+    try {
+      const downloadsDir = resolveDownloadsDir();
+      await mkdir(downloadsDir, { recursive: true });
+
+      // 从 URL 提取文件名
+      const urlObj = new URL(url);
+      let fileName = urlObj.pathname.split('/').filter(Boolean).pop() || 'index';
+      if (!fileName.includes('.')) {
+        const ext = contentType.includes('json') ? '.json'
+          : contentType.includes('html') ? '.html'
+          : contentType.includes('xml') ? '.xml'
+          : '.txt';
+        fileName += ext;
+      }
+      // 添加时间戳前缀防重名
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const safeName = `${ts}_${fileName.replace(/[<>:"/\\|?*]/g, '_')}`;
+      const filePath = join(downloadsDir, safeName);
+
+      await writeFile(filePath, content, 'utf-8');
+
+      // 注册到 FileRegistry
+      const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+      const { FileSource } = await import('@modules/services/file/types');
+      const registry = FileRegistry.getInstance();
+      await registry.initDatabase();
+      await registry.registerFile({
+        originalName: fileName,
+        content,
+        source: FileSource.WEB_FETCH,
+        sourceId: url,
+        description: `WebFetch 下载: ${url}`,
+        mimeType: contentType,
+        storeZone: 'inbound',
+      });
+    } catch {
+      // 静默失败，不干扰主流程
+    }
   }
 }
 

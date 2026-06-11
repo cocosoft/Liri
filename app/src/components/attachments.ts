@@ -368,6 +368,9 @@ export class AttachmentManager {
     // 记录附件来源到数据库
     this.recordAttachmentSource(attachment);
 
+    // 注册到 FileRegistry 文件注册中心
+    this.registerAttachmentToFileRegistry(attachment, data);
+
     this.autoIngestAttachment(attachment);
 
     return attachment;
@@ -603,6 +606,45 @@ export class AttachmentManager {
           rawDir,
           source: metadata?.source,
           sourceId: metadata?.sourceId,
+        });
+      } catch {
+        // 静默失败，不干扰主流程
+      }
+    });
+  }
+
+  /**
+   * 将附件注册到 FileRegistry 文件注册中心
+   * 异步执行，不阻塞附件保存主流程
+   */
+  private registerAttachmentToFileRegistry(attachment: Attachment, data: Buffer): void {
+    Promise.resolve().then(async () => {
+      try {
+        const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+        const { FileSource } = await import('@modules/services/file/types');
+
+        const metadata = attachment.metadata;
+        const source = metadata?.source === AttachmentSource.KNOWLEDGE_AUTO
+          ? FileSource.AUTO_INGEST
+          : FileSource.UPLOAD;
+
+        const registry = FileRegistry.getInstance();
+        await registry.initDatabase();
+
+        await registry.registerFile({
+          originalName: attachment.name,
+          content: data,
+          source,
+          sourceId: metadata?.sourceId || 'attachment',
+          mimeType: attachment.mimeType,
+          description: metadata?.description || `附件类型: ${attachment.type}`,
+          storeZone: 'inbound',
+        });
+
+        logger.info('附件已注册到 FileRegistry', {
+          name: attachment.name,
+          source,
+          fileId: attachment.id,
         });
       } catch {
         // 静默失败，不干扰主流程

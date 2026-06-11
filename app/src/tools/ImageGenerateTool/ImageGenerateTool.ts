@@ -11,6 +11,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { resolveOutputDir } from '@modules/core/paths';
+import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -191,6 +192,15 @@ export class ImageGenerateTool extends BaseTool {
         model: result.model,
         durationMs: result.durationMs,
       });
+
+      // 异步注册生成的图片到 FileRegistry（不阻塞主流程）
+      Promise.resolve().then(async () => {
+        for (const img of images) {
+          const format = img.format || 'png';
+          await registerGeneratedMedia(img.url, params.prompt, 'image', format);
+        }
+      });
+
       return {
         success: true,
         data: {

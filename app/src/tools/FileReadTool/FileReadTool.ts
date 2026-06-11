@@ -173,6 +173,12 @@ export class FileReadTool extends BaseTool {
       required: true,
     },
     {
+      name: 'file_id',
+      type: 'string',
+      description: 'FileRegistry ID（优先于 file_path 使用，可从 file_list 结果中获取）',
+      required: false,
+    },
+    {
       name: 'offset',
       type: 'number',
       description: 'Start line number',
@@ -196,6 +202,15 @@ export class FileReadTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
+      // 如果提供了 file_id，优先从 FileRegistry 解析路径
+      const fileId = input.file_id as string | undefined;
+      if (fileId) {
+        const resolvedPath = await this.resolveFileId(fileId);
+        if (resolvedPath) {
+          input.file_path = resolvedPath;
+        }
+      }
+
       const filePath = resolveFilePath(input.file_path as string);
 
       const pathCheck = checkPathAccessibility(
@@ -354,6 +369,24 @@ export class FileReadTool extends BaseTool {
 
   override getPath(input: Record<string, unknown>): string {
     return (input.file_path as string) || '';
+  }
+
+  /**
+   * 通过 FileRegistry file_id 解析文件路径
+   */
+  private async resolveFileId(fileId: string): Promise<string | null> {
+    try {
+      const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+      const registry = FileRegistry.getInstance();
+      await registry.initDatabase();
+      const record = await registry.getFileDetail(fileId);
+      if (record) {
+        return record.savedPath;
+      }
+    } catch {
+      // 静默失败，回退到 file_path
+    }
+    return null;
   }
 
   override async preparePermissionMatcher(

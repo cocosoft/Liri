@@ -15,6 +15,8 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/core/paths';
+import { FileRegistry } from '@modules/services/file/FileRegistry';
+import { FileSource, type StoreZone } from '@modules/services/file/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -177,6 +179,23 @@ export class KnowledgeCompiler {
     );
 
     await writeFile(targetPath, finalContent, 'utf-8');
+
+    // 注册编译后的知识文档到 FileRegistry
+    try {
+      const registry = FileRegistry.getInstance();
+      await registry.initDatabase();
+      await registry.registerFile({
+        originalName: targetPath.split(/[\\/]/).pop() || 'compiled.md',
+        content: finalContent,
+        source: FileSource.AUTO_INGEST,
+        sourceId: rawFile.split(/[\\/]/).pop() || 'raw',
+        description: `知识编译: ${fileName}`,
+        mimeType: 'text/markdown',
+        storeZone: 'inbound',
+      });
+    } catch {
+      // 注册失败不影响编译主流程
+    }
   }
 
   /**

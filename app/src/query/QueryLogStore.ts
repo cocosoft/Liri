@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { resolveDbPath } from '@modules/core/paths';
+import { SimpleMutex } from '@modules/core/SimpleMutex';
 import type {
   QueryLogEntry,
   QueryLogFilter,
@@ -25,6 +26,11 @@ const QUERY_LOG_TABLE = 'query_logs';
 export class QueryLogStore {
   private db: Database | null = null;
   private dbPath: string;
+
+  /**
+   * 写操作互斥锁（防止并发 SQLite WAL 锁冲突）
+   */
+  private dbMutex = new SimpleMutex();
 
   constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
@@ -155,39 +161,41 @@ export class QueryLogStore {
     const id = uuidv4();
     const metadataStr = entry.metadata ? JSON.stringify(entry.metadata) : null;
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `INSERT INTO ${QUERY_LOG_TABLE}
-        (id, session_id, type, model, prompt_tokens, output_tokens, total_tokens,
-         duration_ms, success, error, tool_name, retry_count, turn_count,
-         tool_call_count, timestamp, metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          entry.sessionId,
-          entry.type,
-          entry.model || null,
-          entry.promptTokens,
-          entry.outputTokens,
-          entry.totalTokens,
-          entry.durationMs,
-          entry.success ? 1 : 0,
-          entry.error || null,
-          entry.toolName || null,
-          entry.retryCount ?? null,
-          entry.turnCount ?? null,
-          entry.toolCallCount ?? null,
-          entry.timestamp,
-          metadataStr,
-        ],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `INSERT INTO ${QUERY_LOG_TABLE}
+          (id, session_id, type, model, prompt_tokens, output_tokens, total_tokens,
+           duration_ms, success, error, tool_name, retry_count, turn_count,
+           tool_call_count, timestamp, metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            entry.sessionId,
+            entry.type,
+            entry.model || null,
+            entry.promptTokens,
+            entry.outputTokens,
+            entry.totalTokens,
+            entry.durationMs,
+            entry.success ? 1 : 0,
+            entry.error || null,
+            entry.toolName || null,
+            entry.retryCount ?? null,
+            entry.turnCount ?? null,
+            entry.toolCallCount ?? null,
+            entry.timestamp,
+            metadataStr,
+          ],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
 
     logger.debug('查询日志已记录', {
@@ -355,18 +363,20 @@ export class QueryLogStore {
       );
     }
 
-    const result = await new Promise<any>((resolve, reject) => {
-      this.db?.run(
-        `DELETE FROM ${QUERY_LOG_TABLE} WHERE timestamp < ?`,
-        [beforeTimestamp],
-        function (this: any, err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(this);
+    const result = await this.dbMutex.run(async () => {
+      return await new Promise<any>((resolve, reject) => {
+        this.db?.run(
+          `DELETE FROM ${QUERY_LOG_TABLE} WHERE timestamp < ?`,
+          [beforeTimestamp],
+          function (this: any, err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(this);
+            }
           }
-        }
-      );
+        );
+      });
     });
 
     const deletedCount = result?.changes || 0;

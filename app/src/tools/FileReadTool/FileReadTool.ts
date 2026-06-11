@@ -6,6 +6,7 @@ import * as path from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getReadProtectionService } from '../../security/files/ReadProtectionService';
 import { resolveOutputDir } from '@modules/core/paths';
+import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {
   return path.isAbsolute(filePath)
@@ -19,9 +20,8 @@ export interface FileReadInput {
   limit?: number;
 }
 
-export interface FileReadResult {
+export interface FileReadResult extends FileOperationResult {
   content: string;
-  filePath: string;
   totalLines: number;
   lineCount: number;
   offset: number;
@@ -100,7 +100,8 @@ export function readFile(input: FileReadInput): FileReadResult {
 
   return {
     content: result,
-    filePath: resolved,
+    filePath: input.filePath,
+    canonicalPath: resolved,
     totalLines,
     lineCount: selectedLines.length,
     offset,
@@ -235,14 +236,14 @@ export class FileReadTool extends BaseTool {
         limit: input.limit as number | undefined,
       });
 
-      this.autoIngestFile(result.filePath);
+      this.autoIngestFile(result.canonicalPath);
 
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
           data: {
             type: 'file_read',
-            filePath: result.filePath,
+            filePath: result.canonicalPath,
             isRunning: false,
             isComplete: true,
           },
@@ -253,7 +254,7 @@ export class FileReadTool extends BaseTool {
         newMessages: [
           {
             role: 'system',
-            content: `Successfully read file: ${result.filePath}`,
+            content: `Successfully read file: ${result.canonicalPath}`,
           },
         ],
       });

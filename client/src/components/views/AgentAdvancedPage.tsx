@@ -78,7 +78,7 @@ function AgentAdvancedPage() {
             <AgentSwarmView
               isDark={isDark}
               agents={[]}
-              onAgentClick={(agent) => console.log("Agent clicked:", agent)}
+              onAgentClick={(agent) => void agent}
             />
           )}
 

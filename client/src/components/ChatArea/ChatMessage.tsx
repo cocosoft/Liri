@@ -387,6 +387,10 @@ function AssistantMessage({
     };
     const store = useChatStore.getState();
     store.addMessage(newMsg);
+  }, (content) => {
+    // TaskCard/Todo 按钮点击：发送用户消息到对话流
+    const store = useChatStore.getState();
+    store.sendMessage(content, message.session_id);
   });
   return (
     <div className="text-sm break-words max-w-none space-y-3">
@@ -449,6 +453,7 @@ function renderBlocksWithGroups(
   isStreaming: boolean,
   sessionId?: string,
   onQuestionResponse?: (content: string) => void,
+  onSendMessage?: (content: string) => void,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
@@ -468,6 +473,7 @@ function renderBlocksWithGroups(
           isStreaming={isStreaming}
           sessionId={sessionId}
           onQuestionResponse={onQuestionResponse}
+          onSendMessage={onSendMessage}
         />,
       );
       i++;
@@ -508,9 +514,10 @@ interface BlockRendererProps {
   isStreaming?: boolean;
   sessionId?: string;
   onQuestionResponse?: (content: string) => void;
+  onSendMessage?: (content: string) => void;
 }
 
-function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse }: BlockRendererProps) {
+function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse, onSendMessage }: BlockRendererProps) {
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
   const knownFilePaths = sessionFiles.map((f) => f.path);
@@ -545,7 +552,9 @@ function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse }: Bl
         />
       ) : null;
     case "task_decomposition":
-      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
+      return block.taskCard ? <TaskCard data={block.taskCard} sessionId={sessionId} onSendMessage={onSendMessage} /> : null;
+    case "todo":
+      return block.taskCard ? <TaskCard data={block.taskCard} sessionId={sessionId} onSendMessage={onSendMessage} /> : null;
     case "text":
     default:
       return (

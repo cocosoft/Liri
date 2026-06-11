@@ -1,7 +1,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
-import type { ICache, CacheStats } from '@modules/cache/models/types';
+import type { ICache, CacheStats } from '@modules/cache/types';
 import type { Command } from '@modules/commands';
 import type { ServerResource, SerializedTool } from './types';
 

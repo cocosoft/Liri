@@ -42,7 +42,7 @@ export interface QuestionData {
 
 export interface MessageBlock {
   id: string;
-  type: "text" | "thinking" | "tool_call" | "status" | "task_decomposition" | "question";
+  type: "text" | "thinking" | "tool_call" | "status" | "task_decomposition" | "question" | "todo";
   content: string;
   toolCall?: ToolCall;
   status?: string;
@@ -641,7 +641,7 @@ export interface FilePreview {
   /** 文件内容 */
   content: string;
   /** 文件类型 */
-  type: "code" | "markdown" | "json" | "yaml" | "image" | "text";
+  type: "code" | "markdown" | "json" | "yaml" | "image" | "text" | "pdf" | "docx" | "pptx";
   /** 语言(代码文件) */
   language?: string;
   /** 文件大小 */

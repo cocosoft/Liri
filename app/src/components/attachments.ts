@@ -10,7 +10,9 @@ import { join, dirname } from 'path';
 import {
   resolveAttachmentsDir,
   resolveDataSubDir,
+  resolveDbPath,
 } from '@modules/core/paths';
+import { Database } from 'sqlite3';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -18,6 +20,36 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 附件类型
  */
 export type AttachmentType = 'image' | 'file' | 'code' | 'link' | 'other';
+
+/**
+ * 附件来源枚举
+ */
+export enum AttachmentSource {
+  /** 会话中用户上传的文件 */
+  SESSION = 'session',
+  /** 任务系统生成的文件 */
+  TASK = 'task',
+  /** 开发工具生成的文件 */
+  DEVELOPMENT = 'development',
+  /** 知识库自动上传 */
+  KNOWLEDGE_AUTO = 'knowledge_auto',
+}
+
+/**
+ * 附件来源元数据
+ */
+export interface AttachmentMetadata {
+  /** 来源枚举 */
+  source: AttachmentSource;
+  /** 来源ID（如会话ID、任务ID） */
+  sourceId?: string;
+  /** 来源描述 */
+  description?: string;
+  /** 原始文件名 */
+  originalName?: string;
+  /** 转换后内容（PPTX→Markdown 等） */
+  convertedContent?: string;
+}
 
 /**
  * 附件
@@ -31,7 +63,7 @@ export interface Attachment {
   mimeType: string;
   createdAt: Date;
   updatedAt: Date;
-  metadata?: Record<string, unknown>;
+  metadata?: AttachmentMetadata;
 }
 
 /**
@@ -40,12 +72,17 @@ export interface Attachment {
 export class AttachmentManager {
   private attachmentsDir: string;
   private fallbackDir: string;
+  private db: Database | null = null;
 
   /**
    * 构造函数
    * @param attachmentsDir 附件存储目录
+   * @param dbPath 数据库路径
    */
-  constructor(attachmentsDir: string = resolveAttachmentsDir()) {
+  constructor(
+    attachmentsDir: string = resolveAttachmentsDir(),
+    private dbPath: string = resolveDbPath()
+  ) {
     this.attachmentsDir = attachmentsDir;
     this.fallbackDir = resolveDataSubDir('attachments');
 
@@ -56,6 +93,64 @@ export class AttachmentManager {
       );
       this.attachmentsDir = this.fallbackDir;
       this.ensureDirectoryExists(this.attachmentsDir);
+    }
+
+    // 初始化数据库表
+    this.initDatabase();
+  }
+
+  /**
+   * 初始化数据库，创建 attachments_sources 表
+   */
+  private initDatabase(): void {
+    try {
+      this.db = new Database(this.dbPath);
+
+      this.db.run(
+        `
+        CREATE TABLE IF NOT EXISTS attachments_sources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          attachment_id TEXT NOT NULL,
+          source TEXT NOT NULL,
+          source_id TEXT,
+          description TEXT,
+          original_name TEXT,
+          file_path TEXT,
+          mime_type TEXT,
+          file_size INTEGER,
+          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        )
+      `,
+        (err) => {
+          if (err) {
+            logger.error('创建 attachments_sources 表失败', { error: err.message });
+            this.closeDb();
+          } else {
+            logger.info('attachments_sources 表创建/验证完成');
+          }
+        }
+      );
+
+      this.db.run(
+        `CREATE INDEX IF NOT EXISTS idx_attachments_sources_source
+         ON attachments_sources(source)`
+      );
+
+      this.db.run(
+        `CREATE INDEX IF NOT EXISTS idx_attachments_sources_source_id
+         ON attachments_sources(source_id)`
+      );
+    } catch (err) {
+      logger.error('初始化附件数据库失败', { error: String(err) });
+      this.closeDb();
+    }
+  }
+
+  /** 关闭数据库连接 */
+  private closeDb(): void {
+    if (this.db) {
+      try { this.db.close(); } catch { /* 忽略关闭错误 */ }
+      this.db = null;
     }
   }
 
@@ -201,7 +296,9 @@ export class AttachmentManager {
    * @param data 附件数据
    * @param type 附件类型
    * @param mimeType MIME类型
-   * @param metadata 元数据
+   * @param source 附件来源
+   * @param sourceId 来源ID（如会话ID、任务ID）
+   * @param description 来源描述
    * @returns 附件对象
    */
   saveAttachment(
@@ -209,7 +306,9 @@ export class AttachmentManager {
     data: Buffer,
     type: AttachmentType,
     mimeType: string,
-    metadata?: Record<string, unknown>
+    source: AttachmentSource = AttachmentSource.SESSION,
+    sourceId?: string,
+    description?: string,
   ): Attachment {
     // 生成唯一ID
     const id = `attach_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -240,6 +339,14 @@ export class AttachmentManager {
       }
     }
 
+    // 构建来源元数据
+    const metadata: AttachmentMetadata = {
+      source,
+      sourceId,
+      description: description || `附件类型: ${type}, MIME: ${mimeType}`,
+      originalName: name,
+    };
+
     // 创建附件对象
     const attachment: Attachment = {
       id,
@@ -257,6 +364,9 @@ export class AttachmentManager {
     const index = this.loadIndex();
     index.push(attachment);
     this.saveIndex(index);
+
+    // 记录附件来源到数据库
+    this.recordAttachmentSource(attachment);
 
     this.autoIngestAttachment(attachment);
 
@@ -357,6 +467,81 @@ export class AttachmentManager {
   }
 
   /**
+   * 记录附件来源到数据库
+   */
+  private recordAttachmentSource(attachment: Attachment): void {
+    if (!this.db) return;
+
+    const metadata = attachment.metadata;
+    this.db.run(
+      `INSERT INTO attachments_sources (attachment_id, source, source_id, description, original_name, file_path, mime_type, file_size)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        attachment.id,
+        metadata?.source || 'session',
+        metadata?.sourceId || null,
+        metadata?.description || null,
+        metadata?.originalName || attachment.name,
+        attachment.path,
+        attachment.mimeType,
+        attachment.size,
+      ]
+    );
+  }
+
+  /**
+   * 按来源查询附件记录
+   * @param source 来源枚举值
+   * @param limit 限制条数
+   * @returns 附件来源记录列表
+   */
+  queryAttachmentsBySource(
+    source: AttachmentSource | string,
+    limit: number = 50
+  ): Promise<Record<string, unknown>[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        resolve([]);
+        return;
+      }
+      this.db!.all(
+        `SELECT * FROM attachments_sources WHERE source = ? ORDER BY created_at DESC LIMIT ?`,
+        [source, limit],
+        (err, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+  }
+
+  /**
+   * 按来源ID查询附件记录
+   * @param sourceId 来源ID（如会话ID、任务ID）
+   * @param limit 限制条数
+   * @returns 附件来源记录列表
+   */
+  queryAttachmentsBySourceId(
+    sourceId: string,
+    limit: number = 50
+  ): Promise<Record<string, unknown>[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        resolve([]);
+        return;
+      }
+      this.db!.all(
+        `SELECT * FROM attachments_sources WHERE source_id = ? ORDER BY created_at DESC LIMIT ?`,
+        [sourceId, limit],
+        (err, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+  }
+
+  /**
    * 附件保存后自动触发知识库摄取
    * 异步执行，不阻塞附件保存
    */
@@ -373,6 +558,51 @@ export class AttachmentManager {
           name: attachment.name,
           path: attachment.path,
           type: attachment.type,
+        });
+      } catch {
+        // 静默失败，不干扰主流程
+      }
+
+      // 同步写入知识库 raw 目录，按来源分类存储
+      try {
+        const { writeFile, mkdir } = await import('fs/promises');
+        const { join } = await import('path');
+        const { resolvePyappHome } = await import('@modules/core/paths');
+        const metadata = attachment.metadata;
+
+        // 构建 raw 目录路径：~/.pyapp/knowledge/raw/{source}/{sourceId}/
+        const rawDir = join(
+          resolvePyappHome(),
+          'knowledge',
+          'raw',
+          metadata?.source || 'session',
+          metadata?.sourceId || 'unknown'
+        );
+        await mkdir(rawDir, { recursive: true });
+
+        // 写入 raw 元数据文件记录附件来源
+        const metaContent = JSON.stringify(
+          {
+            attachmentId: attachment.id,
+            name: attachment.name,
+            type: attachment.type,
+            mimeType: attachment.mimeType,
+            originalPath: attachment.path,
+            source: metadata?.source,
+            sourceId: metadata?.sourceId,
+            description: metadata?.description,
+            savedAt: new Date().toISOString(),
+          },
+          null,
+          2
+        );
+        const metaFileName = `${attachment.id}.meta.json`;
+        await writeFile(join(rawDir, metaFileName), metaContent, 'utf-8');
+
+        logger.info('附件来源已记录到知识库 raw 目录', {
+          rawDir,
+          source: metadata?.source,
+          sourceId: metadata?.sourceId,
         });
       } catch {
         // 静默失败，不干扰主流程

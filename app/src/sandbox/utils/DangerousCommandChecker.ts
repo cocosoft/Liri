@@ -2,7 +2,7 @@
  * 危险命令检测
  * 检测命令中是否包含危险或被排除的命令
  */
-import { BashPermissionRule } from '../types/SandboxTypes';
+import { BashPermissionRule } from '../SandboxTypes';
 
 /**
  * 常见的危险命令模式

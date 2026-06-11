@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useState } from "react";
+import React, { useEffect, useRef, useMemo, useCallback, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import mermaid from "mermaid";
@@ -35,6 +35,75 @@ interface RenderedBlock {
  * 2. 异步：否则先渲染 code 样式，后台验证文件存在后升级为 FileLink
  * 3. 始终非阻塞，主线程零卡顿
  */
+
+// 模块级路径解析缓存，避免同一条消息中重复请求相同路径
+/** 缓存条目：存储规范路径及其别名集合 */
+interface PathCacheEntry {
+  canonical: string;
+  /** 别名列表（大小写变体、无扩展名变体等），用于快速查找 */
+  aliases: Set<string>;
+}
+
+/**
+ * 多级 fallback 文件路径匹配
+ * 按优先级依次尝试：精确匹配 → 不区分大小写 → 无扩展名匹配 → 后缀包含匹配
+ */
+function matchFilePath(mention: string, knownPaths: string[]): string | null {
+  // 1. 精确匹配
+  const exact = knownPaths.find(p => p === mention);
+  if (exact) return exact;
+
+  // 2. 不区分大小写匹配（处理 Windows 大小写不敏感问题）
+  const mentionLower = mention.toLowerCase();
+  const caseInsensitive = knownPaths.find(p => p.toLowerCase() === mentionLower);
+  if (caseInsensitive) return caseInsensitive;
+
+  // 3. 无扩展名匹配（用户提及 app/src/main 但真实路径为 app/src/main.ts）
+  const mentionNoExt = mentionLower.replace(/\.\w+$/, '');
+  const extMatch = knownPaths.find(p =>
+    p.replace(/\.\w+$/, '').toLowerCase() === mentionNoExt
+  );
+  if (extMatch) return extMatch;
+
+  // 4. 路径后缀匹配（处理 LLM 截断：提及 src/main.ts 但真实路径为 app/src/main.ts）
+  const tailMatch = knownPaths.find(p =>
+    p.toLowerCase().endsWith(mentionLower)
+  );
+  if (tailMatch) return tailMatch;
+
+  return null;
+}
+
+const pathResolveCache = new Map<string, PathCacheEntry>();
+const pathResolvePending = new Set<string>();
+
+/**
+ * 向缓存添加条目，同时生成并存储别名（方便后续快速查找）
+ */
+function setPathCache(key: string, canonical: string): void {
+  const aliases = new Set<string>();
+  aliases.add(canonical.toLowerCase());
+  // 无扩展名别名
+  const noExt = canonical.replace(/\.\w+$/, '');
+  if (noExt !== canonical) aliases.add(noExt.toLowerCase());
+  // 路径后缀别名（逐级回退）
+  const parts = canonical.replace(/[\\/]/g, '/').split('/');
+  let suffix = '';
+  for (let i = parts.length - 1; i >= 0; i--) {
+    suffix = suffix ? `${parts[i]}/${suffix}` : parts[i];
+    aliases.add(suffix.toLowerCase());
+  }
+  pathResolveCache.set(key, { canonical, aliases });
+
+  // 同时用所有别名索引该条目，使后续查询能通过别名直接命中
+  for (const alias of aliases) {
+    // 仅当别名键不存在或指向不同 canonical 时才覆盖
+    if (!pathResolveCache.has(alias) || pathResolveCache.get(alias)!.canonical !== canonical) {
+      pathResolveCache.set(alias, { canonical, aliases });
+    }
+  }
+}
+
 function InlineCodeLink({
   codeContent,
   knownFilePaths,
@@ -50,31 +119,48 @@ function InlineCodeLink({
   useEffect(() => {
     if (!knownFilePaths || knownFilePaths.length === 0) return;
 
-    for (const fp of knownFilePaths) {
-      if (
-        fp === codeContent ||
-        fp.endsWith("/" + codeContent) ||
-        fp.endsWith("\\" + codeContent)
-      ) {
-        setConfirmedPath(fp);
-        return;
-      }
+    // 先在已知文件列表中做多级 fallback 匹配
+    const matched = matchFilePath(codeContent, knownFilePaths);
+    if (matched) {
+      setConfirmedPath(matched);
+      return;
     }
 
+    // 支持中文等非 ASCII 字符的文件路径匹配
+    // \p{L} = 任意 Unicode 字母（含中文），\p{N} = 任意 Unicode 数字
     const pathLike =
-      /^(?:[A-Za-z]:)?[\\/]?(?:[\w\-.]+\\)*[\w\-.]+\.[a-zA-Z0-9]{1,10}$/;
+      /^(?:[A-Za-z]:)?[\\/]?(?:[\p{L}\p{N}\w\-.]+\\)*[\p{L}\p{N}\w\-.]+\.[a-zA-Z0-9]{1,10}$/u;
     if (pathLike.test(codeContent) && !checking) {
+      // 先查缓存（含别名匹配），命中则直接使用
+      const cached = pathResolveCache.get(codeContent);
+      if (cached) {
+        setConfirmedPath(cached.canonical);
+        return;
+      }
+      // 检查是否已有相同路径的请求在进行中
+      if (pathResolvePending.has(codeContent)) return;
+
       setChecking(true);
+      pathResolvePending.add(codeContent);
       const baseUrl = getBackendBaseUrl();
       const encodedPath = encodeURIComponent(codeContent);
       fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data?.resolvedPath) {
-            setConfirmedPath(data.resolvedPath);
+          const resolved = data?.resolvedPath || null;
+          if (resolved) {
+            setPathCache(codeContent, resolved);
+            setConfirmedPath(resolved);
+          } else {
+            pathResolveCache.set(codeContent, { canonical: '', aliases: new Set() });
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          pathResolveCache.set(codeContent, { canonical: '', aliases: new Set() });
+        })
+        .finally(() => {
+          pathResolvePending.delete(codeContent);
+        });
     }
   }, [codeContent, knownFilePaths, checking]);
 
@@ -236,19 +322,10 @@ function MarkdownRenderer({
     return parseMarkdown(content, blockIdRef);
   }, [content]);
 
+  // mermaid 初始化（仅一次）
   useEffect(() => {
     mermaid.initialize({ startOnLoad: false });
-    const mermaidElements = document.querySelectorAll(".mermaid");
-    mermaidElements.forEach(async (el) => {
-      if (!el.classList.contains("rendered")) {
-        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const code = (el as HTMLElement).textContent || "";
-        const { svg } = await mermaid.render(id, code);
-        (el as HTMLElement).innerHTML = svg;
-        el.classList.add("rendered");
-      }
-    });
-  }, [blocks]);
+  }, []);
 
   const renderHeading = (content: string, level: number, key: string) => {
     const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
@@ -507,18 +584,21 @@ function MarkdownRenderer({
   };
 
   /**
-   * 将纯文本中的裸 URL 转换为可点击链接
-   * 对标 cline remarkUrlToLink
+   * 将纯文本中的裸 URL 和本地文件路径转换为可点击链接
    */
   const renderPlainTextWithUrls = (
     text: string,
     startKey: number,
   ): JSX.Element[] => {
     const urlRegex = /(https?:\/\/[^\s<>)\]]+)/;
+    // 匹配本地文件路径：可选盘符 + 至少一级目录 + 文件名.扩展名
+    const filePathRegex = /((?:[A-Za-z]:)?[\\/](?:[^\s<>")|]+[\\/])+[^\s<>")|]+\.[a-zA-Z0-9]{1,10})/;
     const parts: JSX.Element[] = [];
     let remaining = text;
     let key = startKey;
     let match;
+
+    // 第一轮：匹配 URL
     while ((match = urlRegex.exec(remaining)) !== null) {
       if (match.index > 0) {
         parts.push(<span key={key++}>{remaining.slice(0, match.index)}</span>);
@@ -536,13 +616,49 @@ function MarkdownRenderer({
       );
       remaining = remaining.slice(match.index + match[1].length);
     }
+
+    // 第二轮：在非 URL 文本中匹配本地文件路径
     if (remaining) {
-      parts.push(<span key={key++}>{remaining}</span>);
+      let textRemaining = remaining;
+      while ((match = filePathRegex.exec(textRemaining)) !== null) {
+        if (match.index > 0) {
+          parts.push(<span key={key++}>{textRemaining.slice(0, match.index)}</span>);
+        }
+        const path = match[1];
+        // 优先检查 knownFilePaths（来自工具调用的文件路径列表）
+        const isKnown = knownFilePaths?.some(
+          (fp) => fp === path || fp.endsWith("/" + path) || fp.endsWith("\\" + path),
+        );
+        if (isKnown) {
+          parts.push(
+            <FileLink
+              key={key++}
+              filePath={path}
+              onPreview={onPreviewFile || (() => {})}
+            />,
+          );
+        } else {
+          parts.push(
+            <span
+              key={key++}
+              className="text-blue-500 hover:underline cursor-pointer"
+              onClick={() => onPreviewFile?.(path)}
+            >
+              {path}
+            </span>,
+          );
+        }
+        textRemaining = textRemaining.slice(match.index + match[1].length);
+      }
+      if (textRemaining) {
+        parts.push(<span key={key++}>{textRemaining}</span>);
+      }
     }
+
     return parts;
   };
 
-  const renderText = (text: string, autoDetectFormula: boolean = true) => {
+  const renderText = (text: string, autoDetectFormula: boolean = !isStreaming) => {
     const parts: JSX.Element[] = [];
     let remaining = text;
     let key = 0;
@@ -707,7 +823,7 @@ function MarkdownRenderer({
     return parts;
   };
 
-  const renderTable = (content: string, autoDetectFormula: boolean = true) => {
+  const renderTable = (content: string, autoDetectFormula: boolean = !isStreaming) => {
     const rows = content.split("\n");
     if (rows.length < 2) return null;
 
@@ -734,7 +850,7 @@ function MarkdownRenderer({
                 key={idx}
                 className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left"
                 style={{
-                  textAlign: alignments[idx] as "left" | "center" | "right",
+                  textAlign: (alignments[idx] || "left") as "left" | "center" | "right",
                 }}
               >
                 <span>{renderText(header.trim(), autoDetectFormula)}</span>
@@ -819,6 +935,20 @@ const BlockContent = React.memo(
     renderList,
     renderTable,
   }: BlockContentProps) {
+    /** J12 修复：ref callback 逐个渲染 mermaid，避免 useEffect 全量重查 DOM */
+    const mermaidRef = useCallback((el: HTMLDivElement | null) => {
+      if (!el || el.dataset.mermaidRendered === "1") return;
+      const code = el.textContent || "";
+      if (!code.trim()) return;
+
+      const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      mermaid.render(id, code).then(({ svg }) => {
+        el.innerHTML = svg;
+        el.dataset.mermaidRendered = "1";
+      }).catch(() => {
+        /* 渲染失败静默处理，保留原始代码 */
+      });
+    }, []);
     switch (block.type) {
       case "code":
         return (
@@ -854,6 +984,7 @@ const BlockContent = React.memo(
       case "mermaid":
         return (
           <div
+            ref={mermaidRef}
             className="mermaid my-4"
             style={{
               backgroundColor: "#1a1a1a",

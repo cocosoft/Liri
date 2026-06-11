@@ -8,7 +8,7 @@ import {
   PermissionAction,
   ResourceType,
   OperationType,
-} from '@modules/permission/models/Permission.js';
+} from '@modules/permission/Permission.js';
 import {
   PERMISSION_MODES,
   PERMISSION_MODE_NAMES,

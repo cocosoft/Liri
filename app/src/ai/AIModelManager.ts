@@ -9,9 +9,8 @@ import { providerRegistry } from './providers/ProviderRegistry';
 import type { ThinkingConfig, ThinkingEffort } from './clients/thinking';
 import {
   buildThinkingConfig,
-  EFFORT_TO_BUDGET,
+  getThinkingBudgetForModel,
   DEFAULT_THINKING_EFFORT,
-  DEFAULT_THINKING_BUDGET_TOKENS,
 } from './clients/thinking';
 import {
   MODEL_FAMILY_ALIASES,
@@ -219,18 +218,22 @@ export class AIModelManager {
     }
 
     const effectiveEffort = effort ?? this.getDefaultThinkingEffort();
-    const budgetTokens =
-      EFFORT_TO_BUDGET[effectiveEffort] ?? DEFAULT_THINKING_BUDGET_TOKENS;
+    const budgetTokens = model
+      ? getThinkingBudgetForModel(model, effectiveEffort)
+      : undefined;
 
-    return buildThinkingConfig({
-      effort: effectiveEffort,
-      budgetTokens,
-    });
+    return buildThinkingConfig(
+      {
+        effort: effectiveEffort,
+        budgetTokens,
+      },
+      model
+    );
   }
 
   getThinkingBudgetForModel(model: string, effort?: ThinkingEffort): number {
     const effectiveEffort = effort ?? this.getDefaultThinkingEffort();
-    return EFFORT_TO_BUDGET[effectiveEffort] ?? DEFAULT_THINKING_BUDGET_TOKENS;
+    return getThinkingBudgetForModel(model, effectiveEffort);
   }
 
   getProvider(providerId?: string): AIProvider {

@@ -17,7 +17,7 @@ import { FileEditTool } from '@modules/tools/FileEditTool/FileEditTool.js';
 import { BashTool } from '@modules/tools/bash/BashTool.js';
 import { createPowerShellTool } from '@modules/tools/PowerShellTool/PowerShellTool.js';
 import { GlobTool } from '@modules/tools/search/GlobTool.js';
-import { GrepTool } from '@modules/tools/search/GrepTool.js';
+import { GrepTool } from '@modules/tools/GrepTool/GrepTool.js';
 import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.js';
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';

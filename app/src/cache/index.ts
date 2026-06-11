@@ -27,9 +27,9 @@ export * from './CacheFactory.js';
 export * from './strategy/index.js';
 export * from './performance/index.js';
 export * from './monitor/index.js';
-export * from './models/types.js';
+export * from './types.js';
 
-export { CacheService } from './services/CacheService.js';
+export { CacheService } from './CacheService.js';
 
 export {
   CacheStrategyManager,
@@ -67,7 +67,7 @@ export type {
   IEnhancedCacheMonitor,
 } from './monitor/index.js';
 
-export type { ICache } from './models/types.js';
+export type { ICache } from './types.js';
 export { CacheFactory, CacheNames } from './CacheFactory.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 

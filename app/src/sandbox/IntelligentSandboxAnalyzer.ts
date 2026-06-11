@@ -8,7 +8,7 @@ import {
   SandboxPlatform,
   SandboxPermission,
   SandboxExecuteResult,
-} from './types/SandboxTypes.js';
+} from './SandboxTypes.js';
 import {
   EnhancedSandboxManager,
   SandboxSecurityAssessment,

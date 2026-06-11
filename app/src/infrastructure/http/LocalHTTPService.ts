@@ -17,14 +17,14 @@ import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
-import { attachmentManager } from '@modules/components/attachments';
+import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
 import { getMonitoringService } from '@modules/monitoring/MonitoringService';
 import { analyticsService } from '@modules/analytics/AnalyticsService';
 import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitorService';
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
-import { SandboxPermission } from '@modules/sandbox/types/SandboxTypes';
+import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { resolveOutputDir, resolveDownloadsDir, resolveAttachmentsDir, resolvePyappHome } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import type {
@@ -33,6 +33,11 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import type { IChannelPlugin } from '@modules/channels/types';
 
+import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail, handleMonitorCost } from './handlers/monitoring-handlers';
+import { handleHealthReport, handleAnalyticsDashboard, handleCostSummary, handleCostRecords, handleCostRange, setAnalyticsDependencies } from './handlers/analytics-handlers';
+import { handleListModels, handleSystemSkillFileContent, handleTestModel, handleGetCurrentModel, handleSwitchModel, handleGetTasks, handleSaveTasks, handleSetDefaultModel } from './handlers/model-handlers';
+import { handleChatCompletions, handleQuestionAnswer } from './handlers/chat-handlers';
+import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
@@ -113,9 +118,17 @@ export class LocalHTTPService {
   private _isRunning = false;
   private readonly apiSecret: string;
   private compileScheduler: any = null;
+  /** handler 上下文（提供 sendError, readRequestBody, broadcastEvent 等） */
+  private readonly _handlerCtx: HandlerCtx = createHandlerCtx();
 
   constructor(config: LocalHTTPConfig) {
     this.config = config;
+    setAnalyticsDependencies(
+      analyticsService,
+      costTracker,
+      getCostRecordRepository(),
+      PerformanceMonitorService,
+    );
     this.apiSecret = configManager.env('LIRI_API_SECRET') || '';
   }
 
@@ -1504,6 +1517,11 @@ export class LocalHTTPService {
       return this.handleFileResolvePath(req, res);
     }
 
+    // ---- File Preview ----
+    if (req.method === 'GET' && url === '/api/file/preview') {
+      return this.handleFilePreview(req, res);
+    }
+
     // ---- Health ----
     if (req.method === 'GET' && url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1528,1890 +1546,191 @@ export class LocalHTTPService {
     );
   }
 
-  // CPU 使用率跟踪状态
-  private prevCpuUsage: NodeJS.CpuUsage | null = null;
-  private prevCpuTime: number = 0;
+  // CPU 使用率跟踪状态（已移至 monitoring-handlers.ts）
 
   /**
    * 计算当前 CPU 使用率（基于 process.cpuUsage 差值）
    * 返回值为 0~100 的百分比（占系统总 CPU 容量的比例）
    */
-  private calcCpuPercent(): number {
-    const currentCpu = process.cpuUsage();
-    const currentTime = Date.now();
+  // ========== Monitoring Handlers (extracted to handlers/monitoring-handlers.ts) ==========
 
-    if (!this.prevCpuUsage || this.prevCpuTime === 0) {
-      this.prevCpuUsage = currentCpu;
-      this.prevCpuTime = currentTime;
-      return 0;
-    }
-
-    const userDiff = currentCpu.user - this.prevCpuUsage.user;
-    const sysDiff = currentCpu.system - this.prevCpuUsage.system;
-    const cpuDiff = userDiff + sysDiff;
-    const timeDiff = currentTime - this.prevCpuTime;
-
-    this.prevCpuUsage = currentCpu;
-    this.prevCpuTime = currentTime;
-
-    if (timeDiff <= 0 || cpuDiff < 0) return 0;
-
-    const cpuCount = os.cpus().length;
-    // cpuDiff 单位微秒, timeDiff 单位毫秒, 需统一为微秒
-    const percent = (cpuDiff * 100) / (timeDiff * 1000 * cpuCount);
-
-    return Math.min(Math.round(percent * 10) / 10, 100);
-  }
-
-  /**
-   * 处理监控摘要请求 GET /v1/monitor/summary
-   */
   private async handleMonitorSummary(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const service = getMonitoringService();
-      const status = service.getSystemStatus();
-
-      const cpuPercent = this.calcCpuPercent();
-      const rssMB = Math.round(status.memory.rss / 1024 / 1024);
-      const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
-      const memoryPercent =
-        totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
-
-      // 收集磁盘信息
-      let diskTotalGB = 0,
-        diskFreeGB = 0,
-        diskUsedGB = 0,
-        diskUsagePercent = 0;
-      try {
-        if (process.platform === 'win32') {
-          const { execSync } = require('child_process');
-          const output = execSync(
-            'wmic logicaldisk where DriveType=3 get Size,FreeSpace',
-            { encoding: 'utf8', timeout: 3000 }
-          );
-          const lines = output.trim().split('\n').slice(1);
-          for (const line of lines) {
-            const parts = line.trim().split(/\s+/);
-            if (parts.length >= 2) {
-              const size = parseFloat(parts[0]);
-              const free = parseFloat(parts[1]);
-              if (!isNaN(size) && !isNaN(free)) {
-                diskTotalGB += size;
-                diskFreeGB += free;
-              }
-            }
-          }
-        } else {
-          const { execSync } = require('child_process');
-          const output = execSync('df -k --total 2>/dev/null || df -k', {
-            encoding: 'utf8',
-            timeout: 3000,
-          });
-          const lines = output.trim().split('\n').slice(1);
-          for (const line of lines) {
-            const parts = line.trim().split(/\s+/);
-            if (parts.length >= 4 && parts[0] !== 'total') {
-              const total = parseFloat(parts[1]) * 1024;
-              const available = parseFloat(parts[3]) * 1024;
-              if (!isNaN(total) && !isNaN(available)) {
-                diskTotalGB += total;
-                diskFreeGB += available;
-              }
-            }
-          }
-        }
-        diskUsedGB = diskTotalGB - diskFreeGB;
-        diskUsagePercent =
-          diskTotalGB > 0 ? Math.round((diskUsedGB / diskTotalGB) * 100) : 0;
-        diskTotalGB =
-          Math.round((diskTotalGB / (1024 * 1024 * 1024)) * 100) / 100;
-        diskFreeGB =
-          Math.round((diskFreeGB / (1024 * 1024 * 1024)) * 100) / 100;
-        diskUsedGB =
-          Math.round((diskUsedGB / (1024 * 1024 * 1024)) * 100) / 100;
-      } catch {
-        // 磁盘信息不可用时静默处理
-      }
-
-      const loadAverage =
-        status.loadAverage.length > 0
-          ? status.loadAverage.map((l) => Math.round(l * 100) / 100)
-          : [];
-
-      const summary = {
-        uptime: Math.floor(status.uptime),
-        cpuPercent,
-        memoryPercent,
-        memoryUsedMB: rssMB,
-        memoryTotalMB: totalMemMB,
-        diskTotalGB,
-        diskUsedGB,
-        diskFreeGB,
-        diskUsagePercent,
-        loadAverage,
-        requestCount: 0,
-        errorCount: 0,
-        avgResponseTime: 0,
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(summary));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          uptime: 0,
-          cpuPercent: 0,
-          memoryPercent: 0,
-          memoryUsedMB: 0,
-          memoryTotalMB: 0,
-          diskTotalGB: 0,
-          diskUsedGB: 0,
-          diskFreeGB: 0,
-          diskUsagePercent: 0,
-          loadAverage: [],
-          requestCount: 0,
-          errorCount: 0,
-          avgResponseTime: 0,
-        })
-      );
-    }
+    return handleMonitorSummary(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理监控指标请求 GET /v1/monitor/metrics?range=3600000
-   */
   private async handleMonitorMetrics(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const service = getMonitoringService();
-      const status = service.getSystemStatus();
-      const now = Date.now();
-
-      const cpuMetric = {
-        timestamp: now,
-        value: this.calcCpuPercent(),
-      };
-      const memoryMetric = {
-        timestamp: now,
-        value: Math.round((status.memory.rss / 1024 / 1024) * 100) / 100,
-      };
-
-      const metricsData = {
-        requests: [],
-        responseTime: [],
-        errorRate: [],
-        cpu: [cpuMetric],
-        memory: [memoryMetric],
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(metricsData));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          requests: [],
-          responseTime: [],
-          errorRate: [],
-          cpu: [],
-          memory: [],
-        })
-      );
-    }
+    return handleMonitorMetrics(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理告警列表请求 GET /v1/monitor/alerts?acknowledged=true
-   */
   private async handleMonitorAlerts(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const service = getMonitoringService();
-      const rawAlerts = service.getAlerts();
-
-      const alerts = rawAlerts.map((msg, index) => ({
-        id: `alert-${index}`,
-        level: 'info' as const,
-        message: msg,
-        timestamp: Date.now(),
-        acknowledged: false,
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(alerts));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify([]));
-    }
+    return handleMonitorAlerts(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理确认告警请求 POST /v1/monitor/alerts/:id/acknowledge
-   */
   private async handleAcknowledgeAlert(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    alertId: string
+    alertId: string,
   ): Promise<void> {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true, id: alertId }));
+    return handleAcknowledgeAlert(this._handlerCtx, req, res, { "$1": alertId });
   }
 
-  /**
-   * 处理日志查询请求 GET /v1/monitor/logs?level=...&search=...&source=...&limit=20&offset=0
-   */
   private async handleMonitorLogs(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
-      const level = urlObj.searchParams.get('level');
-      const search = urlObj.searchParams.get('search');
-      const source = urlObj.searchParams.get('source');
-      const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
-      const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
-
-      const levelMap: Record<string, LogLevel> = {
-        debug: LogLevel.DEBUG,
-        info: LogLevel.INFO,
-        warn: LogLevel.WARN,
-        error: LogLevel.ERROR,
-      };
-
-      const entries = StructuredLogger.queryLogs({
-        level: level && levelMap[level] ? levelMap[level] : undefined,
-        limit: 1000,
-      });
-
-      let filtered = entries;
-
-      if (source && source !== 'all') {
-        filtered = filtered.filter((e) => e.source === source);
-      }
-
-      if (search) {
-        const lowerSearch = search.toLowerCase();
-        filtered = filtered.filter((e) => {
-          const inMessage =
-            e.message && e.message.toLowerCase().includes(lowerSearch);
-          const inData = e.data
-            ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch)
-            : false;
-          const inModule =
-            e.module && e.module.toLowerCase().includes(lowerSearch);
-          return inMessage || inData || inModule;
-        });
-      }
-
-      const total = filtered.length;
-      const paginated = filtered.slice(offset, offset + limit);
-
-      const logs = paginated.map((entry, idx) => ({
-        id: `log-${idx}-${Date.now()}`,
-        level:
-          entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
-        message: entry.message,
-        timestamp: new Date(entry.timestamp).getTime(),
-        source: entry.source,
-        module: entry.module,
-        details: entry.data
-          ? JSON.stringify(entry.data)
-          : entry.error
-            ? entry.error.message
-            : undefined,
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ logs, total }));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ logs: [], total: 0 }));
-    }
+    return handleMonitorLogs(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理日志导出请求 POST /v1/monitor/logs/export
-   * 支持导出为 JSON 或 CSV 格式
-   */
   private async handleExportLogs(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      let body = '';
-      await new Promise((resolve) => {
-        req.on('data', (chunk) => { body += chunk; });
-        req.on('end', resolve);
-      });
-
-      const params = JSON.parse(body) || {};
-      const format = params.format || 'json';
-      const level = params.level;
-      const source = params.source;
-      const search = params.search;
-
-      const levelMap: Record<string, LogLevel> = {
-        debug: LogLevel.DEBUG,
-        info: LogLevel.INFO,
-        warn: LogLevel.WARN,
-        error: LogLevel.ERROR,
-      };
-
-      const entries = StructuredLogger.queryLogs({
-        level: level && levelMap[level] ? levelMap[level] : undefined,
-        limit: 10000,
-      });
-
-      let filtered = entries;
-
-      if (source && source !== 'all') {
-        filtered = filtered.filter((e) => e.source === source);
-      }
-
-      if (search) {
-        const lowerSearch = search.toLowerCase();
-        filtered = filtered.filter((e) => {
-          const inMessage =
-            e.message && e.message.toLowerCase().includes(lowerSearch);
-          const inData = e.data
-            ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch)
-            : false;
-          const inModule =
-            e.module && e.module.toLowerCase().includes(lowerSearch);
-          return inMessage || inData || inModule;
-        });
-      }
-
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `logs-${timestamp}`;
-
-      if (format === 'csv') {
-        const csvHeader = 'timestamp,level,module,source,message,data\n';
-        const csvRows = filtered.map((entry) => {
-          const dataStr = entry.data ? JSON.stringify(entry.data).replace(/"/g, '""') : '';
-          return [
-            `"${entry.timestamp}"`,
-            `"${entry.level}"`,
-            `"${entry.module || ''}"`,
-            `"${entry.source || ''}"`,
-            `"${entry.message.replace(/"/g, '""')}"`,
-            `"${dataStr}"`,
-          ].join(',');
-        });
-
-        const csvContent = csvHeader + csvRows.join('\n');
-
-        res.writeHead(200, {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="${filename}.csv"`,
-        });
-        res.end(csvContent);
-      } else {
-        const exportData = {
-          exportTime: new Date().toISOString(),
-          total: filtered.length,
-          filters: { level, source, search },
-          logs: filtered.map((entry) => ({
-            timestamp: entry.timestamp,
-            level: entry.level,
-            module: entry.module,
-            source: entry.source,
-            message: entry.message,
-            data: entry.data,
-            traceId: entry.traceId,
-            error: entry.error,
-          })),
-        };
-
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Content-Disposition': `attachment; filename="${filename}.json"`,
-        });
-        res.end(JSON.stringify(exportData, null, 2));
-      }
-    } catch (error) {
-      logger.error('导出日志失败', { error: String(error) });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '导出日志失败' }));
-    }
+    return handleExportLogs(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理 LLM 会话列表请求 GET /v1/monitor/sessions
-   */
   private async handleMonitorSessions(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
-      const llmTracker = getLLMTracker();
-      
-      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
-      const limit = parseInt(urlObj.searchParams.get('limit') || '20', 10);
-      const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
-
-      const sessions = llmTracker.getAllSessions();
-      const total = sessions.length;
-      const paginated = sessions.slice(offset, offset + limit);
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ sessions: paginated, total }));
-    } catch (error) {
-      logger.error('获取会话列表失败', { error: String(error) });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '获取会话列表失败' }));
-    }
+    return handleMonitorSessions(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理 LLM 会话详情请求 GET /v1/monitor/sessions/{sessionId}
-   */
   private async handleMonitorSessionDetail(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
-    try {
-      const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
-      const llmTracker = getLLMTracker();
-
-      const sessionDetail = llmTracker.getSessionDetail(sessionId);
-
-      if (!sessionDetail) {
-        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: '会话不存在' }));
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(sessionDetail));
-    } catch (error) {
-      logger.error('获取会话详情失败', { error: String(error) });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '获取会话详情失败' }));
-    }
+    return handleMonitorSessionDetail(this._handlerCtx, req, res, { "$1": sessionId });
   }
 
-  /**
-   * 处理成本统计请求 GET /v1/monitor/cost
-   */
   private async handleMonitorCost(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
-      const llmTracker = getLLMTracker();
-
-      const globalSummary = llmTracker.getGlobalSummary();
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(globalSummary));
-    } catch (error) {
-      logger.error('获取成本统计失败', { error: String(error) });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '获取成本统计失败' }));
-    }
+    return handleMonitorCost(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理健康报告请求 GET /v1/health/report
-   */
+  // ========== Health / Analytics / Cost Handlers (extracted to handlers/analytics-handlers.ts) ==========
+
   private async handleHealthReport(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const service = getMonitoringService();
-      const status = service.getSystemStatus();
-
-      const components = [
-        {
-          name: 'system',
-          status: (status.uptime > 0 ? 'ok' : 'warning') as
-            | 'ok'
-            | 'warning'
-            | 'error',
-        },
-        {
-          name: 'memory',
-          status: (status.memory.heapUsed < status.memory.heapTotal * 0.9
-            ? 'ok'
-            : 'warning') as 'ok' | 'warning' | 'error',
-        },
-      ];
-
-      const healthReport = {
-        status: (components.every((c) => c.status === 'ok')
-          ? 'healthy'
-          : 'degraded') as 'healthy' | 'degraded' | 'unhealthy',
-        components,
-        timestamp: Date.now(),
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(healthReport));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          status: 'healthy',
-          components: [],
-          timestamp: Date.now(),
-        })
-      );
-    }
+    return handleHealthReport(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理分析面板请求 GET /v1/analytics/dashboard
-   * 返回 Token 用量、工具调用、错误分析、性能指标等聚合数据
-   */
   private async handleAnalyticsDashboard(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const events = analyticsService.getEvents();
-      const stats = analyticsService.getStats();
-
-      // 按事件类型分类
-      const toolEvents = events.filter((e: any) => e.type === 'tool_call');
-      const errorEvents = events.filter((e: any) => e.type === 'error');
-      const perfEvents = events.filter((e: any) => e.type === 'performance');
-      const llmEvents = events.filter((e: any) => e.type === 'llm_request');
-
-      // 工具调用统计
-      const toolCounts = new Map<string, number>();
-      for (const e of toolEvents) {
-        const evt = e as Record<string, unknown>;
-        const name =
-          ((evt.metadata as Record<string, unknown>)?.toolName as string) ||
-          (evt.name as string) ||
-          'unknown';
-        toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
-      }
-      const topTools = Array.from(toolCounts.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // 错误统计
-      const errorTypeCounts = new Map<string, number>();
-      for (const e of errorEvents) {
-        const evt = e as Record<string, unknown>;
-        const errType =
-          ((evt.metadata as Record<string, unknown>)?.errorType as string) ||
-          (evt.name as string) ||
-          'unknown';
-        errorTypeCounts.set(errType, (errorTypeCounts.get(errType) || 0) + 1);
-      }
-      const topErrors = Array.from(errorTypeCounts.entries())
-        .map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // 性能百分位延迟
-      const latencies = perfEvents
-        .map((e: any) => e.metadata?.metricValue)
-        .filter((v: any) => typeof v === 'number' && v > 0)
-        .sort((a: number, b: number) => a - b);
-
-      const calcPercentile = (sorted: number[], p: number): number => {
-        if (sorted.length === 0) return 0;
-        const idx = Math.ceil((p / 100) * sorted.length) - 1;
-        return (
-          Math.round(
-            sorted[Math.max(0, Math.min(idx, sorted.length - 1))] * 100
-          ) / 100
-        );
-      };
-
-      // 从 PerformanceMonitorService 补充延迟数据
-      const perfService = PerformanceMonitorService.getInstance();
-      const allPerfMetrics = perfService.getAllMetrics();
-      const perfDurations = allPerfMetrics
-        .map((m) => m.duration)
-        .filter((d) => d > 0)
-        .sort((a, b) => a - b);
-
-      if (perfDurations.length > 0) {
-        latencies.push(...perfDurations);
-        latencies.sort((a, b) => a - b);
-      }
-
-      // 从 costTracker 获取 Token 用量
-      const modelUsage = costTracker.getModelUsage();
-      let totalInputTokens = 0,
-        totalOutputTokens = 0,
-        totalCostUSD = 0;
-      for (const usage of Object.values(modelUsage)) {
-        totalInputTokens += usage.inputTokens;
-        totalOutputTokens += usage.outputTokens;
-        totalCostUSD += usage.costUSD;
-      }
-
-      const dashboardData = {
-        tokens: {
-          totalInputTokens,
-          totalOutputTokens,
-          totalTokens: totalInputTokens + totalOutputTokens,
-          totalLLMRequests: llmEvents.length,
-        },
-        tools: {
-          totalToolCalls: toolEvents.length,
-          uniqueToolsUsed: toolCounts.size,
-          topTools,
-        },
-        errors: {
-          totalErrors: errorEvents.length,
-          errorRate:
-            events.length > 0
-              ? Math.round((errorEvents.length / events.length) * 10000) / 100
-              : 0,
-          topErrors,
-        },
-        performance: {
-          averageLatencyMs:
-            latencies.length > 0
-              ? Math.round(
-                  (latencies.reduce((a, b) => a + b, 0) / latencies.length) *
-                    100
-                ) / 100
-              : 0,
-          p50LatencyMs: calcPercentile(latencies, 50),
-          p95LatencyMs: calcPercentile(latencies, 95),
-          p99LatencyMs: calcPercentile(latencies, 99),
-          totalMetrics: latencies.length,
-        },
-        cost: {
-          totalCostUSD: Math.round(totalCostUSD * 10000) / 10000,
-        },
-        session: {
-          totalEvents: stats.totalEvents,
-          totalSessions: stats.totalSessions,
-          activeSessions: stats.activeSessions,
-        },
-        generatedAt: Date.now(),
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(dashboardData));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          tokens: {
-            totalInputTokens: 0,
-            totalOutputTokens: 0,
-            totalTokens: 0,
-            totalLLMRequests: 0,
-          },
-          tools: { totalToolCalls: 0, uniqueToolsUsed: 0, topTools: [] },
-          errors: { totalErrors: 0, errorRate: 0, topErrors: [] },
-          performance: {
-            averageLatencyMs: 0,
-            p50LatencyMs: 0,
-            p95LatencyMs: 0,
-            p99LatencyMs: 0,
-            totalMetrics: 0,
-          },
-          cost: { totalCostUSD: 0 },
-          session: { totalEvents: 0, totalSessions: 0, activeSessions: 0 },
-          generatedAt: Date.now(),
-        })
-      );
-    }
+    return handleAnalyticsDashboard(this._handlerCtx, req, res);
   }
 
-  /**
-   * 获取当天 0 点的毫秒时间戳
-   */
-  private getStartOfToday(): number {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  }
-
-  /**
-   * 获取本周一 0 点的毫秒时间戳
-   */
-  private getStartOfWeek(): number {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(now.getFullYear(), now.getMonth(), diff).getTime();
-  }
-
-  /**
-   * 获取本月 1 日 0 点的毫秒时间戳
-   */
-  private getStartOfMonth(): number {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  }
-
-  /**
-   * 获取本年 1 月 1 日 0 点的毫秒时间戳
-   */
-  private getStartOfYear(): number {
-    const now = new Date();
-    return new Date(now.getFullYear(), 0, 1).getTime();
-  }
-
-  /**
-   * 初始化成本记录仓库（如尚未初始化）
-   */
-  private async ensureCostRepository(): Promise<void> {
-    try {
-      const repository = getCostRecordRepository();
-      await repository.initDatabase();
-    } catch {
-      // 仓库不可用时静默失败，后续使用 costTracker 兜底
-    }
-  }
-
-  /**
-   * 查询指定时间范围的聚合成本
-   */
-  private async queryAggregatedCost(startTime: number): Promise<{
-    cost: number;
-    tokens: number;
-  }> {
-    try {
-      const repository = getCostRecordRepository();
-      const result = await repository.getAggregatedCosts({
-        startTime,
-      });
-      return {
-        cost: result.totalCostUSD,
-        tokens: result.totalInputTokens + result.totalOutputTokens,
-      };
-    } catch {
-      return { cost: 0, tokens: 0 };
-    }
-  }
-
-  /**
-   * 处理成本摘要请求 GET /api/cost/summary
-   */
   private async handleCostSummary(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    await this.ensureCostRepository();
-
-    const now = Date.now();
-    const todayStart = this.getStartOfToday();
-    const weekStart = this.getStartOfWeek();
-    const monthStart = this.getStartOfMonth();
-    const yearStart = this.getStartOfYear();
-
-    const [today, weekly, monthly, yearly] = await Promise.all([
-      this.queryAggregatedCost(todayStart),
-      this.queryAggregatedCost(weekStart),
-      this.queryAggregatedCost(monthStart),
-      this.queryAggregatedCost(yearStart),
-    ]);
-
-    const modelUsage = costTracker.getModelUsage();
-    const totalModelCost = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.costUSD,
-      0
-    );
-
-    const topProviders = Object.entries(modelUsage)
-      .map(([provider, usage]) => ({
-        provider,
-        cost: usage.costUSD,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        totalTokens: usage.inputTokens + usage.outputTokens,
-        cacheReadTokens: usage.cacheReadInputTokens,
-        cacheCreationTokens: usage.cacheCreationInputTokens,
-        requests: usage.requestCount,
-        percentage:
-          totalModelCost > 0
-            ? Math.round((usage.costUSD / totalModelCost) * 100)
-            : 0,
-      }))
-      .sort((a, b) => b.cost - a.cost)
-      .slice(0, 8);
-
-    const dailyBreakdown: { date: string; cost: number; tokens: number }[] = [];
-    try {
-      const repository = getCostRecordRepository();
-      const recentRecords = await repository.getCostRecords({
-        startTime: weekStart,
-      });
-      const dayMap = new Map<string, { cost: number; tokens: number }>();
-      for (const record of recentRecords) {
-        const dateStr = new Date(record.timestamp).toISOString().slice(5, 10);
-        const entry = dayMap.get(dateStr) || { cost: 0, tokens: 0 };
-        entry.cost += record.costUSD;
-        entry.tokens += record.inputTokens + record.outputTokens;
-        dayMap.set(dateStr, entry);
-      }
-      for (const [date, data] of dayMap.entries()) {
-        dailyBreakdown.push({ date, cost: data.cost, tokens: data.tokens });
-      }
-      dailyBreakdown.sort((a, b) => a.date.localeCompare(b.date));
-    } catch {
-      // 每日明细不可用时不返回
-    }
-
-    const sessionState = costTracker.getSessionCostState();
-    const totalInputTokens = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.inputTokens,
-      0
-    );
-    const totalOutputTokens = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.outputTokens,
-      0
-    );
-    const totalCacheRead = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.cacheReadInputTokens,
-      0
-    );
-    const totalCacheCreation = Object.values(modelUsage).reduce(
-      (sum, u) => sum + u.cacheCreationInputTokens,
-      0
-    );
-
-    const summary = {
-      todayCost: today.cost,
-      weeklyCost: weekly.cost,
-      monthlyCost: monthly.cost,
-      yearlyCost: yearly.cost,
-      todayTokens: today.tokens,
-      monthlyTokens: monthly.tokens,
-      totalInputTokens,
-      totalOutputTokens,
-      totalTokens: totalInputTokens + totalOutputTokens,
-      totalCacheReadTokens: totalCacheRead,
-      totalCacheCreationTokens: totalCacheCreation,
-      totalRequests: Object.keys(modelUsage).length,
-      sessionCost: sessionState.totalCostUSD,
-      sessionInputTokens: sessionState.totalInputTokens,
-      sessionOutputTokens: sessionState.totalOutputTokens,
-      sessionTokens:
-        sessionState.totalInputTokens + sessionState.totalOutputTokens,
-      topProviders,
-      dailyBreakdown,
-    };
-
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(summary));
+    return handleCostSummary(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理成本记录列表请求 GET /api/cost/records?page=1&limit=20
-   */
   private async handleCostRecords(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    await this.ensureCostRepository();
-
-    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
-    const page = parseInt(urlObj.searchParams.get('page') || '1', 10);
-    const limit = parseInt(urlObj.searchParams.get('limit') || '20', 10);
-    const offset = (page - 1) * limit;
-
-    try {
-      const repository = getCostRecordRepository();
-      const records = await repository.getCostRecords({ limit, offset });
-      const totalResult = await repository.getAggregatedCosts({});
-      const total = totalResult.totalRequests;
-
-      const mapped = records.map((r) => ({
-        id: r.id,
-        date: new Date(r.timestamp)
-          .toISOString()
-          .replace('T', ' ')
-          .slice(0, 19),
-        provider: r.model,
-        model: r.model,
-        promptTokens: r.inputTokens,
-        completionTokens: r.outputTokens,
-        totalTokens: r.inputTokens + r.outputTokens,
-        cacheReadTokens: r.cacheReadTokens,
-        cacheCreationTokens: r.cacheCreationTokens,
-        cost: r.costUSD,
-        currency: 'USD',
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ records: mapped, total }));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ records: [], total: 0 }));
-    }
+    return handleCostRecords(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理按日期范围查询成本记录 GET /api/cost/range?startDate=2024-01-01&endDate=2024-12-31
-   */
   private async handleCostRange(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    await this.ensureCostRepository();
-
-    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
-    const startDateStr = urlObj.searchParams.get('startDate');
-    const endDateStr = urlObj.searchParams.get('endDate');
-    const startTime = startDateStr
-      ? new Date(startDateStr).getTime()
-      : undefined;
-    const endTime = endDateStr ? new Date(endDateStr).getTime() : undefined;
-
-    try {
-      const repository = getCostRecordRepository();
-      const records = await repository.getCostRecords({
-        startTime,
-        endTime,
-      });
-
-      const mapped = records.map((r) => ({
-        id: r.id,
-        date: new Date(r.timestamp)
-          .toISOString()
-          .replace('T', ' ')
-          .slice(0, 19),
-        provider: r.model,
-        model: r.model,
-        promptTokens: r.inputTokens,
-        completionTokens: r.outputTokens,
-        totalTokens: r.inputTokens + r.outputTokens,
-        cost: r.costUSD,
-        currency: 'USD',
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(mapped));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify([]));
-    }
+    return handleCostRange(this._handlerCtx, req, res);
   }
 
-  /**
-   * 模型列表 — DB 驱动（ProviderManager + ModelPricingService）
-   */
+  // ========== Model Handlers (extracted to handlers/model-handlers.ts) ==========
+
   private async handleListModels(
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const { providerManager } =
-        await import('@modules/ai/providers/ProviderManager.js');
-      const { modelPricingService } =
-        await import('@modules/ai/models/ModelPricingService.js');
-      await providerManager.initialize();
-      await modelPricingService.initialize();
-
-      // 确保 DB 中的 Provider 已同步到运行时 ProviderRegistry（数出同源）
-      // 模型列表显示的所有模型，其对应的 Provider 必须在运行时可用
-      const { syncDBProvidersToRegistry } =
-        await import('@modules/ai/providers/ProviderSyncService.js');
-      await syncDBProvidersToRegistry();
-
-      const providers = await providerManager.listProviders();
-      const pricingList = await modelPricingService.getAllPricing();
-      const pricingByModel = new Map(
-        pricingList.map(
-          (pr: {
-            modelId: string;
-            inputCostPerMillion: number;
-            outputCostPerMillion: number;
-            cacheReadCostPerMillion: number;
-            cacheWriteCostPerMillion: number;
-            displayName: string;
-            enabled: boolean;
-          }) => [pr.modelId, pr]
-        )
-      );
-
-      const models: Array<{
-        id: string;
-        name: string;
-        provider: string;
-        providerId: string;
-        type: string;
-        context_length: number;
-        enabled: boolean;
-        requiresAuth: boolean;
-        pricing?: Record<string, number>;
-      }> = [];
-
-      for (const pr of pricingList) {
-        let matchingProvider;
-        if (pr.providerId) {
-          // 有存储的 provider_id，直接精确匹配
-          matchingProvider = providers.find((p) => p.id === pr.providerId);
-        } else {
-          // 遗留数据：启发式匹配
-          matchingProvider = providers.find(
-            (p) =>
-              pr.modelId.startsWith(p.providerType) ||
-              p.name.toLowerCase().includes(pr.modelId.split('-')[0])
-          );
-        }
-        models.push({
-          id: pr.modelId,
-          name: pr.displayName || pr.modelId,
-          provider: matchingProvider?.name || pr.modelId.split('-')[0],
-          providerId: matchingProvider?.id || '',
-          requiresAuth: matchingProvider ? matchingProvider.requiresAuth : true,
-          type: 'chat',
-          context_length: 65536,
-          enabled: pr.enabled !== undefined
-            ? pr.enabled
-            : matchingProvider
-              ? matchingProvider.isActive
-              : true,
-          pricing: {
-            inputPer1M: pr.inputCostPerMillion,
-            outputPer1M: pr.outputCostPerMillion,
-            cacheReadPer1M: pr.cacheReadCostPerMillion || undefined,
-            cacheWritePer1M: pr.cacheWriteCostPerMillion || undefined,
-          } as Record<string, number>,
-        });
-      }
-
-      if (models.length === 0) {
-        models.push({
-          id: 'pyapp-default',
-          name: 'Liri 默认',
-          provider: 'pyapp',
-          providerId: '',
-          requiresAuth: false,
-          type: 'chat',
-          context_length: 65536,
-          enabled: true,
-        });
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ object: 'list', data: models }));
-    } catch (err) {
-      logger.error('获取模型列表失败', { error: (err as Error).message });
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          object: 'list',
-          data: [
-            {
-              id: 'pyapp-default',
-              name: 'Liri 默认',
-              provider: 'pyapp',
-              providerId: '',
-              type: 'chat',
-              context_length: 65536,
-              enabled: true,
-            },
-          ],
-        })
-      );
-    }
+    return handleListModels(this._handlerCtx, req, res);
   }
 
-  /**
-  /**
-   * 处理获取系统技能关联文件内容 GET /v1/skills/system/:id/files/content?path=...
-   */
   private async handleSystemSkillFileContent(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    skillId: string
+    skillId: string,
   ): Promise<void> {
-    try {
-      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
-      const filePath = urlObj.searchParams.get('path');
-      if (!filePath) {
-        res.writeHead(400, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'path 参数必填' } }));
-        return;
-      }
-
-      const { readFile } = await import('fs/promises');
-      const { existsSync } = await import('fs');
-      const { resolveProjectRoot, resolvePyappHome } =
-        await import('@modules/core/paths');
-      const pathMod = await import('node:path');
-
-      const candidateDirs = [
-        pathMod.join(
-          resolveProjectRoot(),
-          'app',
-          'src',
-          'builtin',
-          'skills',
-          decodeURIComponent(skillId)
-        ),
-        pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
-      ];
-
-      let skillDir = '';
-      for (const dir of candidateDirs) {
-        const candidate = pathMod.join(dir, 'SKILL.md');
-        if (existsSync(candidate)) {
-          skillDir = dir;
-          break;
-        }
-      }
-
-      if (!skillDir) {
-        res.writeHead(404, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: '技能未找到' } }));
-        return;
-      }
-
-      const fullPath = pathMod.join(skillDir, filePath);
-      if (!existsSync(fullPath)) {
-        res.writeHead(404, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: '文件未找到' } }));
-        return;
-      }
-
-      const content = await readFile(fullPath, 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ content }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSystemSkillFileContent(this._handlerCtx, req, res, { "$1": skillId });
   }
 
-  /**
-   * 处理连接测试请求
-   */
   private async handleTestModel(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { providerId, modelId } = JSON.parse(body);
-      if (!providerId || !modelId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: 'Missing providerId or modelId',
-          })
-        );
-        return;
-      }
-
-      const { providerRegistry } =
-        await import('@modules/ai/providers/ProviderRegistry');
-      const provider = providerRegistry.get(providerId);
-      if (!provider) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: `Provider '${providerId}' not found`,
-          })
-        );
-        return;
-      }
-
-      const response = await provider.chat([{ role: 'user', content: 'Hi' }], {
-        model: modelId,
-        maxTokens: 10,
-      });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          content: response.content?.slice(0, 100),
-        })
-      );
-    } catch (err) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      );
-    }
+    return handleTestModel(this._handlerCtx, req, res);
   }
 
-  /**
-   * 获取当前模型状态（从 ModelRouter 读取）
-   */
   private async handleGetCurrentModel(
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const { modelRouter } = await import('@modules/ai/modelRouter');
-      const { providerRegistry } =
-        await import('@modules/ai/providers/ProviderRegistry');
-      const { getLastActiveTier } = await import('@modules/ai/router/SmartRouter');
-      const modelId = modelRouter.getCurrentModel();
-      const provider = providerRegistry.getByModel(modelId);
-      const routerTier = getLastActiveTier();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          modelId,
-          provider: provider?.id || modelId,
-          routerTier,
-          taskType: 'chat',
-          costThisSession: 0,
-          availableTasks: [
-            { type: 'chat', label: '对话', icon: '💬' },
-            { type: 'coding', label: '编程', icon: '💻' },
-            { type: 'translation', label: '翻译', icon: '🌐' },
-            { type: 'quick', label: '快速', icon: '⚡' },
-          ],
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetCurrentModel(this._handlerCtx, req, res);
   }
 
-  /**
-   * 切换当前模型（持久化到 ConfigManager）
-   */
   private async handleSwitchModel(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { modelId } = JSON.parse(body);
-      if (modelId) {
-        const { modelRouter } = await import('@modules/ai/modelRouter');
-        modelRouter.setCurrentModel(modelId);
-        logger.info(`模型已切换: ${modelId}`);
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, modelId }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSwitchModel(this._handlerCtx, req, res);
   }
 
-  /**
-   * 获取任务分工策略（从 ModelRouter 读取）
-   */
   private async handleGetTasks(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const { modelRouter } = await import('@modules/ai/modelRouter');
-      const tasks = modelRouter.getTasks();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tasks));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetTasks(this._handlerCtx, req, res);
   }
 
-  /**
-   * 保存任务分工策略（持久化到 ConfigManager）
-   */
   private async handleSaveTasks(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const tasks = JSON.parse(body);
-      const { modelRouter } = await import('@modules/ai/modelRouter');
-      modelRouter.setTasks(tasks);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSaveTasks(this._handlerCtx, req, res);
   }
 
-  /**
-   * 设置供应商默认模型（持久化到 GlobalConfig.models.defaultModel.{providerId}）
-   */
   private async handleSetDefaultModel(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { providerId, modelId } = JSON.parse(body);
-      if (!providerId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'providerId is required' }));
-        return;
-      }
-      const { configManager } = await import('@modules/config/ConfigManager');
-      const models = configManager.getConfigValue<Record<string, unknown>>('models') || {};
-      const defaultModel = (models.defaultModel as Record<string, string>) || {};
-      defaultModel[providerId] = modelId || '';
-      configManager.setConfigValue('models', { ...models, defaultModel });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, providerId, modelId }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSetDefaultModel(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理聊天完成请求
-   */
+  // ========== Chat Handlers (extracted to handlers/chat-handlers.ts) ==========
+
   private async handleChatCompletions(
     req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    const body = await this.readRequestBody(req);
-
-    let request: ChatCompletionRequest;
-    try {
-      request = JSON.parse(body);
-    } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'Invalid JSON in request body',
-            type: 'invalid_request_error',
-          },
-        })
-      );
-      return;
-    }
-
-    if (
-      !request.messages ||
-      !Array.isArray(request.messages) ||
-      request.messages.length === 0
-    ) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'messages field is required and must be a non-empty array',
-            type: 'invalid_request_error',
-          },
-        })
-      );
-      return;
-    }
-
-    const isStream = request.stream === true;
-
-    if (isStream) {
-      return this.handleStreamingChat(res, request);
-    }
-
-    return this.handleNormalChat(res, request);
-  }
-
-  /**
-   * 处理普通（非流式）聊天完成请求
-   */
-  private async handleNormalChat(
     res: http.ServerResponse,
-    request: ChatCompletionRequest
   ): Promise<void> {
-    const userMessage = request.messages[request.messages.length - 1];
-    if (!userMessage || userMessage.role !== 'user') {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'Last message must be from user',
-            type: 'invalid_request_error',
-          },
-        })
-      );
-      return;
-    }
-
-    try {
-      const coreAPI = getCoreAPI();
-      const chatStartTime = Date.now();
-      const chatRequest: ChatRequest = {
-        content: userMessage.content,
-        stream: false,
-        sessionId: request.session_id,
-      };
-
-      const response = await coreAPI.chat(chatRequest);
-      const chatDurationMs = Date.now() - chatStartTime;
-
-      // 检查是否需要用户交互（非流式路径挂起）
-      if (response.finishReason === 'pending_interaction' && response.pendingInteraction) {
-        logger.info('非流式聊天需要用户交互', {
-          sessionId: request.session_id,
-          questionId: response.pendingInteraction.questionId,
-        });
-
-        const pendingResponse = {
-          id: `chatcmpl-${randomUUID().slice(0, 8)}`,
-          object: 'chat.completion',
-          created: Math.floor(Date.now() / 1000),
-          model: request.model || 'pyapp-default',
-          choices: [
-            {
-              index: 0,
-              message: {
-                role: 'assistant',
-                content: null,
-              },
-              finish_reason: 'pending_interaction',
-            },
-          ],
-          pending_interaction: response.pendingInteraction,
-          usage: {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0,
-          },
-        };
-
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify(pendingResponse));
-        return;
-      }
-
-      // 检查 AI 响应是否成功
-      if (response.finishReason === 'error' || !response.content) {
-        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(
-          JSON.stringify({
-            error: {
-              message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
-              type: 'server_error',
-            },
-          })
-        );
-        return;
-      }
-
-      logger.info('Chat completed', {
-        model: request.model || 'pyapp-default',
-        durationMs: chatDurationMs,
-        contentLength: response.content?.length ?? 0,
-        sessionId: request.session_id,
-      });
-
-      const completionResponse: ChatCompletionResponse = {
-        id: `chatcmpl-${randomUUID().slice(0, 8)}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: request.model || 'pyapp-default',
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: response.content,
-            },
-            finish_reason: response.finishReason || 'stop',
-          },
-        ],
-        usage: {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        },
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(completionResponse));
-    } catch (err) {
-      logger.error('聊天请求失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'Chat request failed',
-            type: 'internal_error',
-          },
-        })
-      );
-    }
+    return handleChatCompletions(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理流式聊天完成请求
-   */
-  private async handleStreamingChat(
-    res: http.ServerResponse,
-    request: ChatCompletionRequest
-  ): Promise<void> {
-    const userMessage = request.messages[request.messages.length - 1];
-    if (!userMessage || userMessage.role !== 'user') {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'Last message must be from user',
-            type: 'invalid_request_error',
-          },
-        })
-      );
-      return;
-    }
-
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
-
-    const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
-    const created = Math.floor(Date.now() / 1000);
-    const model = request.model || 'pyapp-default';
-
-    res.write(
-      `data: ${JSON.stringify({
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        choices: [
-          { index: 0, delta: { role: 'assistant' }, finish_reason: null },
-        ],
-      })}\n\n`
-    );
-
-    // 发送启动状态事件
-    res.write(
-      `data: ${JSON.stringify({
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        __pyapp_type: 'status',
-        choices: [
-          {
-            index: 0,
-            delta: { content: 'AI is thinking...' },
-            finish_reason: null,
-          },
-        ],
-      })}\n\n`
-    );
-
-    try {
-      const coreAPI = getCoreAPI();
-      const chatRequest: ChatRequest = {
-        content: userMessage.content,
-        stream: true,
-        sessionId: request.session_id,
-      };
-
-      const generator = coreAPI.chatStream(chatRequest);
-      let result = await generator.next();
-      let streamUsage:
-        | {
-            inputTokens: number;
-            outputTokens: number;
-            totalTokens: number;
-            estimatedCostUsd?: number;
-            cacheReadInputTokens?: number;
-            cacheCreationInputTokens?: number;
-          }
-        | undefined;
-
-      while (!result.done) {
-        const chunk = result.value as ChatStreamChunk;
-
-        if (chunk.type === 'done' && chunk.usage) {
-          streamUsage = chunk.usage;
-        } else if (chunk.type === 'text' && chunk.content) {
-          const streamChunk: StreamChunk = {
-            id: responseId,
-            object: 'chat.completion.chunk',
-            created,
-            model,
-            choices: [
-              {
-                index: 0,
-                delta: { content: chunk.content },
-                finish_reason: null,
-              },
-            ],
-          };
-
-          res.write(`data: ${JSON.stringify(streamChunk)}\n\n`);
-        } else if (chunk.type === 'thinking' && chunk.content) {
-          res.write(
-            `data: ${JSON.stringify({
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'thinking',
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: chunk.content },
-                  finish_reason: null,
-                },
-              ],
-            })}\n\n`
-          );
-        } else if (chunk.type === 'status' && chunk.content) {
-          res.write(
-            `data: ${JSON.stringify({
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'status',
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: chunk.content },
-                  finish_reason: null,
-                },
-              ],
-            })}\n\n`
-          );
-        } else if (chunk.type === 'error' && chunk.content) {
-          // 将错误作为 SSE 事件发送给前端，确保用户能看到错误信息
-          res.write(
-            `data: ${JSON.stringify({
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'error',
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: chunk.content },
-                  finish_reason: 'error',
-                },
-              ],
-            })}\n\n`
-          );
-        } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-          res.write(
-            `data: ${JSON.stringify({
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'tool_call',
-              __pyapp_tool_status: chunk.toolCall.status || 'running',
-              choices: [
-                {
-                  index: 0,
-                  delta: {
-                    content: '',
-                    tool_calls: [
-                      {
-                        id: chunk.toolCall.id,
-                        type: 'function',
-                        function: {
-                          name: chunk.toolCall.name,
-                          arguments: JSON.stringify(chunk.toolCall.arguments),
-                        },
-                      },
-                    ],
-                  },
-                  finish_reason: null,
-                },
-              ],
-            })}\n\n`
-          );
-        } else if (chunk.type === 'question' && chunk.questionData) {
-          res.write(
-            `data: ${JSON.stringify({
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'question',
-              __pyapp_question: chunk.questionData,
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: '' },
-                  finish_reason: null,
-                },
-              ],
-            })}\n\n`
-          );
-        }
-
-        result = await generator.next();
-      }
-
-      if (streamUsage) {
-        res.write(
-          `data: ${JSON.stringify({
-            id: responseId,
-            object: 'chat.completion.chunk',
-            created,
-            model,
-            __pyapp_type: 'usage',
-            usage: {
-              prompt_tokens: streamUsage.inputTokens,
-              completion_tokens: streamUsage.outputTokens,
-              total_tokens: streamUsage.totalTokens,
-              estimated_cost_usd: streamUsage.estimatedCostUsd,
-              cache_read_input_tokens: streamUsage.cacheReadInputTokens,
-              cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
-            },
-            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-          })}\n\n`
-        );
-      } else {
-        res.write(
-          `data: ${JSON.stringify({
-            id: responseId,
-            object: 'chat.completion.chunk',
-            created,
-            model,
-            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-          })}\n\n`
-        );
-      }
-
-      res.write('data: [DONE]\n\n');
-
-      logger.info('Stream chat completed', {
-        model: request.model || 'pyapp-default',
-        sessionId: request.session_id,
-      });
-
-      res.end();
-    } catch (err) {
-      logger.error('流式聊天请求失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-
-      res.write(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: 'chat.completion.chunk',
-          created,
-          model,
-          choices: [
-            {
-              index: 0,
-              delta: {
-                content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-              },
-              finish_reason: 'error',
-            },
-          ],
-        })}\n\n`
-      );
-
-      res.write('data: [DONE]\n\n');
-      res.end();
-    }
-  }
-
-  /**
-   * 处理 question answer 提交
-   * 用户对 AI 提问的回答，通过此端点提交后解除 SSE 流中的 await 阻塞
-   * POST /v1/chat/question-answer
-   * Body: { questionId: string, answers: string[] }
-   */
   private async handleQuestionAnswer(
     req: http.IncomingMessage,
-    res: http.ServerResponse
+    res: http.ServerResponse,
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { questionId, answers, sessionId } = JSON.parse(body);
-
-      if (!questionId || !answers || !Array.isArray(answers)) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'questionId 和 answers 是必填项' }));
-        return;
-      }
-
-      const coreAPI = getCoreAPI();
-
-      // 先尝试流式路径的交互解析（_pendingInteraction）
-      const resolved = coreAPI.resolveInteraction(questionId, answers);
-
-      if (resolved) {
-        // 流式路径成功解析
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
-        return;
-      }
-
-      // 流式路径未命中，尝试非流式路径（pendingInteractions Map）
-      if (!sessionId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: '非流式交互需要 sessionId' }));
-        return;
-      }
-
-      const pendingData = coreAPI.getPendingInteraction(sessionId);
-      if (!pendingData || pendingData.questionId !== questionId) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: '未找到匹配的待处理交互',
-            resolved: false,
-          })
-        );
-        return;
-      }
-
-      // 恢复非流式路径的工具循环
-      const chatResponse = await coreAPI.continueInteraction(
-        sessionId,
-        questionId,
-        answers
-      );
-
-      // 继续成功后，返回完整聊天补全响应
-      // 格式兼容 client.submitQuestionAnswer 期望的 { success: true } 格式
-      const completionResponse: Record<string, unknown> = {
-        success: true,
-        content: chatResponse.content || '',
-        finish_reason: chatResponse.finishReason || 'stop',
-        sessionId,
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(completionResponse));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleQuestionAnswer(this._handlerCtx, req, res);
   }
 
-  // ========== Session Handlers ==========
-
-  /**
-   * 处理列出会话请求
-   */
   private async handleListSessions(
     req: http.IncomingMessage,
     res: http.ServerResponse
@@ -3802,7 +2121,8 @@ export class LocalHTTPService {
         safeName,
         buffer,
         'file',
-        'application/octet-stream'
+        'application/octet-stream',
+        AttachmentSource.SESSION
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ path: attachment.path, size: buffer.length }));
@@ -9963,6 +8283,84 @@ export class LocalHTTPService {
       res.end(
         JSON.stringify({
           error: { message: `Failed to resolve path: ${message}` },
+        })
+      );
+    }
+  }
+
+  /**
+   * 处理文件预览转换请求
+   * GET /api/file/preview?path=<encoded_path>
+   * 对 Office 文件（pdf/docx/pptx）自动转换为 Markdown 后返回，
+   * 非 Office 文件降级为纯文本预览（用于前端在转换失败时的兜底展示）
+   */
+  private async handleFilePreview(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
+      const filePath = parsedUrl.searchParams.get('path');
+
+      if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Missing path parameter' } })
+        );
+        return;
+      }
+
+      if (!fs.existsSync(filePath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `File not found: ${filePath}` } })
+        );
+        return;
+      }
+
+      const stats = fs.statSync(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+
+      // Office 文件扩展名：使用 ConverterEngine 转为 Markdown
+      const officeExts = ['.pdf', '.docx', '.pptx'];
+
+      if (officeExts.includes(ext)) {
+        const coreAPI = getCoreAPI();
+        const result = await coreAPI.convertFile({ filePath });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            content: result.markdown,
+            type: 'markdown',
+            size: stats.size,
+            language: 'markdown',
+            title: result.title,
+          })
+        );
+        return;
+      }
+
+      // 非 Office 文件：读取纯文本内容降级预览
+      const content = fs.readFileSync(filePath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          content,
+          type: 'text',
+          size: stats.size,
+        })
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('文件预览转换失败', { path: req.url, error: message });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: `Failed to preview file: ${message}` },
         })
       );
     }

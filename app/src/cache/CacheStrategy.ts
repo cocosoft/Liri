@@ -4,7 +4,7 @@
  * 支持多种缓存淘汰策略
  */
 
-import type { PersistentCacheItem } from './models/types.js';
+import type { PersistentCacheItem } from './types.js';
 
 /**
  * 缓存策略接口

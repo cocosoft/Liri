@@ -3,8 +3,8 @@
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
  */
-import { PermissionChecker, Tool } from './checkers/PermissionChecker';
-import { RuleManager, RuleContext } from './managers/RuleManager';
+import { PermissionChecker, Tool } from './PermissionChecker';
+import { RuleManager, RuleContext } from './RuleManager';
 import { DenialTracker } from './trackers/DenialTracker';
 import { PermissionMode } from './PermissionMode';
 import {
@@ -36,7 +36,7 @@ import {
   getAskRuleForTool,
   matchRules,
 } from './utils/RuleMatcher';
-import { PermissionHookService } from './services/PermissionHookService';
+import { PermissionHookService } from './PermissionHookService';
 import type {
   PermissionHookContext,
   PermissionHookDecision,
@@ -48,7 +48,7 @@ import {
 import {
   SandboxIntegrationService,
   sandboxIntegrationService,
-} from './sandbox/SandboxIntegration';
+} from './SandboxIntegration';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

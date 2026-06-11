@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useMemo } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
@@ -75,6 +75,50 @@ function ChatArea() {
     }
   }, [messages.length, scrollToBottom]);
 
+  /**
+   * 流式输出期间持续滚动到底部（RAF 轮询，不依赖 messages.length）
+   * 修复 S0-1/2：流式过程中 blocks 内容增长不触发滚动的问题
+   */
+  useEffect(() => {
+    if (!isStreaming) return;
+
+    let rafId: number;
+    const poll = () => {
+      if (isNearBottomRef.current) {
+        scrollToBottom();
+      }
+      rafId = requestAnimationFrame(poll);
+    };
+    rafId = requestAnimationFrame(poll);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [isStreaming, scrollToBottom]);
+
+  // 缓存 sessionUsage 计算，仅 messages 变化时重算 O(n)
+  const sessionUsage = useMemo(() => {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let totalTokens = 0;
+    let estimatedCostUsd = 0;
+    let cacheReadTokens = 0;
+    let cacheCreationTokens = 0;
+    for (const m of messages) {
+      if (m.usage) {
+        inputTokens += m.usage.inputTokens || 0;
+        outputTokens += m.usage.outputTokens || 0;
+        totalTokens += m.usage.totalTokens || 0;
+        estimatedCostUsd += m.usage.estimatedCostUsd || 0;
+        cacheReadTokens += m.usage.cacheReadTokens || 0;
+        cacheCreationTokens += m.usage.cacheCreationTokens || 0;
+      }
+    }
+    return totalTokens > 0
+      ? { inputTokens, outputTokens, totalTokens, estimatedCostUsd, cacheReadTokens, cacheCreationTokens }
+      : undefined;
+  }, [messages]);
+
   return (
     <div
       ref={containerRef}
@@ -147,36 +191,7 @@ function ChatArea() {
       ) : (
         /* 消息列表 - 原生滚动，所有消息直接渲染 */
         <div className="py-4">
-          {(() => {
-            const sessionUsage = (() => {
-              let inputTokens = 0;
-              let outputTokens = 0;
-              let totalTokens = 0;
-              let estimatedCostUsd = 0;
-              let cacheReadTokens = 0;
-              let cacheCreationTokens = 0;
-              for (const m of messages) {
-                if (m.usage) {
-                  inputTokens += m.usage.inputTokens || 0;
-                  outputTokens += m.usage.outputTokens || 0;
-                  totalTokens += m.usage.totalTokens || 0;
-                  estimatedCostUsd += m.usage.estimatedCostUsd || 0;
-                  cacheReadTokens += m.usage.cacheReadTokens || 0;
-                  cacheCreationTokens += m.usage.cacheCreationTokens || 0;
-                }
-              }
-              return totalTokens > 0
-                ? {
-                    inputTokens,
-                    outputTokens,
-                    totalTokens,
-                    estimatedCostUsd,
-                    cacheReadTokens,
-                    cacheCreationTokens,
-                  }
-                : undefined;
-            })();
-            return messages.map((message) => (
+          {messages.map((message) => (
               <div key={message.id}>
                 <ChatMessage
                   message={message}
@@ -184,8 +199,7 @@ function ChatArea() {
                   sessionUsage={sessionUsage}
                 />
               </div>
-            ));
-          })()}
+            ))}
         </div>
       )}
     </div>

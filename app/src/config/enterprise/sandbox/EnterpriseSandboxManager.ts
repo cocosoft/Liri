@@ -27,7 +27,7 @@ import type {
   SandboxConfig,
   SandboxExecuteOptions,
   SandboxExecuteResult,
-} from '../../../sandbox/types/SandboxTypes.js';
+} from '../../../sandbox/SandboxTypes.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

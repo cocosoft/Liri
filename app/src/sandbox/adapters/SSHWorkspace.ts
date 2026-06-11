@@ -15,7 +15,7 @@ import {
   SandboxConfig,
   SandboxExecuteOptions,
   SandboxExecuteResult,
-} from '../types/SandboxTypes';
+} from '../SandboxTypes';
 import type { SSHSandboxConfig } from '../SSHSandbox';
 
 const execAsync = promisify(exec);

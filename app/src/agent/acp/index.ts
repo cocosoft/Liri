@@ -123,13 +123,6 @@ export {
   processTurnEvents,
 } from '@modules/acp/index.js';
 
-import type {
-  AcpApprovalClass,
-  AcpRuntimeEvent,
-  AcpRuntimeHandle,
-  AcpSessionStore,
-} from '@modules/acp/index.js';
-
 export type {
   AcpProvenanceMode,
   SessionId,
@@ -187,16 +180,6 @@ export type {
   TurnStreamResult,
 } from '@modules/acp/index.js';
 
-// ── 向后兼容的类型别名 ──
-
-/** @deprecated 使用 AcpApprovalClass */
-export type AcpPermissionLevel = AcpApprovalClass;
-
-/** @deprecated 使用 AcpRuntimeEvent */
-export type AcpTransportEvent = AcpRuntimeEvent;
-
-/** @deprecated 使用 AcpRuntimeHandle */
-export type AcpTransportHandle = AcpRuntimeHandle;
-
-/** @deprecated 使用 AcpSessionStore */
-export type AcpStorage = AcpSessionStore;
+// ── 向后兼容的类型别名 ——————————————————————————
+// 已清理：AcpPermissionLevel → AcpApprovalClass，AcpTransportEvent→AcpRuntimeEvent 等
+// 最后检查于 2026-06-11，零外部引用

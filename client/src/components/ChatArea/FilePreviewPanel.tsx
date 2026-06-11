@@ -1,17 +1,60 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import FilePreviewContent from "./FilePreviewContent";
 import type { FilePreview } from "../../types";
 
+/** 面板最小/最大宽度（px） */
+const MIN_PANEL_WIDTH = 200;
+const MAX_PANEL_WIDTH = 600;
+const DEFAULT_PANEL_WIDTH = 320;
+
 /**
  * 文件预览面板组件
  * 位于聊天界面右侧，用于预览会话中生成/修改的文件内容。
- * 支持折叠/展开，显示文件列表和预览区。
+ * 支持拖拽调整宽度、默认收起、点击文件自动展开。
  */
 function FilePreviewPanel() {
   const { previewFile, sessionFiles, setPreviewFile, clearSessionFiles } =
     useChatStore();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  /** 点击文件链接时自动展开面板 */
+  useEffect(() => {
+    if (previewFile) {
+      setIsExpanded(true);
+    }
+  }, [previewFile]);
+
+  /** 拖拽调整面板宽度 */
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startWidth: panelWidth };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const delta = dragRef.current.startX - ev.clientX;
+      const newWidth = Math.min(
+        MAX_PANEL_WIDTH,
+        Math.max(MIN_PANEL_WIDTH, dragRef.current.startWidth + delta),
+      );
+      setPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [panelWidth]);
 
   const handleClose = useCallback(() => {
     setPreviewFile(null);
@@ -106,7 +149,15 @@ function FilePreviewPanel() {
   const hasFiles = sessionFiles.length > 0;
 
   return (
-    <div className="bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-80">
+    <div
+      className="relative bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col"
+      style={{ width: panelWidth }}
+    >
+      {/* 拖拽手柄：左侧边缘 */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400/50 z-10"
+        onMouseDown={handleDragStart}
+      />
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           文件预览
@@ -223,6 +274,9 @@ function FileTypeBadge({ type }: { type: string }) {
     image:
       "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
     text: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    pdf: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+    docx: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    pptx: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
   };
 
   const labels: Record<string, string> = {
@@ -232,6 +286,9 @@ function FileTypeBadge({ type }: { type: string }) {
     yaml: "YAML",
     image: "图片",
     text: "文本",
+    pdf: "PDF",
+    docx: "DOCX",
+    pptx: "PPTX",
   };
 
   return (

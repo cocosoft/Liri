@@ -8,7 +8,7 @@ import { ToolHookResult } from '@modules/hooks/types/ToolHooks';
 import {
   SandboxCheckResult,
   SandboxViolationEvent,
-} from '@modules/sandbox/types/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 
 /**
  * 工具执行状态

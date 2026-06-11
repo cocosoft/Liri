@@ -20,10 +20,11 @@ export interface QuestionData {
 }
 
 export interface StreamChunk {
-  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question";
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo";
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
+  todoData?: import("../types").TaskCardData;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -188,6 +189,7 @@ export const chatService = {
   streamMessage: async function* (
     content: string,
     sessionId?: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamChunk, void, unknown> {
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
@@ -203,6 +205,7 @@ export const chatService = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!response.ok) {
@@ -308,7 +311,11 @@ export const chatService = {
           }
         }
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        yield { type: "error", content: "请求已取消" };
+        return;
+      }
     } finally {
       reader.releaseLock();
     }

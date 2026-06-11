@@ -106,7 +106,7 @@ export {
   permissionCache,
   generateInputHash,
   checkPermissionsWithCache,
-} from './cache/PermissionCache';
+} from './PermissionCache';
 
 export {
   checkDangerousCommand,
@@ -115,4 +115,4 @@ export {
   checkNetworkOperationPermission,
   checkProcessOperationPermission,
   PermissionPolicyManager,
-} from './policies/PermissionPolicies';
+} from './PermissionPolicies';

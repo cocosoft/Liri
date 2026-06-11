@@ -218,6 +218,14 @@ export class ConfigManager {
 
     // 慢速路径：从文件加载
     this.stats.cacheMisses++;
+
+    // 配置系统未启用时，直接返回默认配置（不缓存），
+    // 避免模块级单例在 enableConfigs() 前访问配置时抛出错误。
+    // enableConfigs() 会再次调用 getGlobalConfig() 正常加载文件。
+    if (!this.configReadingAllowed && this.env('NODE_ENV') !== 'test') {
+      return createDefaultGlobalConfig();
+    }
+
     try {
       let stats: { mtimeMs: number; size: number } | null = null;
       try {
@@ -248,6 +256,14 @@ export class ConfigManager {
         '加载配置失败，使用默认配置',
         error instanceof Error ? error : undefined
       );
+      // 诊断：记录调用栈
+      logger.warning('getGlobalConfig catch 调用栈', {
+        errorName: error instanceof Error ? error.name : typeof error,
+        errorCode: (error as any)?.code,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: new Error().stack?.split('\n').slice(3).join('\n'),
+        configReadingAllowed: this.configReadingAllowed,
+      });
       return createDefaultGlobalConfig();
     }
   }
@@ -369,6 +385,10 @@ export class ConfigManager {
    */
   private loadConfigFromFile(): GlobalConfig {
     if (!this.configReadingAllowed && this.env('NODE_ENV') !== 'test') {
+      logger.error('loadConfigFromFile 被禁止访问', {
+        configReadingAllowed: this.configReadingAllowed,
+        stack: new Error().stack?.split('\n').slice(2).join('\n'),
+      });
       throw new AppError(
         '配置系统在启用前不可访问',
         ErrorCategory.EXECUTION,

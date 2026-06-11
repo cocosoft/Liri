@@ -10,8 +10,9 @@ import { FileReadTool } from './FileReadTool/FileReadTool';
 import { FileWriteTool } from './FileWriteTool/FileWriteTool';
 import { FileEditTool } from './FileEditTool/FileEditTool';
 import { FileConvertTool } from './FileConvertTool/FileConvertTool';
-import { GrepTool } from './search/GrepTool';
+import { GrepTool } from './GrepTool/GrepTool';
 import { GlobTool } from './search/GlobTool';
+import { FileSearchTool } from './FileSearchTool/FileSearchTool';//文件搜索工具（内部其实调用GlobTool）
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -264,6 +265,15 @@ export class ToolFactory {
    */
   createGlobTool(): Tool {
     return new GlobTool();
+  }
+
+  /**
+   * 创建文件搜索工具
+   * 基于 Glob 的文件搜索，返回含 canonicalPath 的搜索结果
+   * @returns 文件搜索工具实例
+   */
+  createFileSearchTool(): Tool {
+    return new FileSearchTool();
   }
 
   /**
@@ -959,11 +969,15 @@ export function getAllBaseTools(): Tool[] {
 
   const globTool = new GlobTool();
   const grepTool = new GrepTool();
+  const fileSearchTool = new FileSearchTool();
   if (globTool) {
     tools.push(globTool);
   }
   if (grepTool) {
     tools.push(grepTool);
+  }
+  if (fileSearchTool) {
+    tools.push(fileSearchTool);
   }
 
   tools.push(new FileEditTool());

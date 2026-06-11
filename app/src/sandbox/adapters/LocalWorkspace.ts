@@ -17,7 +17,7 @@ import {
   SandboxConfig,
   SandboxExecuteOptions,
   SandboxExecuteResult,
-} from '../types/SandboxTypes';
+} from '../SandboxTypes';
 
 const execAsync = promisify(exec);
 

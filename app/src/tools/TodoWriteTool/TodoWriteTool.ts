@@ -14,6 +14,7 @@ import { Database } from 'sqlite3';
 import { resolveDbPath, ensureDir } from '@modules/core/paths';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { SimpleMutex } from '@modules/core/SimpleMutex';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -74,6 +75,7 @@ class TodoManager {
   private todos: Map<string, Todo[]> = new Map();
   private db: Database;
   private initialized = false;
+  private dbMutex = new SimpleMutex();
 
   constructor(dbPath: string = resolveDbPath()) {
     ensureDir(dirname(dbPath));
@@ -127,54 +129,86 @@ class TodoManager {
   }
 
   /** 写入单条 todo 到 SQLite */
-  private saveTodoToDb(sessionId: string, todo: Todo, sortOrder: number): void {
-    try {
-      this.db.run(
-        `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          todo.id, sessionId, todo.content, todo.status,
-          todo.activeForm || null,
-          todo.metadata ? JSON.stringify(todo.metadata) : null,
-          sortOrder,
-          todo.createdAt.getTime(), todo.updatedAt.getTime(),
-        ],
-        (err) => {
-          if (err) logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err) });
-        }
-      );
-    } catch (e) {
-      logger.error('TodoManager: 写入异常', { todoId: todo.id, error: String(e) });
-    }
+  private async saveTodoToDb(sessionId: string, todo: Todo, sortOrder: number): Promise<void> {
+    await this.dbMutex.run(async () => {
+      return new Promise<void>((resolve, reject) => {
+        this.db.run(
+          `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            todo.id, sessionId, todo.content, todo.status,
+            todo.activeForm || null,
+            todo.metadata ? JSON.stringify(todo.metadata) : null,
+            sortOrder,
+            todo.createdAt.getTime(), todo.updatedAt.getTime(),
+          ],
+          (err) => {
+            if (err) {
+              logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err) });
+              resolve();
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+    });
   }
 
   /** 全部写入到 SQLite（覆盖） */
-  private saveAllToDb(sessionId: string, todos: Todo[]): void {
-    try {
-      this.db.run('DELETE FROM todowrite_todos WHERE session_id = ?', [sessionId], (err) => {
-        if (err) {
-          logger.error('TodoManager: 清除失败', { error: String(err) });
-          return;
-        }
-        for (let i = 0; i < todos.length; i++) {
-          this.saveTodoToDb(sessionId, todos[i], i);
-        }
+  private async saveAllToDb(sessionId: string, todos: Todo[]): Promise<void> {
+    await this.dbMutex.run(async () => {
+      return new Promise<void>((resolve) => {
+        this.db.run('DELETE FROM todowrite_todos WHERE session_id = ?', [sessionId], (err) => {
+          if (err) {
+            logger.error('TodoManager: 清除失败', { error: String(err) });
+            resolve();
+            return;
+          }
+
+          if (todos.length === 0) {
+            resolve();
+            return;
+          }
+
+          let completed = 0;
+          for (let i = 0; i < todos.length; i++) {
+            const todo = todos[i];
+            this.db.run(
+              `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                todo.id, sessionId, todo.content, todo.status,
+                todo.activeForm || null,
+                todo.metadata ? JSON.stringify(todo.metadata) : null,
+                i,
+                todo.createdAt.getTime(), todo.updatedAt.getTime(),
+              ],
+              (err2) => {
+                if (err2) logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err2) });
+                completed++;
+                if (completed >= todos.length) {
+                  resolve();
+                }
+              }
+            );
+          }
+        });
       });
-    } catch (e) {
-      logger.error('TodoManager: 覆盖写入异常', { error: String(e) });
-    }
+    });
   }
 
   /** 删除单条 */
   private deleteFromDb(sessionId: string, todoId: string): void {
-    try {
-      this.db.run(
-        'DELETE FROM todowrite_todos WHERE id = ? AND session_id = ?',
-        [todoId, sessionId]
-      );
-    } catch (e) {
-      logger.error('TodoManager: 删除失败', { error: String(e) });
-    }
+    this.dbMutex.run(async () => {
+      return new Promise<void>((resolve) => {
+        this.db.run(
+          'DELETE FROM todowrite_todos WHERE id = ? AND session_id = ?',
+          [todoId, sessionId],
+          () => resolve()
+        );
+      });
+    });
   }
 
   /**
@@ -189,7 +223,7 @@ class TodoManager {
    */
   setTodos(sessionId: string, todos: Todo[]): void {
     this.todos.set(sessionId, todos);
-    this.saveAllToDb(sessionId, todos);
+    void this.saveAllToDb(sessionId, todos);
   }
 
   /**
@@ -744,6 +778,20 @@ export class TodoWriteTool implements Tool {
                 content: `Wrote ${newTodos.length} todos to session: ${session_id}`,
               },
             ],
+            metadata: {
+              _todoData: {
+                title: (input.name as string) || '任务计划',
+                phase: 'planning' as const,
+                tasks: newTodos.map((t) => ({
+                  id: t.id,
+                  name: t.content,
+                  status: t.status as 'pending' | 'in_progress' | 'completed',
+                  dependsOn: t.metadata?.dependsOn
+                    ? [t.metadata.dependsOn as string]
+                    : [],
+                })),
+              },
+            },
           });
         }
 

@@ -10,7 +10,7 @@ import {
   SandboxExecuteResult,
   SandboxPermission,
   SandboxPlatform,
-} from './types/SandboxTypes';
+} from './SandboxTypes';
 
 /**
  * 工作空间文件信息

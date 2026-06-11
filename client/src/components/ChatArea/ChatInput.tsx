@@ -138,7 +138,6 @@ const EMOJI_CATEGORIES = [
       "🦥",
       "🦦",
       "🦨",
-      "🦘",
     ],
   },
   {
@@ -242,24 +241,8 @@ const EMOJI_CATEGORIES = [
       "🎷",
       "🎸",
       "🎺",
-      "🎻",
-      "🎹",
-      "🎤",
-      "🎧",
-      "🎼",
       "🎵",
       "🎶",
-      "🎹",
-      "🎸",
-      "🎹",
-      "🎺",
-      "🎻",
-      "🎷",
-      "🥁",
-      "🎸",
-      "🎹",
-      "🎧",
-      "🎤",
     ],
   },
   {
@@ -295,22 +278,13 @@ const EMOJI_CATEGORIES = [
       "🚟",
       "🚃",
       "🚋",
-      "🚌",
-      "🚐",
-      "🚑",
-      "🚒",
-      "🚓",
       "🚔",
       "🚨",
-      "🚀",
       "🛸",
       "🚁",
       "🛩️",
-      "✈️",
       "🛫",
       "🛬",
-      "🚀",
-      "🛸",
     ],
   },
   {
@@ -318,27 +292,6 @@ const EMOJI_CATEGORIES = [
     icons: [
       "💎",
       "👑",
-      "🎁",
-      "🎈",
-      "🎀",
-      "🏆",
-      "🎯",
-      "🎰",
-      "🎲",
-      "🎮",
-      "🎪",
-      "🎭",
-      "🎨",
-      "🎬",
-      "🎤",
-      "🎧",
-      "🎼",
-      "🎹",
-      "🎻",
-      "🥁",
-      "🎷",
-      "🎸",
-      "🎺",
       "📱",
       "📲",
       "💻",
@@ -359,7 +312,6 @@ const EMOJI_CATEGORIES = [
       "📼",
       "📟",
       "📠",
-      "📡",
       "🔭",
       "🔬",
       "🧪",
@@ -372,10 +324,8 @@ const EMOJI_CATEGORIES = [
       "⚔️",
       "🔫",
       "💣",
-      "🎯",
       "🏹",
       "🛡️",
-      "🚨",
       "🚦",
       "🚧",
       "⛔",
@@ -395,7 +345,6 @@ const EMOJI_CATEGORIES = [
       "🌨️",
       "🌀",
       "🌪️",
-      "🌈",
       "🌟",
       "✨",
       "💫",
@@ -408,16 +357,6 @@ const EMOJI_CATEGORIES = [
       "👂",
       "👃",
       "👄",
-      "❤️",
-      "🧡",
-      "💛",
-      "💚",
-      "💙",
-      "💜",
-      "🖤",
-      "🤍",
-      "🤎",
-      "💔",
       "❣️",
       "💕",
       "💞",
@@ -506,6 +445,7 @@ function ChatInput() {
   const [replyMessage, setReplyMessage] = useState<Message | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasShowingCommandsRef = useRef(false);
   const { streamMessage, isLoading, clearMessages } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
@@ -781,9 +721,14 @@ function ChatInput() {
   };
 
   const handleInputChange = (value: string) => {
+    const willShowCommands = value.startsWith("/") && value.indexOf(" ") === -1;
     setInput(value);
-    setShowCommands(value.startsWith("/") && value.indexOf(" ") === -1);
-    setCommandIndex(0);
+    setShowCommands(willShowCommands);
+    // 仅在 / 首次触发时重置命令选中位置，后续输入时保持当前选择
+    if (!wasShowingCommandsRef.current && willShowCommands) {
+      setCommandIndex(0);
+    }
+    wasShowingCommandsRef.current = willShowCommands;
   };
 
   const isSending = isLoading || isUploading;

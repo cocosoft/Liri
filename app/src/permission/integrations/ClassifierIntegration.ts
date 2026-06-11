@@ -1,8 +1,6 @@
 /**
  * 分类器集成
  * 负责集成分类器进行权限决策，判断工具使用是否安全
- *
- * 参考CC源码实现: cc_code/backend/utils/permissions/classifierDecision.ts
  */
 import {
   PermissionDecision,

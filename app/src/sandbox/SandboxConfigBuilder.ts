@@ -1,4 +1,4 @@
-import { FSAccessRule, SandboxPermissions } from './types/SandboxTypes';
+import { FSAccessRule, SandboxPermissions } from './SandboxTypes';
 
 /**
  * 沙箱配置构建器

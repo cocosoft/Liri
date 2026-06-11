@@ -24,7 +24,7 @@ import {
   SandboxPlatform,
   createDefaultSandboxConfig,
   createSandboxExecuteOptions,
-} from '../sandbox/types/SandboxTypes';
+} from '../sandbox/SandboxTypes';
 import {
   preExecutionCheck,
   isPathTraversal,
@@ -191,7 +191,11 @@ export class ToolExecutor {
         }
       }
 
-      const result = this.useGovernance
+      // 快速通道：只读工具跳过治理闭环 + 沙箱，仅保留输入校验和权限检查
+      const isFastPath = tool.isReadOnly() && !tool.isDestructive?.();
+      const shouldUseGovernance = this.useGovernance && !isFastPath;
+
+      const result = shouldUseGovernance
         ? await this.executeWithGovernance(
             tool,
             input,

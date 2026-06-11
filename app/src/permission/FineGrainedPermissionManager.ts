@@ -11,14 +11,14 @@ import type {
   Resource,
   PermissionContext,
   PermissionDecision,
-} from './models/Permission.js';
+} from './Permission.js';
 import {
   PermissionAction,
   RoleType,
   ResourceType,
   OperationType,
-} from './models/Permission.js';
-import { createFilePermissionStorage } from './storage/FilePermissionStorage.js';
+} from './Permission.js';
+import { createFilePermissionStorage } from './FilePermissionStorage.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { TTLCache } from '../utils/cache';
 

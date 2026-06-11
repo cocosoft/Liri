@@ -214,6 +214,7 @@ function formatArgumentsNatural(
             href="#"
             onClick={(e) => {
               e.preventDefault();
+              console.debug("[DEBUG ToolCallBlock] 点击文件路径, key:", key, "原始value:", JSON.stringify(value));
               onPreviewFile(value);
             }}
             style={{

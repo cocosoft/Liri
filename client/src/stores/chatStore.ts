@@ -7,25 +7,11 @@ import { resolveFilePath } from "../services/filePathResolver";
 import { useSessionStore } from "./sessionStore";
 
 /**
- * 已知的文件写入/编辑类工具名称集合
- * 这些工具的 arguments 中包含 file_path/path 字段
- */
-const FILE_WRITING_TOOLS = new Set([
-  "file_write",
-  "file_edit",
-  "file_create",
-  "write",
-  "create_file",
-  "edit_file",
-]);
-
-/**
  * 从工具调用中提取文件路径
- * @returns 文件路径字符串，若当前工具非文件写入类则返回 null
+ * 扫描所有工具的 arguments，提取 file_path/path/filePath 参数
+ * @returns 文件路径字符串，若无匹配参数则返回 null
  */
 function extractFilePathFromToolCall(toolCall: ToolCall): string | null {
-  if (!FILE_WRITING_TOOLS.has(toolCall.name)) return null;
-
   const args = toolCall.arguments as Record<string, unknown> | undefined;
   if (!args) return null;
 
@@ -65,6 +51,93 @@ function extractFileName(filePath: string): string {
   return parts[parts.length - 1] || filePath;
 }
 
+/** 扩展名 → 文件类型映射表 */
+type FileType = "code" | "text" | "image" | "markdown" | "json" | "yaml" | "pdf" | "docx" | "pptx";
+
+const EXT_TO_TYPE: Record<string, FileType> = {
+  // 文档
+  ".md": "markdown",
+  ".markdown": "markdown",
+  ".txt": "text",
+  ".csv": "text",
+  ".log": "text",
+  // Office 文档（预览时需转换）
+  ".pdf": "pdf",
+  ".docx": "docx",
+  ".pptx": "pptx",
+  // 数据
+  ".json": "json",
+  ".jsonc": "json",
+  ".json5": "json",
+  ".yaml": "yaml",
+  ".yml": "yaml",
+  ".toml": "yaml",
+  ".ini": "yaml",
+  ".cfg": "yaml",
+  ".xml": "code",
+  // 前端
+  ".ts": "code",
+  ".tsx": "code",
+  ".js": "code",
+  ".jsx": "code",
+  ".mjs": "code",
+  ".cjs": "code",
+  ".css": "code",
+  ".scss": "code",
+  ".less": "code",
+  ".html": "code",
+  ".htm": "code",
+  // 后端
+  ".py": "code",
+  ".rs": "code",
+  ".go": "code",
+  ".java": "code",
+  ".c": "code",
+  ".cpp": "code",
+  ".h": "code",
+  ".hpp": "code",
+  ".rb": "code",
+  ".php": "code",
+  ".swift": "code",
+  ".kt": "code",
+  ".scala": "code",
+  ".sql": "code",
+  ".sh": "code",
+  ".bash": "code",
+  ".ps1": "code",
+  ".bat": "code",
+  // 配置
+  ".env": "text",
+  ".gitignore": "text",
+  ".dockerignore": "text",
+  ".editorconfig": "text",
+  // 矢量图形
+  ".svg": "code",
+  // 图片
+  ".png": "image",
+  ".jpg": "image",
+  ".jpeg": "image",
+  ".gif": "image",
+  ".webp": "image",
+  ".ico": "image",
+  ".bmp": "image",
+  ".tiff": "image",
+};
+
+/**
+ * 根据文件扩展名推断文件类型（S0-5/6）
+ * 用于后端返回 type="text" 或前端手工创建文件时的类型补正
+ */
+function inferFileType(filePath: string): FileType {
+  const lower = filePath.toLowerCase();
+  for (const [ext, type] of Object.entries(EXT_TO_TYPE)) {
+    if (lower.endsWith(ext)) {
+      return type;
+    }
+  }
+  return "text";
+}
+
 /**
  * 扫描 blocks 中的工具调用，提取文件路径并添加到会话文件列表
  */
@@ -80,7 +153,27 @@ function addFilePathsFromBlocks(
           path: filePath,
           name: extractFileName(filePath),
           content: "",
-          type: "text",
+          type: inferFileType(filePath),
+        });
+
+        // 异步解析为规范路径,避免 LLM 路径偏差
+        resolveFilePath(filePath).then((resolvedPath) => {
+          if (resolvedPath && resolvedPath !== filePath) {
+            const store = useChatStore.getState();
+            const currentFiles = store.sessionFiles;
+            const idx = currentFiles.findIndex((f) => f.path === filePath);
+            if (idx !== -1) {
+              const updated = [...currentFiles];
+              updated[idx] = {
+                ...updated[idx],
+                path: resolvedPath,
+                name: extractFileName(resolvedPath),
+              };
+              useChatStore.setState({ sessionFiles: updated });
+            }
+          }
+        }).catch(() => {
+          // 解析失败则保留原始路径
         });
       }
     }
@@ -97,6 +190,8 @@ interface ChatStore {
   previewFile: FilePreview | null;
   /** 当前会话中生成的文件列表 */
   sessionFiles: FilePreview[];
+  /** 中止控制器：用于取消正在进行的流式请求 */
+  abortController: AbortController | null;
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
   streamMessage: (content: string, sessionId?: string) => Promise<void>;
@@ -107,6 +202,8 @@ interface ChatStore {
   clearMessages: () => void;
   setMessages: (messages: Message[]) => void;
   setReplyMessage: (message: Message | null) => void;
+  /** 取消当前流式请求 */
+  stopMessage: () => void;
   /** 设置预览文件 */
   setPreviewFile: (file: FilePreview | null) => void;
   /** 添加生成的文件到列表 */
@@ -126,7 +223,7 @@ import { sessionService } from "../services/sessionService";
  */
 function shouldAutoRename(sessionId?: string): boolean {
   if (!sessionId) {
-    console.log("[shouldAutoRename] sessionId is undefined");
+    console.debug("[shouldAutoRename] sessionId is undefined");
     return false;
   }
 
@@ -137,7 +234,7 @@ function shouldAutoRename(sessionId?: string): boolean {
     const title = store.currentSession.title || "";
     const shouldRename =
       title.startsWith("新会话") || title.startsWith("New Session");
-    console.log(
+    console.debug(
       "[shouldAutoRename] title:",
       title,
       "shouldRename:",
@@ -152,7 +249,7 @@ function shouldAutoRename(sessionId?: string): boolean {
     const title = found.title || "";
     const shouldRename =
       title.startsWith("新会话") || title.startsWith("New Session");
-    console.log(
+    console.debug(
       "[shouldAutoRename] fallback found, title:",
       title,
       "shouldRename:",
@@ -161,7 +258,7 @@ function shouldAutoRename(sessionId?: string): boolean {
     return shouldRename;
   }
 
-  console.log("[shouldAutoRename] session not found for id:", sessionId);
+  console.debug("[shouldAutoRename] session not found for id:", sessionId);
   return false;
 }
 
@@ -170,8 +267,8 @@ async function doAutoRename(
   userMessage: string,
   assistantResponse: string,
 ): Promise<void> {
-  console.log("[doAutoRename] Starting auto-rename for session:", sessionId);
-  console.log("[doAutoRename] User message:", userMessage.slice(0, 50), "...");
+  console.debug("[doAutoRename] Starting auto-rename for session:", sessionId);
+  console.debug("[doAutoRename] User message:", userMessage.slice(0, 50), "...");
 
   try {
     const title = await sessionService.generateTitle(
@@ -179,13 +276,13 @@ async function doAutoRename(
       userMessage,
       assistantResponse,
     );
-    console.log("[doAutoRename] Backend returned title:", title);
+    console.debug("[doAutoRename] Backend returned title:", title);
 
     if (title) {
-      console.log("[doAutoRename] Renaming session to:", title);
+      console.debug("[doAutoRename] Renaming session to:", title);
       useSessionStore.getState().renameSession(sessionId, title);
     } else {
-      console.log("[doAutoRename] Backend returned null, using fallback");
+      console.debug("[doAutoRename] Backend returned null, using fallback");
       const fallbackTitle =
         userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
       useSessionStore.getState().renameSession(sessionId, fallbackTitle);
@@ -385,6 +482,25 @@ class ChronologicalBlockBuilder {
     });
   }
 
+  /** 添加 todo 块 */
+  addTodo(todoData: import("../types/index").TaskCardData): void {
+    const idx = this.blocks.findIndex(
+      (b) => b.type === "todo" && b.content === todoData.title,
+    );
+    if (idx !== -1) {
+      this.blocks[idx].taskCard = todoData;
+      return;
+    }
+    this.blocks.push({
+      id: generateBlockId(),
+      type: "todo",
+      content: todoData.title,
+      taskCard: todoData,
+      isStreaming: false,
+      groupId: this.currentGroupId,
+    });
+  }
+
   /** 冻结所有块 */
   freezeAll(): void {
     for (const block of this.blocks) {
@@ -436,24 +552,8 @@ async function flushSaveBlocks(): Promise<void> {
   }
 }
 
-function debouncedSaveBlocks(
-  sessionId: string,
-  messageId: string,
-  blocks: MessageBlock[],
-): void {
-  _pendingSaveSessionId = sessionId;
-  _pendingSaveMessageId = messageId;
-  _pendingSaveBlocks = blocks;
-  if (_saveBlocksTimer) {
-    clearTimeout(_saveBlocksTimer);
-  }
-  _saveBlocksTimer = setTimeout(() => {
-    flushSaveBlocks();
-  }, 800);
-}
-
 /**
- * think 标签提取器：从 text 块中解析 <think>...</think> 标签内容并转换为 thinking 块。
+ * think 标签提取器：从 text 块中解析  thinking... response 标签内容并转换为 thinking 块。
  * 当后端未通过 __pyapp_type: 'thinking' 发送推理内容时作兜底。
  * 支持跨多个文本块的 think 标签（流式传输场景）。
  */
@@ -538,6 +638,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   replyMessage: null,
   previewFile: null,
   sessionFiles: [],
+  abortController: null,
 
   addMessage: (message: Message) => {
     set({ messages: [...get().messages, message] });
@@ -580,20 +681,33 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return;
       }
 
-      set({
-        messages: [...get().messages, response],
-        isLoading: false,
-      });
+      const newMessages = [...get().messages, response];
+
+      // 先执行自动重命名再重置 isLoading，缩小竞态窗口
       if (shouldAutoRename(sessionId)) {
+        set({ messages: newMessages });
         await doAutoRename(sessionId!, content, (response as Message).content);
       }
+
+      set({
+        messages: newMessages,
+        isLoading: false,
+      });
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }
   },
 
   streamMessage: async (content: string, sessionId?: string) => {
-    set({ isLoading: true, isStreaming: true, error: null });
+    // J1: 取消上一个未完成的流式请求
+    const prevController = get().abortController;
+    if (prevController) {
+      prevController.abort();
+    }
+
+    const abortController = new AbortController();
+
+    set({ isLoading: true, isStreaming: true, error: null, abortController });
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -615,12 +729,73 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     set({ messages: [...get().messages, userMessage, assistantMessage] });
 
+    // J3: 将模块级竞态变量改为闭包内的局部变量
+    let saveBlocksTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingSaveSessionId: string | null = null;
+    let pendingSaveMessageId: string | null = null;
+    let pendingSaveBlocks: MessageBlock[] | null = null;
+
+    const flushSaveBlocksLocal = async (): Promise<void> => {
+      if (pendingSaveSessionId && pendingSaveMessageId && pendingSaveBlocks) {
+        const sid = pendingSaveSessionId;
+        const mid = pendingSaveMessageId;
+        const blk = pendingSaveBlocks;
+        pendingSaveSessionId = null;
+        pendingSaveMessageId = null;
+        pendingSaveBlocks = null;
+        try {
+          await chatService.updateMessageBlocks(
+            sid,
+            mid,
+            blk as unknown as Array<Record<string, unknown>>,
+          );
+        } catch {
+          // 保存失败不影响主流程
+        }
+      }
+    };
+
+    const debouncedSaveBlocksLocal = (
+      sid: string,
+      mid: string,
+      blk: MessageBlock[],
+    ): void => {
+      pendingSaveSessionId = sid;
+      pendingSaveMessageId = mid;
+      pendingSaveBlocks = blk;
+      if (saveBlocksTimer) {
+        clearTimeout(saveBlocksTimer);
+      }
+      saveBlocksTimer = setTimeout(() => {
+        flushSaveBlocksLocal();
+      }, 800);
+    };
+
+    // J4: 批量 set 更新——使用微任务节流，避免每块都触发 re-render
+    let batchPending = false;
+    let latestMessages: Message[] | null = null;
+
+    const flushSet = (): void => {
+      if (latestMessages) {
+        set({ messages: latestMessages });
+        latestMessages = null;
+      }
+      batchPending = false;
+    };
+
     try {
-      const generator = chatService.streamMessage(content, sessionId);
+      const generator = chatService.streamMessage(
+        content,
+        sessionId,
+        abortController.signal,
+      );
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();
 
       for await (const rawChunk of generator) {
+        // 检查是否已被中止
+        if (abortController.signal.aborted) break;
+
         const chunks = Array.from(extractor.extract(rawChunk));
         for (const chunk of chunks) {
           await processChunk(chunk);
@@ -628,8 +803,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       // 处理未闭合的 think 标签
-      for (const chunk of extractor.flush()) {
-        await processChunk(chunk);
+      if (!abortController.signal.aborted) {
+        for (const chunk of extractor.flush()) {
+          await processChunk(chunk);
+        }
       }
 
       async function processChunk(chunk: import("../services/chatService").StreamChunk) {
@@ -667,20 +844,37 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         } else if (chunk.type === "tool_call" && chunk.toolCall) {
           blockBuilder.addToolCall(chunk.toolCall);
 
+          // 立即解析为规范路径再存储,避免 LLM 返回的路径存在偏差(多字少字/拼写错误)
           const filePath = extractFilePathFromToolCall(chunk.toolCall);
           if (filePath) {
-            const name = extractFileName(filePath);
-            get().addSessionFile({
-              path: filePath,
-              name,
-              content: "",
-              type: "text",
-            });
+            try {
+              const result = await resolveFilePath(filePath);
+              const displayPath = result || filePath;
+              const name = extractFileName(displayPath);
+              get().addSessionFile({
+                path: displayPath,
+                name,
+                content: "",
+                type: inferFileType(displayPath),
+              });
+            } catch {
+              // 解析失败时 fallback 到原始路径
+              const name = extractFileName(filePath);
+              get().addSessionFile({
+                path: filePath,
+                name,
+                content: "",
+                type: inferFileType(filePath),
+              });
+            }
           }
 
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "question" && chunk.questionData) {
           blockBuilder.addQuestion(chunk.questionData);
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "todo" && chunk.todoData) {
+          blockBuilder.addTodo(chunk.todoData);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "usage" && chunk.usage) {
           updatedMsg = { ...msg, usage: chunk.usage };
@@ -690,20 +884,35 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
         const newMessages = [...current];
         newMessages[msgIdx] = updatedMsg;
-        set({ messages: newMessages });
+        latestMessages = newMessages;
 
-        // 流式传输中实时防抖保存 blocks，避免用户提前切换会话时丢失
+        // J4：批量更新——仅在无挂起 flush 时调度微任务
+        if (!batchPending) {
+          batchPending = true;
+          queueMicrotask(flushSet);
+        }
+
+        // J3：流式传输中实时防抖保存 blocks，使用闭包内局部变量避免竞态
         if (sessionId && updatedMsg.blocks && updatedMsg.blocks.length > 0) {
-          debouncedSaveBlocks(sessionId, assistantId, updatedMsg.blocks);
+          debouncedSaveBlocksLocal(sessionId, assistantId, updatedMsg.blocks);
+          // 同时更新模块级变量，保证 flushPendingSaves 仍可工作
+          _pendingSaveSessionId = sessionId;
+          _pendingSaveMessageId = assistantId;
+          _pendingSaveBlocks = updatedMsg.blocks;
         }
       }
 
-      // 清除防抖定时器，确保最终 blocks 被保存
+      // J3：清除局部防抖定时器，确保最终 blocks 被保存
+      if (saveBlocksTimer) {
+        clearTimeout(saveBlocksTimer);
+        saveBlocksTimer = null;
+      }
+      // 同步清除模块级定时器
       if (_saveBlocksTimer) {
         clearTimeout(_saveBlocksTimer);
         _saveBlocksTimer = null;
       }
-      await flushSaveBlocks();
+      await flushSaveBlocksLocal();
 
       // 流结束，冻结所有块
       blockBuilder.freezeAll();
@@ -737,19 +946,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }
       }
 
-      set({ isLoading: false, isStreaming: false });
-
+      // 先执行自动重命名再重置 isLoading/isStreaming，缩小竞态窗口
       if (shouldAutoRename(sessionId)) {
-        const finalMessages = get().messages;
-        const finalMsgIdx = finalMessages.findIndex(
+        const finalMsgs = get().messages;
+        const finalMI = finalMsgs.findIndex(
           (m) => m.id === assistantId,
         );
         const assistantResponse =
-          finalMsgIdx !== -1 ? finalMessages[finalMsgIdx].content : "";
+          finalMI !== -1 ? finalMsgs[finalMI].content : "";
         await doAutoRename(sessionId!, content, assistantResponse);
       }
+
+      set({ isLoading: false, isStreaming: false, abortController: null });
     } catch (error) {
-      set({ error: String(error), isLoading: false, isStreaming: false });
+      if (!abortController.signal.aborted) {
+        set({ error: String(error), isLoading: false, isStreaming: false, abortController: null });
+      } else {
+        set({ isLoading: false, isStreaming: false, abortController: null });
+      }
     }
   },
 
@@ -813,6 +1027,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     await get().streamMessage(content, sessionId || userMsg.session_id);
   },
 
+  /**
+   * 取消当前流式请求（J1）
+   */
+  stopMessage: () => {
+    const controller = get().abortController;
+    if (controller) {
+      controller.abort();
+      set({ isStreaming: false, isLoading: false, abortController: null });
+    }
+  },
+
   setReplyMessage: (replyMessage: Message | null) => {
     set({ replyMessage });
   },
@@ -825,7 +1050,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const current = get().sessionFiles;
     const exists = current.some((f) => f.path === file.path);
     if (!exists) {
-      console.log(
+      console.debug(
         "[addSessionFile] adding:",
         file.path,
         "total after:",
@@ -833,7 +1058,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       );
       set({ sessionFiles: [...current, file] });
     } else {
-      console.log("[addSessionFile] already exists:", file.path);
+      console.debug("[addSessionFile] already exists:", file.path);
     }
   },
 
@@ -845,6 +1070,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const resolvedPath = await resolveFilePath(filePath);
 
+      // 如果解析后的路径与传入路径不一致,自动更新 sessionFiles 中的记录
+      if (resolvedPath !== filePath) {
+        const currentFiles = get().sessionFiles;
+        const idx = currentFiles.findIndex((f) => f.path === filePath);
+        if (idx !== -1) {
+          const updated = [...currentFiles];
+          updated[idx] = {
+            ...updated[idx],
+            path: resolvedPath,
+            name: extractFileName(resolvedPath),
+          };
+          set({ sessionFiles: updated });
+        }
+      }
+
       const existing = get().sessionFiles.find((f) => f.path === resolvedPath);
       if (existing && existing.content) {
         set({ previewFile: existing });
@@ -853,7 +1093,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       const baseUrl = getBackendBaseUrl();
       const encodedPath = encodeURIComponent(resolvedPath);
-      const res = await fetch(`${baseUrl}/api/file/read?path=${encodedPath}`);
+      const ext = resolvedPath.toLowerCase().split('.').pop();
+      const isOfficeFile = ext === 'pdf' || ext === 'docx' || ext === 'pptx';
+
+      // Office 文件使用预览转换接口，其他文件使用普通读取接口
+      const apiEndpoint = isOfficeFile ? '/api/file/preview' : '/api/file/read';
+      const res = await fetch(`${baseUrl}${apiEndpoint}?path=${encodedPath}`);
       if (!res.ok) throw new Error(`读取文件失败: ${res.statusText}`);
       const data = await res.json();
       const filePreview: FilePreview = {
@@ -863,11 +1108,32 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           resolvedPath.split("\\").pop() ||
           resolvedPath,
         content: data.content,
-        type: data.type || "text",
+        type: data.type && data.type !== "text" ? data.type : inferFileType(resolvedPath),
         language: data.language,
         size: data.size,
       };
-      get().addSessionFile(filePreview);
+      // 如果 sessionFiles 中已有该文件（但 content 为空），替换其内容
+      const currentFiles = get().sessionFiles;
+      const existingIdx = currentFiles.findIndex((f) => f.path === resolvedPath);
+      if (existingIdx !== -1) {
+        const updated = [...currentFiles];
+        updated[existingIdx] = filePreview;
+        set({ sessionFiles: updated });
+      } else {
+        // 如果路径被后端纠正（resolvedPath !== filePath），尝试用原始路径查找并更新
+        if (resolvedPath !== filePath) {
+          const oldIdx = currentFiles.findIndex((f) => f.path === filePath);
+          if (oldIdx !== -1) {
+            const updated = [...currentFiles];
+            updated[oldIdx] = filePreview;
+            set({ sessionFiles: updated });
+          } else {
+            get().addSessionFile(filePreview);
+          }
+        } else {
+          get().addSessionFile(filePreview);
+        }
+      }
       set({ previewFile: filePreview });
     } catch (err) {
       console.error("读取文件失败:", err);
@@ -877,7 +1143,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           name:
             filePath.split("/").pop() || filePath.split("\\").pop() || filePath,
           content: `错误: ${err instanceof Error ? err.message : String(err)}`,
-          type: "text",
+          type: inferFileType(filePath),
         },
       });
     }
@@ -1099,24 +1365,31 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     return newBlocks;
   }
 
-  const boundaries: number[] = toolCalls.map((tc) => {
+  const boundaries: Array<{ idx: number; pos: number; len: number } | null> = toolCalls.map((tc) => {
     const name = tc.name;
-    if (!name) return -1;
+    if (!name) return null;
     const candidates = [
-      name,
       `\`${name}\``,
       `「${name}」`,
       `${name} 工具`,
       `${name}工具`,
+      name,
     ];
     for (const c of candidates) {
-      const idx = fullText.indexOf(c);
-      if (idx !== -1) return idx;
+      const pos = fullText.indexOf(c);
+      if (pos !== -1) return { idx: -1, pos, len: c.length };
     }
-    return -1;
+    return null;
   });
 
-  const allUnknown = boundaries.every((b) => b === -1);
+  // 填充 tool_call index
+  let boundaryIdx = 0;
+  for (const b of boundaries) {
+    if (b) b.idx = boundaryIdx;
+    boundaryIdx++;
+  }
+
+  const allUnknown = boundaries.every((b) => b === null);
   if (allUnknown) {
     // 当无法在文本中定位工具名边界时，放弃等分猜测（必然产生错乱块）。
     // 将所有文本作为一个 text block，tool_call 依次追加在后面。
@@ -1146,14 +1419,13 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   }
 
   const indexedBoundaries = boundaries
-    .map((b, idx) => ({ b, idx }))
-    .filter((x) => x.b !== -1)
-    .sort((a, b) => a.b - b.b);
+    .filter((x): x is NonNullable<typeof x> => x !== null && x.pos !== -1)
+    .sort((a, b) => a.pos - b.pos);
 
   let cursor = 0;
-  for (const { b, idx } of indexedBoundaries) {
+  for (const { pos, idx, len } of indexedBoundaries) {
     const gid = generateGroupId();
-    const before = fullText.slice(cursor, b);
+    const before = fullText.slice(cursor, pos);
 
     if (before && before.trim()) {
       newBlocks.push({
@@ -1173,8 +1445,7 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
       toolCallId: toolCalls[idx].id,
       groupId: gid,
     });
-    const nameLen = toolCalls[idx].name?.length || 0;
-    cursor = b + nameLen;
+    cursor = pos + len;
   }
 
   const tail = fullText.slice(cursor);
@@ -1192,7 +1463,7 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   // 连续多个无法定位的 tool_call 使用相同 groupId 以便 ToolExecutionGroup 统一折叠
   let orphanGroupId = "";
   for (let i = 0; i < toolCalls.length; i++) {
-    if (boundaries[i] === -1) {
+    if (boundaries[i] === null) {
       // 每遇到一个新的 orphan 段，生成新 groupId
       if (!orphanGroupId) {
         orphanGroupId = generateGroupId();
@@ -1209,6 +1480,38 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
     } else {
       // 遇到有边界的 tool_call，重置 orphanGroupId（下一个 orphan 从新组开始）
       orphanGroupId = "";
+    }
+  }
+
+  // 将 todo_write 的 tool_call 块替换为 todo 块（历史兼容）
+  for (let i = 0; i < newBlocks.length; i++) {
+    const block = newBlocks[i];
+    if (block.type === "tool_call" && block.toolCall?.name === "todo_write") {
+      const args = block.toolCall.arguments as Record<string, unknown> | undefined;
+      if (args?.action === "write" && args?.todos) {
+        const todos = args.todos as Array<{
+          id?: string; name?: string; status?: string;
+          dependsOn?: string[]; activeForm?: string; metadata?: Record<string, unknown>;
+        }>;
+        if (Array.isArray(todos) && todos.length > 0) {
+          const tasks = todos.map((t, idx) => ({
+            id: t.id || String(idx + 1),
+            name: t.name || `步骤 ${idx + 1}`,
+            status: (t.status as "pending" | "in_progress" | "completed") || "pending",
+            dependsOn: t.dependsOn || [],
+          }));
+          const title =
+            (args?.title as string) ||
+            (typeof args?.description === "string" ? args.description : "") ||
+            `任务 (${todos.length} 步)`;
+          newBlocks[i] = {
+            ...block,
+            type: "todo",
+            content: title,
+            taskCard: { title, tasks, status: "planning" as const },
+          };
+        }
+      }
     }
   }
 

@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { resolveDbPath } from '@modules/core/paths';
+import { SimpleMutex } from '@modules/core/SimpleMutex';
 
 /**
  * Chronos数据库存储实现
@@ -23,6 +24,11 @@ export class ChronosDatabase {
    * 数据库文件路径
    */
   private dbPath: string;
+
+  /**
+   * 写操作互斥锁（防止并发 SQLite WAL 锁冲突）
+   */
+  private dbMutex = new SimpleMutex();
 
   /**
    * 构造函数
@@ -281,32 +287,34 @@ export class ChronosDatabase {
       );
     }
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `INSERT OR REPLACE INTO scheduled_tasks 
-         (id, cron, prompt, created_at, last_fired_at, recurring, permanent, durable, agent_id, task_type, metadata) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          task.id,
-          task.cron,
-          task.prompt,
-          task.createdAt,
-          task.lastFiredAt || null,
-          task.recurring ? 1 : 0,
-          task.permanent ? 1 : 0,
-          task.durable ? 1 : 0,
-          task.agentId || null,
-          task.taskType,
-          task.metadata ? JSON.stringify(task.metadata) : null,
-        ],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `INSERT OR REPLACE INTO scheduled_tasks 
+           (id, cron, prompt, created_at, last_fired_at, recurring, permanent, durable, agent_id, task_type, metadata) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            task.id,
+            task.cron,
+            task.prompt,
+            task.createdAt,
+            task.lastFiredAt || null,
+            task.recurring ? 1 : 0,
+            task.permanent ? 1 : 0,
+            task.durable ? 1 : 0,
+            task.agentId || null,
+            task.taskType,
+            task.metadata ? JSON.stringify(task.metadata) : null,
+          ],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 
@@ -432,18 +440,20 @@ export class ChronosDatabase {
 
     params.push(taskId);
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `UPDATE scheduled_tasks SET ${setClauses.join(', ')} WHERE id = ?`,
-        params,
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `UPDATE scheduled_tasks SET ${setClauses.join(', ')} WHERE id = ?`,
+          params,
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 
@@ -462,18 +472,20 @@ export class ChronosDatabase {
       );
     }
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `DELETE FROM scheduled_tasks WHERE id = ?`,
-        [taskId],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `DELETE FROM scheduled_tasks WHERE id = ?`,
+          [taskId],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 
@@ -493,27 +505,29 @@ export class ChronosDatabase {
       );
     }
 
-    const id = await new Promise<number>((resolve, reject) => {
-      this.db?.run(
-        `INSERT INTO task_execution_history 
-         (task_id, fired_at, completed_at, status, result, error) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          history.taskId,
-          history.firedAt,
-          history.completedAt || null,
-          history.status,
-          history.result || null,
-          history.error || null,
-        ],
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(this.lastID);
+    const id = await this.dbMutex.run(async () => {
+      return await new Promise<number>((resolve, reject) => {
+        this.db?.run(
+          `INSERT INTO task_execution_history 
+           (task_id, fired_at, completed_at, status, result, error) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            history.taskId,
+            history.firedAt,
+            history.completedAt || null,
+            history.status,
+            history.result || null,
+            history.error || null,
+          ],
+          function (err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(this.lastID);
+            }
           }
-        }
-      );
+        );
+      });
     });
 
     return id;
@@ -564,18 +578,20 @@ export class ChronosDatabase {
 
     params.push(historyId);
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `UPDATE task_execution_history SET ${setClauses.join(', ')} WHERE id = ?`,
-        params,
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `UPDATE task_execution_history SET ${setClauses.join(', ')} WHERE id = ?`,
+          params,
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 
@@ -635,18 +651,20 @@ export class ChronosDatabase {
 
     const timestamp = updatedAt || Math.floor(Date.now() / 1000);
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `INSERT OR REPLACE INTO system_config (key, value, updated_at) VALUES (?, ?, ?)`,
-        [key, value, timestamp],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `INSERT OR REPLACE INTO system_config (key, value, updated_at) VALUES (?, ?, ?)`,
+          [key, value, timestamp],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 

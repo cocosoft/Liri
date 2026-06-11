@@ -5,10 +5,10 @@
  * 避免重复计算相同模型/Token 组合的成本，提升性能。
  */
 
-import { CacheService } from '@modules/cache/services/CacheService';
+import { CacheService } from '@modules/cache/CacheService';
 import { logForDebugging } from '../utils/debug.js';
 import { calculateModelCost } from './ModelPricing.js';
-import type { ICache, CacheStats } from '@modules/cache/models/types';
+import type { ICache, CacheStats } from '@modules/cache/types';
 
 interface CostCacheKey {
   modelName: string;

@@ -7,7 +7,7 @@
 import type {
   SandboxExecuteOptions,
   SandboxExecuteResult,
-} from './types/SandboxTypes';
+} from './SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { spawn, type ChildProcess } from 'node:child_process';
 

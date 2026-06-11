@@ -5,7 +5,7 @@
 
 import { jsonStringify } from './json.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { ICache, CacheStats } from '@modules/cache/models/types';
+import type { ICache, CacheStats } from '@modules/cache/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

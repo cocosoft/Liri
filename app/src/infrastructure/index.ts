@@ -25,5 +25,5 @@ export const logger = new Logger({
   level: LogLevel.INFO,
 });
 
-export { LocalHTTPService, getLocalHTTPService } from './http';
+export { LocalHTTPService } from './http';
 export type { LocalHTTPConfig } from './http';

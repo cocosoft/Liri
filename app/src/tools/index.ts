@@ -143,7 +143,7 @@ export {
   type GrepOptions,
   type GrepResult,
   type GrepOutputMode,
-} from './GrepTool/GrepTool';
+} from './GrepTool/grep';
 export {
   GREP_TOOL_NAME,
   getDescription as grepDescription,

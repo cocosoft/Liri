@@ -3,7 +3,7 @@
  * 提供命令安全检查、路径安全验证、危险操作检测等功能
  */
 
-import { SandboxExecuteOptions, SandboxConfig } from './types/SandboxTypes';
+import { SandboxExecuteOptions, SandboxConfig } from './SandboxTypes';
 
 /**
  * 安全检查结果

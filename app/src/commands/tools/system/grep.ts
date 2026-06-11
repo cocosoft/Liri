@@ -5,7 +5,7 @@
  */
 
 import type { Command, CommandImplementation } from '@modules/commands/types';
-import { grep, type GrepOutputMode } from '@modules/tools/GrepTool/GrepTool.js';
+import { grep, type GrepOutputMode } from '@modules/tools/GrepTool/grep.js';
 
 /**
  * 构建帮助文本

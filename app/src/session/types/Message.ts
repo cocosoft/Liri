@@ -1,3 +1,5 @@
+import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+
 /**
  * 消息类型枚举
  *
@@ -108,7 +110,7 @@ export interface MessageMetadata {
  */
 export interface FrontendMessageBlock {
   id: string;
-  type: 'text' | 'thinking' | 'tool_call' | 'status';
+  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'todo';
   content: string;
   toolCall?: {
     id: string;
@@ -119,6 +121,8 @@ export interface FrontendMessageBlock {
   };
   status?: string;
   isStreaming?: boolean;
+  /** 仅在 type='todo' 时存在 */
+  todoData?: TodoBlockData;
 }
 
 /**

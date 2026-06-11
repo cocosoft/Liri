@@ -18,11 +18,11 @@ import {
   SandboxPermission,
   createDefaultSandboxConfig,
   createSandboxExecuteOptions,
-} from '@modules/sandbox/types/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 import type {
   Sandbox,
   SandboxExecuteResult,
-} from '@modules/sandbox/types/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

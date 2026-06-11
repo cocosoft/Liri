@@ -11,7 +11,7 @@ import {
   SandboxPermission,
   SandboxPermissions,
   SandboxPlatform,
-} from './types/SandboxTypes';
+} from './SandboxTypes';
 import { SandboxConfigBuilder } from './SandboxConfigBuilder';
 import { execSync, exec } from 'child_process';
 import { promisify } from 'util';

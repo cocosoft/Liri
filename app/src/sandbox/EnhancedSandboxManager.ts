@@ -4,13 +4,13 @@
  * 提供智能安全分析、性能优化、威胁检测等高级功能
  */
 
-import { SandboxManager } from './managers/SandboxManager.js';
-import { SandboxSettings, SandboxConstraints } from './types/SandboxTypes.js';
+import { SandboxManager } from './SandboxManager.js';
+import { SandboxSettings, SandboxConstraints } from './SandboxTypes.js';
 import {
   SandboxPlatform,
   SandboxPermission,
   SandboxExecuteResult,
-} from './types/SandboxTypes.js';
+} from './SandboxTypes.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

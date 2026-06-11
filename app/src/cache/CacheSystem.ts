@@ -25,7 +25,7 @@ import {
   type PersistentCache,
   type PersistentCacheStorage,
   type CacheVersion,
-} from './models/types.js';
+} from './types.js';
 
 /**
  * 缓存版本常量

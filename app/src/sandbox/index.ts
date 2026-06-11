@@ -22,8 +22,8 @@
  * 沙箱模块统一入口
  * 导出所有沙箱相关的类型和类
  */
-export * from './types/SandboxTypes';
-export { SandboxManager } from './managers/SandboxManager';
+export * from './SandboxTypes';
+export { SandboxManager } from './SandboxManager';
 export {
   checkDangerousCommand,
   containsExcludedCommand,

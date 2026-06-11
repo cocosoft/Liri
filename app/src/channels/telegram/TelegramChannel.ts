@@ -17,7 +17,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AttachmentManager } from '../../components/attachments.js';
+import { AttachmentManager, AttachmentSource } from '../../components/attachments.js';
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',
@@ -596,7 +596,9 @@ class TelegramChannel extends BaseChannelPlugin {
       audioBuffer,
       'file',
       'audio/ogg',
-      { source: 'telegram', fileId }
+      AttachmentSource.SESSION,
+      fileId,
+      'Telegram voice message'
     );
 
     return attachment.path;

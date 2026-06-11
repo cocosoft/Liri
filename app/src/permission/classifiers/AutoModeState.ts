@@ -1,7 +1,6 @@
 /**
  * 自动模式状态管理
  * 管理自动模式的进入/退出条件、电路断开机制
- * 参考CC源码 cc_code/backend/utils/permissions/classifierShared.ts 和 autoModeState.ts 实现
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

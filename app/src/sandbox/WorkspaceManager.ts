@@ -12,7 +12,7 @@ import {
   SandboxConfig,
   SandboxPlatform,
   SandboxPermission,
-} from './types/SandboxTypes';
+} from './SandboxTypes';
 import type { SSHSandboxConfig } from './SSHSandbox';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 

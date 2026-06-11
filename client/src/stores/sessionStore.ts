@@ -41,23 +41,23 @@ export const useSessionStore = create<SessionStore>()(
       },
 
       createSession: async (title: string) => {
-        console.log("[sessionStore] Creating session with title:", title);
+        console.debug("[sessionStore] Creating session with title:", title);
         set({ isLoading: true, error: null });
         try {
           const session = await sessionService.create(title);
-          console.log("[sessionStore] Created session:", session.id, session.title);
+          console.debug("[sessionStore] Created session:", session.id, session.title);
           useChatStore.getState().clearMessages();
           let sessions = await sessionService.list();
           sessions = sessions.sort(
             (a, b) =>
               new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
           );
-          console.log(
+          console.debug(
             "[sessionStore] Session list after create:",
             sessions.length,
             "sessions",
           );
-          console.log(
+          console.debug(
             "[sessionStore] Session IDs:",
             sessions.map((s) => s.id),
           );

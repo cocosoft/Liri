@@ -9,6 +9,7 @@ import { Database } from 'sqlite3';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { resolveDbPath } from '@modules/core/paths';
+import { SimpleMutex } from '@modules/core/SimpleMutex';
 
 const logger = new Logger();
 
@@ -91,6 +92,11 @@ export interface CostAggregation {
 export class CostRecordRepository {
   private db: Database | null = null;
   private dbPath: string;
+
+  /**
+   * 写操作互斥锁（防止并发 SQLite WAL 锁冲突）
+   */
+  private dbMutex = new SimpleMutex();
 
   constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
@@ -248,47 +254,49 @@ export class CostRecordRepository {
     const cacheReadTokens = params.cacheReadTokens || 0;
     const cacheCreationTokens = params.cacheCreationTokens || 0;
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `INSERT INTO ${COST_RECORDS_TABLE}
-        (id, session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, duration_ms, request_id, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          sessionId,
-          params.model,
-          params.inputTokens,
-          params.outputTokens,
-          cacheReadTokens,
-          cacheCreationTokens,
-          params.costUSD,
-          durationMs,
-          params.requestId || null,
-          timestamp,
-        ],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `INSERT INTO ${COST_RECORDS_TABLE}
+          (id, session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, duration_ms, request_id, timestamp)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            sessionId,
+            params.model,
+            params.inputTokens,
+            params.outputTokens,
+            cacheReadTokens,
+            cacheCreationTokens,
+            params.costUSD,
+            durationMs,
+            params.requestId || null,
+            timestamp,
+          ],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
-    });
+        );
+      });
 
-    await this.upsertSessionSummary(sessionId, {
-      costUSD: params.costUSD,
-      inputTokens: params.inputTokens,
-      outputTokens: params.outputTokens,
-      cacheReadTokens,
-      cacheCreationTokens,
-      model: params.model,
+      await this.upsertSessionSummaryUnlocked(sessionId, {
+        costUSD: params.costUSD,
+        inputTokens: params.inputTokens,
+        outputTokens: params.outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        model: params.model,
+      });
     });
 
     return id;
   }
 
-  private async upsertSessionSummary(
+  private async upsertSessionSummaryUnlocked(
     sessionId: string,
     delta: {
       costUSD: number;
@@ -596,32 +604,34 @@ export class CostRecordRepository {
   async deleteSessionRecords(sessionId: string): Promise<void> {
     await this.initDatabase();
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `DELETE FROM ${COST_RECORDS_TABLE} WHERE session_id = ?`,
-        [sessionId],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `DELETE FROM ${COST_RECORDS_TABLE} WHERE session_id = ?`,
+          [sessionId],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
-    });
+        );
+      });
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `DELETE FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
-        [sessionId],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `DELETE FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
+          [sessionId],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 
@@ -630,20 +640,22 @@ export class CostRecordRepository {
 
     const now = Math.floor(Date.now() / 1000);
 
-    await new Promise<void>((resolve, reject) => {
-      this.db?.run(
-        `UPDATE ${COST_SESSION_SUMMARY_TABLE}
-        SET ended_at = ?, updated_at = ?
-        WHERE session_id = ?`,
-        [now, now, sessionId],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+    await this.dbMutex.run(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db?.run(
+          `UPDATE ${COST_SESSION_SUMMARY_TABLE}
+          SET ended_at = ?, updated_at = ?
+          WHERE session_id = ?`,
+          [now, now, sessionId],
+          (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        }
-      );
+        );
+      });
     });
   }
 

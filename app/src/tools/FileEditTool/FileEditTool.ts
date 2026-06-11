@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveOutputDir } from '@modules/core/paths';
+import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {
   return path.isAbsolute(filePath)
@@ -17,8 +18,7 @@ export interface FileEditInput {
   newString: string;
 }
 
-export interface FileEditResult {
-  filePath: string;
+export interface FileEditResult extends FileOperationResult {
   linesChanged: number;
   replaced: boolean;
   oldStringFound: boolean;
@@ -53,7 +53,8 @@ export function editFile(input: FileEditInput): FileEditResult {
   const count = countOccurrences(content, input.oldString);
   if (count === 0) {
     return {
-      filePath: resolved,
+      filePath: input.filePath,
+      canonicalPath: resolved,
       linesChanged: 0,
       replaced: false,
       oldStringFound: false,
@@ -78,7 +79,8 @@ export function editFile(input: FileEditInput): FileEditResult {
   const linesChanged = Math.abs(newLines - oldLines);
 
   return {
-    filePath: resolved,
+    filePath: input.filePath,
+    canonicalPath: resolved,
     linesChanged,
     replaced: true,
     oldStringFound: true,
@@ -204,7 +206,7 @@ export class FileEditTool extends BaseTool {
 
       return createToolResult(
         {
-          filePath: result.filePath,
+          filePath: result.canonicalPath,
           linesChanged: result.linesChanged,
           replaced: result.replaced,
           oldStringFound: result.oldStringFound,
@@ -214,10 +216,10 @@ export class FileEditTool extends BaseTool {
           newMessages: [
             {
               role: 'system',
-              content: `Successfully edited file: ${result.filePath}`,
+              content: `Successfully edited file: ${result.canonicalPath}`,
             },
           ],
-          output: `File edited successfully: ${result.filePath}`,
+          output: `File edited successfully: ${result.canonicalPath}`,
         }
       );
     } catch (error: any) {

@@ -455,7 +455,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载沙箱管理器
       (async () => {
         try {
-          await import('../sandbox/managers/SandboxManager.js');
+          await import('../sandbox/SandboxManager.js');
         } catch (error) {
           // 忽略预加载错�?
         }

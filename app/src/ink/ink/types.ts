@@ -22,6 +22,8 @@
  * Ink类型定义
  */
 
+import type { FrameEvent } from './frame.js';
+
 export interface InkInstance {
   id: string;
   rootElement?: React.ReactElement;
@@ -124,3 +126,14 @@ export interface FocusEvent extends InkEvent {
   type: 'focus' | 'blur';
   relatedTarget?: InkNode;
 }
+
+/** Ink 实例配置选项 */
+export type Options = {
+  stdout: NodeJS.WriteStream;
+  stdin: NodeJS.ReadStream;
+  stderr: NodeJS.WriteStream;
+  exitOnCtrlC: boolean;
+  patchConsole: boolean;
+  waitUntilExit?: () => Promise<void>;
+  onFrame?: (event: FrameEvent) => void;
+};

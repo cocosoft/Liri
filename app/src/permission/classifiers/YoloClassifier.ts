@@ -1,7 +1,6 @@
 /**
  * YOLO分类器
  * AI自动审批安全操作的分类器
- * 参考CC源码 cc_code/backend/utils/permissions/yoloClassifier.ts 实现
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

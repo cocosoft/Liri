@@ -5,7 +5,7 @@
  */
 
 import { getCacheSystem } from './CacheSystem.js';
-import type { PersistentCacheItem } from './models/types.js';
+import type { PersistentCacheItem } from './types.js';
 import { logForDebugging } from '../utils/debug.js';
 import { getStatsAggregator } from './DataAggregator.js';
 

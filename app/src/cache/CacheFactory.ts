@@ -1,4 +1,4 @@
-import type { ICache, CacheConfig, CacheStats } from './models/types';
+import type { ICache, CacheConfig, CacheStats } from './types';
 
 /**
  * 默认缓存键命名前缀

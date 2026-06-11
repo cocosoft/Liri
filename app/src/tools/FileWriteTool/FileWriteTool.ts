@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveOutputDir } from '@modules/core/paths';
+import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {
   return path.isAbsolute(filePath)
@@ -16,9 +17,8 @@ export interface FileWriteInput {
   content: string;
 }
 
-export interface FileWriteResult {
+export interface FileWriteResult extends FileOperationResult {
   type: 'create' | 'update';
-  filePath: string;
   sizeBytes: number;
   linesWritten: number;
 }
@@ -52,7 +52,8 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
 
   return {
     type: existed ? 'update' : 'create',
-    filePath: resolved,
+    filePath: input.filePath,
+    canonicalPath: resolved,
     sizeBytes: Buffer.byteLength(input.content, 'utf-8'),
     linesWritten: lines,
   };

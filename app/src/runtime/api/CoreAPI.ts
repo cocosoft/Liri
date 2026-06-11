@@ -28,6 +28,7 @@ import type {
   ConversionResult,
   FileInfo,
 } from '@modules/tools/converter/engine/types';
+import type { TodoBlockData } from './todo-types';
 
 /** 聊天请求 */
 export interface ChatRequest {
@@ -75,7 +76,7 @@ export interface QuestionData {
 }
 
 export interface ChatStreamChunk {
-  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done' | 'error' | 'question';
+  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done' | 'error' | 'question' | 'todo';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
@@ -83,6 +84,8 @@ export interface ChatStreamChunk {
   usage?: UsageInfo;
   /** 仅在 type='question' 时存在 */
   questionData?: QuestionData;
+  /** 仅在 type='todo' 时存在 */
+  todoData?: TodoBlockData;
 }
 
 /** 工具调用描述 */

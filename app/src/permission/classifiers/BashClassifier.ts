@@ -1,7 +1,6 @@
 /**
  * Bash命令分类器
  * 专门用于分类Bash命令的安全性
- * 参考CC源码 cc_code/backend/utils/permissions/bashClassifier.ts 实现
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

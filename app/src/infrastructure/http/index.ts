@@ -22,5 +22,5 @@
  * HTTP 基础设施模块导出
  */
 
-export { LocalHTTPService, getLocalHTTPService } from './LocalHTTPService';
+export { LocalHTTPService } from './LocalHTTPService';
 export type { LocalHTTPConfig } from './LocalHTTPService';

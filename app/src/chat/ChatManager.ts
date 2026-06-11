@@ -72,6 +72,7 @@ import type {
 } from '@modules/ai/models/types.js';
 import type { ThinkingProviderChunk } from '@modules/ai/providers/index.js';
 import type { ChatStreamChunk, QuestionData } from '@modules/runtime/api/CoreAPI.js';
+import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -2526,6 +2527,19 @@ export class ChatManagerImpl implements ChatManager {
             },
             result: toolResult,
           });
+
+          // ---- 检测 todo 数据并 yield todo chunk ----
+          const todoData = this._extractTodoData(toolResult);
+          if (todoData) {
+            const todoChunk: ChatStreamChunk = {
+              type: 'todo',
+              content: JSON.stringify(todoData),
+              sessionId: session.id,
+              todoData,
+            };
+            yield todoChunk;
+          }
+          // ---- 结束 todo chunk yield ----
         }
 
         // 构建完整请求：基础消息 + 带有全部 tool_calls 的 assistant + 全部工具结果
@@ -3838,6 +3852,28 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string
   ): Promise<import('./types/checkpoint').SessionCheckpoint | null> {
     return this._checkpointService.getLatestCheckpoint(sessionId);
+  }
+
+  /**
+   * 从工具结果中提取 todo 数据
+   * 检测 metadata._todoData 并返回结构化 TodoBlockData
+   */
+  private _extractTodoData(toolResult: ToolResult): TodoBlockData | null {
+    const result = toolResult as unknown as { metadata?: Record<string, unknown> };
+    const metadata = result.metadata;
+    if (!metadata?._todoData) return null;
+
+    const raw = metadata._todoData as Record<string, unknown>;
+
+    if (Array.isArray(raw.tasks)) {
+      return {
+        title: (raw.title as string) || '任务计划',
+        tasks: raw.tasks as TodoBlockData['tasks'],
+        phase: (raw.phase as TodoBlockData['phase']) || 'planning',
+        createdAt: Date.now(),
+      };
+    }
+    return null;
   }
 }
 

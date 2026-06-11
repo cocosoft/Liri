@@ -151,40 +151,5 @@ export interface AcpMetrics {
 
 export type AcpEventCallback = (...args: unknown[]) => void;
 
-// ── 向下兼容类型别名（Acl* → Acp*） ──
-/** @deprecated 使用 AcpAgentInfo */
-export type AclAgentInfo = AcpAgentInfo;
-/** @deprecated 使用 AcpCapability */
-export type AclCapability = AcpCapability;
-/** @deprecated 使用 AcpMessage */
-export type AclMessage = AcpMessage;
-/** @deprecated 使用 AcpMessageType */
-export type AclMessageRole = AcpMessageType;
-/** @deprecated 使用 AcpMessagePriority */
-export type AclMessagePriority = AcpMessagePriority;
-/** @deprecated 使用 AcpTransportType */
-export type AclTransportType = AcpTransportType;
-/** @deprecated 使用 AcpSessionStatus */
-export type AclSessionStatus = AcpSessionStatus;
-/** @deprecated 使用 AcpHandshake */
-export type AclHandshake = AcpHandshake;
-/** @deprecated 使用 AcpError */
-export type AclError = AcpError;
-/** @deprecated 使用 AcpResponse */
-export type AclResponse = AcpResponse;
-/** @deprecated 使用 AcpSessionInfo */
-export type AclSessionInfo = AcpSessionInfo;
-/** @deprecated 使用 AcpTransportConfig */
-export type AclTransportConfig = AcpTransportConfig;
-/** @deprecated 使用 AcpServerConfig */
-export type AclServerConfig = AcpServerConfig;
-/** @deprecated 使用 AcpClientConfig */
-export type AclClientConfig = AcpClientConfig;
-/** @deprecated 使用 AcpMessageHandler */
-export type AclMessageHandler = AcpMessageHandler;
-/** @deprecated 使用 AcpHandlerRegistration */
-export type AclHandlerRegistration = AcpHandlerRegistration;
-/** @deprecated 使用 AcpMetrics */
-export type AclMetrics = AcpMetrics;
-/** @deprecated 使用 AcpEventCallback */
-export type AclEventCallback = AcpEventCallback;
+// ── 向下兼容类型别名 ——————————————————————————
+// 已清理：Acl* 别名（迁移至 Acp*），最后检查于 2026-06-11，零外部引用

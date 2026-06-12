@@ -243,6 +243,16 @@ export interface FileEntry {
   type: "file" | "directory";
   size?: number;
   modified_at?: number;
+  /** FileRegistry 唯一标识 */
+  fileId?: string;
+  /** 文件 MD5 */
+  md5?: string;
+  /** 来源枚举 */
+  source?: FileSource | string;
+  /** 存储分区 */
+  storeZone?: StoreZone | string;
+  /** MIME 类型 */
+  mimeType?: string;
 }
 
 export interface WorkspaceInfo {
@@ -253,13 +263,30 @@ export interface WorkspaceInfo {
   updatedAt: number;
 }
 
-export type FileCategory = "output" | "downloads" | "attachments" | "knowledge" | "memory";
+export type StoreZone = 'inbound' | 'media' | 'artifact' | 'notebook';
+
+export type FileSource =
+  | 'upload'
+  | 'channel_telegram' | 'channel_feishu' | 'channel_dingtalk'
+  | 'channel_wecom' | 'channel_wechat' | 'channel_qq'
+  | 'channel_discord' | 'channel_slack' | 'channel_line'
+  | 'channel_irc' | 'channel_nostr' | 'channel_email'
+  | 'channel_sms' | 'channel_webhook' | 'channel_googlechat'
+  | 'channel_msteams' | 'channel_zalo' | 'channel_yuanbao'
+  | 'channel_whatsapp' | 'channel_signal' | 'channel_matrix'
+  | 'channel_facebook' | 'channel_twitter' | 'channel_claude'
+  | 'channel_mattermost' | 'channel_bluebubbles'
+  | 'tool_write' | 'tool_download' | 'tool_generate'
+  | 'auto_ingest' | 'artifact' | 'notebook' | 'archive_extracted';
+
+export type FileCategory = "output" | "downloads" | "attachments" | "knowledge" | "memory" | "inbound" | "media" | "artifact" | "notebook";
 
 /** 当前模型状态（用于状态栏） */
 export interface CurrentModelInfo {
   modelId: string;
   provider: string;
   routerTier?: string;
+  routingMode?: 'dynamic' | 'static' | 'off';
   taskType: string;
   costThisSession: number;
   availableTasks: Array<{ type: string; label: string; icon: string }>;
@@ -646,4 +673,54 @@ export interface FilePreview {
   language?: string;
   /** 文件大小 */
   size?: number;
+}
+
+/** FileRegistry 记录 —— 对应后端 FileRecord */
+export interface FileRegistryRecord {
+  id: number;
+  fileId: string;
+  originalName: string;
+  savedName: string;
+  savedPath: string;
+  md5: string;
+  size: number;
+  mimeType: string;
+  source: string;
+  sourceId: string;
+  storeZone: string;
+  mediaType: string;
+  category: string;
+  description: string;
+  isArchive: boolean;
+  archiveParentId: string;
+  isDeleted: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 文件搜索/筛选参数 */
+export interface FileSearchParams {
+  query?: string;
+  source?: FileSource | string;
+  storeZone?: StoreZone | string;
+  startDate?: string;
+  endDate?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+/** 文件搜索/列表结果 */
+export interface FileSearchResult {
+  items: FileRegistryRecord[];
+  nextCursor?: string;
+  total: number;
+}
+
+/** 文件统计概览 */
+export interface FileStats {
+  totalFiles: number;
+  totalSize: number;
+  todayInbound: number;
+  dedupSaved: number;
+  dedupSize: number;
 }

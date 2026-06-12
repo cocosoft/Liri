@@ -40,6 +40,9 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   const [terminalHeight, setTerminalHeight] = useState(24);
   const [submitCount, setSubmitCount] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
+  const [modelName, setModelName] = useState('');
+  const [routingMode, setRoutingMode] = useState<'dynamic' | 'static' | 'off'>('static');
+  const [routerTier, setRouterTier] = useState<string | undefined>(undefined);
   const abortRef = useRef<AbortController | null>(null);
   const pauseResolveRef = useRef<(() => void) | null>(null);
   const isPausedRef = useRef(false);
@@ -69,6 +72,39 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
     return () => {
       process.stdout.removeListener('resize', updateHeight);
     };
+  }, []);
+
+  // 初始化模型信息：从 modelRouter 读取初始值，再从 CoreAPIImpl 获取运行时决策
+  useEffect(() => {
+    (async () => {
+      try {
+        const { modelRouter } = await import('@modules/ai/modelRouter.js');
+        const initialModel = modelRouter.resolve('chat');
+        setModelName(initialModel);
+
+        const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+        const core = getCoreAPI();
+        const lastDecision = core.getLastRouteDecision();
+        const sr = core.getSmartRouter();
+
+        let mode: 'dynamic' | 'static' | 'off' = 'static';
+        if (sr?.isEnabled()) {
+          mode = 'dynamic';
+        } else if (sr && !sr.isEnabled()) {
+          mode = 'off';
+        }
+        setRoutingMode(mode);
+
+        if (lastDecision?.model) {
+          setModelName(lastDecision.model);
+        }
+        if (lastDecision?.tier) {
+          setRouterTier(lastDecision.tier);
+        }
+      } catch {
+        // 非阻塞：模型信息不可用时不中断启动
+      }
+    })();
   }, []);
 
   const handleSubmit = useCallback(
@@ -550,6 +586,23 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         clearInterval(pauseCheckInterval);
         setActiveToolCalls([]);
         setStreamingContent('');
+
+        // 流结束后更新模型信息（可能已有新决策记录）
+        try {
+          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+          const core = getCoreAPI();
+          const lastDecision = core.getLastRouteDecision();
+          const sr = core.getSmartRouter();
+          if (lastDecision?.model) setModelName(lastDecision.model);
+          if (lastDecision?.tier) setRouterTier(lastDecision.tier);
+          let mode: 'dynamic' | 'static' | 'off' = 'static';
+          if (sr?.isEnabled()) mode = 'dynamic';
+          else if (sr && !sr.isEnabled()) mode = 'off';
+          setRoutingMode(mode);
+        } catch {
+          // 非阻塞
+        }
+
         currentQuestionRef.current = null;
         setCurrentQuestion(null);
         if (streamState === 'streaming' || streamState === 'question') {
@@ -654,6 +707,9 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             streamStats={streamStats}
             streamState={streamState}
             submitCount={submitCount}
+            modelName={modelName}
+            routingMode={routingMode}
+            routerTier={routerTier}
           />
           <InputArea
             onSubmit={currentQuestion ? handleQuestionAnswer : handleSubmit}

@@ -25,6 +25,7 @@ export type {
   ChannelMessageToolHints,
   ChannelCapabilities,
   MessageContext,
+  MessageAttachment,
   SendResult,
   InteractiveCard,
   ChannelStatus,

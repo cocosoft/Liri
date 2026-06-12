@@ -19,6 +19,7 @@ import {
 } from "../settings/ConfigComponents";
 import type { BackendStatus } from "../../types";
 import { useApiKeyStore } from "../../stores/authStore";
+import { routerService } from "../../services/routerService";
 import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
@@ -980,6 +981,33 @@ function RouterConfigContent({
     defaultTier: string;
     sessionSticky: boolean;
   }) || { enabled: true, defaultTier: "medium", sessionSticky: true };
+
+  // 同步路由配置到后端运行时
+  const syncRouterConfig = async (updated: typeof smartRouter) => {
+    try {
+      await routerService.updateConfig(updated);
+    } catch {
+      // 后端不可用时静默失败，配置仍保留在本地
+    }
+  };
+
+  const handleToggleEnabled = (checked: boolean) => {
+    const updated = { ...smartRouter, enabled: checked };
+    setConfig("models.router", updated);
+    syncRouterConfig(updated);
+  };
+
+  const handleChangeDefaultTier = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const updated = { ...smartRouter, defaultTier: e.target.value };
+    setConfig("models.router", updated);
+    syncRouterConfig(updated);
+  };
+
+  const handleToggleSticky = (checked: boolean) => {
+    const updated = { ...smartRouter, sessionSticky: checked };
+    setConfig("models.router", updated);
+    syncRouterConfig(updated);
+  };
   
   return (
     <div className="p-6">
@@ -990,14 +1018,14 @@ function RouterConfigContent({
           <ToggleConfig
             isDark={isDark}
             checked={smartRouter.enabled}
-            onChange={(checked) => setConfig("models.router", { ...smartRouter, enabled: checked })}
+            onChange={handleToggleEnabled}
           />
         </ConfigItem>
         {smartRouter.enabled && (
           <ConfigItem label="默认等级" isDark={isDark}>
             <select
               value={smartRouter.defaultTier}
-              onChange={(e) => setConfig("models.router", { ...smartRouter, defaultTier: e.target.value })}
+              onChange={handleChangeDefaultTier}
               className="px-3 py-1.5 text-sm rounded-md border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
             >
               <option value="simple">Simple - 简单问答</option>
@@ -1022,7 +1050,7 @@ function RouterConfigContent({
               <ToggleConfig
                 isDark={isDark}
                 checked={smartRouter.sessionSticky}
-                onChange={(checked) => setConfig("models.router", { ...smartRouter, sessionSticky: checked })}
+                onChange={handleToggleSticky}
               />
             </div>
             <div className="text-gray-400">

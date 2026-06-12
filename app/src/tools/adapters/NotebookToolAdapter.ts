@@ -462,6 +462,16 @@ export class NotebookToolAdapter implements Tool {
             notebook,
             format as any
           );
+          // 注册导出文件到 FileRegistry
+          const safeFormat = format || 'markdown';
+          this.registerNotebookExport(exportedContent, notebook, safeFormat).catch(
+            (err) => {
+              console.error('注册 Notebook 导出文件失败', {
+                notebookId: notebook.id,
+                error: String(err),
+              });
+            }
+          );
           return {
             success: true,
             data: { content: exportedContent.toString('utf8'), format },
@@ -551,5 +561,40 @@ export class NotebookToolAdapter implements Tool {
    */
   async cleanup(): Promise<void> {
     // 清理逻辑
+  }
+
+  /**
+   * registerNotebookExport — 注册 Notebook 导出文件到 FileRegistry
+   *
+   * 将 Notebook 导出内容作为 artifact 保存到 FileRegistry 统一管理。
+   */
+  private async registerNotebookExport(
+    content: Buffer,
+    notebook: { id: string; name: string },
+    format: string
+  ): Promise<void> {
+    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const registry = FileRegistry.getInstance();
+    const extMap: Record<string, string> = {
+      markdown: '.md',
+      html: '.html',
+      pdf: '.pdf',
+    };
+    const ext = extMap[format] || `.${format}`;
+
+    await registry.registerFile({
+      originalName: `${notebook.name}${ext}`,
+      content,
+      source: 'notebook_export',
+      sourceId: notebook.id,
+      mimeType:
+        format === 'html'
+          ? 'text/html'
+          : format === 'pdf'
+            ? 'application/pdf'
+            : 'text/markdown',
+      storeZone: 'artifact',
+      description: `Notebook 导出: ${notebook.name}`,
+    });
   }
 }

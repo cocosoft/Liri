@@ -16,10 +16,13 @@ import {
 import type { AIService } from '../models/types';
 import { providerRegistry } from '../providers/ProviderRegistry';
 import type { AIProvider } from '../providers/AIProvider';
+import { AppError } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 import { configManager } from '../../config/index.js';
+import { modelRouter } from '../modelRouter.js';
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;
@@ -207,6 +210,21 @@ export class AIServiceImpl implements AIService {
   }
 
   private getClientForModel(model: string): AIProvider {
+    // 模型名为空时，回退到 ProviderRegistry 的默认 Provider
+    // 这是"数出同源"设计：DB 是 Provider 的唯一来源，运行时通过 ProviderRegistry 获取
+    if (!model) {
+      try {
+        return providerRegistry.getDefaultProvider();
+      } catch {
+        throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+          context: {
+            message:
+              '未找到可用 Provider。请先通过 /provider 命令配置供应商，或设置 DEEPSEEK_API_KEY 环境变量。',
+          },
+        });
+      }
+    }
+
     const resolved = providerRegistry.getByModel(model);
     if (resolved) return resolved;
 
@@ -226,7 +244,7 @@ export function createAIService(
   config: Partial<AIServiceConfig> = {}
 ): AIService {
   const defaultConfig: AIServiceConfig = {
-    defaultModel: '',
+    defaultModel: modelRouter.resolve('chat'),
     apiKey:
       configManager.env('ANTHROPIC_API_KEY') ||
       configManager.env('OPENAI_API_KEY') ||
@@ -260,7 +278,7 @@ export function createAIServiceWithScrubbing(
   pipeline?: ScrubberPipeline
 ): AIServiceImpl {
   const service = new AIServiceImpl({
-    defaultModel: '',
+    defaultModel: modelRouter.resolve('chat'),
     apiKey:
       configManager.env('ANTHROPIC_API_KEY') ||
       configManager.env('OPENAI_API_KEY') ||

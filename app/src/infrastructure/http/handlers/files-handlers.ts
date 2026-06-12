@@ -228,8 +228,8 @@ export async function handleFileRegistryList(
     query.sortOrder = sortOrder;
 
     const result = await registry.listFiles({
-      page,
-      pageSize: Math.min(pageSize, 100),
+      offset: (page - 1) * Math.min(pageSize, 100),
+      limit: Math.min(pageSize, 100),
       ...query,
     });
 
@@ -359,7 +359,12 @@ export async function handleFileRegistryDetail(
 
 /**
  * 处理文件搜索请求
+ *
  * GET /v1/files/registry/search?q=xxx&limit=20
+ * GET /v1/files/registry/search?source=upload&store_zone=inbound（无 q 时回退为列表）
+ *
+ * 返回格式：{ success: true, data: { items: FileRecord[], total: number } }
+ * 前端 FileSearchResult 期望 items/total 字段
  */
 export async function handleFileRegistrySearch(
   ctx: HandlerCtx,
@@ -371,20 +376,38 @@ export async function handleFileRegistrySearch(
     const q = url.searchParams.get('q');
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
-    if (!q) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'q (search query) is required' } }));
-      return;
-    }
-
     const { FileRegistry } = await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
-    const results = await registry.searchFiles(q, Math.min(limit, 50));
+    if (q) {
+      // 有搜索词 → FTS5 全文搜索
+      const results = await registry.searchFiles(q, Math.min(limit, 50));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: { items: results, total: results.length } }));
+    } else {
+      // 无搜索词 → 按筛选条件列表（来源/分区/日期）
+      const source = url.searchParams.get('source') || undefined;
+      const storeZone = url.searchParams.get('store_zone') || undefined;
+      const startDate = url.searchParams.get('start_date') || undefined;
+      const endDate = url.searchParams.get('end_date') || undefined;
+      const cursor = parseInt(url.searchParams.get('cursor') || '0', 10);
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, data: results, total: results.length }));
+      const listResult = await registry.listFiles({
+        source,
+        storeZone,
+        startDate,
+        endDate,
+        offset: isNaN(cursor) ? 0 : cursor,
+        limit: Math.min(limit, 100),
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        data: { items: listResult.files, total: listResult.total },
+      }));
+    }
   } catch (err) {
     ctx.sendError(res, err);
   }

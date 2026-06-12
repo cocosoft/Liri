@@ -133,7 +133,7 @@ export async function handleRouterGetConfig(
   }
 
   /**
-   * 更新 SmartRouter 配置（运行时动态切换）
+   * 更新 SmartRouter 配置（运行时动态切换 + 持久化到 GlobalConfig）
    */
 export async function handleRouterUpdateConfig(
   ctx: HandlerCtx,
@@ -153,7 +153,13 @@ export async function handleRouterUpdateConfig(
         return;
       }
 
+      // 更新运行时
       router.updateConfig(config);
+
+      // 持久化到 GlobalConfig，使重启后配置不丢失
+      const { configManager } = await import('@modules/config/ConfigManager');
+      const current = configManager.getConfigValue<Record<string, unknown>>('models.router') || {};
+      configManager.setConfigValue('models.router', { ...current, ...config });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));

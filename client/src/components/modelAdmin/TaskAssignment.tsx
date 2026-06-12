@@ -108,15 +108,18 @@ function TaskAssignment() {
   };
 
   const handleReset = async () => {
-    const defaults: TaskModelConfig = {
-      chat: "deepseek-v4-pro",
-      coding: "deepseek-v4-pro",
-      translation: "gpt-4o-mini",
-      quick: "deepseek-v4-flash",
-      embedding: "deepseek-v4-pro",
-    };
-    setTasks(defaults);
-    setSaved(false);
+    setSaving(true);
+    setError(null);
+    try {
+      // 从后端获取默认任务分工（后端无配置时返回系统默认值）
+      const taskConfig = await modelSwitchService.getTasks();
+      setTasks(taskConfig);
+      setSaved(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "重置失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

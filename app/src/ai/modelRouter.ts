@@ -64,6 +64,19 @@ export type TaskType =
   | 'local'       // 本地模型（Ollama 等）
   | 'embedding';  // 文本向量化（知识库）
 
+/**
+ * 默认任务分工配置
+ * 当 ConfigManager 中无持久化配置时使用此默认值，
+ * 确保前后端默认值同源，前端无需硬编码。
+ */
+export const DEFAULT_TASKS: TaskModelConfig = {
+  chat: 'deepseek-v4-pro',
+  coding: 'deepseek-v4-pro',
+  translation: 'gpt-4o-mini',
+  quick: 'deepseek-v4-flash',
+  embedding: 'deepseek-v4-pro',
+};
+
 /** 所有任务类型列表 */
 export const ALL_TASK_TYPES: TaskType[] = [
   'chat',
@@ -275,7 +288,9 @@ export class ModelRouter {
     }
     if (Object.keys(envTasks).length > 0) return envTasks;
 
-    return {};
+    // 无任何配置时返回系统默认值，确保前后端同源
+    logger.info('ModelRouter: 使用默认任务分工配置', DEFAULT_TASKS);
+    return { ...DEFAULT_TASKS };
   }
 }
 

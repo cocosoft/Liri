@@ -580,6 +580,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
   /**
    * 构建 MessageContext 从飞书事件数据
+   *
+   * 支持消息类型：text / image / file
+   * - text: 解析 content JSON 提取文本
+   * - image: 下载图片注册到 FileRegistry，回退为文本消息
+   * - file: 下载文件注册到 FileRegistry，回退为文本消息
    */
   private buildMessageContext(
     event: Record<string, unknown>
@@ -588,7 +593,9 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     if (!message) return null;
 
     const msgType = message['message_type'] as string;
-    if (msgType !== 'text') return null;
+    if (msgType !== 'text' && msgType !== 'image' && msgType !== 'file') {
+      return null;
+    }
 
     const sender = event['sender'] as Record<string, unknown> | undefined;
     const senderId =
@@ -598,6 +605,19 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     const chatType = message['chat_type'] as string;
     const chatId = message['chat_id'] as string;
     const rawContent = message['content'] as string;
+
+    // 处理非文本消息（图片/文件）：下载并注册到 FileRegistry
+    if (msgType === 'image' || msgType === 'file') {
+      return this.buildFileMessageContext(msgType, rawContent, {
+        channelId: 'feishu',
+        senderId,
+        chatType,
+        chatId,
+        messageId: String(message['message_id'] || Date.now()),
+        timestamp: Number(message['create_time']) || Date.now(),
+        rawPayload: event,
+      });
+    }
 
     let text = '';
     try {
@@ -620,6 +640,163 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       isDirectMessage: chatType === 'p2p',
       rawPayload: event,
     };
+  }
+
+  /**
+   * buildFileMessageContext — 构建图片/文件消息上下文
+   *
+   * 下载飞书消息中的文件并注册到 FileRegistry，以文本消息回退形式返回。
+   */
+  private buildFileMessageContext(
+    msgType: string,
+    rawContent: string,
+    ctx: {
+      channelId: 'feishu';
+      senderId: string;
+      chatType: string;
+      chatId: string;
+      messageId: string;
+      timestamp: number;
+      rawPayload: Record<string, unknown>;
+    }
+  ): MessageContext | null {
+    const baseMessage = {
+      channelId: 'feishu' as const,
+      senderId: ctx.senderId,
+      senderName: ctx.senderId,
+      groupId: ctx.chatType === 'group' ? ctx.chatId : undefined,
+      conversationId: ctx.chatId,
+      messageId: ctx.messageId,
+      timestamp: ctx.timestamp,
+      isDirectMessage: ctx.chatType === 'p2p',
+      rawPayload: ctx.rawPayload,
+    };
+
+    try {
+      const contentObj = JSON.parse(rawContent) as Record<string, unknown>;
+
+      if (msgType === 'image') {
+        const imageKey = String(contentObj['image_key'] || '');
+        if (!imageKey) return null;
+
+        // 异步下载图片（不阻塞消息处理）
+        this.downloadFeishuImage(imageKey, baseMessage).catch((err) => {
+          this.logger.error('飞书图片下载失败', { imageKey, error: String(err) });
+        });
+
+        return {
+          ...baseMessage,
+          messageType: 'text' as const,
+          content: `[图片消息 image_key: ${imageKey}]`,
+        };
+      }
+
+      if (msgType === 'file') {
+        const fileKey = String(contentObj['file_key'] || '');
+        const fileName = String(contentObj['file_name'] || `feishu_file_${fileKey}`);
+        if (!fileKey) return null;
+
+        // 异步下载文件（不阻塞消息处理）
+        this.downloadFeishuFile(fileKey, fileName, baseMessage).catch((err) => {
+          this.logger.error('飞书文件下载失败', { fileKey, error: String(err) });
+        });
+
+        return {
+          ...baseMessage,
+          messageType: 'text' as const,
+          content: `[文件消息: ${fileName} (file_key: ${fileKey})]`,
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * downloadFeishuImage — 下载飞书图片并注册到 FileRegistry
+   */
+  private async downloadFeishuImage(
+    imageKey: string,
+    baseMessage: {
+      channelId: 'feishu';
+      senderId: string;
+      messageId: string;
+      groupId?: string;
+      conversationId?: string;
+      isDirectMessage: boolean;
+    }
+  ): Promise<void> {
+    await this.ensureToken();
+    if (!this.tenantAccessToken) return;
+
+    const resp = await fetch(
+      `https://open.feishu.cn/open-apis/im/v1/images/${imageKey}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.tenantAccessToken}`,
+        },
+      }
+    );
+
+    if (!resp.ok) {
+      this.logger.error('飞书图片下载请求失败', { imageKey, status: resp.status });
+      return;
+    }
+
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    await this.handleInboundFile({
+      originalName: `feishu_image_${imageKey}.png`,
+      content: buffer,
+      sourceId: baseMessage.messageId,
+      mimeType: resp.headers.get('content-type') || 'image/png',
+      description: '飞书通道入站图片',
+    });
+  }
+
+  /**
+   * downloadFeishuFile — 下载飞书文件并注册到 FileRegistry
+   */
+  private async downloadFeishuFile(
+    fileKey: string,
+    fileName: string,
+    baseMessage: {
+      channelId: 'feishu';
+      senderId: string;
+      messageId: string;
+      groupId?: string;
+      conversationId?: string;
+      isDirectMessage: boolean;
+    }
+  ): Promise<void> {
+    await this.ensureToken();
+    if (!this.tenantAccessToken) return;
+
+    const resp = await fetch(
+      `https://open.feishu.cn/open-apis/im/v1/files/${fileKey}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.tenantAccessToken}`,
+        },
+      }
+    );
+
+    if (!resp.ok) {
+      this.logger.error('飞书文件下载请求失败', { fileKey, status: resp.status });
+      return;
+    }
+
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    await this.handleInboundFile({
+      originalName: fileName,
+      content: buffer,
+      sourceId: baseMessage.messageId,
+      mimeType: resp.headers.get('content-type') || 'application/octet-stream',
+      description: '飞书通道入站文件',
+    });
   }
 
   /**

@@ -225,7 +225,14 @@ export async function handleTestModel(
 }
 
 /**
- * GET /v1/models/current — 获取当前模型
+ * GET /v1/models/current — 获取当前模型信息
+ *
+ * 返回统一格式的当前模型数据，数据源优先级：
+ *   1. CoreAPIImpl.lastRouteDecision（SmartRouter 最新决策）
+ *   2. modelRouter.resolve('chat')（静态路由兜底）
+ *
+ * 响应格式与前端 CurrentModelInfo 接口对齐：
+ *   { modelId, provider, routerTier, routingMode, taskType, costThisSession, availableTasks }
  */
 export async function handleGetCurrentModel(
   _ctx: HandlerCtx,
@@ -233,15 +240,41 @@ export async function handleGetCurrentModel(
   res: http.ServerResponse,
 ): Promise<void> {
   try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    const { modelRouter } = await import('@modules/ai/modelRouter.js');
     const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry.js');
-    const defaultProviderId = providerRegistry.getDefaultProviderId();
-    let defaultModel = null;
-    if (defaultProviderId && providerRegistry.has(defaultProviderId)) {
-      const provider = providerRegistry.get(defaultProviderId);
-      defaultModel = { id: defaultProviderId, name: provider.displayName };
+
+    const coreAPI = getCoreAPI();
+    const lastDecision = coreAPI.getLastRouteDecision();
+    const smartRouter = coreAPI.getSmartRouter();
+
+    // 三态判断：dynamic（启用）| off（禁用）| static（无实例）
+    let routingMode: 'dynamic' | 'static' | 'off' = 'static';
+    if (smartRouter?.isEnabled()) {
+      routingMode = 'dynamic';
+    } else if (smartRouter && !smartRouter.isEnabled()) {
+      routingMode = 'off';
     }
+
+    const currentModel = lastDecision?.model ?? modelRouter.resolve('chat');
+    const defaultProviderId = lastDecision?.provider
+      ?? providerRegistry.getDefaultProviderId()
+      ?? '';
+
+    // ⚠️ costThisSession 暂填固定值，后续可接入 CostTracker.getTotalCostUSD() 补全
+    // ⚠️ availableTasks 暂填空数组，后续可接入 ModelRouter.getTasks() 补全
+    const response = {
+      modelId: currentModel,
+      provider: defaultProviderId,
+      routerTier: lastDecision?.tier ?? null,
+      routingMode,
+      taskType: 'chat',
+      costThisSession: 0,
+      availableTasks: [],
+    };
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(defaultModel || { id: '', name: '' }));
+    res.end(JSON.stringify(response));
   } catch (err) {
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
@@ -250,6 +283,9 @@ export async function handleGetCurrentModel(
 
 /**
  * PUT /v1/models/switch — 切换模型
+ *
+ * 接收真实模型名（如 deepseek-chat），自动解析为对应 Provider ID，
+ * 同时更新 CoreAPIImpl 的当前模型名，使后续 /v1/models/current 返回最新值。
  */
 export async function handleSwitchModel(
   _ctx: HandlerCtx,
@@ -261,7 +297,19 @@ export async function handleSwitchModel(
     const body = await readRequestBody(req);
     const { modelId } = JSON.parse(body);
     const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry.js');
-    providerRegistry.setDefaultProvider(modelId);
+
+    // 优先按模型名查找对应 Provider，再回退到直接按 Provider ID 设置
+    const resolvedProvider = providerRegistry.getByModel(modelId);
+    if (resolvedProvider) {
+      providerRegistry.setDefaultProvider(resolvedProvider.id);
+
+      // 同步更新 CoreAPIImpl 的当前模型名
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+      getCoreAPI().setModelName(modelId);
+    } else {
+      providerRegistry.setDefaultProvider(modelId);
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
@@ -273,14 +321,17 @@ export async function handleSwitchModel(
 /**
  * GET /v1/tasks — 任务列表
  */
+/**
+ * GET /v1/models/tasks — 获取任务分工配置（各子务对应的模型名）
+ */
 export async function handleGetTasks(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<void> {
   try {
-    const { taskRegistry } = await import('@modules/tasks/TaskRegistry.js');
-    const tasks = taskRegistry.getAllTasks().map(t => t.taskState);
+    const { modelRouter } = await import('@modules/ai/modelRouter.js');
+    const tasks = modelRouter.getTasks();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(tasks));
   } catch (err) {
@@ -290,7 +341,7 @@ export async function handleGetTasks(
 }
 
 /**
- * POST /v1/tasks/save — 保存任务
+ * PUT /v1/models/tasks — 保存任务分工配置
  */
 export async function handleSaveTasks(
   _ctx: HandlerCtx,
@@ -300,18 +351,9 @@ export async function handleSaveTasks(
   try {
     const { readRequestBody } = await import('./handler-utils');
     const body = await readRequestBody(req);
-    const { tasks } = JSON.parse(body);
-    const { taskRegistry } = await import('@modules/tasks/TaskRegistry.js');
-    const { NoteTask } = await import('@modules/tasks/NoteTask.js');
-    // 移除全部现存任务
-    for (const t of taskRegistry.getAllTasks()) {
-      await taskRegistry.remove(t.id);
-    }
-    // 注册新任务
-    for (const taskData of tasks) {
-      const noteTask = new NoteTask(taskData.id, taskData.description || '');
-      taskRegistry.register(noteTask, taskData.id);
-    }
+    const tasks = JSON.parse(body);
+    const { modelRouter } = await import('@modules/ai/modelRouter.js');
+    modelRouter.setTasks(tasks);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {

@@ -434,7 +434,7 @@ export class WebFetchTool extends BaseTool {
       await registry.registerFile({
         originalName: fileName,
         content,
-        source: FileSource.WEB_FETCH,
+        source: FileSource.TOOL_DOWNLOAD,
         sourceId: url,
         description: `WebFetch 下载: ${url}`,
         mimeType: contentType,

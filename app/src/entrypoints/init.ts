@@ -706,7 +706,9 @@ async function startDeferredPrefetches(): Promise<void> {
           thirdPartyAdapterRegistry.register(adapter);
           logger.info('ClawHubAdapter 已注册到 ThirdPartyAdapterRegistry');
         } catch (error) {
-          logger.warning('ClawHubAdapter 注册失败（非关键）', { error });
+          logger.warning('ClawHubAdapter 注册失败（非关键）', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       })(),
     ];

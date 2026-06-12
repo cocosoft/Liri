@@ -6,6 +6,7 @@
  */
 
 import { BaseChannelPlugin } from '@modules/channels/base';
+import type { RegisterFileResult } from '@modules/services/file/types';
 import type {
   IChannelPlugin,
   ChannelMeta,
@@ -17,7 +18,6 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AttachmentManager, AttachmentSource } from '../../components/attachments.js';
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',
@@ -564,11 +564,15 @@ class TelegramChannel extends BaseChannelPlugin {
   }
 
   /**
-   * 下载 Telegram 文件（语音/附件）
+   * 下载 Telegram 文件并注册到 FileRegistry
    * @param fileId Telegram 文件 ID
-   * @returns 本地保存路径
+   * @param originalName 原始文件名
+   * @returns 注册结果（含 fileId、保存路径等）
    */
-  private async downloadTelegramFile(fileId: string): Promise<string> {
+  private async downloadTelegramFile(
+    fileId: string,
+    originalName?: string
+  ): Promise<RegisterFileResult> {
     const fileResp = await this.transport.fetch(
       `/bot${this.botToken}/getFile?file_id=${fileId}`
     );
@@ -589,19 +593,16 @@ class TelegramChannel extends BaseChannelPlugin {
       throw new Error(`下载文件失败: HTTP ${fileResp2.status}`);
     }
     const audioBuffer = Buffer.from(await fileResp2.arrayBuffer());
-    const fileName = filePath.split('/').pop() || `voice_${fileId}.ogg`;
-    const attachmentManager = new AttachmentManager();
-    const attachment = attachmentManager.saveAttachment(
-      fileName,
-      audioBuffer,
-      'file',
-      'audio/ogg',
-      AttachmentSource.SESSION,
-      fileId,
-      'Telegram voice message'
-    );
+    const fileName = originalName || filePath.split('/').pop() || `telegram_${fileId}`;
 
-    return attachment.path;
+    // 通过基类的 handleInboundFile 注册到 FileRegistry
+    return this.handleInboundFile({
+      originalName: fileName,
+      content: audioBuffer,
+      sourceId: fileId,
+      mimeType: fileResp2.headers.get('content-type') || undefined,
+      description: 'Telegram 通道入站文件',
+    });
   }
 
   private async pollUpdates(): Promise<void> {
@@ -633,9 +634,9 @@ class TelegramChannel extends BaseChannelPlugin {
             const duration = (voice['duration'] as number) || 0;
             const mimeType = (voice['mime_type'] as string) || 'audio/ogg';
 
-            let filePath = '';
+            let regResult: Awaited<ReturnType<typeof this.downloadTelegramFile>> | null = null;
             try {
-              filePath = await this.downloadTelegramFile(fileId);
+              regResult = await this.downloadTelegramFile(fileId);
             } catch (error) {
               this.logger.error('Telegram 语音文件下载失败', {
                 fileId,
@@ -657,12 +658,19 @@ class TelegramChannel extends BaseChannelPlugin {
               conversationId: String(chat['id']),
               messageId: String(msg['message_id']),
               messageType: 'voice',
-              content: filePath
-                ? `[语音消息] (时长: ${duration}s, 已保存: ${filePath})`
+              content: regResult
+                ? `[语音消息] (时长: ${duration}s, 已保存: ${regResult.savedPath})`
                 : `[语音消息] (时长: ${duration}s)`,
               timestamp: (msg['date'] as number) * 1000,
               isDirectMessage: chatType === 'private',
               rawPayload: update as unknown as Record<string, unknown>,
+              attachments: regResult
+                ? [{
+                    fileId,
+                    fileName: regResult.savedName,
+                    mimeType,
+                  }]
+                : undefined,
             };
 
             this.handleIncomingMessage(voiceMessage).catch((error) => {

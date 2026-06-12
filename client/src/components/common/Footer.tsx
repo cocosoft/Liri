@@ -11,7 +11,8 @@ import ModelSwitcher from "../modelAdmin/ModelSwitcher";
 function Footer() {
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();
-  const { currentModelId, routerTier, loadCurrent } = useModelSwitchStore();
+  const { currentModelId, routerTier, routingMode, loadCurrent } =
+    useModelSwitchStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showModelSwitcher, setShowModelSwitcher] = useState(false);
   const [showCostDetail, setShowCostDetail] = useState(false);
@@ -182,11 +183,15 @@ function Footer() {
               >
                 {currentModelId}
               </span>
-              {routerTier && (
-                <span className="px-1 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded">
-                  {routerTier}
+              {routingMode === 'dynamic' && routerTier ? (
+                <span className="px-1 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">
+                  dynamic:{routerTier}
                 </span>
-              )}
+              ) : routingMode && routingMode !== 'static' ? (
+                <span className="px-1 py-0.5 text-[10px] font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded">
+                  {routingMode}
+                </span>
+              ) : null}
               <span className="text-gray-400">▼</span>
             </button>
           </>

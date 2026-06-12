@@ -5,7 +5,8 @@ import { useToastStore } from "../../stores/toastStore";
 import { SkeletonTable } from "../common/Skeleton";
 import SearchInput from "../common/SearchInput";
 import { fileService } from "../../services/fileService";
-import type { FileCategory, FilePreview } from "../../types";
+import type { FileCategory, FilePreview, FileStats } from "../../types";
+import FileListView from "./FileListView";
 
 type SortField = "name" | "size" | "modified_at";
 type SortOrder = "asc" | "desc";
@@ -33,6 +34,10 @@ const CATEGORY_CONFIG: Record<FileCategory, { label: string; icon: string; color
   attachments: { label: "上传文件", icon: "📁", color: "bg-purple-500" },
   knowledge: { label: "知识库", icon: "📚", color: "bg-orange-500" },
   memory: { label: "记忆", icon: "🧠", color: "bg-pink-500" },
+  inbound: { label: "入站", icon: "📥", color: "bg-teal-500" },
+  media: { label: "媒体", icon: "🎬", color: "bg-red-500" },
+  artifact: { label: "制品", icon: "🔧", color: "bg-indigo-500" },
+  notebook: { label: "笔记本", icon: "📓", color: "bg-yellow-500" },
 };
 
 function FileExplorerPage() {
@@ -69,10 +74,14 @@ function FileExplorerPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [previewFile, setPreviewFile] = useState<FilePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [fileStats, setFileStats] = useState<FileStats | null>(null);
+  const [showRegistry, setShowRegistry] = useState(false);
 
   useEffect(() => {
     loadDir(currentPath);
     loadWorkspaces();
+    // 加载文件统计
+    fileService.getFileStats().then(setFileStats).catch(() => {});
   }, []);
 
   const filteredEntries = entries.filter((entry) => {
@@ -235,6 +244,22 @@ function FileExplorerPage() {
         </div>
         <div className="flex gap-3 items-center">
           <button
+            onClick={() => {
+              setShowRegistry(!showRegistry);
+              if (!showRegistry) {
+                // 切换到 registry 视图时加载统计
+                fileService.getFileStats().then(setFileStats).catch(() => {});
+              }
+            }}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+              showRegistry
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+            }`}
+          >
+            📋 文件管理
+          </button>
+          <button
             onClick={() => setActivePage("chat")}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
@@ -247,7 +272,16 @@ function FileExplorerPage() {
         {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
           <button
             key={key}
-            onClick={() => setCategory(key as FileCategory)}
+            onClick={() => {
+              setCategory(key as FileCategory);
+              // 新分类自动切换到文件管理视图
+              if (['inbound', 'media', 'artifact', 'notebook'].includes(key)) {
+                setShowRegistry(true);
+                fileService.getFileStats().then(setFileStats).catch(() => {});
+              } else {
+                setShowRegistry(false);
+              }
+            }}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
               currentCategory === key
                 ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20"
@@ -259,6 +293,32 @@ function FileExplorerPage() {
           </button>
         ))}
       </div>
+
+      {/* 文件管理视图 vs 目录浏览 */}
+      {showRegistry ? (
+        <FileListView />
+      ) : (
+        <>
+      {/* 统计概览 */}
+      {fileStats && (
+        <div className="flex items-center gap-6 px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            📁 文件总数: <strong className="text-gray-700 dark:text-gray-300">{fileStats.totalFiles}</strong>
+          </span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            📦 总大小: <strong className="text-gray-700 dark:text-gray-300">{formatSize(fileStats.totalSize)}</strong>
+          </span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            📤 今日入站: <strong className="text-gray-700 dark:text-gray-300">{fileStats.todayInbound}</strong>
+          </span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            🔁 去重节省: <strong className="text-gray-700 dark:text-gray-300">{fileStats.dedupSaved} 次</strong>
+            {fileStats.dedupSize > 0 && (
+              <span className="text-gray-400 ml-1">({formatSize(fileStats.dedupSize)})</span>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
@@ -544,6 +604,10 @@ function FileExplorerPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 关闭目录视图的条件分支 */}
+        </>
       )}
     </div>
   );

@@ -24,6 +24,7 @@ import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource, type StoreZone } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
+import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -49,6 +50,8 @@ export interface CompileOptions {
   concurrency?: number;
   /** 编译后是否自动运行 lint 检查，默认 true */
   lint?: boolean;
+  /** 编译时使用的模型名，默认使用 aiService 的默认模型 */
+  model?: string;
 }
 
 export interface CompileResult {
@@ -84,7 +87,7 @@ export class KnowledgeCompiler {
    * 每条 raw 源文件触发多页面生成，完成后更新索引
    */
   async compile(options: CompileOptions = {}): Promise<CompileResult> {
-    const { force = false } = options;
+    const { force = false, model } = options;
 
     const result: CompileResult = {
       compiled: 0,
@@ -106,6 +109,16 @@ export class KnowledgeCompiler {
 
     if (rawFiles.length === 0) return result;
 
+    // 检查是否有可用 Provider：options.model 显式指定时不检查
+    // 无 model 时，getClientForModel('') 会回退到 ProviderRegistry 的默认 Provider
+    if (!model && providerRegistry.size === 0) {
+      const errMsg =
+        '未找到可用供应商，跳过编译。请通过 /provider 命令配置供应商（如 deepseek/openai）。';
+      logger.error('知识编译失败', { error: errMsg });
+      result.errors.push(errMsg);
+      return result;
+    }
+
     for (const rawFile of rawFiles) {
       try {
         const needsCompile = force || (await this.needsRecompile(rawFile));
@@ -114,7 +127,7 @@ export class KnowledgeCompiler {
           continue;
         }
 
-        const pages = await this.compileFile(rawFile);
+        const pages = await this.compileFile(rawFile, model);
         result.compiled++;
         result.pagesCreated += pages.length;
         logger.info('文件编译完成', { file: rawFile, pages: pages.length });
@@ -242,7 +255,7 @@ export class KnowledgeCompiler {
    *
    * @returns 生成的所有页面文件路径列表
    */
-  private async compileFile(rawFile: string): Promise<string[]> {
+  private async compileFile(rawFile: string, model?: string): Promise<string[]> {
     const rawContent = await readFile(rawFile, 'utf-8');
     const targetPath = this.getWikiTargetPath(rawFile);
     const fileName =
@@ -252,7 +265,8 @@ export class KnowledgeCompiler {
     const pagesContent = await this.generateManyPages(
       fileName,
       rawContent,
-      targetPath
+      targetPath,
+      model
     );
 
     // 写入所有页面
@@ -367,7 +381,8 @@ export class KnowledgeCompiler {
   private async generateManyPages(
     title: string,
     rawContent: string,
-    targetPath: string
+    targetPath: string,
+    model?: string
   ): Promise<Array<{ filePath: string; content: string }>> {
     const systemPrompt = `你是一个知识库编译助手。采用 "many-to-many" 编译范型：
 一条源文件应产出多个独立 wiki 页面（摘要页 + 相关概念页）。
@@ -439,7 +454,7 @@ summary: 概念简介
       },
     ];
 
-    const response = await this.aiService.generate(messages);
+    const response = await this.aiService.generate(messages, model);
     const rawOutput = response.content.trim();
 
     // 按 PAGE_BREAK 分隔为多个页面

@@ -311,17 +311,26 @@ export class LocalHTTPService {
 
   /**
    * 启动编译调度器
+   * 仅在 AI 服务已配置默认模型时才启用 runOnStart，避免无模型时大量编译失败
    */
   private async startCompileScheduler(): Promise<void> {
     try {
       const { aiService } = await import('@modules/ai/services/aiService');
+      const defaultModel = aiService.getDefaultModel();
+      if (!defaultModel) {
+        logger.warning(
+          '知识库编译调度器跳过首次编译：未配置默认模型，调度器仍按周期运行'
+        );
+      }
+
       const { runKnowledgeCompile } =
         await import('@modules/knowledge/KnowledgeCompiler');
       const { KnowledgeCompileScheduler } =
         await import('@modules/knowledge/KnowledgeCompileScheduler');
       this.compileScheduler = new KnowledgeCompileScheduler(
-        (force?: boolean) => runKnowledgeCompile(aiService, { force }),
-        { runOnStart: true }
+        (force?: boolean) =>
+          runKnowledgeCompile(aiService, { force, model: defaultModel || undefined }),
+        { runOnStart: !!defaultModel }
       );
       this.compileScheduler.start();
     } catch (err) {

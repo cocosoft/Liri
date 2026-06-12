@@ -1,4 +1,4 @@
-import type { FileEntry, WorkspaceInfo } from "../types";
+import type { FileEntry, WorkspaceInfo, FileRegistryRecord, FileSearchParams, FileSearchResult, FileStats } from "../types";
 import { http } from "./httpClient";
 
 const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
@@ -52,6 +52,26 @@ function createFallbackFileService() {
     saveToMemory: async (_filePath: string): Promise<void> => {
       throw new Error("Not implemented");
     },
+    searchFiles: async (params: FileSearchParams): Promise<FileSearchResult> => {
+      const queryParams: Record<string, unknown> = {};
+      if (params.query) queryParams.q = params.query;
+      if (params.source) queryParams.source = params.source;
+      if (params.storeZone) queryParams.store_zone = params.storeZone;
+      if (params.startDate) queryParams.start_date = params.startDate;
+      if (params.endDate) queryParams.end_date = params.endDate;
+      if (params.cursor) queryParams.cursor = params.cursor;
+      if (params.limit) queryParams.limit = params.limit;
+      return http.get<FileSearchResult>("/v1/files/registry/search", { params: queryParams });
+    },
+    getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
+      return http.get<FileRegistryRecord>(`/v1/files/registry/detail`, { params: { fileId } });
+    },
+    getFileStats: async (): Promise<FileStats> => {
+      return http.get<FileStats>("/v1/files/registry/stats");
+    },
+    batchDelete: async (ids: string[]): Promise<void> => {
+      await http.post("/v1/files/registry/batch-delete", { ids });
+    },
   };
 }
 
@@ -93,6 +113,26 @@ function createTauriFileService() {
     },
     saveToMemory: async (filePath: string): Promise<void> => {
       await http.post("/v1/memory/create-from-file", { filePath });
+    },
+    searchFiles: async (params: FileSearchParams): Promise<FileSearchResult> => {
+      const queryParams: Record<string, unknown> = {};
+      if (params.query) queryParams.q = params.query;
+      if (params.source) queryParams.source = params.source;
+      if (params.storeZone) queryParams.store_zone = params.storeZone;
+      if (params.startDate) queryParams.start_date = params.startDate;
+      if (params.endDate) queryParams.end_date = params.endDate;
+      if (params.cursor) queryParams.cursor = params.cursor;
+      if (params.limit) queryParams.limit = params.limit;
+      return http.get<FileSearchResult>("/v1/files/registry/search", { params: queryParams });
+    },
+    getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
+      return http.get<FileRegistryRecord>("/v1/files/registry/detail", { params: { fileId } });
+    },
+    getFileStats: async (): Promise<FileStats> => {
+      return http.get<FileStats>("/v1/files/registry/stats");
+    },
+    batchDelete: async (ids: string[]): Promise<void> => {
+      await http.post("/v1/files/registry/batch-delete", { ids });
     },
   };
 }

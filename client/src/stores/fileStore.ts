@@ -1,10 +1,12 @@
 import { create } from "zustand";
-import type { FileEntry, FileCategory, WorkspaceInfo } from "../types";
+import type { FileEntry, FileCategory, WorkspaceInfo, FileRegistryRecord, FileSearchParams, FileStats } from "../types";
 import {
   fileService,
   type FileDetectResult,
   type ConvertFileOptions,
 } from "../services/fileService";
+
+type FileViewMode = 'directory' | 'registry';
 
 interface FileStore {
   entries: FileEntry[];
@@ -32,9 +34,23 @@ interface FileStore {
   sendToAI: (filePath: string) => Promise<void>;
   saveToKnowledge: (filePath: string) => Promise<void>;
   saveToMemory: (filePath: string) => Promise<void>;
+
+  // FileRegistry 查询
+  viewMode: FileViewMode;
+  registryResults: FileRegistryRecord[];
+  registryTotal: number;
+  registryNextCursor: string | undefined;
+  registryParams: FileSearchParams;
+  fileStats: FileStats | null;
+  registryLoading: boolean;
+  setViewMode: (mode: FileViewMode) => void;
+  setRegistryParams: (params: FileSearchParams) => void;
+  searchRegistry: () => Promise<void>;
+  loadMoreRegistry: () => Promise<void>;
+  fetchFileStats: () => Promise<void>;
 }
 
-const CORE_DIRECTORIES: Record<FileCategory, string> = {
+const CORE_DIRECTORIES: Partial<Record<FileCategory, string>> = {
   output: "output",
   downloads: "downloads",
   attachments: "attachments",
@@ -54,6 +70,15 @@ export const useFileStore = create<FileStore>((set, get) => ({
   detectResult: null,
   convertResult: null,
   selectedFile: null,
+
+  // FileRegistry 查询
+  viewMode: 'directory',
+  registryResults: [],
+  registryTotal: 0,
+  registryNextCursor: undefined,
+  registryParams: {},
+  fileStats: null,
+  registryLoading: false,
 
   loadDir: async (path: string) => {
     set({ isLoading: true, error: null });
@@ -127,7 +152,18 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   setCategory: async (category: FileCategory) => {
     set({ currentCategory: category });
-    const path = CORE_DIRECTORIES[category];
+
+    // 新分类走 FileRegistry 视图
+    const registryCategories: FileCategory[] = ['inbound', 'media', 'artifact', 'notebook'];
+    if (registryCategories.includes(category)) {
+      set({
+        viewMode: 'registry',
+        registryParams: { storeZone: category === 'inbound' ? 'inbound' : category === 'media' ? 'media' : category === 'artifact' ? 'artifact' : 'notebook' },
+      });
+      return;
+    }
+
+    const path = CORE_DIRECTORIES[category]!;
     await get().loadDir(path);
   },
 
@@ -165,6 +201,62 @@ export const useFileStore = create<FileStore>((set, get) => ({
       await fileService.saveToMemory(filePath);
     } catch (e) {
       set({ error: String(e) });
+    }
+  },
+
+  // ─── FileRegistry 查询 ───
+
+  setViewMode: (mode) => {
+    set({ viewMode: mode });
+  },
+
+  setRegistryParams: (params) => {
+    set({ registryParams: params });
+  },
+
+  searchRegistry: async () => {
+    const { registryParams } = get();
+    set({ registryLoading: true, error: null });
+    try {
+      const result = await fileService.searchFiles(registryParams);
+      set({
+        registryResults: result.items,
+        registryTotal: result.total,
+        registryNextCursor: result.nextCursor,
+        registryLoading: false,
+      });
+    } catch (e) {
+      set({ error: String(e), registryLoading: false });
+    }
+  },
+
+  loadMoreRegistry: async () => {
+    const { registryNextCursor, registryResults, registryParams } = get();
+    if (!registryNextCursor) return;
+    set({ registryLoading: true });
+    try {
+      const result = await fileService.searchFiles({
+        ...registryParams,
+        cursor: registryNextCursor,
+      });
+      set({
+        registryResults: [...registryResults, ...result.items],
+        registryTotal: result.total,
+        registryNextCursor: result.nextCursor,
+        registryLoading: false,
+      });
+    } catch (e) {
+      set({ error: String(e), registryLoading: false });
+    }
+  },
+
+  fetchFileStats: async () => {
+    try {
+      const stats = await fileService.getFileStats();
+      set({ fileStats: stats });
+    } catch (e) {
+      // stats 加载失败不阻塞 UI
+      console.warn('Failed to fetch file stats:', e);
     }
   },
 }));

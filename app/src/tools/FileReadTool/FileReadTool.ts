@@ -424,12 +424,33 @@ export class FileReadTool extends BaseTool {
   }
 
   /**
-   * 文件读取后自动触发知识库摄取
-   * 异步执行，不阻塞工具调用
+   * autoIngestFile — 自动注册文件到 FileRegistry 及知识库
+   *
+   * 工具读取文件后自动注册到 FileRegistry 统一管理，
+   * 并同步到知识库（静默执行，不阻塞工具调用）。
    */
   private autoIngestFile(filePath: string): void {
     Promise.resolve().then(async () => {
       try {
+        // Step 1: 注册到 FileRegistry
+        const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+        const registry = FileRegistry.getInstance();
+        const { readFile } = await import('fs/promises');
+        const { basename } = await import('path');
+        const content = await readFile(filePath);
+        await registry.registerFile({
+          originalName: basename(filePath),
+          content,
+          source: 'auto_ingest',
+          sourceId: filePath,
+          description: 'FileReadTool 自动注册',
+        });
+      } catch {
+        // 静默失败，不干扰主流程
+      }
+
+      try {
+        // Step 2: 知识库同步（原逻辑）
         const { getDefaultIngestionService } =
           await import('../../knowledge/ingestion/FileIngestionService');
         const service = getDefaultIngestionService();

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore, inferFileType } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useAppStore } from "../../stores/appStore";
@@ -636,10 +636,23 @@ function ChatInput() {
       }
 
       const uploadedPaths: string[] = [];
+      const uploadedFiles: Array<{ name: string; path: string }> = [];
 
       for (const file of attachments) {
         const result = await fileService.uploadBase64(file.name, file.data);
         uploadedPaths.push(result.path);
+        uploadedFiles.push({ name: file.name, path: result.path });
+      }
+
+      // 将上传的文件添加到会话文件列表，供 FilePreviewPanel 展示
+      const addSessionFile = useChatStore.getState().addSessionFile;
+      for (const f of uploadedFiles) {
+        addSessionFile({
+          path: f.path,
+          name: f.name,
+          content: '',
+          type: inferFileType(f.path),
+        });
       }
 
       let messageContent = trimmed;

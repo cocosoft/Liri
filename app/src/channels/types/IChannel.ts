@@ -73,6 +73,24 @@ export interface ChannelCapabilities {
   webhook: boolean;
 }
 
+/**
+ * 消息附件
+ */
+export interface MessageAttachment {
+  /** 平台文件 ID（如 Telegram file_id） */
+  fileId?: string;
+  /** 原始文件名 */
+  fileName: string;
+  /** MIME 类型 */
+  mimeType?: string;
+  /** 已下载的文件内容 */
+  data?: Buffer;
+  /** 文件远程 URL（未下载时） */
+  url?: string;
+  /** 文件大小（字节） */
+  size?: number;
+}
+
 export interface MessageContext {
   channelId: ChannelId;
   senderId: string;
@@ -85,6 +103,9 @@ export interface MessageContext {
   timestamp: number;
   isDirectMessage: boolean;
   rawPayload: Record<string, unknown>;
+
+  /** 消息附件列表（渠道下载后通过 FileRegistry 注册前提供） */
+  attachments?: MessageAttachment[];
 }
 
 export interface SendResult {

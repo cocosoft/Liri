@@ -22,11 +22,10 @@
 
 import { Database } from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { writeFile, unlink, stat } from 'fs/promises';
-import { join } from 'path';
+import { writeFile, unlink, stat, mkdir } from 'fs/promises';
+import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { resolveDbPath, resolveInboundDir, resolveMediaDir } from '@modules/core/paths';
 import { getCreateTableSqlList, FILES_TABLE, FILES_FTS_TABLE } from './fileSchema';
@@ -192,15 +191,16 @@ export class FileRegistry {
     // 确定保存路径
     const savedPath = this.resolveSavedPath(storeZone, source, mediaType, savedName);
 
-    // Step 4: 写文件到磁盘
+    // Step 4: 写文件到磁盘（自动创建目录）
     try {
+      await mkdir(dirname(savedPath), { recursive: true });
       await writeFile(savedPath, contentBuffer);
     } catch (err) {
       throw new AppError(
         `文件写入失败: ${savedPath}`,
         ErrorCategory.FILESYSTEM,
         ErrorSeverity.HIGH,
-        ErrorCodes.IO_ERROR?.code || 'IO_ERROR',
+        'FILE_WRITE_FAILED',
         { cause: err }
       );
     }
@@ -238,7 +238,7 @@ export class FileRegistry {
         '文件注册失败，已回滚',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        ErrorCodes.DB_ERROR?.code || 'DB_ERROR',
+        'DB_ERROR',
         { cause: err }
       );
     }
@@ -558,7 +558,7 @@ export class FileRegistry {
         `文件不存在: ${filePath}`,
         ErrorCategory.FILESYSTEM,
         ErrorSeverity.HIGH,
-        ErrorCodes.FILE_NOT_FOUND?.code || 'FILE_NOT_FOUND'
+        'FILE_NOT_FOUND'
       );
     }
 
@@ -601,7 +601,7 @@ export class FileRegistry {
         '大文件注册失败',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        ErrorCodes.DB_ERROR?.code || 'DB_ERROR',
+        'DB_ERROR',
         { cause: err }
       );
     }

@@ -11,6 +11,7 @@ interface ModelSwitchState {
   currentModelId: string;
   currentProvider: string;
   routerTier: string;
+  routingMode: 'dynamic' | 'static' | 'off';
   costThisSession: number;
   availableTasks: CurrentModelInfo["availableTasks"];
   tasks: TaskModelConfig;
@@ -27,6 +28,7 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
   currentModelId: "",
   currentProvider: "deepseek",
   routerTier: "",
+  routingMode: 'static',
   costThisSession: 0,
   availableTasks: [],
   tasks: {},
@@ -41,6 +43,7 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
         currentModelId: info.modelId,
         currentProvider: info.provider,
         routerTier: info.routerTier ?? "",
+        routingMode: info.routingMode ?? 'static',
         costThisSession: info.costThisSession,
         availableTasks: info.availableTasks,
         isLoading: false,

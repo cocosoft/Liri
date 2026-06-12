@@ -18,6 +18,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import type { RegisterFileInput, RegisterFileResult } from '@modules/services/file/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { MultiAccountManager } from '@modules/channels/accounts';
@@ -59,6 +60,19 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
 
   /** 默认消息发送目标（群 ID / 用户 ID），子类可在 onConnect 中设置 */
   homeChannelId = '';
+
+  // ─── 模型提示（渠道场景透传） ───────────────────────────
+  private _modelHint = '';
+
+  /**
+   * 设置模型提示
+   * 当渠道回复消息时，自动在消息尾部追加模型名称提示，
+   * 帮助用户了解当前回复来自哪个 AI 模型。
+   * @param hint 模型名称提示（如 "gpt-4o-mini"），空字符串表示不追加
+   */
+  setModelHint(hint: string): void {
+    this._modelHint = hint;
+  }
 
   /** 多账号管理器 — 子类可在构造函数中注册账号 */
   protected readonly multiAccount = new MultiAccountManager();
@@ -194,7 +208,10 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
   readonly outbound: IChannelOutboundAdapter = {
     sendText: async (target: string, content: string) => {
       const start = Date.now();
-      const result = await this.sendTextMessage(target, content);
+      const finalContent = this._modelHint
+        ? `${content}\n[模型: ${this._modelHint}]`
+        : content;
+      const result = await this.sendTextMessage(target, finalContent);
       result.latencyMs = Date.now() - start;
       this._state = { ...this._state, lastMessageAt: Date.now() };
       return result;
@@ -202,13 +219,16 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
 
     sendMarkdown: async (target: string, content: string) => {
       const start = Date.now();
+      const finalContent = this._modelHint
+        ? `${content}\n\n**模型**: ${this._modelHint}`
+        : content;
       if (this.meta.markdownCapable) {
-        const result = await this.sendMarkdownMessage(target, content);
+        const result = await this.sendMarkdownMessage(target, finalContent);
         result.latencyMs = Date.now() - start;
         this._state = { ...this._state, lastMessageAt: Date.now() };
         return result;
       }
-      const result = await this.sendTextMessage(target, content);
+      const result = await this.sendTextMessage(target, finalContent);
       result.latencyMs = Date.now() - start;
       this._state = { ...this._state, lastMessageAt: Date.now() };
       return result;
@@ -304,6 +324,32 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
    */
   protected setInboundListening(listening: boolean): void {
     this._inboundListening = listening;
+  }
+
+  /**
+   * handleInboundFile — 入站文件注册到 FileRegistry
+   *
+   * 渠道收到文件消息后调用此方法，将文件注册到 FileRegistry 统一管理。
+   * 子类只需提供文件内容和元信息，无需关心存储路径、MD5 去重等细节。
+   *
+   * @param input 注册文件输入（原始文件名、内容、来源、MIME 类型等）
+   * @returns 注册结果（包含 fileId、保存路径等信息）
+   */
+  protected async handleInboundFile(
+    input: Omit<RegisterFileInput, 'source'> & {
+      source?: RegisterFileInput['source'];
+    }
+  ): Promise<RegisterFileResult> {
+    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const registry = FileRegistry.getInstance();
+    return registry.registerFile({
+      content: input.content,
+      originalName: input.originalName,
+      source: input.source || `channel_${this.id}`,
+      sourceId: input.sourceId,
+      mimeType: input.mimeType,
+      description: input.description,
+    });
   }
 
   /**

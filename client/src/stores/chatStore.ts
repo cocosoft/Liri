@@ -128,7 +128,7 @@ const EXT_TO_TYPE: Record<string, FileType> = {
  * 根据文件扩展名推断文件类型（S0-5/6）
  * 用于后端返回 type="text" 或前端手工创建文件时的类型补正
  */
-function inferFileType(filePath: string): FileType {
+export function inferFileType(filePath: string): FileType {
   const lower = filePath.toLowerCase();
   for (const [ext, type] of Object.entries(EXT_TO_TYPE)) {
     if (lower.endsWith(ext)) {

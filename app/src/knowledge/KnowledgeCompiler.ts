@@ -1,15 +1,20 @@
 /**
  * LLM 知识编译管道 (KnowledgeCompiler)
- * 对标 OpenClaw wiki 编译模式与 Hermes memory provider 架构
+ * Many-to-many 编译范型 — 对标 Karpathy LLM Wiki 方法论
+ *
+ * 一条 raw 源文件触发多页面更新：
+ *   1. 创建/更新主摘要页
+ *   2. 提取实体/概念生成独立页面
+ *   3. 更新现有相关页面（交叉引用、矛盾标注）
  *
  * 职责：
  *   1. 读取 raw/ 目录的原始数据文件
- *   2. 通过 LLM 编译为结构化 Markdown wiki 文档
- *   3. 写入知识库目录并更新摘要缓存
+ *   2. 通过 LLM 编译为多个结构化 Markdown wiki 页面
+ *   3. 写入知识库目录并更新索引（index.md / log.md）
  *   4. 追踪原始文件来源（通过 companion .meta.json）
  */
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
@@ -17,6 +22,8 @@ import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/core/paths';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource, type StoreZone } from '@modules/services/file/types';
+import { IndexManager } from './IndexManager';
+import { WikiLinter, defaultRules } from './lint/WikiLinter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -32,11 +39,16 @@ const COMPILABLE_EXTENSIONS = new Set([
   '.yml',
 ]);
 
+/** LLM 输出中 page-break 分隔符 */
+const PAGE_BREAK = '---page-break---';
+
 export interface CompileOptions {
   /** 是否强制重编译所有文件，默认 false（仅编译更新的文件） */
   force?: boolean;
   /** 最大并发编译数，默认 3 */
   concurrency?: number;
+  /** 编译后是否自动运行 lint 检查，默认 true */
+  lint?: boolean;
 }
 
 export interface CompileResult {
@@ -44,25 +56,32 @@ export interface CompileResult {
   skipped: number;
   errors: string[];
   totalFound: number;
+  /** many-to-many: 实际生成的 wiki 页面总数（一条源文件可生成多页） */
+  pagesCreated: number;
 }
 
 /**
  * LLM 知识编译器
- * 将 raw/ 原始数据处理为结构化 wiki 文档
+ * Many-to-many 编译范型：
+ *   一条 raw 源文件 → LLM 产出多个 wiki 页面（摘要页 + 实体/概念页）
+ *   自动维护 index.md / log.md，确保知识"积累"而非替换。
  */
 export class KnowledgeCompiler {
   private knowledgeRoot: string;
   private rawDir: string;
   private aiService: AIService;
+  private indexManager: IndexManager;
 
   constructor(aiService: AIService) {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
     this.rawDir = join(this.knowledgeRoot, 'raw');
     this.aiService = aiService;
+    this.indexManager = new IndexManager(this.knowledgeRoot);
   }
 
   /**
-   * 执行编译
+   * 执行编译（many-to-many）
+   * 每条 raw 源文件触发多页面生成，完成后更新索引
    */
   async compile(options: CompileOptions = {}): Promise<CompileResult> {
     const { force = false } = options;
@@ -72,6 +91,7 @@ export class KnowledgeCompiler {
       skipped: 0,
       errors: [],
       totalFound: 0,
+      pagesCreated: 0,
     };
 
     if (!existsSync(this.rawDir)) {
@@ -94,9 +114,10 @@ export class KnowledgeCompiler {
           continue;
         }
 
-        await this.compileFile(rawFile);
+        const pages = await this.compileFile(rawFile);
         result.compiled++;
-        logger.info('文件编译完成', { file: rawFile });
+        result.pagesCreated += pages.length;
+        logger.info('文件编译完成', { file: rawFile, pages: pages.length });
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
         result.errors.push(`${rawFile}: ${errMsg}`);
@@ -104,8 +125,52 @@ export class KnowledgeCompiler {
       }
     }
 
+    // many-to-many: 全部编译完成后更新索引
+    if (result.pagesCreated > 0) {
+      await this.indexManager.updateIndexMd();
+      await this.indexManager.appendLog({
+        timestamp: Date.now(),
+        action: 'compile',
+        source: 'KnowledgeCompiler',
+        pages: [],
+        detail: `many-to-many 编译: ${result.compiled} 个源文件 → ${result.pagesCreated} 个页面`,
+      });
+    }
+
+    // 编译后自动运行 lint 检查
+    const shouldLint = options.lint !== false;
+    if (shouldLint && result.pagesCreated > 0) {
+      try {
+        const linter = new WikiLinter(defaultRules);
+        const lintReport = await linter.run(this.knowledgeRoot);
+        const { error, warning } = lintReport.summary;
+        if (error > 0 || warning > 0) {
+          logger.warn(
+            `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
+            { lintSummary: lintReport.summary }
+          );
+          // 将 lint 结果追加到 log.md
+          await this.indexManager.appendLog({
+            timestamp: Date.now(),
+            action: 'lint',
+            source: 'KnowledgeCompiler',
+            pages: [],
+            detail: `lint: ${error} errors, ${warning} warnings`,
+          });
+        } else {
+          logger.info('编译后 lint 检查通过');
+        }
+      } catch (lintError) {
+        logger.error('编译后 lint 执行失败', {
+          error: lintError instanceof Error ? lintError.message : String(lintError),
+        });
+      }
+    }
+
     logger.info(
-      `编译完成: ${result.compiled} 个编译, ${result.skipped} 个跳过, ${result.errors.length} 个错误`
+      `many-to-many 编译完成: ${result.compiled} 个源文件, ` +
+      `${result.pagesCreated} 个页面, ${result.skipped} 个跳过, ` +
+      `${result.errors.length} 个错误`
     );
 
     return result;
@@ -132,25 +197,33 @@ export class KnowledgeCompiler {
   }
 
   /**
-   * 判断是否需要重编译
-   * 比较 raw 源文件和目标 wiki 文件的修改时间
+   * 判断是否需要重编译（many-to-many 感知）
+   * 检查 .meta.json 中记录的 pages 列表，任一页面缺失或过时就重编译
    */
   private async needsRecompile(rawFile: string): Promise<boolean> {
-    const wikiFile = this.getWikiTargetPath(rawFile);
-
-    if (!existsSync(wikiFile)) return true;
+    const metaFile = `${rawFile}.meta.json`;
+    if (!existsSync(metaFile)) return true;
 
     try {
+      const metaContent = await readFile(metaFile, 'utf-8');
+      const meta = JSON.parse(metaContent);
+      const pages: string[] = meta.pages;
+      if (!pages || pages.length === 0) return true;
+
       const rawStat = await stat(rawFile);
-      const wikiStat = await stat(wikiFile);
-      return rawStat.mtimeMs > wikiStat.mtimeMs;
+      for (const pagePath of pages) {
+        if (!existsSync(pagePath)) return true;
+        const pageStat = await stat(pagePath);
+        if (rawStat.mtimeMs > pageStat.mtimeMs) return true;
+      }
+      return false;
     } catch {
       return true;
     }
   }
 
   /**
-   * 获取编译后的目标路径
+   * 获取主摘要页的目标路径（many-to-many 中的"主入口页"）
    */
   private getWikiTargetPath(rawFile: string): string {
     const baseName = rawFile.replace(
@@ -162,48 +235,77 @@ export class KnowledgeCompiler {
   }
 
   /**
-   * 编译单个文件
+   * 编译单个文件 → 产出多个 wiki 页面（many-to-many）
+   *
+   * 调用 LLM 生成多页内容（以 PAGE_BREAK 分隔），
+   * 每页写入独立文件，并更新 companion .meta.json 记录 pages 列表
+   *
+   * @returns 生成的所有页面文件路径列表
    */
-  private async compileFile(rawFile: string): Promise<void> {
+  private async compileFile(rawFile: string): Promise<string[]> {
     const rawContent = await readFile(rawFile, 'utf-8');
     const targetPath = this.getWikiTargetPath(rawFile);
     const fileName =
       targetPath.split(/[\\/]/).pop()?.replace(/\.md$/, '') || 'untitled';
 
-    const wikiContent = await this.generateWikiContent(fileName, rawContent);
-
-    // 读取 companion meta.json 注入原始文件追溯信息
-    const finalContent = await this.injectOriginalFileMeta(
-      rawFile,
-      wikiContent
+    // many-to-many: 调用 LLM 生成多页内容
+    const pagesContent = await this.generateManyPages(
+      fileName,
+      rawContent,
+      targetPath
     );
 
-    await writeFile(targetPath, finalContent, 'utf-8');
+    // 写入所有页面
+    const writtenPages: string[] = [];
+    for (const { filePath, content } of pagesContent) {
+      const finalContent = await this.injectOriginalFileMeta(
+        rawFile,
+        content,
+        filePath
+      );
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, finalContent, 'utf-8');
+      writtenPages.push(filePath);
+    }
+
+    // 更新 companion .meta.json 记录 pages 列表
+    const metaFile = `${rawFile}.meta.json`;
+    const meta = { pages: writtenPages, updatedAt: Date.now() };
+    await writeFile(metaFile, JSON.stringify(meta, null, 2), 'utf-8');
 
     // 注册编译后的知识文档到 FileRegistry
     try {
       const registry = FileRegistry.getInstance();
       await registry.initDatabase();
-      await registry.registerFile({
-        originalName: targetPath.split(/[\\/]/).pop() || 'compiled.md',
-        content: finalContent,
-        source: FileSource.AUTO_INGEST,
-        sourceId: rawFile.split(/[\\/]/).pop() || 'raw',
-        description: `知识编译: ${fileName}`,
-        mimeType: 'text/markdown',
-        storeZone: 'inbound',
-      });
+      for (const pagePath of writtenPages) {
+        await registry.registerFile({
+          originalName: pagePath.split(/[\\/]/).pop() || 'page.md',
+          content: pagesContent.find((p) => p.filePath === pagePath)?.content || '',
+          source: FileSource.AUTO_INGEST,
+          sourceId: rawFile.split(/[\\/]/).pop() || 'raw',
+          description: `知识编译: ${pagePath.split(/[\\/]/).pop()}`,
+          mimeType: 'text/markdown',
+          storeZone: 'inbound',
+        });
+      }
     } catch {
       // 注册失败不影响编译主流程
     }
+
+    return writtenPages;
   }
 
   /**
    * 从 companion .meta.json 读取原始文件信息并注入 frontmatter
+   *
+   * @param rawFile    源文件路径
+   * @param wikiContent  待注入的 wiki 内容
+   * @param _targetPath  目标文件路径（当前仅用于签名一致，预留扩展用）
    */
   private async injectOriginalFileMeta(
     rawFile: string,
-    wikiContent: string
+    wikiContent: string,
+    _targetPath?: string
   ): Promise<string> {
     const metaFile = `${rawFile}.meta.json`;
     if (!existsSync(metaFile)) return wikiContent;
@@ -247,26 +349,46 @@ export class KnowledgeCompiler {
   }
 
   /**
-   * 使用 LLM 生成结构化 wiki 文档
+   * 多页 LLM 生成（many-to-many）
+   *
+   * 将一条 raw 源文件发送给 LLM，要求产出多个独立 wiki 页面：
+   *   - 第一页为主摘要页（概述/背景/核心概念）
+   *   后续页为关联的实体/概念/术语页面
+   *
+   * 每页以 PAGE_BREAK (`---page-break---`) 分隔，
+   * 每页包含独立 frontmatter（id, title, kind, tags, summary）
+   * 以及 Markdown 正文。
+   *
+   * @param title    主摘要页标题
+   * @param rawContent  源文件原始内容
+   * @param targetPath  主摘要页的目标路径（用于计算关联页路径）
+   * @returns  {filePath, content}[]  要写入的页面列表
    */
-  private async generateWikiContent(
+  private async generateManyPages(
     title: string,
-    rawContent: string
-  ): Promise<string> {
-    const systemPrompt = `你是一个知识库编译助手。将以下原始内容编译为结构化的 Markdown wiki 文档。
+    rawContent: string,
+    targetPath: string
+  ): Promise<Array<{ filePath: string; content: string }>> {
+    const systemPrompt = `你是一个知识库编译助手。采用 "many-to-many" 编译范型：
+一条源文件应产出多个独立 wiki 页面（摘要页 + 相关概念页）。
 
-输出格式要求：
-1. 以 YAML frontmatter 开头，包含: title, tags, category, summary
-2. 使用 Markdown 标题层级组织内容
-3. 对重要概念添加 [[]] Wiki 链接标记
-4. 末尾添加 "## 相关概念" 小节，列举关联的 wiki 页面
+要求：
+1. 第一页为 **主摘要页**：概述源文件的核心内容，包含背景/关键信息/结论
+2. 后续页为 **关联实体/概念页**：提取源文件中的重要术语、概念、人物、技术等，各生成独立页面
+3. 每页有独立的意义 — 不要把一句话拆成一页
 
-输出必须严格使用以下模板格式:
+输出格式：
+- 每页之间用 "${PAGE_BREAK}" 分隔（独占一行）
+- 每页以标准 YAML frontmatter（\`---\` 包裹）开头
+- frontmatter 必须包含: id（英文连字符格式, 如 "knowledge-base"）, title, kind（"summary" | "concept" | "entity"）, tags, summary
+
+示例：
 ---
+id: ${title.toLowerCase().replace(/\\s+/g, '-')}
 title: ${title}
+kind: summary
 tags: []
-category: 知识库
-summary: 简要摘要，不超过 200 字
+summary: 源文件的核心摘要
 ---
 
 ## 概述
@@ -279,7 +401,30 @@ summary: 简要摘要，不超过 200 字
 
 ## 相关概念
 
-- [[]]`;
+- [[related-concept]]
+
+${PAGE_BREAK}
+---
+id: related-concept
+title: 相关概念
+kind: concept
+tags: []
+summary: 概念简介
+---
+
+## 定义
+
+...
+
+## 详情
+
+...
+
+---
+注意：
+- 所有页面使用 [[]] Wiki 链接互相引用
+- 如果已有相关概念页面存在，在末尾添加 "## 更新记录" 备注变更
+- 输出必须包含至少 2 页，最多 8 页`;
 
     const messages: AIMessage[] = [
       {
@@ -289,19 +434,67 @@ summary: 简要摘要，不超过 200 字
       },
       {
         role: AIMessageRole.USER,
-        content: rawContent.slice(0, 8000),
+        content: rawContent.slice(0, 16000),
         timestamp: Date.now(),
       },
     ];
 
     const response = await this.aiService.generate(messages);
-    let content = response.content.trim();
+    const rawOutput = response.content.trim();
 
-    if (!content.startsWith('---')) {
-      content = `---\ntitle: ${title}\ntags: []\ncategory: 知识库\nsummary: 由原始文件编译\n---\n\n${content}`;
+    // 按 PAGE_BREAK 分隔为多个页面
+    const blocks = rawOutput
+      .split(new RegExp(`\\n${PAGE_BREAK}\\n`))
+      .map((b) => b.trim())
+      .filter(Boolean);
+
+    if (blocks.length === 0) {
+      // 保底：LLM 未产出多页，按单页处理
+      let content = rawOutput;
+      if (!content.startsWith('---')) {
+        content = `---\ntitle: ${title}\ntags: []\nkind: summary\ncategory: 知识库\nsummary: 由原始文件编译\n---\n\n${content}`;
+      }
+      return [{ filePath: targetPath, content }];
     }
 
-    return content;
+    // 解析每页的 frontmatter 提取 id 用于生成文件名
+    const pages: Array<{ filePath: string; content: string }> = [];
+    const mainDir = dirname(targetPath);
+
+    for (const block of blocks) {
+      const id = this.extractFrontmatterField(block, 'id');
+      const kind = this.extractFrontmatterField(block, 'kind') || 'concept';
+
+      // 确定文件名：主摘要页复用 targetPath，概念页用 id.md
+      let pagePath: string;
+      if (pages.length === 0) {
+        // 第一页写为主摘要页
+        pagePath = targetPath;
+      } else {
+        const safeId = id || `page-${pages.length}`;
+        // 按 kind 分类存放：summary/ entity/ concept
+        const subDir = join(mainDir, kind);
+        pagePath = join(subDir, `${safeId}.md`);
+      }
+
+      pages.push({ filePath: pagePath, content: block });
+    }
+
+    return pages;
+  }
+
+  /**
+   * 从 frontmatter 块中提取指定字段值
+   */
+  private extractFrontmatterField(
+    block: string,
+    field: string
+  ): string | null {
+    const match = block.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return null;
+    const fm = match[1];
+    const lineMatch = fm.match(new RegExp(`^${field}:\\s*(.+)`, 'm'));
+    return lineMatch ? lineMatch[1].trim().replace(/^"(.*)"$/, '$1') : null;
   }
 }
 

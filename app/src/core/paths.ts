@@ -374,6 +374,39 @@ export function resolveKnowledgeRawDir(
   return join(resolveKnowledgeDir(env), 'raw');
 }
 
+/** 知识库域名根目录（~/.pyapp/knowledge/domains/） */
+export function resolveDomainsRoot(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveKnowledgeDir(env), 'domains');
+}
+
+/**
+ * 获取指定域的目录
+ * @param name 域名
+ * @param env 环境变量
+ * 格式：~/.pyapp/knowledge/domains/{name}/
+ */
+export function resolveDomainDir(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDomainsRoot(env), name);
+}
+
+/**
+ * 获取指定域的 schema 目录
+ * @param name 域名
+ * @param env 环境变量
+ * 格式：~/.pyapp/knowledge/domains/{name}/.schema/
+ */
+export function resolveDomainSchemaDir(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDomainDir(name), '.schema');
+}
+
 /** 入站文件 inbound 基础目录（~/.pyapp/knowledge/raw/inbound/） */
 export function resolveInboundBaseDir(
   env: NodeJS.ProcessEnv = process.env

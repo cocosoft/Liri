@@ -88,6 +88,20 @@ const ENV_PRESETS: EnvPreset[] = [
     name: 'SiliconFlow',
     providerType: 'custom',
   },
+  {
+    key: 'MOONSHOT_API_KEY',
+    baseUrlKey: 'MOONSHOT_BASE_URL',
+    defaultBaseUrl: 'https://api.moonshot.cn/v1',
+    name: 'Moonshot',
+    providerType: 'moonshot',
+  },
+  {
+    key: 'GROK_API_KEY',
+    baseUrlKey: 'GROK_BASE_URL',
+    defaultBaseUrl: 'https://api.x.ai/v1',
+    name: 'Grok',
+    providerType: 'grok',
+  },
 ];
 
 /**
@@ -181,11 +195,11 @@ export async function initializeModelManagementServices(): Promise<void> {
   } catch {}
 
   try {
-    const { appModelRouter } =
-      await import('@modules/ai/models/AppModelRouter.js');
+    const { appModelConfigService } =
+      await import('@modules/ai/models/AppModelConfigService.js');
     services.push({
-      name: 'AppModelRouter',
-      init: () => appModelRouter.initialize(),
+      name: 'AppModelConfigService',
+      init: () => appModelConfigService.initialize(),
     });
   } catch {}
 

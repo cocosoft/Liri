@@ -20,21 +20,24 @@
 // SOFTWARE.
 
 /**
- * 运行时活跃模型提供者
+ * 运行时活跃模型查询服务
  *
  * 封装 model_pricing 表的 enabled 查询，提供 30s 缓存。
- * 作为全项目模型选择的「单一事实来源」。
+ * 作为全项目活跃模型列表的「单一事实来源」。
  *
  * 使用方式:
- *   import { activeModelProvider } from './ActiveModelProvider.js';
- *   const modelId = await activeModelProvider.getEffectiveModel('ollama');
+ *   import { activeModelService } from './ActiveModelService.js';
+ *   const modelId = await activeModelService.getEffectiveModel('ollama');
+ *
+ * 历史说明：重命名自 ActiveModelProvider（原名有 Provider 后缀但非 AI Provider），
+ * 更名为 ActiveModelService 以消除与 AIProvider 的歧义。
  */
 
 import { modelPricingService, type ModelPricingRecord } from './ModelPricingService.js';
 
 const CACHE_TTL_MS = 30_000;
 
-class ActiveModelProvider {
+class ActiveModelService {
   private cache: { models: ModelPricingRecord[]; timestamp: number } | null = null;
 
   /** 获取所有启用模型的 ModelPricingRecord 列表 */
@@ -105,4 +108,4 @@ class ActiveModelProvider {
   }
 }
 
-export const activeModelProvider = new ActiveModelProvider();
+export const activeModelService = new ActiveModelService();

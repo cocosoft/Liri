@@ -24,7 +24,7 @@
  *
  * 职责：作为全系统获取模型名的唯一入口，根据任务类型解析出具体模型 ID。
  *       运行时按任务类型（TaskType）从 ConfigManager 静态路由。
- *       不参与管理 API 的应用级模型配置（由 AppModelRouter 负责）。
+ *       不参与管理 API 的应用级模型配置（由 AppModelConfigService 负责）。
  * 配置源：ConfigManager（持久化到 config.json），向前兼容 process.env 读取。
  *
  * 设计原则：
@@ -36,8 +36,8 @@
  *   SmartRouter 持有 ModelRouter 实例作为兜底（fallbackToModelRouter），
  *   当智能路由开关关闭或无配置时回退到此静态路由。
  *
- * 与 AppModelRouter 的关系：
- *   AppModelRouter 按应用类型（AppModelTarget）从 SQLite 路由，
+ * 与 AppModelConfigService 的关系：
+ *   AppModelConfigService 按应用类型（AppModelTarget）从 SQLite 路由，
  *   仅由 ModelManagementAPI 使用，不参与运行时 chat 请求。
  */
 
@@ -104,6 +104,32 @@ export interface TaskModelConfig {
   local?: string;
   embedding?: string;
 }
+
+/**
+ * 任务定义
+ * 包含任务类型、显示标签、描述和图标，供前端渲染使用
+ */
+export interface TaskDefinition {
+  type: TaskType;
+  label: string;
+  description: string;
+  icon: string;
+}
+
+/**
+ * 全量任务定义列表（同源事实来源）
+ * 前后端共享此数据，前端 TaskAssignment 页面从 API 拉取
+ */
+export const TASK_DEFINITIONS: TaskDefinition[] = [
+  { type: 'chat',        label: '对话',   description: '日常对话、问题解答',                         icon: '💬' },
+  { type: 'coding',      label: '编程',   description: '代码生成、调试、审查',                       icon: '💻' },
+  { type: 'translation', label: '翻译',   description: '多语言翻译、润色',                           icon: '🌐' },
+  { type: 'quick',       label: '快速',   description: '简单问答、摘要（低成本）',                    icon: '⚡' },
+  { type: 'agent',       label: '代理',   description: 'SubAgent / 自主代理任务',                    icon: '🤖' },
+  { type: 'scheduled',   label: '定时',   description: '定时任务',                                   icon: '⏰' },
+  { type: 'local',       label: '本地',   description: '本地模型（Ollama 等）',                      icon: '🖥️' },
+  { type: 'embedding',   label: '嵌入',   description: '文本向量化（知识库）',                        icon: '📐' },
+];
 
 /** ModelRouter 构造选项 */
 export interface ModelRouterOptions {

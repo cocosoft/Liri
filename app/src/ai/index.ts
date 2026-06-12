@@ -271,8 +271,8 @@ export type {
   UpsertPricingParams,
 } from './models/ModelPricingService';
 
-export { AppModelRouter, appModelRouter } from './models/AppModelRouter';
-export type { AppModelConfig, AppModelTarget } from './models/AppModelRouter';
+export { AppModelConfigService, appModelConfigService } from './models/AppModelConfigService';
+export type { AppModelConfig, AppModelTarget } from './models/AppModelConfigService';
 
 export { UsageTracker } from './UsageTracker';
 export type { TrackUsageParams } from './UsageTracker';

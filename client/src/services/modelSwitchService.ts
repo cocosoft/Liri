@@ -4,7 +4,7 @@
  */
 
 import { http } from "./httpClient";
-import type { CurrentModelInfo, TaskModelConfig } from "../types";
+import type { CurrentModelInfo, TaskModelConfig, TaskDefinition } from "../types";
 
 export const modelSwitchService = {
   async getCurrent(): Promise<CurrentModelInfo> {
@@ -25,5 +25,10 @@ export const modelSwitchService = {
 
   async setDefaultModel(providerId: string, modelId: string): Promise<void> {
     await http.put("/v1/models/default", { providerId, modelId });
+  },
+
+  /** 获取任务定义列表（同源，后端为唯一事实来源） */
+  async getTaskDefinitions(): Promise<TaskDefinition[]> {
+    return http.get<TaskDefinition[]>("/v1/models/tasks/definitions");
   },
 };

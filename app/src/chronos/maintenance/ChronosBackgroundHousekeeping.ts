@@ -21,6 +21,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 const RECURRING_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const BALANCE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 const DELAY_VERY_SLOW_OPERATIONS_THAT_HAPPEN_EVERY_SESSION = 10 * 60 * 1000;
 
 let dreamEngine: DreamEngine | null = null;
@@ -89,6 +90,53 @@ async function runVerySlowOps(): Promise<void> {
   await cleanupOldVersions();
 }
 
+/** 余额告警阈值（单位：CNY） */
+const BALANCE_WARN_THRESHOLD = 10;
+
+/** 定时刷新所有活跃供应商余额缓存 */
+async function refreshBalancesInBackground(): Promise<void> {
+  try {
+    const { BalanceStore } = await import('../../ai/providers/BalanceStore.js');
+    const { providerManager } = await import('../../ai/providers/ProviderManager.js');
+    const { checkBalance } = await import('../../ai/providers/BalanceChecker.js');
+
+    const store = BalanceStore.getInstance();
+    await store.initialize();
+    await providerManager.initialize();
+
+    const providers = await providerManager.listProviders();
+    const activeProviders = providers.filter((p) => p.isActive);
+
+    for (const p of activeProviders) {
+      try {
+        const result = await checkBalance(p.baseUrl, p.apiKey || '');
+        if (result.success && result.data.length > 0) {
+          const d = result.data[0];
+          const remaining = d.remaining ?? null;
+          const belowThreshold = remaining !== null && remaining < BALANCE_WARN_THRESHOLD;
+
+          await store.setBalance(p.id, {
+            remaining,
+            total: d.total ?? null,
+            used: d.used ?? null,
+            unit: d.unit || 'CNY',
+            isSupported: true,
+            belowThreshold,
+          });
+
+          if (belowThreshold) {
+            logger.warn(`供应商余额不足: ${p.name} (${p.id}) - 剩余 ${remaining?.toFixed(2)} ${d.unit || 'CNY'}`);
+          }
+        }
+      } catch {
+        // 单个查询失败不影响其他
+      }
+    }
+  } catch {
+    // 静默失败
+  }
+}
+
 let isRunning = false;
 
 export function startBackgroundHousekeeping(): void {
@@ -120,6 +168,12 @@ export function startBackgroundHousekeeping(): void {
   }, RECURRING_CLEANUP_INTERVAL_MS);
 
   interval.unref();
+
+  // 每 10 分钟定时刷新余额缓存
+  const balanceInterval = setInterval(() => {
+    void refreshBalancesInBackground();
+  }, BALANCE_REFRESH_INTERVAL_MS);
+  balanceInterval.unref();
 
   console.log('[Chronos] Background housekeeping started');
 }

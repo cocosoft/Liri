@@ -127,6 +127,11 @@ async function handleAddProvider(
       icon: body.icon as string | undefined,
       iconColor: body.iconColor as string | undefined,
     } as Parameters<typeof providerManager.createProvider>[0]);
+
+    // 实时间步到 ProviderRegistry
+    const { registerProviderFromDB } = await import('./providers/ProviderSyncService.js');
+    await registerProviderFromDB(created.id);
+
     sendJson(res, { data: created }, 201);
   } catch (err) {
     sendError(res, `添加供应商失败: ${(err as Error).message}`, 500);
@@ -148,6 +153,11 @@ async function handleUpdateProvider(
       sendError(res, '供应商不存在', 404);
       return;
     }
+
+    // 实时间步到 ProviderRegistry（配置变更后重新注册）
+    const { registerProviderFromDB } = await import('./providers/ProviderSyncService.js');
+    await registerProviderFromDB(id);
+
     sendJson(res, { data: updated });
   } catch (err) {
     sendError(res, `更新供应商失败: ${(err as Error).message}`, 500);
@@ -161,6 +171,10 @@ async function handleDeleteProvider(
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
+    // 先从 Registry 中移除（防止 DB 删除后仍残留在运行时）
+    const { unregisterProviderFromRegistry } = await import('./providers/ProviderSyncService.js');
+    unregisterProviderFromRegistry(id);
+
     const { providerManager } = await import('./providers/ProviderManager.js');
     await providerManager.initialize();
     const ok = await providerManager.deleteProvider(id);
@@ -188,7 +202,18 @@ async function handleToggleProvider(
       sendError(res, '供应商不存在', 404);
       return;
     }
-    const updated = await providerManager.toggleProvider(id, !p.isActive);
+    const newActive = !p.isActive;
+    const updated = await providerManager.toggleProvider(id, newActive);
+
+    // 实时间步：激活→注册，停用→注销
+    const { registerProviderFromDB, unregisterProviderFromRegistry } =
+      await import('./providers/ProviderSyncService.js');
+    if (newActive) {
+      await registerProviderFromDB(id);
+    } else {
+      unregisterProviderFromRegistry(id);
+    }
+
     sendJson(res, { data: updated });
   } catch (err) {
     sendError(res, `切换供应商状态失败: ${(err as Error).message}`, 500);
@@ -403,6 +428,123 @@ async function handleUsageLogs(
 }
 
 // ─── Balance 路由 ──────────────────────────────────────
+
+/**
+ * GET /v1/balances — 批量查询所有活跃供应商余额（使用缓存）
+ */
+async function handleBatchBalances(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { BalanceStore } = await import('./providers/BalanceStore.js');
+    const { providerManager } = await import('./providers/ProviderManager.js');
+    const { checkBalance } = await import('./providers/BalanceChecker.js');
+
+    const store = BalanceStore.getInstance();
+    await store.initialize();
+    await providerManager.initialize();
+
+    const providers = await providerManager.listProviders();
+    const activeProviders = providers.filter((p) => p.isActive);
+
+    // 先返回已缓存的数据
+    const cached = await store.getAllBalances();
+    const cachedMap = new Map(cached.map((r) => [r.providerId, r]));
+
+    const results: Record<string, unknown>[] = [];
+
+    // 对每个活跃 Provider：有缓存且 5 分钟内→直接返回；否则异步刷新
+    const refreshPromises: Promise<void>[] = [];
+
+    for (const p of activeProviders) {
+      const cachedRecord = cachedMap.get(p.id);
+
+      if (cachedRecord && (Date.now() / 1000 - cachedRecord.queriedAt) < 300) {
+        // 缓存有效
+        results.push({
+          providerId: p.id,
+          providerName: p.name,
+          providerType: p.providerType,
+          remaining: cachedRecord.remaining,
+          total: cachedRecord.total,
+          unit: cachedRecord.unit,
+          queriedAt: cachedRecord.queriedAt,
+          supported: cachedRecord.isSupported,
+          belowThreshold: cachedRecord.belowThreshold,
+        });
+        continue;
+      }
+
+      // 缓存过期或不存在，先返回缓存值（如有）或占位
+      if (cachedRecord) {
+        results.push({
+          providerId: p.id,
+          providerName: p.name,
+          providerType: p.providerType,
+          remaining: cachedRecord.remaining,
+          total: cachedRecord.total,
+          unit: cachedRecord.unit,
+          queriedAt: cachedRecord.queriedAt,
+          supported: cachedRecord.isSupported,
+          belowThreshold: cachedRecord.belowThreshold,
+        });
+      } else {
+        results.push({
+          providerId: p.id,
+          providerName: p.name,
+          providerType: p.providerType,
+          remaining: null,
+          total: null,
+          unit: 'CNY',
+          queriedAt: null,
+          supported: true,
+          belowThreshold: false,
+        });
+      }
+
+      // 异步刷新余额
+      refreshPromises.push(
+        (async () => {
+          try {
+            const result = await checkBalance(p.baseUrl, p.apiKey || '');
+            if (result.success && result.data.length > 0) {
+              const d = result.data[0];
+              await store.setBalance(p.id, {
+                remaining: d.remaining ?? null,
+                total: d.total ?? null,
+                used: d.used ?? null,
+                unit: d.unit || 'CNY',
+                isSupported: true,
+                belowThreshold: d.remaining !== undefined && d.remaining < 10,
+              });
+            } else {
+              await store.setBalance(p.id, {
+                remaining: null,
+                total: null,
+                used: null,
+                isSupported: false,
+                belowThreshold: false,
+              });
+            }
+          } catch {
+            // 单个查询失败不影响其他
+          }
+        })()
+      );
+    }
+
+    // 非阻塞刷新，立即返回当前数据
+    sendJson(res, { data: results });
+
+    // 后台执行刷新
+    if (refreshPromises.length > 0) {
+      Promise.all(refreshPromises).catch(() => {});
+    }
+  } catch (err) {
+    sendError(res, `批量余额查询失败: ${(err as Error).message}`, 500);
+  }
+}
 
 async function handleBalanceQuery(
   req: http.IncomingMessage,
@@ -660,9 +802,9 @@ async function handleListAppConfigs(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { appModelRouter } = await import('./models/AppModelRouter.js');
-    await appModelRouter.initialize();
-    const configs = await appModelRouter.getAllConfigs();
+    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+    const configs = await appModelConfigService.getAllConfigs();
     sendJson(res, { data: configs });
   } catch (err) {
     sendError(res, `获取应用配置失败: ${(err as Error).message}`, 500);
@@ -676,9 +818,9 @@ async function handleGetAppConfig(
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
-    const { appModelRouter } = await import('./models/AppModelRouter.js');
-    await appModelRouter.initialize();
-    const config = await appModelRouter.getConfig(appType);
+    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+    const config = await appModelConfigService.getConfig(appType);
     if (!config) {
       sendError(res, '应用配置不存在', 404);
       return;
@@ -697,9 +839,9 @@ async function handleSetAppConfig(
   const appType = decodeURIComponent(match![1]);
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { appModelRouter } = await import('./models/AppModelRouter.js');
-    await appModelRouter.initialize();
-    const config = await appModelRouter.setConfig(appType, {
+    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+    const config = await appModelConfigService.setConfig(appType, {
       model: body.model as string | undefined,
       providerId: body.providerId as string | undefined,
       fallbackModel: body.fallbackModel as string | undefined,
@@ -718,12 +860,369 @@ async function handleDeleteAppConfig(
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
-    const { appModelRouter } = await import('./models/AppModelRouter.js');
-    await appModelRouter.initialize();
-    await appModelRouter.deleteConfig(appType);
+    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+    await appModelConfigService.deleteConfig(appType);
     sendJson(res, { success: true });
   } catch (err) {
     sendError(res, `删除应用配置失败: ${(err as Error).message}`, 500);
+  }
+}
+
+// ─── Model Runtime Handlers (merged from model-handlers.ts) ────
+
+/**
+ * GET /v1/models — 模型列表（DB 驱动）
+ */
+async function handleListModels(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const { providerManager } = await import('./providers/ProviderManager.js');
+    const { modelPricingService } = await import('./models/ModelPricingService.js');
+    await providerManager.initialize();
+    await modelPricingService.initialize();
+
+    const { syncDBProvidersToRegistry } = await import('./providers/ProviderSyncService.js');
+    await syncDBProvidersToRegistry();
+
+    const providers = await providerManager.listProviders();
+    const pricingList = await modelPricingService.getAllPricing();
+    const pricingByModel = new Map(pricingList.map(
+      (pr: {
+        modelId: string; providerId?: string; displayName: string; enabled: boolean;
+        inputCostPerMillion: number; outputCostPerMillion: number;
+        cacheReadCostPerMillion: number; cacheWriteCostPerMillion: number;
+        providerType?: string;
+      }) => [pr.modelId, pr],
+    ));
+
+    const models: Array<{
+      id: string; name: string; provider: string; providerId: string;
+      type: string; context_length: number; enabled: boolean; requiresAuth: boolean;
+      pricing?: Record<string, number>;
+    }> = [];
+
+    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+
+    for (const pr of pricingList) {
+      let matchingProvider;
+      if (pr.providerId) {
+        matchingProvider = providers.find((p) => p.id === pr.providerId);
+      } else {
+        const modelProvider = providerRegistry.getByModel(pr.modelId);
+        if (modelProvider) {
+          matchingProvider = providers.find((p) => p.id === modelProvider.id);
+        }
+        if (!matchingProvider) {
+          matchingProvider = providers.find(
+            (p) =>
+              pr.modelId.startsWith(p.providerType) ||
+              p.name.toLowerCase().includes(pr.modelId.split('-')[0]),
+          );
+        }
+      }
+      models.push({
+        id: pr.modelId,
+        name: pr.displayName || pr.modelId,
+        provider: matchingProvider?.name || pr.modelId.split('-')[0],
+        providerId: matchingProvider?.id || '',
+        requiresAuth: matchingProvider ? matchingProvider.requiresAuth : true,
+        type: 'chat',
+        context_length: 65536,
+        enabled: pr.enabled !== undefined
+          ? pr.enabled
+          : matchingProvider ? matchingProvider.isActive : true,
+        pricing: {
+          inputPer1M: pr.inputCostPerMillion,
+          outputPer1M: pr.outputCostPerMillion,
+          cacheReadPer1M: pr.cacheReadCostPerMillion || undefined,
+          cacheWritePer1M: pr.cacheWriteCostPerMillion || undefined,
+        } as Record<string, number>,
+      });
+    }
+
+    if (models.length === 0) {
+      models.push({
+        id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp', providerId: '',
+        requiresAuth: false, type: 'chat', context_length: 65536, enabled: true,
+      });
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ object: 'list', data: models }));
+  } catch (err) {
+    logger.error('获取模型列表失败', { error: (err as Error).message });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      object: 'list',
+      data: [{
+        id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp', providerId: '',
+        type: 'chat', context_length: 65536, enabled: true,
+      }],
+    }));
+  }
+}
+
+/**
+ * GET /v1/skills/system/:id/files/content — 系统技能文件内容
+ */
+async function handleSystemSkillFileContent(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const skillId = match?.[1] || '';
+    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+    const filePath = urlObj.searchParams.get('path');
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: { message: 'path 参数必填' } }));
+      return;
+    }
+
+    const { readFile } = await import('fs/promises');
+    const { existsSync } = await import('fs');
+    const { resolveProjectRoot, resolvePyappHome } = await import('@modules/core/paths');
+    const pathMod = await import('node:path');
+
+    const candidateDirs = [
+      pathMod.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills', decodeURIComponent(skillId)),
+      pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
+    ];
+
+    let skillDir = '';
+    for (const dir of candidateDirs) {
+      if (existsSync(pathMod.join(dir, 'SKILL.md'))) {
+        skillDir = dir;
+        break;
+      }
+    }
+
+    if (!skillDir) {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: { message: '技能未找到' } }));
+      return;
+    }
+
+    const fullPath = pathMod.join(skillDir, filePath);
+    if (!existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: { message: '文件不存在' } }));
+      return;
+    }
+
+    const content = await readFile(fullPath, 'utf-8');
+    const ext = pathMod.extname(fullPath).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.md': 'text/markdown', '.txt': 'text/plain',
+      '.json': 'application/json', '.ts': 'text/typescript',
+      '.tsx': 'text/typescript', '.js': 'text/javascript',
+      '.css': 'text/css', '.html': 'text/html',
+    };
+    res.writeHead(200, { 'Content-Type': `${mimeTypes[ext] || 'text/plain'}; charset=utf-8` });
+    res.end(content);
+  } catch (err) {
+    logger.error('获取技能文件内容失败', { error: (err as Error).message });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: { message: '读取文件失败' } }));
+  }
+}
+
+/**
+ * POST /v1/models/test — 测试模型连接
+ */
+async function handleTestModel(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, string>;
+    const { modelId, providerId } = body;
+
+    const { syncDBProvidersToRegistry } = await import('./providers/ProviderSyncService.js');
+    await syncDBProvidersToRegistry();
+
+    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const provider = providerRegistry.has(providerId) ? providerRegistry.get(providerId) : undefined;
+
+    if (!provider) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: { message: `Provider ${providerId} 未找到` } }));
+      return;
+    }
+
+    const result = await provider.chat(
+      [{ role: 'user', content: 'ping' }],
+      { model: modelId, maxTokens: 10 },
+    );
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true, response: result }));
+  } catch (err) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: false, error: (err as Error).message }));
+  }
+}
+
+/**
+ * GET /v1/models/current — 获取当前模型信息
+ */
+async function handleGetCurrentModel(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    const { modelRouter } = await import('./modelRouter.js');
+    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const { getTotalCostUSD } = await import('@modules/cost/CostTracker.js');
+
+    const coreAPI = getCoreAPI();
+    const lastDecision = coreAPI.getLastRouteDecision();
+    const smartRouter = coreAPI.getSmartRouter();
+
+    let routingMode: 'dynamic' | 'static' | 'off' = 'static';
+    if (smartRouter?.isEnabled()) {
+      routingMode = 'dynamic';
+    } else if (smartRouter && !smartRouter.isEnabled()) {
+      routingMode = 'off';
+    }
+
+    const currentModel = lastDecision?.model ?? modelRouter.resolve('chat');
+    const defaultProviderId = lastDecision?.provider
+      ?? providerRegistry.getDefaultProviderId()
+      ?? '';
+
+    const response = {
+      modelId: currentModel,
+      provider: defaultProviderId,
+      routerTier: lastDecision?.tier ?? null,
+      routingMode,
+      taskType: 'chat',
+      costThisSession: getTotalCostUSD(),
+      availableTasks: [],
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(response));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * POST /v1/models/switch — 切换模型
+ */
+async function handleSwitchModel(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, string>;
+    const { modelId } = body;
+    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+
+    const resolvedProvider = providerRegistry.getByModel(modelId);
+    if (resolvedProvider) {
+      providerRegistry.setDefaultProvider(resolvedProvider.id);
+
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+      getCoreAPI().setModelName(modelId);
+    } else {
+      providerRegistry.setDefaultProvider(modelId);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * GET /v1/models/tasks/definitions — 获取任务定义列表
+ */
+async function handleGetTaskDefinitions(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const { TASK_DEFINITIONS } = await import('./modelRouter.js');
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(TASK_DEFINITIONS));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * GET /v1/models/tasks — 获取任务分工配置
+ */
+async function handleGetTasks(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const { modelRouter } = await import('./modelRouter.js');
+    const tasks = modelRouter.getTasks();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(tasks));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * PUT /v1/models/tasks — 保存任务分工配置
+ */
+async function handleSaveTasks(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+    const { modelRouter } = await import('./modelRouter.js');
+    modelRouter.setTasks(body);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * PUT /v1/models/default — 设置默认模型
+ */
+async function handleSetDefaultModel(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null,
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, string>;
+    const { modelId } = body;
+    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    providerRegistry.setDefaultProvider(modelId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
   }
 }
 
@@ -803,6 +1302,17 @@ const ROUTES: RouteEntry[] = [
   { method: 'PATCH', pattern: /^\/v1\/models\/([^/]+)\/toggle$/, handler: handleToggleModel },
   { method: 'DELETE', pattern: /^\/v1\/models\/([^/]+)$/, handler: handleDeleteModel },
 
+  // Model runtime routes (merged from model-handlers.ts)
+  { method: 'GET', pattern: /^\/v1\/models\/tasks\/definitions$/, handler: handleGetTaskDefinitions },
+  { method: 'GET', pattern: /^\/v1\/models\/tasks$/, handler: handleGetTasks },
+  { method: 'PUT', pattern: /^\/v1\/models\/tasks$/, handler: handleSaveTasks },
+  { method: 'GET', pattern: /^\/v1\/models\/current$/, handler: handleGetCurrentModel },
+  { method: 'POST', pattern: /^\/v1\/models\/test$/, handler: handleTestModel },
+  { method: 'POST', pattern: /^\/v1\/models\/switch$/, handler: handleSwitchModel },
+  { method: 'PUT', pattern: /^\/v1\/models\/default$/, handler: handleSetDefaultModel },
+  { method: 'GET', pattern: /^\/v1\/models$/, handler: handleListModels },
+  { method: 'GET', pattern: /^\/v1\/skills\/system\/([^/]+)\/files\/content$/, handler: handleSystemSkillFileContent },
+
   // Usage
   {
     method: 'GET',
@@ -823,6 +1333,7 @@ const ROUTES: RouteEntry[] = [
   { method: 'GET', pattern: /^\/v1\/usage\/logs$/, handler: handleUsageLogs },
 
   // Balance
+  { method: 'GET', pattern: /^\/v1\/balances$/, handler: handleBatchBalances },
   { method: 'POST', pattern: /^\/v1\/balance$/, handler: handleBalanceQuery },
 
   // Pricing

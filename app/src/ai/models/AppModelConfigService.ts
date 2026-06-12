@@ -20,18 +20,22 @@
 // SOFTWARE.
 
 /**
- * AppModelRouter — 应用模型路由
+ * AppModelConfigService — 应用模型配置服务
  *
  * 职责：按应用类型（AppModelTarget）从 SQLite 路由模型配置。
  *       仅由 ModelManagementAPI 使用（管理通道），不参与运行时 chat 请求。
  *
+ * 历史说明：重命名自 AppModelRouter（原名有 Router 后缀但非路由决策层），
+ * 更名为 AppModelConfigService 以强调其作为配置管理服务的职责，
+ * 消除与 ModelRouter / SmartRouter 的歧义。
+ *
  * 与 ModelRouter 的关系：
  *   两者都管"模型选择"，但维度不同——ModelRouter 按任务类型（TaskType）
- *   从 ConfigManager 静态路由，AppModelRouter 按应用类型从 SQLite 路由。
+ *   从 ConfigManager 静态路由，AppModelConfigService 按应用类型从 SQLite 路由。
  *   两者是互补关系，不是冲突。
  *
  * 与 SmartRouter 的关系：
- *   无直接交互。SmartRouter 走运行时决策管线，AppModelRouter 走管理 API。
+ *   无直接交互。SmartRouter 走运行时决策管线，AppModelConfigService 走管理 API。
  *
  * 数据源：
  *   SQLite 表 app_model_configs，通过 resolveDbPath() 获取。
@@ -76,13 +80,13 @@ export interface AppModelConfig {
 }
 
 /**
- * 应用模型路由器
+ * 应用模型配置服务
  *
  * 单例服务，管理不同应用类型的模型选择。
  * 数据持久化到 app.db 的 ai_app_model_configs 表。
  */
-export class AppModelRouter {
-  private static instance: AppModelRouter;
+export class AppModelConfigService {
+  private static instance: AppModelConfigService;
 
   private db: Database | null = null;
   private dbPath: string;
@@ -96,11 +100,11 @@ export class AppModelRouter {
     this.dbPath = dbPath;
   }
 
-  static getInstance(dbPath?: string): AppModelRouter {
-    if (!AppModelRouter.instance) {
-      AppModelRouter.instance = new AppModelRouter(dbPath);
+  static getInstance(dbPath?: string): AppModelConfigService {
+    if (!AppModelConfigService.instance) {
+      AppModelConfigService.instance = new AppModelConfigService(dbPath);
     }
-    return AppModelRouter.instance;
+    return AppModelConfigService.instance;
   }
 
   async initialize(): Promise<void> {
@@ -116,7 +120,7 @@ export class AppModelRouter {
       // 确保数据库文件所在目录存在
       const dir = dirname(this.dbPath);
       ensureDir(dir);
-      logger.debug('AppModelRouter DB 目录', { dir, dbPath: this.dbPath });
+      logger.debug('AppModelConfigService DB 目录', { dir, dbPath: this.dbPath });
 
       this.db = await new Promise<Database>((resolve, reject) => {
         const db = new Database(this.dbPath, (err) => {
@@ -129,15 +133,15 @@ export class AppModelRouter {
       // 先标记已初始化，再调用 ensureDefaultEntry（内部需要 getConfig）
       this.initialized = true;
       await this.ensureDefaultEntry();
-      logger.info('AppModelRouter 初始化完成');
+      logger.info('AppModelConfigService 初始化完成');
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      logger.error('AppModelRouter 初始化失败', { dbPath: this.dbPath, error: msg });
+      logger.error('AppModelConfigService 初始化失败', { dbPath: this.dbPath, error: msg });
       throw new AppError(
-        `Failed to initialize AppModelRouter: ${msg}`,
+        `Failed to initialize AppModelConfigService: ${msg}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        'AMR_INIT_FAILED',
+        'AMC_INIT_FAILED',
         { cause: error }
       );
     }
@@ -170,9 +174,9 @@ export class AppModelRouter {
     const existing = await this.getConfig('default');
     if (existing && existing.model) return;
 
-    // 从 ActiveModelProvider 获取第一个可用模型
-    const { activeModelProvider } = await import('./ActiveModelProvider.js');
-    const effectiveModel = await activeModelProvider.getEffectiveModel(undefined, 'ollama');
+    // 从 ActiveModelService 获取第一个可用模型
+    const { activeModelService } = await import('./ActiveModelService.js');
+    const effectiveModel = await activeModelService.getEffectiveModel(undefined, 'ollama');
     const modelId = effectiveModel || '';
 
     await this.setConfig('default', { model: modelId });
@@ -181,10 +185,10 @@ export class AppModelRouter {
   private ensureInitialized(): void {
     if (!this.initialized || !this.db) {
       throw new AppError(
-        'AppModelRouter not initialized',
+        'AppModelConfigService not initialized',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        'AMR_NOT_INIT'
+        'AMC_NOT_INIT'
       );
     }
   }
@@ -338,7 +342,7 @@ export class AppModelRouter {
         'Cannot delete default config',
         ErrorCategory.EXECUTION,
         ErrorSeverity.MEDIUM,
-        'AMR_NO_DELETE_DEFAULT'
+        'AMC_NO_DELETE_DEFAULT'
       );
     }
 
@@ -352,7 +356,7 @@ export class AppModelRouter {
           if (err) reject(err);
           else {
             if (this.changes > 0) {
-              AppModelRouter.instance?.cache.delete(appType);
+              AppModelConfigService.instance?.cache.delete(appType);
             }
             resolve(this.changes > 0);
           }
@@ -362,4 +366,4 @@ export class AppModelRouter {
   }
 }
 
-export const appModelRouter = AppModelRouter.getInstance();
+export const appModelConfigService = AppModelConfigService.getInstance();

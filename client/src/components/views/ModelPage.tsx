@@ -5,7 +5,7 @@ import { useConfigStore } from "../../stores/configStore";
 import { SkeletonPulse } from "../common/Skeleton";
 import TaskAssignment from "../modelAdmin/TaskAssignment";
 import ModelMetaEditor from "../modelAdmin/ModelMetaEditor";
-import ModelCompare from "../modelAdmin/ModelCompare";
+import UsageDashboard from "../modelAdmin/UsageDashboard";
 import ProviderPresetPanel from "../modelAdmin/ProviderPresetPanel";
 import ProviderEditorModal from "../modelAdmin/ProviderEditorModal";
 import AddModelModal from "../modelAdmin/AddModelModal";
@@ -42,7 +42,7 @@ function ProviderPage() {
   const isDark = config.theme === "dark";
 
   const [activeTab, setActiveTab] = useState<
-    "providers" | "models" | "tasks" | "compare"
+    "providers" | "models" | "tasks" | "usage"
   >("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [showPresets, setShowPresets] = useState(false);
@@ -268,7 +268,7 @@ function ProviderPage() {
 
         {/* Tab */}
         <div className="flex gap-1 mb-4 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
-          {(["providers", "models", "tasks", "compare"] as const).map((tab) => (
+          {(["providers", "models", "tasks", "usage"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -279,7 +279,7 @@ function ProviderPage() {
                   providers: "Provider 管理",
                   models: "模型列表",
                   tasks: "任务分工",
-                  compare: "模型对比",
+                  usage: "用量",
                 }[tab]
               }
             </button>
@@ -469,10 +469,10 @@ function ProviderPage() {
           </div>
         )}
 
-        {/* 模型对比 Tab */}
-        {activeTab === "compare" && (
-          <div className="max-w-4xl mx-auto">
-            <ModelCompare />
+        {/* 用量 Tab */}
+        {activeTab === "usage" && (
+          <div className="max-w-6xl mx-auto">
+            <UsageDashboard />
           </div>
         )}
 

@@ -18,11 +18,14 @@ import { providerRegistry } from '../providers/ProviderRegistry';
 import type { AIProvider } from '../providers/AIProvider';
 import { AppError } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 import { configManager } from '../../config/index.js';
 import { modelRouter } from '../modelRouter.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;
@@ -228,14 +231,21 @@ export class AIServiceImpl implements AIService {
     const resolved = providerRegistry.getByModel(model);
     if (resolved) return resolved;
 
-    const id = model.startsWith('claude')
-      ? 'anthropic'
-      : model.startsWith('deepseek')
-        ? 'deepseek'
-        : 'openai';
-    return providerRegistry.getOrCreate(id, {
-      apiKey: this.config.apiKey,
-      baseUrl: this.config.baseUrl,
+    // 通过反向索引解析 Provider ID，替代旧 startsWith 硬编码
+    // 映射表由 ProviderRegistry.modelToProvider 统一维护，新增 Provider 无需改此处代码
+    const providerId = providerRegistry.resolveModelToProviderId(model);
+    if (providerId) {
+      return providerRegistry.getOrCreate(providerId, {
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+      });
+    }
+
+    // 映射表无匹配时，抛明确错误而非静默 fallback 到 openai
+    const msg = `未知模型 "${model}"，无法匹配到对应的 AI Provider。请检查模型名拼写或配置新的 Provider。`;
+    logger.error(msg);
+    throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+      context: { message: msg },
     });
   }
 }

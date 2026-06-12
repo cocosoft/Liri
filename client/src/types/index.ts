@@ -180,6 +180,19 @@ export interface BalanceResult {
   error?: string;
 }
 
+/** 批量余额记录（来自 GET /v1/balances） */
+export interface BalanceRecord {
+  providerId: string;
+  providerName: string;
+  providerType: string;
+  remaining: number | null;
+  total: number | null;
+  unit: string;
+  queriedAt: number | null;
+  supported: boolean;
+  belowThreshold: boolean;
+}
+
 /** 使用量概览 */
 export interface UsageSummary {
   totalRequests: number;
@@ -302,6 +315,14 @@ export interface TaskModelConfig {
   scheduled?: string;
   local?: string;
   embedding?: string;
+}
+
+/** 任务定义（与后端 modelRouter.ts TaskDefinition 同步） */
+export interface TaskDefinition {
+  type: string;
+  label: string;
+  description: string;
+  icon: string;
 }
 
 export interface KnowledgeItem {

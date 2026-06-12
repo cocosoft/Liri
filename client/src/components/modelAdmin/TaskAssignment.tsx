@@ -1,71 +1,26 @@
 import { useEffect, useState, useMemo } from "react";
 import { modelService } from "../../services/modelService";
 import { modelSwitchService } from "../../services/modelSwitchService";
-import type { ModelInfo, TaskModelConfig } from "../../types";
-
-const TASK_DEFINITIONS = [
-  {
-    type: "chat",
-    label: "💬 对话",
-    description: "日常对话、问题解答",
-    icon: "💬",
-  },
-  {
-    type: "coding",
-    label: "💻 编程",
-    description: "代码生成、调试、审查",
-    icon: "💻",
-  },
-  {
-    type: "translation",
-    label: "🌐 翻译",
-    description: "多语言翻译、润色",
-    icon: "🌐",
-  },
-  {
-    type: "quick",
-    label: "⚡ 快速",
-    description: "简单问答、摘要（低成本）",
-    icon: "⚡",
-  },
-  {
-    type: "agent",
-    label: "🤖 代理",
-    description: "SubAgent / 自主代理任务",
-    icon: "🤖",
-  },
-  {
-    type: "scheduled",
-    label: "⏰ 定时",
-    description: "定时任务",
-    icon: "⏰",
-  },
-  {
-    type: "local",
-    label: "🖥️ 本地",
-    description: "本地模型（Ollama 等）",
-    icon: "🖥️",
-  },
-  {
-    type: "embedding",
-    label: "📐 嵌入",
-    description: "文本向量化（知识库）",
-    icon: "📐",
-  },
-];
+import type { ModelInfo, TaskModelConfig, TaskDefinition } from "../../types";
 
 function TaskAssignment() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [tasks, setTasks] = useState<TaskModelConfig>({});
+  const [taskDefs, setTaskDefs] = useState<TaskDefinition[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([modelService.list(), modelSwitchService.getTasks()])
-      .then(([modelList, taskConfig]) => {
+    Promise.all([
+      modelService.list(),
+      modelSwitchService.getTasks(),
+      modelSwitchService.getTaskDefinitions(),
+    ])
+      .then(([modelList, taskConfig, definitions]) => {
         setModels(modelList.filter((m) => m.enabled));
         setTasks(taskConfig);
+        setTaskDefs(definitions);
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : "加载失败");
@@ -140,7 +95,7 @@ function TaskAssignment() {
       )}
 
       <div className="space-y-3">
-        {TASK_DEFINITIONS.map((task) => (
+        {taskDefs.map((task) => (
           <div
             key={task.type}
             className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between"

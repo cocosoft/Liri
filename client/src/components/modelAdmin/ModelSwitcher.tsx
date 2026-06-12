@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { modelService } from "../../services/modelService";
-import type { ModelInfo } from "../../types";
+import { balanceService } from "../../services/balanceService";
+import type { ModelInfo, BalanceRecord } from "../../types";
 
 interface ModelSwitcherProps {
   onClose: () => void;
@@ -29,12 +30,14 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupBy, setGroupBy] = useState<"provider" | "task">("provider");
+  const [balances, setBalances] = useState<BalanceRecord[]>([]);
 
   useEffect(() => {
     modelService
       .list()
       .then(setModels)
       .catch(() => {});
+    balanceService.batchCheck().then(setBalances).catch(() => {});
   }, []);
 
   const filteredModels = useMemo(() => {
@@ -79,6 +82,18 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
     translation: "🌐 翻译",
     quick: "⚡ 快速",
   };
+
+  const balanceByProvider = useMemo(() => {
+    const map = new Map<string, BalanceRecord>();
+    for (const b of balances) {
+      const key = b.providerType.toLowerCase();
+      // 优先保留有余额数据的记录
+      if (!map.has(key) || b.remaining !== null) {
+        map.set(key, b);
+      }
+    }
+    return map;
+  }, [balances]);
 
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
@@ -161,10 +176,29 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
               {Object.entries(groupedByProvider).map(
                 ([provider, providerModels]) => (
                   <div key={provider}>
-                    <div
-                      className={`text-xs font-medium px-3 py-1 ${getProviderColor(provider)}`}
-                    >
-                      {provider}
+                    <div className="flex items-center justify-between px-3 py-1">
+                      <span
+                        className={`text-xs font-medium ${getProviderColor(provider)}`}
+                      >
+                        {provider}
+                      </span>
+                      {(() => {
+                        const bal = balanceByProvider.get(provider.toLowerCase());
+                        if (!bal) return null;
+                        return (
+                          <span className={`text-xs font-mono ${
+                            bal.belowThreshold
+                              ? "text-red-500 dark:text-red-400"
+                              : bal.remaining !== null
+                                ? "text-gray-500 dark:text-gray-400"
+                                : "text-gray-400 dark:text-gray-500"
+                          }`}>
+                            {bal.remaining !== null
+                              ? `${bal.remaining.toFixed(2)} ${bal.unit}`
+                              : bal.supported ? "--" : "暂不支持"}
+                          </span>
+                        );
+                      })()}
                     </div>
                     {providerModels.map((model) => (
                       <ModelRow

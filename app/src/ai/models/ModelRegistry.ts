@@ -19,9 +19,6 @@ import {
   loadModelsConfig,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
-
-const logger = new Logger({ level: LogLevel.INFO });
 
 const API_PROVIDER_KEYS: APIProvider[] = [
   'firstParty',
@@ -274,22 +271,14 @@ export class ModelRegistry {
     return (config as unknown as Record<string, string>)[provider] || '';
   }
 
-  /** 获取模型定价 — 统一来源：DB → 内存缓存 */
+  /** 获取模型定价 — 统一来源：DB（唯一事实来源）
+   * 调用方需要 YAML 默认值时自行实现 fallback */
   getModelPricing(
     modelName: string
   ): { inputPer1M: number; outputPer1M: number } | null {
-    // 1. DB 定价（唯一来源）
-    const db = this.dbPricing.get(modelName);
-    if (db) return db;
-
-    // 2. fallback: YAML 内置定价（作为默认值，但用户可修改覆盖）
-    const model = this.getModel(modelName);
-    if (model?.pricing) {
-      logger.debug('Model pricing fallback to YAML', { modelName, pricing: model.pricing });
-      return model.pricing;
-    }
-
-    return null;
+    // DB 定价是唯一来源，不再 fallback 到 YAML
+    // 避免"DB 删除后仍能读到 YAML 旧价"的混淆
+    return this.dbPricing.get(modelName) || null;
   }
 
   /** 异步获取模型定价 — 从 DB 实时查询（更精确，例如用于计费） */

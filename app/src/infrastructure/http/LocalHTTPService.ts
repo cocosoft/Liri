@@ -35,7 +35,6 @@ import type { IChannelPlugin } from '@modules/channels/types';
 
 import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail, handleMonitorCost } from './handlers/monitoring-handlers';
 import { handleHealthReport, handleAnalyticsDashboard, handleCostSummary, handleCostRecords, handleCostRange, setAnalyticsDependencies } from './handlers/analytics-handlers';
-import { handleListModels, handleSystemSkillFileContent, handleTestModel, handleGetCurrentModel, handleSwitchModel, handleGetTasks, handleSaveTasks, handleSetDefaultModel } from './handlers/model-handlers';
 import { handleChatCompletions, handleQuestionAnswer } from './handlers/chat-handlers';
 import { handleFileRegistryList, handleFileRegistryDetail, handleFileRegistrySearch, handleFileRegistryStats, handleFileRegistryDelete, handleFileHealth } from './handlers/files-handlers';
 import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
@@ -461,28 +460,6 @@ export class LocalHTTPService {
     // ---- SSE Event Bus ----
     if (req.method === 'GET' && url === '/v1/events') {
       return this.handleEvents(req, res);
-    }
-
-    if (req.method === 'GET' && url === '/v1/models') {
-      return this.handleListModels(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/models/test') {
-      return this.handleTestModel(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/models/current') {
-      return this.handleGetCurrentModel(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/models/switch') {
-      return this.handleSwitchModel(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/models/tasks') {
-      return this.handleGetTasks(req, res);
-    }
-    if (req.method === 'PUT' && url === '/v1/models/tasks') {
-      return this.handleSaveTasks(req, res);
-    }
-    if (req.method === 'PUT' && url === '/v1/models/default') {
-      return this.handleSetDefaultModel(req, res);
     }
 
     if (req.method === 'POST' && url === '/v1/chat/completions') {
@@ -1198,16 +1175,6 @@ export class LocalHTTPService {
         url.match(/^\/v1\/skills\/system\/(.+)\/content$/)![1]
       );
     }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)
-    ) {
-      return this.handleSystemSkillFileContent(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/system\/(.+)\/files\/content/)![1]
-      );
-    }
     if (req.method === 'GET' && url === '/v1/skills/search') {
       return this.handleSearchSkills(req, res);
     }
@@ -1684,65 +1651,6 @@ export class LocalHTTPService {
     res: http.ServerResponse,
   ): Promise<void> {
     return handleCostRange(this._handlerCtx, req, res);
-  }
-
-  // ========== Model Handlers (extracted to handlers/model-handlers.ts) ==========
-
-  private async handleListModels(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleListModels(this._handlerCtx, req, res);
-  }
-
-  private async handleSystemSkillFileContent(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    skillId: string,
-  ): Promise<void> {
-    return handleSystemSkillFileContent(this._handlerCtx, req, res, { "$1": skillId });
-  }
-
-  private async handleTestModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleTestModel(this._handlerCtx, req, res);
-  }
-
-  private async handleGetCurrentModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleGetCurrentModel(this._handlerCtx, req, res);
-  }
-
-  private async handleSwitchModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleSwitchModel(this._handlerCtx, req, res);
-  }
-
-  private async handleGetTasks(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleGetTasks(this._handlerCtx, req, res);
-  }
-
-  private async handleSaveTasks(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleSaveTasks(this._handlerCtx, req, res);
-  }
-
-  private async handleSetDefaultModel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleSetDefaultModel(this._handlerCtx, req, res);
   }
 
   // ========== Chat Handlers (extracted to handlers/chat-handlers.ts) ==========

@@ -40,8 +40,8 @@
  *   本类持有 ModelRouter 作为兜底路由，当开关关闭或无智能决策时回退。
  *   两者是分层嵌套关系，不是并列竞争。
  *
- * 与 AppModelRouter 的关系：
- *   AppModelRouter 走管理 API 通道，与 SmartRouter 无直接交互。
+ * 与 AppModelConfigService 的关系：
+ *   AppModelConfigService 走管理 API 通道，与 SmartRouter 无直接交互。
  */
 
 import type { AIProvider } from '../providers/AIProvider.js';

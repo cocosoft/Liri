@@ -33,6 +33,10 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
     const registry = ModelRegistry.getInstance();
     const pricing = registry.getModelPricing(modelName);
     if (pricing) {
+      // 防止 DB 中零定价覆盖默认定价 — 当所有定价值均为 0 时回退到默认
+      if (pricing.inputPer1M === 0 && pricing.outputPer1M === 0) {
+        return null;
+      }
       const model = registry.getModel(modelName);
       return {
         inputPricePerMillion: pricing.inputPer1M,

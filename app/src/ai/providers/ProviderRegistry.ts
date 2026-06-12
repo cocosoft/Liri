@@ -121,6 +121,26 @@ export class ProviderRegistry {
   }
 
   /**
+   * 根据模型名解析对应 Provider ID（仅查映射表，不检查是否已注册）
+   *
+   * 用于调用方在 getByModel() 返回 undefined 后，
+   * 通过 getOrCreate() 动态创建未注册的 Provider。
+   * 消除 aiService.ts 中重复的 startsWith 硬编码。
+   *
+   * @param model 模型名
+   * @returns Provider ID，无匹配返回 undefined
+   */
+  resolveModelToProviderId(model: string): string | undefined {
+    const normalized = model.toLowerCase();
+    for (const [prefix, providerId] of this.modelToProvider) {
+      if (normalized.startsWith(prefix)) {
+        return providerId;
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * 按 provider 类型查找（用于 DB 同步的场景）
    * 例如 getByType('ollama') 返回最后一个同步的 ollama Provider
    */

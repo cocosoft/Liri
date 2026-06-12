@@ -106,8 +106,8 @@ function getStartOfYear(): number {
 async function ensureCostRepository(): Promise<void> {
   try {
     await costRepository?.initDatabase();
-  } catch {
-    // 仓库不可用时静默失败
+  } catch (err) {
+    logger.warning('成本仓库初始化失败', { error: String(err) });
   }
 }
 
@@ -118,7 +118,8 @@ async function queryAggregatedCost(startTime: number): Promise<{ cost: number; t
       cost: result.totalCostUSD,
       tokens: result.totalInputTokens + result.totalOutputTokens,
     };
-  } catch {
+  } catch (err) {
+    logger.warning('查询聚合成本失败', { startTime: new Date(startTime).toISOString(), error: String(err) });
     return { cost: 0, tokens: 0 };
   }
 }
@@ -294,6 +295,14 @@ export async function handleCostSummary(
 
   const modelUsage = costTracker!.getModelUsage();
   const totalModelCost = Object.values(modelUsage).reduce((sum, u) => sum + u.costUSD, 0);
+
+  // 日志：排出实际值用于调试
+  logger.info('handleCostSummary 数据', {
+    todayCost: today.cost,
+    todayTokens: today.tokens,
+    totalModelCost,
+    modelCount: Object.keys(modelUsage).length,
+  });
   const topProviders = Object.entries(modelUsage)
     .map(([provider, usage]) => ({
       provider,
@@ -327,6 +336,14 @@ export async function handleCostSummary(
   } catch { /* 每日明细不可用时不返回 */ }
 
   const sessionState = costTracker!.getSessionCostState();
+
+  // 运行时回退：DB 查询返回 0 但 CostTracker 有数据时，以运行时为准
+  const effectiveTodayCost = today.cost > 0 ? today.cost : sessionState.totalCostUSD;
+  const effectiveTodayTokens = today.tokens > 0 ? today.tokens : sessionState.totalInputTokens + sessionState.totalOutputTokens;
+  if (today.cost === 0 && sessionState.totalCostUSD > 0) {
+    logger.info('今日成本回退到运行时数据', { dbCost: today.cost, runtimeCost: sessionState.totalCostUSD });
+  }
+
   const totalInputTokens = Object.values(modelUsage).reduce((sum, u) => sum + u.inputTokens, 0);
   const totalOutputTokens = Object.values(modelUsage).reduce((sum, u) => sum + u.outputTokens, 0);
   const totalCacheRead = Object.values(modelUsage).reduce((sum, u) => sum + u.cacheReadInputTokens, 0);
@@ -334,8 +351,8 @@ export async function handleCostSummary(
 
   res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({
-    todayCost: today.cost, weeklyCost: weekly.cost, monthlyCost: monthly.cost, yearlyCost: yearly.cost,
-    todayTokens: today.tokens, monthlyTokens: monthly.tokens,
+    todayCost: effectiveTodayCost, weeklyCost: weekly.cost, monthlyCost: monthly.cost, yearlyCost: yearly.cost,
+    todayTokens: effectiveTodayTokens, monthlyTokens: monthly.tokens,
     totalInputTokens, totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens,
     totalCacheReadTokens: totalCacheRead, totalCacheCreationTokens: totalCacheCreation,
     totalRequests: Object.keys(modelUsage).length,

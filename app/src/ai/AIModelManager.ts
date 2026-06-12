@@ -244,34 +244,11 @@ export class AIModelManager {
   }
 
   getProviderForModel(model: string): AIProvider | undefined {
-    const resolved = this.parseUserSpecifiedModel(model).toLowerCase();
+    const resolved = this.parseUserSpecifiedModel(model);
 
-    if (
-      resolved.startsWith('claude-') ||
-      resolved.startsWith('opus') ||
-      resolved.startsWith('sonnet') ||
-      resolved.startsWith('haiku')
-    ) {
-      if (providerRegistry.has('anthropic'))
-        return providerRegistry.get('anthropic');
-    }
-
-    if (
-      resolved.startsWith('gpt-') ||
-      resolved.startsWith('o1') ||
-      resolved.startsWith('o3') ||
-      resolved.startsWith('o4')
-    ) {
-      if (providerRegistry.has('openai')) return providerRegistry.get('openai');
-    }
-
-    if (resolved.startsWith('gemini-')) {
-      if (providerRegistry.has('google')) return providerRegistry.get('google');
-    }
-
-    if (providerRegistry.has('ollama')) return providerRegistry.get('ollama');
-
-    return undefined;
+    // 统一委托给 ProviderRegistry 的集中式映射表
+    // modelToProvider 是模型→Provider 的唯一事实来源
+    return providerRegistry.getByModel(resolved);
   }
 
   listProviders(): string[] {

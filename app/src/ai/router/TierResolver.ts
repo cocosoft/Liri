@@ -75,25 +75,16 @@ export class TierResolver {
 
   /**
    * 通过模型名前缀从 ProviderRegistry 自动匹配 provider
+   *
+   * 委托给 ProviderRegistry.resolveModelToProviderId()，消除重复实现。
+   * resolveModelToProviderId 包含 toLowerCase 归一化处理。
    */
   private inferProvider(model: string): string {
     try {
-      // ProviderRegistry 有 getByModel() 返回 provider
-      // 但我们只需要 provider ID，直接通过前缀匹配表查找
-      const registry = this.providerRegistry as any;
-
-      // 遍历 modelToProvider 前缀映射
-      if (registry.modelToProvider) {
-        for (const [prefix, providerId] of registry.modelToProvider) {
-          if (model.startsWith(prefix)) {
-            return providerId;
-          }
-        }
-      }
+      return this.providerRegistry.resolveModelToProviderId(model) ?? '';
     } catch {
-      // registry 不可用时返回空
+      return '';
     }
-    return '';
   }
 
   /**

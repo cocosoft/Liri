@@ -63,6 +63,7 @@ import {
 } from '@modules/utils/sanitization.js';
 import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
+import { trackUsage } from '@modules/ai/UsageTracker.js';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
@@ -1303,6 +1304,15 @@ export class ChatManagerImpl implements ChatManager {
 
     this.recordChatResponseUsage(session.id, response.usage);
 
+    // 异步记录使用量到 UsageStatsService + CostTracker + LLMTracker
+    trackUsage(response, {
+      model: options?.model || 'unknown',
+      providerId: activeClient.getProviderId(),
+      latencyMs: 0,
+      isStreaming: false,
+      sessionId: session.id,
+    }).catch(() => {});
+
     // 通知外部：本次 LLM 响应的词元用量
     if (options?.onUsage && response.usage) {
       const u = response.usage;
@@ -1606,6 +1616,15 @@ export class ChatManagerImpl implements ChatManager {
 
         this.recordChatResponseUsage(session.id, toolResultResponse.usage);
 
+        // 异步记录使用量
+        trackUsage(toolResultResponse, {
+          model: options?.model || 'unknown',
+          providerId: activeClient.getProviderId(),
+          latencyMs: 0,
+          isStreaming: false,
+          sessionId: session.id,
+        }).catch(() => {});
+
         // 通知外部：本次工具结果 LLM 响应的词元用量
         if (options?.onUsage && toolResultResponse.usage) {
           const u = toolResultResponse.usage;
@@ -1823,6 +1842,17 @@ export class ChatManagerImpl implements ChatManager {
       }
     );
 
+    this.recordChatResponseUsage(session.id, response.usage);
+
+    // 异步记录使用量
+    trackUsage(response, {
+      model: options?.model || 'unknown',
+      providerId: activeClient.getProviderId(),
+      latencyMs: 0,
+      isStreaming: false,
+      sessionId: session.id,
+    }).catch(() => {});
+
     let currentMessages = [...apiMessages];
     let currentCalls = response.tool_calls ? [...response.tool_calls] : [];
 
@@ -1966,6 +1996,15 @@ export class ChatManagerImpl implements ChatManager {
       );
 
       this.recordChatResponseUsage(session.id, toolResultResponse.usage);
+
+      // 异步记录使用量
+      trackUsage(toolResultResponse, {
+        model: options?.model || 'unknown',
+        providerId: activeClient.getProviderId(),
+        latencyMs: 0,
+        isStreaming: false,
+        sessionId: session.id,
+      }).catch(() => {});
 
       // 通知外部：本次工具结果 LLM 响应的词元用量
       if (options?.onUsage && toolResultResponse.usage) {
@@ -2311,6 +2350,16 @@ export class ChatManagerImpl implements ChatManager {
 
     this.recordChatResponseUsage(session.id, finalResponse?.usage);
 
+    // 异步记录使用量到 UsageStatsService + CostTracker + LLMTracker
+    // ChatManager 直接调用 AI provider，不经过 aiService，需要在此处插桩
+    trackUsage(finalResponse ?? {}, {
+      model: options?.model || 'unknown',
+      providerId: activeClient.getProviderId(),
+      latencyMs: 0,
+      isStreaming: true,
+      sessionId: session.id,
+    }).catch(() => {});
+
     // 通知外部：本次 LLM 响应的词元用量
     if (options?.onUsage && finalResponse?.usage) {
       const u = finalResponse.usage as unknown as Record<string, number>;
@@ -2607,6 +2656,15 @@ export class ChatManagerImpl implements ChatManager {
 
         this.recordChatResponseUsage(session.id, toolResultResponse?.usage);
 
+        // 异步记录使用量
+        trackUsage(toolResultResponse ?? {}, {
+          model: options?.model || 'unknown',
+          providerId: activeClient.getProviderId(),
+          latencyMs: 0,
+          isStreaming: true,
+          sessionId: session.id,
+        }).catch(() => {});
+
         // 通知外部：本次工具结果 LLM 响应的词元用量
         if (options?.onUsage && toolResultResponse?.usage) {
           const u = toolResultResponse.usage as unknown as Record<
@@ -2875,6 +2933,15 @@ export class ChatManagerImpl implements ChatManager {
       );
 
       this.recordChatResponseUsage(session.id, toolResultResponse.usage);
+
+      // 异步记录使用量
+      trackUsage(toolResultResponse, {
+        model: 'unknown',
+        providerId: activeClient.getProviderId(),
+        latencyMs: 0,
+        isStreaming: false,
+        sessionId: session.id,
+      }).catch(() => {});
 
       // 创建本轮 assistant 消息
       const toolResultAssistantContent =

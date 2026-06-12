@@ -32,6 +32,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getOTelLoggerAdapter } from '@modules/monitoring/otel/OTelLoggerAdapter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -47,6 +48,8 @@ export interface TrackUsageParams {
   statusCode?: number;
   /** 是否为流式请求（可选） */
   isStreaming?: boolean;
+  /** 会话ID（可选，用于 LLMTracker 分组） */
+  sessionId?: string;
 }
 
 /**
@@ -65,6 +68,10 @@ export async function trackUsage(
       cache_read_input_tokens?: number;
       cache_creation_input_tokens?: number;
       total_tokens?: number;
+      /** ChatManager 使用的字段名（等价于 prompt_tokens） */
+      inputTokens?: number;
+      /** ChatManager 使用的字段名（等价于 completion_tokens） */
+      outputTokens?: number;
     };
     model?: string;
     error?: Error | string;
@@ -75,11 +82,12 @@ export async function trackUsage(
     const { usageStatsService } = await import('./models/UsageStatsService.js');
     await usageStatsService.initialize();
 
-    const inputTokens = response.usage?.prompt_tokens ?? 0;
-    const outputTokens = response.usage?.completion_tokens ?? 0;
-    const cacheReadTokens = response.usage?.cache_read_input_tokens ?? 0;
-    const cacheCreationTokens =
-      response.usage?.cache_creation_input_tokens ?? 0;
+    // 兼容两种 usage 字段名：OpenAI 标准 (prompt_tokens/completion_tokens) 和 ChatManager (inputTokens/outputTokens)
+    const usage = response.usage;
+    const inputTokens = usage?.prompt_tokens ?? usage?.inputTokens ?? 0;
+    const outputTokens = usage?.completion_tokens ?? usage?.outputTokens ?? 0;
+    const cacheReadTokens = usage?.cache_read_input_tokens ?? 0;
+    const cacheCreationTokens = usage?.cache_creation_input_tokens ?? 0;
 
     // 估算成本（优先 DB 定价 > registry > 兜底）
     let costUSD = 0;
@@ -134,9 +142,108 @@ export async function trackUsage(
           : (response.error as Error)?.message
         : undefined,
     });
+
+    // 输出 OTel 结构化日志（debug 级别，默认不可见）
+    const otelLogger = getOTelLoggerAdapter();
+    if (otelLogger && !isError) {
+      otelLogger.debug('API 调用', {
+        model: params.model,
+        providerId: params.providerId,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        costUSD,
+        latencyMs: params.latencyMs,
+        statusCode,
+      });
+    }
+
+    // 同步数据到 CostTracker + LLMTracker（绕过 PostSampling 管道，直接在此处调用）
+    if (!isError) {
+      await syncToTrackers(params, {
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        costUSD,
+      });
+
+      // 实时日志输出（用户可见，便于监控 API 调用）
+      logger.info(
+        `API ${params.model} | in=${inputTokens} out=${outputTokens} ` +
+        `cache=${cacheReadTokens}/${cacheCreationTokens} cost=$${costUSD.toFixed(4)} | ${params.providerId || 'unknown'}`
+      );
+    }
   } catch (err) {
     // 使用量记录失败不阻塞主流程
     logger.debug('UsageTracker: 记录失败（非关键）', {
+      error: (err as Error).message,
+    });
+  }
+}
+
+/** 追踪数据（用于同步到 CostTracker / LLMTracker） */
+interface TrackUsageData {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  costUSD: number;
+}
+
+/**
+ * 将使用量数据同步到 CostTracker 和 LLMTracker
+ * 绕过 PostSampling 管道直接调用，确保数据流不依赖 QueryEngine
+ */
+async function syncToTrackers(
+  params: TrackUsageParams,
+  data: TrackUsageData
+): Promise<void> {
+  try {
+    // 同步到 CostTracker（累计统计）
+    const { costTracker } = await import('@modules/cost/CostTracker');
+    const { getCostRecordRepository } = await import(
+      '@modules/cost/CostRecordRepository'
+    );
+
+    // 确保 recordRepository 已初始化（防止启动时序问题导致静默跳过持久化）
+    const repository = getCostRecordRepository();
+    await repository.initDatabase();
+    costTracker.setRecordRepository(repository, params.sessionId);
+
+    costTracker.addCost(
+      params.model,
+      data.inputTokens,
+      data.outputTokens,
+      data.cacheReadTokens,
+      data.cacheCreationTokens
+    );
+
+    // 同步到 LLMTracker（按会话分组）
+    const { getLLMTracker } = await import(
+      '@modules/monitoring/llm/getLLMTracker'
+    );
+    const llmTracker = getLLMTracker();
+    const sessionId = params.sessionId || 'default';
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    llmTracker.recordLLMCall({
+      sessionId,
+      requestId,
+      model: params.model,
+      provider: params.providerId || 'unknown',
+      inputTokens: data.inputTokens,
+      outputTokens: data.outputTokens,
+      cacheReadTokens: data.cacheReadTokens,
+      cacheCreateTokens: data.cacheCreationTokens,
+      costUsd: data.costUSD,
+      durationMs: params.latencyMs ?? 0,
+    });
+  } catch (err) {
+    // 同步失败不阻塞主流程，记录诊断日志
+    logger.info('UsageTracker: syncToTrackers 同步失败', {
+      model: params.model,
       error: (err as Error).message,
     });
   }

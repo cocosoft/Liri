@@ -14,6 +14,8 @@ import {
   resetUnknownModelFlag,
 } from './ModelPricing.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
+import { getOTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
+import type { OTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
 
 /**
  * 模型使用信息
@@ -87,6 +89,13 @@ export class CostTracker {
    */
   setSessionId(sessionId: string): void {
     this.currentSessionId = sessionId;
+  }
+
+  /**
+   * 获取 OTelLoggerAdapter 实例（未初始化时返回 null）
+   */
+  private getOtelLogger(): OTelLoggerAdapter | null {
+    return getOTelLoggerAdapter();
   }
 
   /**
@@ -165,6 +174,23 @@ export class CostTracker {
       isFastMode,
     });
 
+    // 输出 OTel 结构化日志（debug 级别，默认不可见）
+    const otelLogger = this.getOtelLogger();
+    if (otelLogger) {
+      const level: 'debug' | 'warn' = cost === 0 ? 'warn' : 'debug';
+      otelLogger[level]('成本累加', {
+        modelName: canonicalModelName,
+        costUSD: cost,
+        totalCostUSD: this.totalCostUSD,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        hasUnknownPricing: hasUnknownModel(),
+        isFastMode,
+      });
+    }
+
     return cost;
   }
 
@@ -195,6 +221,14 @@ export class CostTracker {
       });
     } catch (error) {
       logForDebugging('持久化成本记录失败', { error });
+
+      const otelLogger = this.getOtelLogger();
+      if (otelLogger) {
+        otelLogger.warn('成本持久化失败', {
+          error: error instanceof Error ? error.message : String(error),
+          totalCostUSD: this.totalCostUSD,
+        });
+      }
     }
   }
 
@@ -324,6 +358,15 @@ export class CostTracker {
     this.totalReasoningTokens = state.totalReasoningTokens || 0;
     this.modelUsage = new Map(Object.entries(state.modelUsage));
     logForDebugging('成本跟踪已从状态恢复');
+
+    const otelLogger = this.getOtelLogger();
+    if (otelLogger) {
+      otelLogger.info('成本跟踪已从状态恢复', {
+        totalCostUSD: this.totalCostUSD,
+        totalInputTokens: this.totalInputTokens,
+        modelCount: this.modelUsage.size,
+      });
+    }
   }
 
   /**
@@ -341,6 +384,11 @@ export class CostTracker {
     this.startTime = Date.now();
     resetUnknownModelFlag();
     logForDebugging('成本跟踪已重置');
+
+    const otelLogger = this.getOtelLogger();
+    if (otelLogger) {
+      otelLogger.info('成本跟踪已重置');
+    }
   }
 
   /**

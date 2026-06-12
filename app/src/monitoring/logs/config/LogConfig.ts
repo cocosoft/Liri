@@ -44,6 +44,10 @@ export interface LogConfiguration {
   colorize: boolean;
   maxBufferSize: number;
   flushInterval: number;
+  /** 是否在日志中显示 traceId/spanId（默认 true，由 LOG_OTEL_TRACE 环境变量控制） */
+  otelTraceEnabled: boolean;
+  /** 是否在日志中显示 Token 和成本统计（默认 true，由 LOG_SHOW_TOKEN_COST 环境变量控制） */
+  showTokenCost: boolean;
 }
 
 /**
@@ -76,6 +80,8 @@ export class LogConfigManager {
       colorize: true,
       maxBufferSize: 1000,
       flushInterval: 5000,
+      otelTraceEnabled: process.env.LOG_OTEL_TRACE !== 'false',
+      showTokenCost: process.env.LOG_SHOW_TOKEN_COST !== 'false',
     };
   }
 

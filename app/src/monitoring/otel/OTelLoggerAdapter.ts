@@ -8,6 +8,7 @@ import { trace } from '@opentelemetry/api';
 import { LogLevel } from '../logs/Logger.js';
 import { StructuredLogger } from '../logs/StructuredLogger.js';
 import type { StructuredLogEntry } from '../logs/LogMemory.js';
+import { logConfigManager } from '../logs/config/LogConfig.js';
 import { OTelTracing } from './OTelTracing.js';
 
 /** Span 计数器追踪映射（traceId → counter） */
@@ -72,6 +73,7 @@ export class OTelLoggerAdapter {
 
   /**
    * 记录结构化日志，自动注入 OTel 上下文
+   * 根据 LogConfig 配置决定是否输出 trace 前缀和 token/cost 数据
    * @param level   日志级别
    * @param message 日志消息
    * @param data    附加数据
@@ -83,18 +85,36 @@ export class OTelLoggerAdapter {
     data?: Record<string, unknown>,
     error?: Error
   ): void {
-    const spanCtx = this.getActiveSpanContext();
-    if (spanCtx) {
-      this.ensureTrace(spanCtx.traceId);
-    } else if (
-      this.lastOTelTraceId !== null &&
-      this.logger.getTraceId() === this.lastOTelTraceId
-    ) {
-      this.resetTrace();
-      this.lastOTelTraceId = null;
+    const logConfig = logConfigManager.get();
+
+    // 根据配置决定是否注入 trace 上下文
+    if (logConfig.otelTraceEnabled) {
+      const spanCtx = this.getActiveSpanContext();
+      if (spanCtx) {
+        this.ensureTrace(spanCtx.traceId);
+      } else if (
+        this.lastOTelTraceId !== null &&
+        this.logger.getTraceId() === this.lastOTelTraceId
+      ) {
+        this.resetTrace();
+        this.lastOTelTraceId = null;
+      }
     }
 
-    this.logger.structured(level, message, data, error);
+    // 根据配置决定是否过滤 token/cost 字段
+    let filteredData = data;
+    if (!logConfig.showTokenCost && data) {
+      const {
+        inputTokens, outputTokens, costUSD, costUsd,
+        cacheReadTokens, cacheCreationTokens, cacheCreateTokens,
+        reasoningTokens, totalCostUSD, totalCostUsd, totalInputTokens,
+        totalOutputTokens, totalCachedInputTokens, totalReasoningTokens,
+        totalCost, ...rest
+      } = data as Record<string, unknown>;
+      filteredData = rest;
+    }
+
+    this.logger.structured(level, message, filteredData, error);
   }
 
   /** 重置日志器的 trace 状态 */
@@ -166,16 +186,15 @@ let otelLoggerAdapter: OTelLoggerAdapter | null = null;
 
 /**
  * 获取或创建 OTelLoggerAdapter 单例
+ * 未初始化时返回 null，调用方自行降级处理
  */
 export function getOTelLoggerAdapter(
   otelTracing?: OTelTracing,
   config?: OTelLoggerAdapterConfig
-): OTelLoggerAdapter {
+): OTelLoggerAdapter | null {
   if (!otelLoggerAdapter) {
     if (!otelTracing || !config) {
-      throw new Error(
-        'OTelLoggerAdapter 首次调用时必须传入 otelTracing 和 config'
-      );
+      return null;
     }
     otelLoggerAdapter = new OTelLoggerAdapter(otelTracing, config);
   }

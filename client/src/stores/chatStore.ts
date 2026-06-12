@@ -844,30 +844,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         } else if (chunk.type === "tool_call" && chunk.toolCall) {
           blockBuilder.addToolCall(chunk.toolCall);
 
-          // 立即解析为规范路径再存储,避免 LLM 返回的路径存在偏差(多字少字/拼写错误)
-          const filePath = extractFilePathFromToolCall(chunk.toolCall);
-          if (filePath) {
-            try {
-              const result = await resolveFilePath(filePath);
-              const displayPath = result || filePath;
-              const name = extractFileName(displayPath);
-              get().addSessionFile({
-                path: displayPath,
-                name,
-                content: "",
-                type: inferFileType(displayPath),
-              });
-            } catch {
-              // 解析失败时 fallback 到原始路径
-              const name = extractFileName(filePath);
-              get().addSessionFile({
-                path: filePath,
-                name,
-                content: "",
-                type: inferFileType(filePath),
-              });
-            }
-          }
+          // 文件路径收集已移至流结束后的 addFilePathsFromBlocks 统一处理
+          // 避免流式传输中同步 setState 导致无限重渲染
 
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "question" && chunk.questionData) {

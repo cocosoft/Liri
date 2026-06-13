@@ -882,7 +882,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               const todos = (args.todos as Array<Record<string, unknown>>) || [];
               const tasks = todos.map((t, idx) => ({
                 id: String(t.id || idx + 1),
-                name: String(t.name || `步骤 ${idx + 1}`),
+                name: String(t.name || t.content || `步骤 ${idx + 1}`),
                 status: (t.status as TaskCardTask["status"]) || "pending",
                 dependsOn: (t.dependsOn as string[]) || [],
               }));
@@ -1524,9 +1524,12 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
           dependsOn?: string[]; activeForm?: string; metadata?: Record<string, unknown>;
         }>;
         if (Array.isArray(todos) && todos.length > 0) {
+          // 兼容 content 字段（TodoWriteTool 内部字段名）和 name 字段
+          const taskName = (t: { name?: string; content?: string }, idx: number) =>
+            t.name || t.content || `步骤 ${idx + 1}`;
           const tasks = todos.map((t, idx) => ({
             id: t.id || String(idx + 1),
-            name: t.name || `步骤 ${idx + 1}`,
+            name: taskName(t, idx),
             status: (t.status as "pending" | "in_progress" | "completed") || "pending",
             dependsOn: t.dependsOn || [],
           }));

@@ -895,6 +895,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               skipDefault = true;
             }
           }
+          // 实时转换：ask_user_question 的 tool_call 直接转 question block，不等流结束
+          if (chunk.toolCall.name === "ask_user_question") {
+            const args = chunk.toolCall.arguments as Record<string, unknown> | undefined;
+            if (args?.question && args?.options) {
+              blockBuilder.addQuestion({
+                questionId: `q_${Date.now()}`,
+                question: String(args.question),
+                header: String(args.header || ""),
+                options: (args.options as Array<{ label: string; description?: string }>).map((o) => ({
+                  label: o.label,
+                  description: o.description || "",
+                })),
+                multiSelect: Boolean(args.multiSelect),
+              });
+              skipDefault = true;
+            }
+          }
           if (!skipDefault) {
             blockBuilder.addToolCall(chunk.toolCall);
           }

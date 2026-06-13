@@ -391,8 +391,8 @@ function SessionHistorySidebar() {
                           </div>
                           <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
                             {formatTime(session.updatedAt)}
-                            {session.messageCount > 0 &&
-                              ` · ${session.messageCount} 条消息`}
+                            {(session.roundCount ?? Math.ceil(session.messageCount / 2)) > 0 &&
+                              ` · ${session.roundCount ?? Math.ceil(session.messageCount / 2)} 轮对话`}
                           </div>
                         </div>
                       )}

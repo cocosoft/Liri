@@ -85,7 +85,7 @@ function SessionHeader() {
               {!isEditing && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                    {currentSession.messageCount} 条消息
+                    {currentSession.roundCount} 轮对话
                   </span>
                   <button
                     onClick={handleCopyId}
@@ -118,7 +118,13 @@ function SessionHeader() {
                   </span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span>消息数</span>
+                  <span>对话轮次</span>
+                  <span className="text-gray-900 dark:text-gray-200">
+                    {currentSession.roundCount}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>消息总数</span>
                   <span className="text-gray-900 dark:text-gray-200">
                     {currentSession.messageCount}
                   </span>

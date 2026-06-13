@@ -5,9 +5,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolveSoulDir } from '@modules/core/paths';
 
-const USER_FILE_PATH = path.join(resolvePyappHome(), 'USER.md');
+const USER_FILE_PATH = path.join(resolveSoulDir(), 'USER.md');
 
 let cachedContent: string | null = null;
 let cachedMtime: number = 0;

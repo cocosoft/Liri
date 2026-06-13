@@ -13,6 +13,8 @@ import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
 import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
+import SoulPanel from "../settings/SoulPanel";
+import UserPanel from "../settings/UserPanel";
 import {
   ConfigSection,
   ConfigItem,
@@ -21,7 +23,7 @@ import {
 import type { BackendStatus } from "../../types";
 import { useApiKeyStore } from "../../stores/authStore";
 import { routerService } from "../../services/routerService";
-import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon, BookOpenIcon } from "../../assets/icons";
+import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon, BookOpenIcon, UserIcon } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
 /** 导航项类型 */
@@ -59,6 +61,8 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "models", label: "模型管理", icon: ModelIcon, zone: "ai" },
       { id: "skills", label: "技能管理", icon: SkillIcon, zone: "ai" },
       { id: "router", label: "智能路由", icon: SlidersIcon, zone: "ai" },
+      { id: "soul", label: "玲珑鸟人格", icon: BookOpenIcon, zone: "ai" },
+      { id: "user", label: "用户身份", icon: UserIcon, zone: "ai" },
     ],
   },
   {
@@ -541,6 +545,10 @@ function SettingsPage() {
         return <SkillManagementContent isDark={isDark} />;
       case "router":
         return <RouterConfigContent isDark={isDark} config={config} setConfig={setConfig} />;
+      case "soul":
+        return <SoulPanel isDark={isDark} />;
+      case "user":
+        return <UserPanel isDark={isDark} />;
       case "apikeys":
         return <ApiKeyContent />;
       case "trusted-workspaces":

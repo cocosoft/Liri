@@ -4,6 +4,7 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   messageCount: number;
+  roundCount: number;
   agentId?: string;
   source?: string;
   tokenUsage?: {

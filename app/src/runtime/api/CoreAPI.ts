@@ -120,6 +120,7 @@ export interface SessionInfo {
   createdAt: Date;
   updatedAt: Date;
   messageCount: number;
+  roundCount: number;
   metadata?: Record<string, unknown>;
 }
 

@@ -28,6 +28,8 @@
 
 import type http from 'node:http';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { readSoulMd, writeSoulMd, ensureDefaultSoulMd } from '@modules/services/soul/SoulReader';
+import { readUserMd, writeUserMd, ensureDefaultUserMd } from '@modules/services/soul/UserReader';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -1243,6 +1245,82 @@ async function handleListPresets(
   }
 }
 
+// ─── Soul/User 路由 ─────────────────────────────────
+
+/**
+ * GET /v1/soul — 读取 SOUL.md 人格定义
+ */
+async function handleGetSoul(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    ensureDefaultSoulMd();
+    const content = readSoulMd();
+    sendJson(res, { data: { content } });
+  } catch (err) {
+    sendError(res, `读取人格定义失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * PUT /v1/soul — 写入 SOUL.md 人格定义
+ */
+async function handlePutSoul(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+    const content = body.content as string;
+    if (typeof content !== 'string' || !content.trim()) {
+      sendError(res, 'content 不能为空', 400);
+      return;
+    }
+    writeSoulMd(content);
+    sendJson(res, { data: { success: true } });
+  } catch (err) {
+    sendError(res, `保存人格定义失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * GET /v1/user — 读取 USER.md 用户身份
+ */
+async function handleGetUser(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    ensureDefaultUserMd();
+    const content = readUserMd();
+    sendJson(res, { data: { content } });
+  } catch (err) {
+    sendError(res, `读取用户身份失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * PUT /v1/user — 写入 USER.md 用户身份
+ */
+async function handlePutUser(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+    const content = body.content as string;
+    if (typeof content !== 'string' || !content.trim()) {
+      sendError(res, 'content 不能为空', 400);
+      return;
+    }
+    writeUserMd(content);
+    sendJson(res, { data: { success: true } });
+  } catch (err) {
+    sendError(res, `保存用户身份失败: ${(err as Error).message}`, 500);
+  }
+}
+
 // ─── 路由表 ───────────────────────────────────────────
 
 interface RouteEntry {
@@ -1366,6 +1444,12 @@ const ROUTES: RouteEntry[] = [
     pattern: /^\/v1\/models\/app-config\/([^/]+)$/,
     handler: handleDeleteAppConfig,
   },
+
+  // Soul/User
+  { method: 'GET', pattern: /^\/v1\/soul$/, handler: handleGetSoul },
+  { method: 'PUT', pattern: /^\/v1\/soul$/, handler: handlePutSoul },
+  { method: 'GET', pattern: /^\/v1\/user$/, handler: handleGetUser },
+  { method: 'PUT', pattern: /^\/v1\/user$/, handler: handlePutUser },
 ];
 
 /**

@@ -81,6 +81,14 @@ function countConversationMessages(
     .length;
 }
 
+/** 统计用户消息数 = 对话轮次 */
+function countUserMessages(
+  messages: Array<{ role: string }> | undefined
+): number {
+  if (!messages) return 0;
+  return messages.filter((m) => m.role === 'user').length;
+}
+
 /**
  * 创建 CoreAPIImpl 实例
  * 支持传入可选依赖覆盖，未传入时使用全局默认实例
@@ -593,6 +601,7 @@ export class CoreAPIImpl implements CoreAPI {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
+      roundCount: countUserMessages(session.messages),
       metadata: session.metadata,
     };
   }
@@ -609,6 +618,7 @@ export class CoreAPIImpl implements CoreAPI {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
+      roundCount: countUserMessages(session.messages),
       metadata: session.metadata,
     };
   }
@@ -716,6 +726,7 @@ export class CoreAPIImpl implements CoreAPI {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
+      roundCount: countUserMessages(session.messages),
       metadata: session.metadata,
     }));
   }
@@ -816,6 +827,7 @@ export class CoreAPIImpl implements CoreAPI {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
+      roundCount: countUserMessages(session.messages),
       metadata: session.metadata,
     };
   }

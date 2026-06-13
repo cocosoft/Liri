@@ -30,6 +30,7 @@ function createMemorySessionService() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       messageCount: 0,
+      roundCount: 0,
     }),
     switch: async (_id: string): Promise<Session> => ({
       id: _id,
@@ -37,6 +38,7 @@ function createMemorySessionService() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       messageCount: 0,
+      roundCount: 0,
     }),
     delete: async (_id: string): Promise<void> => {},
     rename: async (_id: string, _title: string): Promise<void> => {},

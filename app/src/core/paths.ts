@@ -222,6 +222,11 @@ export function resolveTeamMemoryDir(
   return join(resolveDataDir(env), 'team-memory');
 }
 
+/** 人格/用户身份 */
+export function resolveSoulDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolveDataDir(env), 'soul');
+}
+
 /** 缓存 */
 export function resolveCacheDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveDataDir(env), 'cache');

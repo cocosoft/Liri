@@ -352,6 +352,7 @@ export async function handleCostSummary(
   res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({
     todayCost: effectiveTodayCost, weeklyCost: weekly.cost, monthlyCost: monthly.cost, yearlyCost: yearly.cost,
+    totalSessions: 0, // cost_records 不直接跟踪会话，后续可通过 ChatManager 注入
     todayTokens: effectiveTodayTokens, monthlyTokens: monthly.tokens,
     totalInputTokens, totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens,
     totalCacheReadTokens: totalCacheRead, totalCacheCreationTokens: totalCacheCreation,

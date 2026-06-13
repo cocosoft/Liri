@@ -432,23 +432,3 @@ export async function handleMonitorSessionDetail(
     res.end(JSON.stringify({ error: '获取会话详情失败' }));
   }
 }
-
-/**
- * GET /v1/monitor/cost — 成本统计
- */
-export async function handleMonitorCost(
-  _ctx: HandlerCtx,
-  _req: http.IncomingMessage,
-  res: http.ServerResponse,
-): Promise<void> {
-  try {
-    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
-    const globalSummary = getLLMTracker().getGlobalSummary();
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(globalSummary));
-  } catch (error) {
-    logger.error('获取成本统计失败', { error: String(error) });
-    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ error: '获取成本统计失败' }));
-  }
-}

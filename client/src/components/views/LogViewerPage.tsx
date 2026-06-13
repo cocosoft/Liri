@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import { monitorService } from "../../services/monitorService";
+import { costService, type CostSummary } from "../../services/costService";
 import type { LogEntry, LogSource } from "../../types";
-import type { SessionSummary, SessionDetail, CostSummary } from "../../services/monitorService";
+import type { SessionSummary, SessionDetail } from "../../services/monitorService";
 import SearchInput from "../common/SearchInput";
 import LogViewer from "../common/LogViewer";
 
@@ -92,7 +93,7 @@ function LogViewerPage() {
     setCostError(null);
 
     try {
-      const result = await monitorService.getCostSummary();
+      const result = await costService.getCostSummary();
       setCostSummary(result);
     } catch (e) {
       setCostError(e instanceof Error ? e.message : "获取成本统计失败");

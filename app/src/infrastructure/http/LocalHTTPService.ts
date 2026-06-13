@@ -33,7 +33,7 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import type { IChannelPlugin } from '@modules/channels/types';
 
-import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail, handleMonitorCost } from './handlers/monitoring-handlers';
+import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail } from './handlers/monitoring-handlers';
 import { handleHealthReport, handleAnalyticsDashboard, handleCostSummary, handleCostRecords, handleCostRange, setAnalyticsDependencies } from './handlers/analytics-handlers';
 import { handleChatCompletions, handleQuestionAnswer } from './handlers/chat-handlers';
 import { handleFileRegistryList, handleFileRegistryDetail, handleFileRegistrySearch, handleFileRegistryStats, handleFileRegistryDelete, handleFileHealth } from './handlers/files-handlers';
@@ -1296,9 +1296,6 @@ export class LocalHTTPService {
         url.match(/^\/v1\/monitor\/sessions\/(.+)$/)![1]
       );
     }
-    if (req.method === 'GET' && url === '/v1/monitor/cost') {
-      return this.handleMonitorCost(req, res);
-    }
     if (req.method === 'GET' && url === '/v1/health/report') {
       return this.handleHealthReport(req, res);
     }
@@ -1607,13 +1604,6 @@ export class LocalHTTPService {
     sessionId: string,
   ): Promise<void> {
     return handleMonitorSessionDetail(this._handlerCtx, req, res, { "$1": sessionId });
-  }
-
-  private async handleMonitorCost(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
-    return handleMonitorCost(this._handlerCtx, req, res);
   }
 
   // ========== Health / Analytics / Cost Handlers (extracted to handlers/analytics-handlers.ts) ==========

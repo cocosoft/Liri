@@ -33,6 +33,7 @@ export interface DailyBreakdown {
 }
 
 export interface CostSummary {
+  totalSessions: number;
   todayCost: number;
   weeklyCost: number;
   monthlyCost: number;

@@ -101,7 +101,9 @@ export class AIServiceImpl implements AIService {
       model: extractModelFromResponse(chatResponse, resolvedModel),
       providerId: (client as AIProvider).id,
       latencyMs,
-    }).catch(() => {});
+    }).catch((err) => {
+      logger.warn('trackUsage 失败（非流式）', { error: String(err) });
+    });
 
     if (this.scrubberPipeline) {
       const scrubbed = this.scrubberPipeline.scrub({
@@ -193,7 +195,9 @@ export class AIServiceImpl implements AIService {
       providerId: (client as AIProvider).id,
       latencyMs,
       isStreaming: true,
-    }).catch(() => {});
+    }).catch((err) => {
+      logger.warn('trackUsage 失败（流式）', { error: String(err) });
+    });
   }
 
   setDefaultModel(model: string): void {

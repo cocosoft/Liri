@@ -38,14 +38,6 @@ export interface SessionDetail extends SessionSummary {
   calls: LLMCallRecord[];
 }
 
-export interface CostSummary {
-  totalSessions: number;
-  totalRequests: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalCostUsd: number;
-}
-
 export interface MetricsData {
   requests: MetricPoint[];
   responseTime: MetricPoint[];
@@ -171,10 +163,6 @@ export const monitorService = {
 
   async getSessionDetail(sessionId: string): Promise<SessionDetail> {
     return http.get<SessionDetail>(`/v1/monitor/sessions/${sessionId}`);
-  },
-
-  async getCostSummary(): Promise<CostSummary> {
-    return http.get<CostSummary>("/v1/monitor/cost");
   },
 
   async exportLogs(params: {

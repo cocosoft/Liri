@@ -10,6 +10,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/core/paths';
+import { configManager } from '@modules/config/ConfigManager';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -58,9 +59,10 @@ export interface IngestionOptions {
 }
 
 /**
- * 需要跳过的文件扩展名（代码文件、二进制文件等）
+ * 需要彻底跳过的文件扩展名（编译产物、压缩包、动态库等）
+ * 这些文件放在知识库中毫无价值，直接跳过
  */
-const SKIP_EXTENSIONS = new Set([
+const BINARY_SKIP_EXTENSIONS = new Set([
   '.exe',
   '.dll',
   '.so',
@@ -73,6 +75,19 @@ const SKIP_EXTENSIONS = new Set([
   '.gz',
   '.rar',
   '.7z',
+  '.pyc',
+  '.pyo',
+  '.class',
+  '.jar',
+  '.wasm',
+]);
+
+/**
+ * 仅落库但不进行 AI 分类的媒体文件扩展名
+ * 这些文件会被复制到 raw/ 目录并附带元数据，
+ * 但不会尝试 AI 分类（AI 无法读取图片/音视频内容）
+ */
+const MEDIA_ONLY_EXTENSIONS = new Set([
   '.jpg',
   '.jpeg',
   '.png',
@@ -80,7 +95,6 @@ const SKIP_EXTENSIONS = new Set([
   '.bmp',
   '.webp',
   '.ico',
-  '.svg',
   '.mp3',
   '.wav',
   '.mp4',
@@ -90,11 +104,6 @@ const SKIP_EXTENSIONS = new Set([
   '.woff2',
   '.ttf',
   '.eot',
-  '.pyc',
-  '.pyo',
-  '.class',
-  '.jar',
-  '.wasm',
 ]);
 
 /**
@@ -172,17 +181,37 @@ function isEditableTextFile(ext: string): boolean {
     '.dockerfile',
     '.gitignore',
     '.editorconfig',
+    '.svg',
   ]);
   return textExtensions.has(ext);
 }
 
 function shouldSkipFile(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase();
-  if (SKIP_EXTENSIONS.has(ext)) return true;
 
+  // 用户配置白名单模式：仅落库 include 列表中的类型
+  const mergedConfig = configManager.getMergedConfig();
+  const includeExts = mergedConfig['knowledge.ingest.include'] as string[] | undefined;
+  if (includeExts && Array.isArray(includeExts) && includeExts.length > 0) {
+    return !includeExts.some((e: string) => e.toLowerCase() === ext);
+  }
+
+  // 用户配置黑名单模式：在内置规则基础上额外排除
+  const excludeExts = mergedConfig['knowledge.ingest.exclude'] as string[] | undefined;
+  if (excludeExts && Array.isArray(excludeExts) && excludeExts.length > 0) {
+    if (excludeExts.some((e: string) => e.toLowerCase() === ext)) return true;
+  }
+
+  // 内置默认规则
+  if (BINARY_SKIP_EXTENSIONS.has(ext)) return true;
   if (SKIP_DIRECTORIES.some((dir) => filePath.includes(dir))) return true;
 
   return false;
+}
+
+function isMediaOnlyFile(filePath: string): boolean {
+  const ext = extname(filePath).toLowerCase();
+  return MEDIA_ONLY_EXTENSIONS.has(ext);
 }
 
 /**
@@ -257,7 +286,11 @@ export class FileIngestionService {
 
       let category = options.category || 'other';
 
-      if (!options.skipClassification && this.aiService) {
+      if (isMediaOnlyFile(resolvedPath)) {
+        // 媒体文件：按类型分配默认分类，不尝试 AI 分类
+        const mediaCategory = this.getMediaCategory(resolvedPath);
+        category = options.category || mediaCategory;
+      } else if (!options.skipClassification && this.aiService) {
         try {
           const content = await this.safeReadFile(resolvedPath);
           if (content) {
@@ -370,6 +403,24 @@ export class FileIngestionService {
       totalFiles: files.filter((f) => !f.endsWith('.meta.json')).length,
       categories,
     };
+  }
+
+  /**
+   * 根据媒体文件扩展名获取默认分类
+   */
+  private getMediaCategory(filePath: string): FileCategory {
+    const ext = extname(filePath).toLowerCase();
+    const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico']);
+    const audioExtensions = new Set(['.mp3', '.wav']);
+    const videoExtensions = new Set(['.mp4', '.avi', '.mov']);
+    const fontExtensions = new Set(['.woff', '.woff2', '.ttf', '.eot']);
+
+    if (imageExtensions.has(ext)) return 'reference';
+    if (audioExtensions.has(ext)) return 'reference';
+    if (videoExtensions.has(ext)) return 'reference';
+    if (fontExtensions.has(ext)) return 'reference';
+
+    return 'other';
   }
 
   /**

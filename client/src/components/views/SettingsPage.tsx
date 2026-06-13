@@ -12,6 +12,7 @@ import NotificationsPanel from "../settings/NotificationsPanel";
 import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
 import VoiceSettings from "../settings/VoiceSettings";
+import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
 import {
   ConfigSection,
   ConfigItem,
@@ -20,7 +21,7 @@ import {
 import type { BackendStatus } from "../../types";
 import { useApiKeyStore } from "../../stores/authStore";
 import { routerService } from "../../services/routerService";
-import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon } from "../../assets/icons";
+import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon, BookOpenIcon } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
 /** 导航项类型 */
@@ -91,6 +92,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "data-dir", label: "数据目录", icon: FolderOpenIcon, zone: "storage" },
       { id: "files", label: "文件管理", icon: FileIcon, zone: "storage" },
+      { id: "ingest", label: "文件摄取", icon: BookOpenIcon, zone: "storage" },
       { id: "cost", label: "成本统计", icon: DollarIcon, zone: "storage" },
       { id: "media", label: "媒体管理", icon: ImageIcon, zone: "storage" },
       { id: "sandbox", label: "沙箱管理", icon: PlayIcon, zone: "storage" },
@@ -563,6 +565,8 @@ function SettingsPage() {
         return renderDataStorage();
       case "files":
         return <FileManagementContent isDark={isDark} />;
+      case "ingest":
+        return <KnowledgeIngestPanel isDark={isDark} />;
       case "cost":
         return <CostStatisticsContent isDark={isDark} />;
       case "media":

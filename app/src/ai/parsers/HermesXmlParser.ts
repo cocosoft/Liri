@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';
+import { repairModelJson } from '@modules/utils/json';
 
 export class HermesXmlParser extends BaseParser {
   readonly name = 'hermes';
@@ -35,7 +36,9 @@ export class HermesXmlParser extends BaseParser {
       if (!rawJson) continue;
 
       try {
-        const tcData = JSON.parse(rawJson);
+        // 修复可能的 Windows 路径反斜杠问题后解析
+        const repaired = repairModelJson(rawJson);
+        const tcData = JSON.parse(repaired);
         if (!tcData.name) continue;
 
         toolCalls.push({

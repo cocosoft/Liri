@@ -26,9 +26,12 @@ export function glob(
   const startTime = Date.now();
   const results: string[] = [];
 
+  // 将模式中的反斜杠统一为斜杠，确保跨平台路径匹配一致性
+  const normalizedPattern = pattern.replace(/\\/g, '/');
+
   // 执行目录遍历并收集匹配文件，若发生错误（如权限拒绝）则静默处理
   try {
-    walkDir(searchPath, pattern, results, MAX_FILES);
+    walkDir(searchPath, normalizedPattern, results, MAX_FILES, searchPath);
   } catch {
     // 权限拒绝时返回空
   }
@@ -50,12 +53,14 @@ export function glob(
  * @param pattern - 用于匹配文件名或完整路径的通配符模式
  * @param results - 用于存储匹配到的文件路径的数组（会直接修改此数组）
  * @param limit - 限制收集的最大文件数量，达到该数量后停止遍历
+ * @param rootDir - 搜索根目录，用于计算相对路径（可选）
  */
 function walkDir(
   dir: string,
   pattern: string,
   results: string[],
-  limit: number
+  limit: number,
+  rootDir?: string
 ): void {
   // 如果已收集的结果数量达到上限，则提前返回
   if (results.length >= limit) return;
@@ -77,10 +82,17 @@ function walkDir(
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       // 如果是目录，则递归遍历
-      walkDir(fullPath, pattern, results, limit);
+      walkDir(fullPath, pattern, results, limit, rootDir);
     } else if (entry.isFile()) {
-      // 如果是文件，则检查文件名或完整路径是否匹配模式
-      if (matchGlob(entry.name, pattern) || matchGlob(fullPath, pattern)) {
+      // 如果是文件，则依次检查：文件名、完整路径、相对路径是否匹配模式
+      const relativePath = rootDir
+        ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
+        : '';
+      if (
+        matchGlob(entry.name, pattern) ||
+        matchGlob(fullPath, pattern) ||
+        (relativePath && matchGlob(relativePath, pattern))
+      ) {
         results.push(fullPath);
       }
     }
@@ -93,6 +105,8 @@ function walkDir(
  * - `*`: 匹配任意非路径分隔符字符（不包括 `/` 和 `\`）
  * - `**`: 匹配任意字符（包括路径分隔符）
  * - `?`: 匹配单个任意字符
+ *
+ * 路径中的反斜杠会被自动转换为斜杠，确保 Windows 路径也能正确匹配。
  * * @param name - 要检查的文件名或路径字符串
  * @param pattern - glob 模式字符串
  * @returns 如果名称匹配模式则返回 true，否则返回 false
@@ -100,6 +114,9 @@ function walkDir(
 function matchGlob(name: string, pattern: string): boolean {
   // 特殊处理：如果模式为单个星号，则匹配所有名称
   if (pattern === '*') return true;
+
+  // 将路径中的反斜杠统一为斜杠，确保跨平台路径匹配一致性
+  const normalizedName = name.replace(/\\/g, '/');
 
   // 将 glob 模式转换为正则表达式字符串
   // 1. 转义字面量点号
@@ -117,11 +134,11 @@ function matchGlob(name: string, pattern: string): boolean {
   try {
     // 构建不区分大小写的正则表达式，并尝试匹配完整路径或仅文件名
     const regex = new RegExp(`^${regexStr}$`, 'i');
-    const basename = path.basename(name);
-    return regex.test(basename) || regex.test(name);
+    const basename = path.basename(normalizedName);
+    return regex.test(basename) || regex.test(normalizedName);
   } catch {
     // 如果正则表达式构建失败（例如非法模式），回退到简单的包含检查
     // 移除模式中的所有星号后，检查剩余部分是否包含在名称中
-    return name.includes(pattern.replace(/\*/g, ''));
+    return normalizedName.includes(pattern.replace(/\*/g, ''));
   }
 }

@@ -36,7 +36,7 @@ const MAX_RESULTS = 500;
 /**
  * 在指定目录中搜索匹配正则表达式的文件内容。
  * * @param options - 搜索配置选项
- * @param options.searchPath - 要搜索的根目录路径，默认为当前工作目录
+ * @param options.searchPath - 要搜索的根目录路径，默认为当前工作目录；若为文件路径则自动降级为单文件搜索
  * @param options.pattern - 用于匹配的正则表达式模式字符串
  * @param options.multiline - 是否启用多行匹配模式
  * @param options.outputMode - 输出模式：'files_with_matches'（仅文件名）、'count'（文件名及匹配数）、'content'（匹配的具体内容行）
@@ -62,10 +62,18 @@ export function grep(options: GrepOptions): GrepResult {
   const fileMatches: Map<string, string[]> = new Map();
   let totalMatches = 0;
 
-  // 执行目录递归搜索，将匹配结果存入 fileMatches
+  // 判断 searchPath 是文件还是目录，自动降级为单文件搜索
   try {
-    searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS);
-  } catch {}
+    const stat = fs.statSync(searchPath);
+    if (stat.isFile()) {
+      // 单文件搜索：直接搜索该文件，跳过 include/type 过滤
+      searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
+    } else {
+      searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS);
+    }
+  } catch {
+    // 路径无效时静默处理，返回空结果
+  }
 
   let outputLines: string[] = [];
   const matchedFiles = [...fileMatches.keys()];

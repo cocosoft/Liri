@@ -21,6 +21,7 @@
 
 import crypto from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { repairModelJson } from '@modules/utils/json';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -1421,8 +1422,14 @@ export class ChatManagerImpl implements ChatManager {
           let parsedArguments: Record<string, unknown>;
           if (typeof normalizedToolCall.arguments === 'string') {
             try {
-              parsedArguments = JSON.parse(normalizedToolCall.arguments);
+              // 使用 repairModelJson 修复可能的 Windows 路径反斜杠问题
+              const repaired = repairModelJson(normalizedToolCall.arguments);
+              parsedArguments = JSON.parse(repaired);
             } catch (error) {
+              logger.warn('工具调用参数 JSON 解析失败，使用空参数兜底', {
+                toolName: normalizedToolCall.name,
+                rawArguments: (normalizedToolCall.arguments as string).slice(0, 500),
+              });
               parsedArguments = {};
             }
           } else {

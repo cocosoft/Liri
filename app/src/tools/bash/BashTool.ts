@@ -36,7 +36,7 @@ const execAsync = promisify(exec);
 /**
  * BashTool 输入模式 - 对标CC Zod校验
  */
-const BashInputSchema = z.strictObject({
+const BashInputSchema = z.object({
   command: z.string().min(1, '命令不能为空').describe('要执行的Bash命令'),
   timeout: z
     .number()
@@ -119,19 +119,32 @@ const DANGEROUS_PATTERNS = [
 ];
 
 /**
- * 检查路径是否安全 - 对标CC源码
+ * 检查路径是否安全 - 对标CC源码，适配 Windows
  */
 function isPathSafe(path: string): boolean {
-  const pathTraversalPatterns = [/\.\.\//, /^\.\//, /\/\.\.\//, /^\//];
+  const isWin = process.platform === 'win32';
 
-  const dangerousPaths = [
-    /^\/etc\//,
-    /^\/sys\//,
-    /^\/proc\//,
-    /^\/boot\//,
-    /^\/dev\//,
-    /^\/root\//,
-  ];
+  // 路径遍历模式：Unix 用 ..//，Windows 额外支持 ..\
+  const pathTraversalPatterns = isWin
+    ? [/\.\.\//, /^\.\//, /\/\.\.\//, /\.\.\\/, /^\.\\/, /\\\.\.\\/]
+    : [/\.\.\//, /^\.\//, /\/\.\.\//, /^\//];
+
+  // 危险系统目录：按平台区分
+  const dangerousPaths = isWin
+    ? [
+        /^[A-Za-z]:\\windows\\/i,
+        /^[A-Za-z]:\\system32\\/i,
+        /^[A-Za-z]:\\boot\\/i,
+        /^[A-Za-z]:\\program files\\/i,
+      ]
+    : [
+        /^\/etc\//,
+        /^\/sys\//,
+        /^\/proc\//,
+        /^\/boot\//,
+        /^\/dev\//,
+        /^\/root\//,
+      ];
 
   return (
     !pathTraversalPatterns.some((pattern) => pattern.test(path)) &&
@@ -230,8 +243,8 @@ export class BashTool extends BaseTool {
       });
 
       if (!skipSecurityCheck) {
-        // 对标CC：路径安全检查
-        const pathMatch = command.match(/['"]?(\/[^\s'"]+)['"]?/);
+        // 对标CC：路径安全检查（适配 Windows 盘符路径）
+        const pathMatch = command.match(/['"]?((?:\/[^\s'"]+|[A-Za-z]:\\[^\s'"]*))['"]?/);
         if (pathMatch && !isPathSafe(pathMatch[1])) {
           return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
             newMessages: [

@@ -77,6 +77,8 @@ import { isAntUser, isSimpleMode } from '../utils/features.js';
 import { isToolEnabled } from './utils/ToolFeatureFlags';
 import { isFeatureEnabled } from '@modules/core';
 import { NodesTool } from './NodesTool/NodesTool';
+import { SleepTool } from './SleepTool/SleepTool.js';
+import { MonitorTool } from './MonitorTool/MonitorTool.js';
 import { CodeAnalysisTool } from './CodeAnalysisTool/CodeAnalysisTool';
 import { VoiceInputTool } from './VoiceInputTool/VoiceInputTool';
 import { VoiceOutputTool } from './VoiceOutputTool/VoiceOutputTool';
@@ -122,6 +124,22 @@ import {
   BroadcastTool,
   createBroadcastTool,
 } from './BroadcastTool/BroadcastTool';
+import { TraceRecordingTool } from './TraceRecordingTool/TraceRecordingTool.js';
+import {
+  sendNotification,
+  getNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+  clearNotifications,
+  isPushNotificationEnabled,
+} from './PushNotificationTool/PushNotificationTool.js';
+import {
+  subscribeToPR,
+  getSubscriptions,
+  unsubscribe,
+  isPRSubscriptionEnabled,
+} from './SubscribePRTool/SubscribePRTool.js';
 
 interface ToolDefinitionInput {
   name: string;
@@ -520,7 +538,6 @@ export class ToolFactory {
    */
   createSleepTool(): Tool | null {
     try {
-      const { SleepTool } = require('./SleepTool/SleepTool.js');
       return new SleepTool();
     } catch (error) {
       logger.error(
@@ -545,7 +562,6 @@ export class ToolFactory {
    */
   createMonitorTool(): Tool | null {
     try {
-      const { MonitorTool } = require('./MonitorTool/MonitorTool.js');
       return new MonitorTool();
     } catch (error) {
       logger.error(
@@ -562,9 +578,6 @@ export class ToolFactory {
    */
   createTraceRecordingTool(): Tool | null {
     try {
-      const {
-        TraceRecordingTool,
-      } = require('./TraceRecordingTool/TraceRecordingTool.js');
       return new TraceRecordingTool();
     } catch (error) {
       logger.error(
@@ -641,15 +654,6 @@ export class ToolFactory {
   createPushNotificationTool(): Tool | null {
     if (!isToolEnabled('ENABLE_PUSH_NOTIFICATION')) return null;
     try {
-      const {
-        sendNotification,
-        getNotifications,
-        getUnreadCount,
-        markAsRead,
-        markAllAsRead,
-        clearNotifications,
-        isPushNotificationEnabled,
-      } = require('./PushNotificationTool/PushNotificationTool.js');
       if (!isPushNotificationEnabled()) return null;
       return {
         name: 'push_notification',
@@ -740,6 +744,10 @@ export class ToolFactory {
         isEnabled: () => true,
       } as unknown as Tool;
     } catch (error) {
+      logger.error(
+        'Failed to create PushNotificationTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -751,12 +759,6 @@ export class ToolFactory {
   createSubscribePRTool(): Tool | null {
     if (!isToolEnabled('ENABLE_SUBSCRIBE_PR')) return null;
     try {
-      const {
-        subscribeToPR,
-        getSubscriptions,
-        unsubscribe,
-        isPRSubscriptionEnabled,
-      } = require('./SubscribePRTool/SubscribePRTool.js');
       if (!isPRSubscriptionEnabled()) return null;
       return {
         name: 'subscribe_pr',
@@ -818,6 +820,10 @@ export class ToolFactory {
         isEnabled: () => true,
       } as unknown as Tool;
     } catch (error) {
+      logger.error(
+        'Failed to create SubscribePRTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -986,7 +992,6 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new WebFetchTool());
   tools.push(new TodoWriteTool());
   tools.push(new WebSearchTool());
-  tools.push(new TaskStopTool());
   tools.push(new AskUserQuestionTool());
 
   const knowledgeSearchTool = createKnowledgeSearchTool(knowledgeRouter);

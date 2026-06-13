@@ -503,11 +503,16 @@ class ChronologicalBlockBuilder {
     });
   }
 
-  /** 添加 todo 块 */
+  /** 添加或更新 todo 块 */
   addTodo(todoData: import("../types/index").TaskCardData): void {
-    const idx = this.blocks.findIndex(
+    // 先按标题精确匹配
+    let idx = this.blocks.findIndex(
       (b) => b.type === "todo" && b.content === todoData.title,
     );
+    // 标题不匹配时，回退到第一个 todo 块（流式更新时标题可能不同）
+    if (idx === -1) {
+      idx = this.blocks.findIndex((b) => b.type === "todo");
+    }
     if (idx !== -1) {
       this.blocks[idx].taskCard = todoData;
       return;
@@ -895,22 +900,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               skipDefault = true;
             }
           }
-          // 实时转换：ask_user_question 的 tool_call 直接转 question block，不等流结束
+          // ask_user_question 的 tool_call：跳过默认 tool_call 渲染块，
+          // 稍后将由 question 类型 chunk 渲染 QuestionBlock
           if (chunk.toolCall.name === "ask_user_question") {
-            const args = chunk.toolCall.arguments as Record<string, unknown> | undefined;
-            if (args?.question && args?.options) {
-              blockBuilder.addQuestion({
-                questionId: `q_${Date.now()}`,
-                question: String(args.question),
-                header: String(args.header || ""),
-                options: (args.options as Array<{ label: string; description?: string }>).map((o) => ({
-                  label: o.label,
-                  description: o.description || "",
-                })),
-                multiSelect: Boolean(args.multiSelect),
-              });
-              skipDefault = true;
-            }
+            skipDefault = true;
           }
           if (!skipDefault) {
             blockBuilder.addToolCall(chunk.toolCall);

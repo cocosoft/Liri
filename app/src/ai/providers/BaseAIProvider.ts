@@ -53,6 +53,7 @@ import type { APIProvider } from '../models/ModelConfigs';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import type { TransportStreamEvent } from '../transports/types';
 import { configManager } from '@modules/config';
+import { repairModelJson } from '@modules/utils/json';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -586,10 +587,12 @@ export abstract class BaseAIProvider implements AIProvider {
         .sort(([a], [b]) => a - b)
         .map(([_, tc]) => {
           try {
+            // 修复可能的 Windows 路径反斜杠问题后解析
+            const repaired = repairModelJson(tc.arguments);
             return {
               id: tc.id,
               name: tc.name,
-              arguments: JSON.parse(tc.arguments) as Record<string, unknown>,
+              arguments: JSON.parse(repaired) as Record<string, unknown>,
             };
           } catch {
             return {

@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';
+import { repairModelJson } from '@modules/utils/json';
 
 export class DeepSeekV31Parser extends BaseParser {
   readonly name = 'deepseek_v3_1';
@@ -39,7 +40,9 @@ export class DeepSeekV31Parser extends BaseParser {
       if (!rawJson) continue;
 
       try {
-        const tcData: unknown = JSON.parse(rawJson);
+        // 修复可能的 Windows 路径反斜杠问题后解析
+        const repaired = repairModelJson(rawJson);
+        const tcData: unknown = JSON.parse(repaired);
 
         if (Array.isArray(tcData)) {
           for (const item of tcData) {

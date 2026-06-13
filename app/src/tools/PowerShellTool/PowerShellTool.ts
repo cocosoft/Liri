@@ -7,13 +7,14 @@
 
 import { z } from 'zod';
 import { BaseTool } from '../BaseTool';
-import { ToolResult, createToolResult } from '../types/ToolResult';
+import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import {
   ToolParam,
   InterruptBehavior,
   ValidationResult,
   ToolTag,
+  ToolCallProgress,
 } from '../types/Tool';
 import {
   createSuccessResult,
@@ -27,7 +28,7 @@ import * as path from 'path';
 /**
  * PowerShell 输入模式
  */
-const PowerShellInputSchema = z.strictObject({
+const PowerShellInputSchema = z.object({
   command: z.string().min(1, '命令不能为空').describe('要执行的PowerShell命令'),
   timeout: z
     .number()
@@ -48,6 +49,17 @@ const PowerShellInputSchema = z.strictObject({
     .optional()
     .default('Bypass')
     .describe('PowerShell执行策略'),
+  depth: z
+    .number()
+    .int()
+    .positive()
+    .max(1000)
+    .optional()
+    .describe('输出深度限制：限制返回的对象数量，避免输出过于冗长'),
+  exclude: z
+    .string()
+    .optional()
+    .describe('排除模式：从输出中排除包含此文本的行（简单文本匹配，非正则）'),
 });
 
 /**
@@ -106,6 +118,18 @@ export class PowerShellTool extends BaseTool {
       description: 'PowerShell execution policy (Bypass, RemoteSigned, etc.)',
       required: false,
       default: 'Bypass',
+    },
+    {
+      name: 'depth',
+      type: 'number',
+      description: 'Limit output to N objects to avoid overly verbose results',
+      required: false,
+    },
+    {
+      name: 'exclude',
+      type: 'string',
+      description: 'Exclude output lines containing this text (simple text match)',
+      required: false,
     },
   ];
 
@@ -168,11 +192,28 @@ export class PowerShellTool extends BaseTool {
     return '';
   }
 
+  /**
+   * 准备权限匹配器
+   * 支持通配符权限规则的模糊匹配
+   */
+  override async preparePermissionMatcher(
+    input: Record<string, unknown>
+  ): Promise<(pattern: string) => boolean> {
+    const command = (input?.command as string) || '';
+    return (pattern: string) => {
+      const regexPattern = pattern.replace(/\*/g, '.*');
+      const regex = new RegExp(`^${regexPattern}$`);
+      return regex.test(command);
+    };
+  }
+
   override async execute(
     input: Record<string, unknown>,
-    context: ToolUseContext
+    context: ToolUseContext,
+    onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     const startTime = Date.now();
+    const toolUseId = context.toolUseId || this.name;
 
     try {
       const command = input.command as string;
@@ -191,23 +232,27 @@ export class PowerShellTool extends BaseTool {
       if (!workingDirCheck.accessible) {
         return createFailureResult(
           `${workingDirCheck.reason}${workingDirCheck.suggestions?.length ? `\n建议: ${workingDirCheck.suggestions.join('; ')}` : ''}`,
-          { executionTime: Date.now() - startTime }
+          {
+            executionTime: Date.now() - startTime,
+            errorLevel: ErrorLevel.RECOVERABLE,
+            metadata: { errorCategory: 'filesystem', errorCode: 'WORKING_DIR_NOT_ACCESSIBLE' },
+          }
         );
       }
 
       if (!command) {
         return createFailureResult('command is required', {
           executionTime: Date.now() - startTime,
-        });
-      }
-
-      if (!command) {
-        return createFailureResult('command is required', {
-          executionTime: Date.now() - startTime,
+          errorLevel: ErrorLevel.RECOVERABLE,
+          metadata: { errorCategory: 'validation', errorCode: 'COMMAND_REQUIRED' },
         });
       }
 
       if (!skipSecurityCheck) {
+        onProgress?.({
+          toolUseID: toolUseId,
+          data: { percentage: 10, message: '正在执行安全检查...', stage: 'security_check' },
+        });
         const securityResult = this.securityAnalyzer.analyze(command);
 
         if (securityResult.behavior === 'deny') {
@@ -215,6 +260,8 @@ export class PowerShellTool extends BaseTool {
             `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
             {
               executionTime: Date.now() - startTime,
+              errorLevel: ErrorLevel.FATAL,
+              metadata: { errorCategory: 'security', errorCode: 'SECURITY_DENIED' },
             }
           );
         }
@@ -224,12 +271,21 @@ export class PowerShellTool extends BaseTool {
             `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
             {
               executionTime: Date.now() - startTime,
+              errorLevel: ErrorLevel.RECOVERABLE,
+              metadata: { errorCategory: 'permission', errorCode: 'USER_CONFIRMATION_REQUIRED' },
             }
           );
         }
       }
 
-      const pwshCommand = this.buildPowerShellCommand(command, executionPolicy);
+      const depth = input.depth as number | undefined;
+      const exclude = input.exclude as string | undefined;
+      const pwshCommand = this.buildPowerShellCommand(command, executionPolicy, depth, exclude);
+
+      onProgress?.({
+        toolUseID: toolUseId,
+        data: { percentage: 30, message: `正在执行: ${command.substring(0, 80)}`, stage: 'executing' },
+      });
 
       const { stdout, stderr } = await execAsync(pwshCommand, {
         cwd: workingDirectory,
@@ -239,34 +295,68 @@ export class PowerShellTool extends BaseTool {
 
       const output = stdout + (stderr ? '\n[stderr]:\n' + stderr : '');
 
+      onProgress?.({
+        toolUseID: toolUseId,
+        data: { percentage: 100, message: 'PowerShell 命令执行完成', stage: 'completed' },
+      });
+
       return createSuccessResult(output, {
         executionTime: Date.now() - startTime,
         output,
       });
     } catch (error: any) {
+      onProgress?.({
+        toolUseID: toolUseId,
+        data: { percentage: 100, message: `执行失败: ${error.message}`, stage: 'error' },
+      });
+
       if (
         error.message?.includes('ETIMEDOUT') ||
         error.message?.includes('timeout')
       ) {
         return createFailureResult('Command timed out', {
           executionTime: Date.now() - startTime,
+          errorLevel: ErrorLevel.RETRYABLE,
+          metadata: { errorCategory: 'execution', errorCode: 'TIMEOUT' },
         });
       }
 
       return createFailureResult(error.message, {
         executionTime: Date.now() - startTime,
+        errorLevel: ErrorLevel.RETRYABLE,
+        metadata: { errorCategory: 'execution', errorCode: 'EXECUTION_FAILED' },
       });
     }
   }
 
   /**
    * 构建 PowerShell 命令
+   * @param command 原始命令
+   * @param executionPolicy 执行策略
+   * @param depth 可选的输出深度限制
+   * @param exclude 可选的排除文本模式
    */
   private buildPowerShellCommand(
     command: string,
-    executionPolicy: string
+    executionPolicy: string,
+    depth?: number,
+    exclude?: string
   ): string {
-    const escapedCommand = command.replace(/"/g, '\\"');
+    let finalCommand = command;
+
+    // 追加 depth 限制：通过 Select-Object -First 限制输出对象数
+    if (depth !== undefined && depth > 0) {
+      finalCommand += ` | Select-Object -First ${depth}`;
+    }
+
+    // 追加 exclude 过滤：通过 Select-String 排除匹配行
+    if (exclude) {
+      // 转义单引号防止命令注入
+      const escapedExclude = exclude.replace(/'/g, "''");
+      finalCommand += ` | Select-String -NotMatch -SimpleMatch '${escapedExclude}'`;
+    }
+
+    const escapedCommand = finalCommand.replace(/"/g, '\\"');
     return `pwsh -NoProfile -ExecutionPolicy ${executionPolicy} -Command "${escapedCommand}"`;
   }
 

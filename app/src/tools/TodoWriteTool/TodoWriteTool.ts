@@ -4,10 +4,10 @@
  * 提供任务清单管理功能
  */
 
-import { Tool } from '../types/Tool';
-import { ToolResult, createToolResult } from '../types/ToolResult';
+import { BaseTool } from '../BaseTool';
+import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { ToolParam } from '../types/Tool';
+import { ToolParam, ToolCallProgress } from '../types/Tool';
 import { feature } from '@modules/core/featureFlags';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 import { Database } from 'sqlite3';
@@ -319,13 +319,16 @@ const todoManager = new TodoManager();
 /**
  * TodoWriteTool实现
  */
-export class TodoWriteTool implements Tool {
+export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /** 工具名称 */
   name = 'todo_write';
 
   /** 工具描述 */
   description =
     'Manage a todo list for tracking tasks. Create, update, and complete todos.';
+
+  /** 最大结果大小 */
+  maxResultSizeChars = 10000;
 
   /** 工具参数 */
   params: ToolParam[] = [
@@ -383,17 +386,12 @@ export class TodoWriteTool implements Tool {
   ];
 
   /** 工具别名 */
-  aliases = ['todo', 'tasks', 'todo_list'];
-
-  /** 搜索提示 */
-  searchHint = 'Manage tasks';
+  aliases = ['todo', 'tasks', 'todo_list', 'create_task_list'];
 
   /**
-   * 检查工具是否启用
+   * 搜索提示
    */
-  isEnabled(): boolean {
-    return true;
-  }
+  searchHint = 'Manage tasks';
 
   /**
    * 检查工具是否只读
@@ -407,25 +405,6 @@ export class TodoWriteTool implements Tool {
    */
   isConcurrencySafe(_input?: Record<string, unknown>): boolean {
     return true;
-  }
-
-  /**
-   * 获取工具信息
-   */
-  getInfo() {
-    return {
-      name: this.name,
-      description: this.description,
-      params: this.params,
-      enabled: true,
-      readOnly: false,
-      destructive: false,
-      concurrencySafe: true,
-      deferred: false,
-      alwaysLoad: false,
-      interruptBehavior: 'block' as const,
-      maxResultSizeChars: 10000,
-    };
   }
 
   /**
@@ -552,12 +531,40 @@ export class TodoWriteTool implements Tool {
   }
 
   /**
+   * 从 todo 列表构建 _todoData（用于流式更新 TaskCard）
+   */
+  private _buildTodoData(
+    todos: Todo[],
+    title: string = '任务计划'
+  ): Record<string, unknown> {
+    const allDone = todos.length > 0 && todos.every((t) => t.status === 'completed');
+    const anyActive = todos.some((t) => t.status === 'in_progress' || t.status === 'completed');
+    const phase = allDone ? 'done' as const : anyActive ? 'executing' as const : 'planning' as const;
+
+    return {
+      title,
+      phase,
+      tasks: todos.map((t) => ({
+        id: t.id,
+        name: t.content,
+        status: t.status as 'pending' | 'in_progress' | 'completed',
+        dependsOn: t.metadata?.dependsOn
+          ? [t.metadata.dependsOn as string]
+          : [],
+      })),
+    };
+  }
+
+  /**
    * 执行工具
    */
   async execute(
     input: Record<string, unknown>,
-    _context: ToolUseContext
+    context: ToolUseContext,
+    onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult> {
+    const toolUseId = context.toolUseId || this.name;
+
     const validation = this.validateInput(input);
     if (!validation.result) {
       return createToolResult(null, {
@@ -567,12 +574,14 @@ export class TodoWriteTool implements Tool {
             content: `Error: ${validation.message}`,
           },
         ],
+        errorLevel: ErrorLevel.RECOVERABLE,
+        metadata: { errorCategory: 'validation', errorCode: 'VALIDATION_FAILED' },
       });
     }
 
     const {
       action,
-      session_id = 'default',
+      session_id = context.toolUseId || 'default',
       todo_id,
       content,
       status,
@@ -580,6 +589,11 @@ export class TodoWriteTool implements Tool {
     } = input;
 
     try {
+      onProgress?.({
+        toolUseID: toolUseId,
+        data: { percentage: 20, message: `正在执行 todo ${action}...`, stage: 'executing' },
+      });
+
       switch (action) {
         case 'list': {
           const todos = todoManager.getTodos(session_id as string);
@@ -647,6 +661,10 @@ export class TodoWriteTool implements Tool {
             result += `\n  ActiveForm: ${todo.activeForm}`;
           }
 
+          // 构建全量 todo 数据供前端流式更新 TaskCard
+          const addAllTodos = todoManager.getTodos(session_id as string);
+          const addTodoData = this._buildTodoData(addAllTodos);
+
           return createToolResult(result, {
             newMessages: [
               {
@@ -654,6 +672,7 @@ export class TodoWriteTool implements Tool {
                 content: `Added todo: ${todo.id}`,
               },
             ],
+            metadata: { _todoData: addTodoData },
           });
         }
 
@@ -682,6 +701,10 @@ export class TodoWriteTool implements Tool {
               result += `\n  ActiveForm: ${todo.activeForm}`;
             }
 
+            // 构建全量 todo 数据供前端流式更新 TaskCard
+            const updAllTodos = todoManager.getTodos(session_id as string);
+            const updTodoData = this._buildTodoData(updAllTodos);
+
             return createToolResult(result, {
               newMessages: [
                 {
@@ -689,6 +712,7 @@ export class TodoWriteTool implements Tool {
                   content: `Updated todo: ${todo.id}`,
                 },
               ],
+              metadata: { _todoData: updTodoData },
             });
           }
 
@@ -699,6 +723,8 @@ export class TodoWriteTool implements Tool {
                 content: `Error: Todo not found: ${todo_id}`,
               },
             ],
+            errorLevel: ErrorLevel.RECOVERABLE,
+            metadata: { errorCategory: 'data', errorCode: 'TODO_NOT_FOUND' },
           });
         }
 
@@ -709,6 +735,10 @@ export class TodoWriteTool implements Tool {
           );
 
           if (deleted) {
+            // 构建全量 todo 数据供前端流式更新 TaskCard
+            const delAllTodos = todoManager.getTodos(session_id as string);
+            const delTodoData = this._buildTodoData(delAllTodos);
+
             return createToolResult(`Deleted todo: ${todo_id}`, {
               newMessages: [
                 {
@@ -716,6 +746,7 @@ export class TodoWriteTool implements Tool {
                   content: `Deleted todo: ${todo_id}`,
                 },
               ],
+              metadata: { _todoData: delTodoData },
             });
           }
 
@@ -726,11 +757,17 @@ export class TodoWriteTool implements Tool {
                 content: `Error: Todo not found: ${todo_id}`,
               },
             ],
+            errorLevel: ErrorLevel.RECOVERABLE,
+            metadata: { errorCategory: 'data', errorCode: 'TODO_NOT_FOUND' },
           });
         }
 
         case 'clear_completed': {
           const count = todoManager.clearCompleted(session_id as string);
+
+          // 构建全量 todo 数据供前端流式更新 TaskCard
+          const ccAllTodos = todoManager.getTodos(session_id as string);
+          const ccTodoData = this._buildTodoData(ccAllTodos);
 
           return createToolResult(`Cleared ${count} completed todo(s)`, {
             newMessages: [
@@ -739,6 +776,7 @@ export class TodoWriteTool implements Tool {
                 content: `Cleared ${count} completed todos`,
               },
             ],
+            metadata: { _todoData: ccTodoData },
           });
         }
 
@@ -803,9 +841,15 @@ export class TodoWriteTool implements Tool {
                 content: `Error: Unknown action: ${action}`,
               },
             ],
+            errorLevel: ErrorLevel.RECOVERABLE,
+            metadata: { errorCategory: 'validation', errorCode: 'UNKNOWN_ACTION' },
           });
       }
     } catch (error: any) {
+      onProgress?.({
+        toolUseID: toolUseId,
+        data: { percentage: 100, message: `Todo 操作失败: ${error.message}`, stage: 'error' },
+      });
       return createToolResult(null, {
         newMessages: [
           {
@@ -813,6 +857,8 @@ export class TodoWriteTool implements Tool {
             content: `Error: Todo operation failed: ${error.message}`,
           },
         ],
+        errorLevel: ErrorLevel.RETRYABLE,
+        metadata: { errorCategory: 'execution', errorCode: 'EXECUTION_FAILED' },
       });
     }
   }

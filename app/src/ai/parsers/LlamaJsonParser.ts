@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';
+import { repairModelJson } from '@modules/utils/json';
 
 export class LlamaJsonParser extends BaseParser {
   readonly name = 'llama_json';
@@ -37,7 +38,9 @@ export class LlamaJsonParser extends BaseParser {
       if (!extracted) continue;
 
       try {
-        const parsed: unknown = JSON.parse(extracted.json);
+        // 修复可能的 Windows 路径反斜杠问题后解析
+        const repaired = repairModelJson(extracted.json);
+        const parsed: unknown = JSON.parse(repaired);
         if (this.isToolCallLike(parsed)) {
           const tc = parsed as {
             name: string;

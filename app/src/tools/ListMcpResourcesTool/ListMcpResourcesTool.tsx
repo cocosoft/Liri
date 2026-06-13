@@ -37,18 +37,7 @@ interface MCPClient {
   type: 'connected' | 'disconnected';
 }
 
-const mockClients: MCPClient[] = [];
-
-/**
- * 获取MCP客户端列表
- */
-function getMCPClients(): MCPClient[] {
-  return mockClients;
-}
-
-/**
- * 获取MCP资源
- */
+/** 占位函数：后续接入真实 MCP 连接时替换为实际资源获取逻辑 */
 async function fetchResourcesForClient(
   _client: MCPClient
 ): Promise<MCPResource[]> {

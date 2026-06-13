@@ -45,15 +45,6 @@ interface Output {
   contents: ResourceContent[];
 }
 
-const mockClients: MCPClient[] = [];
-
-/**
- * 获取MCP客户端
- */
-function findMCPClient(name: string): MCPClient | undefined {
-  return mockClients.find((client) => client.name === name);
-}
-
 /**
  * ReadMcpResourceTool
  */

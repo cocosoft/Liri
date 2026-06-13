@@ -296,6 +296,12 @@ export const chatService = {
                   content: "",
                   questionData: chunk.__pyapp_question,
                 };
+              } else if (pyappType === "todo" && chunk.__pyapp_todo) {
+                yield {
+                  type: "todo",
+                  content: "",
+                  todoData: chunk.__pyapp_todo,
+                };
               } else if (chunk.choices?.[0]?.delta?.content) {
                 yield {
                   type: "text",

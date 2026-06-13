@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import type { Message, MessageBlock } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ThinkingBlock from "./ThinkingBlock";
@@ -26,7 +26,56 @@ interface ChatMessageProps {
   onReply?: (message: Message) => void;
 }
 
-function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
+/**
+ * 从消息的 blocks 中提取完整文本内容（用于复制等操作）
+ * 包含 text 块、thinking 块、tool_call 结果等所有可见文本
+ */
+function getFullContent(message: Message): string {
+  const parts: string[] = [];
+
+  if (message.content) {
+    parts.push(message.content);
+  }
+
+  if (message.blocks && message.blocks.length > 0) {
+    for (const block of message.blocks) {
+      if (block.type === "text" && block.content) {
+        // text 块内容已在 message.content 中，但 blocks 中的可能更完整
+        if (!message.content || !message.content.includes(block.content)) {
+          parts.push(block.content);
+        }
+      } else if (block.type === "thinking" && block.content) {
+        parts.push(`> 💭 思考过程\n> ${block.content.replace(/\n/g, "\n> ")}`);
+      } else if (block.type === "tool_call" && block.toolCall) {
+        const tc = block.toolCall;
+        const argsStr = tc.arguments ? JSON.stringify(tc.arguments, null, 2) : "";
+        const resultStr = tc.result
+          ? typeof tc.result === "string"
+            ? tc.result
+            : JSON.stringify(tc.result, null, 2)
+          : "";
+        if (argsStr || resultStr) {
+          const lines = [`**工具调用：${tc.name}**`];
+          if (argsStr) lines.push(`参数：\n\`\`\`json\n${argsStr}\n\`\`\``);
+          if (resultStr) lines.push(`结果：\n${resultStr.slice(0, 500)}`);
+          parts.push(lines.join("\n\n"));
+        }
+      }
+    }
+  }
+
+  return parts.join("\n\n").trim();
+}
+
+/**
+ * ChatMessage 的 memo 比较器：仅在消息实际内容变化时重渲染
+ * 避免流式传输中无关消息（已完成的历史消息）被频繁刷新
+ */
+const ChatMessageMemo = memo(function ChatMessage({
+  message,
+  isStreaming,
+  sessionUsage,
+}: ChatMessageProps) {
   const setReplyMessage = useChatStore((s) => s.setReplyMessage);
   const regenerateMessage = useChatStore((s) => s.regenerateMessage);
   const retryFromError = useChatStore((s) => s.retryFromError);
@@ -59,9 +108,8 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
   };
 
   const handleCopy = async () => {
-    if (typeof message.content === "string") {
-      await navigator.clipboard.writeText(message.content);
-    }
+    const textToCopy = getFullContent(message);
+    await navigator.clipboard.writeText(textToCopy);
     setShowActions(false);
   };
 
@@ -167,7 +215,7 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
           ) : isTool ? (
             <ToolResultMessage message={message} />
           ) : (
-            <AssistantMessage message={message} isStreaming={isStreaming} />
+            <AssistantMessage message={message} />
           )}
 
           {/* 消息底部：时间、Token 用量和预估成本 */}
@@ -361,14 +409,26 @@ function ChatMessage({ message, isStreaming, sessionUsage }: ChatMessageProps) {
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // 自定义比较器：仅当消息实际内容变化时重渲染
+  if (prevProps.message.id !== nextProps.message.id) return false;
+  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+  if (prevProps.message.content !== nextProps.message.content) return false;
+  if (prevProps.message.role !== nextProps.message.role) return false;
+  // blocks 长度变化说明有新 block 追加，引用变化说明 block 内部状态更新（如 isStreaming）
+  const prevBlocks = prevProps.message.blocks;
+  const nextBlocks = nextProps.message.blocks;
+  if ((prevBlocks?.length ?? 0) !== (nextBlocks?.length ?? 0)) return false;
+  if (prevBlocks !== nextBlocks) return false;
+  // sessionUsage 引用变化时更新（仅显示用，不影响用户交互）
+  if (prevProps.sessionUsage !== nextProps.sessionUsage) return false;
+  return true;
+});
 
 function AssistantMessage({
   message,
-  isStreaming,
 }: {
   message: Message;
-  isStreaming?: boolean;
 }) {
   // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
   const blocks =
@@ -376,7 +436,7 @@ function AssistantMessage({
       ? message.blocks
       : buildFallbackBlocks(message);
 
-  const renderedContent = renderBlocksWithGroups(blocks, !!isStreaming, message.session_id, (content) => {
+  const renderedContent = renderBlocksWithGroups(blocks, message.session_id, (content) => {
     // 非流式路径：QuestionBlock 提交后后端返回了最终内容，追加为新的 assistant 消息
     const newMsg: Message = {
       id: crypto.randomUUID(),
@@ -450,7 +510,6 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
  */
 function renderBlocksWithGroups(
   blocks: MessageBlock[],
-  isStreaming: boolean,
   sessionId?: string,
   onQuestionResponse?: (content: string) => void,
   onSendMessage?: (content: string) => void,
@@ -470,7 +529,6 @@ function renderBlocksWithGroups(
         <BlockRenderer
           key={block.id}
           block={block}
-          isStreaming={isStreaming}
           sessionId={sessionId}
           onQuestionResponse={onQuestionResponse}
           onSendMessage={onSendMessage}
@@ -501,7 +559,6 @@ function renderBlocksWithGroups(
       <ToolExecutionGroup
         key={`tool-group-${firstBlockId || groupKey || i}`}
         blocks={toolBlocks}
-        isStreaming={isStreaming}
       />,
     );
   }
@@ -511,13 +568,12 @@ function renderBlocksWithGroups(
 
 interface BlockRendererProps {
   block: MessageBlock;
-  isStreaming?: boolean;
   sessionId?: string;
   onQuestionResponse?: (content: string) => void;
   onSendMessage?: (content: string) => void;
 }
 
-function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse, onSendMessage }: BlockRendererProps) {
+function BlockRenderer({ block, sessionId, onQuestionResponse, onSendMessage }: BlockRendererProps) {
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
   const knownFilePaths = sessionFiles.map((f) => f.path);
@@ -526,21 +582,21 @@ function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse, onSe
       return (
         <ThinkingBlock
           content={block.content}
-          isStreaming={block.isStreaming || isStreaming}
+          isStreaming={block.isStreaming ?? false}
         />
       );
     case "status":
       return (
         <StatusBlock
           content={block.content}
-          isStreaming={block.isStreaming || isStreaming}
+          isStreaming={block.isStreaming ?? false}
         />
       );
     case "tool_call":
       return block.toolCall ? (
         <ToolCallBlock
           toolCall={block.toolCall}
-          isStreaming={block.isStreaming || isStreaming}
+          isStreaming={block.isStreaming ?? false}
         />
       ) : null;
     case "question":
@@ -560,7 +616,7 @@ function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse, onSe
       return (
         <MarkdownRenderer
           content={block.content}
-          isStreaming={block.isStreaming || isStreaming}
+          isStreaming={block.isStreaming ?? false}
           onPreviewFile={readFileToPreview}
           knownFilePaths={knownFilePaths}
         />
@@ -568,4 +624,4 @@ function BlockRenderer({ block, isStreaming, sessionId, onQuestionResponse, onSe
   }
 }
 
-export default ChatMessage;
+export default ChatMessageMemo;

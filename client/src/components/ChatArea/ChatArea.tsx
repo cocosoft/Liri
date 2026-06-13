@@ -3,6 +3,7 @@ import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
 import ChatMessage from "./ChatMessage";
+import RoundNavigator from "./RoundNavigator";
 
 function ChatArea() {
   const { messages, error, isStreaming } = useChatStore();
@@ -76,23 +77,30 @@ function ChatArea() {
   }, [messages.length, scrollToBottom]);
 
   /**
-   * 流式输出期间持续滚动到底部（RAF 轮询，不依赖 messages.length）
-   * 修复 S0-1/2：流式过程中 blocks 内容增长不触发滚动的问题
+   * 流式输出期间：用 ResizeObserver 监听容器尺寸变化，仅在内容实际增长时滚动
+   * 替代旧的 rAF 轮询方式，避免每帧强制 scrollToBottom 导致的 layout thrashing
    */
   useEffect(() => {
     if (!isStreaming) return;
 
-    let rafId: number;
-    const poll = () => {
-      if (isNearBottomRef.current) {
-        scrollToBottom();
+    const container = containerRef.current;
+    if (!container) return;
+
+    let rafPending = false;
+    const observer = new ResizeObserver(() => {
+      if (isNearBottomRef.current && !rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          scrollToBottom();
+        });
       }
-      rafId = requestAnimationFrame(poll);
-    };
-    rafId = requestAnimationFrame(poll);
+    });
+
+    observer.observe(container);
 
     return () => {
-      cancelAnimationFrame(rafId);
+      observer.disconnect();
     };
   }, [isStreaming, scrollToBottom]);
 
@@ -120,88 +128,113 @@ function ChatArea() {
   }, [messages]);
 
   return (
-    <div
-      ref={containerRef}
-      className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900"
-    >
-      {/* 错误提示 */}
-      {displayError && (
-        <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-          <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
-            ⚠
-          </span>
-          <span className="text-sm text-red-700 dark:text-red-300 flex-1">
-            {displayError}
-          </span>
-          <button
-            onClick={handleDismissError}
-            className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-            title="关闭"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+    <div className="flex-1 relative bg-gray-50 dark:bg-gray-900">
+      <div
+        ref={containerRef}
+        className="absolute inset-0 overflow-y-auto"
+      >
+        {/* 错误提示 */}
+        {displayError && (
+          <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+            <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+              ⚠
+            </span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm text-red-700 dark:text-red-300 block">
+                {displayError}
+              </span>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => useBackendStore.getState().checkStatus()}
+                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                >
+                  🔄 重试连接
+                </button>
+                <button
+                  onClick={() => navigator.clipboard.writeText(displayError)}
+                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                >
+                  📋 复制错误
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={handleDismissError}
+              className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+              title="关闭"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
-      {/* 无会话状态 */}
-      {!currentSession ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center px-8">
-            <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <img
-                src="/liri_logo.png"
-                alt="Liri Logo"
-                className="w-20 h-20 object-contain"
-              />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              欢迎使用 Liri
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              官网: https://openliri.com
-            </p>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
-              请从左侧选择一个会话或创建新会话开始聊天
-            </p>
-          </div>
-        </div>
-      ) : messages.length === 0 ? (
-        /* 空消息状态 */
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center px-8">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-3xl">
-              💬
-            </div>
-            <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2">
-              {currentSession.title}
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              开始发送消息进行对话
-            </p>
-            <div className="mt-4 flex items-center justify-center gap-2">
-              <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
-                支持 Markdown 格式
-              </span>
-              <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
-                按 Enter 发送
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* 消息列表 - 原生滚动，所有消息直接渲染 */
-        <div className="py-4">
-          {messages.map((message) => (
-              <div key={message.id}>
-                <ChatMessage
-                  message={message}
-                  isStreaming={isStreaming && message.role === "assistant"}
-                  sessionUsage={sessionUsage}
+        {/* 无会话状态 */}
+        {!currentSession ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center px-8">
+              <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                <img
+                  src="/liri_logo.png"
+                  alt="Liri Logo"
+                  className="w-20 h-20 object-contain"
                 />
               </div>
-            ))}
-        </div>
-      )}
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                欢迎使用 Liri
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400">
+                官网: https://openliri.com
+              </p>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
+                请从左侧选择一个会话或创建新会话开始聊天
+              </p>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
+          /* 空消息状态 */
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center px-8">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-3xl">
+                💬
+              </div>
+              <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2">
+                {currentSession.title}
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                开始发送消息进行对话
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
+                  支持 Markdown 格式
+                </span>
+                <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
+                  按 Enter 发送
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* 消息列表 - 原生滚动，所有消息直接渲染 */
+          <div className="py-4">
+            {messages.map((message) => (
+                <div key={message.id} data-msg-id={message.id}>
+                  <ChatMessage
+                    message={message}
+                    isStreaming={isStreaming && message.role === "assistant"}
+                    sessionUsage={sessionUsage}
+                  />
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* 轮次导航器 */}
+      <RoundNavigator
+        messages={messages}
+        isStreaming={isStreaming}
+        containerRef={containerRef}
+      />
     </div>
   );
 }

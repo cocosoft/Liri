@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Message, MessageBlock, FilePreview } from "../types";
-import type { ToolCall } from "../types";
+import type { ToolCall, TaskCardTask } from "../types";
 import { chatService } from "../services/chatService";
 import { getBackendBaseUrl } from "../services/backendUrl";
 import { resolveFilePath } from "../services/filePathResolver";
@@ -182,7 +182,8 @@ function addFilePathsFromBlocks(
 
 interface ChatStore {
   messages: Message[];
-  isLoading: boolean;
+  isSending: boolean;
+  isInputBlocked: boolean;
   isStreaming: boolean;
   error: string | null;
   replyMessage: Message | null;
@@ -262,11 +263,20 @@ function shouldAutoRename(sessionId?: string): boolean {
   return false;
 }
 
+// 已自动重命名的会话记录，防止每轮重命名
+const _autoRenamedSessions = new Set<string>();
+
 async function doAutoRename(
   sessionId: string,
   userMessage: string,
   assistantResponse: string,
 ): Promise<void> {
+  // 跳过已重命名过的会话（防止每轮重命名）
+  if (_autoRenamedSessions.has(sessionId)) {
+    console.debug("[doAutoRename] Session already renamed, skipping:", sessionId);
+    return;
+  }
+
   console.debug("[doAutoRename] Starting auto-rename for session:", sessionId);
   console.debug("[doAutoRename] User message:", userMessage.slice(0, 50), "...");
 
@@ -287,6 +297,8 @@ async function doAutoRename(
         userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
       useSessionStore.getState().renameSession(sessionId, fallbackTitle);
     }
+    // 标记为已重命名
+    _autoRenamedSessions.add(sessionId);
   } catch (error) {
     console.warn(
       "[doAutoRename] Failed to generate title from backend, using fallback",
@@ -295,6 +307,8 @@ async function doAutoRename(
     const fallbackTitle =
       userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
     useSessionStore.getState().renameSession(sessionId, fallbackTitle);
+    // fallback 也算重命名过
+    _autoRenamedSessions.add(sessionId);
   }
 }
 
@@ -371,10 +385,11 @@ class ChronologicalBlockBuilder {
     }
   }
 
-  /** 添加状态块，自动过滤冗余状态：
+  /** 添加状态块，自动过滤冗余/瞬态状态：
    *  1. "🔧 Running tool: xxx" 中间态 → 直接丢弃，不产生 block
    *  2. "📦 ✅ Tool xxx completed" 冗余完成态 → 丢弃（与 "✅ xxx completed" 重复）
-   *  3. 连续重复内容跳过
+   *  3. "AI is thinking..." / "AI is analyzing your request..." 瞬态加载态 → 丢弃
+   *  4. 连续重复内容跳过
    */
   addStatus(status: string): void {
     // 丢弃中间态 "🔧 Running tool: xxx"
@@ -384,6 +399,11 @@ class ChronologicalBlockBuilder {
 
     // 丢弃冗余完成态 "📦 ✅ Tool xxx completed"
     if (status.includes("📦") && status.includes("✅ Tool")) {
+      return;
+    }
+
+    // 丢弃瞬态加载态 "AI is thinking..." / "AI is analyzing your request..."
+    if (status.startsWith("AI is thinking") || status.startsWith("AI is analyzing")) {
       return;
     }
 
@@ -434,6 +454,7 @@ class ChronologicalBlockBuilder {
         status: toolCall.status || ("completed" as const),
       };
       existing.isStreaming = toolCall.status === "running";
+        if (toolCall.status !== "running") { for (const b of this.blocks) { if (b.type === "status" && b.toolCallId === toolCall.id) { b.isStreaming = false; } } }
     } else {
       this.blocks.push({
         id: generateBlockId(),
@@ -527,27 +548,39 @@ class ChronologicalBlockBuilder {
 }
 
 // 防抖保存 blocks：流式传输中实时持久化，避免用户切换会话时丢失
-let _saveBlocksTimer: ReturnType<typeof setTimeout> | null = null;
 let _pendingSaveSessionId: string | null = null;
 let _pendingSaveMessageId: string | null = null;
 let _pendingSaveBlocks: MessageBlock[] | null = null;
+let hasPendingSave = false;
+let _saveIsFlushing = false;
 
 async function flushSaveBlocks(): Promise<void> {
-  if (_pendingSaveSessionId && _pendingSaveMessageId && _pendingSaveBlocks) {
-    const sid = _pendingSaveSessionId;
-    const mid = _pendingSaveMessageId;
-    const blk = _pendingSaveBlocks;
-    _pendingSaveSessionId = null;
-    _pendingSaveMessageId = null;
-    _pendingSaveBlocks = null;
-    try {
-      await chatService.updateMessageBlocks(
-        sid,
-        mid,
-        blk as unknown as Array<Record<string, unknown>>,
-      );
-    } catch {
-      // 保存失败不影响主流程
+  // 重入锁：防止高频触发导致并发写入冲突
+  if (_saveIsFlushing) return;
+  _saveIsFlushing = true;
+  try {
+    if (_pendingSaveSessionId && _pendingSaveMessageId && _pendingSaveBlocks) {
+      const sid = _pendingSaveSessionId;
+      const mid = _pendingSaveMessageId;
+      const blk = _pendingSaveBlocks;
+      _pendingSaveSessionId = null;
+      _pendingSaveMessageId = null;
+      _pendingSaveBlocks = null;
+      try {
+        await chatService.updateMessageBlocks(
+          sid,
+          mid,
+          blk as unknown as Array<Record<string, unknown>>,
+        );
+      } catch {
+        // 保存失败不影响主流程
+      }
+    }
+  } finally {
+    _saveIsFlushing = false;
+    // 如果在 flush 期间有新的待保存数据，递归处理
+    if (hasPendingSave) {
+      await flushSaveBlocks();
     }
   }
 }
@@ -632,7 +665,8 @@ function createThinkExtractor() {
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
-  isLoading: false,
+  isSending: false,
+  isInputBlocked: false,
   isStreaming: false,
   error: null,
   replyMessage: null,
@@ -645,7 +679,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendMessage: async (content: string, sessionId?: string) => {
-    set({ isLoading: true, error: null });
+    set({ isSending: true, isInputBlocked: true, error: null });
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -676,25 +710,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
         set({
           messages: [...get().messages, questionMessage],
-          isLoading: false,
+          isSending: false,
+          isInputBlocked: false,
         });
         return;
       }
 
       const newMessages = [...get().messages, response];
 
-      // 先执行自动重命名再重置 isLoading，缩小竞态窗口
-      if (shouldAutoRename(sessionId)) {
-        set({ messages: newMessages });
-        await doAutoRename(sessionId!, content, (response as Message).content);
-      }
+      // 先重置 isSending/isInputBlocked，UI 立刻响应
+      set({ messages: newMessages, isSending: false, isInputBlocked: false });
 
-      set({
-        messages: newMessages,
-        isLoading: false,
-      });
+      // 再执行自动重命名（不阻塞 UI 状态）
+      if (shouldAutoRename(sessionId)) {
+        doAutoRename(sessionId!, content, (response as Message).content).catch(console.warn);
+      }
     } catch (error) {
-      set({ error: String(error), isLoading: false });
+      set({ error: String(error), isSending: false, isInputBlocked: false });
     }
   },
 
@@ -707,7 +739,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     const abortController = new AbortController();
 
-    set({ isLoading: true, isStreaming: true, error: null, abortController });
+    set({ isSending: true, isInputBlocked: true, isStreaming: true, error: null, abortController });
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -842,7 +874,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           };
           set({ error: chunk.content });
         } else if (chunk.type === "tool_call" && chunk.toolCall) {
-          blockBuilder.addToolCall(chunk.toolCall);
+          // 实时转换：todo_write 的 tool_call 直接转 todo block，不等流结束
+          let skipDefault = false;
+          if (chunk.toolCall.name === "todo_write") {
+            const args = chunk.toolCall.arguments as Record<string, unknown> | undefined;
+            if (args?.action === "write" && args?.todos) {
+              const todos = (args.todos as Array<Record<string, unknown>>) || [];
+              const tasks = todos.map((t, idx) => ({
+                id: String(t.id || idx + 1),
+                name: String(t.name || `步骤 ${idx + 1}`),
+                status: (t.status as TaskCardTask["status"]) || "pending",
+                dependsOn: (t.dependsOn as string[]) || [],
+              }));
+              const title = String(
+                args?.title ||
+                (typeof args?.description === "string" ? args.description : "") ||
+                `任务 (${todos.length} 步)`,
+              );
+              blockBuilder.addTodo({ title, tasks, status: "planning" });
+              skipDefault = true;
+            }
+          }
+          if (!skipDefault) {
+            blockBuilder.addToolCall(chunk.toolCall);
+          }
 
           // 文件路径收集已移至流结束后的 addFilePathsFromBlocks 统一处理
           // 避免流式传输中同步 setState 导致无限重渲染
@@ -867,16 +922,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // J4：批量更新——仅在无挂起 flush 时调度微任务
         if (!batchPending) {
           batchPending = true;
-          queueMicrotask(flushSet);
+          Promise.resolve().then(() => requestAnimationFrame(flushSet));
         }
 
         // J3：流式传输中实时防抖保存 blocks，使用闭包内局部变量避免竞态
         if (sessionId && updatedMsg.blocks && updatedMsg.blocks.length > 0) {
           debouncedSaveBlocksLocal(sessionId, assistantId, updatedMsg.blocks);
-          // 同时更新模块级变量，保证 flushPendingSaves 仍可工作
+          // 标记有未保存数据，保证 flushPendingSaves 仍可工作
           _pendingSaveSessionId = sessionId;
           _pendingSaveMessageId = assistantId;
           _pendingSaveBlocks = updatedMsg.blocks;
+          hasPendingSave = true;
         }
       }
 
@@ -885,11 +941,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         clearTimeout(saveBlocksTimer);
         saveBlocksTimer = null;
       }
-      // 同步清除模块级定时器
-      if (_saveBlocksTimer) {
-        clearTimeout(_saveBlocksTimer);
-        _saveBlocksTimer = null;
-      }
+      hasPendingSave = false;
       await flushSaveBlocksLocal();
 
       // 流结束，冻结所有块
@@ -924,7 +976,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }
       }
 
-      // 先执行自动重命名再重置 isLoading/isStreaming，缩小竞态窗口
+      // 重置发送/输入/流式状态，UI 立刻响应
+      set({ isSending: false, isInputBlocked: false, isStreaming: false, abortController: null });
+
+      // 再执行自动重命名（不阻塞 UI 状态）
       if (shouldAutoRename(sessionId)) {
         const finalMsgs = get().messages;
         const finalMI = finalMsgs.findIndex(
@@ -932,15 +987,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         );
         const assistantResponse =
           finalMI !== -1 ? finalMsgs[finalMI].content : "";
-        await doAutoRename(sessionId!, content, assistantResponse);
+        doAutoRename(sessionId!, content, assistantResponse).catch(console.warn);
       }
-
-      set({ isLoading: false, isStreaming: false, abortController: null });
     } catch (error) {
       if (!abortController.signal.aborted) {
-        set({ error: String(error), isLoading: false, isStreaming: false, abortController: null });
+        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, abortController: null });
       } else {
-        set({ isLoading: false, isStreaming: false, abortController: null });
+        set({ isSending: false, isInputBlocked: false, isStreaming: false, abortController: null });
       }
     }
   },
@@ -1012,7 +1065,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const controller = get().abortController;
     if (controller) {
       controller.abort();
-      set({ isStreaming: false, isLoading: false, abortController: null });
+      set({ isStreaming: false, isSending: false, isInputBlocked: false, abortController: null });
     }
   },
 
@@ -1132,9 +1185,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
    * 避免防抖窗口内的 blocks 丢失导致下次进入历史时出现块割裂
    */
   flushPendingSaves: async (): Promise<void> => {
-    if (_saveBlocksTimer) {
-      clearTimeout(_saveBlocksTimer);
-      _saveBlocksTimer = null;
+    if (hasPendingSave) {
+      hasPendingSave = false;
       await flushSaveBlocks();
     }
   },

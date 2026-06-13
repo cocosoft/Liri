@@ -1,22 +1,13 @@
 /**
  * API 请求/响应类型 —— session 模块
+ *
+ * Session 类型统一引用自 `@/types`（唯一事实来源）
  */
 
 import type { MessageBlock, ToolCall } from "./chat";
+import type { Session } from "../../types";
 
-export interface Session {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  messageCount: number;
-  agentId?: string;
-  source?: string;
-  tokenUsage?: {
-    totalInput: number;
-    totalOutput: number;
-  };
-}
+export type { Session } from "../../types";
 
 export interface SessionCreateParams {
   title: string;

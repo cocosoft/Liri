@@ -4,6 +4,12 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   messageCount: number;
+  agentId?: string;
+  source?: string;
+  tokenUsage?: {
+    totalInput: number;
+    totalOutput: number;
+  };
 }
 
 export interface Message {

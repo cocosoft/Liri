@@ -3,6 +3,14 @@ import { http } from "./httpClient";
 
 const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
 
+// 是否已降级到内存模式（后端不可用时设为 true）
+let _isUsingFallback = false;
+
+/** 获取当前是否处于降级模式 */
+export function isUsingFallback(): boolean {
+  return _isUsingFallback;
+}
+
 async function getTauriCore() {
   if (!isTauri) return null;
   try {
@@ -13,6 +21,7 @@ async function getTauriCore() {
 }
 
 function createMemorySessionService() {
+  _isUsingFallback = true;
   return {
     list: async (): Promise<Session[]> => [],
     create: async (title: string): Promise<Session> => ({
@@ -51,7 +60,9 @@ async function tryTauri<T>(
 export const sessionService = {
   list: async (): Promise<Session[]> => {
     try {
-      return await http.get<Session[]>("/v1/sessions");
+      const result = await http.get<Session[]>("/v1/sessions");
+      _isUsingFallback = false;
+      return result;
     } catch {
       const result = await tryTauri<Session[]>("list_sessions");
       if (result) return result;
@@ -61,7 +72,9 @@ export const sessionService = {
 
   create: async (title: string): Promise<Session> => {
     try {
-      return await http.post<Session>("/v1/sessions", { title });
+      const result = await http.post<Session>("/v1/sessions", { title });
+      _isUsingFallback = false;
+      return result;
     } catch {
       const result = await tryTauri<Session>("create_session", { title });
       if (result) return result;
@@ -71,7 +84,9 @@ export const sessionService = {
 
   switch: async (id: string): Promise<Session> => {
     try {
-      return await http.post<Session>(`/v1/sessions/${id}/switch`);
+      const result = await http.post<Session>(`/v1/sessions/${id}/switch`);
+      _isUsingFallback = false;
+      return result;
     } catch {
       const result = await tryTauri<Session>("switch_session", { id });
       if (result) return result;
@@ -82,6 +97,7 @@ export const sessionService = {
   delete: async (id: string): Promise<void> => {
     try {
       await http.delete<void>(`/v1/sessions/${id}`);
+      _isUsingFallback = false;
     } catch {
       const result = await tryTauri<void>("delete_session", { id });
       if (result !== null) return;
@@ -92,6 +108,7 @@ export const sessionService = {
   rename: async (id: string, title: string): Promise<void> => {
     try {
       await http.put<void>(`/v1/sessions/${id}`, { title });
+      _isUsingFallback = false;
     } catch {
       const result = await tryTauri<void>("rename_session", { id, title });
       if (result !== null) return;
@@ -109,6 +126,7 @@ export const sessionService = {
         success: boolean;
         title: string | null;
       }>(`/v1/sessions/${sessionId}/title`, { userMessage, assistantResponse });
+      _isUsingFallback = false;
       return response.title;
     } catch {
       const result = await tryTauri<{ title: string | null }>(
@@ -125,7 +143,9 @@ export const sessionService = {
 
   getCurrent: async (): Promise<Session | null> => {
     try {
-      return await http.get<Session | null>("/v1/sessions/current");
+      const result = await http.get<Session | null>("/v1/sessions/current");
+      _isUsingFallback = false;
+      return result;
     } catch {
       const result = await tryTauri<Session | null>("get_current_session");
       if (result !== null) return result;
@@ -135,7 +155,9 @@ export const sessionService = {
 
   get: async (id: string): Promise<Session | null> => {
     try {
-      return await http.get<Session>(`/v1/sessions/${id}`);
+      const result = await http.get<Session>(`/v1/sessions/${id}`);
+      _isUsingFallback = false;
+      return result;
     } catch {
       const result = await tryTauri<Session | null>("get_session", { id });
       if (result !== null) return result;
@@ -147,7 +169,9 @@ export const sessionService = {
 
   getMessages: async (sessionId: string): Promise<Message[]> => {
     try {
-      return await http.get<Message[]>(`/v1/sessions/${sessionId}/messages`);
+      const result = await http.get<Message[]>(`/v1/sessions/${sessionId}/messages`);
+      _isUsingFallback = false;
+      return result;
     } catch {
       const result = await tryTauri<Message[]>("get_session_messages", {
         sessionId,
@@ -160,6 +184,7 @@ export const sessionService = {
   clearAll: async (): Promise<void> => {
     try {
       await http.delete<void>("/v1/sessions");
+      _isUsingFallback = false;
     } catch {
       const result = await tryTauri<void>("clear_all_sessions");
       if (result !== null) return;

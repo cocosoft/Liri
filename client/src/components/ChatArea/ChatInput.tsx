@@ -442,18 +442,20 @@ function ChatInput() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [replyMessage, setReplyMessage] = useState<Message | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasShowingCommandsRef = useRef(false);
-  const { streamMessage, isLoading, clearMessages } = useChatStore();
+  const { streamMessage, isSending, isStreaming, clearMessages } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
+  const [replyMessage, setReplyMessage] = useState<Message | null>(null);
+  const replyMessageRef = useRef(replyMessage);
+  replyMessageRef.current = replyMessage;
 
   useEffect(() => {
     const unsubscribe = useChatStore.subscribe((state) => {
-      if (state.replyMessage !== replyMessage) {
+      if (state.replyMessage !== replyMessageRef.current) {
         setReplyMessage(state.replyMessage);
         if (state.replyMessage) {
           const textarea = textareaRef.current;
@@ -462,7 +464,7 @@ function ChatInput() {
       }
     });
     return unsubscribe;
-  }, [replyMessage]);
+  }, []);
 
   const slashCommands: SlashCommand[] = [
     {
@@ -616,6 +618,9 @@ function ChatInput() {
   const handleSubmit = async () => {
     const trimmed = input.trim();
 
+    // 流式传输中不重复发送
+    if (isStreaming) return;
+
     const matched = slashCommands.find((cmd) => cmd.key === trimmed);
     if (matched) {
       matched.action();
@@ -674,13 +679,14 @@ function ChatInput() {
       }
 
       if (messageContent) {
+        // 立即清空输入框，不等 AI 响应结束
+        setInput("");
+        setAttachments([]);
+        setReplyMessage(null);
         await streamMessage(messageContent, sessionId);
       }
 
-      setInput("");
       setShowCommands(false);
-      setAttachments([]);
-      setReplyMessage(null);
       useChatStore.getState().setReplyMessage(null);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -724,6 +730,12 @@ function ChatInput() {
       return;
     }
 
+    // 流式传输中 Enter 不重复发送，允许用户继续打字
+    if (isStreaming && (e.key === "Enter" && !e.shiftKey)) {
+      e.preventDefault();
+      return;
+    }
+
     if (
       (e.key === "Enter" && !e.shiftKey) ||
       (e.key === "Enter" && (e.ctrlKey || e.metaKey))
@@ -744,8 +756,6 @@ function ChatInput() {
     wasShowingCommandsRef.current = willShowCommands;
   };
 
-  const isSending = isLoading || isUploading;
-
   return (
     <div
       className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors ${
@@ -760,7 +770,7 @@ function ChatInput() {
         <div className="flex items-center gap-1 mb-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={!currentSession || isSending}
+            disabled={!currentSession || isSending || isUploading}
             className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors"
             title="上传文件"
           >
@@ -787,7 +797,7 @@ function ChatInput() {
           />
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            disabled={!currentSession || isSending}
+            disabled={!currentSession || isSending || isUploading}
             className={`p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors ${
               showEmojiPicker
                 ? "bg-blue-100 dark:bg-blue-900/30 text-blue-500"
@@ -920,7 +930,7 @@ function ChatInput() {
                     ? "输入消息或 / 查看命令..."
                     : "请先选择或创建会话"
                 }
-                disabled={!currentSession || isSending}
+                disabled={!currentSession}
                 className="w-full px-3 py-2.5 bg-transparent resize-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:cursor-not-allowed"
                 rows={1}
                 style={{ minHeight: "40px", maxHeight: "200px" }}
@@ -935,6 +945,7 @@ function ChatInput() {
                 disabled={
                   !currentSession ||
                   isSending ||
+                  isUploading ||
                   (!input.trim() && attachments.length === 0)
                 }
                 className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
@@ -962,7 +973,7 @@ function ChatInput() {
                     </svg>
                     <span>上传中</span>
                   </>
-                ) : isLoading ? (
+                ) : isSending ? (
                   <>
                     <svg
                       className="animate-spin h-4 w-4"
@@ -1009,7 +1020,7 @@ function ChatInput() {
         </div>
 
         {/* 状态提示 */}
-        {(isLoading || isUploading) && (
+        {(isSending || isUploading || isStreaming) && (
           <div className="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <svg
               className="animate-spin h-4 w-4"
@@ -1030,7 +1041,7 @@ function ChatInput() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <span>{isUploading ? "正在上传文件..." : "正在思考中..."}</span>
+            <span>{isUploading ? "正在上传文件..." : isSending ? "正在发送..." : "AI 正在回复..."}</span>
           </div>
         )}
 

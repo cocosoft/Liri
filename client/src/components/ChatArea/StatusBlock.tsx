@@ -53,23 +53,23 @@ function StatusBlock({ content, isStreaming }: StatusBlockProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    marginBottom: "4px",
-    border: "1px solid rgba(122, 162, 247, 0.15)",
+    marginBottom: "3px",
+    border: "1px solid rgba(128, 128, 128, 0.15)",
     borderRadius: "6px",
     overflow: "hidden",
   },
   header: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "4px 12px",
-    background: "rgba(122, 162, 247, 0.06)",
+    gap: "6px",
+    padding: "3px 10px",
+    background: "rgba(128, 128, 128, 0.04)",
     border: "none",
     width: "100%",
     cursor: "pointer",
     textAlign: "left",
     fontFamily: "inherit",
-    fontSize: "13px",
+    fontSize: "11px",
   },
   icon: {
     fontSize: "10px",
@@ -78,8 +78,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dot: {
     display: "inline-block",
-    width: "8px",
-    height: "8px",
+    width: "6px",
+    height: "6px",
     borderRadius: "50%",
     background: "#e6c384",
     animation: "pulse 1.5s ease-in-out infinite",

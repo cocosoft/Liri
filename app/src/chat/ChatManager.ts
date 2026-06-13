@@ -2577,6 +2577,21 @@ export class ChatManagerImpl implements ChatManager {
             result: toolResult,
           });
 
+          // ---- 通知前端：工具执行完成，更新 block 状态 ----
+          const completionChunk: ChatStreamChunk = {
+            type: 'tool_call',
+            content: '',
+            sessionId: session.id,
+            toolCall: {
+              id: toolCall.id,
+              name: toolName,
+              arguments: toolCall.arguments,
+              status: toolResult.error ? 'failed' : 'completed',
+            },
+          };
+          yield completionChunk;
+          // ---- 结束工具完成通知 ----
+
           // ---- 检测 todo 数据并 yield todo chunk ----
           const todoData = this._extractTodoData(toolResult);
           if (todoData) {

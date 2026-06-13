@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useCallback, useState } from "react";
+import React, { useEffect, useRef, useMemo, useCallback, useState, memo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import mermaid from "mermaid";
@@ -310,7 +310,7 @@ function parseMarkdown(
   return result;
 }
 
-function MarkdownRenderer({
+const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   isStreaming,
   onPreviewFile,
@@ -908,7 +908,12 @@ function MarkdownRenderer({
       {isStreaming && <span className="animate-pulse">▌</span>}
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // 仅 content 或 streaming 状态变化时重渲染
+  if (prevProps.content !== nextProps.content) return false;
+  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+  return true;
+});
 
 interface BlockContentProps {
   block: RenderedBlock;

@@ -36,7 +36,14 @@ function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
       </button>
       {!collapsed && content && (
         <div style={styles.content}>
-          <pre style={styles.pre}>{content}</pre>
+          <pre
+            style={{
+              ...styles.pre,
+              maxHeight: isStreaming ? "none" : "300px",
+            }}
+          >
+            {content}
+          </pre>
         </div>
       )}
     </div>
@@ -45,41 +52,42 @@ function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    border: "1px solid rgba(255, 193, 7, 0.3)",
+    border: "1px solid rgba(128, 128, 128, 0.2)",
     borderRadius: "8px",
     overflow: "hidden",
-    marginBottom: "8px",
+    marginBottom: "6px",
   },
   header: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "8px 12px",
-    background: "rgba(255, 193, 7, 0.08)",
+    gap: "6px",
+    padding: "6px 10px",
+    background: "rgba(128, 128, 128, 0.05)",
     border: "none",
     width: "100%",
     cursor: "pointer",
-    color: "#e6c384",
-    fontSize: "13px",
+    color: "#a9b1d6",
+    fontSize: "12px",
     textAlign: "left",
     fontFamily: "inherit",
   },
   spinner: {
-    fontSize: "14px",
+    fontSize: "13px",
     flexShrink: 0,
   },
   title: {
     flex: 1,
     fontWeight: 500,
+    color: "#c0b88a",
   },
   toggle: {
     fontSize: "10px",
     flexShrink: 0,
   },
   content: {
-    padding: "8px 12px",
-    background: "rgba(255, 193, 7, 0.03)",
-    borderTop: "1px solid rgba(255, 193, 7, 0.15)",
+    padding: "6px 10px",
+    background: "rgba(128, 128, 128, 0.03)",
+    borderTop: "1px solid rgba(128, 128, 128, 0.1)",
   },
   pre: {
     margin: 0,

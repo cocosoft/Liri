@@ -68,11 +68,11 @@ export default function TaskCard({ data, onSendMessage }: TaskCardProps) {
   };
 
   return (
-    <div className="my-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
+    <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
       {/* 卡片标题栏 */}
-      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-base flex-shrink-0">📋</span>
+      <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm flex-shrink-0">📋</span>
           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
             任务分解：{title}
           </span>
@@ -90,7 +90,7 @@ export default function TaskCard({ data, onSendMessage }: TaskCardProps) {
       </div>
 
       {/* 任务列表 */}
-      <div className="px-4 py-2 space-y-1.5">
+      <div className="px-3 py-1.5 space-y-1">
         {tasks.map((task) => {
           const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
           const deps = renderDepends(task.dependsOn, tasks);
@@ -98,7 +98,7 @@ export default function TaskCard({ data, onSendMessage }: TaskCardProps) {
           return (
             <div
               key={task.id}
-              className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg transition-colors ${
                 task.status === "in_progress"
                   ? "bg-blue-50 dark:bg-blue-900/20"
                   : task.status === "completed"
@@ -109,15 +109,15 @@ export default function TaskCard({ data, onSendMessage }: TaskCardProps) {
               }`}
             >
               {/* 序号 + 状态图标 */}
-              <span className="text-xs text-gray-400 dark:text-gray-500 w-4 flex-shrink-0 text-right">
+              <span className="text-xs text-gray-400 dark:text-gray-500 w-3 flex-shrink-0 text-right">
                 {task.id}.
               </span>
-              <span className={`text-sm flex-shrink-0 ${cfg.color}`}>
+              <span className={`text-xs flex-shrink-0 ${cfg.color}`}>
                 {cfg.icon}
               </span>
 
               {/* 任务名称 */}
-              <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
+              <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
                 {task.name}
               </span>
 
@@ -156,7 +156,7 @@ export default function TaskCard({ data, onSendMessage }: TaskCardProps) {
         <div className="border-t border-gray-100 dark:border-gray-700">
           <button
             onClick={() => setShowDAG(!showDAG)}
-            className="w-full px-4 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center gap-1 justify-center"
+            className="w-full px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center gap-1 justify-center"
           >
             <span>{showDAG ? "▲" : "▼"}</span>
             <span>查看依赖关系图 ({tasks.filter((t) => t.dependsOn.length > 0).length} 个节点, {tasks.reduce((sum, t) => sum + t.dependsOn.length, 0)} 条边)</span>
@@ -174,7 +174,7 @@ export default function TaskCard({ data, onSendMessage }: TaskCardProps) {
       )}
 
       {/* 底部操作栏 */}
-      <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2 flex-wrap">
+      <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2 flex-wrap">
         {status === "planning" && (
           <>
             <span className="text-xs text-gray-500 dark:text-gray-400 flex-1">

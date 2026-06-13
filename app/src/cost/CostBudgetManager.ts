@@ -374,10 +374,8 @@ export class CostBudgetManager {
     const periodStart = this.periodStartTimes.get(budgetId);
     if (!periodStart) return 0;
 
-    // 获取当前会话成本（简化实现）
-    // 实际应该从历史记录中获取指定时间段的成本
-    const state = costTracker.getSessionCostState();
-    return state.totalCostUSD;
+    // 获取当前累计总成本（简化实现，实际应基于时间段查询历史记录）
+    return costTracker.getTotalCostUSD();
   }
 
   /**

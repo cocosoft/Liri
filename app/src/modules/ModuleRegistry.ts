@@ -58,6 +58,8 @@ export interface ModuleDefinition {
   // 功能信息
   category: ModuleCategory;
   description: string;
+  /** 版本层级标记（如 'enterprise'），用于构建时按版裁切 */
+  tier?: string;
 
   // 依赖信息
   dependencies: string[];

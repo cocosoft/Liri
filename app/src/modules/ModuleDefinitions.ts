@@ -658,6 +658,7 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     id: 'enterprise',
     name: 'enterprise',
     displayName: '企业版模块',
+    tier: 'enterprise',
     version: '1.0.0',
     category: ModuleCategory.OTHER,
     description: '企业版模块，提供企业级功能支持',

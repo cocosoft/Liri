@@ -205,6 +205,28 @@ export function createEventBus(logger?: (message: string) => void): EventBus {
 }
 
 /**
+ * 成本记录事件
+ */
+export interface CostRecordedEvent {
+  /** 模型名称 */
+  model: string;
+  /** 输入令牌数 */
+  inputTokens: number;
+  /** 输出令牌数 */
+  outputTokens: number;
+  /** 缓存读取令牌数 */
+  cacheReadInputTokens: number;
+  /** 缓存创建令牌数 */
+  cacheCreationInputTokens: number;
+  /** 成本（美元） */
+  costUSD: number;
+  /** 时间戳 */
+  timestamp: number;
+  /** 会话ID */
+  sessionId?: string;
+}
+
+/**
  * 预定义的系统事件名称
  */
 export const SystemEvents = {
@@ -234,6 +256,8 @@ export const SystemEvents = {
   TASK_FAILED: 'task:failed',
   TASK_CANCELLED: 'task:cancelled',
   TASK_PROGRESS: 'task:progress',
+
+  COST_RECORDED: 'cost:recorded',
 
   DREAM_STARTED: 'dream:started',
   DREAM_COMPLETED: 'dream:completed',

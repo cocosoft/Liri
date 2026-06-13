@@ -9,12 +9,14 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 import {
   costTracker,
-  type SessionCostState,
   type ModelUsage,
   formatCostReport,
   getTotalCostUSD,
   getTotalInputTokens,
   getTotalOutputTokens,
+  getTotalCacheReadInputTokens,
+  getTotalCacheCreationInputTokens,
+  getTotalWebSearchRequests,
   getModelUsage,
 } from './CostTracker';
 
@@ -66,16 +68,14 @@ export function useCostSummary(): UseCostSummaryResult {
 
   // 获取成本摘要
   const summary = useMemo((): CostSummary => {
-    const state = costTracker.getSessionCostState();
-
     return {
-      totalCostUSD: state.totalCostUSD,
-      totalInputTokens: state.totalInputTokens,
-      totalOutputTokens: state.totalOutputTokens,
-      totalCacheReadTokens: state.totalCacheReadInputTokens,
-      totalCacheCreationTokens: state.totalCacheCreationInputTokens,
-      totalWebSearchRequests: state.totalWebSearchRequests,
-      modelUsage: state.modelUsage,
+      totalCostUSD: getTotalCostUSD(),
+      totalInputTokens: getTotalInputTokens(),
+      totalOutputTokens: getTotalOutputTokens(),
+      totalCacheReadTokens: getTotalCacheReadInputTokens(),
+      totalCacheCreationTokens: getTotalCacheCreationInputTokens(),
+      totalWebSearchRequests: getTotalWebSearchRequests(),
+      modelUsage: getModelUsage(),
       hasUnknownModelCost: costTracker.hasUnknownModelCost(),
     };
   }, [refreshTrigger]);

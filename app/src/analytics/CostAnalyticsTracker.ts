@@ -4,6 +4,7 @@
  * */
 
 import { AnalyticsEventQueue } from './AnalyticsEventQueue';
+import { calculateModelCost } from '../cost/ModelPricing.js';
 
 export interface TokenUsage {
   inputTokens: number;
@@ -147,8 +148,9 @@ export class CostAnalyticsTracker {
   calculateCost(model: string, usage: TokenUsage): number {
     const pricing = this.config.pricing[model];
 
+    // 无配置时回退到 ModelPricing 统一定价
     if (!pricing) {
-      return 0;
+      return calculateModelCost(model, usage.inputTokens, usage.outputTokens, usage.cacheReadInputTokens, usage.cacheCreationInputTokens);
     }
 
     let inputCost: number;

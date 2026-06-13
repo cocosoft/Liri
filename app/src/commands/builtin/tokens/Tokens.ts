@@ -127,21 +127,22 @@ function showHelp(): CommandResult {
  * 处理 --breakdown 模式
  */
 async function handleBreakdown(): Promise<CommandResult> {
-  const { costPersistenceService } =
-    await import('@modules/cost/CostPersistenceService.js');
+  const { getCostRecordRepository } =
+    await import('@modules/cost/CostRecordRepository.js');
   const { getCostAnalyticsTracker } =
     await import('@modules/analytics/CostAnalyticsTracker.js');
 
-  await costPersistenceService.initialize();
+  const repository = getCostRecordRepository();
+  const aggregation = await repository.getAggregatedCosts({});
+
   const tracker = getCostAnalyticsTracker();
   const sessionSummary = tracker.getSessionCost();
-  const accumulatedData = costPersistenceService.getAccumulatedData();
 
   return {
     success: true,
     message: buildTokenBreakdown(
       sessionSummary.modelBreakdown,
-      accumulatedData.modelBreakdown
+      aggregation.modelBreakdown
     ),
   };
 }
@@ -150,15 +151,16 @@ async function handleBreakdown(): Promise<CommandResult> {
  * 处理 --json 模式
  */
 async function handleJson(): Promise<CommandResult> {
-  const { costPersistenceService } =
-    await import('@modules/cost/CostPersistenceService.js');
+  const { getCostRecordRepository } =
+    await import('@modules/cost/CostRecordRepository.js');
   const { getCostAnalyticsTracker } =
     await import('@modules/analytics/CostAnalyticsTracker.js');
 
-  await costPersistenceService.initialize();
+  const repository = getCostRecordRepository();
+  const aggregation = await repository.getAggregatedCosts({});
+
   const tracker = getCostAnalyticsTracker();
   const sessionSummary = tracker.getSessionCost();
-  const accumulatedData = costPersistenceService.getAccumulatedData();
 
   let sessionInput = 0;
   let sessionOutput = 0;
@@ -176,26 +178,26 @@ async function handleJson(): Promise<CommandResult> {
       modelBreakdown: sessionSummary.modelBreakdown,
     },
     accumulated: {
-      inputTokens: accumulatedData.totalInputTokens,
-      outputTokens: accumulatedData.totalOutputTokens,
+      inputTokens: aggregation.totalInputTokens,
+      outputTokens: aggregation.totalOutputTokens,
       totalTokens:
-        accumulatedData.totalInputTokens + accumulatedData.totalOutputTokens,
-      totalRequests: accumulatedData.totalRequests,
-      cacheReadTokens: accumulatedData.totalCacheReadTokens,
-      cacheCreationTokens: accumulatedData.totalCacheCreationTokens,
-      totalCostUSD: accumulatedData.totalCostUSD,
-      modelBreakdown: accumulatedData.modelBreakdown,
+        aggregation.totalInputTokens + aggregation.totalOutputTokens,
+      totalRequests: aggregation.totalRequests,
+      cacheReadTokens: aggregation.totalCacheReadTokens,
+      cacheCreationTokens: aggregation.totalCacheCreationTokens,
+      totalCostUSD: aggregation.totalCostUSD,
+      modelBreakdown: aggregation.modelBreakdown,
     },
     combined: {
-      inputTokens: sessionInput + accumulatedData.totalInputTokens,
-      outputTokens: sessionOutput + accumulatedData.totalOutputTokens,
+      inputTokens: sessionInput + aggregation.totalInputTokens,
+      outputTokens: sessionOutput + aggregation.totalOutputTokens,
       totalTokens:
         sessionInput +
         sessionOutput +
-        accumulatedData.totalInputTokens +
-        accumulatedData.totalOutputTokens,
+        aggregation.totalInputTokens +
+        aggregation.totalOutputTokens,
       totalRequests:
-        sessionSummary.totalRequests + accumulatedData.totalRequests,
+        sessionSummary.totalRequests + aggregation.totalRequests,
     },
   };
 
@@ -206,28 +208,23 @@ async function handleJson(): Promise<CommandResult> {
  * 处理 --reset 模式
  */
 async function handleReset(): Promise<CommandResult> {
-  const { costPersistenceService } =
-    await import('@modules/cost/CostPersistenceService.js');
-  await costPersistenceService.initialize();
-  await costPersistenceService.reset();
-
-  return { success: true, message: 'Token 统计已重置' };
+  return { success: true, message: '重置已弃用：成本数据已持久化到 SQLite，无需手动重置' };
 }
 
 /**
  * 处理默认模式 — 显示汇总概览
  */
 async function handleOverview(): Promise<CommandResult> {
-  const { costPersistenceService } =
-    await import('@modules/cost/CostPersistenceService.js');
+  const { getCostRecordRepository } =
+    await import('@modules/cost/CostRecordRepository.js');
   const { getCostAnalyticsTracker } =
     await import('@modules/analytics/CostAnalyticsTracker.js');
 
-  await costPersistenceService.initialize();
+  const repository = getCostRecordRepository();
+  const aggregation = await repository.getAggregatedCosts({});
 
   const tracker = getCostAnalyticsTracker();
   const sessionSummary = tracker.getSessionCost();
-  const accumulatedData = costPersistenceService.getAccumulatedData();
 
   let sessionInput = 0;
   let sessionOutput = 0;
@@ -236,10 +233,10 @@ async function handleOverview(): Promise<CommandResult> {
     sessionOutput += mc.outputTokens;
   }
 
-  const accumulatedInput = accumulatedData.totalInputTokens;
-  const accumulatedOutput = accumulatedData.totalOutputTokens;
-  const combinedInput = accumulatedInput + sessionInput;
-  const combinedOutput = accumulatedOutput + sessionOutput;
+  const accumulatedInput = aggregation.totalInputTokens;
+  const accumulatedOutput = aggregation.totalOutputTokens;
+  const combinedInput = accumulatedInput;
+  const combinedOutput = accumulatedOutput;
 
   const lines: string[] = [];
   lines.push('Token 使用统计\n');
@@ -258,27 +255,27 @@ async function handleOverview(): Promise<CommandResult> {
   lines.push(`  总计: ${(sessionInput + sessionOutput).toLocaleString()}`);
   lines.push('');
   lines.push('历史累计');
-  lines.push(`  之前输入Tokens: ${accumulatedInput.toLocaleString()}`);
-  lines.push(`  之前输出Tokens: ${accumulatedOutput.toLocaleString()}`);
+  lines.push(`  之前输入Tokens: ${(accumulatedInput - sessionInput).toLocaleString()}`);
+  lines.push(`  之前输出Tokens: ${(accumulatedOutput - sessionOutput).toLocaleString()}`);
   lines.push('');
 
   if (
-    accumulatedData.totalCacheReadTokens > 0 ||
-    accumulatedData.totalCacheCreationTokens > 0
+    aggregation.totalCacheReadTokens > 0 ||
+    aggregation.totalCacheCreationTokens > 0
   ) {
     lines.push('缓存Token');
     lines.push(
-      `  缓存读取: ${accumulatedData.totalCacheReadTokens.toLocaleString()}`
+      `  缓存读取: ${aggregation.totalCacheReadTokens.toLocaleString()}`
     );
     lines.push(
-      `  缓存创建: ${accumulatedData.totalCacheCreationTokens.toLocaleString()}`
+      `  缓存创建: ${aggregation.totalCacheCreationTokens.toLocaleString()}`
     );
     lines.push('');
   }
 
   lines.push('请求统计');
   lines.push(
-    `  总请求次数: ${(accumulatedData.totalRequests + sessionSummary.totalRequests).toLocaleString()}`
+    `  总请求次数: ${aggregation.totalRequests.toLocaleString()}`
   );
   lines.push(`  本次会话请求: ${sessionSummary.totalRequests}`);
 

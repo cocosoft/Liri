@@ -514,45 +514,37 @@ async function handleJson(context: CommandContext): Promise<CommandResult> {
 async function collectCostData(): Promise<CostData> {
   const { getCostAnalyticsTracker } =
     await import('../../../analytics/CostAnalyticsTracker.js');
-  const { costPersistenceService } =
-    await import('../../../cost/CostPersistenceService.js');
+  const { getCostRecordRepository } =
+    await import('../../../cost/CostRecordRepository.js');
 
-  await costPersistenceService.initialize();
+  const repository = getCostRecordRepository();
+  const aggregation = await repository.getAggregatedCosts({});
 
   const tracker = getCostAnalyticsTracker();
   const sessionSummary = tracker.getSessionCost();
-  const accumulatedData = costPersistenceService.getAccumulatedData();
 
-  const sessionRequests = sessionSummary.totalRequests;
-  const accumulatedRequests = accumulatedData.totalRequests;
-  const totalRequests = accumulatedRequests + sessionRequests;
-
-  const sessionCost = sessionSummary.totalCost;
-  const accumulatedCost = accumulatedData.totalCostUSD;
-  const totalCost = accumulatedCost + sessionCost;
+  const totalRequests = aggregation.totalRequests;
+  const totalCost = aggregation.totalCostUSD;
 
   const breakdown = buildBreakdown(
     sessionSummary.modelBreakdown,
-    accumulatedData.modelBreakdown
+    aggregation.modelBreakdown
   );
-
-  const successfulCalls = accumulatedData.successfulRequests + sessionRequests;
-  const failedCalls = accumulatedData.failedRequests;
 
   return {
     totalCost: totalCost,
-    totalSessionCost: sessionCost,
+    totalSessionCost: sessionSummary.totalCost,
     costBreakdown: breakdown,
     usageStats: {
       totalCalls: totalRequests,
-      thisSession: sessionRequests,
-      successfulCalls: successfulCalls,
-      failedCalls: failedCalls,
+      thisSession: sessionSummary.totalRequests,
+      successfulCalls: totalRequests,
+      failedCalls: 0,
       averageCostPerCall: totalRequests > 0 ? totalCost / totalRequests : 0,
     },
     timeRangeStats: {
-      accumulated: { calls: accumulatedRequests, cost: accumulatedCost },
-      thisSession: { calls: sessionRequests, cost: sessionCost },
+      accumulated: { calls: totalRequests - sessionSummary.totalRequests, cost: totalCost - sessionSummary.totalCost },
+      thisSession: { calls: sessionSummary.totalRequests, cost: sessionSummary.totalCost },
     },
   };
 }

@@ -19,6 +19,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
+import { CostReportEndpoint } from '@modules/cost/CostReportEndpoint';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
 import { getMonitoringService } from '@modules/monitoring/MonitoringService';
 import { analyticsService } from '@modules/analytics/AnalyticsService';
@@ -1315,6 +1316,9 @@ export class LocalHTTPService {
     if (req.method === 'GET' && url === '/api/cost/range') {
       return this.handleCostRange(req, res);
     }
+    if (req.method === 'GET' && url === '/api/cost/report') {
+      return this.handleCostReport(req, res);
+    }
 
     // ---- Commands ----
     if (req.method === 'GET' && url === '/v1/commands') {
@@ -1641,6 +1645,25 @@ export class LocalHTTPService {
     res: http.ServerResponse,
   ): Promise<void> {
     return handleCostRange(this._handlerCtx, req, res);
+  }
+
+  private async handleCostReport(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+    const format = urlObj.searchParams.get('format') || 'json';
+    const period = urlObj.searchParams.get('period') || 'all';
+
+    const endpoint = new CostReportEndpoint(costTracker);
+    const result = endpoint.handle({ format: format as any, period: period as any });
+
+    const contentType = format === 'text' || format === 'csv' || format === 'prometheus'
+      ? 'text/plain; charset=utf-8'
+      : 'application/json; charset=utf-8';
+
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(result);
   }
 
   // ========== Chat Handlers (extracted to handlers/chat-handlers.ts) ==========

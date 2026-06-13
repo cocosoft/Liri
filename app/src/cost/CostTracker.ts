@@ -16,6 +16,8 @@ import {
 import type { CostRecordRepository } from './CostRecordRepository.js';
 import { getOTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
 import type { OTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import type { CostRecordedEvent } from '@modules/core/events/EventBus';
 
 /**
  * 模型使用信息
@@ -39,20 +41,6 @@ export interface ModelUsage {
   isFastMode: boolean;
   /** 请求次数 */
   requestCount: number;
-}
-
-/**
- * 会话成本状态 - 用于会话恢复
- */
-export interface SessionCostState {
-  totalCostUSD: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalCacheReadInputTokens: number;
-  totalCacheCreationInputTokens: number;
-  totalWebSearchRequests: number;
-  totalReasoningTokens: number;
-  modelUsage: Record<string, ModelUsage>;
 }
 
 /**
@@ -156,14 +144,18 @@ export class CostTracker {
       });
     }
 
-    this.persistCostRecord(
-      canonicalModelName,
+    // 发布成本记录事件（订阅者负责 SQLite 持久化）
+    const eventData: CostRecordedEvent = {
+      model: canonicalModelName,
       inputTokens,
       outputTokens,
-      cacheReadTokens,
-      cacheCreationTokens,
-      cost
-    );
+      cacheReadInputTokens: cacheReadTokens,
+      cacheCreationInputTokens: cacheCreationTokens,
+      costUSD: cost,
+      timestamp: Date.now(),
+      sessionId: this.currentSessionId || undefined,
+    };
+    globalEventBus.publish(SystemEvents.COST_RECORDED, eventData);
 
     logForDebugging(`添加成本: ${formatCost(cost)} (${canonicalModelName})`, {
       inputTokens,
@@ -327,46 +319,6 @@ export class CostTracker {
    */
   hasUnknownModelCost(): boolean {
     return hasUnknownModel();
-  }
-
-  /**
-   * 获取会话成本状态（用于保存和恢复）
-   */
-  getSessionCostState(): SessionCostState {
-    return {
-      totalCostUSD: this.totalCostUSD,
-      totalInputTokens: this.totalInputTokens,
-      totalOutputTokens: this.totalOutputTokens,
-      totalCacheReadInputTokens: this.totalCacheReadInputTokens,
-      totalCacheCreationInputTokens: this.totalCacheCreationInputTokens,
-      totalWebSearchRequests: this.totalWebSearchRequests,
-      totalReasoningTokens: this.totalReasoningTokens,
-      modelUsage: Object.fromEntries(this.modelUsage.entries()),
-    };
-  }
-
-  /**
-   * 从状态恢复成本跟踪
-   */
-  restoreFromState(state: SessionCostState): void {
-    this.totalCostUSD = state.totalCostUSD;
-    this.totalInputTokens = state.totalInputTokens;
-    this.totalOutputTokens = state.totalOutputTokens;
-    this.totalCacheReadInputTokens = state.totalCacheReadInputTokens;
-    this.totalCacheCreationInputTokens = state.totalCacheCreationInputTokens;
-    this.totalWebSearchRequests = state.totalWebSearchRequests;
-    this.totalReasoningTokens = state.totalReasoningTokens || 0;
-    this.modelUsage = new Map(Object.entries(state.modelUsage));
-    logForDebugging('成本跟踪已从状态恢复');
-
-    const otelLogger = this.getOtelLogger();
-    if (otelLogger) {
-      otelLogger.info('成本跟踪已从状态恢复', {
-        totalCostUSD: this.totalCostUSD,
-        totalInputTokens: this.totalInputTokens,
-        modelCount: this.modelUsage.size,
-      });
-    }
   }
 
   /**
@@ -562,15 +514,5 @@ export function formatCostReport(detailed: boolean = false): string {
 }
 
 /**
- * 获取会话成本状态
+ * 获取模型使用统计
  */
-export function getSessionCostState(): SessionCostState {
-  return costTracker.getSessionCostState();
-}
-
-/**
- * 从状态恢复成本跟踪
- */
-export function restoreCostState(state: SessionCostState): void {
-  costTracker.restoreFromState(state);
-}

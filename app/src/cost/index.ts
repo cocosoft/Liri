@@ -60,9 +60,6 @@ export type { CostPrediction as CostReportPrediction } from './CostReporter.js';
 
 export type { CostPrediction } from './EnhancedCostManager.js';
 
-// 导出成本缓存管理器
-export * from './CostCache.js';
-
 // 导出成本监控器
 export * from './CostMonitor.js';
 
@@ -77,9 +74,6 @@ export * from './AdvancedCostAnalyzer.js';
 
 // 导出预算管理器
 export * from './CostBudgetManager.js';
-
-// 导出成本持久化服务
-export * from './CostPersistenceService.js';
 
 // 导出成本记录存储库
 export * from './CostRecordRepository.js';
@@ -115,6 +109,8 @@ export type {
 } from './CostReportEndpoint';
 
 import { Logger } from '../monitoring/logs/Logger.js';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import type { CostRecordedEvent } from '@modules/core/events/EventBus';
 
 const logger = new Logger();
 
@@ -124,7 +120,6 @@ const logger = new Logger();
 export async function initializeCostTrackingSystem(): Promise<void> {
   try {
     const { pricingManager } = await import('./PricingManager.js');
-    const { costCacheManager } = await import('./CostCache.js');
     const { costMonitor } = await import('./CostMonitor.js');
     const { costTracker } = await import('./CostTracker.js');
     const { getCostRecordRepository } =
@@ -134,10 +129,6 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     // 初始化定价管理器
     pricingManager.updatePricing({}, '成本跟踪系统初始化');
-
-    // 初始化成本缓存
-    costCacheManager.setMaxCacheSize(1000);
-    costCacheManager.setDefaultTTL(5 * 60 * 1000);
 
     // 初始化成本监控
     costMonitor.setConfig({
@@ -149,6 +140,27 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     const repository = getCostRecordRepository();
     await repository.initDatabase();
     costTracker.setRecordRepository(repository);
+
+    // 注册成本记录事件订阅者（事件驱动持久化）
+    globalEventBus.subscribe(SystemEvents.COST_RECORDED, async (event: CostRecordedEvent) => {
+      try {
+        await repository.recordCost({
+          model: event.model,
+          inputTokens: event.inputTokens,
+          outputTokens: event.outputTokens,
+          cacheReadTokens: event.cacheReadInputTokens,
+          cacheCreationTokens: event.cacheCreationInputTokens,
+          costUSD: event.costUSD,
+          sessionId: event.sessionId,
+        });
+      } catch (error) {
+        logger.error('事件驱动持久化成本记录失败', {
+          error: error instanceof Error ? error.message : String(error),
+          model: event.model,
+          costUSD: event.costUSD,
+        });
+      }
+    });
 
     // 初始化分析持久化服务（JSONL 文件）
     const { getGlobalAnalyticsQueue } =
@@ -201,56 +213,10 @@ export async function initializeCostTrackingSystem(): Promise<void> {
  */
 export async function shutdownCostTrackingSystem(): Promise<void> {
   try {
-    const { costPersistenceService } =
-      await import('./CostPersistenceService.js');
     const { getCostRecordRepository } =
       await import('./CostRecordRepository.js');
-    const { costTracker } = await import('./CostTracker.js');
 
-    const modelUsage = costTracker.getModelUsage();
-    const totalCost = costTracker.getTotalCostUSD();
-    const totalInputTokens = costTracker.getTotalInputTokens();
-    const totalOutputTokens = costTracker.getTotalOutputTokens();
-    const totalCacheReadTokens = costTracker.getTotalCacheReadInputTokens();
-    const totalCacheCreationTokens = costTracker.getTotalCacheCreationInputTokens();
-
-    let totalRequests = 0;
-    const modelBreakdown: Record<string, {
-      model: string;
-      totalCost: number;
-      totalTokens: number;
-      requestCount: number;
-      inputTokens: number;
-      outputTokens: number;
-    }> = {};
-
-    for (const [model, usage] of Object.entries(modelUsage)) {
-      totalRequests += usage.requestCount;
-      modelBreakdown[model] = {
-        model,
-        totalCost: usage.costUSD,
-        totalTokens: usage.inputTokens + usage.outputTokens,
-        requestCount: usage.requestCount,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-      };
-    }
-
-    await costPersistenceService.initialize();
-
-    const sessionData = {
-      totalCost,
-      totalInputTokens,
-      totalOutputTokens,
-      totalCacheReadTokens,
-      totalCacheCreationTokens,
-      totalRequests,
-      modelBreakdown,
-      successfulRequests: totalRequests,
-      failedRequests: 0,
-    };
-
-    await costPersistenceService.mergeAndSave(sessionData);
+    // 已通过事件驱动持久化到 SQLite，无需额外 JSON 持久化
 
     const repository = getCostRecordRepository();
     await repository.close();

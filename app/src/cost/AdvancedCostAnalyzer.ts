@@ -3,7 +3,7 @@
  * 提供深度成本分析、趋势识别和异常检测功能
  */
 
-import type { ModelUsage, SessionCostState } from './CostTracker';
+import type { ModelUsage } from './CostTracker';
 import { costTracker } from './CostTracker';
 
 /**
@@ -60,17 +60,25 @@ export interface EfficiencyMetrics {
  * 高级成本分析器
  */
 export class AdvancedCostAnalyzer {
-  private state: SessionCostState;
-
-  constructor() {
-    this.state = costTracker.getSessionCostState();
+  /** 每次访问时从 CostTracker 实时获取最新成本快照 */
+  private get state() {
+    return {
+      totalCostUSD: costTracker.getTotalCostUSD(),
+      totalInputTokens: costTracker.getTotalInputTokens(),
+      totalOutputTokens: costTracker.getTotalOutputTokens(),
+      totalCacheReadInputTokens: costTracker.getTotalCacheReadInputTokens(),
+      totalCacheCreationInputTokens: costTracker.getTotalCacheCreationInputTokens(),
+      totalWebSearchRequests: costTracker.getTotalWebSearchRequests(),
+      totalReasoningTokens: costTracker.getTotalReasoningTokens(),
+      modelUsage: costTracker.getModelUsage(),
+    };
   }
 
   /**
-   * 更新状态
+   * 更新状态（无操作，state 为实时 getter）
    */
   updateState(): void {
-    this.state = costTracker.getSessionCostState();
+    // 无需操作，state 每次访问实时获取 CostTracker 最新数据
   }
 
   /**

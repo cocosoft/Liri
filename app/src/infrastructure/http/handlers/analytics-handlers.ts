@@ -38,13 +38,13 @@ let analyticsService: {
 } | null = null;
 
 let costTracker: {
+  getTotalCostUSD(): number;
+  getTotalInputTokens(): number;
+  getTotalOutputTokens(): number;
   getModelUsage(): Record<string, {
     inputTokens: number; outputTokens: number; costUSD: number;
     cacheReadInputTokens: number; cacheCreationInputTokens: number; requestCount: number;
   }>;
-  getSessionCostState(): {
-    totalCostUSD: number; totalInputTokens: number; totalOutputTokens: number;
-  };
 } | null = null;
 
 let costRepository: {
@@ -335,7 +335,11 @@ export async function handleCostSummary(
     dailyBreakdown.sort((a, b) => a.date.localeCompare(b.date));
   } catch { /* 每日明细不可用时不返回 */ }
 
-  const sessionState = costTracker!.getSessionCostState();
+  const sessionState = {
+    totalCostUSD: costTracker!.getTotalCostUSD(),
+    totalInputTokens: costTracker!.getTotalInputTokens(),
+    totalOutputTokens: costTracker!.getTotalOutputTokens(),
+  };
 
   // 运行时回退：DB 查询返回 0 但 CostTracker 有数据时，以运行时为准
   const effectiveTodayCost = today.cost > 0 ? today.cost : sessionState.totalCostUSD;

@@ -13,6 +13,8 @@ import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import { LocalEmbeddingProvider } from './providers/LocalEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
 import { configManager } from '@modules/config';
+import { modelRouter } from '@modules/ai/modelRouter';
+import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
 
 /**
  * 嵌入模型配置
@@ -27,17 +29,22 @@ export interface EmbeddingConfig {
 /**
  * 嵌入模型管理器
  * 按需初始化提供者，无启动开销
+ *
+ * 核心变更：不再硬编码 'openai' 作为默认提供者，改为通过 ModelRouter
+ * 读取用户在前端配置的"嵌入"任务模型，动态选择对应的嵌入 Provider。
+ * 确保"任务分工→嵌入"配置真正生效。
  */
 export class EmbeddingManager {
   private providers: Map<string, EmbeddingBase> = new Map();
 
-  private defaultProviderId: string = 'openai';
+  private defaultProviderId: string = 'local';
 
   private initialized: boolean = false;
 
   /**
    * 初始化嵌入模块
-   * 延迟初始化：仅注册提供者工厂，不实际创建
+   * 根据用户在前端"任务分工→嵌入"配置的模型，动态选择嵌入 Provider。
+   * 优先级：用户配置 > 本地回退。
    */
   initialize(config?: EmbeddingConfig): void {
     if (this.initialized) return;
@@ -45,20 +52,67 @@ export class EmbeddingManager {
     // 注册本地提供者（Ollama 等），始终可用
     this.providers.set('local', new LocalEmbeddingProvider());
 
-    // 注册 OpenAI 提供者（仅当配置或环境变量可用时）
-    if (config?.openai || configManager.env('OPENAI_API_KEY')) {
-      const provider = new OpenAIEmbeddingProvider(config?.openai);
-      this.providers.set('openai', provider);
+    // 从 ModelRouter 读取用户在前端"任务分工→嵌入"配置的模型
+    const resolved = this._resolveEmbeddingProvider(config);
+    if (resolved.type === 'openai' && resolved.apiKey) {
+      this.providers.set('openai', new OpenAIEmbeddingProvider({
+        apiKey: resolved.apiKey,
+        baseURL: resolved.baseUrl,
+        ...(config?.openai || {}),
+      }));
     }
 
-    // 设置默认提供者：优先使用 config 指定的，否则按可用性回退
-    if (config?.defaultProvider && this.providers.has(config.defaultProvider)) {
-      this.defaultProviderId = config.defaultProvider;
-    } else if (!this.providers.has('openai') && this.providers.has('local')) {
-      this.defaultProviderId = 'local';
-    }
+    // 设置默认提供者：用户配置的 Provider 优先，否则降级到 local
+    this.defaultProviderId = this.providers.has(resolved.type) ? resolved.type : 'local';
 
     this.initialized = true;
+  }
+
+  /**
+   * 解析嵌入 Provider
+   * 通过 ModelRouter 读取用户配置的嵌入任务模型，再经 ProviderRegistry
+   * 映射到具体 Provider，最后从环境变量提取 API 凭据。
+   */
+  private _resolveEmbeddingProvider(config?: EmbeddingConfig): {
+    type: 'openai' | 'local';
+    baseUrl?: string;
+    apiKey?: string;
+  } {
+    // 优先使用构造参数中明确的 defaultProvider
+    if (config?.defaultProvider === 'local') {
+      return { type: 'local' };
+    }
+
+    // 通过 ModelRouter 读取用户在前端"任务分工→嵌入"配置的模型
+    const modelId = modelRouter.resolve('embedding');
+    if (!modelId) {
+      return { type: 'local' };
+    }
+
+    // 查找模型对应的 Provider（如 deepseek-v4-pro → deepseek Provider）
+    const provider = providerRegistry.getByModel(modelId);
+    if (!provider) {
+      return { type: 'local' };
+    }
+
+    const pid = provider.id;
+
+    // Ollama / 本地模型 → 使用本地嵌入（Ollama 的 nomic-embed-text）
+    if (pid === 'ollama') {
+      return { type: 'local' };
+    }
+
+    // 其他 Provider（openai, deepseek 等）→ 使用对应 Provider 的 API 凭据
+    const upper = pid.toUpperCase().replace(/-/g, '_');
+    const apiKey = configManager.env(`${upper}_API_KEY`);
+    const baseUrl = configManager.env(`${upper}_BASE_URL`);
+
+    // 无 API key 时降级到本地
+    if (!apiKey) {
+      return { type: 'local' };
+    }
+
+    return { type: 'openai', apiKey, baseUrl };
   }
 
   /**
@@ -72,7 +126,7 @@ export class EmbeddingManager {
 
     if (!provider) {
       throw new Error(
-        `嵌入提供者未注册: ${providerId}。请先设置 OPENAI_API_KEY 环境变量或调用 initialize() 配置。`
+        `嵌入提供者未注册: ${providerId}。请在"模型管理→任务分工"中为"嵌入"任务配置一个有效的 Provider。`
       );
     }
 

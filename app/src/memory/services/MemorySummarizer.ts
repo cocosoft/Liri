@@ -18,6 +18,15 @@ export class MemorySummarizer {
     limit: number = 5,
     sessionContext?: SessionContext
   ): Promise<MemoryQueryResult> {
+    // 无会话上下文时，优先读取缓存，避免全量 I/O
+    if (!sessionContext && this.memoryManager.recentSummaryCache) {
+      const cache = this.memoryManager.recentSummaryCache;
+      return {
+        summaries: cache.summaries.slice(0, limit),
+        totalCount: cache.totalCount,
+      };
+    }
+
     // 获取所有记忆并按更新时间降序排列（本地 I/O，不走 embedding 网络调用）
     const allMemories = await this.memoryManager.getAllMemories();
     allMemories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
@@ -37,8 +46,14 @@ export class MemorySummarizer {
     }
 
     const summaries = candidates.map((m) => this.toSummary(m));
+    const result = { summaries, totalCount: allMemories.length };
 
-    return { summaries, totalCount: allMemories.length };
+    // 无会话上下文时，更新缓存供后续使用
+    if (!sessionContext) {
+      this.memoryManager.recentSummaryCache = result;
+    }
+
+    return result;
   }
 
   /**

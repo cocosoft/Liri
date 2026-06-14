@@ -353,6 +353,18 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   }
 
   /**
+   * 获取当前嵌入模型名称
+   * 从全局嵌入管理器中读取当前使用的模型名
+   */
+  private getEmbeddingModelName(): string {
+    try {
+      return globalEmbeddingManager.getProvider().modelName;
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
    * 为单个记忆项预取向量
    */
   private async prefetchVectorForItem(itemId: string): Promise<void> {
@@ -364,7 +376,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const textToEmbed =
       `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
     const emb = await globalEmbeddingManager.embedOne(textToEmbed);
-    this.vectorCache.set(itemId, { vector: Array.from(emb), model: 'embedding-manager' });
+    this.vectorCache.set(itemId, { vector: Array.from(emb), model: this.getEmbeddingModelName() });
   }
 
   /**
@@ -893,11 +905,14 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
         memories: Array.from(this.memoryIndex.values()),
       };
 
+      // 原子写入：先写 .tmp 文件，再 rename 为最终路径
+      const tmpPath = this.indexFilePath + '.tmp';
       await fs.writeFile(
-        this.indexFilePath,
+        tmpPath,
         JSON.stringify(indexData, null, 2),
         'utf8'
       );
+      await fs.rename(tmpPath, this.indexFilePath);
     } catch (error) {
       logger.error(
         'Error saving memory index',
@@ -996,6 +1011,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const resultLimit = limit ?? this.searchConfig.query.maxResults;
     const minScore = threshold ?? this.searchConfig.query.minScore;
     const queryEmb = await globalEmbeddingManager.embedOne(query);
+    const currentModel = this.getEmbeddingModelName();
     const results: SimilarMemoryResult[] = [];
 
     for (const item of this.memoryIndex.values()) {
@@ -1005,11 +1021,12 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
       let vector: number[];
       const cached = this.vectorCache.get(item.id);
-      if (cached) {
+      if (cached && cached.model === currentModel) {
+        // 仅当缓存向量来自同一模型时复用，否则重新嵌入
         vector = cached.vector;
       } else {
         vector = await globalEmbeddingManager.embedOne(textToEmbed);
-        this.vectorCache.set(item.id, { vector, model: 'embedding-manager' });
+        this.vectorCache.set(item.id, { vector, model: currentModel });
       }
 
       const similarity = this.cosineSimilarity(queryEmb, vector);

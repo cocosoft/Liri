@@ -63,6 +63,12 @@ export interface MemoryMetadata {
   source?: string;
 
   /**
+   * 记忆重要度（0-1），用于 TTL 差异化
+   * 高（>=0.7）：TTL × 2，低（<0.3）：TTL × 0.5，默认 0.5
+   */
+  importance?: number;
+
+  /**
    * 是否固定
    */
   isPinned?: boolean;
@@ -95,6 +101,7 @@ export function createMemoryMetadata(
     updatedAt: data.updatedAt || now,
     tags: data.tags || [],
     priority: data.priority || 0,
+    importance: data.importance ?? 0.5,
     expiresAt: data.expiresAt,
     author: data.author,
     source: data.source,

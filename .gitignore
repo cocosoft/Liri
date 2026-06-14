@@ -186,3 +186,7 @@ app/minesweeper.html
 DOCS/
 
 output/
+
+client/app/
+client/data/
+client/e2e/

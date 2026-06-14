@@ -581,7 +581,7 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 注册记忆查询提供者（MemorySummarizer → MemoryQueryProvider 适配）
+      // 注册记忆查询提供者（MemorySummarizer → MemoryQueryProvider 适配）+ 启动老化清理
       (async () => {
         try {
           const { MemoryManagerImpl } =
@@ -590,13 +590,36 @@ async function startDeferredPrefetches(): Promise<void> {
             await import('../memory/services/MemorySummarizer.js');
           const { setMemoryQueryProvider, getCurrentSessionContext } =
             await import('../services/prompt/MemoryPromptProvider.js');
-          const summarizer = new MemorySummarizer(new MemoryManagerImpl());
+          const memoryManager = new MemoryManagerImpl();
+          const summarizer = new MemorySummarizer(memoryManager);
           setMemoryQueryProvider({
             async getMemorySummaries(limit?: number) {
               const ctx = getCurrentSessionContext();
               return summarizer.getSummaries(limit, ctx ?? undefined);
             },
           });
+
+          // 记忆老化自动清理（任务 1）：启动时先清理一次
+          try {
+            const cleaned = await memoryManager.cleanupExpiredMemories();
+            if (cleaned > 0) {
+              logger.info(`启动时清理了 ${cleaned} 条过期记忆`);
+            }
+          } catch (error) {
+            logger.warning('启动时清理过期记忆失败', { error });
+          }
+
+          // 注册定时清理（每 6 小时）
+          setInterval(async () => {
+            try {
+              const cleaned = await memoryManager.cleanupExpiredMemories();
+              if (cleaned > 0) {
+                logger.info(`定时清理了 ${cleaned} 条过期记忆`);
+              }
+            } catch (error) {
+              logger.warning('定时清理过期记忆失败', { error });
+            }
+          }, 6 * 60 * 60 * 1000);
         } catch (error) {
           logger.warning('记忆查询提供者注册失败', { error });
         }

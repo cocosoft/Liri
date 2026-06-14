@@ -173,6 +173,17 @@ export class MemoryManagerImpl {
   private retriever: MemoryRetrieverImpl;
 
   /**
+   * 最近摘要缓存（任务 5）
+   * 被 createMemory / updateMemory / deleteMemory 写入时失效，随后触发异步预热
+   */
+  recentSummaryCache: { summaries: string[]; totalCount: number } | null = null;
+
+  /**
+   * 缓存异步预热 Promise，防重复
+   */
+  private cacheWarmupPromise: Promise<void> | null = null;
+
+  /**
    * 记忆提示服务
    */
   private promptService: MemoryPromptService;
@@ -222,6 +233,43 @@ export class MemoryManagerImpl {
   }
 
   /**
+   * 异步刷新摘要缓存（异步预热）
+   * 让下次 getSummaries 读取时直接命中缓存，避免同步全量 I/O
+   */
+  private async refreshSummaryCache(): Promise<void> {
+    // 如果已有预热进行中，避免重复
+    if (this.cacheWarmupPromise) {
+      return;
+    }
+
+    this.cacheWarmupPromise = (async () => {
+      try {
+        const allMemories = await this.getAllMemories();
+        allMemories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+        const summaries = allMemories.map((m) => {
+          const name = m.metadata?.name;
+          const content = (m.content || '').trim();
+          const truncated = content.length > 200
+            ? content.slice(0, 200) + '…'
+            : content;
+          const prefix = name ? `[${name}] ` : '';
+          return `${prefix}${truncated}`;
+        });
+
+        this.recentSummaryCache = { summaries, totalCount: allMemories.length };
+      } catch {
+        // 预热失败不阻塞主流程，下次读取时自动回退全量扫描
+        this.recentSummaryCache = null;
+      } finally {
+        this.cacheWarmupPromise = null;
+      }
+    })();
+
+    await this.cacheWarmupPromise;
+  }
+
+  /**
    * 创建记忆
    * @param memory 记忆数据
    * @returns 创建的记忆
@@ -241,6 +289,10 @@ export class MemoryManagerImpl {
 
     // 持久化关联图
     await this.saveRelationGraph();
+
+    // 摘要缓存失效并异步预热
+    this.recentSummaryCache = null;
+    this.refreshSummaryCache().catch(() => {});
 
     return newMemory;
   }
@@ -296,6 +348,10 @@ export class MemoryManagerImpl {
     // 持久化关联图
     await this.saveRelationGraph();
 
+    // 摘要缓存失效并异步预热
+    this.recentSummaryCache = null;
+    this.refreshSummaryCache().catch(() => {});
+
     return updatedMemory;
   }
 
@@ -313,6 +369,10 @@ export class MemoryManagerImpl {
 
     // 持久化关联图
     await this.saveRelationGraph();
+
+    // 摘要缓存失效并异步预热
+    this.recentSummaryCache = null;
+    this.refreshSummaryCache().catch(() => {});
   }
 
   /**
@@ -332,6 +392,10 @@ export class MemoryManagerImpl {
       await this.retriever.saveIndex();
       await this.saveRelationGraph();
     }
+
+    // 摘要缓存失效并异步预热
+    this.recentSummaryCache = null;
+    this.refreshSummaryCache().catch(() => {});
 
     return count;
   }
@@ -388,6 +452,9 @@ export class MemoryManagerImpl {
    * @returns 记忆列表
    */
   async getAllMemories(): Promise<Memory[]> {
+    // 刷新待写入批次，确保磁盘与运行时一致
+    await this.store.flushBatch();
+
     // 获取所有记忆ID
     const memoryIds = await this.store.listMemories();
 
@@ -483,6 +550,7 @@ export class MemoryManagerImpl {
   /**
    * 清理已过期的记忆
    * 遍历所有记忆，删除 metadata.expiresAt 已到期的记忆
+   * TTL 按重要度差异化：高重要度（>=0.7）TTL×2，低重要度（<0.3）TTL×0.5
    * @returns 被清理的记忆数量
    */
   async cleanupExpiredMemories(): Promise<number> {
@@ -491,10 +559,15 @@ export class MemoryManagerImpl {
     const expired: string[] = [];
 
     for (const memory of allMemories) {
-      if (
-        memory.metadata.expiresAt &&
-        new Date(memory.metadata.expiresAt) <= now
-      ) {
+      const ttlMs = this.getMemoryTTL(memory);
+      const ageMs = now.getTime() - memory.createdAt.getTime();
+
+      // 优先检查显式 expiresAt，其次根据 TTL 判断是否过期
+      const isExpired =
+        (memory.metadata.expiresAt && new Date(memory.metadata.expiresAt) <= now) ||
+        (!memory.metadata.expiresAt && ageMs > ttlMs);
+
+      if (isExpired) {
         expired.push(memory.id);
       }
     }
@@ -509,7 +582,26 @@ export class MemoryManagerImpl {
       await this.saveRelationGraph();
     }
 
+    logger.info(`清理了 ${expired.length} 条过期记忆`, {
+      totalMemories: allMemories.length,
+      cleanedCount: expired.length,
+    });
+
     return expired.length;
+  }
+
+  /**
+   * 根据记忆重要度计算 TTL（毫秒）
+   * 高重要度（importance >= 0.7）：180 天
+   * 中重要度（0.3 <= importance < 0.7）：90 天（默认）
+   * 低重要度（importance < 0.3）：45 天
+   */
+  private getMemoryTTL(memory: Memory): number {
+    const baseTTL = 90 * 24 * 60 * 60 * 1000; // 90 天
+    const importance = memory.metadata.importance ?? 0.5;
+    if (importance >= 0.7) return baseTTL * 2;
+    if (importance < 0.3) return baseTTL * 0.5;
+    return baseTTL;
   }
 
   /**
@@ -711,11 +803,14 @@ export class MemoryManagerImpl {
   async saveRelationGraph(): Promise<void> {
     try {
       const relations = memoryRelationGraph.serialize();
+      // 原子写入：先写 .tmp 文件，再 rename 为最终路径
+      const tmpPath = this.relationGraphPath + '.tmp';
       await fs.promises.writeFile(
-        this.relationGraphPath,
+        tmpPath,
         JSON.stringify(relations, null, 2),
         'utf8'
       );
+      await fs.promises.rename(tmpPath, this.relationGraphPath);
     } catch (error) {
       logger.error(
         'Error saving relation graph',

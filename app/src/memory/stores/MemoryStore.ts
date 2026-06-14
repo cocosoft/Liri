@@ -7,9 +7,13 @@ import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveMemoryDir } from '@modules/core/paths';
+import { resolveMemoryDir, resolveDbPath } from '@modules/core/paths';
+import { Database } from '@modules/core/external/sqlite3';
 
 const storeLogger = new Logger({ level: LogLevel.INFO });
+
+/** memory_vectors 表名 */
+const MEMORY_VECTORS_TABLE = 'memory_vectors';
 
 /**
  * 验证记忆ID安全性
@@ -176,18 +180,116 @@ export class MemoryStoreImpl implements MemoryStore {
   private readonly MAX_CACHE_SIZE = 100;
 
   /**
-   * 向量索引文件路径
+   * 批量写入节流（任务 6）
+   * 1 秒窗口内多次 saveMemory 合并为一个 flush 操作
    */
-  private getVectorIndexPath(): string {
-    return join(this.memoryDir, 'memory-vectors.json');
+  private pendingBatch: Map<string, Memory> = new Map();
+  private batchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * 原子写入文件
+   * 先写入 .tmp 临时文件，再 rename 为最终路径，避免写入中断导致文件半残
+   * 每次写入前清理同名的旧 .tmp 文件
+   */
+  private async atomicWrite(filePath: string, content: string): Promise<void> {
+    const tmpPath = filePath + '.tmp';
+
+    // 清理前次残留的 .tmp 文件
+    try {
+      await fs.unlink(tmpPath);
+    } catch {
+      // 不存在则忽略
+    }
+
+    // 写入临时文件
+    await fs.writeFile(tmpPath, content, 'utf8');
+    // 原子替换
+    await fs.rename(tmpPath, filePath);
+  }
+
+  /**
+   * 批量刷新：将 pendingBatch 中的记忆全部写入磁盘
+   */
+  async flushBatch(): Promise<void> {
+    if (this.pendingBatch.size === 0) return;
+
+    const batch = new Map(this.pendingBatch);
+    this.pendingBatch.clear();
+
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+
+    for (const [id, memory] of batch) {
+      try {
+        // 构建 frontmatter 元数据
+        const frontmatter: Record<string, unknown> = {};
+
+        if (memory.id !== undefined) frontmatter.id = memory.id;
+        if (memory.metadata.name !== undefined) frontmatter.name = memory.metadata.name;
+        if (memory.metadata.description !== undefined) frontmatter.description = memory.metadata.description;
+        if (memory.metadata.type !== undefined) frontmatter.type = memory.metadata.type;
+        frontmatter.createdAt = memory.metadata.createdAt?.toISOString() ?? new Date().toISOString();
+        frontmatter.updatedAt = memory.metadata.updatedAt?.toISOString() ?? new Date().toISOString();
+        if (memory.metadata.tags && memory.metadata.tags.length > 0) frontmatter.tags = memory.metadata.tags;
+        if (memory.metadata.priority !== undefined) frontmatter.priority = memory.metadata.priority;
+        if (memory.metadata.importance !== undefined) frontmatter.importance = memory.metadata.importance;
+        if (memory.metadata.expiresAt) frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
+        if (memory.metadata.author) frontmatter.author = memory.metadata.author;
+        if (memory.metadata.source) frontmatter.source = memory.metadata.source;
+
+        const validatedContent = this.validateMarkdownContent(memory.content);
+        const content = matter.stringify(validatedContent, frontmatter);
+        await this.atomicWrite(this.getMemoryFilePath(id), content);
+      } catch (error) {
+        storeLogger.error(`批量写入失败`, { id, error });
+      }
+    }
+  }
+
+  private scheduleFlush(): void {
+    if (this.batchTimer) return;
+    this.batchTimer = setTimeout(() => {
+      this.flushBatch().catch((error) => {
+        storeLogger.error('定时批量刷新失败', { error });
+      });
+    }, 1000);
   }
 
   /**
    * 构造函数
    * @param memoryDir 记忆目录路径
+   * @param dbPath 数据库路径，默认使用 resolveDbPath()
    */
-  constructor(memoryDir: string = resolveMemoryDir()) {
+  constructor(
+    memoryDir: string = resolveMemoryDir(),
+    private dbPath: string = resolveDbPath()
+  ) {
     this.memoryDir = memoryDir;
+  }
+
+  /**
+   * 惰性初始化 SQLite 数据库和 memory_vectors 表
+   */
+  private async ensureVectorTable(): Promise<Database> {
+    const db = new Database(this.dbPath);
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `CREATE TABLE IF NOT EXISTS ${MEMORY_VECTORS_TABLE} (
+          memory_id TEXT PRIMARY KEY,
+          vector TEXT NOT NULL,
+          model TEXT NOT NULL,
+          model_version TEXT DEFAULT '' NOT NULL,
+          timestamp TEXT NOT NULL
+        )`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+    return db;
   }
 
   /**
@@ -236,36 +338,65 @@ export class MemoryStoreImpl implements MemoryStore {
   }
 
   /**
-   * 保存向量索引
+   * 保存向量索引（全量覆盖）
+   * 将整个向量索引写入 SQLite memory_vectors 表
    */
   async saveVectorIndex(
     vectors: Record<
       string,
-      { vector: number[]; model: string; timestamp: string }
+      { vector: number[]; model: string; timestamp: string; model_version?: string }
     >
   ): Promise<void> {
-    await this.ensureMemoryDirExists();
-    await fs.writeFile(
-      this.getVectorIndexPath(),
-      JSON.stringify(vectors, null, 2),
-      'utf8'
-    );
+    const db = await this.ensureVectorTable();
+    await new Promise<void>((resolve, reject) => {
+      db.run('BEGIN TRANSACTION');
+      for (const [memoryId, entry] of Object.entries(vectors)) {
+        db.run(
+          `INSERT OR REPLACE INTO ${MEMORY_VECTORS_TABLE} (memory_id, vector, model, model_version, timestamp)
+           VALUES (?, ?, ?, ?, ?)`,
+          memoryId,
+          JSON.stringify(entry.vector),
+          entry.model,
+          entry.model_version ?? '',
+          entry.timestamp
+        );
+      }
+      db.run('COMMIT', (err: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    storeLogger.info('向量索引已保存到 SQLite', { count: Object.keys(vectors).length });
   }
 
   /**
    * 加载向量索引
+   * 从 SQLite memory_vectors 表读取所有向量
    */
   async loadVectorIndex(): Promise<
-    Record<string, { vector: number[]; model: string; timestamp: string }>
+    Record<string, { vector: number[]; model: string; timestamp: string; model_version?: string }>
   > {
-    await this.ensureMemoryDirExists();
-    try {
-      await fs.access(this.getVectorIndexPath());
-      const content = await fs.readFile(this.getVectorIndexPath(), 'utf8');
-      return JSON.parse(content);
-    } catch {
-      return {};
+    const db = await this.ensureVectorTable();
+    const rows = await new Promise<any[]>((resolve, reject) => {
+      db.all(
+        `SELECT memory_id, vector, model, model_version, timestamp FROM ${MEMORY_VECTORS_TABLE}`,
+        (err: Error | null, rows?: any[]) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    const result: Record<string, { vector: number[]; model: string; timestamp: string; model_version?: string }> = {};
+    for (const row of rows) {
+      result[row.memory_id] = {
+        vector: JSON.parse(row.vector),
+        model: row.model,
+        model_version: row.model_version || undefined,
+        timestamp: row.timestamp,
+      };
     }
+    return result;
   }
 
   /**
@@ -274,15 +405,25 @@ export class MemoryStoreImpl implements MemoryStore {
   async saveMemoryVector(
     memoryId: string,
     vector: number[],
-    model: string
+    model: string,
+    modelVersion?: string
   ): Promise<void> {
-    const vectors = await this.loadVectorIndex();
-    vectors[memoryId] = {
-      vector,
-      model,
-      timestamp: new Date().toISOString(),
-    };
-    await this.saveVectorIndex(vectors);
+    const db = await this.ensureVectorTable();
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `INSERT OR REPLACE INTO ${MEMORY_VECTORS_TABLE} (memory_id, vector, model, model_version, timestamp)
+         VALUES (?, ?, ?, ?, ?)`,
+        memoryId,
+        JSON.stringify(vector),
+        model,
+        modelVersion ?? '',
+        new Date().toISOString(),
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
   }
 
   /**
@@ -290,18 +431,42 @@ export class MemoryStoreImpl implements MemoryStore {
    */
   async getMemoryVector(
     memoryId: string
-  ): Promise<{ vector: number[]; model: string; timestamp: string } | null> {
-    const vectors = await this.loadVectorIndex();
-    return vectors[memoryId] || null;
+  ): Promise<{ vector: number[]; model: string; timestamp: string; model_version?: string } | null> {
+    const db = await this.ensureVectorTable();
+    const row = await new Promise<any>((resolve, reject) => {
+      db.get(
+        `SELECT vector, model, model_version, timestamp FROM ${MEMORY_VECTORS_TABLE} WHERE memory_id = ?`,
+        memoryId,
+        (err: Error | null, row?: any) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+    if (!row) return null;
+    return {
+      vector: JSON.parse(row.vector),
+      model: row.model,
+      model_version: row.model_version || undefined,
+      timestamp: row.timestamp,
+    };
   }
 
   /**
    * 删除单个记忆的向量
    */
   async deleteMemoryVector(memoryId: string): Promise<void> {
-    const vectors = await this.loadVectorIndex();
-    delete vectors[memoryId];
-    await this.saveVectorIndex(vectors);
+    const db = await this.ensureVectorTable();
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `DELETE FROM ${MEMORY_VECTORS_TABLE} WHERE memory_id = ?`,
+        memoryId,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
   }
 
   /**
@@ -337,69 +502,11 @@ export class MemoryStoreImpl implements MemoryStore {
   async saveMemory(memory: Memory): Promise<void> {
     await this.ensureMemoryDirExists();
 
-    // 构建frontmatter元数据
-    const frontmatter: Record<string, unknown> = {};
+    // 加入批量写入队列（1 秒窗口内合并写入）
+    this.pendingBatch.set(memory.id, { ...memory });
+    this.scheduleFlush();
 
-    // 只添加非undefined的值
-    if (memory.id !== undefined) {
-      frontmatter.id = memory.id;
-    }
-
-    if (memory.metadata.name !== undefined) {
-      frontmatter.name = memory.metadata.name;
-    }
-
-    if (memory.metadata.description !== undefined) {
-      frontmatter.description = memory.metadata.description;
-    }
-
-    if (memory.metadata.type !== undefined) {
-      frontmatter.type = memory.metadata.type;
-    }
-
-    if (memory.metadata.createdAt) {
-      frontmatter.createdAt = memory.metadata.createdAt.toISOString();
-    } else {
-      frontmatter.createdAt = new Date().toISOString();
-    }
-
-    if (memory.metadata.updatedAt) {
-      frontmatter.updatedAt = memory.metadata.updatedAt.toISOString();
-    } else {
-      frontmatter.updatedAt = new Date().toISOString();
-    }
-
-    if (memory.metadata.tags && memory.metadata.tags.length > 0) {
-      frontmatter.tags = memory.metadata.tags;
-    }
-
-    if (memory.metadata.priority !== undefined) {
-      frontmatter.priority = memory.metadata.priority;
-    }
-
-    if (memory.metadata.expiresAt) {
-      frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
-    }
-
-    if (memory.metadata.author) {
-      frontmatter.author = memory.metadata.author;
-    }
-
-    if (memory.metadata.source) {
-      frontmatter.source = memory.metadata.source;
-    }
-
-    // 验证Markdown内容
-    const validatedContent = this.validateMarkdownContent(memory.content);
-
-    // 创建Markdown内容
-    const content = matter.stringify(validatedContent, frontmatter);
-
-    // 写入文件
-    const filePath = this.getMemoryFilePath(memory.id);
-    await fs.writeFile(filePath, content);
-
-    // 同步更新LRU缓存
+    // 同步更新 LRU 缓存
     this.setCache(memory.id, memory);
   }
 
@@ -432,6 +539,13 @@ export class MemoryStoreImpl implements MemoryStore {
       return cached;
     }
 
+    // 检查待刷新的批量写入队列
+    const pending = this.pendingBatch.get(id);
+    if (pending) {
+      this.setCache(id, pending);
+      return pending;
+    }
+
     const filePath = this.getMemoryFilePath(id);
 
     try {
@@ -456,6 +570,7 @@ export class MemoryStoreImpl implements MemoryStore {
           updatedAt: new Date(data.updatedAt),
           tags: data.tags,
           priority: data.priority,
+          importance: data.importance,
           expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
           author: data.author,
           source: data.source,
@@ -469,6 +584,7 @@ export class MemoryStoreImpl implements MemoryStore {
 
       return memory;
     } catch (error) {
+      storeLogger.error(`记忆文件损坏或无法读取，已跳过`, { id, filePath, error });
       return null;
     }
   }
@@ -479,6 +595,9 @@ export class MemoryStoreImpl implements MemoryStore {
    * @param id 记忆ID
    */
   async deleteMemory(id: string): Promise<void> {
+    // 从批量写入队列中移除
+    this.pendingBatch.delete(id);
+
     const filePath = this.getMemoryFilePath(id);
 
     try {

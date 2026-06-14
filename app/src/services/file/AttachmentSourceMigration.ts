@@ -17,7 +17,7 @@
  *   console.log(result.summary);
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { existsSync, readFileSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -172,7 +172,7 @@ export class AttachmentSourceMigration {
       db.get(
         "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
         [tableName],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           resolve(!err && row !== undefined);
         }
       );
@@ -184,7 +184,7 @@ export class AttachmentSourceMigration {
    */
   private queryAll(db: Database, sql: string, params: unknown[] = []): Promise<unknown[]> {
     return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
+      db.all(sql, params, (err: Error | null, rows: any[]) => {
         if (err) {
           reject(err);
         } else {
@@ -194,3 +194,4 @@ export class AttachmentSourceMigration {
     });
   }
 }
+

@@ -232,7 +232,7 @@ export class SqliteTaskStore implements ITaskStore {
       const rows = await new Promise<any[]>((resolve, reject) => {
         this.db!.all(
           `SELECT * FROM ${TABLE_NAMES.TASK_STATES} ORDER BY start_time DESC`,
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           }
@@ -248,7 +248,7 @@ export class SqliteTaskStore implements ITaskStore {
         this.db!.get(
           `SELECT * FROM ${TABLE_NAMES.TASK_STATES} WHERE id = ?`,
           [taskId],
-          (err, row) => {
+          (err: Error | null, row: any) => {
             if (err) reject(err);
             else resolve(row);
           }
@@ -293,7 +293,7 @@ export class SqliteTaskStore implements ITaskStore {
       const rows = await new Promise<any[]>((resolve, reject) => {
         this.db!.all(
           `SELECT status, COUNT(*) as count FROM ${TABLE_NAMES.TASK_STATES} GROUP BY status`,
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           }
@@ -313,7 +313,7 @@ export class SqliteTaskStore implements ITaskStore {
         this.db!.all(
           `SELECT * FROM ${TABLE_NAMES.TASK_STATES} WHERE status = ? ORDER BY start_time DESC`,
           [status],
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           }
@@ -374,7 +374,7 @@ export class SqliteTaskStore implements ITaskStore {
       params.push(limit);
 
       const rows = await new Promise<any[]>((resolve, reject) => {
-        this.db!.all(sql, params, (err, rows) => {
+        this.db!.all(sql, params, (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else resolve(rows || []);
         });
@@ -419,7 +419,7 @@ export class SqliteTaskStore implements ITaskStore {
       const rows = await new Promise<any[]>((resolve, reject) => {
         this.db!.all(
           `SELECT * FROM ${TABLE_NAMES.TASK_FLOW} ORDER BY flow_id`,
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           }
@@ -436,7 +436,7 @@ export class SqliteTaskStore implements ITaskStore {
         this.db!.get(
           `SELECT * FROM ${TABLE_NAMES.TASK_FLOW} WHERE flow_id = ?`,
           [flowId],
-          (err, row) => {
+          (err: Error | null, row: any) => {
             if (err) reject(err);
             else resolve(row);
           }
@@ -494,7 +494,7 @@ export class SqliteTaskStore implements ITaskStore {
       const rows = await new Promise<any[]>((resolve, reject) => {
         this.db!.all(
           `SELECT * FROM ${TABLE_NAMES.TASK_DELIVERY} ORDER BY task_id`,
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           }
@@ -558,7 +558,7 @@ export class SqliteTaskStore implements ITaskStore {
         this.db!.all(
           `SELECT * FROM ${TABLE_NAMES.TASK_RUNS} WHERE task_id = ? ORDER BY started_at DESC`,
           [taskId],
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           }
@@ -600,7 +600,7 @@ export class SqliteTaskStore implements ITaskStore {
              ORDER BY rank
              LIMIT ?`,
             [query, limit],
-            (err, rows) => {
+            (err: Error | null, rows: any[]) => {
               if (err) reject(err);
               else resolve(rows || []);
             }
@@ -631,7 +631,7 @@ export class SqliteTaskStore implements ITaskStore {
          ORDER BY updated_at DESC
          LIMIT ?`,
         [pattern, pattern, limit],
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else resolve(rows || []);
         }
@@ -697,7 +697,7 @@ export class SqliteTaskStore implements ITaskStore {
     if (!this.db) return false;
     try {
       await new Promise<void>((resolve, reject) => {
-        this.db!.get('SELECT 1 AS ok', (err, row) => {
+        this.db!.get('SELECT 1 AS ok', (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve();
         });
@@ -747,7 +747,7 @@ export class SqliteTaskStore implements ITaskStore {
            WHERE task_id = ?
            ORDER BY timestamp DESC`,
           [taskId],
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           },
@@ -779,7 +779,7 @@ export class SqliteTaskStore implements ITaskStore {
            AND end_time IS NOT NULL
            AND end_time < ?`,
           [cutoff],
-          function (err) {
+          function (this: any, err: Error | null) {
             if (err) reject(err);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             else resolve((this as any).changes ?? 0);
@@ -830,7 +830,7 @@ export class SqliteTaskStore implements ITaskStore {
       const rows = await new Promise<any[]>((resolve, reject) => {
         this.db!.all(
           'SELECT * FROM kanban_cards ORDER BY sort_order ASC, created_at DESC',
-          (err, rows) => {
+          (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
           },
@@ -953,3 +953,4 @@ function rowToDeliveryRecord(row: any): DeliveryRecord {
 export function createSqliteTaskStore(dbPath?: string): SqliteTaskStore {
   return new SqliteTaskStore(dbPath);
 }
+

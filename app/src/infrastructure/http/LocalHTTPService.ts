@@ -434,7 +434,7 @@ export class LocalHTTPService {
     );
     res.setHeader(
       'Access-Control-Allow-Headers',
-      'Content-Type, Authorization'
+      'Content-Type, Authorization, x-api-key'
     );
 
     if (req.method === 'OPTIONS') {

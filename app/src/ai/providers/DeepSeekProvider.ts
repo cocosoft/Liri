@@ -117,14 +117,19 @@ export class DeepSeekProvider extends BaseAIProvider {
       temperature: options?.temperature ?? 0.7,
     });
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (fetchErr) {
+      throw fetchErr;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

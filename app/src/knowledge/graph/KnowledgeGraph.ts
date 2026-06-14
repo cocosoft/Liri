@@ -132,7 +132,7 @@ export class KnowledgeGraph {
     if (this.db) return;
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
@@ -163,7 +163,7 @@ export class KnowledgeGraph {
             created_at  INTEGER NOT NULL,
             updated_at  INTEGER NOT NULL
           )`,
-          (err) => {
+          (err: Error | null) => {
             if (err) { reject(err); return; }
 
             // 并行创建索引
@@ -267,7 +267,7 @@ export class KnowledgeGraph {
             fullEdge.createdAt,
             fullEdge.updatedAt,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -307,7 +307,7 @@ export class KnowledgeGraph {
         this.db!.run(
           `DELETE FROM ${KG_EDGES_TABLE} WHERE edge_id = ?`,
           [id],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -396,7 +396,7 @@ export class KnowledgeGraph {
     const byTypeRows = await new Promise<any[]>((resolve, reject) => {
       this.db!.all(
         `SELECT edge_type, COUNT(*) AS count FROM ${KG_EDGES_TABLE} GROUP BY edge_type ORDER BY count DESC`,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else resolve(rows ?? []);
         }
@@ -440,7 +440,7 @@ export class KnowledgeGraph {
   async close(): Promise<void> {
     if (!this.db) return;
     return new Promise((resolve, reject) => {
-      this.db!.close((err) => {
+      this.db!.close((err: Error | null) => {
         if (err) reject(err);
         else {
           this.db = null;
@@ -541,7 +541,7 @@ export class KnowledgeGraph {
         this.db!.run(
           `DELETE FROM ${KG_EDGES_TABLE} WHERE edge_id IN (${orphanIds.map(() => '?').join(',')})`,
           orphanIds,
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -553,3 +553,4 @@ export class KnowledgeGraph {
     return orphanIds.length;
   }
 }
+

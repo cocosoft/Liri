@@ -31,7 +31,7 @@
  *   3. fs.mkdirSync/mkdir 拦截 — 检测根路径写入时重定向至 projectRoot
  */
 import { resolve, dirname, join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import * as os from 'os';
 
 /**
@@ -217,6 +217,33 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
 process.env.LIRI_HOME = join(os.homedir(), '.pyapp');
 process.env.LIRI_DATA_DIR = join(os.homedir(), '.pyapp', 'data');
 
+// ── 策略 6: 加载 .env 文件 ──
+// Bun 自动加载 .env 仅在 CWD 中查找，而 .env 位于 app/ 子目录，
+// 因此需要手动加载，确保 DEEPSEEK_API_KEY 等环境变量可用。
+{
+  try {
+    const envPath = join(projectRoot, 'app', '.env');
+    if (existsSync(envPath)) {
+      const envContent = readFileSync(envPath, 'utf-8');
+      for (const line of envContent.split('\n')) {
+        const trimmed = line.trim();
+        // 跳过空行和注释
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const value = trimmed.slice(eqIdx + 1).trim();
+        // 不覆盖已存在的环境变量（例如由 shell 注入的）
+        if (key && !(key in process.env)) {
+          process.env[key] = value;
+        }
+      }
+    }
+  } catch {
+    // 非致命：.env 加载失败不影响启动
+  }
+}
+
 // ── 确保用户档案文件存在（~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md）──
 // 在引导阶段尽早创建，不依赖首次运行引导流程
 try {
@@ -290,6 +317,41 @@ if (process.env['LIRI_DEBUG']) {
     `[BOOT] projectRoot=${projectRoot}, cwd=${process.cwd()}, argv0=${process.argv[0]}`
   );
   console.error(`[BOOT] INIT_CWD=${process.env['INIT_CWD'] || '(unset)'}`);
+}
+
+// ── 策略 7: 模块解析重定向（bun build --compile 外部依赖兜底） ──
+// Bun 编译的单文件 exe 中，模块根路径为虚拟路径（如 B:/~BUN/root/liri_coding），
+// 导致 --external 标记的包（如 sqlite3）无法通过系统 require 找到。
+// 此处 hook Module._resolveFilename，将标记的外部包重定向到实际 node_modules。
+try {
+  const Module = require('module') as any;
+  const { createRequire } = await import('module');
+  const { fileURLToPath } = await import('url');
+  const hookFile = fileURLToPath(import.meta.url);
+  const exeRequire = createRequire(hookFile);
+
+  const EXTERNAL_REDIRECTS = ['sqlite3', 'bindings', 'file-uri-to-path'];
+
+  const origResolveFilename = Module._resolveFilename.bind(Module);
+  Module._resolveFilename = function patchedResolveFilename(
+    request: string,
+    parent: any,
+    isMain: boolean,
+    options: any
+  ): string {
+    if (EXTERNAL_REDIRECTS.includes(request)) {
+      try {
+        return exeRequire.resolve(request);
+      } catch {
+        // fallback to original
+      }
+    }
+    return origResolveFilename(request, parent, isMain, options);
+  };
+} catch (e) {
+  if (process.env['LIRI_DEBUG']) {
+    console.error(`[BOOT] Module._resolveFilename hook failed: ${e}`);
+  }
 }
 
 // 现在加载主程序

@@ -33,7 +33,7 @@
  *   const pricing = await modelPricingService.getPricing('gpt-4o');
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -174,7 +174,7 @@ export class ModelPricingService {
   private async _doInitialize(): Promise<void> {
     try {
       this.db = await new Promise<Database>((resolve, reject) => {
-        const db = new Database(this.dbPath, (err) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
           if (err) reject(err);
           else resolve(db);
         });
@@ -219,7 +219,7 @@ export class ModelPricingService {
           created_at         INTEGER NOT NULL DEFAULT (strftime('%s','now')),
           updated_at         INTEGER NOT NULL DEFAULT (strftime('%s','now'))
         )`,
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -252,7 +252,7 @@ export class ModelPricingService {
       this.db!.get(
         `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
         [OLD_PRICING_TABLE],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve(!!row);
         }
@@ -265,7 +265,7 @@ export class ModelPricingService {
     const registryCount = await new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
         }
@@ -275,7 +275,7 @@ export class ModelPricingService {
     if (registryCount > 0) {
       // 已有数据，直接删旧表
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err) => {
+        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -288,7 +288,7 @@ export class ModelPricingService {
     const oldRows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${OLD_PRICING_TABLE}`,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else resolve(rows as Record<string, unknown>[]);
         }
@@ -297,7 +297,7 @@ export class ModelPricingService {
 
     if (oldRows.length === 0) {
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err) => {
+        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -329,7 +329,7 @@ export class ModelPricingService {
               old.created_at || Math.floor(Date.now() / 1000),
               old.updated_at || Math.floor(Date.now() / 1000),
             ],
-            (err) => {
+            (err: Error | null) => {
               if (err) reject(err);
               else resolve();
             }
@@ -343,7 +343,7 @@ export class ModelPricingService {
 
     // 删除旧表
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err) => {
+      this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -357,7 +357,7 @@ export class ModelPricingService {
     const count = await new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
         }
@@ -410,7 +410,7 @@ export class ModelPricingService {
               now,
               now,
             ],
-            (err) => {
+            (err: Error | null) => {
               if (err) reject(err);
               else resolve();
             }
@@ -479,7 +479,7 @@ export class ModelPricingService {
             now,
             params.modelId,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -519,7 +519,7 @@ export class ModelPricingService {
             now,
             now,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -538,7 +538,7 @@ export class ModelPricingService {
       this.db!.get(
         `SELECT * FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
         [modelId],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
           else resolve(rowToRecord(row as Record<string, unknown>));
@@ -554,7 +554,7 @@ export class ModelPricingService {
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${REGISTRY_TABLE} ORDER BY model_id ASC`,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else {
             resolve(
@@ -573,7 +573,7 @@ export class ModelPricingService {
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${REGISTRY_TABLE} WHERE enabled = 1 ORDER BY model_id ASC`,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else {
             resolve(
@@ -593,7 +593,7 @@ export class ModelPricingService {
       this.db!.run(
         `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ? AND is_custom = 1`,
         [modelId],
-        function (err) {
+        function (this: any, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);
         }
@@ -613,7 +613,7 @@ export class ModelPricingService {
       this.db!.run(
         `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE model_id = ?`,
         [newEnabled, Math.floor(Date.now() / 1000), modelId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -630,7 +630,7 @@ export class ModelPricingService {
       this.db!.run(
         `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
         [modelId],
-        function (err) {
+        function (this: any, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);
         }
@@ -645,7 +645,7 @@ export class ModelPricingService {
     return new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
         }
@@ -725,3 +725,4 @@ export class ModelPricingService {
 }
 
 export const modelPricingService = ModelPricingService.getInstance();
+

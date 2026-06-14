@@ -27,7 +27,6 @@
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core/paths';
-import { configManager } from '@modules/config';
 import { join } from 'path';
 import {
   providerManager,
@@ -43,6 +42,10 @@ import {
   unregisterProviderFromRegistry,
   ProviderSyncService,
 } from '@modules/ai/providers/ProviderSyncService.js';
+import {
+  detectUnifiedProviders,
+  formatEnvProviderName,
+} from '@modules/ai/providers/detectUnifiedProviders.js';
 
 const VALID_PROVIDER_TYPES: ProviderType[] = [
   'openai',
@@ -618,72 +621,35 @@ async function handleSync(): Promise<CommandResult> {
 
 /** 从环境变量检测预置的供应商配置 */
 async function handleSeed(): Promise<CommandResult> {
-  const presets: Array<{
-    name: string;
-    providerType: ProviderType;
-    baseUrl: string;
-    apiKey?: string;
-  }> = [];
+  const unified = detectUnifiedProviders();
 
-  const dsKey = configManager.env('DEEPSEEK_API_KEY');
-  if (dsKey) {
-    presets.push({
-      name: 'DeepSeek',
-      providerType: 'deepseek',
-      baseUrl: configManager.env('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com',
-      apiKey: dsKey,
-    });
-  }
-
-  const oaiKey = configManager.env('OPENAI_API_KEY');
-  if (oaiKey) {
-    presets.push({
-      name: 'OpenAI',
-      providerType: 'openai',
-      baseUrl: configManager.env('OPENAI_BASE_URL') || 'https://api.openai.com/v1',
-      apiKey: oaiKey,
-    });
-  }
-
-  const anthKey = configManager.env('ANTHROPIC_API_KEY');
-  if (anthKey) {
-    presets.push({
-      name: 'Anthropic',
-      providerType: 'anthropic',
-      baseUrl: 'https://api.anthropic.com',
-      apiKey: anthKey,
-    });
-  }
-
-  const googKey = configManager.env('GOOGLE_API_KEY') || configManager.env('GEMINI_API_KEY');
-  if (googKey) {
-    presets.push({
-      name: 'Google Gemini',
-      providerType: 'google',
-      baseUrl:
-        configManager.env('GOOGLE_AI_BASE_URL') ||
-        'https://generativelanguage.googleapis.com',
-      apiKey: googKey,
-    });
-  }
-
-  const sfKey = configManager.env('SILICONFLOW_API_KEY');
-  if (sfKey) {
-    presets.push({
-      name: 'SiliconFlow',
-      providerType: 'custom',
-      baseUrl: 'https://api.siliconflow.cn/v1',
-      apiKey: sfKey,
-    });
-  }
-
-  if (presets.length === 0) {
+  if (unified.length === 0) {
     return {
       success: true,
       message:
-        '未检测到环境变量中的 API Key。\n请在 .env 或系统环境变量中设置 DEEPSEEK_API_KEY/OPENAI_API_KEY 等，然后重试。\n\n也可以手动添加: /provider add "My API" <type> <url> <key>',
+        '未检测到环境变量中的 API Key。\n' +
+        '支持两种方式配置环境变量：\n\n' +
+        '  方式一（统一格式，支持任意供应商）：\n' +
+        '    PROVIDER_DEEPSEEK_KEY=sk-xxx\n' +
+        '    PROVIDER_DEEPSEEK_TYPE=deepseek\n' +
+        '    PROVIDER_DEEPSEEK_URL=https://api.deepseek.com\n\n' +
+        '  方式二（专用变量名，大厂快捷配置）：\n' +
+        '    DEEPSEEK_API_KEY=sk-xxx\n' +
+        '    DEEPSEEK_BASE_URL=https://api.deepseek.com\n' +
+        '    OPENAI_API_KEY=sk-xxx\n' +
+        '    ANTHROPIC_API_KEY=sk-xxx\n' +
+        '    GOOGLE_API_KEY=xxx\n' +
+        '    SILICONFLOW_API_KEY=sk-xxx\n\n' +
+        '也可以手动添加: /provider add "My API" <type> <url> <key>',
     };
   }
+
+  const presets = unified.map((p) => ({
+    name: formatEnvProviderName(p.name),
+    providerType: p.providerType as ProviderType,
+    baseUrl: p.baseUrl || '',
+    apiKey: p.apiKey,
+  }));
 
   await providerManager.initialize();
 

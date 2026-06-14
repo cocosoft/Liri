@@ -25,7 +25,7 @@
  * 对标 CC 源码 cc-switch/src-tauri/src/provider.rs 实现
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -171,7 +171,7 @@ export class ProviderManager {
   private async _doInitialize(): Promise<void> {
     try {
       this.db = await new Promise<Database>((resolve, reject) => {
-        const db = new Database(this.dbPath, (err) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
           if (err) reject(err);
           else resolve(db);
         });
@@ -251,7 +251,7 @@ export class ProviderManager {
   /** 执行 SQL run */
   private runAsync(sql: string, params?: unknown[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.db!.run(sql, params || [], (err) => {
+      this.db!.run(sql, params || [], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -261,7 +261,7 @@ export class ProviderManager {
   /** 执行 SQL get */
   private getAsync<T>(sql: string, params?: unknown[]): Promise<T | undefined> {
     return new Promise<T | undefined>((resolve, reject) => {
-      this.db!.get(sql, params || [], (err, row) => {
+      this.db!.get(sql, params || [], (err: Error | null, row: any) => {
         if (err) reject(err);
         else resolve(row as T | undefined);
       });
@@ -271,7 +271,7 @@ export class ProviderManager {
   /** 执行 SQL all */
   private allAsync<T>(sql: string, params?: unknown[]): Promise<T[]> {
     return new Promise<T[]>((resolve, reject) => {
-      this.db!.all(sql, params || [], (err, rows) => {
+      this.db!.all(sql, params || [], (err: Error | null, rows: any[]) => {
         if (err) reject(err);
         else resolve(rows as T[]);
       });
@@ -539,3 +539,4 @@ export class ProviderManager {
 
 /** 导出单例 */
 export const providerManager = ProviderManager.getInstance();
+

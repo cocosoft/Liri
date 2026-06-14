@@ -3,7 +3,7 @@
  * 用于存储建议历史和系统配置
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import type {
   SuggestionHistory,
   SuggestionConfig,

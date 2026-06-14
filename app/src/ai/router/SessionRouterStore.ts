@@ -27,7 +27,7 @@
  * 使用 SQLite 存储，注册在统一 app.db 中。
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { RouterTier, SessionRouteRecord } from './types.js';
@@ -55,7 +55,7 @@ export class SessionRouterStore {
     if (this.initialized) return;
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
@@ -81,7 +81,7 @@ export class SessionRouterStore {
           updated_at INTEGER NOT NULL,
           hit_count INTEGER NOT NULL DEFAULT 1
         )`,
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -99,7 +99,7 @@ export class SessionRouterStore {
       this.db!.get(
         `SELECT * FROM ${TABLE_NAME} WHERE session_id = ?`,
         [sessionId],
-        (err, row: any) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else if (!row) resolve(null);
           else {
@@ -150,7 +150,7 @@ export class SessionRouterStore {
            updated_at = excluded.updated_at,
            hit_count = hit_count + 1`,
         [sessionId, tier, provider, model, now, now],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -166,7 +166,7 @@ export class SessionRouterStore {
       this.db!.run(
         `DELETE FROM ${TABLE_NAME} WHERE session_id = ?`,
         [sessionId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -185,7 +185,7 @@ export class SessionRouterStore {
       this.db!.run(
         `DELETE FROM ${TABLE_NAME} WHERE updated_at < ?`,
         [cutoff],
-        function (this: any, err) {
+        function (this: any, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes || 0);
         }
@@ -210,3 +210,4 @@ export class SessionRouterStore {
     }
   }
 }
+

@@ -237,20 +237,28 @@ export class CoreAPIImpl implements CoreAPI {
         provider = providerRegistry.getByType('deepseek');
       }
 
-      // DB 中无 deepseek 时，从环境变量回退创建
+      // DB 中无 Provider 时，从环境变量检测创建
       if (!provider) {
-        const apiKey =
-          configManager.env('DEEPSEEK_API_KEY') || '';
+        const { detectUnifiedProviders } =
+          await import('@modules/ai/providers/detectUnifiedProviders.js');
+        const envProviders = detectUnifiedProviders();
+        const envProvider = envProviders[0];
 
-        provider = providerRegistry.getOrCreate('deepseek', {
-          apiKey,
-          baseUrl: configManager.env('DEEPSEEK_BASE_URL'),
-          model: currentModel || configManager.env('DEEPSEEK_MODEL'),
-        });
+        if (envProvider) {
+          provider = providerRegistry.getOrCreate(envProvider.providerType as any, {
+            apiKey: envProvider.apiKey || '',
+            baseUrl: envProvider.baseUrl,
+            model: envProvider.model || currentModel,
+          });
 
-        if (apiKey) {
-          provider.setApiKey?.(apiKey);
+          if (envProvider.apiKey) {
+            provider.setApiKey?.(envProvider.apiKey);
+          }
         }
+      }
+
+      if (!provider) {
+        throw new Error('未找到可用的 API Provider，请在 .env 中配置 API 密钥');
       }
 
       const toolManager = getToolManager();
@@ -390,6 +398,12 @@ export class CoreAPIImpl implements CoreAPI {
         request.content,
         request.sessionId
       );
+
+      yield {
+        type: 'status',
+        content: 'AI is preparing context...',
+        sessionId: finalSessionId,
+      } as ChatStreamChunk;
       // 同步更新模型名（用于成本记录）
       if (model) this._modelName = model;
       // 将路由层级注入 metadata
@@ -523,6 +537,12 @@ export class CoreAPIImpl implements CoreAPI {
           }
         },
       });
+
+      yield {
+        type: 'status',
+        content: 'AI is waiting for response...',
+        sessionId: finalSessionId,
+      } as ChatStreamChunk;
 
       let result = await generator.next();
       while (!result.done) {

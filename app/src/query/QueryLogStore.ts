@@ -45,7 +45,7 @@ export class QueryLogStore {
     }
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
           reject(err);
         } else {
@@ -91,7 +91,7 @@ export class QueryLogStore {
           timestamp INTEGER NOT NULL,
           metadata TEXT
         )`,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -105,7 +105,7 @@ export class QueryLogStore {
       this.db?.run(
         `CREATE INDEX IF NOT EXISTS idx_query_logs_session_id
          ON ${QUERY_LOG_TABLE}(session_id)`,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -119,7 +119,7 @@ export class QueryLogStore {
       this.db?.run(
         `CREATE INDEX IF NOT EXISTS idx_query_logs_type
          ON ${QUERY_LOG_TABLE}(type)`,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -133,7 +133,7 @@ export class QueryLogStore {
       this.db?.run(
         `CREATE INDEX IF NOT EXISTS idx_query_logs_timestamp
          ON ${QUERY_LOG_TABLE}(timestamp)`,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -187,7 +187,7 @@ export class QueryLogStore {
             entry.timestamp,
             metadataStr,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -258,7 +258,7 @@ export class QueryLogStore {
     params.push(limit, offset);
 
     const rows = await new Promise<any[]>((resolve, reject) => {
-      this.db?.all(sql, params, (err, rows) => {
+      this.db?.all(sql, params, (err: Error | null, rows: any[]) => {
         if (err) {
           reject(err);
         } else {
@@ -311,7 +311,7 @@ export class QueryLogStore {
         FROM ${QUERY_LOG_TABLE}
         WHERE timestamp >= ? AND timestamp <= ?`,
         [actualStart, actualEnd],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) {
             reject(err);
           } else {
@@ -392,7 +392,7 @@ export class QueryLogStore {
   async close(): Promise<void> {
     if (this.db) {
       await new Promise<void>((resolve, reject) => {
-        this.db?.close((err) => {
+        this.db?.close((err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -459,3 +459,4 @@ export function getQueryLogStore(): QueryLogStore {
 export function resetQueryLogStore(): void {
   globalQueryLogStore = null;
 }
+

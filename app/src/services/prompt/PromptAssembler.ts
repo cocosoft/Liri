@@ -17,13 +17,23 @@ import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export type PromptMode = 'full' | 'minimal' | 'none';
+export type PromptMode = 'full' | 'conversation' | 'minimal' | 'none';
 
 const CORE_SECTION_NAMES = new Set([
   'identity',
   'personality',
   'userProfile',
   'toolUse',
+]);
+
+const CONVERSATION_SECTION_NAMES = new Set([
+  'identity',
+  'personality',
+  'userProfile',
+  'toolUse',
+  'taskNegotiation',
+  'sessionContext',
+  'memoryContext',
 ]);
 
 export interface AssembleOptions {
@@ -44,6 +54,8 @@ function filterSectionsByMode(
       return sections.filter((s) => s.name === 'identity');
     case 'minimal':
       return sections.filter((s) => CORE_SECTION_NAMES.has(s.name));
+    case 'conversation':
+      return sections.filter((s) => CONVERSATION_SECTION_NAMES.has(s.name));
     case 'full':
     default:
       return sections;

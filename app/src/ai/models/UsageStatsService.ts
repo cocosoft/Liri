@@ -29,7 +29,7 @@
  * - 多维度聚合统计（总览/每日趋势/模型/供应商）
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -179,7 +179,7 @@ export class UsageStatsService {
   private async _doInitialize(): Promise<void> {
     try {
       this.db = await new Promise<Database>((resolve, reject) => {
-        const db = new Database(this.dbPath, (err) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
           if (err) reject(err);
           else resolve(db);
         });
@@ -205,7 +205,7 @@ export class UsageStatsService {
 
     const run = (sql: string): Promise<void> =>
       new Promise<void>((resolve, reject) => {
-        this.db!.run(sql, (err) => {
+        this.db!.run(sql, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -260,7 +260,7 @@ export class UsageStatsService {
 
   private runAsync(sql: string, params?: unknown[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.db!.run(sql, params || [], (err) => {
+      this.db!.run(sql, params || [], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -269,7 +269,7 @@ export class UsageStatsService {
 
   private getAsync<T>(sql: string, params?: unknown[]): Promise<T | undefined> {
     return new Promise<T | undefined>((resolve, reject) => {
-      this.db!.get(sql, params || [], (err, row) => {
+      this.db!.get(sql, params || [], (err: Error | null, row: any) => {
         if (err) reject(err);
         else resolve(row as T | undefined);
       });
@@ -278,7 +278,7 @@ export class UsageStatsService {
 
   private allAsync<T>(sql: string, params?: unknown[]): Promise<T[]> {
     return new Promise<T[]>((resolve, reject) => {
-      this.db!.all(sql, params || [], (err, rows) => {
+      this.db!.all(sql, params || [], (err: Error | null, rows: any[]) => {
         if (err) reject(err);
         else resolve(rows as T[]);
       });
@@ -677,3 +677,4 @@ export class UsageStatsService {
 }
 
 export const usageStatsService = UsageStatsService.getInstance();
+

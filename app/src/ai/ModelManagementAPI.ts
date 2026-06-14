@@ -1134,6 +1134,7 @@ async function handleSwitchModel(
     const body = (await parseBody(req)) as Record<string, string>;
     const { modelId } = body;
     const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const { modelRouter } = await import('./modelRouter.js');
 
     const resolvedProvider = providerRegistry.getByModel(modelId);
     if (resolvedProvider) {
@@ -1144,6 +1145,9 @@ async function handleSwitchModel(
     } else {
       providerRegistry.setDefaultProvider(modelId);
     }
+
+    // 持久化到 ConfigManager（models.current + tasks.default）
+    modelRouter.setCurrentModel(modelId);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));

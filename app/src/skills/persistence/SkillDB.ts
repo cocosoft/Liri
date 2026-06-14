@@ -108,7 +108,7 @@ export class SkillDB {
     if (this.initialized) return;
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
@@ -169,7 +169,7 @@ export class SkillDB {
 
     for (const sql of queries) {
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(sql, (err) => {
+        this.db!.run(sql, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -199,7 +199,7 @@ export class SkillDB {
           record.triggeredBy,
           record.argsSummary ?? null,
         ],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -263,14 +263,14 @@ export class SkillDB {
     await this.init();
     if (skillName) {
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DELETE FROM ${USAGE_TABLE} WHERE skill_name = ?`, [skillName], (err) => {
+        this.db!.run(`DELETE FROM ${USAGE_TABLE} WHERE skill_name = ?`, [skillName], (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
       });
     } else {
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DELETE FROM ${USAGE_TABLE}`, (err) => {
+        this.db!.run(`DELETE FROM ${USAGE_TABLE}`, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -298,7 +298,7 @@ export class SkillDB {
     if (!row) return 0;
 
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${USAGE_TABLE} WHERE id < ?`, [row.min_id], (err) => {
+      this.db!.run(`DELETE FROM ${USAGE_TABLE} WHERE id < ?`, [row.min_id], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -341,7 +341,7 @@ export class SkillDB {
           state.patchedAt,
           state.lastCuratedAt,
         ],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -383,7 +383,7 @@ export class SkillDB {
   async deleteCuration(skillName: string): Promise<void> {
     await this.init();
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${CURATION_TABLE} WHERE skill_name = ?`, [skillName], (err) => {
+      this.db!.run(`DELETE FROM ${CURATION_TABLE} WHERE skill_name = ?`, [skillName], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -400,7 +400,7 @@ export class SkillDB {
     const sql = `INSERT INTO ${CURATION_HISTORY_TABLE} (skill_name, action, timestamp, details)
       VALUES (?, ?, ?, ?)`;
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(sql, [skillName, record.action, record.timestamp, record.details], (err) => {
+      this.db!.run(sql, [skillName, record.action, record.timestamp, record.details], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -451,7 +451,7 @@ export class SkillDB {
           entry.updatedAt,
           entry.metadata ? JSON.stringify(entry.metadata) : null,
         ],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -492,7 +492,7 @@ export class SkillDB {
   async deleteProvenance(skillName: string): Promise<void> {
     await this.init();
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${PROVENANCE_TABLE} WHERE skill_name = ?`, [skillName], (err) => {
+      this.db!.run(`DELETE FROM ${PROVENANCE_TABLE} WHERE skill_name = ?`, [skillName], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -505,7 +505,7 @@ export class SkillDB {
   async close(): Promise<void> {
     if (this.db) {
       await new Promise<void>((resolve, reject) => {
-        this.db!.close((err) => {
+        this.db!.close((err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -528,3 +528,4 @@ export function getSkillDB(): SkillDB {
   }
   return globalSkillDB;
 }
+

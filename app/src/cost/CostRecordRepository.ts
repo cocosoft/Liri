@@ -5,7 +5,7 @@
  */
 import { join } from 'path';
 import { randomUUID } from 'node:crypto';
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { resolveDbPath } from '@modules/core/paths';
@@ -108,7 +108,7 @@ export class CostRecordRepository {
     }
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
           reject(err);
         } else {
@@ -148,7 +148,7 @@ export class CostRecordRepository {
           created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
         )
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -164,7 +164,7 @@ export class CostRecordRepository {
         CREATE INDEX IF NOT EXISTS idx_cost_records_session_id
         ON ${COST_RECORDS_TABLE}(session_id)
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -180,7 +180,7 @@ export class CostRecordRepository {
         CREATE INDEX IF NOT EXISTS idx_cost_records_timestamp
         ON ${COST_RECORDS_TABLE}(timestamp)
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -196,7 +196,7 @@ export class CostRecordRepository {
         CREATE INDEX IF NOT EXISTS idx_cost_records_model
         ON ${COST_RECORDS_TABLE}(model)
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -223,7 +223,7 @@ export class CostRecordRepository {
           updated_at INTEGER NOT NULL
         )
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -273,7 +273,7 @@ export class CostRecordRepository {
             params.requestId || null,
             timestamp,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -350,7 +350,7 @@ export class CostRecordRepository {
             now,
             sessionId,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -386,7 +386,7 @@ export class CostRecordRepository {
             now,
             now,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -407,7 +407,7 @@ export class CostRecordRepository {
       this.db?.get(
         `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
         [sessionId],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) {
             reject(err);
           } else {
@@ -438,7 +438,7 @@ export class CostRecordRepository {
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?`,
         [sessionId, limit, offset],
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) {
             reject(err);
           } else {
@@ -489,7 +489,7 @@ export class CostRecordRepository {
         ORDER BY timestamp DESC
         ${limitClause} ${offsetClause}`,
         params,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) {
             reject(err);
           } else {
@@ -543,7 +543,7 @@ export class CostRecordRepository {
         FROM ${COST_RECORDS_TABLE}
         ${whereClause}`,
         params,
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) {
             reject(err);
           } else {
@@ -567,7 +567,7 @@ export class CostRecordRepository {
         GROUP BY model
         ORDER BY total_cost DESC`,
         params,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) {
             reject(err);
           } else {
@@ -609,7 +609,7 @@ export class CostRecordRepository {
         this.db?.run(
           `DELETE FROM ${COST_RECORDS_TABLE} WHERE session_id = ?`,
           [sessionId],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -623,7 +623,7 @@ export class CostRecordRepository {
         this.db?.run(
           `DELETE FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
           [sessionId],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -647,7 +647,7 @@ export class CostRecordRepository {
           SET ended_at = ?, updated_at = ?
           WHERE session_id = ?`,
           [now, now, sessionId],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -671,7 +671,7 @@ export class CostRecordRepository {
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?`,
         [limit, offset],
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) {
             reject(err);
           } else {
@@ -688,15 +688,7 @@ export class CostRecordRepository {
 
   async close(): Promise<void> {
     if (this.db) {
-      await new Promise<void>((resolve, reject) => {
-        this.db?.close((err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
+      this.db.close();
       this.db = null;
     }
   }
@@ -745,3 +737,4 @@ export function getCostRecordRepository(): CostRecordRepository {
   }
   return defaultRepository;
 }
+

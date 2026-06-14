@@ -107,7 +107,7 @@ export class CronRunLog {
   /** 打开数据库并初始化表 */
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db = new Database(this.dbPath, (err) => {
+      this.db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
           logger.error('[CronRunLog] 打开数据库失败', { error: err.message });
           reject(err);
@@ -132,7 +132,7 @@ export class CronRunLog {
   async close(): Promise<void> {
     if (!this.db) return;
     return new Promise((resolve, reject) => {
-      this.db!.close((err) => {
+      this.db!.close((err: Error | null) => {
         if (err) reject(err);
         else {
           this.db = null;
@@ -184,7 +184,7 @@ export class CronRunLog {
           entry.deliveryError ?? null,
           now,
         ],
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             logger.error('[CronRunLog] 写入日志失败', {
               jobId: entry.jobId,
@@ -271,7 +271,7 @@ export class CronRunLog {
            LIMIT ?
          )`,
         [jobId, jobId, this.maxLinesPerJob],
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             logger.warning('[CronRunLog] 裁剪日志失败', {
               jobId,
@@ -384,3 +384,4 @@ export class CronRunLog {
     this.db = db;
   }
 }
+

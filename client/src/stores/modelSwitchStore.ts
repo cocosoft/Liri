@@ -60,7 +60,9 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
     set({ error: null });
     try {
       await modelSwitchService.switch(modelId);
-      set({ currentModelId: modelId });
+      // 切换后重新获取任务分工配置（确保 tasks.default 同步）
+      const tasks = await modelSwitchService.getTasks();
+      set({ currentModelId: modelId, tasks });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "切换模型失败" });
     }

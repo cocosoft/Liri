@@ -44,7 +44,7 @@
  * 可以使用不同的模型。对标 CC 源码 cc-switch/src-tauri/src/app_config.rs (AppType)
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, ensureDir } from '@modules/core/paths';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -123,7 +123,7 @@ export class AppModelConfigService {
       logger.debug('AppModelConfigService DB 目录', { dir, dbPath: this.dbPath });
 
       this.db = await new Promise<Database>((resolve, reject) => {
-        const db = new Database(this.dbPath, (err) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
           if (err) reject(err);
           else resolve(db);
         });
@@ -160,7 +160,7 @@ export class AppModelConfigService {
           updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
         )
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -205,7 +205,7 @@ export class AppModelConfigService {
       this.db!.get(
         `SELECT * FROM ${APP_CONFIG_TABLE} WHERE app_type = ?`,
         [appType],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
           else {
@@ -273,7 +273,7 @@ export class AppModelConfigService {
             now,
             appType,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -293,7 +293,7 @@ export class AppModelConfigService {
             params.fallbackProviderId || null,
             now,
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -314,7 +314,7 @@ export class AppModelConfigService {
     return new Promise<AppModelConfig[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${APP_CONFIG_TABLE} ORDER BY app_type ASC`,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else {
             resolve(
@@ -352,7 +352,7 @@ export class AppModelConfigService {
       this.db!.run(
         `DELETE FROM ${APP_CONFIG_TABLE} WHERE app_type = ?`,
         [appType],
-        function (err) {
+        function (this: any, err: Error | null) {
           if (err) reject(err);
           else {
             if (this.changes > 0) {
@@ -367,3 +367,4 @@ export class AppModelConfigService {
 }
 
 export const appModelConfigService = AppModelConfigService.getInstance();
+

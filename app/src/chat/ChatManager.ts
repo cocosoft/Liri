@@ -828,6 +828,7 @@ export class ChatManagerImpl implements ChatManager {
     const prompt = await assembleSystemPrompt({
       providerId,
       sessionContext,
+      mode: 'conversation',
     });
     return prompt;
   }
@@ -1134,9 +1135,6 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 记忆增强：将相关记忆注入用户消息
-    content = await this.enhanceWithMemoryContext(content);
-
     // 创建用户消息
     const userMessage = this.messageService.createUserMessage(content, {
       sessionId: session.id,
@@ -1246,6 +1244,7 @@ export class ChatManagerImpl implements ChatManager {
     const hasSystemMessage = apiMessages.some(
       (m: Record<string, unknown>) => m.role === 'system'
     );
+
     if (!hasSystemMessage) {
       const sysPrompt = await this.getOrAssembleSystemPrompt(session, content);
       apiMessages.unshift({ role: 'system', content: sysPrompt });
@@ -1291,6 +1290,8 @@ export class ChatManagerImpl implements ChatManager {
         // 共享上下文加载失败不影响主流程
       }
     }
+
+    console.log(`[DIAG] ChatManager.sendMessage -> 准备调用 activeClient.sendMessage, constructor=${(activeClient as any)?.constructor?.name}, providerId=${activeClient?.getProviderId()}`);
 
     const response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
@@ -2202,9 +2203,6 @@ export class ChatManagerImpl implements ChatManager {
         content = (hr.data as Record<string, string>).message;
       }
     }
-
-    // 记忆增强：将相关记忆注入用户消息
-    content = await this.enhanceWithMemoryContext(content);
 
     // 创建用户消息
     const userMessage = this.messageService.createUserMessage(content, {

@@ -185,6 +185,8 @@ interface ChatStore {
   isSending: boolean;
   isInputBlocked: boolean;
   isStreaming: boolean;
+  /** 流式响应实时状态文本，用于 ChatInput 状态栏显示 */
+  streamingStatus: string;
   error: string | null;
   replyMessage: Message | null;
   /** 当前预览的文件 */
@@ -399,11 +401,6 @@ class ChronologicalBlockBuilder {
 
     // 丢弃冗余完成态 "📦 ✅ Tool xxx completed"
     if (status.includes("📦") && status.includes("✅ Tool")) {
-      return;
-    }
-
-    // 丢弃瞬态加载态 "AI is thinking..." / "AI is analyzing your request..."
-    if (status.startsWith("AI is thinking") || status.startsWith("AI is analyzing")) {
       return;
     }
 
@@ -673,6 +670,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isSending: false,
   isInputBlocked: false,
   isStreaming: false,
+  streamingStatus: "",
   error: null,
   replyMessage: null,
   previewFile: null,
@@ -868,6 +866,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           };
         } else if (chunk.type === "status") {
           blockBuilder.addStatus(chunk.content);
+          set({ streamingStatus: chunk.content });
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "error") {
           // 将错误信息显示在聊天界面中
@@ -987,7 +986,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       // 重置发送/输入/流式状态，UI 立刻响应
-      set({ isSending: false, isInputBlocked: false, isStreaming: false, abortController: null });
+      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
 
       // 再执行自动重命名（不阻塞 UI 状态）
       if (shouldAutoRename(sessionId)) {
@@ -1001,9 +1000,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
     } catch (error) {
       if (!abortController.signal.aborted) {
-        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, abortController: null });
+        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
       } else {
-        set({ isSending: false, isInputBlocked: false, isStreaming: false, abortController: null });
+        set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
       }
     }
   },
@@ -1075,7 +1074,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const controller = get().abortController;
     if (controller) {
       controller.abort();
-      set({ isStreaming: false, isSending: false, isInputBlocked: false, abortController: null });
+      set({ isStreaming: false, isSending: false, isInputBlocked: false, streamingStatus: "", abortController: null });
     }
   },
 

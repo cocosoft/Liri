@@ -10,7 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolCallProgress } from '../types/Tool';
 import { feature } from '@modules/core/featureFlags';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, ensureDir } from '@modules/core/paths';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -99,7 +99,7 @@ class TodoManager {
       this.db.all(
         'SELECT * FROM todowrite_todos ORDER BY session_id, sort_order',
         [],
-        (err, rows: TodoRow[]) => {
+        (err: Error | null, rows: TodoRow[]) => {
           if (err) {
             logger.error('TodoManager: 恢复失败', { error: String(err) });
             this.initialized = true;
@@ -142,7 +142,7 @@ class TodoManager {
             sortOrder,
             todo.createdAt.getTime(), todo.updatedAt.getTime(),
           ],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err) });
               resolve();
@@ -159,7 +159,7 @@ class TodoManager {
   private async saveAllToDb(sessionId: string, todos: Todo[]): Promise<void> {
     await this.dbMutex.run(async () => {
       return new Promise<void>((resolve) => {
-        this.db.run('DELETE FROM todowrite_todos WHERE session_id = ?', [sessionId], (err) => {
+        this.db.run('DELETE FROM todowrite_todos WHERE session_id = ?', [sessionId], (err: Error | null) => {
           if (err) {
             logger.error('TodoManager: 清除失败', { error: String(err) });
             resolve();
@@ -184,7 +184,7 @@ class TodoManager {
                 i,
                 todo.createdAt.getTime(), todo.updatedAt.getTime(),
               ],
-              (err2) => {
+              (err2: Error | null) => {
                 if (err2) logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err2) });
                 completed++;
                 if (completed >= todos.length) {
@@ -870,3 +870,5 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 export function createTodoWriteTool(): TodoWriteTool {
   return new TodoWriteTool();
 }
+
+

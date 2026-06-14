@@ -12,7 +12,7 @@ import {
   resolveDataSubDir,
   resolveDbPath,
 } from '@modules/core/paths';
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -121,7 +121,7 @@ export class AttachmentManager {
           created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
         )
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             logger.error('创建 attachments_sources 表失败', { error: err.message });
             this.closeDb();
@@ -510,7 +510,7 @@ export class AttachmentManager {
       this.db!.all(
         `SELECT * FROM attachments_sources WHERE source = ? ORDER BY created_at DESC LIMIT ?`,
         [source, limit],
-        (err, rows: Record<string, unknown>[]) => {
+        (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
           else resolve(rows || []);
         }
@@ -536,7 +536,7 @@ export class AttachmentManager {
       this.db!.all(
         `SELECT * FROM attachments_sources WHERE source_id = ? ORDER BY created_at DESC LIMIT ?`,
         [sourceId, limit],
-        (err, rows: Record<string, unknown>[]) => {
+        (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
           else resolve(rows || []);
         }
@@ -655,3 +655,4 @@ export class AttachmentManager {
 
 // 导出默认实例
 export const attachmentManager = new AttachmentManager();
+

@@ -359,6 +359,7 @@ async function launchCLI(_options: LaunchOptions): Promise<void> {
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchREPL(options: LaunchOptions): Promise<void> {
+
   // 解析 --model 参数并设为全局模型
   const modelArg = parseModelFromArgs(options.args);
   if (modelArg) {
@@ -626,11 +627,15 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
       const { modelPricingService } = await import(
         '@modules/ai/models/ModelPricingService.js'
-      );
-      await modelPricingService.initialize();
-
-      // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
-      await registry.loadDbPricing();
+      ).catch(() => {
+        return { modelPricingService: null as any };
+      });
+      if (modelPricingService) {
+        await modelPricingService.initialize();
+      } else {
+        // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
+        await registry.loadDbPricing();
+      }
     } catch (e) {
       logger.warning('加载模型配置失败（非致命）', e as Error);
     }

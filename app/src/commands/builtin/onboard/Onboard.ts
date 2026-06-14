@@ -15,9 +15,10 @@ import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@modules/core/paths';
 import { createInterface } from 'readline';
-import { setConfigValue, getConfig, configManager } from '@modules/config';
+import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
 import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
+import { detectUnifiedProviders } from '@modules/ai/providers/detectUnifiedProviders.js';
 import {
   OnboardHintKey,
   showHintIfNeeded,
@@ -439,12 +440,13 @@ function detectExistingConfig(): {
     // 忽略
   }
 
-  if (!apiKeyConfigured && configManager.env('DEEPSEEK_API_KEY')) {
-    apiKeyConfigured = true;
-    apiKeyMasked = '**** (from .env)';
-  }
-  if (!provider && configManager.env('DEEPSEEK_API_KEY')) {
-    provider = 'deepseek';
+  if (!apiKeyConfigured) {
+    const envProviders = detectUnifiedProviders();
+    if (envProviders.length > 0) {
+      apiKeyConfigured = true;
+      apiKeyMasked = '**** (from .env)';
+      provider = envProviders[0].name;
+    }
   }
 
   let soulCustomized = false;
@@ -868,13 +870,15 @@ const onboardCommand = {
           (providerConfig as Record<string, unknown>).apiKey
         ) {
           aiKeyStatus = '✅ 已配置';
-        } else if (configManager.env('DEEPSEEK_API_KEY')) {
-          aiKeyStatus = '✅ 已配置（来自 .env）';
         } else {
           aiKeyStatus = '⚠️ 未配置（需设置 API 密钥）';
         }
-      } else if (configManager.env('DEEPSEEK_API_KEY')) {
-        aiProvider = 'deepseek（来自 .env）';
+      }
+
+      // 检测环境变量中的 API Key
+      const envProviders = detectUnifiedProviders();
+      if (envProviders.length > 0 && !provider) {
+        aiProvider = `${envProviders[0].name}（来自 .env）`;
         aiKeyStatus = '✅ 已配置';
       }
     } catch {
@@ -1021,7 +1025,9 @@ export async function runOnboard(
       console.log('检测到非交互环境（无 TTY），无法运行交互式配置向导。');
       console.log('');
       console.log('请通过以下方式完成配置：');
-      console.log('  1. 手动编辑 .env 文件，设置 DEEPSEEK_API_KEY');
+      console.log('  1. 手动编辑 .env 文件，设置 API 密钥（任选一种方式）：');
+      console.log('     - 方式一（大厂专用变量名）: DEEPSEEK_API_KEY=sk-xxx');
+      console.log('     - 方式二（统一格式，支持任意供应商）: PROVIDER_xxx_KEY=sk-xxx');
       console.log('  2. 手动编辑 ~/.pyapp/SOUL.md 设置 AI 人格');
       console.log('  3. 手动编辑 ~/.pyapp/USER.md 设置用户档案');
       console.log('');

@@ -55,6 +55,7 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /** 系统任务类型，与前端 TaskAssignment 严格同步 */
 export type TaskType =
+  | 'default'     // 兜底默认模型（状态栏选择的模型即此值）
   | 'chat'        // 日常对话、问题解答
   | 'coding'      // 代码生成、调试、审查
   | 'translation' // 多语言翻译、润色
@@ -70,15 +71,20 @@ export type TaskType =
  * 确保前后端默认值同源，前端无需硬编码。
  */
 export const DEFAULT_TASKS: TaskModelConfig = {
+  default: 'deepseek-v4-pro',
   chat: 'deepseek-v4-pro',
   coding: 'deepseek-v4-pro',
   translation: 'gpt-4o-mini',
   quick: 'deepseek-v4-flash',
+  agent: 'deepseek-v4-pro',
+  scheduled: 'deepseek-v4-pro',
+  local: 'deepseek-v4-pro',
   embedding: 'deepseek-v4-pro',
 };
 
 /** 所有任务类型列表 */
 export const ALL_TASK_TYPES: TaskType[] = [
+  'default',
   'chat',
   'coding',
   'translation',
@@ -95,6 +101,7 @@ export const ALL_TASK_TYPES: TaskType[] = [
 
 /** 任务模型映射配置（与前端 TaskModelConfig 接口对齐） */
 export interface TaskModelConfig {
+  default?: string;
   chat?: string;
   coding?: string;
   translation?: string;
@@ -121,6 +128,7 @@ export interface TaskDefinition {
  * 前后端共享此数据，前端 TaskAssignment 页面从 API 拉取
  */
 export const TASK_DEFINITIONS: TaskDefinition[] = [
+  { type: 'default',     label: '默认',   description: '未指定任务类型时的兜底模型，状态栏选择的模型即此值', icon: '⭐' },
   { type: 'chat',        label: '对话',   description: '日常对话、问题解答',                         icon: '💬' },
   { type: 'coding',      label: '编程',   description: '代码生成、调试、审查',                       icon: '💻' },
   { type: 'translation', label: '翻译',   description: '多语言翻译、润色',                           icon: '🌐' },
@@ -178,24 +186,32 @@ export class ModelRouter {
 
   /**
    * 根据任务类型解析模型名
-   * 优先级：任务配置 > 当前模型 > 默认模型
+   * 优先级：显式任务配置 > default 兜底 > 当前模型（旧格式） > 硬编码默认
    */
   resolve(taskType: TaskType): string {
     const tasks = this.readTasks();
-    const taskModel = tasks[taskType];
-    if (taskModel) {
-      logger.debug(`ModelRouter: 任务 ${taskType} → ${taskModel}`);
-      return taskModel;
+
+    // 1. 显式任务分配
+    if (tasks[taskType]) {
+      logger.debug(`ModelRouter: 任务 ${taskType} → ${tasks[taskType]}`);
+      return tasks[taskType];
     }
 
-    // 回退到当前模型
+    // 2. 非 default 任务回退到 default 兜底
+    if (taskType !== 'default' && tasks.default) {
+      logger.debug(`ModelRouter: 任务 ${taskType} 回退默认 → ${tasks.default}`);
+      return tasks.default;
+    }
+
+    // 3. 回退到当前模型（旧格式兼容）
     const current = this.readCurrentModel();
     if (current) {
       logger.debug(`ModelRouter: 任务 ${taskType} 回退当前模型 → ${current}`);
       return current;
     }
 
-    logger.debug(`ModelRouter: 任务 ${taskType} 使用默认模型 → ${this.defaultModel || '(空)'}`);
+    // 4. 最后回退到硬编码默认值
+    logger.debug(`ModelRouter: 任务 ${taskType} 使用硬编码默认 → ${this.defaultModel || '(空)'}`);
     return this.defaultModel;
   }
 
@@ -235,12 +251,20 @@ export class ModelRouter {
   }
 
   /**
-   * 设置当前模型 ID（持久化到 GlobalConfig.models.current）
+   * 设置当前模型 ID（持久化到 GlobalConfig.models.current + tasks.default）
+   * 双写确保 resolve() 无论走显式任务匹配还是 default 兜底都能命中
    */
   setCurrentModel(modelId: string): void {
     const current = this.readModelConfig();
-    this.writeModelConfig({ ...current, current: modelId });
-    logger.info(`ModelRouter: 当前模型已设置为 ${modelId}`);
+    this.writeModelConfig({
+      ...current,
+      current: modelId,
+      tasks: {
+        ...(current.tasks || {}),
+        default: modelId,
+      },
+    });
+    logger.info(`ModelRouter: 当前模型已设置为 ${modelId}（同步写入 tasks.default）`);
   }
 
   /**

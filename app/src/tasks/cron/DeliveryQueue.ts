@@ -106,7 +106,7 @@ export class DeliveryQueue {
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db = new Database(this.dbPath, (err) => {
+      this.db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
           logger.error('[DeliveryQueue] 打开数据库失败', {
             error: err.message,
@@ -132,7 +132,7 @@ export class DeliveryQueue {
     this.stopAutoRetry();
     if (!this.db) return;
     return new Promise((resolve, reject) => {
-      this.db!.close((err) => {
+      this.db!.close((err: Error | null) => {
         if (err) reject(err);
         else {
           this.db = null;
@@ -190,7 +190,7 @@ export class DeliveryQueue {
           now,
           Date.now(),
         ],
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             logger.error('[DeliveryQueue] 入队失败', {
               jobId: job.id,
@@ -218,7 +218,7 @@ export class DeliveryQueue {
       LIMIT 50`;
 
     return new Promise((resolve, reject) => {
-      db.all(sql, [now], (err, rows) => {
+      db.all(sql, [now], (err: Error | null, rows: any[]) => {
         if (err) {
           reject(err);
           return;
@@ -235,7 +235,7 @@ export class DeliveryQueue {
       db.run(
         `UPDATE ${TABLE_DELIVERY_QUEUE} SET status = 'processing', updated_at = ? WHERE id = ?`,
         [Date.now(), entryId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -250,7 +250,7 @@ export class DeliveryQueue {
       db.run(
         `UPDATE ${TABLE_DELIVERY_QUEUE} SET status = 'completed', updated_at = ? WHERE id = ?`,
         [Date.now(), entryId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -273,7 +273,7 @@ export class DeliveryQueue {
             SET status = 'failed', attempts = ?, last_error = ?, updated_at = ?
             WHERE id = ?`,
           [newAttempts, error, Date.now(), entryId],
-          (err) => {
+          (err: Error | null) => {
             if (err) reject(err);
             else resolve();
           }
@@ -289,7 +289,7 @@ export class DeliveryQueue {
           SET status = 'pending', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = ?
           WHERE id = ?`,
         [newAttempts, error, nextRetryAt, Date.now(), entryId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -305,7 +305,7 @@ export class DeliveryQueue {
       db.get(
         `SELECT * FROM ${TABLE_DELIVERY_QUEUE} WHERE id = ?`,
         [entryId],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve(row ? rowToEntry(row) : undefined);
         }
@@ -320,7 +320,7 @@ export class DeliveryQueue {
       db.all(
         `SELECT * FROM ${TABLE_DELIVERY_QUEUE} WHERE job_id = ? ORDER BY created_at DESC`,
         [jobId],
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else resolve((rows as any[]).map(rowToEntry));
         }
@@ -341,7 +341,7 @@ export class DeliveryQueue {
           COUNT(*) as total
         FROM ${TABLE_DELIVERY_QUEUE}`,
         [],
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) {
             reject(err);
             return;
@@ -389,7 +389,7 @@ export class DeliveryQueue {
           SET status = 'pending', attempts = 0, next_retry_at = ?, last_error = NULL, updated_at = ?
           WHERE id = ? AND status = 'failed'`,
         [now, Date.now(), entryId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -470,3 +470,4 @@ export class DeliveryQueue {
     return new Date(Date.now() + capped + jitter).toISOString();
   }
 }
+

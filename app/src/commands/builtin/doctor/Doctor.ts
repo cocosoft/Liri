@@ -11,7 +11,14 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { DoctorCheck, runDoctorChecks } from './DoctorCheck.js';
-import { configManager } from '@modules/config';
+import { detectUnifiedProviders } from '@modules/ai/providers/detectUnifiedProviders.js';
+
+/**
+ * 判断是否有任何 API 密钥已配置（通过环境变量）
+ */
+function hasAnyApiKey(): boolean {
+  return detectUnifiedProviders().length > 0;
+}
 
 /**
  * 诊断检查结果
@@ -286,17 +293,13 @@ async function checkNetworkConnectivity(): Promise<DiagnosisResult[]> {
   checks.push({
     check: 'API 服务连接',
     status:
-      configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY')
-        ? 'pass'
-        : 'warning',
+      hasAnyApiKey() ? 'pass' : 'warning',
     message:
-      configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY')
-        ? 'API 密钥已配置'
-        : '未配置 API 密钥',
+      hasAnyApiKey() ? 'API 密钥已配置' : '未配置 API 密钥',
     suggestion:
-      configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY')
+      hasAnyApiKey()
         ? undefined
-        : '请配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY',
+        : '请在 .env 中设置 PROVIDER_{NAME}_KEY 或 DEEPSEEK_API_KEY/OPENAI_API_KEY 等',
   });
 
   return checks;
@@ -332,9 +335,7 @@ async function checkFileSystem(): Promise<DiagnosisResult[]> {
  * 检查安全配置
  */
 function checkSecurityConfiguration(): 'pass' | 'warning' | 'fail' {
-  const hasApiKey = configManager.env('DEEPSEEK_API_KEY') || configManager.env('OPENAI_API_KEY');
-
-  if (!hasApiKey) {
+  if (!hasAnyApiKey()) {
     return 'warning';
   }
 
@@ -459,6 +460,13 @@ function detectHardcodedSecrets(): boolean {
     'DATABASE_PASSWORD',
   ];
 
+  // 也检测 PROVIDER_{NAME}_KEY 模式
+  for (const envKey of Object.keys(process.env)) {
+    if (/^PROVIDER_[A-Z_]+_KEY$/.test(envKey)) {
+      sensitiveKeys.push(envKey);
+    }
+  }
+
   for (const key of sensitiveKeys) {
     const value = process.env[key];
     if (value && value.includes('sk-') && !value.startsWith('${')) {
@@ -506,8 +514,8 @@ async function checkBasicNetwork(): Promise<DiagnosisResult[]> {
     },
     {
       check: 'API 服务连接',
-      status: configManager.env('DEEPSEEK_API_KEY') ? 'pass' : 'warning',
-      message: configManager.env('DEEPSEEK_API_KEY')
+      status: hasAnyApiKey() ? 'pass' : 'warning',
+      message: hasAnyApiKey()
         ? 'API 密钥已配置'
         : '未配置 API 密钥',
     },

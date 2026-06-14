@@ -77,6 +77,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
   }, [tasks, currentModelId]);
 
   const taskLabels: Record<string, string> = {
+    default: "⭐ 默认",
     chat: "💬 对话",
     coding: "💻 编程",
     translation: "🌐 翻译",

@@ -85,7 +85,7 @@ export class FileRegistry {
   private async _doInit(): Promise<void> {
     try {
       this.db = await new Promise<Database>((resolve, reject) => {
-        const db = new Database(this.dbPath, (err) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
           if (err) reject(err);
           else resolve(db);
         });
@@ -621,7 +621,7 @@ export class FileRegistry {
    */
   private runAsync(sql: string, params?: unknown[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.db!.run(sql, params || [], (err) => {
+      this.db!.run(sql, params || [], (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -633,7 +633,7 @@ export class FileRegistry {
    */
   private getAsync<T>(sql: string, params?: unknown[]): Promise<T | undefined> {
     return new Promise<T | undefined>((resolve, reject) => {
-      this.db!.get(sql, params || [], (err, row) => {
+      this.db!.get(sql, params || [], (err: Error | null, row: any) => {
         if (err) reject(err);
         else resolve(row as T | undefined);
       });
@@ -645,7 +645,7 @@ export class FileRegistry {
    */
   private allAsync<T>(sql: string, params?: unknown[]): Promise<T[]> {
     return new Promise<T[]>((resolve, reject) => {
-      this.db!.all(sql, params || [], (err, rows) => {
+      this.db!.all(sql, params || [], (err: Error | null, rows: any[]) => {
         if (err) reject(err);
         else resolve(rows as T[]);
       });
@@ -658,7 +658,7 @@ export class FileRegistry {
   async close(): Promise<void> {
     if (this.db) {
       await new Promise<void>((resolve, reject) => {
-        this.db?.close((err) => {
+        this.db?.close((err: Error | null) => {
           if (err) reject(err);
           else {
             this.db = null;
@@ -670,3 +670,4 @@ export class FileRegistry {
     }
   }
 }
+

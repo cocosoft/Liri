@@ -445,7 +445,7 @@ function ChatInput() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasShowingCommandsRef = useRef(false);
-  const { streamMessage, isSending, isStreaming, clearMessages } = useChatStore();
+  const { streamMessage, isSending, isStreaming, streamingStatus, clearMessages } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
@@ -649,6 +649,9 @@ function ChatInput() {
         uploadedFiles.push({ name: file.name, path: result.path });
       }
 
+      // 上传完成后立即清除 isUploading，后续 stream 阶段由 chatStore 的 isSending/isStreaming 管理
+      setIsUploading(false);
+
       // 将上传的文件添加到会话文件列表，供 FilePreviewPanel 展示
       const addSessionFile = useChatStore.getState().addSessionFile;
       for (const f of uploadedFiles) {
@@ -693,7 +696,6 @@ function ChatInput() {
       alert(
         `文件上传失败: ${errorMsg}\n\n可能原因：\n• 系统安全策略限制了对用户目录的访问\n• 磁盘空间不足\n\n系统会自动尝试使用项目目录作为备选存储位置。`,
       );
-    } finally {
       setIsUploading(false);
     }
   };
@@ -1041,7 +1043,7 @@ function ChatInput() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <span>{isUploading ? "正在上传文件..." : isSending ? "正在发送..." : "AI 正在回复..."}</span>
+            <span>{isUploading ? "正在上传文件..." : streamingStatus || (isSending ? "正在发送..." : "AI 正在回复...")}</span>
           </div>
         )}
 

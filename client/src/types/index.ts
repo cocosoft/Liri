@@ -314,6 +314,7 @@ export interface CurrentModelInfo {
 
 /** 任务分工策略 */
 export interface TaskModelConfig {
+  default?: string;
   chat?: string;
   coding?: string;
   translation?: string;

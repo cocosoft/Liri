@@ -14,7 +14,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';
 import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
@@ -191,7 +191,7 @@ export class ChannelRegistry extends EventEmitter {
     if (this.persistenceReady) return;
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
@@ -215,7 +215,7 @@ export class ChannelRegistry extends EventEmitter {
           options TEXT NOT NULL DEFAULT '{}',
           updated_at INTEGER NOT NULL DEFAULT 0
         )`,
-        (err) => (err ? reject(err) : resolve())
+        (err: Error | null) => (err ? reject(err) : resolve())
       );
     });
   }
@@ -225,7 +225,7 @@ export class ChannelRegistry extends EventEmitter {
     return new Promise((resolve, reject) => {
       this.db!.all(
         'SELECT id, name, type, enabled, options FROM channel_configs',
-        (err, rows: Array<{ id: string; name: string; type: string; enabled: number; options: string }>) => {
+        (err: Error | null, rows: Array<{ id: string; name: string; type: string; enabled: number; options: string }>) => {
           if (err) { reject(err); return; }
 
           for (const row of rows) {
@@ -547,3 +547,4 @@ export class ChannelRegistry extends EventEmitter {
 }
 
 export const channelRegistry = new ChannelRegistry();
+

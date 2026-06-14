@@ -24,7 +24,7 @@
  * 管理 provider_balances 表的读写，缓存余额查询结果。
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
@@ -78,7 +78,7 @@ export class BalanceStore {
   private async _doInitialize(): Promise<void> {
     try {
       this.db = await new Promise<Database>((resolve, reject) => {
-        const db = new Database(this.dbPath, (err) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
           if (err) reject(err);
           else resolve(db);
         });
@@ -104,7 +104,7 @@ export class BalanceStore {
 
     const run = (sql: string): Promise<void> =>
       new Promise<void>((resolve, reject) => {
-        this.db!.run(sql, (err) => {
+        this.db!.run(sql, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -149,7 +149,7 @@ export class BalanceStore {
          FROM ${BALANCES_TABLE}
          WHERE provider_id = ?`,
         [providerId],
-        (err, row) => {
+        (err: Error | null, row: any) => {
           if (err) reject(err);
           else if (row) {
             const r = row as Record<string, unknown>;
@@ -180,7 +180,7 @@ export class BalanceStore {
         `SELECT provider_id, remaining, total, used, unit, queried_at, is_supported, below_threshold
          FROM ${BALANCES_TABLE}
          ORDER BY provider_id`,
-        (err, rows) => {
+        (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else {
             resolve(
@@ -228,7 +228,7 @@ export class BalanceStore {
           data.isSupported ? 1 : 0,
           data.belowThreshold ? 1 : 0,
         ],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -244,7 +244,7 @@ export class BalanceStore {
       db.run(
         `DELETE FROM ${BALANCES_TABLE} WHERE provider_id = ?`,
         [providerId],
-        (err) => {
+        (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
@@ -252,3 +252,4 @@ export class BalanceStore {
     });
   }
 }
+

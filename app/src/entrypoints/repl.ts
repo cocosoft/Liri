@@ -44,7 +44,7 @@ import { getConfig, configManager } from '../config/index.js';
 import { modelRouter } from '../ai/modelRouter.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
-import { isOfflineMode, isValidApiKey } from '../main.js';
+import { isOfflineMode } from '../main.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '../channels/bootstrap/ChannelBootstrapper.js';
 
@@ -62,8 +62,10 @@ export async function startHTTPServer(
   port: number,
   host: string = '127.0.0.1'
 ): Promise<LocalHTTPService> {
+  process.stderr.write(`DEBUG: startHTTPServer 开始, port=${port}, host=${host}\n`);
   const service = new LocalHTTPService({ host, port });
   await service.start();
+  process.stderr.write('DEBUG: startHTTPServer 完成, HTTP 服务已启动\n');
   return service;
 }
 
@@ -122,25 +124,41 @@ export async function initializeChatManager(): Promise<ChatManager> {
     provider = providerRegistry.getByType('deepseek');
   }
 
-  // Step 4: DB 中无 deepseek 时，从环境变量回退创建
+  // Step 4: DB 中无 Provider 时，从环境变量检测创建
   if (!provider) {
-    const config = getConfig();
-    const apiKey =
-      configManager.env('DEEPSEEK_API_KEY') ||
-      config['ai.deepseek.apiKey'] ||
-      config.ai?.deepseek?.apiKey ||
-      '';
+    const { detectUnifiedProviders } =
+      await import('../ai/providers/detectUnifiedProviders.js');
+    const envProviders = detectUnifiedProviders();
+    const envProvider = envProviders[0];
 
-    provider = providerRegistry.getOrCreate('deepseek', {
-      apiKey,
-      baseUrl: configManager.env('DEEPSEEK_BASE_URL'),
-      model: currentModel || configManager.env('DEEPSEEK_MODEL'),
-    });
+    if (envProvider) {
+      provider = providerRegistry.getOrCreate(envProvider.providerType as any, {
+        apiKey: envProvider.apiKey || '',
+        baseUrl: envProvider.baseUrl,
+        model: envProvider.model || currentModel,
+      });
 
-    // 确保 Provider 使用最新密钥（getOrCreate 可能返回已存在的 stale 实例）
-    if (apiKey) {
-      provider.setApiKey?.(apiKey);
+      if (envProvider.apiKey) {
+        provider.setApiKey?.(envProvider.apiKey);
+      }
+    } else {
+      // 最后回退：从配置文件读取 deepseek 密钥
+      const config = getConfig();
+      const configApiKey =
+        config['ai.deepseek.apiKey'] || config.ai?.deepseek?.apiKey || '';
+
+      if (configApiKey) {
+        provider = providerRegistry.getOrCreate('deepseek', {
+          apiKey: configApiKey,
+          model: currentModel,
+        });
+        provider.setApiKey?.(configApiKey);
+      }
     }
+  }
+
+  if (!provider) {
+    throw new Error('未找到可用的 API Provider，无法初始化聊天管理器');
   }
 
   const llmClient = new ToolAwareClient(
@@ -210,6 +228,7 @@ export async function initializeChatManager(): Promise<ChatManager> {
 export async function launchRepl(
   config: REPLConfig = DEFAULT_CONFIG
 ): Promise<void> {
+  process.stderr.write('DEBUG: launchRepl 被调用\n');
   profileCheckpoint('repl_launch_start');
   getStartupChainProfiler().markPhaseStart('first_response');
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
@@ -281,10 +300,13 @@ export async function launchRepl(
   try {
     profileCheckpoint('repl_startup_checks_start');
     const cfg = getConfig();
+    const { detectUnifiedProviders } =
+      await import('../ai/providers/detectUnifiedProviders.js');
+    const envProviders = detectUnifiedProviders();
     const configApiKey =
       cfg['ai.deepseek.apiKey'] || cfg.ai?.deepseek?.apiKey || '';
-    const effectiveKey = configManager.env('DEEPSEEK_API_KEY') || configApiKey;
-    if (isOfflineMode || !isValidApiKey(effectiveKey)) {
+    const hasApiKey = envProviders.length > 0 || !!configApiKey;
+    if (isOfflineMode || !hasApiKey) {
       ui.showWarning('AI 对话功能不可用：未检测到有效的 API 密钥');
       ui.showInfo('配置方法（任选其一）:');
       ui.showInfo('  • 方法 1: 运行 /onboard 启动交互式配置向导（推荐）');
@@ -411,13 +433,20 @@ export async function launchRepl(
     const cronModel = modelRouter.resolve('scheduled') || modelRouter.getCurrentModel();
     let provider = cronModel ? providerRegistry.getByModel(cronModel) : undefined;
     if (!provider) {
-      provider = providerRegistry.getOrCreate('deepseek', {
-        apiKey: configManager.env('DEEPSEEK_API_KEY') || '',
-        baseUrl: configManager.env('DEEPSEEK_BASE_URL'),
-        model: configManager.env('DEEPSEEK_MODEL'),
-      });
+      const { detectUnifiedProviders } =
+        await import('../ai/providers/detectUnifiedProviders.js');
+      const envProviders = detectUnifiedProviders();
+      const envProvider = envProviders[0];
+
+      if (envProvider) {
+        provider = providerRegistry.getOrCreate(envProvider.providerType as any, {
+          apiKey: envProvider.apiKey || '',
+          baseUrl: envProvider.baseUrl,
+          model: envProvider.model || cronModel,
+        });
+      }
     }
-    const realExecutor = createCronExecutor(provider);
+    const realExecutor = createCronExecutor(provider!);
     await ensureGlobalCronSchedulerStarted({ executeJob: realExecutor });
     ui.showInfo('Cron 调度器已启动 (AI 执行引擎就绪)');
   } catch (cronError) {

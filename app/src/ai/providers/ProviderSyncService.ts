@@ -190,6 +190,11 @@ function syncOneProvider(record: ProviderRecord): void {
     providerRegistry.unregister(registryId);
   }
 
+  // 从 DB 配置设置 API Key（createProviderByType 未将 config.apiKey 传递给 Provider 构造函数）
+  if (config.apiKey && typeof (wrapped as any).setApiKey === 'function') {
+    (wrapped as any).setApiKey(config.apiKey);
+  }
+
   providerRegistry.register(wrapped);
 
   // 注册类型别名，使 getByModel() 能通过模型前缀（如 'qwen'→'ollama'）查找到

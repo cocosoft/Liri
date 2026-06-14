@@ -1054,10 +1054,15 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       return keywordResults.slice(0, resultLimit);
     }
 
-    const semanticResults = await this.retrieveBySimilarity(
-      query,
-      resultLimit * 2
-    );
+    let semanticResults: SimilarMemoryResult[] = [];
+    try {
+      semanticResults = await this.retrieveBySimilarity(query, resultLimit * 2);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logger.warn('语义搜索不可用（向量服务未连接），降级为纯关键词搜索', {
+        error: errorMsg,
+      });
+    }
     const { vectorWeight, textWeight } = hybridConfig;
 
     const scoreMap = new Map<

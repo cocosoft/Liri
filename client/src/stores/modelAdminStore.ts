@@ -35,6 +35,7 @@ interface ModelAdminState {
   createModel: (data: {
     modelId: string;
     displayName?: string;
+    providerId: string;
     contextWindow?: number;
     maxOutputTokens?: number;
     inputCostPerMillion?: number;

@@ -680,6 +680,9 @@ async function handleCreateCustomModel(
     const record = await modelPricingService.upsertPricing({
       modelId,
       displayName: body.displayName as string | undefined,
+      providerId: body.providerId as string | undefined,
+      contextWindow: (body.contextWindow as number) || 200000,
+      maxOutputTokens: (body.maxOutputTokens as number) || 4096,
       inputCostPerMillion: (body.inputCostPerMillion as number) || 0,
       outputCostPerMillion: (body.outputCostPerMillion as number) || 0,
       cacheReadCostPerMillion: (body.cacheReadCostPerMillion as number) || undefined,

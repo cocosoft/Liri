@@ -166,6 +166,7 @@ function ProviderPage() {
   const handleAddModel = useCallback(async (form: {
     modelId: string;
     displayName: string;
+    providerId: string;
     contextWindow: number;
     maxOutputTokens: number;
     inputCostPerMillion: number;
@@ -634,6 +635,7 @@ function ProviderPage() {
       {/* 添加模型弹窗 */}
       {showAddModel && (
         <AddModelModal
+          providers={store.providers}
           onSave={handleAddModel}
           onClose={() => setShowAddModel(false)}
         />

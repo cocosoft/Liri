@@ -1,12 +1,16 @@
 /**
  * 添加自定义模型弹窗
+ *
+ * 支持选择关联的 Provider（供应商），确保创建的模型可以被正确调用。
  */
 
 import { useState } from "react";
+import type { ProviderInfo } from "../../types";
 
 interface AddModelFormData {
   modelId: string;
   displayName: string;
+  providerId: string;
   contextWindow: number;
   maxOutputTokens: number;
   inputCostPerMillion: number;
@@ -14,14 +18,17 @@ interface AddModelFormData {
 }
 
 interface AddModelModalProps {
+  /** 已启用的 Provider 列表，用于下拉选择 */
+  providers: ProviderInfo[];
   onSave: (data: AddModelFormData) => void;
   onClose: () => void;
 }
 
-export default function AddModelModal({ onSave, onClose }: AddModelModalProps) {
+export default function AddModelModal({ providers, onSave, onClose }: AddModelModalProps) {
   const [form, setForm] = useState<AddModelFormData>({
     modelId: "",
     displayName: "",
+    providerId: providers.length > 0 ? providers[0].id : "",
     contextWindow: 200000,
     maxOutputTokens: 4096,
     inputCostPerMillion: 0,
@@ -43,6 +50,30 @@ export default function AddModelModal({ onSave, onClose }: AddModelModalProps) {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              关联供应商 *
+            </label>
+            <select
+              value={form.providerId}
+              onChange={(e) => setForm({ ...form, providerId: e.target.value })}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {providers.length === 0 ? (
+                <option value="">-- 暂无可用供应商，请先添加 --</option>
+              ) : (
+                providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.providerType})
+                  </option>
+                ))
+              )}
+            </select>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              选择此模型所属的供应商，用于确定调用方式和 API 端点
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               模型 ID *
             </label>
             <input
@@ -53,6 +84,7 @@ export default function AddModelModal({ onSave, onClose }: AddModelModalProps) {
               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               显示名称
@@ -65,6 +97,7 @@ export default function AddModelModal({ onSave, onClose }: AddModelModalProps) {
               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -93,6 +126,7 @@ export default function AddModelModal({ onSave, onClose }: AddModelModalProps) {
               />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -130,6 +164,10 @@ export default function AddModelModal({ onSave, onClose }: AddModelModalProps) {
             onClick={() => {
               if (!form.modelId.trim()) {
                 alert("请输入模型 ID");
+                return;
+              }
+              if (!form.providerId) {
+                alert("请先添加供应商");
                 return;
               }
               onSave(form);

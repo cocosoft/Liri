@@ -3,7 +3,7 @@ import { useConfigStore } from "../../stores/configStore";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
 import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";

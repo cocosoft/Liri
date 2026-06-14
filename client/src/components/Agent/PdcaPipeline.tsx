@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 interface ReviewIssue {
   severity: string;

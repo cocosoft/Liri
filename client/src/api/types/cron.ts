@@ -2,7 +2,9 @@
  * API 请求/响应类型 —— cron 模块
  */
 
-export type ScheduleMode = "cron" | "every" | "at";
+import type { ScheduleMode } from "../../types";
+
+export type { ScheduleMode };
 
 export interface CronTask {
   id: string;

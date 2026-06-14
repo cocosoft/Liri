@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 const XTermPanel = lazy(() => import("../Terminal/XTermPanel"));
 

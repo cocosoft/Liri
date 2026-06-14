@@ -4,7 +4,7 @@
  * Provider CRUD 已迁移到 providerService.ts。
  */
 
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 export const modelAdminService = {
   async testConnection(

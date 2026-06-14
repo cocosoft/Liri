@@ -1,5 +1,5 @@
 import type { FileEntry, WorkspaceInfo, FileRegistryRecord, FileSearchParams, FileSearchResult, FileStats } from "../types";
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 /**
  * 文件读取详情响应

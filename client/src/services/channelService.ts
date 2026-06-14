@@ -4,7 +4,7 @@ import type {
   ChannelHealth,
   ChannelPluginInfo,
 } from "../types";
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 interface ChannelToggleResponse {
   success: boolean;

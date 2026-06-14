@@ -1,4 +1,4 @@
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 export type SkillStatus = "enabled" | "disabled" | "draft";
 

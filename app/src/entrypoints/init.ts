@@ -620,6 +620,33 @@ async function startDeferredPrefetches(): Promise<void> {
               logger.warning('定时清理过期记忆失败', { error });
             }
           }, 6 * 60 * 60 * 1000);
+
+          // 检查旧目录残留记忆文件（问题 2）
+          try {
+            const { mkdir, readdir, copyFile } = await import('fs/promises');
+            const { existsSync } = await import('fs');
+            const { join } = await import('path');
+            const { resolveDataDir } = await import('@modules/core/paths');
+            const legacyDir = join(resolveDataDir(), 'pyapp', 'data', 'memory');
+            if (existsSync(legacyDir)) {
+              const legacyFiles = await readdir(legacyDir);
+              const mdFiles = legacyFiles.filter((f: string) => f.endsWith('.md'));
+              if (mdFiles.length > 0) {
+                logger.warning(`发现 ${mdFiles.length} 个旧目录残留记忆文件`, {
+                  legacyDir,
+                });
+                // 以归档方式复制到新目录，不做格式转换
+                const archiveDir = join(resolveDataDir(), 'memory', '.legacy');
+                await mkdir(archiveDir, { recursive: true });
+                for (const file of mdFiles) {
+                  await copyFile(join(legacyDir, file), join(archiveDir, file));
+                }
+                logger.info(`已将旧目录残留文件归档至 ${archiveDir}`);
+              }
+            }
+          } catch {
+            // 旧目录检查失败不阻塞启动
+          }
         } catch (error) {
           logger.warning('记忆查询提供者注册失败', { error });
         }

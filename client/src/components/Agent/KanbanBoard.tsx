@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 interface KanbanCard {
   id: string;

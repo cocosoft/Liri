@@ -36,6 +36,7 @@ import * as fs from 'fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
+import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -173,15 +174,30 @@ export class MemoryManagerImpl {
   private retriever: MemoryRetrieverImpl;
 
   /**
-   * 最近摘要缓存（任务 5）
+   * 最近摘要缓存
+   * 同时缓存 Memory[] 对象，支持有 sessionContext 时从缓存重排序而非走全量 I/O
    * 被 createMemory / updateMemory / deleteMemory 写入时失效，随后触发异步预热
    */
-  recentSummaryCache: { summaries: string[]; totalCount: number } | null = null;
+  recentSummaryCache: {
+    memories: Memory[];
+    summaries: string[];
+    totalCount: number;
+  } | null = null;
 
   /**
    * 缓存异步预热 Promise，防重复
    */
   private cacheWarmupPromise: Promise<void> | null = null;
+
+  /**
+   * 清理/写入并发锁，防止 cleanupExpiredMemories 与 saveMemory 同时执行
+   */
+  private isCleaning = false;
+
+  /**
+   * 记忆去重合并器，在 createMemory 时自动检测内容重复
+   */
+  private consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
 
   /**
    * 记忆提示服务
@@ -230,6 +246,9 @@ export class MemoryManagerImpl {
 
     // 加载关联图
     this.loadRelationGraph().catch(() => {});
+
+    // 预热摘要缓存，避免首次 getSummaries 冷启动走全量 I/O
+    this.refreshSummaryCache().catch(() => {});
   }
 
   /**
@@ -257,7 +276,7 @@ export class MemoryManagerImpl {
           return `${prefix}${truncated}`;
         });
 
-        this.recentSummaryCache = { summaries, totalCount: allMemories.length };
+        this.recentSummaryCache = { memories: allMemories, summaries, totalCount: allMemories.length };
       } catch {
         // 预热失败不阻塞主流程，下次读取时自动回退全量扫描
         this.recentSummaryCache = null;
@@ -277,6 +296,11 @@ export class MemoryManagerImpl {
   async createMemory(
     memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Memory> {
+    // 如果清理任务正在执行，等待完成
+    while (this.isCleaning) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
     // 创建记忆对象
     const newMemory = createMemory(memory);
 
@@ -289,6 +313,34 @@ export class MemoryManagerImpl {
 
     // 持久化关联图
     await this.saveRelationGraph();
+
+    // 去重检测：检查新记忆是否与已有记忆内容重复
+    try {
+      const allMemories = await this.getAllMemories();
+      const dupCheck = this.consolidator.findDuplicates(
+        allMemories.map((m) => ({
+          id: m.id,
+          content: m.content,
+          createdAt: m.createdAt.getTime(),
+        }))
+      );
+      if (dupCheck.totalRemoved > 0) {
+        logger.info(`去重检测：发现 ${dupCheck.totalRemoved} 条重复记忆`, {
+          newMemoryId: newMemory.id,
+        });
+        // 删除重复记忆（保留每组第一条）
+        for (const group of dupCheck.duplicates) {
+          // group[0] 是保留的，group[1..] 是待删除的
+          for (let i = 1; i < group.length; i++) {
+            await this.store.deleteMemory(group[i]);
+            this.retriever.removeFromIndex(group[i]);
+          }
+        }
+        await this.retriever.saveIndex();
+      }
+    } catch {
+      // 去重失败不阻塞主流程
+    }
 
     // 摘要缓存失效并异步预热
     this.recentSummaryCache = null;
@@ -554,40 +606,48 @@ export class MemoryManagerImpl {
    * @returns 被清理的记忆数量
    */
   async cleanupExpiredMemories(): Promise<number> {
-    const allMemories = await this.getAllMemories();
-    const now = new Date();
-    const expired: string[] = [];
+    // 防并发：已有清理任务正在执行则跳过
+    if (this.isCleaning) return 0;
+    this.isCleaning = true;
 
-    for (const memory of allMemories) {
-      const ttlMs = this.getMemoryTTL(memory);
-      const ageMs = now.getTime() - memory.createdAt.getTime();
+    try {
+      const allMemories = await this.getAllMemories();
+      const now = new Date();
+      const expired: string[] = [];
 
-      // 优先检查显式 expiresAt，其次根据 TTL 判断是否过期
-      const isExpired =
-        (memory.metadata.expiresAt && new Date(memory.metadata.expiresAt) <= now) ||
-        (!memory.metadata.expiresAt && ageMs > ttlMs);
+      for (const memory of allMemories) {
+        const ttlMs = this.getMemoryTTL(memory);
+        const ageMs = now.getTime() - memory.createdAt.getTime();
 
-      if (isExpired) {
-        expired.push(memory.id);
+        // 优先检查显式 expiresAt，其次根据 TTL 判断是否过期
+        const isExpired =
+          (memory.metadata.expiresAt && new Date(memory.metadata.expiresAt) <= now) ||
+          (!memory.metadata.expiresAt && ageMs > ttlMs);
+
+        if (isExpired) {
+          expired.push(memory.id);
+        }
       }
+
+      for (const id of expired) {
+        await this.store.deleteMemory(id);
+        this.retriever.removeFromIndex(id);
+      }
+
+      if (expired.length > 0) {
+        await this.retriever.saveIndex();
+        await this.saveRelationGraph();
+      }
+
+      logger.info(`清理了 ${expired.length} 条过期记忆`, {
+        totalMemories: allMemories.length,
+        cleanedCount: expired.length,
+      });
+
+      return expired.length;
+    } finally {
+      this.isCleaning = false;
     }
-
-    for (const id of expired) {
-      await this.store.deleteMemory(id);
-      this.retriever.removeFromIndex(id);
-    }
-
-    if (expired.length > 0) {
-      await this.retriever.saveIndex();
-      await this.saveRelationGraph();
-    }
-
-    logger.info(`清理了 ${expired.length} 条过期记忆`, {
-      totalMemories: allMemories.length,
-      cleanedCount: expired.length,
-    });
-
-    return expired.length;
   }
 
   /**

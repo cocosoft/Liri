@@ -1,5 +1,5 @@
 import type { CronTask } from "../types";
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 interface CronSchedulerStatus {
   running: boolean;

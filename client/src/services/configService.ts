@@ -1,4 +1,4 @@
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 /**
  * 配置服务

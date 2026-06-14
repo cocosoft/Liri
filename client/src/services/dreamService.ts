@@ -1,5 +1,5 @@
 import type { DreamLogResponse } from "../types";
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 export const dreamService = {
   getDreamLogs: async (

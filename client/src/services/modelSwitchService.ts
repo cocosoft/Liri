@@ -3,7 +3,7 @@
  * 提供当前模型状态查询、模型切换、任务分工策略管理
  */
 
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 import type { CurrentModelInfo, TaskModelConfig, TaskDefinition } from "../types";
 
 export const modelSwitchService = {

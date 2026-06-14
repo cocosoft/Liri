@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "../../stores/agentStore";
 import type { AgentTaskTemplate } from "../../types";
 import { agentService } from "../../services/agentService";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 import AgentChatPanel from "../Agent/AgentChatPanel";
 import PdcaPipeline from "../Agent/PdcaPipeline";
 import KanbanBoard from "../Agent/KanbanBoard";

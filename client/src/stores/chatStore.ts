@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Message, MessageBlock, FilePreview } from "../types";
 import type { ToolCall, TaskCardTask } from "../types";
 import { chatService } from "../services/chatService";
-import { getBackendBaseUrl } from "../services/backendUrl";
+import { httpLegacy as http } from "../services/httpClient";
 import { resolveFilePath } from "../services/filePathResolver";
 import { useSessionStore } from "./sessionStore";
 
@@ -1131,16 +1131,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return;
       }
 
-      const baseUrl = getBackendBaseUrl();
-      const encodedPath = encodeURIComponent(resolvedPath);
       const ext = resolvedPath.toLowerCase().split('.').pop();
       const isOfficeFile = ext === 'pdf' || ext === 'docx' || ext === 'pptx';
 
       // Office 文件使用预览转换接口，其他文件使用普通读取接口
       const apiEndpoint = isOfficeFile ? '/api/file/preview' : '/api/file/read';
-      const res = await fetch(`${baseUrl}${apiEndpoint}?path=${encodedPath}`);
-      if (!res.ok) throw new Error(`读取文件失败: ${res.statusText}`);
-      const data = await res.json();
+      const data = await http.get<{ content: string; type: string; language?: string; size?: number }>(apiEndpoint, { params: { path: resolvedPath } });
       const filePreview: FilePreview = {
         path: resolvedPath,
         name:
@@ -1148,7 +1144,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           resolvedPath.split("\\").pop() ||
           resolvedPath,
         content: data.content,
-        type: data.type && data.type !== "text" ? data.type : inferFileType(resolvedPath),
+        type: (data.type && data.type !== "text" ? data.type : inferFileType(resolvedPath)) as FilePreview["type"],
         language: data.language,
         size: data.size,
       };

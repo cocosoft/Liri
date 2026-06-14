@@ -3,7 +3,7 @@
  * 对接后端 /v1/balance 和 /v1/balances 端点
  */
 
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 import type { BalanceResult, BalanceRecord } from "../types";
 
 export const balanceService = {

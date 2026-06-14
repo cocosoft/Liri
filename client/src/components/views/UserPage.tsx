@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense, useEffect, useCallback } from "react";
 import { useConfigStore } from "../../stores/configStore";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 /** 用户中心侧边栏导航项 */
 interface UserNavItem {

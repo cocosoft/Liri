@@ -1,4 +1,4 @@
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 import type { ModelInfo } from "../types";
 
 export type { ModelInfo };

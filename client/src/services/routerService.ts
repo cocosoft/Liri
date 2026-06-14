@@ -3,7 +3,7 @@
  * 提供 SmartRouter 配置的读取与运行时更新
  */
 
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 export interface RouterConfig {
   enabled: boolean;

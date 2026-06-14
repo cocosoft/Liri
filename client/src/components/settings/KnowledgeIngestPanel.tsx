@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 import { ConfigSection, ConfigItem } from "./ConfigComponents";
 
 interface KnowledgeIngestPanelProps {

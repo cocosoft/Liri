@@ -1,4 +1,4 @@
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 /**
  * ClawHub 技能元数据接口

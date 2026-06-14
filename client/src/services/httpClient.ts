@@ -13,21 +13,12 @@ import {
   getApiSecret,
 } from "./backendUrl";
 
+import type { ApiError, ApiResponse } from "../types/api";
+
 export interface HttpClientConfig {
   baseUrl?: string;
   timeout?: number;
   headers?: Record<string, string>;
-}
-
-export interface ApiError {
-  code: number;
-  message: string;
-}
-
-export interface ApiResponse<T = unknown> {
-  ok: boolean;
-  data?: T;
-  error?: ApiError;
 }
 
 const DEFAULT_TIMEOUT = 30_000;
@@ -135,7 +126,7 @@ async function request<T>(
   }
 }
 
-// ─── http（旧 API，后向兼容）─────────────────────
+// ─── httpLegacy（旧 API，后向兼容，抛异常）─────────────────────
 
 export class HTTPClientError extends Error {
   constructor(
@@ -152,8 +143,17 @@ export class HTTPClientError extends Error {
   }
 }
 
-/** 旧 http 对象（后向兼容）。返回原始数据，错误时抛 HTTPClientError。 */
-export const http = {
+/** 从 ApiResponse 解包，失败时抛 HTTPClientError（后向兼容迁移辅助） */
+export function unwrapOrThrow<T>(res: ApiResponse<T>): T {
+  if (!res.ok) {
+    const error = res.error || { code: 500, message: '未知错误' };
+    throw new HTTPClientError(error.message, error.code, error);
+  }
+  return res.data as T;
+}
+
+/** @deprecated 使用 http（返回 ApiResponse<T>）替代。保留为后向兼容层。 */
+export const httpLegacy = {
   async get<T>(
     path: string,
     options?: { params?: Record<string, unknown> },
@@ -169,71 +169,61 @@ export const http = {
       url += `?${params.toString()}`;
     }
     const res = await request<T>("GET", url, undefined);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(error.message, error.code, error);
-    }
-    return res.data as T;
+    return unwrapOrThrow(res);
   },
 
   async post<T>(path: string, body?: unknown): Promise<T> {
     const res = await request<T>("POST", path, body);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(error.message, error.code, error);
-    }
-    return res.data as T;
+    return unwrapOrThrow(res);
   },
 
   async put<T>(path: string, body: unknown): Promise<T> {
     const res = await request<T>("PUT", path, body);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(error.message, error.code, error);
-    }
-    return res.data as T;
+    return unwrapOrThrow(res);
   },
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
     const res = await request<T>("PATCH", path, body);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(error.message, error.code, error);
-    }
-    return res.data as T;
+    return unwrapOrThrow(res);
   },
 
   async delete<T>(path: string): Promise<T> {
     const res = await request<T>("DELETE", path);
-    if (!res.ok) {
-      const error = res.error || { code: 500, message: '未知错误' };
-      throw new HTTPClientError(error.message, error.code, error);
-    }
-    return res.data as T;
+    return unwrapOrThrow(res);
   },
 };
 
-// ─── httpClient（新 API）────────────────────────
+// ─── http（新 API，返回 ApiResponse<T>）────────────────────────
 
-export const httpClient = {
-  get<T = unknown>(path: string, config?: HttpClientConfig): Promise<ApiResponse<T>> {
-    return request<T>("GET", path, undefined, config);
+export const http = {
+  async get<T>(path: string, options?: { params?: Record<string, unknown> }): Promise<ApiResponse<T>> {
+    let url = path;
+    if (options?.params) {
+      const params = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.set(key, String(value));
+        }
+      });
+      url += `?${params.toString()}`;
+    }
+    return request<T>("GET", url, undefined);
   },
 
-  post<T = unknown>(path: string, body?: unknown, config?: HttpClientConfig): Promise<ApiResponse<T>> {
-    return request<T>("POST", path, body, config);
+  async post<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return request<T>("POST", path, body);
   },
 
-  put<T = unknown>(path: string, body?: unknown, config?: HttpClientConfig): Promise<ApiResponse<T>> {
-    return request<T>("PUT", path, body, config);
+  async put<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return request<T>("PUT", path, body);
   },
 
-  patch<T = unknown>(path: string, body?: unknown, config?: HttpClientConfig): Promise<ApiResponse<T>> {
-    return request<T>("PATCH", path, body, config);
+  async patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return request<T>("PATCH", path, body);
   },
 
-  delete<T = unknown>(path: string, config?: HttpClientConfig): Promise<ApiResponse<T>> {
-    return request<T>("DELETE", path, undefined, config);
+  async delete<T>(path: string): Promise<ApiResponse<T>> {
+    return request<T>("DELETE", path);
   },
 
   /** SSE 流式请求 */

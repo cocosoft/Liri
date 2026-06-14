@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useConfigStore } from "../../stores/configStore";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 import { SkeletonCard } from "../common/Skeleton";
 
 // 计划/流程数据接口

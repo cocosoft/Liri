@@ -6,7 +6,7 @@ import {
   SelectConfig,
   TextConfig,
 } from "./ConfigComponents";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 /** 工作空间信任级别 */
 type WorkspaceTrustLevel = "chat" | "work" | "development";

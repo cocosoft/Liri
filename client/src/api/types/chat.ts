@@ -2,38 +2,9 @@
  * API 请求/响应类型 —— chat / message 模块
  */
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-  result?: unknown;
-  status?: "running" | "completed" | "failed";
-}
+import type { ToolCall, MessageBlock, QuestionOption, QuestionData } from "../../types";
 
-export interface QuestionOption {
-  label: string;
-  description?: string;
-}
-
-export interface QuestionData {
-  questionId: string;
-  question: string;
-  header: string;
-  options: QuestionOption[];
-  multiSelect?: boolean;
-}
-
-export interface MessageBlock {
-  id: string;
-  type: "text" | "thinking" | "tool_call" | "status" | "question";
-  content: string;
-  toolCall?: ToolCall;
-  status?: string;
-  isStreaming?: boolean;
-  toolCallId?: string;
-  groupId?: string;
-  questionData?: QuestionData;
-}
+export type { ToolCall, MessageBlock, QuestionOption, QuestionData };
 
 export interface ChatMessage {
   id: string;

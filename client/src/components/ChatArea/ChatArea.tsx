@@ -1,17 +1,20 @@
-import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
-import ChatMessage from "./ChatMessage";
+import { useAutoScroll } from "../../hooks/useAutoScroll";
+import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 
 function ChatArea() {
   const { messages, error, isStreaming } = useChatStore();
   const { currentSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const prevMessageCountRef = useRef(0);
-  const isNearBottomRef = useRef(true);
+
+  const { containerRef } = useAutoScroll({
+    messageCount: messages.length,
+    isStreaming,
+  });
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
@@ -25,84 +28,6 @@ function ChatArea() {
       error.includes("NetworkError"))
       ? '后端服务未运行。请点击左侧侧边栏底部的 "未连接" 按钮查看启动说明。'
       : error;
-
-  /**
-   * 检测用户是否在底部附近
-   */
-  const checkNearBottom = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return true;
-    return (
-      container.scrollHeight - container.scrollTop - container.clientHeight <
-      100
-    );
-  }, []);
-
-  /**
-   * 自动滚动到底部
-   */
-  const scrollToBottom = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    container.scrollTop = container.scrollHeight;
-  }, []);
-
-  /**
-   * 监听滚动事件，记录用户是否在底部附近
-   */
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      isNearBottomRef.current = checkNearBottom();
-    };
-
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      container.removeEventListener("scroll", handleScroll);
-    };
-  }, [checkNearBottom]);
-
-  /**
-   * 消息数量变化时自动滚动到底部
-   */
-  useEffect(() => {
-    const prevCount = prevMessageCountRef.current;
-    prevMessageCountRef.current = messages.length;
-
-    if (messages.length > prevCount && isNearBottomRef.current) {
-      scrollToBottom();
-    }
-  }, [messages.length, scrollToBottom]);
-
-  /**
-   * 流式输出期间：用 ResizeObserver 监听容器尺寸变化，仅在内容实际增长时滚动
-   * 替代旧的 rAF 轮询方式，避免每帧强制 scrollToBottom 导致的 layout thrashing
-   */
-  useEffect(() => {
-    if (!isStreaming) return;
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    let rafPending = false;
-    const observer = new ResizeObserver(() => {
-      if (isNearBottomRef.current && !rafPending) {
-        rafPending = true;
-        requestAnimationFrame(() => {
-          rafPending = false;
-          scrollToBottom();
-        });
-      }
-    });
-
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isStreaming, scrollToBottom]);
 
   // 缓存 sessionUsage 计算，仅 messages 变化时重算 O(n)
   const sessionUsage = useMemo(() => {
@@ -168,65 +93,13 @@ function ChatArea() {
           </div>
         )}
 
-        {/* 无会话状态 */}
-        {!currentSession ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center px-8">
-              <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                <img
-                  src="/liri_logo.png"
-                  alt="Liri Logo"
-                  className="w-20 h-20 object-contain"
-                />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                欢迎使用 Liri
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400">
-                官网: https://openliri.com
-              </p>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">
-                请从左侧选择一个会话或创建新会话开始聊天
-              </p>
-            </div>
-          </div>
-        ) : messages.length === 0 ? (
-          /* 空消息状态 */
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center px-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-3xl">
-                💬
-              </div>
-              <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2">
-                {currentSession.title}
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                开始发送消息进行对话
-              </p>
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
-                  支持 Markdown 格式
-                </span>
-                <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
-                  按 Enter 发送
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* 消息列表 - 原生滚动，所有消息直接渲染 */
-          <div className="py-4">
-            {messages.map((message) => (
-                <div key={message.id} data-msg-id={message.id}>
-                  <ChatMessage
-                    message={message}
-                    isStreaming={isStreaming && message.role === "assistant"}
-                    sessionUsage={sessionUsage}
-                  />
-                </div>
-              ))}
-          </div>
-        )}
+        <ChatMessageList
+          messages={messages}
+          isStreaming={isStreaming}
+          sessionUsage={sessionUsage}
+          hasSession={!!currentSession}
+          sessionTitle={currentSession?.title}
+        />
       </div>
 
       {/* 轮次导航器 */}

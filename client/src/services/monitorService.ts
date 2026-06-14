@@ -1,4 +1,4 @@
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 import type { MetricPoint, Alert, LogEntry, SystemHealth } from "../types";
 
 export interface SessionSummary {

@@ -2,7 +2,7 @@
  * 计划/PDCA/看板 API 服务
  * 对应后端 LocalHTTPService 中的 Plans & Flows / PDCA / Kanban 处理器
  */
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 /* ========== 计划管理 ========== */
 

@@ -1727,22 +1727,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 增强用户消息：注入相关记忆作为上下文
-   */
-  private async enhanceWithMemoryContext(content: string): Promise<string> {
-    try {
-      const { MemoryIntegration } =
-        await import('@modules/memory/integrations/MemoryIntegration');
-      const { MemoryManagerImpl } =
-        await import('@modules/memory/MemoryManager');
-      const integration = new MemoryIntegration(new MemoryManagerImpl());
-      return await integration.injectMemoriesToContext(content);
-    } catch {
-      return content;
-    }
-  }
-
-  /**
    * 响应后自动提取记忆
    */
   private async extractMemoryFromChat(

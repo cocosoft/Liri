@@ -3,7 +3,7 @@
  * 对接后端 /v1/pricing/* 端点
  */
 
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 export interface ModelPricingRecord {
   id: string;

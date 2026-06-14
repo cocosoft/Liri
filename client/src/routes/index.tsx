@@ -1,98 +1,124 @@
 import { lazy } from "react";
+import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
+import AuthGuard from "../components/common/AuthGuard";
+import ChatPageLayout from "../components/layout/ChatPageLayout";
 
+// 页面组件懒加载（减少首屏体积）
+const HomePage = lazy(() => import("../components/views/HomePage"));
 const DashboardPage = lazy(() => import("../components/views/DashboardPage"));
-const LogViewerPage = lazy(() => import("../components/views/LogViewerPage"));
+const FileExplorerPage = lazy(() => import("../components/views/FileExplorerPage"));
+const CostPage = lazy(() => import("../components/views/CostPage"));
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
+const DevPage = lazy(() => import("../components/views/DevPage"));
+const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
+const SkillPage = lazy(() => import("../components/views/SkillPage"));
 const AgentPage = lazy(() => import("../components/views/AgentPage"));
+const AgentAdvancedPage = lazy(() => import("../components/views/AgentAdvancedPage"));
 const CronPage = lazy(() => import("../components/views/CronPage"));
+const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const ChannelsPage = lazy(() => import("../components/views/ChannelsPage"));
 const SettingsPage = lazy(() => import("../components/views/SettingsPage"));
+const PermissionPage = lazy(() => import("../components/views/PermissionPage"));
+const UserPage = lazy(() => import("../components/views/UserPage"));
+const HelpPage = lazy(() => import("../components/views/HelpPage"));
 const BuddyPage = lazy(() => import("../components/views/BuddyPage"));
-const FileExplorerPage = lazy(
-  () => import("../components/views/FileExplorerPage"),
-);
-const LoginPage = lazy(() => import("../components/views/LoginPage"));
-const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
-const STTTestPage = lazy(() => import("../components/views/STTTestPage"));
-const SkillMarketPage = lazy(
-  () => import("../components/views/SkillMarketPage"),
-);
-
+const SkillMarketPage = lazy(() => import("../components/views/SkillMarketPage"));
+const MCPMarketPage = lazy(() => import("../components/views/MCPMarketPage"));
 const ModelPage = lazy(() => import("../components/views/ModelPage"));
+const LoginPage = lazy(() => import("../components/views/LoginPage"));
+// routes/index.tsx 原有保留路由
+const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
-const SkillPage = lazy(() => import("../components/views/SkillPage"));
 
+/** 完整路由表——App.tsx（33 条）与 routes/index.tsx 原路由取并集，同名路由 App.tsx 优先（含 AuthGuard） */
 export const routes: RouteObject[] = [
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/apikeys",
-    element: <ApiKeyPage />,
-  },
-  {
-    path: "/dashboard",
-    element: <DashboardPage />,
-  },
-  {
-    path: "/logs",
-    element: <LogViewerPage />,
-  },
-  {
-    path: "/files",
-    element: <FileExplorerPage />,
-  },
-  {
-    path: "/knowledge",
-    element: <KnowledgePage />,
-  },
-  {
-    path: "/agent",
-    element: <AgentPage />,
-  },
-  {
-    path: "/cron",
-    element: <CronPage />,
-  },
-  {
-    path: "/tasks",
-    element: <TaskCenterPage />,
-  },
-  {
-    path: "/channels",
-    element: <ChannelsPage />,
-  },
-  {
-    path: "/settings",
-    element: <SettingsPage />,
-  },
-  {
-    path: "/buddy",
-    element: <BuddyPage />,
-  },
-  {
-    path: "/voice-stt",
-    element: <STTTestPage />,
-  },
-  {
-    path: "/skill-market",
-    element: <SkillMarketPage />,
-  },
-  {
-    path: "/skills",
-    element: <SkillPage />,
-  },
-  {
-    path: "/models",
-    element: <ModelPage />,
-  },
-  {
-    path: "/oauth",
-    element: <OAuthPage />,
-  },
+  // 登录（无 AuthGuard）
+  { path: "/login", element: <LoginPage /> },
+
+  // 首页
+  { path: "/", element: <AuthGuard><HomePage /></AuthGuard> },
+
+  // 聊天（无 AuthGuard，含内联布局）
+  { path: "/chat", element: <ChatPageLayout /> },
+
+  // 仪表盘
+  { path: "/dashboard", element: <AuthGuard><DashboardPage /></AuthGuard> },
+
+  // 文件浏览器
+  { path: "/files", element: <AuthGuard><FileExplorerPage /></AuthGuard> },
+
+  // 费用管理
+  { path: "/cost", element: <AuthGuard><CostPage /></AuthGuard> },
+
+  // 知识库
+  { path: "/knowledge", element: <AuthGuard><KnowledgePage /></AuthGuard> },
+
+  // 开发者工具
+  { path: "/dev", element: <Navigate to="/dev/terminal" replace /> },
+  { path: "/dev/:subPage", element: <AuthGuard><DevPage /></AuthGuard> },
+
+  // 记忆系统
+  { path: "/memory", element: <AuthGuard><MemoryPage /></AuthGuard> },
+
+  // 技能管理
+  { path: "/skills", element: <AuthGuard><SkillPage /></AuthGuard> },
+
+  // Agent 管理
+  { path: "/agent", element: <AuthGuard><AgentPage /></AuthGuard> },
+  { path: "/agent/advanced", element: <AuthGuard><AgentAdvancedPage /></AuthGuard> },
+
+  // 定时任务
+  { path: "/cron", element: <AuthGuard><CronPage /></AuthGuard> },
+
+  // 梦境模块
+  { path: "/dream", element: <AuthGuard><DreamPage /></AuthGuard> },
+
+  // 任务中心
+  { path: "/tasks", element: <AuthGuard><TaskCenterPage /></AuthGuard> },
+
+  // 频道管理
+  { path: "/channels", element: <AuthGuard><ChannelsPage /></AuthGuard> },
+
+  // 设置
+  { path: "/settings", element: <AuthGuard><SettingsPage /></AuthGuard> },
+
+  // 权限管理
+  { path: "/permissions", element: <AuthGuard><PermissionPage /></AuthGuard> },
+
+  // 用户管理
+  { path: "/user", element: <AuthGuard><UserPage /></AuthGuard> },
+
+  // 帮助
+  { path: "/help", element: <AuthGuard><HelpPage /></AuthGuard> },
+
+  // 伙伴系统
+  { path: "/buddy", element: <AuthGuard><BuddyPage /></AuthGuard> },
+
+  // 市场
+  { path: "/market/skills", element: <AuthGuard><SkillMarketPage /></AuthGuard> },
+  { path: "/market/mcp", element: <AuthGuard><MCPMarketPage /></AuthGuard> },
+
+  // 模型管理
+  { path: "/models", element: <AuthGuard><ModelPage /></AuthGuard> },
+
+  // 重定向路由
+  { path: "/plans", element: <Navigate to="/tasks" replace /> },
+  { path: "/semantic", element: <Navigate to="/knowledge" replace /> },
+
+  // 开发者工具重定向
+  { path: "/logs", element: <Navigate to="/dev/logs" replace /> },
+  { path: "/voice-stt", element: <Navigate to="/dev/stt-test" replace /> },
+  { path: "/terminal", element: <Navigate to="/dev/terminal" replace /> },
+  { path: "/sandbox", element: <Navigate to="/dev/sandbox" replace /> },
+  { path: "/media", element: <Navigate to="/dev/media" replace /> },
+  { path: "/autoreply", element: <Navigate to="/dev/autoreply" replace /> },
+
+  // routes/index.tsx 原有保留路由（未在 App.tsx 中出现）
+  { path: "/apikeys", element: <ApiKeyPage /> },
+  { path: "/skill-market", element: <SkillMarketPage /> },
+  { path: "/oauth", element: <OAuthPage /> },
 ];
 
 export default routes;

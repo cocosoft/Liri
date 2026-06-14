@@ -5,7 +5,7 @@ import {
   TextConfig,
   SelectConfig,
 } from "./ConfigComponents";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 /** 命令规则 */
 interface CommandRule {

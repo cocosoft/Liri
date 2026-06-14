@@ -18,16 +18,33 @@ export class MemorySummarizer {
     limit: number = 5,
     sessionContext?: SessionContext
   ): Promise<MemoryQueryResult> {
-    // 无会话上下文时，优先读取缓存，避免全量 I/O
-    if (!sessionContext && this.memoryManager.recentSummaryCache) {
+    // 优先从缓存读取，避免全量 I/O
+    // 无论是否有 sessionContext 都使用缓存的 Memory[] 对象做重排序
+    if (this.memoryManager.recentSummaryCache) {
       const cache = this.memoryManager.recentSummaryCache;
+      // 拷贝一份避免 sort 变异原数组
+      let candidates = [...cache.memories];
+      candidates.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+      // 如果提供了会话上下文，将会话内记忆移到前面
+      if (sessionContext) {
+        candidates.sort((a, b) => {
+          const aInSession = this.belongsToSession(a, sessionContext);
+          const bInSession = this.belongsToSession(b, sessionContext);
+          if (aInSession && !bInSession) return -1;
+          if (!aInSession && bInSession) return 1;
+          return b.updatedAt.getTime() - a.updatedAt.getTime();
+        });
+      }
+
+      const summaries = candidates.slice(0, limit).map((m) => this.toSummary(m));
       return {
-        summaries: cache.summaries.slice(0, limit),
+        summaries,
         totalCount: cache.totalCount,
       };
     }
 
-    // 获取所有记忆并按更新时间降序排列（本地 I/O，不走 embedding 网络调用）
+    // 缓存不存在时回退全量 I/O
     const allMemories = await this.memoryManager.getAllMemories();
     allMemories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
@@ -48,10 +65,12 @@ export class MemorySummarizer {
     const summaries = candidates.map((m) => this.toSummary(m));
     const result = { summaries, totalCount: allMemories.length };
 
-    // 无会话上下文时，更新缓存供后续使用
-    if (!sessionContext) {
-      this.memoryManager.recentSummaryCache = result;
-    }
+    // 回写缓存供后续使用
+    this.memoryManager.recentSummaryCache = {
+      memories: allMemories,
+      summaries,
+      totalCount: allMemories.length,
+    };
 
     return result;
   }

@@ -4,7 +4,7 @@ import type {
   KnowledgeBase,
   KnowledgeFile,
 } from "../types";
-import { http, HTTPClientError } from "./httpClient";
+import { httpLegacy as http, HTTPClientError } from "./httpClient";
 
 const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 

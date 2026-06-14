@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import KeyboardShortcutsHelp from "../common/KeyboardShortcutsHelp";
-import { http } from "../../services/httpClient";
+import { httpLegacy as http } from "../../services/httpClient";
 
 /** 帮助中心导航项 */
 interface HelpNavItem {

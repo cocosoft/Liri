@@ -2,7 +2,7 @@
  * 语义索引 API 服务
  * 对应后端 LocalHTTPService 中的 Semantic Index 处理器
  */
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 export interface SemanticIndexStatus {
   exists: boolean;

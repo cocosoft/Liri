@@ -1,4 +1,4 @@
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 import type { BuddyCompanion, BuddyInteractionResult } from "../types";
 
 export const buddyService = {

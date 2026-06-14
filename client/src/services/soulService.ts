@@ -4,7 +4,7 @@
  * 提供读取/保存 AI 人格定义 (SOUL.md) 和用户身份 (USER.md) 的 API 调用
  */
 
-import { http } from "./httpClient";
+import { httpLegacy as http } from "./httpClient";
 
 /** API 响应中 content 字段结构 */
 interface ContentResponse {

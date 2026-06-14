@@ -2,6 +2,10 @@
  * API 请求/响应类型 —— task 模块
  */
 
+import type { AgentProgress } from "../../types";
+
+export type { AgentProgress };
+
 export type TaskRuntime = "cli" | "cron" | "subagent" | "acp" | "daemon";
 
 export type TaskStatus =
@@ -56,13 +60,6 @@ export interface TaskDependency {
   taskId: string;
   blocks?: string[];
   blockedBy?: string[];
-}
-
-export interface AgentProgress {
-  agentId: string;
-  state: string;
-  progress: number;
-  message?: string;
 }
 
 export interface AuditEntry {

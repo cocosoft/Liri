@@ -42,18 +42,21 @@ export class EmbeddingManager {
   initialize(config?: EmbeddingConfig): void {
     if (this.initialized) return;
 
-    if (config?.defaultProvider) {
-      this.defaultProviderId = config.defaultProvider;
-    }
+    // 注册本地提供者（Ollama 等），始终可用
+    this.providers.set('local', new LocalEmbeddingProvider());
 
-    // 注册内置提供者工厂
+    // 注册 OpenAI 提供者（仅当配置或环境变量可用时）
     if (config?.openai || configManager.env('OPENAI_API_KEY')) {
       const provider = new OpenAIEmbeddingProvider(config?.openai);
       this.providers.set('openai', provider);
     }
 
-    // 注册本地提供者（Ollama 等），始终可用
-    this.providers.set('local', new LocalEmbeddingProvider());
+    // 设置默认提供者：优先使用 config 指定的，否则按可用性回退
+    if (config?.defaultProvider && this.providers.has(config.defaultProvider)) {
+      this.defaultProviderId = config.defaultProvider;
+    } else if (!this.providers.has('openai') && this.providers.has('local')) {
+      this.defaultProviderId = 'local';
+    }
 
     this.initialized = true;
   }

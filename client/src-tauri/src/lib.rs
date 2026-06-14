@@ -21,7 +21,7 @@
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
@@ -61,6 +61,46 @@ pub struct Tool {
     pub destructive: bool,
 }
 
+fn create_app_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
+    // ── 文件 ──
+    let settings = MenuItem::with_id(app, "settings", "设置", true, Some("Ctrl+,"))?;
+    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let file_menu = Submenu::with_items(app, "文件", true, &[
+        &settings,
+        &PredefinedMenuItem::separator(app)?,
+        &quit,
+    ])?;
+
+    // ── 编辑 ──
+    let edit_menu = Submenu::with_items(app, "编辑", true, &[
+        &PredefinedMenuItem::undo(app, None)?,
+        &PredefinedMenuItem::redo(app, None)?,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::cut(app, None)?,
+        &PredefinedMenuItem::copy(app, None)?,
+        &PredefinedMenuItem::paste(app, None)?,
+        &PredefinedMenuItem::select_all(app, None)?,
+    ])?;
+
+    // ── 视图 ──
+    let reload = MenuItem::with_id(app, "reload", "重新加载", true, Some("Ctrl+R"))?;
+    let devtools = MenuItem::with_id(app, "devtools", "开发者工具", true, Some("F12"))?;
+    let view_menu = Submenu::with_items(app, "视图", true, &[
+        &reload,
+        &devtools,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::fullscreen(app, None)?,
+    ])?;
+
+    // ── 帮助 ──
+    let about = MenuItem::with_id(app, "about", "关于 Liri", true, None::<&str>)?;
+    let help_menu = Submenu::with_items(app, "帮助", true, &[
+        &about,
+    ])?;
+
+    Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])
+}
+
 fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
     let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
     let hide = MenuItem::with_id(app, "hide", "隐藏窗口", true, None::<&str>)?;
@@ -83,7 +123,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // updater 插件已禁用（无更新服务器）
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .manage(AppState::default())
@@ -132,6 +172,47 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // 设置窗口顶部菜单栏
+            let app_menu = create_app_menu(handle)?;
+            app.set_menu(app_menu)?;
+
+            // 菜单事件处理
+            app.on_menu_event(|app_handle, event| {
+                let window = app_handle.get_webview_window("main");
+                match event.id().as_ref() {
+                    "settings" => {
+                        if let Some(win) = window {
+                            let _ = win.eval("window.dispatchEvent(new CustomEvent('liri:navigate', { detail: '/settings' }));");
+                        }
+                    }
+                    "reload" => {
+                        if let Some(win) = window {
+                            let _ = win.eval("location.reload();");
+                        }
+                    }
+                    "devtools" => {
+                        if let Some(win) = window {
+                            if win.is_devtools_open() {
+                                let _ = win.close_devtools();
+                            } else {
+                                let _ = win.open_devtools();
+                            }
+                        }
+                    }
+                    "about" => {
+                        if let Some(win) = window {
+                            let _ = win.eval(
+                                "alert('Liri v0.3.1 - 你的 AI 私人助手');",
+                            );
+                        }
+                    }
+                    "quit" => {
+                        app_handle.exit(0);
+                    }
+                    _ => {}
+                }
+            });
 
             let window = app.get_webview_window("main").unwrap();
             window.set_title("Liri").unwrap();

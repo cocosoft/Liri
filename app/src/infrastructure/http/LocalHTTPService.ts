@@ -895,6 +895,14 @@ export class LocalHTTPService {
     }
 
     // ---- Files ----
+    if (req.method === 'GET' && url === '/v1/files/list') {
+      const { handleFileList } = await import('./handlers/files-handlers');
+      return handleFileList(this as any, req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/files/read') {
+      const { handleFileRead } = await import('./handlers/files-handlers');
+      return handleFileRead(this as any, req, res);
+    }
     if (req.method === 'POST' && url === '/v1/files/upload') {
       return this.handleFileUpload(req, res);
     }

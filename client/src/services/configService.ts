@@ -1,69 +1,46 @@
 import { http } from "./httpClient";
 
-const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+/**
+ * 配置服务
+ * 提供键值对配置的读写，基于 HTTP API + 内存回退
+ */
 
-async function getTauriCore() {
-  if (!isTauri) return null;
-  try {
-    return await import("@tauri-apps/api/core");
-  } catch {
-    return null;
-  }
-}
+/** 内存回退存储（模块级单例） */
+const memoryStore: Record<string, unknown> = {};
 
-async function tryTauri<T>(
-  method: string,
-  args?: Record<string, unknown>,
-): Promise<T | null> {
-  const core = await getTauriCore();
-  if (!core) return null;
-  try {
-    return await core.invoke<T>(method, args);
-  } catch {
-    return null;
-  }
-}
-
-function createMemoryConfigService() {
-  const store: Record<string, unknown> = {};
-
-  return {
-    get: async (key: string): Promise<unknown> => store[key] ?? null,
-    set: async (key: string, value: unknown): Promise<void> => {
-      store[key] = value;
-    },
-    list: async (): Promise<Record<string, unknown>> => ({ ...store }),
-  };
-}
+const memoryConfigService = {
+  get: async (key: string): Promise<unknown> => memoryStore[key] ?? null,
+  set: async (key: string, value: unknown): Promise<void> => {
+    memoryStore[key] = value;
+  },
+  list: async (): Promise<Record<string, unknown>> => ({ ...memoryStore }),
+};
 
 export const configService = {
+  /** 获取配置项 */
   get: async (key: string): Promise<unknown> => {
     try {
       return await http.get<unknown>(`/v1/config/${key}`);
     } catch {
-      const result = await tryTauri<unknown>("get_config", { key });
-      if (result !== null) return result;
-      return createMemoryConfigService().get(key);
+      return memoryConfigService.get(key);
     }
   },
 
+  /** 设置配置项 */
   set: async (key: string, value: unknown): Promise<void> => {
     try {
       await http.put<void>(`/v1/config/${key}`, { value });
     } catch {
-      const result = await tryTauri<void>("set_config", { key, value });
-      if (result !== null) return;
-      return createMemoryConfigService().set(key, value);
+      return memoryConfigService.set(key, value);
     }
   },
 
+  /** 列出所有配置 */
   list: async (): Promise<Record<string, unknown>> => {
     try {
       return await http.get<Record<string, unknown>>("/v1/config");
     } catch {
-      const result = await tryTauri<Record<string, unknown>>("list_config");
-      if (result) return result;
-      return createMemoryConfigService().list();
+      return memoryConfigService.list();
     }
   },
 };

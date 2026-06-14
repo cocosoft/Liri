@@ -6,7 +6,7 @@ async function isTauriApp(): Promise<boolean> {
   if (typeof window === "undefined") {
     return false;
   }
-  if ("__TAURI__" in window) {
+  if ("__TAURI__" in window || "__TAURI_INTERNALS__" in window) {
     return true;
   }
   try {

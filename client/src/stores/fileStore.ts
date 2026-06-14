@@ -51,6 +51,7 @@ interface FileStore {
 }
 
 const CORE_DIRECTORIES: Partial<Record<FileCategory, string>> = {
+  all: "",
   output: "output",
   downloads: "downloads",
   attachments: "attachments",
@@ -60,8 +61,8 @@ const CORE_DIRECTORIES: Partial<Record<FileCategory, string>> = {
 
 export const useFileStore = create<FileStore>((set, get) => ({
   entries: [],
-  currentPath: "output",
-  currentCategory: "output",
+  currentPath: "",
+  currentCategory: "all",
   currentWorkspace: null,
   workspaces: [],
   isLoading: false,
@@ -109,7 +110,9 @@ export const useFileStore = create<FileStore>((set, get) => ({
     set({ uploading: true, error: null });
     try {
       await fileService.upload(file);
-      await get().loadDir(get().currentPath);
+      // 上传的文件保存到 attachments 目录，自动切换到该分类让用户可见
+      set({ currentCategory: "attachments", currentPath: "attachments" });
+      await get().loadDir("attachments");
     } catch (e) {
       set({ error: String(e), uploading: false });
     } finally {

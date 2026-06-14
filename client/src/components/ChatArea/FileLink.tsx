@@ -5,7 +5,7 @@ interface FileLinkProps {
   onPreview?: (path: string) => void;
 }
 
-const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 function FileLink({ filePath, onPreview }: FileLinkProps) {
   const [opening, setOpening] = useState(false);

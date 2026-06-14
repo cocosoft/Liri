@@ -112,12 +112,20 @@ interface DataDirectoryResponse {
   currentDirectory: string;
   configuredDirectory: string | null;
   defaultDirectory: string;
+  envLiriHome?: string | null;
+  envLiriDataDir?: string | null;
 }
 interface SetDataDirectoryResponse {
   success: boolean;
   message: string;
   directory: string;
-  migration?: { copied: number; skipped: number; errors: string[] };
+  migration?: {
+    copied: number;
+    skipped: number;
+    errors: string[];
+    cleaned?: number;
+    cleanedErrors?: string[];
+  };
 }
 
 /** 侧边栏选中项持久化 */
@@ -172,11 +180,16 @@ function SettingsPage() {
   const [dataDirSaved, setDataDirSaved] = useState(false);
   const [dataDirError, setDataDirError] = useState<string | null>(null);
   const [migrateData, setMigrateData] = useState(true);
+  const [migrating, setMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<{
     copied: number;
     skipped: number;
     errors: string[];
+    cleaned?: number;
+    cleanedErrors?: string[];
   } | null>(null);
+  const [envLiriHome, setEnvLiriHome] = useState<string | null>(null);
+  const [envLiriDataDir, setEnvLiriDataDir] = useState<string | null>(null);
   const isDark = config.theme === "dark";
 
   /** 导航切换 */
@@ -208,6 +221,8 @@ function SettingsPage() {
         setDataDirectory(r.currentDirectory || "");
         setConfiguredDirectory(r.configuredDirectory || null);
         setDefaultDirectory(r.defaultDirectory || "");
+        if ('envLiriHome' in r) setEnvLiriHome(r.envLiriHome ?? null);
+        if ('envLiriDataDir' in r) setEnvLiriDataDir(r.envLiriDataDir ?? null);
       }
     } catch {
       /* ignore */
@@ -221,6 +236,7 @@ function SettingsPage() {
     setDataDirSaved(false);
     setDataDirError(null);
     setMigrationResult(null);
+    setMigrating(migrateData);
     try {
       const r = await http.put<SetDataDirectoryResponse>(
         "/v1/settings/data-directory",
@@ -233,10 +249,12 @@ function SettingsPage() {
         setTimeout(() => {
           setDataDirSaved(false);
           setMigrationResult(null);
-        }, 5000);
+        }, 8000);
       }
     } catch (e: any) {
       setDataDirError(e.response?.data?.error?.message || "保存失败");
+    } finally {
+      setMigrating(false);
     }
   };
   const handleResetDataDirectory = async () => {
@@ -277,7 +295,7 @@ function SettingsPage() {
         httpPort: port,
       });
       setBackendUrlPort(port);
-      if (typeof window !== "undefined" && "__TAURI__" in window) {
+      if (typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)) {
         try {
           const c = await import("@tauri-apps/api/core");
           if (c && typeof c.invoke === "function")
@@ -695,8 +713,32 @@ function SettingsPage() {
   }
 
   function renderDataStorage() {
+    // 构建生效目录信息行
+    const effectiveDir = configuredDirectory || defaultDirectory || dataDirectory;
+    let envInfo: string | null = null;
+    if (envLiriHome && configuredDirectory && envLiriHome !== configuredDirectory) {
+      envInfo = `环境变量 LIRI_HOME 已设置 → ${envLiriHome}（设置页保存的目录优先）`;
+    } else if (envLiriHome && !configuredDirectory) {
+      envInfo = `环境变量 LIRI_HOME 已设置 → ${envLiriHome}`;
+    } else if (envLiriDataDir) {
+      envInfo = `环境变量 LIRI_DATA_DIR 已设置 → ${envLiriDataDir}`;
+    }
+
     return (
       <ConfigSection title="数据目录" description="配置数据文件存储位置" isDark={isDark}>
+        {/* 当前生效目录提示行 */}
+        <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs">
+          <p className="text-blue-700 dark:text-blue-300">
+            <span className="font-medium">当前生效目录：</span>
+            <code className="ml-1">{effectiveDir}</code>
+          </p>
+          {envInfo && (
+            <p className="text-yellow-600 dark:text-yellow-400 mt-1">
+              ⚠️ {envInfo}
+            </p>
+          )}
+        </div>
+
         <input
           type="text"
           value={dataDirectory}
@@ -730,18 +772,33 @@ function SettingsPage() {
             迁移现有数据
           </label>
         </div>
+
+        {/* 迁移进度指示 */}
+        {migrating && (
+          <div className="mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-amber-700 dark:text-amber-300">
+                正在迁移数据，请稍候...
+              </span>
+            </div>
+          </div>
+        )}
+
         {migrationResult && <MigrationResult result={migrationResult} />}
         <div className="flex gap-2 mt-3">
           <button
             onClick={handleSaveDataDirectory}
-            className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={migrating}
+            className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             应用
           </button>
           {configuredDirectory && (
             <button
               onClick={handleResetDataDirectory}
-              className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+              disabled={migrating}
+              className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               恢复默认
             </button>
@@ -920,21 +977,46 @@ function ApiKeyContent() {
 function MigrationResult({
   result,
 }: {
-  result: { copied: number; skipped: number; errors: string[] };
+  result: {
+    copied: number;
+    skipped: number;
+    errors: string[];
+    cleaned?: number;
+    cleanedErrors?: string[];
+  };
 }) {
   return (
     <div
-      className={`p-3 rounded ${result.errors.length > 0 ? "bg-yellow-50 dark:bg-yellow-900/20" : "bg-green-50 dark:bg-green-900/20"}`}
+      className={`mt-3 p-3 rounded ${
+        result.errors.length > 0
+          ? "bg-yellow-50 dark:bg-yellow-900/20"
+          : "bg-green-50 dark:bg-green-900/20"
+      }`}
     >
       <p className="text-sm text-gray-700 dark:text-gray-300">
         迁移完成：<span className="font-medium">{result.copied}</span>{" "}
         个已迁移，{result.skipped} 个已跳过
       </p>
+      {result.cleaned !== undefined && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          旧目录已清理 {result.cleaned} 项，释放磁盘空间
+        </p>
+      )}
       {result.errors.length > 0 && (
         <div className="mt-2">
           <p className="text-xs text-red-500">迁移错误:</p>
           {result.errors.slice(0, 3).map((err, idx) => (
             <p key={idx} className="text-xs text-red-500">
+              {err}
+            </p>
+          ))}
+        </div>
+      )}
+      {result.cleanedErrors && result.cleanedErrors.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs text-yellow-500">旧目录清理警告:</p>
+          {result.cleanedErrors.slice(0, 3).map((err, idx) => (
+            <p key={idx} className="text-xs text-yellow-500">
               {err}
             </p>
           ))}

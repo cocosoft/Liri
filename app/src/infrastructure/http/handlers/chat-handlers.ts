@@ -452,11 +452,17 @@ export async function handleGetDataDirectory(
     const defaultDir = resolvePyappHome();
     if (savedOverride) setUserDataDirOverride(savedOverride);
 
+    // 读取环境变量，判断是否有外部覆盖
+    const envLiriHome = process.env['LIRI_HOME']?.trim() || null;
+    const envLiriDataDir = process.env['LIRI_DATA_DIR']?.trim() || null;
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       currentDirectory: currentDir,
       configuredDirectory: configuredDir || null,
       defaultDirectory: defaultDir,
+      envLiriHome,
+      envLiriDataDir,
     }));
   } catch (error) {
     // 使用 Logger 记录错误

@@ -1,7 +1,7 @@
 import type { Message, Session } from "../types";
 import { http } from "./httpClient";
 
-const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 // 是否已降级到内存模式（后端不可用时设为 true）
 let _isUsingFallback = false;

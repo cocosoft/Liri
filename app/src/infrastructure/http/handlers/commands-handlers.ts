@@ -231,6 +231,8 @@ export async function handleSetDataDirectory(
         copied: number;
         skipped: number;
         errors: string[];
+        cleaned?: number;
+        cleanedErrors?: string[];
       } | null = null;
       if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
         // 阶段一：写迁移令牌，标记迁移进行中
@@ -277,6 +279,11 @@ export async function handleSetDataDirectory(
         } catch {
           // 非致命：标记写入失败不影响目录切换
         }
+
+        // 阶段三：迁移成功后清理旧目录内容，释放磁盘空间
+        const { cleaned, cleanedErrors } = cleanupOldDirectory(currentDir, fs, path);
+        migrationResult.cleaned = cleaned;
+        migrationResult.cleanedErrors = cleanedErrors;
       }
 
       // 设置全局覆盖
@@ -287,13 +294,17 @@ export async function handleSetDataDirectory(
         await import('@modules/config/settings/userSettings');
       await updateUserSettings({ dataDirectory: resolvedDir });
 
+      const migrationSummary = migrationResult
+        ? `数据目录已更新，已迁移 ${migrationResult.copied} 个文件，跳过 ${migrationResult.skipped} 个文件`
+        : '数据目录已更新';
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           success: true,
-          message: migrationResult
-            ? `数据目录已更新，已迁移 ${migrationResult.copied} 个文件，跳过 ${migrationResult.skipped} 个文件`
-            : '数据目录已更新',
+          message: migrationResult?.cleaned
+            ? `${migrationSummary}，已清理旧目录 ${migrationResult.cleaned} 项`
+            : migrationSummary,
           directory: resolvedDir,
           migration: migrationResult,
         })
@@ -336,6 +347,51 @@ function rollbackMigration(
     } catch {
       // 回滚清理失败不影响主流程，数据保留在原目录
     }
+  }
+
+  /**
+   * 迁移成功后清理旧目录内容，释放磁盘空间
+   * 只清理已成功复制的子目录和文件，保留旧目录根节点
+   * @param oldDir 原数据目录
+   * @param fs fs 模块
+   * @param path path 模块
+   * @returns 清理结果统计
+   */
+function cleanupOldDirectory(
+    oldDir: string,
+    fs: any,
+    path: any
+  ): { cleaned: number; cleanedErrors: string[] } {
+    let cleaned = 0;
+    const cleanedErrors: string[] = [];
+
+    try {
+      if (!fs.existsSync(oldDir)) {
+        return { cleaned, cleanedErrors };
+      }
+
+      const entries = fs.readdirSync(oldDir, { withFileTypes: true });
+      for (const entry of entries) {
+        // 跳过 .migrating 等标记文件和隐藏元文件
+        if (entry.name.startsWith('.')) continue;
+
+        const entryPath = path.join(oldDir, entry.name);
+        try {
+          if (entry.isDirectory()) {
+            fs.rmSync(entryPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(entryPath);
+          }
+          cleaned++;
+        } catch (err) {
+          cleanedErrors.push(`清理 ${entryPath} 失败: ${(err as Error).message}`);
+        }
+      }
+    } catch (err) {
+      cleanedErrors.push(`读取旧目录失败: ${(err as Error).message}`);
+    }
+
+    return { cleaned, cleanedErrors };
   }
 
   // ──────────────────────────────────────────────

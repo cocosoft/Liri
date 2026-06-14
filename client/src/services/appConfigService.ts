@@ -4,7 +4,7 @@ export interface AppConfig {
   firstRunCompleted: boolean;
 }
 
-const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 function defaultConfig(): AppConfig {
   const homeDir =

@@ -23,5 +23,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    Liri_client_lib::run();
+    liri_client_lib::run();
 }

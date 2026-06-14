@@ -1,16 +1,13 @@
 import type { FileEntry, WorkspaceInfo, FileRegistryRecord, FileSearchParams, FileSearchResult, FileStats } from "../types";
 import { http } from "./httpClient";
 
-const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
-
-async function getTauriCore() {
-  if (!isTauri) return null;
-  try {
-    return await import("@tauri-apps/api/core");
-  } catch {
-    return null;
-  }
-}
+/**
+ * 检测是否运行在 Tauri WebView 环境中。
+ * Tauri v1 使用 window.__TAURI__，Tauri v2 使用 window.__TAURI_INTERNALS__。
+ */
+const isTauri = typeof window !== "undefined" && (
+  "__TAURI__" in window || "__TAURI_INTERNALS__" in window
+);
 
 export interface ConvertFileOptions {
   filePath: string;
@@ -77,15 +74,25 @@ function createFallbackFileService() {
 
 function createTauriFileService() {
   return {
+    // 走 HTTP API 而非 Tauri IPC（后端 Rust 命令未实现）
     listDir: async (path: string): Promise<FileEntry[]> => {
-      const core = await getTauriCore();
-      if (!core) return createFallbackFileService().listDir(path);
-      return core.invoke<FileEntry[]>("list_files", { path });
+      try {
+        const result = await http.get<FileEntry[]>("/v1/files/list", { params: { path } });
+        return result;
+      } catch (e) {
+        // 将原始错误传递出去，让 UI 层展示真实错误信息
+        throw new Error(
+          `无法列出目录内容: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
     },
     readFile: async (path: string): Promise<string> => {
-      const core = await getTauriCore();
-      if (!core) return createFallbackFileService().readFile(path);
-      return core.invoke<string>("read_file", { path });
+      try {
+        const result = await http.get<{ content: string }>("/v1/files/read", { params: { path } });
+        return result.content;
+      } catch {
+        throw new Error("无法读取文件");
+      }
     },
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
@@ -99,10 +106,7 @@ function createTauriFileService() {
       try {
         return await http.get<WorkspaceInfo[]>("/v1/workspaces");
       } catch {
-        const core = await getTauriCore();
-        if (!core) return [];
-        const result = await core.invoke<WorkspaceInfo[]>("list_workspaces");
-        return result || [];
+        return [];
       }
     },
     sendToAI: async (filePath: string): Promise<void> => {

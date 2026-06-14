@@ -28,6 +28,126 @@ import { createChatManager } from '@modules/chat/ChatManager';
 import { readRequestBody } from './handler-utils';
 import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
 
+// 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
+function resolveStorePath(rawPath: string): string {
+  const { isAbsolute, resolve, join } = require('node:path');
+
+  // 空路径或 "." 表示 LIRI_HOME（~/.pyapp/），展示全目录
+  if (!rawPath || rawPath === '.') {
+    return process.env.LIRI_HOME || process.env.PYAPP_HOME || join(require('node:os').homedir(), '.pyapp');
+  }
+
+  const firstSegment = rawPath.split(/[/\\]/).filter(Boolean)[0] || rawPath;
+
+  // 尝试从环境变量中获取已知目录的绝对路径
+  const ENV_MAP: Record<string, string | undefined> = {
+    output: process.env.OUTPUT_DIR,
+    downloads: process.env.DOWNLOADS_DIR,
+    attachments: process.env.ATTACHMENTS_DIR || (() => {
+      // 从已知解析函数回退
+      try {
+        const { resolveAttachmentsDir } = require('@modules/core/paths');
+        return resolveAttachmentsDir();
+      } catch { return undefined; }
+    })(),
+    home: process.env.LIRI_HOME || process.env.PYAPP_HOME,
+  };
+
+  const base = ENV_MAP[firstSegment];
+  if (base) {
+    const rest = rawPath.slice(firstSegment.length).replace(/^[/\\]/, '');
+    return rest ? join(base, rest) : base;
+  }
+  return isAbsolute(rawPath) ? rawPath : resolve(rawPath);
+}
+
+/**
+ * 处理文件系统目录列表请求
+ * GET /v1/files/list?path=output
+ * 列出指定目录下的文件和子目录
+ */
+export async function handleFileList(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const rawPath = url.searchParams.get('path') || '.';
+    const absPath = resolveStorePath(rawPath);
+
+    const { readdirSync, statSync, existsSync } = require('node:fs');
+    if (!existsSync(absPath)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    const names = readdirSync(absPath, { withFileTypes: true });
+    const entries = names.map((dirent: any) => {
+      const fullPath = require('node:path').join(absPath, dirent.name);
+      let size: number | undefined;
+      let modifiedAt: number | undefined;
+      try {
+        const stat = statSync(fullPath);
+        size = stat.size;
+        modifiedAt = stat.mtimeMs;
+      } catch {
+        // 权限不足时跳过 stat
+      }
+      return {
+        name: dirent.name,
+        path: fullPath,
+        type: dirent.isDirectory() ? 'directory' : 'file',
+        size,
+        modified_at: modifiedAt ? Math.floor(modifiedAt) : undefined,
+      };
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(entries));
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 处理文件读取请求
+ * GET /v1/files/read?path=output/xxx.md
+ * 读取指定文件内容并返回
+ */
+export async function handleFileRead(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const rawPath = url.searchParams.get('path') || '';
+    if (!rawPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'path is required' } }));
+      return;
+    }
+
+    const absPath = resolveStorePath(rawPath);
+
+    const { readFileSync, existsSync } = require('node:fs');
+    if (!existsSync(absPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '文件不存在' } }));
+      return;
+    }
+
+    const content = readFileSync(absPath, 'utf-8');
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ content }));
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
 // ========== Files Handlers ==========
 
 export async function handleFileUpload(

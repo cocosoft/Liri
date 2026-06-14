@@ -299,7 +299,7 @@ export type FileSource =
   | 'tool_write' | 'tool_download' | 'tool_generate'
   | 'auto_ingest' | 'artifact' | 'notebook' | 'archive_extracted';
 
-export type FileCategory = "output" | "downloads" | "attachments" | "knowledge" | "memory" | "inbound" | "media" | "artifact" | "notebook";
+export type FileCategory = "all" | "output" | "downloads" | "attachments" | "knowledge" | "memory" | "inbound" | "media" | "artifact" | "notebook";
 
 /** 当前模型状态（用于状态栏） */
 export interface CurrentModelInfo {

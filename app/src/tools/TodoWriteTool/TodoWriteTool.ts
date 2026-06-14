@@ -324,11 +324,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   name = 'todo_write';
 
   /** 工具描述 */
-  description =
+  override description =
     'Manage a todo list for tracking tasks. Create, update, and complete todos.';
 
   /** 最大结果大小 */
-  maxResultSizeChars = 10000;
+  override maxResultSizeChars = 10000;
 
   /** 工具参数 */
   params: ToolParam[] = [
@@ -386,31 +386,31 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   ];
 
   /** 工具别名 */
-  aliases = ['todo', 'tasks', 'todo_list', 'create_task_list'];
+  override aliases = ['todo', 'tasks', 'todo_list', 'create_task_list'];
 
   /**
    * 搜索提示
    */
-  searchHint = 'Manage tasks';
+  override searchHint = 'Manage tasks';
 
   /**
    * 检查工具是否只读
    */
-  isReadOnly(_input?: Record<string, unknown>): boolean {
+  override isReadOnly(_input?: Record<string, unknown>): boolean {
     return false;
   }
 
   /**
    * 检查工具是否并发安全
    */
-  isConcurrencySafe(_input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(_input?: Record<string, unknown>): boolean {
     return true;
   }
 
   /**
    * 验证输入
    */
-  validateInput(
+  override validateInput(
     input: Record<string, unknown>
   ): { result: true } | { result: false; message: string; errorCode?: number } {
     const validActions = [
@@ -453,7 +453,7 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /**
    * 获取用户可见的工具名称
    */
-  userFacingName(input?: Partial<Record<string, unknown>>): string {
+  override userFacingName(input?: Partial<Record<string, unknown>>): string {
     const action = (input?.action as string) || '';
     const content = (input?.content as string) || '';
     const sessionId = (input?.session_id as string) || 'default';
@@ -479,7 +479,7 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /**
    * 获取活动描述
    */
-  getActivityDescription(
+  override getActivityDescription(
     input?: Partial<Record<string, unknown>>
   ): string | null {
     const action = (input?.action as string) || '';
@@ -507,7 +507,7 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /**
    * 获取工具使用摘要
    */
-  getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
     const action = (input?.action as string) || '';
     const content = (input?.content as string) || '';
     const sessionId = (input?.session_id as string) || 'default';

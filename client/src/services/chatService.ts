@@ -39,7 +39,7 @@ async function getTauriCore() {
   if (typeof window === "undefined") {
     return null;
   }
-  if (!("__TAURI__" in window)) {
+  if (!("__TAURI__" in window) && !("__TAURI_INTERNALS__" in window)) {
     return null;
   }
   try {

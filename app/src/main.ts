@@ -365,7 +365,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     modelRouter.setCurrentModel(modelArg);
   }
 
-  const httpPort = parseHttpPortFromArgs(options.args) || 0;
+  const httpPort = parseHttpPortFromArgs(options.args) || 7890;
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
 
   // 解析 --trust-level 参数（场景选择联动）

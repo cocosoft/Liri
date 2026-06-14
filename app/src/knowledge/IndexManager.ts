@@ -35,6 +35,7 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core/paths';
+import type { EventBus } from '@modules/core/events/EventBus';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -62,13 +63,16 @@ export interface LogEntry {
 export class IndexManager {
   private knowledgeRoot: string;
   private domainName?: string;
+  private eventBus?: EventBus;
 
   /**
    * @param knowledgeRoot 知识库根目录，默认 ~/.pyapp/knowledge/
    * @param domainName 域名称（可选）。指定后默认路径为域目录
+   * @param eventBus 事件总线（可选）。传入后监听知识变更事件，自动刷新文本索引
    */
-  constructor(knowledgeRoot?: string, domainName?: string) {
+  constructor(knowledgeRoot?: string, domainName?: string, eventBus?: EventBus) {
     this.domainName = domainName;
+    this.eventBus = eventBus;
     if (knowledgeRoot) {
       this.knowledgeRoot = knowledgeRoot;
     } else if (domainName) {
@@ -76,6 +80,13 @@ export class IndexManager {
     } else {
       this.knowledgeRoot = resolveKnowledgeDir();
     }
+
+    // 监听知识变更事件，自动刷新文本索引
+    this.eventBus?.subscribe('knowledge:changed', () => {
+      this.updateIndexMd().catch((err) => {
+        logger.error('知识变更后 index.md 刷新失败', { error: String(err) });
+      });
+    });
   }
 
   /**

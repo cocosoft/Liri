@@ -13,7 +13,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ImageProcessor } from '../../media/image/ImageProcessor';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
-import { KnowledgeBaseWriter } from '../../memory/services/KnowledgeBaseWriter';
+import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 
 /**
  * 分析操作类型

@@ -79,11 +79,11 @@ function parseArgs(): ScriptOptions {
 
 /**
  * 查找编译后的二进制文件
- * 按优先级查找：py_app(.exe) > py_app_coding(.exe) > py_app_personal(.exe)
+ * 按优先级查找：liri_coding(.exe) > py_app(.exe) > py_app_personal(.exe)
  */
 function findCompiledBinary(): string | null {
   const isWin = process.platform === 'win32';
-  const candidates = ['py_app', 'py_app_coding', 'py_app_personal'];
+  const candidates = ['liri_coding', 'py_app', 'py_app_personal'];
 
   for (const name of candidates) {
     const fullPath = join(DIST_DIR, isWin ? `${name}.exe` : name);

@@ -25,7 +25,7 @@
  *   L0: 系统消息中附带 index.md 全文（~2K tokens）
  *   L1: LLM 自行判断是否需要深入阅读
  *   L2: LLM 调用 searchPages() 获取特定页面的全文
- *   L3: 必要时使用语义搜索 (EmbeddingService)
+ *   L3: 必要时使用语义搜索（基于 EmbeddingManager）
  *
  * 使用方式：
  *   1. getIndexContext() → 返回 index.md 全文供注入 system prompt
@@ -37,7 +37,7 @@ import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core/paths';
-import { EmbeddingService } from './EmbeddingService';
+import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
 import { IndexManager } from './IndexManager';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -66,18 +66,18 @@ export interface RagResult {
  */
 export class AutoRagService {
   private knowledgeRoot: string;
-  private embeddingService: EmbeddingService;
+  private embeddingManager: EmbeddingManager;
   private indexManager: IndexManager;
   private domainName?: string;
 
   /**
    * @param knowledgeRoot 知识库根目录
-   * @param embeddingService 可选，提供 L3 语义搜索能力
+   * @param embeddingManager 可选，提供 L3 语义搜索能力
    * @param domainName 域名称（可选）。指定后检索限缩到域目录
    */
   constructor(
     knowledgeRoot?: string,
-    embeddingService?: EmbeddingService,
+    embeddingManager?: EmbeddingManager,
     domainName?: string
   ) {
     this.domainName = domainName;
@@ -90,8 +90,7 @@ export class AutoRagService {
       this.knowledgeRoot = resolveKnowledgeDir();
     }
 
-    this.embeddingService = embeddingService ||
-      new EmbeddingService(undefined, this.knowledgeRoot);
+    this.embeddingManager = embeddingManager || globalEmbeddingManager;
 
     this.indexManager = new IndexManager(this.knowledgeRoot, domainName);
   }
@@ -173,36 +172,91 @@ export class AutoRagService {
    * 语义搜索 wiki 页面
    * L3 级检索 — 当 L2 无结果时使用
    *
+   * 内部实现：遍历知识库所有 .md 页面，嵌入查询后逐页计算余弦相似度。
+   *
    * @param query 自然语言查询
    * @param topK 返回条数，默认 3
    * @returns 按相似度降序排列的结果
    */
   async semanticSearch(query: string, topK: number = 3): Promise<RagResult[]> {
-    const hits = await this.embeddingService.searchWiki(query, topK);
+    const pages = await this.listMdPages();
+    if (pages.length === 0) return [];
 
-    return await Promise.all(
-      hits.map(async (hit) => {
-        let content = '';
+    // 确保 EmbeddingManager 已初始化（幂等）
+    this.embeddingManager.initialize();
 
-        try {
-          const filePath = join(this.knowledgeRoot, hit.filename);
-          content = await readFile(filePath, 'utf-8');
-        } catch {
-          content = hit.snippet;
-        }
+    const queryVec = await this.embeddingManager.embedOne(query);
+    if (!queryVec || queryVec.length === 0) return [];
 
-        const { kind } = this.parseFrontmatter(content);
+    const scored: Array<{
+      filename: string;
+      title: string;
+      kind: string;
+      snippet: string;
+      score: number;
+    }> = [];
 
-        return {
-          filename: hit.filename,
-          title: hit.title,
-          kind,
-          content,
-          source: 'L3-semantic' as const,
-          score: hit.score,
-        };
-      })
-    );
+    for (const filename of pages) {
+      const filePath = join(this.knowledgeRoot, filename);
+      let content: string;
+
+      try {
+        content = await readFile(filePath, 'utf-8');
+      } catch {
+        continue;
+      }
+
+      // 去掉 frontmatter，获取纯正文
+      const body = content.replace(/^---[\s\S]*?---\n*/, '').trim() || content;
+      if (!body) continue;
+
+      const pageVec = await this.embeddingManager.embedOne(body);
+      if (!pageVec || pageVec.length === 0) continue;
+
+      const score = this.cosineSimilarity(queryVec, pageVec);
+      if (score <= 0.3) continue;
+
+      const { title, kind } = this.parseFrontmatter(content);
+      scored.push({
+        filename,
+        title: title || filename.replace(/\.md$/, '').replace(/[-_]/g, ' '),
+        kind,
+        snippet: body.slice(0, 200),
+        score,
+      });
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.slice(0, topK);
+
+    return top.map((hit) => ({
+      filename: hit.filename,
+      title: hit.title,
+      kind: hit.kind,
+      content: hit.snippet,
+      source: 'L3-semantic' as const,
+      score: hit.score,
+    }));
+  }
+
+  /**
+   * 计算两个向量之间的余弦相似度
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0;
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    return denominator === 0 ? 0 : dotProduct / denominator;
   }
 
   // -----------------------------------------------------------------------

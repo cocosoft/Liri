@@ -107,7 +107,7 @@ git push origin "v$version"
 ```powershell
 cd app
 bun run build:win
-# 产物在 dist/py_app_coding.exe
+# 产物在 dist/liri_coding.exe
 ```
 
 ### 3.2 Tauri 桌面客户端打包

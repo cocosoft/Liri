@@ -49,7 +49,7 @@ COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_
 # 编译为独立二进制（等同 Windows 版 bun build --compile --target=bun-windows-x64-modern）
 RUN bun build --compile \
     --target=bun-linux-x64-musl-modern \
-    --outfile=/app/dist/py_app_coding \
+    --outfile=/app/dist/liri_coding \
     src/pyapp.ts
 
 # =============================================================================
@@ -68,8 +68,8 @@ RUN addgroup -S pyapp && adduser -S pyapp -G pyapp
 WORKDIR /app
 
 # ── 复制编译产物 ──
-# 独立二进制（等同 Windows 版的 py_app_coding.exe）
-COPY --from=app-builder /app/dist/py_app_coding /app/py_app_coding
+# 独立二进制（等同 Windows 版的 liri_coding.exe）
+COPY --from=app-builder /app/dist/liri_coding /app/liri_coding
 
 # 原生插件（运行时按需加载，不存在时优雅降级）
 COPY --from=app-builder /app/native/target/release/libpy_app_native.so \
@@ -112,6 +112,6 @@ ENV LIRI_PROJECT_DIR=/app \
 
 EXPOSE 3000
 
-# 运行独立二进制（等同 Windows 版双击 py_app_coding.exe）
+# 运行独立二进制（等同 Windows 版双击 liri_coding.exe）
 # 可通过 docker run -e LAUNCH_MODE=mcp 切换为 MCP 服务模式
-CMD ["/app/py_app_coding"]
+CMD ["/app/liri_coding"]

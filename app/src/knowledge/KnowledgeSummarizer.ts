@@ -1,17 +1,41 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF SERVICE, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
  * 知识摘要服务（知识库 → 提示词适配层）
- * 包装 HybridKnowledgeRouter + KnowledgeDigestService，为 systemPromptSections 提供知识库查询接口
+ * 包装 KnowledgeRouter + KnowledgeDigestService，为 systemPromptSections 提供知识库查询接口
  *
- * 查询策略（实施方案 2.12）：
+ * 查询策略：
  *   1. 优先使用预编译摘要（KnowledgeDigestService）
- *   2. 摘要不可用时回退到混合搜索（HybridKnowledgeRouter — 关键词 + 语义双通道）
+ *   2. 摘要不可用时回退到混合搜索（KnowledgeRouter — 关键词 + 语义双通道）
+ *
+ * 迁移自 memory/services/KnowledgeSummarizer.ts。
  */
+
 import { getDefaultDigestService } from '@modules/knowledge/KnowledgeDigestService';
-import type { IKnowledgeSearch } from '../../docs/KnowledgeRouter';
+import type { IKnowledgeSearch } from '../docs/knowledge-types';
 import type {
   KnowledgeSummary,
   KnowledgeQueryResult as KQR,
-} from '../../services/prompt/KnowledgePromptProvider';
+} from '../services/prompt/KnowledgePromptProvider';
 
 export type { KnowledgeSummary };
 

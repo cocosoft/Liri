@@ -404,9 +404,9 @@ const knowledgeCommand = {
     const { page = 1, pageSize = 5 } = options || {};
     const offset = (page - 1) * pageSize;
 
-    const { getHybridKnowledgeRouter } =
-      await import('@modules/knowledge/HybridKnowledgeRouter.js');
-    const router = await getHybridKnowledgeRouter();
+    const { getKnowledgeRouter } =
+      await import('@modules/knowledge/KnowledgeRouter.js');
+    const router = await getKnowledgeRouter();
     const allResults = await router.search(query, {
       maxResults: offset + pageSize,
     });

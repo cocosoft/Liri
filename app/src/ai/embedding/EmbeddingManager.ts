@@ -10,6 +10,7 @@ import {
   EmbeddingResult,
 } from './EmbeddingBase';
 import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
+import { LocalEmbeddingProvider } from './providers/LocalEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
 import { configManager } from '@modules/config';
 
@@ -50,6 +51,9 @@ export class EmbeddingManager {
       const provider = new OpenAIEmbeddingProvider(config?.openai);
       this.providers.set('openai', provider);
     }
+
+    // 注册本地提供者（Ollama 等），始终可用
+    this.providers.set('local', new LocalEmbeddingProvider());
 
     this.initialized = true;
   }

@@ -40,7 +40,7 @@ export async function handleBuildSemanticIndex(
       const result = await builder.build({
         rootDir,
         incremental,
-        embedOptions: { provider: 'ollama' },
+        embedProvider: 'local',
         onProgress: (phase, done, total) => {
           logger.info(`Semantic index building: ${phase} ${done}/${total}`);
         },
@@ -72,16 +72,17 @@ export async function handleSearchSemantic(
       }
 
       const { SemanticStore } = await import('@modules/knowledge/semantic/store');
-      const { embed } = await import('@modules/knowledge/semantic/embedding');
+      const { globalEmbeddingManager } = await import('@modules/ai/embedding/EmbeddingManager');
       const { resolveDataSubDir } = await import('@modules/core/paths');
       const store = new SemanticStore(
         resolveDataSubDir('semantic-index'),
-        { provider: 'ollama', model: 'all-minilm' }
+        { provider: 'local', model: 'nomic-embed-text' }
       );
       await store.load();
 
-      const embedding = await embed(query, { provider: 'ollama' });
-      const hits = store.search(embedding, topK, minScore);
+      globalEmbeddingManager.initialize();
+      const embedding = await globalEmbeddingManager.embedOne(query);
+      const hits = store.search(new Float32Array(embedding), topK, minScore);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(hits));

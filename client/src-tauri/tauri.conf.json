@@ -28,7 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/py_app_coding"],
+    "externalBin": ["binaries/liri_coding"],
     "resources": [],
     "icon": [
       "icons/icon.png",

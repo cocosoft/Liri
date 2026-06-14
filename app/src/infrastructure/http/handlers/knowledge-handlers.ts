@@ -124,11 +124,11 @@ export async function handleSearchKnowledge(
         res.end(JSON.stringify([]));
         return;
       }
-      const { HybridKnowledgeRouter } =
-        await import('@modules/knowledge/HybridKnowledgeRouter');
+      const { KnowledgeRouter } =
+        await import('@modules/knowledge/KnowledgeRouter');
       const { knowledgeDocsProvider } =
         await import('@modules/docs/FileDocsProvider');
-      const router = new HybridKnowledgeRouter(knowledgeDocsProvider);
+      const router = new KnowledgeRouter(knowledgeDocsProvider);
       const routes = await router.search(query, { maxResults: 20 });
       const result = routes.map((route: any) => ({
         id: `knowledge-${route.docPath}`,

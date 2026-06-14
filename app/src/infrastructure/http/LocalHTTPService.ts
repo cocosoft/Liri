@@ -2804,11 +2804,11 @@ export class LocalHTTPService {
         res.end(JSON.stringify([]));
         return;
       }
-      const { HybridKnowledgeRouter } =
-        await import('@modules/knowledge/HybridKnowledgeRouter');
+      const { KnowledgeRouter } =
+        await import('@modules/knowledge/KnowledgeRouter');
       const { knowledgeDocsProvider } =
         await import('@modules/docs/FileDocsProvider');
-      const router = new HybridKnowledgeRouter(knowledgeDocsProvider);
+      const router = new KnowledgeRouter(knowledgeDocsProvider);
       const routes = await router.search(query, { maxResults: 20 });
       const result = routes.map((route: any) => ({
         id: `knowledge-${route.docPath}`,
@@ -8509,7 +8509,7 @@ export class LocalHTTPService {
       const result = await builder.build({
         rootDir,
         incremental,
-        embedOptions: { provider: 'ollama' },
+        embedProvider: 'local',
         onProgress: (phase, done, total) => {
           logger.info(`Semantic index building: ${phase} ${done}/${total}`);
         },
@@ -8541,16 +8541,22 @@ export class LocalHTTPService {
       }
 
       const { SemanticStore } = await import('@modules/knowledge/semantic/store');
-      const { embed } = await import('@modules/knowledge/semantic/embedding');
+      const { globalEmbeddingManager } = await import('@modules/ai/embedding/EmbeddingManager');
       const { resolveDataSubDir } = await import('@modules/core/paths');
       const store = new SemanticStore(
         resolveDataSubDir('semantic-index'),
-        { provider: 'ollama', model: 'all-minilm' }
+        { provider: 'local', model: 'nomic-embed-text' }
       );
       await store.load();
 
-      const embedding = await embed(query, { provider: 'ollama' });
-      const hits = store.search(embedding, topK, minScore);
+      globalEmbeddingManager.initialize();
+      const embedding = await globalEmbeddingManager.embedOne(query);
+      if (embedding.length === 0) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Embedding failed' } }));
+        return;
+      }
+      const hits = store.search(new Float32Array(embedding), topK, minScore);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(hits));

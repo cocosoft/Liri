@@ -1,7 +1,7 @@
 import type {
   KnowledgeRoute,
   IKnowledgeSearch,
-} from '../../docs/KnowledgeRouter';
+} from '../../docs/knowledge-types';
 import type { Memory } from '../types/Memory';
 
 export interface MemorySearchProvider {

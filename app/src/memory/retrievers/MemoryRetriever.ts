@@ -3,7 +3,7 @@ import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs/promises';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { EmbeddingService } from '../services/EmbeddingService';
+import { globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
@@ -237,11 +237,6 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   private indexLoaded: boolean = false;
 
   /**
-   * 嵌入服务（可选，用于语义搜索）
-   */
-  private embeddingService?: EmbeddingService;
-
-  /**
    * 向量缓存
    */
   private vectorCache: Map<string, { vector: number[]; model: string }> =
@@ -260,12 +255,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   /**
    * 构造函数
    * @param memoryDir 记忆目录路径
-   * @param embeddingService 可选的嵌入服务
    * @param searchConfig 可选的搜索配置（默认使用 MEMORY_SEARCH_DEFAULTS）
    */
   constructor(
     memoryDir: string = path.join(resolveDataDir(), 'memory'),
-    embeddingService?: EmbeddingService,
     searchConfig?: MemorySearchConfig
   ) {
     this.memoryDir = memoryDir;
@@ -273,7 +266,6 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     this.scanner = new MemoryScannerImpl();
     this.memoryIndex = new Map();
     this.stemMap = new Map();
-    this.embeddingService = embeddingService;
     this.searchConfig = searchConfig ?? loadMemorySearchConfig();
 
     // 尝试加载索引
@@ -312,12 +304,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     };
   }
 
-  /**
-   * 设置嵌入服务
-   */
-  setEmbeddingService(embeddingService: EmbeddingService): void {
-    this.embeddingService = embeddingService;
-  }
+  // ──── 预取逻辑 ────
 
   /**
    * 启用异步预取
@@ -328,10 +315,6 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       import('../services/MemoryPrefetchQueue').PrefetchQueueConfig
     >
   ): void {
-    if (!this.embeddingService) {
-      logger.warn('EmbeddingService 未配置，无法启用预取');
-      return;
-    }
     if (this.prefetchQueue) {
       this.prefetchQueue.stop();
     }
@@ -355,7 +338,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * 为所有未缓存的记忆生成向量嵌入
    */
   async prefetchVectorsForAll(): Promise<void> {
-    if (!this.embeddingService || !this.prefetchQueue) return;
+    if (!this.prefetchQueue) return;
 
     const items = Array.from(this.memoryIndex.values());
     const executor = (id: string) => this.prefetchVectorForItem(id);
@@ -373,7 +356,6 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * 为单个记忆项预取向量
    */
   private async prefetchVectorForItem(itemId: string): Promise<void> {
-    if (!this.embeddingService) return;
     if (this.vectorCache.has(itemId)) return;
 
     const item = this.memoryIndex.get(itemId);
@@ -381,8 +363,8 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
     const textToEmbed =
       `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
-    const emb = await this.embeddingService.embed(textToEmbed);
-    this.vectorCache.set(itemId, { vector: emb.vector, model: emb.model });
+    const emb = await globalEmbeddingManager.embedOne(textToEmbed);
+    this.vectorCache.set(itemId, { vector: Array.from(emb), model: 'embedding-manager' });
   }
 
   /**
@@ -433,15 +415,13 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * @param queryEmbedding 查询向量
    * @param lambda MMR λ 参数（0=纯多样性, 1=纯相关性）
    * @param limit 返回数量
-   * @param embeddingService 嵌入服务（用于计算记忆间相似度）
    * @returns MMR 重排序后的结果
    */
   static async applyMMR(
     results: SimilarMemoryResult[],
     queryEmbedding: number[],
     lambda: number,
-    limit: number,
-    embeddingService: EmbeddingService
+    limit: number
   ): Promise<SimilarMemoryResult[]> {
     if (!lambda || results.length <= limit) return results;
 
@@ -467,13 +447,13 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       for (const i of candidateIndices) {
         const relevanceScore = results[i].similarity;
         const textA = `${results[i].memory.content} ${results[i].memory.metadata.name}`;
-        const textAEmb = await embeddingService.embed(textA);
+        const textAEmb = await globalEmbeddingManager.embedOne(textA);
         let maxSimilarity = 0;
 
         for (const sel of selected) {
           const textB = `${sel.memory.content} ${sel.memory.metadata.name}`;
-          const textBEmb = await embeddingService.embed(textB);
-          const sim = cosineSimilarity(textAEmb.vector, textBEmb.vector);
+          const textBEmb = await globalEmbeddingManager.embedOne(textB);
+          const sim = cosineSimilarity(textAEmb, textBEmb);
           if (sim > maxSimilarity) maxSimilarity = sim;
         }
 
@@ -1013,14 +993,9 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       await this.scanMemoryDirectory();
     }
 
-    if (!this.embeddingService) {
-      logger.warn('EmbeddingService 未配置，无法进行语义搜索');
-      return [];
-    }
-
     const resultLimit = limit ?? this.searchConfig.query.maxResults;
     const minScore = threshold ?? this.searchConfig.query.minScore;
-    const queryEmb = await this.embeddingService.embed(query);
+    const queryEmb = await globalEmbeddingManager.embedOne(query);
     const results: SimilarMemoryResult[] = [];
 
     for (const item of this.memoryIndex.values()) {
@@ -1033,12 +1008,11 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       if (cached) {
         vector = cached.vector;
       } else {
-        const emb = await this.embeddingService.embed(textToEmbed);
-        vector = emb.vector;
-        this.vectorCache.set(item.id, { vector, model: emb.model });
+        vector = await globalEmbeddingManager.embedOne(textToEmbed);
+        this.vectorCache.set(item.id, { vector, model: 'embedding-manager' });
       }
 
-      const similarity = this.cosineSimilarity(queryEmb.vector, vector);
+      const similarity = this.cosineSimilarity(queryEmb, vector);
       if (similarity >= minScore) {
         results.push({ memory, similarity });
       }
@@ -1047,7 +1021,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     results.sort((a, b) => b.similarity - a.similarity);
 
     // 触发后台预取：为未缓存的记忆项入队向量嵌入任务
-    if (this.prefetchQueue && this.embeddingService) {
+    if (this.prefetchQueue) {
       const uncached = Array.from(this.memoryIndex.values())
         .filter((item) => !this.vectorCache.has(item.id))
         .map((item) => ({
@@ -1076,7 +1050,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const hybridConfig = this.searchConfig.query.hybrid;
     const keywordResults = await this.retrieve(query, resultLimit * 2);
 
-    if (!hybridConfig?.enabled || !this.embeddingService) {
+    if (!hybridConfig?.enabled) {
       return keywordResults.slice(0, resultLimit);
     }
 

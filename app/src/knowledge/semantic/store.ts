@@ -31,7 +31,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { CodeChunk } from './chunker';
-import type { EmbedOptions } from './embedding';
 
 /** 索引条目 */
 export interface IndexEntry extends CodeChunk {

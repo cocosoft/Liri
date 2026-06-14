@@ -31,8 +31,7 @@
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { chunkDirectory } from './chunker';
 import type { CodeChunk, ChunkOptions } from './chunker';
-import { embedAll, probeOllama } from './embedding';
-import type { EmbedOptions } from './embedding';
+import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry, IndexMeta } from './store';
 import { resolveDataSubDir } from '@modules/core/paths';
@@ -43,8 +42,10 @@ const logger = new Logger();
 export interface BuildConfig {
   /** 项目根目录 */
   rootDir: string;
-  /** 嵌入选项 */
-  embedOptions: EmbedOptions;
+  /** 嵌入模型名称（默认 nomic-embed-text） */
+  embedModel?: string;
+  /** 嵌入 Provider ID（默认 'local'） */
+  embedProvider?: string;
   /** 分块选项 */
   chunkOptions?: ChunkOptions;
   /** 索引存储目录（默认 ~/.pyapp/data/semantic-index/） */
@@ -77,6 +78,11 @@ export class IndexBuilder {
     const t0 = Date.now();
     const indexDir = config.indexDir ?? resolveDataSubDir('semantic-index');
     const incremental = config.incremental ?? true;
+    const embedProvider = config.embedProvider ?? 'local';
+    const embedModel = config.embedModel ?? 'nomic-embed-text';
+
+    // 确保 EmbeddingManager 已初始化
+    globalEmbeddingManager.initialize();
 
     try {
       // Phase 1: 分块
@@ -102,8 +108,8 @@ export class IndexBuilder {
         const meta = await readIndexMeta(indexDir);
         if (meta) {
           const store = new SemanticStore(indexDir, {
-            provider: config.embedOptions.provider ?? 'ollama',
-            model: (config.embedOptions as Record<string, unknown>).model as string ?? 'nomic-embed-text',
+            provider: embedProvider,
+            model: embedModel,
           });
           await store.load();
           const existingMtims = new Map<string, number>();
@@ -135,16 +141,24 @@ export class IndexBuilder {
       // Phase 3: 嵌入
       config.onProgress?.('embedding', 0, toEmbed.length);
       const texts = toEmbed.map((c) => c.text);
+      const embeddings: Array<Float32Array | null> = [];
       let embeddedCount = 0;
-      const embeddings = await embedAll(texts, {
-        ...config.embedOptions,
-        onProgress: (done, total) => {
-          config.onProgress?.('embedding', done, total);
-        },
-        onError: (index, err) => {
-          logger.warn('Embedding failed for chunk', { index, error: String(err) });
-        },
-      });
+
+      for (let i = 0; i < texts.length; i++) {
+        try {
+          const vec = await globalEmbeddingManager.embedOne(texts[i]!);
+          if (vec && vec.length > 0) {
+            embeddings.push(new Float32Array(vec));
+          } else {
+            embeddings.push(null);
+          }
+        } catch (err) {
+          logger.warn('Embedding failed for chunk', { index: i, error: String(err) });
+          embeddings.push(null);
+        }
+
+        config.onProgress?.('embedding', i + 1, texts.length);
+      }
 
       // Phase 4: 组装条目
       const entries: IndexEntry[] = [];
@@ -168,16 +182,16 @@ export class IndexBuilder {
       if (incremental && entries.length > 0) {
         // 增量模式：追加新条目
         const store = new SemanticStore(indexDir, {
-          provider: config.embedOptions.provider ?? 'ollama',
-          model: (config.embedOptions as Record<string, unknown>).model as string ?? 'nomic-embed-text',
+          provider: embedProvider ?? 'local',
+          model: embedModel ?? 'nomic-embed-text',
         });
         await store.add(entries);
       } else {
         // 全量模式：清空后重建
         await wipeStoreFiles(indexDir);
         const store = new SemanticStore(indexDir, {
-          provider: config.embedOptions.provider ?? 'ollama',
-          model: (config.embedOptions as Record<string, unknown>).model as string ?? 'nomic-embed-text',
+          provider: embedProvider,
+          model: embedModel,
         });
         await store.add(entries);
       }
@@ -213,12 +227,19 @@ export class IndexBuilder {
   }
 
   /**
-   * 检查当前 Ollama 服务是否可用
+   * 检查本地嵌入提供者是否可用
    */
-  async checkOllama(baseUrl?: string): Promise<{ ok: boolean; models: string[]; error?: string }> {
-    const result = await probeOllama({ baseUrl });
-    if (result.ok) return { ok: true, models: result.models };
-    return { ok: false, models: [], error: result.error };
+  async checkOllama(_baseUrl?: string): Promise<{ ok: boolean; models: string[]; error?: string }> {
+    const provider = globalEmbeddingManager.getProvider('local');
+    if (!provider) {
+      return { ok: false, models: [], error: 'Local embedding provider not registered' };
+    }
+
+    const available = await provider.isAvailable();
+    if (available) {
+      return { ok: true, models: [] };
+    }
+    return { ok: false, models: [], error: 'Local embedding provider not available' };
   }
 }
 

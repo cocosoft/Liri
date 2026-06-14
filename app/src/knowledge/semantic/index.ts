@@ -36,9 +36,6 @@
 export { chunkText, chunkDirectory } from './chunker';
 export type { CodeChunk, ChunkOptions, SkipReason } from './chunker';
 
-export { embed, embedAll, probeOllama, EmbeddingError } from './embedding';
-export type { EmbedOptions } from './embedding';
-
 export { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 export type { IndexEntry, SearchHit, IndexMeta, IndexIdentity } from './store';
 

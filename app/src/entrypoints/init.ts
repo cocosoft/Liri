@@ -607,13 +607,13 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const { knowledgeDocsProvider, fileDocsProvider } =
             await import('../docs/FileDocsProvider.js');
-          const { HybridKnowledgeRouter } =
-            await import('@modules/knowledge/HybridKnowledgeRouter.js');
+          const { KnowledgeRouter } =
+            await import('@modules/knowledge/KnowledgeRouter.js');
           const { KnowledgeSummarizer } =
-            await import('../memory/services/KnowledgeSummarizer.js');
+            await import('../knowledge/KnowledgeSummarizer.js');
           const { setKnowledgeQueryProvider } =
             await import('../services/prompt/KnowledgePromptProvider.js');
-          const router = new HybridKnowledgeRouter([
+          const router = new KnowledgeRouter([
             fileDocsProvider,
             knowledgeDocsProvider,
           ]);

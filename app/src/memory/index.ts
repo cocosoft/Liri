@@ -25,32 +25,7 @@ export {
   MemoryGetTool,
   createMemoryGetTool,
   SearchTool,
-  KnowledgeSearchTool,
-  createKnowledgeSearchTool,
-  UnifiedSearchTool,
-  createUnifiedSearchTool,
 } from './tools';
-export {
-  UnifiedSearchService,
-  createUnifiedSearchService,
-} from './services/UnifiedSearchService';
-export type {
-  UnifiedSearchResult,
-  MemorySearchProvider,
-} from './services/UnifiedSearchService';
-export {
-  KnowledgeBaseWriter,
-  createKnowledgeBaseWriter,
-} from './services/KnowledgeBaseWriter';
-export type {
-  KnowledgeBaseEntry,
-  WriteResult,
-} from './services/KnowledgeBaseWriter';
-export { KnowledgeRouterAdapter } from './services/adapters/KnowledgeSearchAdapter';
-export type {
-  KnowledgeSearchAdapter,
-  AdapterResult,
-} from './services/adapters/KnowledgeSearchAdapter';
 
 export * from './consolidation';
 export * from './indexer';
@@ -86,9 +61,6 @@ export type {
 
 // 导出记忆摘要服务（记忆→提示词适配层）
 export { MemorySummarizer } from './services/MemorySummarizer';
-
-// 导出知识摘要服务（知识库→提示词适配层）
-export { KnowledgeSummarizer } from './services/KnowledgeSummarizer';
 
 // 导出会话上下文类型（记忆检索专用）
 export type { SessionContext } from './types/SessionContext';

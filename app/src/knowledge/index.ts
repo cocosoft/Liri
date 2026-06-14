@@ -35,10 +35,9 @@
  */
 
 export {
-  HybridKnowledgeRouter,
-  getHybridKnowledgeRouter,
-} from './HybridKnowledgeRouter';
-export type { HybridSearchConfig } from './HybridKnowledgeRouter';
+  KnowledgeRouter,
+  getKnowledgeRouter,
+} from './KnowledgeRouter';
 
 export { KnowledgeCompiler, runKnowledgeCompile } from './KnowledgeCompiler';
 export type { CompileOptions, CompileResult } from './KnowledgeCompiler';
@@ -123,7 +122,33 @@ export type { LogEntry } from './IndexManager';
 export { AutoRagService } from './AutoRagService';
 export type { RagResult } from './AutoRagService';
 
-export { EmbeddingService } from './EmbeddingService';
+export { KnowledgeBaseWriter, createKnowledgeBaseWriter } from './KnowledgeBaseWriter';
+export type { KnowledgeBaseEntry, WriteResult } from './KnowledgeBaseWriter';
+
+export { SemanticIndexUpdater } from './SemanticIndexUpdater';
+export type { KnowledgeChangedEvent, SemanticIndexUpdaterOptions } from './SemanticIndexUpdater';
+
+export { KnowledgeSummarizer } from './KnowledgeSummarizer';
+export type { KnowledgeQueryResult } from './KnowledgeSummarizer';
 
 export { QueryFeedbackPipeline } from './QueryFeedbackPipeline';
 export type { FeedbackResult } from './QueryFeedbackPipeline';
+
+export {
+  KnowledgeSearchTool,
+  createKnowledgeSearchTool,
+} from './tools/KnowledgeSearchTool';
+export {
+  KnowledgeWriteTool,
+  createKnowledgeWriteTool,
+} from './tools/KnowledgeWriteTool';
+export {
+  KnowledgeDeleteTool,
+  createKnowledgeDeleteTool,
+} from './tools/KnowledgeDeleteTool';
+
+export {
+  UnifiedSearchService,
+  createUnifiedSearchService,
+} from './search/UnifiedSearchService';
+export type { UnifiedSearchResult } from './search/UnifiedSearchService';

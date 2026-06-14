@@ -2,6 +2,18 @@ import type { FileEntry, WorkspaceInfo, FileRegistryRecord, FileSearchParams, Fi
 import { http } from "./httpClient";
 
 /**
+ * 文件读取详情响应
+ */
+export interface FileReadDetail {
+  /** 文件内容（文本内容或 base64 data URL） */
+  content: string;
+  /** 是否为 base64 编码 */
+  isBase64: boolean;
+  /** MIME 类型 */
+  mimeType: string;
+}
+
+/**
  * 检测是否运行在 Tauri WebView 环境中。
  * Tauri v1 使用 window.__TAURI__，Tauri v2 使用 window.__TAURI_INTERNALS__。
  */
@@ -27,6 +39,9 @@ function createFallbackFileService() {
       return [];
     },
     readFile: async (_path: string): Promise<string> => {
+      throw new Error("File operations unavailable outside Tauri");
+    },
+    readFileDetail: async (_path: string): Promise<FileReadDetail> => {
       throw new Error("File operations unavailable outside Tauri");
     },
     upload: uploadViaHttp,
@@ -90,6 +105,14 @@ function createTauriFileService() {
       try {
         const result = await http.get<{ content: string }>("/v1/files/read", { params: { path } });
         return result.content;
+      } catch {
+        throw new Error("无法读取文件");
+      }
+    },
+    readFileDetail: async (path: string): Promise<FileReadDetail> => {
+      try {
+        const result = await http.get<FileReadDetail>("/v1/files/read", { params: { path } });
+        return result;
       } catch {
         throw new Error("无法读取文件");
       }

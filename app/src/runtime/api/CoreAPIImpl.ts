@@ -62,7 +62,9 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { modelRouter } from '@modules/ai/modelRouter';
 import { SmartRouter } from '@modules/ai/router/SmartRouter';
 import type { RouterConfig, RouteDecision } from '@modules/ai/router/types';
+import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
+import { getToolManager } from '@modules/tools/ToolManager';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
@@ -128,6 +130,9 @@ export class CoreAPIImpl implements CoreAPI {
 
   /** 最近一次路由决策缓存（用于前端 status bar 展示） */
   private lastRouteDecision: RouteDecision | null = null;
+
+  /** LLM 客户端延迟初始化标记 */
+  private _llmReady = false;
 
   constructor(options?: {
     chatManager?: ChatManager;
@@ -197,6 +202,84 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
+   * 延迟初始化 LLM 客户端
+   *
+   * 确保 ChatManager 的 LLM 客户端在使用前已初始化。
+   * 若 ChatManager 已有 LLM 客户端（如 REPL 路径已调用 initializeChatManager），则跳过。
+   * 这是 HTTP API 路径下 LLM 客户端缺失的补救机制。
+   */
+  private async ensureLLMClientInitialized(): Promise<void> {
+    if (this._llmReady) return;
+
+    // 通过 try-catch 探测 ChatManager 是否已有 LLM 客户端
+    try {
+      this.chatManager.getLLMClient();
+      this._llmReady = true;
+      return;
+    } catch {
+      // LLM 客户端未初始化，继续执行初始化
+    }
+
+    try {
+      // 从 DB 同步所有活跃 Provider 到运行时 ProviderRegistry
+      const { syncDBProvidersToRegistry } =
+        await import('@modules/ai/providers/ProviderSyncService.js');
+      await syncDBProvidersToRegistry();
+
+      // 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
+      const currentModel = modelRouter.resolve('chat');
+      let provider = currentModel
+        ? providerRegistry.getByModel(currentModel)
+        : undefined;
+
+      // 模型未匹配时回退到 deepseek 类型
+      if (!provider) {
+        provider = providerRegistry.getByType('deepseek');
+      }
+
+      // DB 中无 deepseek 时，从环境变量回退创建
+      if (!provider) {
+        const apiKey =
+          configManager.env('DEEPSEEK_API_KEY') || '';
+
+        provider = providerRegistry.getOrCreate('deepseek', {
+          apiKey,
+          baseUrl: configManager.env('DEEPSEEK_BASE_URL'),
+          model: currentModel || configManager.env('DEEPSEEK_MODEL'),
+        });
+
+        if (apiKey) {
+          provider.setApiKey?.(apiKey);
+        }
+      }
+
+      const toolManager = getToolManager();
+      toolManager.loadBuiltinTools();
+      const registry = toolManager.getRegistry();
+
+      const llmClient = new ToolAwareClient(
+        provider,
+        registry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
+        null
+      );
+
+      this.chatManager.setLLMClient(llmClient);
+      if (registry) {
+        this.chatManager.setToolRegistry(registry);
+      }
+
+      await this.chatManager.initialize();
+
+      this._llmReady = true;
+      logger.info('LLM 客户端已通过 CoreAPIImpl 延迟初始化');
+    } catch (error) {
+      logger.warning('CoreAPIImpl 延迟初始化 LLM 客户端失败', {
+        error: String(error),
+      });
+    }
+  }
+
+  /**
    * 使用 SmartRouter 决策模型（若 SmartRouter 启用且可用）
    * @returns 模型名；若 SmartRouter 未启用则返回从 modelRouter 解析的模型
    */
@@ -220,6 +303,7 @@ export class CoreAPIImpl implements CoreAPI {
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
     try {
+      await this.ensureLLMClientInitialized();
       const { model, tier } = await this.resolveSmartModel(
         request.content,
         request.sessionId
@@ -278,6 +362,7 @@ export class CoreAPIImpl implements CoreAPI {
   async *chatStream(
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown> {
+    await this.ensureLLMClientInitialized();
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
     let finalMessageId = '';

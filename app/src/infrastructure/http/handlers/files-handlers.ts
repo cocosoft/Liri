@@ -112,9 +112,60 @@ export async function handleFileList(
 }
 
 /**
+ * 图片扩展名集合
+ */
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']);
+
+/**
+ * 二进制文件扩展名集合（不可作为文本预览）
+ */
+const BINARY_EXTS = new Set([
+  '.pdf', '.docx', '.pptx', '.xls', '.xlsx',
+  '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',
+  '.zip', '.rar', '.7z', '.gz', '.tar', '.bz2',
+  '.exe', '.dll', '.so', '.dylib', '.bin', '.dat',
+  '.ico', '.icns', '.tiff', '.tif', '.psd', '.ai', '.eps',
+]);
+
+/**
+ * 根据扩展名获取 MIME 类型
+ */
+function getMimeType(ext: string): string {
+  const mimeMap: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+}
+
+/**
+ * 文件内容读取响应
+ */
+interface FileReadResponse {
+  content: string;
+  isBase64: boolean;
+  mimeType: string;
+  truncated?: boolean;
+}
+
+/**
+ * 最大预览文件大小（5MB），超过此大小的文件提示过大而非直接读取
+ */
+const MAX_PREVIEW_SIZE = 5 * 1024 * 1024;
+
+/**
  * 处理文件读取请求
  * GET /v1/files/read?path=output/xxx.md
  * 读取指定文件内容并返回
+ * - 文本文件：以 UTF-8 读取，直接返回内容
+ * - 图片文件：以 base64 编码，返回 data URL
+ * - 其他二进制文件：返回不支持预览提示
+ * - 超大文件：返回文件过大提示
  */
 export async function handleFileRead(
   ctx: HandlerCtx,
@@ -132,17 +183,64 @@ export async function handleFileRead(
 
     const absPath = resolveStorePath(rawPath);
 
-    const { readFileSync, existsSync } = require('node:fs');
+    const { readFileSync, existsSync, statSync } = require('node:fs');
     if (!existsSync(absPath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '文件不存在' } }));
       return;
     }
 
-    const content = readFileSync(absPath, 'utf-8');
+    const ext = path.extname(absPath).toLowerCase();
+    const stat = statSync(absPath);
 
+    // 检查文件大小，超过限制则提示
+    if (stat.size > MAX_PREVIEW_SIZE) {
+      const resp: FileReadResponse = {
+        content: `文件过大（${(stat.size / 1024 / 1024).toFixed(1)} MB），预览仅支持 ${MAX_PREVIEW_SIZE / 1024 / 1024} MB 以内的文件`,
+        isBase64: false,
+        mimeType: '',
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(resp));
+      return;
+    }
+
+    // 图片文件：读取为 base64 并返回 data URL
+    if (IMAGE_EXTS.has(ext)) {
+      const buffer = readFileSync(absPath);
+      const mimeType = getMimeType(ext);
+      const base64 = buffer.toString('base64');
+      const resp: FileReadResponse = {
+        content: `data:${mimeType};base64,${base64}`,
+        isBase64: true,
+        mimeType,
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(resp));
+      return;
+    }
+
+    // 其他二进制文件：返回不支持预览提示
+    if (BINARY_EXTS.has(ext)) {
+      const resp: FileReadResponse = {
+        content: `文件类型 "${ext}" 暂不支持在线预览，请在系统中打开查看`,
+        isBase64: false,
+        mimeType: '',
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(resp));
+      return;
+    }
+
+    // 文本文件：以 UTF-8 读取
+    const content = readFileSync(absPath, 'utf-8');
+    const resp: FileReadResponse = {
+      content,
+      isBase64: false,
+      mimeType: 'text/plain',
+    };
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ content }));
+    res.end(JSON.stringify(resp));
   } catch (err) {
     ctx.sendError(res, err);
   }

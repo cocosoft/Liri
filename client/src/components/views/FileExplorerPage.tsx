@@ -6,9 +6,12 @@ import { SkeletonTable } from "../common/Skeleton";
 import SearchInput from "../common/SearchInput";
 import { fileService } from "../../services/fileService";
 import type { FileEntry, FileCategory, FilePreview, FileStats } from "../../types";
+import type { FileReadDetail } from "../../services/fileService";
 import FileListView from "./FileListView";
 import DirectoryTree from "./DirectoryTree";
 import DetailedFileList from "./DetailedFileList";
+import CodeBlock from "../ChatArea/CodeBlock";
+import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
 /**
  * 格式化文件大小
@@ -144,12 +147,20 @@ function FileExplorerPage() {
   const getFilePreviewType = useCallback((fileName: string): FilePreview["type"] => {
     const ext = fileName.split(".").pop()?.toLowerCase() || "";
     const imageExts = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
-    const codeExts = ["js", "ts", "tsx", "jsx", "py", "java", "cpp", "c", "go", "rs", "rb", "php"];
-    const jsonExts = ["json"];
+    const codeExts = ["js", "ts", "tsx", "jsx", "py", "java", "cpp", "c", "go", "rs", "rb", "php",
+      "swift", "kt", "scala", "hs", "lua", "pl", "pm", "r", "m", "h", "hpp", "css", "scss", "less",
+      "sh", "bash", "zsh", "ps1", "bat", "cmd", "sql", "graphql", "proto", "gradle"];
+    const jsonExts = ["json", "jsonc"];
     const yamlExts = ["yaml", "yml"];
-    const markdownExts = ["md", "markdown"];
+    const markdownExts = ["md", "markdown", "mdx"];
+    const pdfExts = ["pdf"];
+    const docxExts = ["docx", "doc"];
+    const pptxExts = ["pptx", "ppt"];
 
     if (imageExts.includes(ext)) return "image";
+    if (pdfExts.includes(ext)) return "pdf";
+    if (docxExts.includes(ext)) return "docx";
+    if (pptxExts.includes(ext)) return "pptx";
     if (codeExts.includes(ext)) return "code";
     if (jsonExts.includes(ext)) return "json";
     if (yamlExts.includes(ext)) return "yaml";
@@ -161,13 +172,13 @@ function FileExplorerPage() {
   const handlePreview = useCallback(async (entry: { name: string; path: string; size?: number }) => {
     try {
       setPreviewLoading(true);
-      const content = await fileService.readFile(entry.path);
+      const detail: FileReadDetail = await fileService.readFileDetail(entry.path);
       const fileType = getFilePreviewType(entry.name);
 
       setPreviewFile({
         name: entry.name,
         path: entry.path,
-        content,
+        content: detail.content,
         type: fileType,
         size: entry.size,
       });
@@ -657,9 +668,18 @@ interface FilePreviewModalProps {
 
 /**
  * 文件预览弹窗组件
+ * 根据文件类型选择不同的渲染方式：
+ * - image: 图片直接显示（含错误回退）
+ * - code: 语法高亮（复用 CodeBlock）
+ * - markdown: Markdown 渲染（复用 MarkdownRenderer）
+ * - json: 格式化 JSON
+ * - yaml: 语法高亮展示
+ * - pdf/docx/pptx: 使用 MarkdownRenderer 渲染后端转换后的文本
+ * - text: 纯文本显示
  */
 function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: FilePreviewModalProps) {
   const [copySuccess, setCopySuccess] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const handleCopyContent = async () => {
     try {
@@ -669,6 +689,130 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
     } catch { /* ignore */ }
   };
 
+  /** 是否为文本类内容（可复制） */
+  const isTextContent = preview.type !== "image";
+
+  // 图片渲染
+  if (preview.type === "image") {
+    return (
+      <ModalOverlay onClose={onClose}>
+        <ModalHeader
+          preview={preview}
+          onClose={onClose}
+          onSendToAI={onSendToAI}
+          onSaveToKnowledge={onSaveToKnowledge}
+          onCopy={handleCopyContent}
+          copySuccess={copySuccess}
+          showCopy={false}
+        />
+        <div className="flex-1 overflow-auto p-4 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          {imageError ? (
+            <div className="text-center text-gray-400 dark:text-gray-500">
+              <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-sm">图片加载失败</p>
+            </div>
+          ) : (
+            <img
+              src={preview.content}
+              alt={preview.name}
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onError={() => setImageError(true)}
+            />
+          )}
+        </div>
+      </ModalOverlay>
+    );
+  }
+
+  // JSON 渲染（格式化）
+  if (preview.type === "json") {
+    return (
+      <ModalOverlay onClose={onClose}>
+        <ModalHeader
+          preview={preview}
+          onClose={onClose}
+          onSendToAI={onSendToAI}
+          onSaveToKnowledge={onSaveToKnowledge}
+          onCopy={handleCopyContent}
+          copySuccess={copySuccess}
+          showCopy={isTextContent}
+        />
+        <div className="flex-1 overflow-auto p-4">
+          <pre className="text-sm font-mono leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+            <PrettyJson content={preview.content} />
+          </pre>
+        </div>
+      </ModalOverlay>
+    );
+  }
+
+  // Markdown 渲染
+  if (preview.type === "markdown") {
+    return (
+      <ModalOverlay onClose={onClose}>
+        <ModalHeader
+          preview={preview}
+          onClose={onClose}
+          onSendToAI={onSendToAI}
+          onSaveToKnowledge={onSaveToKnowledge}
+          onCopy={handleCopyContent}
+          copySuccess={copySuccess}
+          showCopy={isTextContent}
+        />
+        <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
+          <MarkdownRenderer content={preview.content} />
+        </div>
+      </ModalOverlay>
+    );
+  }
+
+  // PDF/DOCX/PPTX — 后端已转换为文本，使用 Markdown 渲染
+  if (preview.type === "pdf" || preview.type === "docx" || preview.type === "pptx") {
+    return (
+      <ModalOverlay onClose={onClose}>
+        <ModalHeader
+          preview={preview}
+          onClose={onClose}
+          onSendToAI={onSendToAI}
+          onSaveToKnowledge={onSaveToKnowledge}
+          onCopy={handleCopyContent}
+          copySuccess={copySuccess}
+          showCopy={isTextContent}
+        />
+        <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
+          <MarkdownRenderer content={preview.content} />
+        </div>
+      </ModalOverlay>
+    );
+  }
+
+  // code / yaml / text — 使用语法高亮渲染
+  const language = preview.language || (preview.type === "yaml" ? "yaml" : preview.type === "code" ? undefined : "text");
+  return (
+    <ModalOverlay onClose={onClose}>
+      <ModalHeader
+        preview={preview}
+        onClose={onClose}
+        onSendToAI={onSendToAI}
+        onSaveToKnowledge={onSaveToKnowledge}
+        onCopy={handleCopyContent}
+        copySuccess={copySuccess}
+        showCopy={isTextContent}
+      />
+      <div className="flex-1 overflow-auto">
+        <CodeBlock language={language || "text"} code={preview.content} />
+      </div>
+    </ModalOverlay>
+  );
+}
+
+/**
+ * 模态框遮罩层
+ */
+function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -678,67 +822,111 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
         className="relative w-[90vw] h-[85vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 预览头部 */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 min-w-0">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {preview.name}
-            </h3>
-            {preview.size !== undefined && (
-              <span className="text-xs text-gray-400 font-mono flex-shrink-0">
-                {formatSize(preview.size)}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyContent}
-              className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-            >
-              {copySuccess ? "✅ 已复制" : "📋 复制内容"}
-            </button>
-            <button
-              onClick={() => onSendToAI(preview.path)}
-              className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-            >
-              🤖 发送给 AI
-            </button>
-            <button
-              onClick={() => onSaveToKnowledge(preview.path)}
-              className="px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-            >
-              📚 存入知识库
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* 预览内容 */}
-        <div className="flex-1 overflow-auto p-5">
-          {preview.type === "image" ? (
-            <div className="flex items-center justify-center h-full">
-              <img
-                src={preview.content}
-                alt={preview.name}
-                className="max-w-full max-h-full object-contain rounded-lg"
-              />
-            </div>
-          ) : (
-            <pre className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap break-all leading-relaxed">
-              {preview.content}
-            </pre>
-          )}
-        </div>
+        {children}
       </div>
     </div>
   );
+}
+
+/**
+ * 模态框头部
+ */
+interface ModalHeaderProps {
+  preview: FilePreview;
+  onClose: () => void;
+  onSendToAI: (path: string) => void;
+  onSaveToKnowledge: (path: string) => void;
+  onCopy: () => void;
+  copySuccess: boolean;
+  showCopy: boolean;
+}
+
+function ModalHeader({ preview, onClose, onSendToAI, onSaveToKnowledge, onCopy, copySuccess, showCopy }: ModalHeaderProps) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-3 min-w-0">
+        <FileTypeBadge type={preview.type} />
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
+          {preview.name}
+        </h3>
+        {preview.size !== undefined && (
+          <span className="text-xs text-gray-400 font-mono flex-shrink-0">
+            {formatSize(preview.size)}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {showCopy && (
+          <button
+            onClick={onCopy}
+            className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+          >
+            {copySuccess ? "✅ 已复制" : "📋 复制内容"}
+          </button>
+        )}
+        <button
+          onClick={() => onSendToAI(preview.path)}
+          className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+        >
+          🤖 发送给 AI
+        </button>
+        <button
+          onClick={() => onSaveToKnowledge(preview.path)}
+          className="px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+        >
+          📚 存入知识库
+        </button>
+        <button
+          onClick={onClose}
+          className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 文件类型徽标
+ */
+function FileTypeBadge({ type }: { type: FilePreview["type"] }) {
+  const badges: Record<string, { label: string; color: string }> = {
+    image: { label: "图片", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
+    code: { label: "代码", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
+    markdown: { label: "Markdown", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
+    json: { label: "JSON", color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
+    yaml: { label: "YAML", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300" },
+    text: { label: "文本", color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
+    pdf: { label: "PDF", color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
+    docx: { label: "文档", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
+    pptx: { label: "演示", color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
+  };
+  const badge = badges[type] || badges.text;
+
+  return (
+    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${badge.color}`}>
+      {badge.label}
+    </span>
+  );
+}
+
+/**
+ * JSON 美化渲染组件
+ */
+function PrettyJson({ content }: { content: string }) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return <code>{content}</code>;
+  }
+
+  const formatted = JSON.stringify(parsed, null, 2);
+
+  return <code>{formatted}</code>;
 }
 
 export default FileExplorerPage;

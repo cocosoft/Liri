@@ -4,6 +4,7 @@ interface CodeBlockProps {
   language: string;
   code: string;
   maxLines?: number;
+  className?: string;
 }
 
 const LINES_THRESHOLD = 20;
@@ -12,6 +13,7 @@ function CodeBlock({
   language,
   code,
   maxLines = LINES_THRESHOLD,
+  className = "",
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -52,7 +54,7 @@ function CodeBlock({
         </button>
       </div>
       <pre className="p-4 overflow-x-auto bg-white dark:bg-gray-900 text-sm leading-relaxed">
-        <code className={`language-${language}`}>{displayCode}</code>
+        <code className={`language-${language} ${className}`}>{displayCode}</code>
       </pre>
       {isLong && (
         <button

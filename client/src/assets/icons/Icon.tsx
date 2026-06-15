@@ -21,10 +21,18 @@ const iconCache: Record<string, IconComponent> = {};
 // 缺失图标记录（避免重复尝试）
 const missingIcons = new Set<string>();
 
-/** 按分类动态加载图标模块 chunk */
+/** 按分类动态加载图标模块 chunk（显式导入，Vite 可静态分析） */
+const categoryImporters: Record<string, () => Promise<Record<string, IconComponent>>> = {
+  navigation: () => import("./navigation.tsx"),
+  actions: () => import("./actions.tsx"),
+  status: () => import("./status.tsx"),
+};
+
 async function loadCategory(category: string): Promise<Record<string, IconComponent>> {
   if (categoryCache[category]) return categoryCache[category];
-  const mod = await import(`./${category}.tsx`);
+  const importer = categoryImporters[category];
+  if (!importer) return {};
+  const mod = await importer();
   categoryCache[category] = mod as Record<string, IconComponent>;
   return categoryCache[category];
 }

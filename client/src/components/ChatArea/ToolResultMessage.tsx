@@ -12,8 +12,6 @@ interface ToolResultMessageProps {
  */
 function ToolResultMessage({ message }: ToolResultMessageProps) {
   const { readFileToPreview } = useChatStore();
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
-  const knownFilePaths = sessionFiles.map((f) => f.path);
 
   // 直接使用 message.content 作为工具结果值
   // message.toolCallId 从后端获取工具调用 ID
@@ -49,7 +47,6 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
         <MarkdownRenderer
           content={formatValue(result.value)}
           onPreviewFile={readFileToPreview}
-          knownFilePaths={knownFilePaths}
         />
       </div>
     </div>

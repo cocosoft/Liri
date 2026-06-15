@@ -238,8 +238,6 @@ function ToolCallBlock({ toolCall, isStreaming }: ToolCallBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const prevStreaming = useRef(isStreaming);
   const { readFileToPreview } = useChatStore();
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
-  const knownFilePaths = sessionFiles.map((f) => f.path);
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
@@ -334,7 +332,6 @@ function ToolCallBlock({ toolCall, isStreaming }: ToolCallBlockProps) {
                 <MarkdownRenderer
                   content={toolCall.result}
                   onPreviewFile={readFileToPreview}
-                  knownFilePaths={knownFilePaths}
                 />
               ) : (
                 <pre style={styles.pre}>

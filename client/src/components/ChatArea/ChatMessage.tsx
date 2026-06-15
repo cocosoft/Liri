@@ -574,9 +574,7 @@ interface BlockRendererProps {
 }
 
 function BlockRenderer({ block, sessionId, onQuestionResponse, onSendMessage }: BlockRendererProps) {
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
-  const knownFilePaths = sessionFiles.map((f) => f.path);
   switch (block.type) {
     case "thinking":
       return (
@@ -618,7 +616,6 @@ function BlockRenderer({ block, sessionId, onQuestionResponse, onSendMessage }: 
           content={block.content}
           isStreaming={block.isStreaming ?? false}
           onPreviewFile={readFileToPreview}
-          knownFilePaths={knownFilePaths}
         />
       );
   }

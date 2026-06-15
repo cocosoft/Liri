@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
-import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, BuddyIcon, ThemeIcon, SettingsIcon } from "../../assets/icons";
+import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon } from "../../assets/icons";
 
 interface MenuItem {
   id: string;
@@ -31,7 +31,6 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
-  { id: "buddy", label: "伙伴", icon: BuddyIcon, path: "/buddy" },
   { id: "theme", label: "主题", icon: ThemeIcon },
   { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
 ];

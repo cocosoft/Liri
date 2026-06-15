@@ -373,9 +373,6 @@ function BlockItem({
   block: MessageBlock;
   onPreviewFile?: (path: string) => void;
 }) {
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
-  const knownFilePaths = sessionFiles.map((f) => f.path);
-
   switch (block.type) {
     case "status":
       return (
@@ -398,7 +395,6 @@ function BlockItem({
           content={block.content}
           isStreaming={block.isStreaming ?? false}
           onPreviewFile={onPreviewFile}
-          knownFilePaths={knownFilePaths}
         />
       );
   }

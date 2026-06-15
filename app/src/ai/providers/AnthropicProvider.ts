@@ -126,15 +126,19 @@ export class AnthropicProvider extends BaseAIProvider {
       stream: true,
     });
 
-    const response = await fetch(`${baseUrl}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
+    const response = await BaseAIProvider.fetchWithConnectionRetry(
+      `${baseUrl}/v1/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
 
     if (!response.ok) {
       throw new AppError(

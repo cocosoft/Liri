@@ -341,6 +341,54 @@ export abstract class BaseAIProvider implements AIProvider {
     throw lastError;
   }
 
+  /**
+   * 带连接重试的 fetch 包装。
+   *
+   * 仅在网络连接阶段失败时重试（TypeError），不重试 HTTP 错误响应或超时。
+   * 适用场景：Provider API 网关偶发断连、DNS 闪断、TCP 重置等瞬态网络故障。
+   * 重试间隔采用线性退避（1s, 2s, 4s...）。
+   *
+   * @param url - 请求 URL
+   * @param init - fetch Init 选项
+   * @param maxRetries - 最大重试次数（默认 1，即最多请求 2 次）
+   * @returns fetch Response
+   */
+  protected static async fetchWithConnectionRetry(
+    url: string,
+    init?: RequestInit,
+    maxRetries: number = 1
+  ): Promise<Response> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fetch(url, init);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // 仅重试网络连接错误（TypeError），不重试：
+        // - HTTP 错误响应（response.ok === false 不会 throw，正常返回）
+        // - AbortError（DOMException，用户主动取消或超时）
+        if (error instanceof TypeError && attempt < maxRetries) {
+          const delay = 1000 * Math.pow(2, attempt);
+
+          logger.warning(
+            `fetch 连接失败，第 ${attempt + 1} 次重试`,
+            { url, delayMs: delay, error: lastError.message }
+          );
+
+          await new Promise<void>((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // 非 TypeError 错误直接抛出（超时、取消等）
+        throw error;
+      }
+    }
+
+    throw lastError;
+  }
+
   // ============================================================
   // 预连接
   // ============================================================

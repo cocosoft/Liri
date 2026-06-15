@@ -152,12 +152,16 @@ export class GoogleProvider extends BaseAIProvider {
     const url = `${this.baseUrl}/models/${model}:streamGenerateContent?alt=sse&key=${this.apiKey}`;
 
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(180000),
-      });
+      // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
+      const response = await BaseAIProvider.fetchWithConnectionRetry(
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(180000),
+        }
+      );
 
       if (!response.ok) {
         const errorBody = await response.text();

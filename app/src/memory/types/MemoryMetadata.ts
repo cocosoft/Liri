@@ -82,6 +82,13 @@ export interface MemoryMetadata {
    * 是否加密
    */
   encrypted?: boolean;
+
+  /**
+   * 所属会话 ID（任务 4：按 session 分目录）
+   * 有值时记忆文件存储在 sessions/{sessionId}/ 目录下
+   * 无值时存储在 global/ 目录下
+   */
+  sessionId?: string;
 }
 
 /**
@@ -108,5 +115,6 @@ export function createMemoryMetadata(
     accessLevel: data.accessLevel,
     encrypted: data.encrypted || false,
     isPinned: data.isPinned || false,
+    sessionId: data.sessionId,
   };
 }

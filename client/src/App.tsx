@@ -24,8 +24,12 @@ function App() {
   const { config } = useConfigStore();
   const location = useLocation();
   const navigate = useNavigate();
-
   const { initState, completeWizard } = useInitApp();
+
+  // ⚠️ useRoutes 必须无条件调用，放在条件 return 之前
+  // 否则初始化阶段走 early return 时不调用 useRoutes，
+  // 初始化完成后才调用，会导致 React Hooks 顺序变化 → 白屏/崩溃
+  const routeElement = useRoutes(routes);
 
   useKeyboard();
   useBuddyNotification();
@@ -78,7 +82,7 @@ function App() {
         <div className="flex-1 flex page-transition-enter overflow-hidden">
           <ErrorBoundary>
           <Suspense fallback={null}>
-            {useRoutes(routes)}
+            {routeElement}
           </Suspense>
           </ErrorBoundary>
         </div>

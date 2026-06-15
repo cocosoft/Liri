@@ -76,12 +76,19 @@ export class MemorySummarizer {
   }
 
   /**
-   * 判断记忆是否属于指定会话
+   * 判断记忆是否属于指定会话（任务 4：优先使用 metadata.sessionId）
+   * @param memory 记忆对象
+   * @param sessionContext 会话上下文
    */
   private belongsToSession(
-    memory: { metadata?: { tags?: string[] } },
+    memory: { metadata?: { sessionId?: string; tags?: string[] } },
     sessionContext: SessionContext
   ): boolean {
+    // 优先使用 sessionId 字段（任务 4）
+    if (memory.metadata?.sessionId) {
+      return memory.metadata.sessionId === sessionContext.sessionId;
+    }
+    // 回退兼容：通过 tags 查找
     if (!memory.metadata?.tags) return false;
     return memory.metadata.tags.includes(sessionContext.sessionId);
   }

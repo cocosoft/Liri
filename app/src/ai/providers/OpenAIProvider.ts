@@ -141,15 +141,19 @@ export class OpenAIProvider extends BaseAIProvider {
     });
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(180000),
-      });
+      // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
+      const response = await BaseAIProvider.fetchWithConnectionRetry(
+        `${this.baseUrl}/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(180000),
+        }
+      );
 
       if (!response.ok) {
         const errorBody = await response.text();

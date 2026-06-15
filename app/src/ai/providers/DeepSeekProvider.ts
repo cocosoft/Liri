@@ -160,14 +160,18 @@ export class DeepSeekProvider extends BaseAIProvider {
       stream: true,
     });
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
+    const response = await BaseAIProvider.fetchWithConnectionRetry(
+      `${this.baseUrl}/v1/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();

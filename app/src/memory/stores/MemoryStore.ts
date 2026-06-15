@@ -187,6 +187,12 @@ export class MemoryStoreImpl implements MemoryStore {
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * 文件路径缓存（任务 4：按 session 分目录）
+   * 映射 memoryId → 完整文件路径，避免每次 read/delete 都搜索子目录
+   */
+  private filePathCache: Map<string, string> = new Map();
+
+  /**
    * 原子写入文件
    * 先写入 .tmp 临时文件，再 rename 为最终路径，避免写入中断导致文件半残
    * 每次写入前清理同名的旧 .tmp 文件
@@ -238,10 +244,12 @@ export class MemoryStoreImpl implements MemoryStore {
         if (memory.metadata.expiresAt) frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
         if (memory.metadata.author) frontmatter.author = memory.metadata.author;
         if (memory.metadata.source) frontmatter.source = memory.metadata.source;
+        if (memory.metadata.sessionId) frontmatter.sessionId = memory.metadata.sessionId;
 
         const validatedContent = this.validateMarkdownContent(memory.content);
         const content = matter.stringify(validatedContent, frontmatter);
-        await this.atomicWrite(this.getMemoryFilePath(id), content);
+        // 任务 4：按 session 分目录，使用 sessionId 确定目标路径
+        await this.atomicWrite(this.getMemoryFilePath(id, memory.metadata.sessionId), content);
       } catch (error) {
         storeLogger.error(`批量写入失败`, { id, error });
       }
@@ -474,16 +482,106 @@ export class MemoryStoreImpl implements MemoryStore {
    */
   async ensureMemoryDirExists(): Promise<void> {
     await fsExtra.ensureDir(this.memoryDir);
+    // 任务 4：按 session 分目录，创建 global/ 和 sessions/ 子目录
+    await fsExtra.ensureDir(join(this.memoryDir, 'global'));
+    await fsExtra.ensureDir(join(this.memoryDir, 'sessions'));
+    // 迁移旧扁平文件（仅首次执行）
+    await this.migrateFlatFiles();
   }
 
   /**
-   * 获取记忆文件路径
+   * 获取记忆文件路径（任务 4：按 session 分目录）
    * @param id 记忆ID
-   * @returns 记忆文件路径
+   * @param sessionId 会话ID（可选），有值时存入 sessions/{sessionId}/，无值时存入 global/
    */
-  private getMemoryFilePath(id: string): string {
+  private getMemoryFilePath(id: string, sessionId?: string): string {
     validateMemoryId(id);
-    return join(this.memoryDir, `${id}.md`);
+    if (sessionId) {
+      return join(this.memoryDir, 'sessions', sessionId, `${id}.md`);
+    }
+    return join(this.memoryDir, 'global', `${id}.md`);
+  }
+
+  /**
+   * 查找记忆文件路径（任务4：按session分目录）
+   * 按 global/ -> sessions/ 子目录顺序搜索，找到后写入缓存加速
+   */
+  private async findMemoryPath(id: string): Promise<string | null> {
+    // 优先查缓存
+    const cached = this.filePathCache.get(id);
+    if (cached) {
+      try {
+        await fs.access(cached, constants.F_OK);
+        return cached;
+      } catch {
+        this.filePathCache.delete(id);
+      }
+    }
+
+    // 尝试 global/ 目录
+    const globalPath = join(this.memoryDir, 'global', `${id}.md`);
+    try {
+      await fs.access(globalPath, constants.F_OK);
+      this.filePathCache.set(id, globalPath);
+      return globalPath;
+    } catch {
+      // 不存在则继续搜索
+    }
+
+    // 搜索 sessions/*/ 子目录
+    const sessionsDir = join(this.memoryDir, 'sessions');
+    try {
+      const sessionDirs = await fs.readdir(sessionsDir);
+      for (const dir of sessionDirs) {
+        const path = join(sessionsDir, dir, `${id}.md`);
+        try {
+          await fs.access(path, constants.F_OK);
+          this.filePathCache.set(id, path);
+          return path;
+        } catch {
+          // 该子目录下不存在，继续搜索
+        }
+      }
+    } catch {
+      // sessions/ 目录不存在
+    }
+
+    return null;
+  }
+
+  /**
+   * 迁移旧扁平文件到 global/ 目录（任务 4：向后兼容）
+   * 检测 memoryDir 根目录下的 .md 文件，移动到 global/ 子目录
+   * 仅执行一次（迁移完成后根目录不再有 .md 文件）
+   */
+  private async migrateFlatFiles(): Promise<void> {
+    const globalDir = join(this.memoryDir, 'global');
+    await fsExtra.ensureDir(globalDir);
+
+    try {
+      const files = await fs.readdir(this.memoryDir);
+      const mdFiles = files.filter(
+        (f) => f.endsWith('.md') && f !== 'MEMORY.md'
+      );
+
+      if (mdFiles.length === 0) return;
+
+      storeLogger.info(
+        `迁移 ${mdFiles.length} 个旧扁平记忆文件到 global/ 目录`
+      );
+
+      for (const file of mdFiles) {
+        const oldPath = join(this.memoryDir, file);
+        const newPath = join(globalDir, file);
+        try {
+          await fs.rename(oldPath, newPath);
+        } catch (error) {
+          storeLogger.error('迁移记忆文件失败', { file, error });
+        }
+      }
+    } catch {
+      // 目录为空或不存在，无需迁移
+    }
   }
 
   /**
@@ -491,7 +589,8 @@ export class MemoryStoreImpl implements MemoryStore {
    * @returns 记忆索引文件路径
    */
   private getMemoryIndexPath(): string {
-    return join(this.memoryDir, 'MEMORY.md');
+    // 任务 4：索引文件存储在 global/ 子目录
+    return join(this.memoryDir, 'global', 'MEMORY.md');
   }
 
   /**
@@ -501,6 +600,16 @@ export class MemoryStoreImpl implements MemoryStore {
    */
   async saveMemory(memory: Memory): Promise<void> {
     await this.ensureMemoryDirExists();
+
+    // 任务 4：按 session 分目录，确保目标子目录存在
+    const sessionId = memory.metadata.sessionId;
+    const targetDir = sessionId
+      ? join(this.memoryDir, 'sessions', sessionId)
+      : join(this.memoryDir, 'global');
+    await fsExtra.ensureDir(targetDir);
+
+    const filePath = this.getMemoryFilePath(memory.id, sessionId);
+    this.filePathCache.set(memory.id, filePath);
 
     // 加入批量写入队列（1 秒窗口内合并写入）
     this.pendingBatch.set(memory.id, { ...memory });
@@ -546,7 +655,9 @@ export class MemoryStoreImpl implements MemoryStore {
       return pending;
     }
 
-    const filePath = this.getMemoryFilePath(id);
+    // 任务 4：按 session 分目录查找文件
+    const filePath = await this.findMemoryPath(id);
+    if (!filePath) return null;
 
     try {
       // 检查文件是否存在
@@ -574,6 +685,7 @@ export class MemoryStoreImpl implements MemoryStore {
           expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
           author: data.author,
           source: data.source,
+          sessionId: data.sessionId,
         }),
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt),
@@ -598,19 +710,23 @@ export class MemoryStoreImpl implements MemoryStore {
     // 从批量写入队列中移除
     this.pendingBatch.delete(id);
 
-    const filePath = this.getMemoryFilePath(id);
+    // 任务 4：按 session 分目录查找文件
+    const filePath = await this.findMemoryPath(id);
 
-    try {
-      // 检查文件是否存在
-      await fs.access(filePath, constants.F_OK);
+    if (filePath) {
+      try {
+        // 检查文件是否存在
+        await fs.access(filePath, constants.F_OK);
 
-      // 删除文件
-      await fs.unlink(filePath);
-    } catch (error) {
-      // 文件不存在，忽略错误
+        // 删除文件
+        await fs.unlink(filePath);
+      } catch (error) {
+        // 文件不存在，忽略错误
+      }
     }
 
-    // 从缓存中移除
+    // 清理缓存
+    this.filePathCache.delete(id);
     this.memoryCache.delete(id);
 
     // 删除向量索引
@@ -618,30 +734,52 @@ export class MemoryStoreImpl implements MemoryStore {
   }
 
   /**
-   * 列出所有记忆
+   * 列出所有记忆（任务4：扫描 global/ 和 sessions/ 子目录）
    * @returns 记忆ID列表
    */
   async listMemories(): Promise<string[]> {
     await this.ensureMemoryDirExists();
 
+    const memoryIds: string[] = [];
+
     try {
-      // 读取目录内容
-      const files = await fs.readdir(this.memoryDir);
-
-      // 过滤出.md文件并排除MEMORY.md
-      const memoryFiles = files.filter(
-        (file) => file.endsWith('.md') && file !== 'MEMORY.md'
-      );
-
-      // 提取记忆ID
-      const memoryIds = memoryFiles.map((file) => {
-        return file.replace('.md', '');
-      });
-
-      return memoryIds;
-    } catch (error) {
-      return [];
+      // 扫描 global/ 目录
+      const globalDir = join(this.memoryDir, 'global');
+      const globalFiles = await fs.readdir(globalDir);
+      for (const file of globalFiles) {
+        if (file.endsWith('.md') && file !== 'MEMORY.md') {
+          memoryIds.push(file.replace('.md', ''));
+        }
+      }
+    } catch {
+      // global/ 目录为空，忽略
     }
+
+    try {
+      // 扫描 sessions/*/ 子目录
+      const sessionsDir = join(this.memoryDir, 'sessions');
+      const sessionDirs = await fs.readdir(sessionsDir);
+      for (const dir of sessionDirs) {
+        const dirPath = join(sessionsDir, dir);
+        try {
+          const stat = await fs.stat(dirPath);
+          if (stat.isDirectory()) {
+            const files = await fs.readdir(dirPath);
+            for (const file of files) {
+              if (file.endsWith('.md') && file !== 'MEMORY.md') {
+                memoryIds.push(file.replace('.md', ''));
+              }
+            }
+          }
+        } catch {
+          // 子目录读取失败，跳过
+        }
+      }
+    } catch {
+      // sessions/ 目录为空，忽略
+    }
+
+    return memoryIds;
   }
 
   /**

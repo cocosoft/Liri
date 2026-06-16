@@ -103,12 +103,17 @@ export function getRegisteredToolNames(): string[] {
   return Array.from(registry.keys());
 }
 
+/**
+ * 初始化默认工具 UI 注册表。
+ * 逐个尝试加载各工具的 UI 模块（require），
+ * 若某工具无 UI 模块则静默跳过——这是可选的优化加载模式，不影响核心功能。
+ */
 export function initDefaultToolUIRegistry(): void {
   try {
     const agentUI = require('../../tools/AgentTool/UI');
     registerToolUI('agent', agentUI);
     registerToolUI('agenttool', agentUI);
-  } catch {}
+  } catch {} // @ignore-catch: optional UI module
 
   try {
     const fileReadUI = require('../../tools/FileReadTool/UI');

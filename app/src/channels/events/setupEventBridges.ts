@@ -156,48 +156,6 @@ export function setupEventBridges(
 }
 
 /**
- * 订阅 ErrorTracker 事件，将标准化错误 publish 到 globalEventBus
- *
- * 在阶段二实现：handleError 内不直接 publish 事件，
- * 而是通过 ErrorTracker 记录后，由此桥接层订阅 ErrorTracker 事件统一 publish。
- *
- * @param globalEventBus 系统事件总线实例
- */
-export async function setupErrorTrackerBridge(
-  globalEventBus: EventBus
-): Promise<void> {
-  try {
-    const { errorTracker } = await import('../../error/tracker/ErrorTracker');
-
-    // 订阅 ErrorTracker 的 error:tracked 事件
-    // ErrorTracker 是 EventEmitter 风格，使用 on() 订阅
-    const handler = (error: any) => {
-      if (error.severity === 'critical' || error.severity === 'high') {
-        globalEventBus.publish('app:error', {
-          message: error.message,
-          code: error.code,
-          errorId: error.errorId,
-          category: error.category,
-          severity: error.severity,
-          source: 'error_tracker',
-          timestamp: Date.now(),
-        });
-      }
-    };
-
-    (errorTracker as any).on?.('error:tracked', handler);
-    bridgeCleanups.push(() => {
-      (errorTracker as any).off?.('error:tracked', handler);
-    });
-
-    logger.info('ErrorTracker 事件桥接已初始化');
-  } catch (error) {
-    // @ignore-catch: 非关键桥接，初始化失败不影响主流程
-    logger.warning('ErrorTracker 桥接初始化失败', { error: String(error) });
-  }
-}
-
-/**
  * 销毁所有桥接
  */
 export function destroyEventBridges(): void {

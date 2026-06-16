@@ -1,0 +1,14 @@
+warning: in the working copy of '.trae/rules/project_rules.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/bridge/channel/ChannelBridgeAdapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/channels/DevicePairingService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/channels/session/ChannelSessionManager.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/channels/setupChannels.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/core/events/EventBus.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/core/gateway/ChannelManager.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/core/gateway/ChannelStatusReporter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/core/gateway/GatewaySetup.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/core/gateway/WebChannel.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/error/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/tools/BroadcastTool/BroadcastTool.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/tools/ChannelManagerTool/ChannelManagerTool.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/tools/GatewayTool/GatewayTool.ts', LF will be replaced by CRLF the next time Git touches it

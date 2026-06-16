@@ -49,9 +49,6 @@ export * from './formatter';
 // 安全日志
 export * from './safeLog';
 
-// 错误监控器
-export * from './monitor/ErrorMonitor';
-
 // 错误分类器
 export {
   ErrorClassifier,

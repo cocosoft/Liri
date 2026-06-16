@@ -444,4 +444,3 @@ export class ModuleError extends AppError {
   }
 }
 
-export type { TrackedError } from './tracker/ErrorTracker';

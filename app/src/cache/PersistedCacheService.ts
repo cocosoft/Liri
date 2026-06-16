@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { resolveCacheDir } from '@modules/core/paths';
 
@@ -165,7 +166,7 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
       this.data = loadedData;
       this.isLoaded = true;
     } catch (error) {
-      logger.error('Failed to load persisted cache:', { error });
+      void handleError(error, { module: 'cache:persisted', action: 'load' });
       this.data = {};
       this.isLoaded = true;
     }

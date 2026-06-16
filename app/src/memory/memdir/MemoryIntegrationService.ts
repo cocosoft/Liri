@@ -20,6 +20,7 @@ import type {
   MemoryCommandResult,
 } from './MemoryCommands';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -156,10 +157,7 @@ export class MemoryIntegrationService {
 
       logger.info('Memory integration service initialized successfully');
     } catch (error) {
-      logger.error(
-        'Failed to initialize memory integration service',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:integration', action: 'initialize' });
       throw error;
     }
   }
@@ -452,10 +450,7 @@ export class MemoryIntegrationService {
       try {
         await this.syncMemories();
       } catch (error) {
-        logger.error(
-          'Auto sync failed',
-          error instanceof Error ? error : new Error(String(error))
-        );
+        await handleError(error, { module: 'memory:integration', action: 'auto_sync' });
       }
     }, this.config.syncInterval);
   }

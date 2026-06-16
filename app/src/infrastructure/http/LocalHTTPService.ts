@@ -13,6 +13,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -351,9 +352,7 @@ export class LocalHTTPService {
 
     this.server = http.createServer((req, res) => {
       this.handleRequest(req, res).catch((err) => {
-        logger.error('处理请求失败', {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        void handleError(err, { module: 'infra:http', action: 'handle_request' });
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(
@@ -5828,7 +5827,7 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(results));
     } catch (err) {
-      logger.error('MCP 市场搜索失败', err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_marketplace_search' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -5881,7 +5880,7 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ registries }));
     } catch (err) {
-      logger.error('获取 MCP 注册表列表失败', err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_registries' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -6004,7 +6003,7 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detailed));
     } catch (err) {
-      logger.error('获取已安装 MCP 服务器列表失败', err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_installed_list' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -6037,7 +6036,7 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      logger.error(`安装 MCP 服务器失败: ${serverId}`, err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_install_server', context: { serverId } });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -6117,7 +6116,7 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId, enabled }));
     } catch (err) {
-      logger.error(`切换 MCP 服务器状态失败: ${serverId}`, err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_toggle_server', context: { serverId } });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -7242,10 +7241,7 @@ export class LocalHTTPService {
             );
           }
         } catch (error) {
-          logger.error(`[${channelType}] 入站消息处理失败`, {
-            messageId: message.messageId,
-            error: String(error),
-          });
+          await handleError(error, { module: 'infra:http', action: 'channel_inbound_message', context: { channelType, messageId: message.messageId } });
         } finally {
           setTimeout(() => {
             _processingMessages.delete(message.messageId);
@@ -7988,12 +7984,11 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error('打开文件失败', { path: req.url, error: message });
+      await handleError(err, { module: 'infra:http', action: 'file_open', context: { path: req.url } });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: { message: `Failed to open file: ${message}` },
+          error: { message: `Failed to open file: ${err instanceof Error ? err.message : String(err)}` },
         })
       );
     }
@@ -8376,8 +8371,8 @@ export class LocalHTTPService {
         })
       );
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'file_preview', context: { path: req.url } });
       const message = err instanceof Error ? err.message : String(err);
-      logger.error('文件预览转换失败', { path: req.url, error: message });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({

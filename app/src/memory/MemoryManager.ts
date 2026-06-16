@@ -38,6 +38,7 @@ import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -872,10 +873,7 @@ export class MemoryManagerImpl {
       );
       await fs.promises.rename(tmpPath, this.relationGraphPath);
     } catch (error) {
-      logger.error(
-        'Error saving relation graph',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:manager', action: 'save_relation_graph' });
     }
   }
 

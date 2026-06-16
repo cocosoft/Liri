@@ -22,6 +22,7 @@
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -68,7 +69,7 @@ export async function handleMCPMarketplaceSearch(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(results));
     } catch (err) {
-      logger.error('MCP 市场搜索失败', err as Error);
+      await handleError(err, { module: 'infra:mcp', action: 'search_marketplace' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -122,7 +123,7 @@ export async function handleMCPMarketplaceRegistries(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ registries }));
     } catch (err) {
-      logger.error('获取 MCP 注册表列表失败', err as Error);
+      await handleError(err, { module: 'infra:mcp', action: 'get_registries' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -161,7 +162,7 @@ export async function handleMCPMarketplaceCategories(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(categories));
     } catch (err) {
-      logger.error('获取 MCP 分类列表失败', err as Error);
+      await handleError(err, { module: 'infra:mcp', action: 'get_categories' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -201,7 +202,7 @@ export async function handleMCPMarketplaceServerDetail(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detail));
     } catch (err) {
-      logger.error('获取 MCP 服务器详情失败', err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_server_detail' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -248,7 +249,7 @@ export async function handleMCPInstalledServers(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detailed));
     } catch (err) {
-      logger.error('获取已安装 MCP 服务器列表失败', err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_installed_servers' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -282,7 +283,7 @@ export async function handleMCPInstallServer(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      logger.error(`安装 MCP 服务器失败: ${serverId}`, err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_install_server', context: { serverId } });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -316,7 +317,7 @@ export async function handleMCPUninstallServer(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      logger.error(`卸载 MCP 服务器失败: ${serverId}`, err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_uninstall_server', context: { serverId } });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -364,7 +365,7 @@ export async function handleMCPToggleServer(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId, enabled }));
     } catch (err) {
-      logger.error(`切换 MCP 服务器状态失败: ${serverId}`, err as Error);
+      await handleError(err, { module: 'infra:http', action: 'mcp_toggle_server', context: { serverId } });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 

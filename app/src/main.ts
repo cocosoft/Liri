@@ -788,9 +788,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     profileReport();
   } catch (error) {
-    logger.error('应用启动失败', {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    await (await import('./error/handleError.js')).handleError(error, { module: 'app:main', action: 'launch' });
     profileCheckpoint('launch_error');
     profileReport();
     process.exit(1);

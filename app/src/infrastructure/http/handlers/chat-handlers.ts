@@ -27,6 +27,7 @@ import type http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type {
   ChatRequest,
@@ -194,7 +195,7 @@ async function handleNormalChat(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(completionResponse));
   } catch (err) {
-    logger.error('Chat error', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:http', action: 'chat_completion' });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       error: { message: 'AI 服务返回错误，请检查 API 密钥和模型配置', type: 'server_error' },
@@ -359,7 +360,7 @@ async function handleStreamingChat(
     logger.info('Stream chat completed', { model, sessionId: request.session_id });
     res.end();
   } catch (err) {
-    logger.error('流式聊天请求失败', { error: err instanceof Error ? err.message : String(err) });
+    await handleError(err, { module: 'infra:http', action: 'chat_stream_request' });
     res.write(`data: ${JSON.stringify({
       id: responseId, object: 'chat.completion.chunk', created, model,
       choices: [{

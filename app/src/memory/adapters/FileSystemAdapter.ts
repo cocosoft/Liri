@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -46,10 +47,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (error) {
-      logger.error(
-        `Error reading file ${filePath}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:fs', action: 'read_file', context: { filePath } });
       throw error;
     }
   }
@@ -65,10 +63,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(filePath));
       await fs.writeFile(filePath, content, 'utf-8');
     } catch (error) {
-      logger.error(
-        `Error writing file ${filePath}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:fs', action: 'write_file', context: { filePath } });
       throw error;
     }
   }
@@ -84,10 +79,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
         await fs.unlink(filePath);
       }
     } catch (error) {
-      logger.error(
-        `Error deleting file ${filePath}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:fs', action: 'delete_file', context: { filePath } });
       throw error;
     }
   }
@@ -115,10 +107,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       return await fs.readdir(directory);
     } catch (error) {
-      logger.error(
-        `Error reading directory ${directory}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:fs', action: 'read_directory', context: { directory } });
       throw error;
     }
   }
@@ -133,10 +122,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     } catch (error) {
       // 忽略目录已存在的错误
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        logger.error(
-          `Error creating directory ${directory}`,
-          error instanceof Error ? error : new Error(String(error))
-        );
+        await handleError(error, { module: 'memory:fs', action: 'ensure_directory', context: { directory } });
         throw error;
       }
     }
@@ -206,10 +192,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(destination));
       await fs.rename(source, destination);
     } catch (error) {
-      logger.error(
-        `Error moving file from ${source} to ${destination}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:fs', action: 'move_file', context: { source, destination } });
       throw error;
     }
   }

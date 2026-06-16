@@ -32,6 +32,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '../../error/handleError';
 import { claimMessage, releaseProcessing, finalizeMessage } from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
 import type { SessionSpanContext } from '../../ai/telemetry/SessionSpanTracer';
@@ -255,12 +256,11 @@ export async function routeChannelMessage(
     // 释放消息锁
     releaseProcessing(message.messageId);
 
-    logger.error('消息路由失败', {
-      channelName,
-      messageId: message.messageId,
-      error: String(error),
+    await handleError(error, {
+      module: 'channels:routing',
+      action: 'routeChannelMessage',
+      context: { channelName, messageId: message.messageId },
     });
-
     throw error;
   }
 }

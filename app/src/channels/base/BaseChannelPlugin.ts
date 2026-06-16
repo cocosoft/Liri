@@ -100,7 +100,7 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
   }
 
   constructor() {
-    this.logger = new Logger({ level: LogLevel.INFO });
+    this.logger = new Logger({ level: LogLevel.INFO, module: 'channels:base' });
   }
 
   // ─── 子类必须实现的方法 ──────────────────────────────────

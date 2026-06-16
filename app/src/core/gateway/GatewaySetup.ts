@@ -15,8 +15,10 @@ import { getCoreAPI } from '../../runtime/api/CoreAPIImpl';
 import { TelegramChannel } from './TelegramChannel';
 import { WebChannel } from './WebChannel';
 import { ChannelType } from './types';
+import type { GatewayChannel } from './types';
+import { channelRegistry, adaptPluginToChannelInterface } from '../../channels/registry/ChannelRegistry';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:setup' });
 
 /**
  * Gateway 初始化结果
@@ -128,7 +130,8 @@ export async function setupGatewayFromConfig(
           maxMessageSize: gatewayConfig.websocket.maxMessageSize,
         });
 
-        channelManager.registerChannel(webChannel);
+        channelManager.registerChannel(webChannel as unknown as GatewayChannel);
+        channelRegistry.register(adaptPluginToChannelInterface(webChannel));
         result.registeredChannels++;
         logger.info(
           `WebSocket 通道已注册 (${gatewayConfig.websocket.host}:${gatewayConfig.websocket.port})`

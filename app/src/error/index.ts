@@ -49,14 +49,8 @@ export * from './formatter';
 // 安全日志
 export * from './safeLog';
 
-// 错误处理器
-export * from './ErrorHandler';
-
 // 错误监控器
 export * from './monitor/ErrorMonitor';
-
-// 外部错误监控器（预留接口）
-export * from './monitor/ExternalErrorMonitor';
 
 // 错误分类器
 export {
@@ -69,9 +63,6 @@ export type { ErrorClassification } from './ErrorClassifier';
 
 // 错误追踪器
 export * from './tracker/ErrorTracker';
-
-// 错误恢复器
-export * from './recovery/ErrorRecoverer';
 
 // 重试策略（标准实现在 query/withRetry.ts，已删除旧实现）
 
@@ -98,11 +89,9 @@ export type { SSLAnalysisResult } from './network/SSLErrorHandler';
 // 错误上下文子模块
 export * from './context';
 
-// 错误预警器
-export * from './warning/ErrorWarner';
-
-// 专门错误处理策略
-export * from './handlers/SpecializedErrorHandlers';
+// 统一错误处理入口
+export { handleError } from './handleError';
+export type { HandleErrorOptions } from './handleError';
 
 // 高级错误分析（预留）
 

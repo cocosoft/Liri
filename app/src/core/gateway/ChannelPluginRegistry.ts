@@ -9,7 +9,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChannelPlugin } from './ChannelPlugin';
 import { ChannelStatus } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:plugin_registry' });
 
 /** 注册表事件类型 */
 export enum RegistryEvent {

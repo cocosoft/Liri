@@ -276,6 +276,11 @@ export const SystemEvents = {
 
   PERMISSION_GRANTED: 'permission:granted',
   PERMISSION_DENIED: 'permission:denied',
+
+  // 通道事件（从 ChannelEventBus 桥接，仅 3 个跨域事件）
+  CHANNEL_CRITICAL_ERROR: 'channel:critical_error',
+  CHANNEL_MESSAGE_RECEIVED: 'channel:message_received',
+  CHANNEL_CONNECTED_COUNT_CHANGED: 'channel:connected_count_changed',
 } as const;
 
 /**

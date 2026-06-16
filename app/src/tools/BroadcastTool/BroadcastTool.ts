@@ -102,7 +102,7 @@ export class BroadcastTool extends BaseTool {
               output: 'channel is required for home action',
             };
           }
-          const ok = channelRegistry.sendToHomeChannel(channel, message);
+          const ok = await channelRegistry.sendToHomeChannel(channel, message);
           return {
             success: ok,
             data: { channel, sent: ok },
@@ -123,7 +123,7 @@ export class BroadcastTool extends BaseTool {
               output: 'threadId is required for thread action',
             };
           }
-          const ok = channelRegistry.sendThreadReply(
+          const ok = await channelRegistry.sendThreadReply(
             channel,
             threadId,
             message

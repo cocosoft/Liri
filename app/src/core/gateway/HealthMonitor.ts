@@ -3,7 +3,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { GatewayChannel } from './types';
 import { ChannelStatus } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:health' });
 
 export interface HealthConfig {
   checkIntervalMs?: number;
@@ -307,7 +307,9 @@ export class HealthMonitor extends EventEmitter {
           this.stopRecoveryTimer(name);
           logger.info(`HealthMonitor: 通道 ${name} 已自动恢复`);
         }
-      } catch {}
+      } catch (err) {
+        logger.warning('[HealthMonitor] 通道恢复检查失败:', err);
+      }
     }, this.config.recoveryCheckIntervalMs);
 
     this.recoveryTimers.set(name, timer);

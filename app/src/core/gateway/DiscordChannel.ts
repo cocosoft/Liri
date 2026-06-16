@@ -25,7 +25,7 @@ import type {
   PluginValidationResult,
 } from './ChannelPlugin';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:discord' });
 
 const DISCORD_API_BASE = 'discord.com';
 

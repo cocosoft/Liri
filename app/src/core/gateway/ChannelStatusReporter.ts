@@ -2,8 +2,9 @@ import { EventEmitter } from 'node:events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { GatewayChannel, ChannelStats } from './types';
 import { ChannelStatus, ChannelType } from './types';
+import { channelEventBus, ChannelEvents } from '../../channels/events/ChannelEventBus.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channel:status_reporter' });
 
 export interface ChannelSnapshot {
   name: string;
@@ -154,6 +155,7 @@ export class ChannelStatusReporter extends EventEmitter {
     };
 
     this.emit(ReporterEvent.REPORT_GENERATED, report);
+    channelEventBus.publish(ChannelEvents.REPORT_GENERATED, report);
     return report;
   }
 

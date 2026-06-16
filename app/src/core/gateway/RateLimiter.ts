@@ -1,6 +1,6 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:ratelimit' });
 
 export interface RateLimitConfig {
   windowMs: number;

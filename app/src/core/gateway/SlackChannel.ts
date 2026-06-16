@@ -25,7 +25,7 @@ import type {
   PluginValidationResult,
 } from './ChannelPlugin';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:slack' });
 
 const SLACK_API_BASE = 'slack.com';
 

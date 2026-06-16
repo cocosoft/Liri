@@ -1,7 +1,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:auth' });
 
 export interface AuthResult {
   authenticated: boolean;

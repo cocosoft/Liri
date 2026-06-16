@@ -11,7 +11,7 @@ import type {
 import { ChannelRegistry } from '../registry/ChannelRegistry';
 import { Logger, LogLevel } from '../../monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:health' });
 
 export interface HealthAlert {
   channelId: string;

@@ -28,12 +28,15 @@ import { ChannelStatusReporter } from './ChannelStatusReporter';
 import type { StatusReport } from './ChannelStatusReporter';
 import { RateLimiter } from './RateLimiter';
 import { GatewayAuth } from './auth/GatewayAuth';
+import { channelEventBus, ChannelEvents } from '../../channels/events/ChannelEventBus.js';
 import { ChannelPluginRegistry } from './ChannelPluginRegistry';
 import { isChannelPlugin } from './ChannelPlugin';
 import type { ChannelPlugin } from './ChannelPlugin';
+import { routeChannelMessage } from '../../channels/routing/messageRouter';
+import type { MessageContext } from '../../channels/types/IChannel';
 import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 import type { ChannelInterface } from '../../channels/registry/ChannelRegistry';
-const rawLogger = new Logger({ level: LogLevel.INFO });
+const rawLogger = new Logger({ level: LogLevel.INFO, module: 'channel:manager' });
 
 class RedactedLogger {
   info(msg: string, meta?: Record<string, unknown>) {
@@ -51,6 +54,9 @@ class RedactedLogger {
 }
 
 const logger = new RedactedLogger() as unknown as Logger;
+
+/** 废弃告警是否已输出（全局仅输出一次） */
+let _channelManagerDeprecationWarned = false;
 
 /** 通道管理器配置 */
 export interface ChannelManagerConfig {
@@ -94,6 +100,15 @@ export class ChannelManager extends EventEmitter {
 
   constructor(config?: ChannelManagerConfig) {
     super();
+
+    // 运行时废弃告警（仅首次实例化输出）
+    if (!_channelManagerDeprecationWarned) {
+      _channelManagerDeprecationWarned = true;
+      logger.warning(
+        'ChannelManager 已废弃，请迁移至 channels/registry/ChannelRegistry。' +
+        'core/gateway/ 体系将在未来版本中移除。'
+      );
+    }
 
     this.config = {
       autoReconnect: config?.autoReconnect ?? true,
@@ -206,6 +221,10 @@ export class ChannelManager extends EventEmitter {
       `ChannelManager: 通道已注册 — ${channel.name} (${channel.type})`
     );
     this.emit(ChannelEvent.STATE_CHANGE, channel.name, channel.status);
+    channelEventBus.publish(ChannelEvents.CHANNEL_STATE_CHANGE, {
+      channelName: channel.name,
+      status: channel.status,
+    });
 
     // 同步到 ChannelRegistry，确保工具和 /channel 命令可访问
     try {
@@ -493,11 +512,16 @@ export class ChannelManager extends EventEmitter {
           reg.reconnectAttempts = 0;
         }
         this.emit(ChannelEvent.CONNECTED, channel.name);
+        channelEventBus.publish(ChannelEvents.CHANNEL_CONNECTED, { channelName: channel.name });
         logger.info(`ChannelManager: 通道已连接 — ${channel.name}`);
       },
 
       onDisconnected: (reason?: string) => {
         this.emit(ChannelEvent.DISCONNECTED, channel.name, reason);
+        channelEventBus.publish(ChannelEvents.CHANNEL_DISCONNECTED, {
+          channelName: channel.name,
+          reason: reason ?? 'unknown',
+        });
         logger.warning(
           `ChannelManager: 通道已断开 — ${channel.name}${reason ? ` (${reason})` : ''}`
         );
@@ -510,6 +534,10 @@ export class ChannelManager extends EventEmitter {
 
       onError: (error: Error) => {
         this.emit(ChannelEvent.ERROR, channel.name, error);
+        channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
+          channelName: channel.name,
+          error: error.message,
+        });
         logger.error(`ChannelManager: 通道错误 — ${channel.name}`, {
           error: error.message,
         });
@@ -517,11 +545,21 @@ export class ChannelManager extends EventEmitter {
 
       onMessage: (message: InboundMessage) => {
         this.emit(ChannelEvent.MESSAGE, channel.name, message);
+        channelEventBus.publish(ChannelEvents.MESSAGE_RECEIVED, {
+          channelName: channel.name,
+          messageId: message.id,
+          senderId: message.sender,
+        });
         this.routeMessage(channel, message);
       },
 
       onStateChange: (status: ChannelStatus, previous: ChannelStatus) => {
         this.emit(ChannelEvent.STATE_CHANGE, channel.name, status, previous);
+        channelEventBus.publish(ChannelEvents.CHANNEL_STATE_CHANGE, {
+          channelName: channel.name,
+          status,
+          previousStatus: previous,
+        });
       },
 
       onReconnecting: (attempt: number, maxAttempts: number) => {
@@ -531,6 +569,11 @@ export class ChannelManager extends EventEmitter {
           attempt,
           maxAttempts
         );
+        channelEventBus.publish(ChannelEvents.CHANNEL_RECONNECTING, {
+          channelName: channel.name,
+          attempt,
+          maxAttempts,
+        });
       },
     };
   }
@@ -651,79 +694,73 @@ export class ChannelManager extends EventEmitter {
   /**
    * 路由入站消息到 CoreAPI
    * 在路由前先验证消息合法性
+   *
+   * @deprecated 内部委托到 routeChannelMessage()，旧路径保留兼容。
+   *   新通道应直接调用 channels/routing/messageRouter 的 routeChannelMessage()。
    */
   private async routeMessage(
     channel: GatewayChannel,
     message: InboundMessage
   ): Promise<void> {
-    const validation = this.validateInboundMessage(message);
-    if (!validation.valid) {
-      const errorMsg = validation.errors?.join('; ') || '消息格式无效';
-      await this.sendErrorResponse(channel, message, 'INVALID_FRAME', errorMsg);
+    // 将旧 InboundMessage 转换为新 MessageContext 格式
+    const messageContext: MessageContext = {
+      messageId: message.id,
+      channelId: channel.name as MessageContext['channelId'],
+      senderId: message.sender,
+      content: message.content,
+      messageType: 'text',
+      timestamp: message.timestamp,
+      isDirectMessage: true,
+      conversationId: message.sessionId || message.sender,
+      rawPayload: message.raw || {},
+    };
+
+    // 委托到统一路由入口
+    const result = await routeChannelMessage(messageContext, {
+      coreAPI: {
+        chat: async (params) => {
+          if (!this.coreAPI) {
+            throw new Error('CoreAPI 未设置');
+          }
+          return this.coreAPI.chat({
+            content: params.content,
+            sessionId: params.sessionId,
+            metadata: {
+              ...params.metadata,
+              channel: channel.name,
+            },
+          });
+        },
+      },
+      onOutbound: async (content: string, target: string) => {
+        await channel.send({
+          content,
+          sessionId: message.sessionId || 'unknown',
+          recipient: target,
+          type: 'text',
+        });
+      },
+      channelName: channel.name,
+      enableTracing: true,
+    });
+
+    // 处理验证失败：保持旧行为的 sendErrorResponse + emit
+    if (!result.valid) {
+      await this.sendErrorResponse(
+        channel,
+        message,
+        result.errorCode || 'INVALID_FRAME',
+        result.errorMessage || '消息格式无效'
+      );
       this.emit(
         ChannelEvent.ERROR,
         channel.name,
-        new Error(`消息验证失败: ${errorMsg}`)
+        new Error(`消息验证失败: ${result.errorMessage}`)
       );
-      return;
-    }
-
-    if (!this.coreAPI) {
-      logger.warning('ChannelManager: CoreAPI 未设置，消息无法路由');
-      return;
-    }
-
-    try {
-      // 将消息写入共享会话存储，使所有通道消息在统一上下文中可见
-      try {
-        const { getDIContainer } = await import('../../core/DIContainer.js');
-        const { MessageType, MessageRole } =
-          await import('../../session/types/Message.js');
-        const container = getDIContainer();
-        if (container.has('combinedSessionGateway')) {
-          const combinedGateway = container.resolve<any>(
-            'combinedSessionGateway'
-          );
-          if (typeof combinedGateway.sendMessage === 'function') {
-            await combinedGateway.sendMessage('shared-context', {
-              id: message.id,
-              sessionId: 'shared-context',
-              type: MessageType.USER,
-              role: MessageRole.USER,
-              content: message.content,
-              timestamp: message.timestamp,
-              metadata: {
-                channel: channel.name,
-                sender: message.sender,
-              },
-            });
-          }
-        }
-      } catch {
-        // 共享写入失败不影响主路由流程
-      }
-
-      const response = await this.coreAPI.chat({
-        content: message.content,
-        sessionId: message.sessionId,
-        metadata: {
-          ...message.raw,
-          channel: channel.name,
-          sender: message.sender,
-        },
-      });
-
-      if (response.content) {
-        await channel.send({
-          content: response.content,
-          sessionId: response.sessionId,
-          recipient: message.sender,
-        });
-      }
-    } catch (error) {
-      logger.error(`ChannelManager: 消息路由失败 — ${channel.name}`, {
-        error: String(error),
-        messageId: message.id,
+      channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
+        channelName: channel.name,
+        error: `消息验证失败: ${result.errorMessage}`,
+        errorCode: result.errorCode || 'INVALID_FRAME',
       });
     }
   }

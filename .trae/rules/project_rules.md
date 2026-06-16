@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.9.0 | **更新**: 2026-06-06
+**版本**: 7.10.0 | **更新**: 2026-06-16
 
 ## §1 基础规则
 
@@ -23,7 +23,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 - **向后兼容策略**：当前应用无正式用户，所有重构/迁移**无需考虑向后兼容**。旧类型、旧文件、旧接口可直接删除或重写，无需保留兼容层或 deprecation 过渡期。待有用户后重新评估此策略。
 
 ### 1.4 环境变量规范
-前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)
+前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)、`CHANNEL_*`(通道)
 
 **运行时注入（main.ts 自动设置，子进程继承）**：
 | 环境变量 | 对应函数 | 路径 | 用途 |
@@ -120,23 +120,169 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 ### 1.8 日志规范
 **唯一入口**：`monitoring/logs/Logger.ts`。新代码从 `@modules/monitoring/logs/Logger` 导入 `Logger` + `LogLevel`。
 ❌ 禁止 `utils/log`（兼容层）、`utils/logger`（已删除）、`utils/monitoring`、`console.log`。
+
+#### 1.8.1 Logger 实例化强制规范
+**构造时必须传 `module` 字段**，用于按模块过滤和日志溯源。
+
 ```typescript
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+// ✅ 正确：传 module
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:registry' });
+const logger = new Logger({ level: LogLevel.DEBUG, module: 'agent:core' });
+const logger = new Logger({ level: LogLevel.INFO, module: 'tools:file_manager' });
+
+// ❌ 禁止：不传 module（日志不可过滤、不可溯源）
 const logger = new Logger({ level: LogLevel.INFO });
+
 logger.info('完成', { toolName, duration: elapsedMs });  // ✅
 // ❌ import { Logger } from '@modules/utils/logger';
 // ❌ console.log / console.error
 ```
 
+**module 命名约定**：`<大模块>:<子模块>`，如 `channels:registry`、`channels:routing`、`agent:core`、`tools:file_manager`、`session:gateway`。
+
 ### 1.9 错误处理规范
-禁止吞异常；必须使用 `AppError` + `ErrorCodes`；用户端中文、日志端英文。
+**唯一入口**：`error/types.ts` 的 `AppError`（含 `ErrorCategory` + `ErrorSeverity` + 12 个子类）。
+
+#### 1.9.1 业务异常必须 `throw new AppError()`，禁止 `logger.warning` 替代
+
 ```typescript
-try { await executeTool(); }
-catch (e) { throw new AppError(ErrorCodes.TOOL_EXEC_FAILED, { module: 'ToolExecutor', cause: e }); }
+// ✅ 正确：throw AppError（可被 ErrorTracker / EventBus 感知）
+throw new AppError(
+  `通道 ${name} 不存在`,
+  ErrorCategory.VALIDATION,
+  ErrorSeverity.MEDIUM,
+  'CHANNEL_NOT_FOUND',
+  { channelName: name }
+);
+
+// ❌ 禁止：logger.warning 替代 throw（错误到不了 ErrorTracker）
+logger.warning(`通道 ${name} 不存在`);
 ```
 
-#### 1.9.1 预存错误记录（发现即记录）
+**原因**：`logger.warning` 替代 throw 会导致错误永远不被 `ErrorTracker`、`ErrorClassifier`、`EventBus`（`SystemEvents.APP_ERROR`）感知。
+
+#### 1.9.2 catch 块禁止吞异常
+
+```typescript
+// ❌ 禁止——错误永远丢失
+try { await riskyOperation(); } catch { /* 空 */ }
+
+// ✅ 至少记录，或包装为 AppError 再 throw
+try { await riskyOperation(); } catch (error) {
+  logger.error('riskyOperation 失败', { error: String(error) });
+  throw new AppError(
+    `操作失败: ${(error as Error).message}`,
+    ErrorCategory.EXECUTION,
+    ErrorSeverity.HIGH,
+    'OPERATION_FAILED',
+    { originalError: error }
+  );
+}
+```
+
+#### 1.9.3 顶层 catch 规范
+
+```typescript
+try { await executeTool(); }
+catch (e) {
+  if (e instanceof AppError) {
+    logger.error(e.message, { category: e.category, severity: e.severity, code: e.code, context: e.context });
+    // 仅 CRITICAL / HIGH 级别 publish 到 globalEventBus 全局感知
+    if (e.severity === ErrorSeverity.CRITICAL || e.severity === ErrorSeverity.HIGH) {
+      globalEventBus.publish(SystemEvents.APP_ERROR, { message: e.message, code: e.code, errorId: e.errorId });
+    }
+  } else {
+    throw new AppError(ErrorCodes.TOOL_EXEC_FAILED, { module: 'ToolExecutor', cause: e });
+  }
+}
+```
+
+#### 1.9.4 failure-logs 结构对齐 AppError
+
+所有 `failure-logs/` 写入点的 JSON schema 必须包含 `AppError` 核心字段：
+
+```json
+{
+  "taskId": "xxx",
+  "error": "错误描述",
+  "category": "filesystem",
+  "severity": "high",
+  "errorCode": "FILE_SAVE_FAILED",
+  "errorStack": "完整堆栈",
+  "context": { "channelType": "telegram", "attemptedAction": "sendFile" },
+  "retryCount": 0, "maxRetries": 3,
+  "startedAt": 1779627340674, "failedAt": 1779627341674
+}
+```
+
+#### 1.9.5 预存错误记录（发现即记录）
 发现的预存错误（非本次引入）必须**立即记录**到 `dev_docs/error_repairs/预存错误与待处理问题.md`，按 A-G 类分类。不得跳过、不得补记。
+
+#### 1.9.6 `handleError()` 统一错误处理入口（强制）
+
+所有 catch 块必须通过 `error/handleError.ts` 的 `handleError()` 统一处理，禁止手写 logger.error + tracker.record 分散逻辑。
+
+```typescript
+import { handleError } from '@modules/error/handleError';
+
+// ✅ 正确：统一入口
+try { await riskyOperation(); }
+catch (e) {
+  await handleError(e, { module: 'channels:web', action: 'connect' });
+}
+
+try { await riskyOperation(); }
+catch (e) {
+  await handleError(e, { module: 'channels:routing', action: 'routeMessage', rethrow: true });
+}
+
+// ❌ 禁止：手写分散的 catch 处理
+catch (e) {
+  logger.error(e.message);
+  tracker.record(e);
+}
+```
+
+**`handleError()` 内部职责**：
+1. 非 `AppError` 自动包装为 `UNHANDLED_ERROR`
+2. 日志记录（Logger，module 必传）
+3. `ErrorTracker.record()` 记录
+4. 可选 `rethrow` 重新抛出
+
+**注意**：`handleError()` 内部不做 EventBus publish（消除对 core/events 的硬依赖）。ErrorTracker 记录后，由桥接层订阅 ErrorTracker 事件 → publish 到 globalEventBus。
+
+#### 1.9.7 catch 块 `@ignore-catch` 注释规范
+
+非关键路径（写入失败不影响主流程）的 catch 块如不调用 `handleError()`，必须标注 `@ignore-catch` 并附原因：
+
+```typescript
+// ✅ 正确：标注忽略原因
+try {
+  await combinedSessionGateway.sendMessage(sessionId, msg);
+} catch (sessionError) {
+  // @ignore-catch: 非关键路径，共享会话写入失败不影响主路由流程
+}
+
+// ❌ 禁止：空 catch 块无注释
+try { await nonCriticalOp(); } catch { /* 空 */ }
+```
+
+#### 1.9.8 全局异常兜底
+
+main.ts 启动入口必须注册 `unhandledRejection` + `uncaughtException` 兜底：
+
+```typescript
+process.on('unhandledRejection', (reason: unknown) => {
+  handleError(reason, { module: 'app:top', action: 'unhandledRejection' });
+});
+
+process.on('uncaughtException', (error: Error) => {
+  handleError(error, { module: 'app:top', action: 'uncaughtException' });
+  process.exit(1);
+});
+```
 
 ### 1.10 入口与启动规范
 - 编译入口：`src/pyapp.ts`（`process.chdir()` + 根目录解析）
@@ -213,9 +359,154 @@ import { resolveOutputDir, resolveDbPath, ... } from '@modules/core/paths';  // 
 **路径**：❌ `join(homedir(), '.pyapp')` ❌ `join(resolveDataDir(), 'xxx')` 代替已有函数 ❌ `process.cwd()` 拼路径 ❌ 硬编码相对路径 ❌ 自行实现 fallback ❌ `from '@modules/config/paths'`（旧路径已删除，编译会失败）
 **数据库**：❌ 新建 `.db` 文件 ❌ `join(resolveDataDir(), 'xxx.db')` ❌ 表名冲突
 
+### 1.14 通道系统规范
+
+#### 1.14.1 通道体系架构（双轨制已收敛）
+
+**唯一真相源**：`src/channels/` 为通道系统的唯一实现层。`core/gateway/` 为遗留兼容层，仅做状态同步，不再负责新通道注册。
+
+```
+启动时序（收敛后）：
+  1. channelRegistry.initPersistence()       ← 加载 DB 持久化配置
+  2. setupChannelsFromConfig()              ← 唯一注册入口
+     └── ChannelBootstrapper.bootstrap()
+           └── channelRegistry.register(adaptPluginToInterface(plugin))
+  3. lazyConnectChannels()                  ← 延迟连接（后台异步）
+  4. [legacy] setupGatewayFromConfig()      ← 兼容层，仅做状态同步
+```
+
+**红线**：
+- ❌ 新模块引入对 `core/gateway/` 的依赖（应使用 `channels/`）
+- ❌ 绕过 `ChannelRegistry` 直接注册通道
+- ❌ 在 `ChannelManager` 中新增业务逻辑（已标记 @deprecated）
+
+#### 1.14.2 通道注册唯一入口
+
+所有通道必须通过 `ChannelRegistry.register()` 注册，`ChannelBootstrapper.bootstrap()` 为统一启动入口。
+
+```typescript
+// ✅ 正确：通过 ChannelRegistry 注册
+channelRegistry.register(adaptPluginToInterface(plugin));
+
+// ❌ 禁止：绕过 ChannelRegistry 直接注册
+channelManager.registerChannel(channel);
+```
+
+**双重注册守卫**：`ChannelRegistry.register()` 内部已添加去重逻辑，避免同一通道通过 dual registration path 产生重复事件。
+
+#### 1.14.3 消息路由统一管线
+
+所有入站消息必须走 `channels/routing/messageRouter.ts` 的 `routeChannelMessage()` 统一处理管线：
+
+```
+入站消息 → [0]端到端追踪开始(GatewaySessionTracer.traceInbound)
+         → ①帧验证 → ②去重检查 → ③共享会话写入(combinedSessionGateway.sendMessage)
+         → ④会话创建/复用 → ⑤CoreAPI.chat() → ⑥出站回调 + 追踪完成
+```
+
+**帧验证规则**（统一后全部启用）：
+
+| 规则 | 检查项 |
+|------|--------|
+| 消息 ID 非空 | `id` 不为空字符串 |
+| 发送者非空 | `sender` 不为空字符串 |
+| 时间戳有效性 | 非未来时间、非太久远 |
+| 原始载荷格式 | `validateInboundFrame()` 格式校验 |
+| 消息大小上限 | 默认 1MB |
+| 非法字符/注入 | 基础 XSS/控制字符过滤 |
+
+**去重统一**：使用 `channels/dedup/index.ts` 的实现，禁止各模块自建去重逻辑。
+
+**红线**：
+- ❌ 禁止绕过 `routeChannelMessage()` 直接调用 `CoreAPI.chat()`
+- ❌ 禁止自建消息去重逻辑（Set/Map 临时去重）
+- ❌ 禁止在通道适配器中实现独立的帧验证
+
+#### 1.14.4 事件总线分层架构
+
+通道事件总线采用分层设计，`ChannelEventBus`（独立 `EventBusImpl` 实例）与 `globalEventBus` 通过桥接层选择性转发：
+
+```
+Layer 1: globalEventBus (系统事件总线)
+  app:* | config:* | cost:* | task:*
+  channel:critical_error | channel:message_received | channel:connected_count_changed
+
+Layer 2: ChannelEventBus (通道事件总线，独立实例)
+  channel:registered | channel:status_change | channel:message_inbound
+  channel:message_outbound | channel:error | channel:heartbeat | channel:config_reload
+```
+
+**桥接规则**（仅跨域有价值的事件）：
+
+| Channel 事件 | 频次 | 是否向上桥接 | 桥接为 |
+|-------------|------|------------|--------|
+| `channel:message_inbound` | 中 | ✅ | `task:created` |
+| `channel:error`（严重级别） | 低 | ✅ | `channel:critical_error` |
+| `channel:connected_count_changed` | 中 | ✅ | `channel:connected_count_changed` |
+| `channel:registered` | 低 | ✅ | `channel:registered` |
+| `channel:heartbeat` | 很高 | ❌ | 不桥接（秒级，纯通道内部） |
+| `channel:streaming_token` | 极高 | ❌ | 不桥接（毫秒级，通道内部） |
+
+| 系统事件 | 是否向下桥接 | 桥接为 |
+|---------|------------|-------|
+| `config:changed` | ✅ | `channel:config_reload` |
+| `app:shutdown` | ✅ | `channel:shutdown` |
+| `app:initialized` | ✅ | `channel:system_ready` |
+
+**红线**：
+- ❌ 禁止在 `globalEventBus` 上直接发布高频通道事件（heartbeat/streaming_token）
+- ❌ 禁止通道模块直接依赖 `globalEventBus`（应通过桥接层）
+
+#### 1.14.5 通道上限可配置
+
+通道数量上限通过环境变量 `CHANNEL_MAX_COUNT` 配置，默认值 **10**（非 Infinity，避免资源耗尽）。
+
+```typescript
+// ✅ 正确：从环境变量读取
+const maxChannels = parseInt(process.env.CHANNEL_MAX_COUNT || '10', 10);
+
+// ❌ 禁止：硬编码通道上限
+const MAX_CHANNELS = 3;
+```
+
+启动日志必须输出配额信息：`activeChannels/maxChannels` 比率和当前注册通道数。超出上限时输出明确 warning 而非静默丢弃。
+
+#### 1.14.6 废弃代码标记规范
+
+遗留模块（`core/gateway/` 下的 `ChannelManager`、`GatewaySetup`、`GatewayTool` 等）必须在构造函数中输出运行时告警：
+
+```typescript
+constructor() {
+  process.emitWarning(
+    'ChannelManager 已废弃，请使用 ChannelRegistry',
+    'DeprecationWarning'
+  );
+}
+```
+
+生产环境可通过 `--no-deprecation` 抑制。
+
+#### 1.14.7 DevicePairingService 归属
+
+`DevicePairingService` 归属 `channels/`，独立于 `routing/` 和 `registry/`，通过 `events/ChannelEventBus` 与外部通信。设备配对功能是通道基础设施，不依赖具体通道实现。
+
+#### 1.14.8 通道 Logger module 命名约定
+
+```typescript
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:registry' });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:web' });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:routing' });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:session' });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:monitoring' });
+```
+
+**命名约定**：`channels:<子模块>`。
+
 ---
 
 ## §2 版本历史
+- **v7.10.0**: §1.9.6-1.9.8 错误处理规范强化（handleError 统一入口、@ignore-catch 注释、全局异常兜底）；§1.14 通道系统规范（双轨制收敛、注册/路由/事件总线/上限/废弃标记/命名约定）
 - **v7.9.0**: §1.5 模型数据一致性规范（数出同源）—— DB 是模型/Provider 的唯一事实来源，运行时必须从 DB 同步，禁止手动硬编码注册
 - **v7.8.0**: §1.6 第二层数据目录移至 `~/.pyapp/data/`（部署安全：Program Files 安装也具备写入权限）；pyapp.ts 清理遗留 PROJECT_DIRS
 - **v7.7.0**: §1.12 路径导入约定（强制）：路径注册表迁移至 `core/paths.ts`，全项目 108 模块统一 `@modules/core/paths`，config/paths.ts 已删除；文件工具输出目录注入规范；Code Review 新增路径检查项

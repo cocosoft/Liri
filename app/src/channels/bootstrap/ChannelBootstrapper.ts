@@ -6,7 +6,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import type { IChannelPlugin } from '../types/IChannel';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:bootstrap' });
 
 /**
  * 通道启动配置项

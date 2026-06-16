@@ -12,6 +12,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId, MessageContext } from '@modules/channels/types';
 import type {
@@ -20,7 +21,7 @@ import type {
   CoordinatorConfig,
 } from '@modules/core/Coordinator';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:bridge' });
 
 /**
  * 通道消息转换为 Bridge 任务后的元数据
@@ -37,25 +38,46 @@ export interface ChannelTaskMetadata {
 }
 
 /**
- * 跨通道分发选项
+ * 跨通道分发选项（coordinator 为必填，其余可选）
  */
 export interface ChannelBridgeOptions {
-  /** 协作器实例 */
+  /** 协作器实例（必填） */
   coordinator: Coordinator;
   /** 是否自动回复进度 */
-  autoProgressReply: boolean;
+  autoProgressReply?: boolean;
   /** 进度回复间隔（毫秒） */
-  progressIntervalMs: number;
+  progressIntervalMs?: number;
   /** 单任务最大超时（毫秒） */
-  taskTimeoutMs: number;
+  taskTimeoutMs?: number;
 }
 
-const DEFAULT_OPTIONS: ChannelBridgeOptions = {
-  coordinator: null as unknown as Coordinator,
+const DEFAULT_OPTIONS: Omit<ChannelBridgeOptions, 'coordinator'> = {
   autoProgressReply: true,
   progressIntervalMs: 10000,
   taskTimeoutMs: 600000,
 };
+
+/**
+ * 创建 ChannelBridgeAdapter 的工厂函数
+ *
+ * coordinator 为必填参数，缺失时抛出 AppError，避免运行时 NPE。
+ * 替代 `new ChannelBridgeAdapter({ coordinator })` 的直接构造。
+ */
+export function createChannelBridgeAdapter(
+  coordinator: Coordinator,
+  options?: Omit<ChannelBridgeOptions, 'coordinator'>
+): ChannelBridgeAdapter {
+  if (!coordinator) {
+    throw new AppError(
+      'ChannelBridgeAdapter 创建失败：coordinator 为必填参数',
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.HIGH,
+      'BRIDGE_COORDINATOR_REQUIRED',
+      {}
+    );
+  }
+  return new ChannelBridgeAdapter({ coordinator, ...options });
+}
 
 /**
  * Channel-Bridge 适配器
@@ -66,11 +88,23 @@ const DEFAULT_OPTIONS: ChannelBridgeOptions = {
  *   3. 管理跨消息会话的上下文连续性
  */
 export class ChannelBridgeAdapter {
-  private options: ChannelBridgeOptions;
+  private options: Required<ChannelBridgeOptions>;
   private activeDelegations: Map<string, ChannelTaskMetadata> = new Map();
 
-  constructor(options: Partial<ChannelBridgeOptions> = {}) {
-    this.options = { ...DEFAULT_OPTIONS, ...options };
+  /**
+   * @param options coordinator 为必填，其余可选
+   */
+  constructor(options: ChannelBridgeOptions) {
+    if (!options.coordinator) {
+      throw new AppError(
+        'ChannelBridgeAdapter 构造失败：coordinator 为必填参数',
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'BRIDGE_COORDINATOR_REQUIRED',
+        {}
+      );
+    }
+    this.options = { ...DEFAULT_OPTIONS, ...options } as Required<ChannelBridgeOptions>;
   }
 
   /**

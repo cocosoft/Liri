@@ -445,4 +445,3 @@ export class ModuleError extends AppError {
 }
 
 export type { TrackedError } from './tracker/ErrorTracker';
-export type { ErrorContext } from './monitor/ExternalErrorMonitor';

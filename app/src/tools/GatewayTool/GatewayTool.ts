@@ -1,5 +1,9 @@
 /**
  * GatewayTool — 网关管理工具
+ *
+ * @deprecated 请使用 ChannelTool (tools/ChannelTool) 替代。
+ *   此工具将在未来版本中移除。
+ *
  * 封装 ChannelRegistry，管理网关生命周期和通道状态
  */
 import { BaseTool } from '../BaseTool';

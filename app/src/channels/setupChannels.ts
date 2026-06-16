@@ -9,9 +9,10 @@ import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type { IChannelPlugin, MessageContext } from './types/IChannel';
+import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
 
 /**
  * 全部支持的通道类型清单（含显示名称）
@@ -257,10 +258,12 @@ export async function setupChannelsFromConfig(): Promise<{
   }
 
   // DB 来源的通道不受 MAX_CHANNELS 限制（前端显式配置的凭据 → 始终注册）
-  const MAX_ENV_CHANNELS = 3;
+  const MAX_CHANNELS = parseInt(configManager.env('CHANNEL_MAX_COUNT') || '10', 10);
   const priorityStr = configManager.env('CHANNEL_PRIORITY') || '';
 
-  // 环境变量通道按优先级选择（上限 MAX_ENV_CHANNELS）
+  logger.info(`通道上限配置: ${MAX_CHANNELS} 个（可通过 CHANNEL_MAX_COUNT 环境变量调整）`);
+
+  // 环境变量通道按优先级选择（上限 MAX_CHANNELS）
   let selectedEnvDefs: typeof channelCandidates;
   if (priorityStr) {
     const priorityOrder = priorityStr
@@ -273,7 +276,7 @@ export async function setupChannelsFromConfig(): Promise<{
         (a, b) =>
           (priorityMap.get(a.type) ?? 999) - (priorityMap.get(b.type) ?? 999)
       )
-      .slice(0, MAX_ENV_CHANNELS);
+      .slice(0, MAX_CHANNELS);
     const skippedUnprioritized = enabledDefs.filter(
       (d) => !priorityMap.has(d.type)
     ).length;
@@ -283,7 +286,7 @@ export async function setupChannelsFromConfig(): Promise<{
       );
     }
   } else {
-    selectedEnvDefs = enabledDefs.slice(0, MAX_ENV_CHANNELS);
+    selectedEnvDefs = enabledDefs.slice(0, MAX_CHANNELS);
   }
 
   // DB 来源通道 + 环境变量通道（去重：DB 优先）
@@ -303,7 +306,7 @@ export async function setupChannelsFromConfig(): Promise<{
       .filter((d) => !selectedEnvDefs.find((s) => s.type === d.type))
       .map((d) => d.type);
     logger.info(
-      `通道上限 ${MAX_ENV_CHANNELS} 个, 跳过: ${skippedTypes.join(', ')}`
+      `通道上限 ${MAX_CHANNELS} 个, 跳过: ${skippedTypes.join(', ')}`
     );
   }
   // 第三步：仅导入选中的通道模块（并行导入）
@@ -375,9 +378,6 @@ export async function setupChannelsFromConfig(): Promise<{
 /** lazyConnectChannels 是否已执行过（防重复连接守卫） */
 let _channelsConnected = false;
 
-/** 当前正在处理的消息ID集合（防并发重复处理） */
-const _processingMessages = new Set<string>();
-
 /**
  * 延迟连接所有已注册的通道
  * 在应用完全启动后在后台执行，不阻塞主流程
@@ -428,56 +428,38 @@ export async function lazyConnectChannels(): Promise<void> {
 
       if (plugin.inbound) {
         plugin.inbound.setMessageHandler(async (message: MessageContext) => {
-          // 防并发重复处理：同一消息ID同时只能处理一次
-          if (_processingMessages.has(message.messageId)) {
-            logger.warning(`跳过重复消息: ${message.messageId}`);
-            return;
-          }
-          _processingMessages.add(message.messageId);
+          // 终端回显：显示来源通道、发送者、消息内容
+          const senderDisplay =
+            message.senderName || message.senderId || 'unknown';
+          console.log(
+            `\n── [${channel.name.toUpperCase()}] ${senderDisplay} ──`
+          );
+          console.log(message.content);
 
-          try {
-            // 终端回显：显示来源通道、发送者、消息内容
-            const senderDisplay =
-              message.senderName || message.senderId || 'unknown';
-            console.log(
-              `\n── [${channel.name.toUpperCase()}] ${senderDisplay} ──`
-            );
-            console.log(message.content);
-
-            const coreAPI = getCoreAPI();
-            const response = await coreAPI.chat({
-              content: message.content,
-              sessionId: message.conversationId ?? message.senderId,
-              metadata: {
-                channel: message.channelId,
-                sender: message.senderId,
-                messageType: message.messageType,
-                isDirectMessage: message.isDirectMessage,
-                rawPayload: message.rawPayload,
-              },
-            });
-
-            if (response.content && plugin.outbound) {
+          const coreAPI = getCoreAPI();
+          const result = await routeChannelMessage(message, {
+            coreAPI,
+            channelName: channel.name,
+            enableTracing: true,
+            onOutbound: async (content, target) => {
               // 终端回显：显示AI回复
               console.log(`\n── [${channel.name.toUpperCase()}] Liri ──`);
-              console.log(response.content);
+              console.log(content);
               console.log(''); // 空行分隔
 
-              await plugin.outbound.sendText(
-                message.conversationId ?? message.senderId,
-                response.content
-              );
-            }
-          } catch (error) {
-            logger.error(`通道 ${channel.name} 入站消息处理失败`, {
+              if (plugin.outbound) {
+                await plugin.outbound.sendText(target, content);
+              }
+            },
+          });
+
+          if (!result.valid) {
+            logger.warning('消息路由返回无效结果', {
+              channel: channel.name,
               messageId: message.messageId,
-              error: String(error),
+              errorCode: result.errorCode,
+              errorMessage: result.errorMessage,
             });
-          } finally {
-            // 延迟清理消息ID，防止短时间内同ID重复
-            setTimeout(() => {
-              _processingMessages.delete(message.messageId);
-            }, 3000);
           }
         });
         logger.info(`通道入站消息处理器已注册: ${channel.name}`);

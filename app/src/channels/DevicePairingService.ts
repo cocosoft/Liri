@@ -2,6 +2,15 @@
  * 设备配对服务
  * 对标 Hermes gateway/pairing.py
  * 提供设备发现、配对码生成和验证能力
+ *
+ * 模块归属：channels/ — 服务于通道系统的设备认证层。
+ *   与消息路由（routing/）、通道注册（registry/）解耦，独立提供配对能力。
+ *   配对成功后，设备信息通过 channels/events/ 事件总线发布 PAIRING_COMPLETED 事件，
+ *   由通道注册层监听并建立设备-通道映射。
+ *
+ * 依赖关系：
+ *   - 不依赖 routing/、registry/（仅依赖 events/ChannelEventBus）
+ *   - 被 channels/ 体系内其他模块通过事件总线消费配对结果
  */
 import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';

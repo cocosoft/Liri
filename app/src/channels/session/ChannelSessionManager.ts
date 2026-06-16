@@ -1,10 +1,10 @@
 /**
  * ChannelSessionManager 通道会话管理器
- * 对标 OpenClaw channels/session/，管理通道会话生命周期
  */
 import { EventEmitter } from 'node:events';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
+import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus.js';
 
 /**
  * 通道会话状态
@@ -89,6 +89,7 @@ export class ChannelSessionManager extends EventEmitter {
     };
 
     this.emit('session:created', event);
+    channelEventBus.publish(ChannelEvents.SESSION_CREATED, event);
 
     return session;
   }
@@ -200,6 +201,7 @@ export class ChannelSessionManager extends EventEmitter {
     };
 
     this.emit('session:updated', event);
+    channelEventBus.publish(ChannelEvents.SESSION_UPDATED, event);
 
     return true;
   }
@@ -224,6 +226,7 @@ export class ChannelSessionManager extends EventEmitter {
     };
 
     this.emit('session:closed', event);
+    channelEventBus.publish(ChannelEvents.SESSION_CLOSED, event);
 
     return true;
   }
@@ -279,6 +282,7 @@ export class ChannelSessionManager extends EventEmitter {
         };
 
         this.emit('session:timeout', event);
+        channelEventBus.publish(ChannelEvents.SESSION_TIMEOUT, event);
         count++;
       }
     }

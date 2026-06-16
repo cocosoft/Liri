@@ -400,6 +400,9 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   import('./channels/setupChannels').then(({ setupChannelsFromConfig, lazyConnectChannels }) => {
     import('./channels/registry/ChannelRegistry').then(({ channelRegistry }) => {
       channelRegistry.initPersistence().then(() => {
+        // 启用主动同步：ChannelPluginRegistry 状态变更 → 实时反映到 ChannelRegistry
+        channelRegistry.setupActiveSync();
+
         // 从 DB 恢复已保存的通道配置（注册到内存）
         setupChannelsFromConfig().then(() => {
           logger.info('通道配置已从 DB 恢复');
@@ -532,6 +535,55 @@ async function launchTest(_options: LaunchOptions): Promise<void> {
  */
 export async function launch(options: LaunchOptions): Promise<void> {
   setupWindowsSecurity();
+
+  // 全局未捕获异常兜底（handleError 标准化处理）
+  // 在模块系统初始化之前注册，确保早期启动阶段的错误也能被捕获
+  {
+    // 标记是否已执行退出逻辑
+    let fatalExiting = false;
+
+    process.on('uncaughtException', (error: Error) => {
+      // 避免递归死循环
+      if (fatalExiting) {
+        process.exit(1);
+      }
+      fatalExiting = true;
+
+      console.error('[FATAL] uncaughtException:', error.message);
+
+      // 动态 import handleError（模块系统可能尚未初始化，使用动态导入降低依赖风险）
+      import('./error/handleError.js')
+        .then(({ handleError }) =>
+          handleError(error, {
+            module: 'app:top',
+            action: 'uncaughtException',
+          })
+        )
+        .catch(() => {
+          // handleError 导入失败时，至少记录到 stderr
+          console.error('[FATAL] handleError 不可用:', String(error));
+        })
+        .finally(() => {
+          process.exit(1); // 不可恢复，退出
+        });
+    });
+
+    process.on('unhandledRejection', (reason: unknown) => {
+      console.error('[FATAL] unhandledRejection:', String(reason));
+
+      import('./error/handleError.js')
+        .then(({ handleError }) =>
+          handleError(reason, {
+            module: 'app:top',
+            action: 'unhandledRejection',
+          })
+        )
+        .catch(() => {
+          console.error('[FATAL] handleError 不可用:', String(reason));
+        });
+      // 不退出进程，unhandledRejection 可能是非致命的
+    });
+  }
 
   // 注册全局日志配置提供者：后续所有 Logger 实例自动启用文件写入
   setGlobalConfigProvider(() => {

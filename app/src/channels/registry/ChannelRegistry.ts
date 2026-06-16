@@ -20,6 +20,10 @@ import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry'
 import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
 import { ChannelStatus } from '../../core/gateway/types';
 import type { IChannelPlugin } from '../types/IChannel';
+import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:registry' });
 
 /**
  * 通道接口
@@ -129,7 +133,7 @@ function isPluginConnected(plugin: ChannelPlugin): boolean {
  * ChannelPlugin 不包含 sendMessage 等通道特有工具方法，
  * 此处提供包装实现，实际发送能力由 ChannelManager 的同步注册补充。
  */
-function adaptPluginToChannelInterface(
+export function adaptPluginToChannelInterface(
   plugin: ChannelPlugin
 ): ChannelInterface {
   return {
@@ -154,7 +158,16 @@ function adaptPluginToChannelInterface(
         // 忽略断开失败
       }
     },
-    sendMessage: async () => {
+    sendMessage: async (_target: string, text: string) => {
+      // 尝试使用 outbound 属性（部分 ChannelPlugin 实现可能包含）
+      const pluginWithOutbound = plugin as unknown as {
+        outbound?: { sendText(target: string, message: string): Promise<{ success: boolean }> };
+      };
+      if (pluginWithOutbound.outbound?.sendText) {
+        const result = await pluginWithOutbound.outbound.sendText(_target, text);
+        return result.success;
+      }
+      // 兜底：ChannelPlugin 无 outbound 属性，发送能力由 ChannelManager 补充
       return false;
     },
     getStatus: () => ({
@@ -201,6 +214,69 @@ export class ChannelRegistry extends EventEmitter {
     await this.loadSavedConfigs();
 
     this.persistenceReady = true;
+  }
+
+  /**
+   * 设置主动同步：订阅 ChannelPluginRegistry 事件，实时同步到本地缓存
+   *
+   * 替代之前仅在 getAll() 时被动调用的 syncFromPluginRegistry()。
+   * 插件状态变更（注册/注销/连接/断开/错误）→ 立即反映到 ChannelRegistry。
+   */
+  setupActiveSync(): void {
+    const registry = ChannelPluginRegistry.getInstance();
+
+    registry.setCallbacks({
+      onRegistered: (plugin: ChannelPlugin) => {
+        const name = plugin.id;
+        if (!this.channels.has(name)) {
+          const adapted = adaptPluginToChannelInterface(plugin);
+          this.channels.set(name, adapted);
+          logger.debug(`主动同步: 插件已注册 ${name}`);
+        }
+      },
+
+      onUnregistered: (id: string) => {
+        if (this.channels.has(id)) {
+          this.channels.delete(id);
+          logger.debug(`主动同步: 插件已注销 ${id}`);
+        }
+      },
+
+      onConnected: (id: string) => {
+        const cached = this.channels.get(id);
+        if (cached) {
+          const plugin = registry.lookup(id);
+          if (plugin) {
+            const adapted = adaptPluginToChannelInterface(plugin);
+            this.channels.set(id, adapted);
+            logger.debug(`主动同步: 插件已连接 ${id}`);
+          }
+        }
+      },
+
+      onDisconnected: (id: string) => {
+        const cached = this.channels.get(id);
+        if (cached) {
+          const plugin = registry.lookup(id);
+          if (plugin) {
+            const adapted = adaptPluginToChannelInterface(plugin);
+            this.channels.set(id, adapted);
+            logger.debug(`主动同步: 插件已断开 ${id}`);
+          }
+        }
+      },
+
+      onError: (id: string, error: Error) => {
+        logger.warning(`主动同步: 插件错误 ${id}`, { error: error.message });
+        const plugin = registry.lookup(id);
+        if (plugin) {
+          const adapted = adaptPluginToChannelInterface(plugin);
+          this.channels.set(id, adapted);
+        }
+      },
+    });
+
+    logger.info('主动同步已启用: ChannelPluginRegistry → ChannelRegistry');
   }
 
   /** 创建 channel_configs 表 */
@@ -301,6 +377,10 @@ export class ChannelRegistry extends EventEmitter {
       adapted = channel as ChannelInterface;
     }
 
+    // 去重守卫：检查是否为重复注册（相同名称、相同类型）
+    const existing = this.channels.get(adapted.name);
+    const isDuplicate = existing && existing.type === adapted.type;
+
     this.channels.set(adapted.name, adapted);
     const config: ChannelConfig = {
       name: adapted.name,
@@ -311,7 +391,11 @@ export class ChannelRegistry extends EventEmitter {
     this.configs.set(adapted.name, config);
     this.persistConfig(config);
 
-    this.emit('channel:registered', { name: adapted.name, type: adapted.type });
+    // 仅首次注册时发出事件，避免双重注册路径（ChannelManager + ChannelPluginRegistry 同步）产生重复事件
+    if (!isDuplicate) {
+      this.emit('channel:registered', { name: adapted.name, type: adapted.type });
+      channelEventBus.publish(ChannelEvents.CHANNEL_REGISTERED, { name: adapted.name, type: adapted.type });
+    }
   }
 
   /**
@@ -326,6 +410,7 @@ export class ChannelRegistry extends EventEmitter {
       this.configs.delete(name);
       this.deletePersistedConfig(name);
       this.emit('channel:unregistered', { name });
+      channelEventBus.publish(ChannelEvents.CHANNEL_UNREGISTERED, { name });
 
       return true;
     }
@@ -427,25 +512,25 @@ export class ChannelRegistry extends EventEmitter {
     return results;
   }
 
-  sendToHomeChannel(name: string, text: string): boolean {
+  async sendToHomeChannel(name: string, text: string): Promise<boolean> {
     const channel = this.channels.get(name);
     if (!channel || !channel.enabled) return false;
 
     const target = channel.homeChannelId || '';
-    channel.sendMessage(target, text);
+    const result = await channel.sendMessage(target, text);
 
-    return true;
+    return result;
   }
 
-  sendThreadReply(name: string, threadId: string, text: string): boolean {
+  async sendThreadReply(name: string, threadId: string, text: string): Promise<boolean> {
     const channel = this.channels.get(name);
     if (!channel || !channel.supportsThreads || !channel.sendThreadMessage)
       return false;
 
     const target = channel.homeChannelId || '';
-    channel.sendThreadMessage(target, threadId, text);
+    const result = await channel.sendThreadMessage(target, threadId, text);
 
-    return true;
+    return result;
   }
 
   getHomeChannels(): Array<{ name: string; homeChannelId: string }> {

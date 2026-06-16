@@ -6,6 +6,12 @@
  * @deprecated 请使用 channels/webhook/ 或 channels/matrix/ 等 IChannelPlugin 实现替代。
  *   core/gateway/ 体系后续将统一收敛到 channels/ 体系。
  *   此模块将在未来版本中移除。
+ *
+ * 接口收敛完成（2026-06-16）：
+ *   - ✅ 已移除 `implements GatewayChannel`，仅保留 `ChannelPlugin`
+ *   - ✅ 已移除 `initialize()` / `send()`（逻辑已内联到 `handleOutbound()` / `broadcastAll()`）
+ *   - ✅ `isConnected()` / `healthCheck()` 保留为公共方法（兼容 ChannelManager 类型转换）
+ *   - ✅ GatewaySetup 已改用 `channelRegistry.register(adaptPluginToChannelInterface())`
  */
 
 import * as http from 'http';
@@ -14,7 +20,6 @@ import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
-  GatewayChannel,
   InboundMessage,
   OutboundMessage,
   ChannelConfig,
@@ -29,7 +34,7 @@ import type {
 } from './ChannelPlugin';
 import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channel:websocket' });
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -71,7 +76,7 @@ const enum OpCode {
  * WebSocket 通道
  * 基于 HTTP Upgrade 机制实现 WebSocket 服务器
  */
-export class WebChannel implements GatewayChannel, ChannelPlugin {
+export class WebChannel implements ChannelPlugin {
   readonly name: string;
   readonly type = ChannelType.WEBSOCKET;
   readonly config: WebChannelConfig;
@@ -109,10 +114,6 @@ export class WebChannel implements GatewayChannel, ChannelPlugin {
       uptimeMs: this._startTime > 0 ? Date.now() - this._startTime : 0,
       lastActivityAt: Date.now(),
     };
-  }
-
-  async initialize(): Promise<void> {
-    logger.info(`WebChannel: ${this.name} 初始化`);
   }
 
   async connect(): Promise<void> {
@@ -198,43 +199,6 @@ export class WebChannel implements GatewayChannel, ChannelPlugin {
     });
   }
 
-  async send(message: OutboundMessage): Promise<boolean> {
-    const clientId = message.recipient;
-    const client = this.clients.get(clientId);
-
-    if (!client) {
-      logger.warning(`WebChannel: 客户端 ${clientId} 不存在`);
-      return false;
-    }
-
-    try {
-      const payload = JSON.stringify({
-        type: 'message',
-        sessionId: message.sessionId,
-        content: message.content,
-        metadata: message.metadata,
-      });
-
-      this.sendTextFrame(client.socket, payload);
-      this._messagesSent++;
-      return true;
-    } catch (error) {
-      this._errors++;
-      logger.error(`WebChannel: 发送消息失败 — ${clientId}`, {
-        error: String(error),
-      });
-      return false;
-    }
-  }
-
-  isConnected(): boolean {
-    return this._status === ChannelStatus.CONNECTED;
-  }
-
-  async healthCheck(): Promise<boolean> {
-    return this.server !== null && this.server.listening;
-  }
-
   setCallbacks(callbacks: ChannelEventCallbacks): void {
     this._callbacks = callbacks;
   }
@@ -269,7 +233,32 @@ export class WebChannel implements GatewayChannel, ChannelPlugin {
   }
 
   async handleOutbound(message: OutboundMessage): Promise<boolean> {
-    return this.send(message);
+    const clientId = message.recipient;
+    const client = this.clients.get(clientId);
+
+    if (!client) {
+      logger.warning(`WebChannel: 客户端 ${clientId} 不存在`);
+      return false;
+    }
+
+    try {
+      const payload = JSON.stringify({
+        type: 'message',
+        sessionId: message.sessionId,
+        content: message.content,
+        metadata: message.metadata,
+      });
+
+      this.sendTextFrame(client.socket, payload);
+      this._messagesSent++;
+      return true;
+    } catch (error) {
+      this._errors++;
+      logger.error(`WebChannel: 发送消息失败 — ${clientId}`, {
+        error: String(error),
+      });
+      return false;
+    }
   }
 
   getCapabilities(): ChannelCapabilities {
@@ -309,12 +298,22 @@ export class WebChannel implements GatewayChannel, ChannelPlugin {
     }));
   }
 
+  /** 通道连接状态（兼容 GatewayChannel 类型） */
+  isConnected(): boolean {
+    return this._status === ChannelStatus.CONNECTED;
+  }
+
+  /** 健康检查（兼容 GatewayChannel 类型） */
+  async healthCheck(): Promise<boolean> {
+    return this._status === ChannelStatus.CONNECTED;
+  }
+
   /** 广播消息到所有客户端 */
   async broadcastAll(message: OutboundMessage): Promise<number> {
     let successCount = 0;
 
     for (const [clientId] of this.clients) {
-      const success = await this.send({ ...message, recipient: clientId });
+      const success = await this.handleOutbound({ ...message, recipient: clientId });
       if (success) {
         successCount++;
       }

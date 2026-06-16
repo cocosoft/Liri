@@ -12,7 +12,7 @@ import type {
 } from '@modules/channels/types';
 import { PairingStore } from './PairingStore';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:dm' });
 
 export interface DmPolicyConfig {
   policy: DmPolicy;

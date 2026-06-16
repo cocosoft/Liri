@@ -23,7 +23,7 @@ import type {
   PluginValidationResult,
 } from './ChannelPlugin';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:telegram' });
 
 /** Telegram Bot API 基础 URL */
 const TELEGRAM_API_BASE = 'api.telegram.org';

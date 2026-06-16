@@ -1,5 +1,9 @@
 /**
  * ChannelManagerTool — 通道管理器
+ *
+ * @deprecated 请使用 ChannelTool (tools/ChannelTool) 替代。
+ *   此工具将在未来版本中移除。
+ *
  * 包装 ChannelRegistry / ChannelHealthMonitor / ChannelLogManager
  */
 import { BaseTool } from '../BaseTool';

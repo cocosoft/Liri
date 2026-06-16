@@ -91,7 +91,7 @@ import { SessionsSpawnTool } from './SessionsSpawnTool/SessionsSpawnTool';
 import { SessionStatusTool } from './SessionStatusTool/SessionStatusTool';
 import { SessionsYieldTool } from './SessionsYieldTool/SessionsYieldTool';
 import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
-import { GatewayTool } from './GatewayTool/GatewayTool';
+import { ChannelTool } from './ChannelTool/ChannelTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
 import { ImageSvgTool } from './ImageSvgTool/ImageSvgTool';
 import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
@@ -116,10 +116,6 @@ import {
   createReviewAssignTool,
   createCodeReviewTool,
 } from './ExpansionTools';
-import {
-  ChannelManagerTool,
-  createChannelManagerTool,
-} from './ChannelManagerTool/ChannelManagerTool';
 import {
   BroadcastTool,
   createBroadcastTool,
@@ -929,14 +925,14 @@ export class ToolFactory {
    * 创建网关管理工具
    */
   createGatewayTool(): Tool {
-    return new GatewayTool();
+    return new ChannelTool();
   }
 
   /**
    * 创建频道管理器工具
    */
   createChannelManagerTool(): Tool {
-    return new ChannelManagerTool();
+    return new ChannelTool();
   }
 
   /**
@@ -1257,9 +1253,9 @@ export function getAllBaseTools(): Tool[] {
     tools.push(sessionsHistoryTool);
   }
 
-  const gatewayTool = new GatewayTool();
-  if (gatewayTool) {
-    tools.push(gatewayTool);
+  const channelTool = new ChannelTool();
+  if (channelTool) {
+    tools.push(channelTool);
   }
 
   const imageGenerateTool = new ImageGenerateTool();
@@ -1329,11 +1325,8 @@ export function getAllBaseTools(): Tool[] {
     tools.push(codeReviewTool);
   }
 
-  // === Phase 4c: 网关工具 ===
-  const channelManagerTool = createChannelManagerTool();
-  if (channelManagerTool) {
-    tools.push(channelManagerTool);
-  }
+  // === Phase 4c: 网关/通道工具（统一由 ChannelTool 覆盖） ===
+  // 已在 Phase 3 中通过 channelTool 实例注册，此处不再重复创建 ChannelManagerTool
   const broadcastTool = createBroadcastTool();
   if (broadcastTool) {
     tools.push(broadcastTool);

@@ -17,7 +17,7 @@ import { join, extname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'channels:media' });
 
 /** 媒体类型枚举 */
 export type MediaType = 'image' | 'audio' | 'video' | 'document' | 'other';

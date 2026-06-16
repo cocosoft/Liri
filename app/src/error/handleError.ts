@@ -36,11 +36,87 @@ export interface HandleErrorOptions {
   context?: Record<string, unknown>;
 }
 
+// ---------------------------------------------------------------------------
+// 内联错误追踪（替代 ErrorTracker + ErrorMonitor）
+// ---------------------------------------------------------------------------
+
+/** 追踪的错误记录 */
+interface TrackedEntry {
+  id: string;
+  error: AppError;
+  timestamp: number;
+  context?: Record<string, unknown>;
+}
+
+const trackedErrors = new Map<string, TrackedEntry>();
+const MAX_TRACKED = 10000;
+
+/** 简易错误统计 */
+const errorStats = {
+  total: 0,
+  byCategory: {} as Record<string, number>,
+  bySeverity: {} as Record<string, number>,
+  recent: [] as TrackedEntry[],
+};
+
+const MAX_RECENT = 100;
+
+/**
+ * 记录一条错误到内存追踪
+ * @param appError 标准化后的 AppError
+ * @param context 附加上下文
+ */
+function recordError(appError: AppError, context?: Record<string, unknown>): void {
+  const id = `track_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  const entry: TrackedEntry = { id, error: appError, timestamp: Date.now(), context };
+
+  trackedErrors.set(id, entry);
+
+  // 更新统计
+  errorStats.total++;
+  errorStats.byCategory[appError.category] = (errorStats.byCategory[appError.category] || 0) + 1;
+  errorStats.bySeverity[appError.severity] = (errorStats.bySeverity[appError.severity] || 0) + 1;
+
+  // 维护最近错误列表
+  errorStats.recent.unshift(entry);
+  if (errorStats.recent.length > MAX_RECENT) {
+    errorStats.recent = errorStats.recent.slice(0, MAX_RECENT);
+  }
+
+  // 裁剪超出上限的旧记录
+  if (trackedErrors.size > MAX_TRACKED) {
+    const oldest = [...trackedErrors.entries()]
+      .sort(([, a], [, b]) => a.timestamp - b.timestamp)
+      .slice(0, trackedErrors.size - MAX_TRACKED);
+    for (const [key] of oldest) {
+      trackedErrors.delete(key);
+    }
+  }
+
+  // 严重/高严重性错误额外记录 warning
+  if (appError.severity === ErrorSeverity.CRITICAL || appError.severity === ErrorSeverity.HIGH) {
+    const warnLogger = new Logger({ level: LogLevel.WARN, module: 'error:tracker' });
+    warnLogger.warn(`High severity error: ${appError.name}`, {
+      category: appError.category,
+      severity: appError.severity,
+      code: appError.code,
+      message: appError.message,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 统一错误处理入口
+// ---------------------------------------------------------------------------
+
 /**
  * 统一的错误处理入口函数
- * 所有 catch 块的标准模式：转 AppError → 日志记录 → ErrorTracker 记录
  *
- * 注意：EventBus publish 不在此函数内处理，由阶段二桥接层订阅 ErrorTracker 事件统一转发
+ * 所有 catch 块的标准模式：转 AppError → 日志记录 → 内存追踪
+ * 替代了之前的 ErrorTracker + ErrorMonitor 两个模块。
+ *
+ * 注意：EventBus publish 不在此函数内处理，由 setupEventBridges 订阅 handleError
+ * 记录的追踪事件后统一转发。
  *
  * @param error 捕获到的错误对象
  * @param options 处理选项
@@ -61,7 +137,7 @@ export async function handleError(
         { ...options.context, originalType: typeof error }
       );
 
-  // 2. 日志记录（每次 new Logger，module 必传）
+  // 2. 日志记录
   const logger = new Logger({ level: LogLevel.ERROR, module: options.module });
   logger.error(
     options.action
@@ -76,22 +152,17 @@ export async function handleError(
     }
   );
 
-  // 3. ErrorTracker 记录（动态 import，避免循环依赖）
-  try {
-    const { errorTracker } = await import('./tracker/ErrorTracker');
-    errorTracker.track(appError, {
-      module: options.module,
-      action: options.action || 'unknown',
-      ...options.context,
-    });
-  } catch {
-    // ErrorTracker 不可用时静默降级
-  }
+  // 3. 内存追踪（内联 ErrorTracker + ErrorMonitor）
+  recordError(appError, {
+    module: options.module,
+    action: options.action || 'unknown',
+    ...options.context,
+  });
 
   // 4. EventBus publish 不在 handleError 内做
   //    原因：①消除对 core/events 的硬依赖 ②避免循环依赖
-  //    替代：ErrorTracker 记录后，由阶段二桥接层订阅 ErrorTracker 事件 → publish 到 globalEventBus
-  //    参见 §2.2 事件体系重构 → setupEventBridges.ts
+  //    替代：setupEventBridges 可订阅 handleError 的内存追踪记录后转发
+  //    参见 channels/events/setupEventBridges.ts
 
   // 5. 可选重新抛出
   if (options.rethrow) {

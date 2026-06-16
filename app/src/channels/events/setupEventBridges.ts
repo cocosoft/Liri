@@ -30,7 +30,7 @@
  * - CHANNEL_LIMIT_WARNING（通道配额告警） → globalEventBus:SystemEvents.CONFIG_CHANGE
  * - 其他事件（消息收发、状态变更等）仅在 ChannelEventBus 内闭环
  *
- * 同时订阅 ErrorTracker 事件，将标准化错误 publish 到 globalEventBus。
+ * 同时通过 handleError 的内存追踪记录，将标准化错误 publish 到 globalEventBus。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

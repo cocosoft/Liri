@@ -58,9 +58,6 @@ export {
 } from './ErrorClassifier';
 export type { ErrorClassification } from './ErrorClassifier';
 
-// 错误追踪器
-export * from './tracker/ErrorTracker';
-
 // 重试策略（标准实现在 query/withRetry.ts，已删除旧实现）
 
 // 网络错误处理子模块

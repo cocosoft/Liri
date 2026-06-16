@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from './monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError';
 import { getMonitoringService } from './monitoring/index.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -59,10 +60,7 @@ function monitor() {
 
     console.log('\n=== 监控面板结束 ===');
   } catch (error) {
-    logger.error(
-      '监控失败:',
-      error instanceof Error ? error.message : String(error)
-    );
+    void handleError(error, { module: 'monitor', action: 'display_dashboard' });
   }
 }
 

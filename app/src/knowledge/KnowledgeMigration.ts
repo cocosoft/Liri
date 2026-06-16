@@ -6,6 +6,7 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import {
   resolvePyappHome,
   resolveKnowledgeBaseDir,
@@ -94,7 +95,7 @@ export async function migrateKnowledgeBase(): Promise<MigrationResult> {
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       result.errors.push(`${file}: ${errMsg}`);
-      logger.error('知识库文档迁移失败', { file: oldFile, error: errMsg });
+      await handleError(error, { module: 'knowledge:migration', action: 'migrate_document', context: { file: oldFile } });
     }
   }
 

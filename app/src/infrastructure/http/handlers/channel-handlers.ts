@@ -23,6 +23,7 @@ import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
 import type { IChannelPlugin } from '@modules/channels/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -175,7 +176,7 @@ export async function handleApplyChannelConfig(
         })
       );
     } catch (err) {
-      logger.error('通道配置应用失败', err as Error);
+      await handleError(err, { module: 'http:handlers', action: 'apply_channel_config' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({

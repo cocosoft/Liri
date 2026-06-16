@@ -9,6 +9,7 @@ import { existsSync } from 'fs';
 import type { MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -278,10 +279,7 @@ export class MemdirMemoryScanner {
         }
       }
     } catch (error) {
-      logger.error(
-        `Failed to scan memory directory ${directory}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:scanner', action: 'scan_directory', context: { directory } });
     }
 
     return results;

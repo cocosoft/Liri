@@ -59,6 +59,7 @@ import { globalToolManager } from '@modules/tools/core/ToolManager';
 import type { Coordinator } from '@modules/core/Coordinator';
 import { coordinator as defaultCoordinator } from '@modules/core/Coordinator';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { modelRouter } from '@modules/ai/modelRouter';
 import { SmartRouter } from '@modules/ai/router/SmartRouter';
 import type { RouterConfig, RouteDecision } from '@modules/ai/router/types';
@@ -355,8 +356,7 @@ export class CoreAPIImpl implements CoreAPI {
         finishReason: 'stop',
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error('CoreAPI.chat 失败', { error: message });
+      await handleError(error, { module: 'core:api', action: 'chat' });
 
       return {
         content: '',

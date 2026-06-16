@@ -29,6 +29,7 @@ import {
 import { ConfigValidator } from './ConfigValidator.js';
 import { ConfigMigration } from './ConfigMigration.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
 import { ConfigRecovery } from './ConfigRecovery';
 import { redactConfig } from './ConfigRedactor';
@@ -252,10 +253,7 @@ export class ConfigManager {
       this.startFreshnessWatcher();
       return config;
     } catch (error) {
-      logger.error(
-        '加载配置失败，使用默认配置',
-        error instanceof Error ? error : undefined
-      );
+      void handleError(error, { module: 'config:manager', action: 'get_global_config' });
       // 诊断：记录调用栈
       logger.warning('getGlobalConfig catch 调用栈', {
         errorName: error instanceof Error ? error.name : typeof error,

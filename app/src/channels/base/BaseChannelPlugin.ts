@@ -21,6 +21,7 @@ import type {
 import type { RegisterFileInput, RegisterFileResult } from '@modules/services/file/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 import { MultiAccountManager } from '@modules/channels/accounts';
 import type { ResolvedAccount } from '@modules/channels/accounts';
 
@@ -311,9 +312,10 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       try {
         await this._messageHandler(message);
       } catch (error) {
-        this.logger.error(`${this.id} 入站消息处理失败`, {
-          messageId: message.messageId,
-          error: String(error),
+        await handleError(error, {
+          module: 'channels:base',
+          action: 'handleIncomingMessage',
+          context: { id: this.id, messageId: message.messageId },
         });
       }
     }

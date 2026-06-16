@@ -38,6 +38,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { routeChannelMessage } from '../routing/messageRouter';
+import { handleError } from '../../error/handleError';
 import type { MessageContext, ChannelId } from '../types/IChannel';
 import type { ChannelInterface } from '../registry/ChannelRegistry';
 
@@ -129,7 +130,11 @@ export function bridgeLegacyChannels(options: BridgeOptions): void {
           });
           return true;
         } catch (error) {
-          logger.error(`遗留通道 ${channelName} 发送失败`, { error: String(error) });
+          await handleError(error, {
+            module: 'channels:bridge',
+            action: 'legacySend',
+            context: { channelName },
+          });
           return false;
         }
       },
@@ -181,8 +186,10 @@ export function bridgeLegacyChannels(options: BridgeOptions): void {
             },
           });
         } catch (error) {
-          logger.error(`遗留通道 ${channelName} 入站消息处理失败`, {
-            error: String(error),
+          await handleError(error, {
+            module: 'channels:bridge',
+            action: 'legacyInboundMessage',
+            context: { channelName },
           });
         }
       });

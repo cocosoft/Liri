@@ -11,6 +11,7 @@
 
 import { EventEmitter } from 'node:events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '../../error/handleError';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import type { IChannelPlugin } from '../types/IChannel';
 
@@ -302,6 +303,11 @@ export class DynamicRegistrationService extends EventEmitter {
       }
 
       logger.error('DRS: 通道连接失败', { id, error: errMsg });
+      await handleError(error, {
+        module: 'channels:drs',
+        action: 'connect',
+        context: { id },
+      });
       this.emit('channel:error', { id, error: errMsg });
 
       return false;
@@ -326,9 +332,10 @@ export class DynamicRegistrationService extends EventEmitter {
 
       return true;
     } catch (error) {
-      logger.error('DRS: 通道断开失败', {
-        id,
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:drs',
+        action: 'disconnect',
+        context: { id },
       });
       return false;
     }
@@ -489,10 +496,10 @@ export class DynamicRegistrationService extends EventEmitter {
 
       return exportVal as IChannelPlugin;
     } catch (error) {
-      logger.error('DRS: 模块加载失败', {
-        type: candidate.type,
-        importPath: candidate.importPath,
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:drs',
+        action: 'loadModule',
+        context: { type: candidate.type, importPath: candidate.importPath },
       });
       return undefined;
     }

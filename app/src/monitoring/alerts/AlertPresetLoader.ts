@@ -15,7 +15,7 @@ import { alertRuleService } from '../AlertRuleService.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:alert_preset' });
 
 /**
  * 预置加载结果

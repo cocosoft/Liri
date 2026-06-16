@@ -20,7 +20,7 @@ import {
   createDefaultBackupManager,
 } from './backup/BackupManager.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:service' });
 
 /**
  * 监控配置

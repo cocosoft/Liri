@@ -19,7 +19,7 @@ import { join, basename, dirname, resolve, extname } from 'path';
 
 import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:backup' });
 
 /**
  * 数据库注册信息

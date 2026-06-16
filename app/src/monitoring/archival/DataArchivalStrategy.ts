@@ -27,7 +27,7 @@ import { IncidentManager } from '../incidents/IncidentManager';
 import type { Incident } from '../incidents/IncidentManager';
 import { getPerformanceAnalyzer } from '../performance/PerformanceAnalyzer';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:archival' });
 
 /**
  * 可归档的监控数据类型

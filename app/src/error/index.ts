@@ -25,7 +25,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'error:index' });
 
 // 错误类型
 export * from './types';

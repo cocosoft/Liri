@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -180,7 +181,7 @@ export class YoloClassifier {
 
       return result;
     } catch (error) {
-      logger.error('YoloClassifier error:', error);
+      await handleError(error, { module: 'permission:yolo', action: 'classify' });
       return this.createDefaultResult(toolName, toolInput, true, 'error');
     }
   }
@@ -274,7 +275,7 @@ export class YoloClassifier {
 
       return this.parseResponse(toolName, toolInput, response);
     } catch (error) {
-      logger.error('Model call failed:', error);
+      await handleError(error, { module: 'permission:yolo', action: 'perform_classification' });
       throw error;
     }
   }

@@ -11,6 +11,7 @@ import {
   PermissionHookMetadata,
 } from './types/PermissionHook';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -134,11 +135,7 @@ export class PermissionHookService {
           return decision;
         }
       } catch (error) {
-        const e = error instanceof Error ? error : new Error(String(error));
-        logger.error(
-          `Error executing permission hook '${registeredHook.metadata.name}':`,
-          e
-        );
+        await handleError(error, { module: 'permission:hooks', action: 'execute_hooks', context: { hookName: registeredHook.metadata.name } });
         // 钩子出错时继续执行其他钩子，而不是中断
       }
     }

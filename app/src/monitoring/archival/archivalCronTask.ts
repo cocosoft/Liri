@@ -19,6 +19,7 @@ import {
   updateCronTask,
 } from '../../chronos/CronTasks.js';
 import { Logger, LogLevel } from '../logs/Logger.js';
+import { handleError } from '@modules/error/handleError';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:archival_cron' });
@@ -81,18 +82,13 @@ export async function executeArchivalMaintenance(
       ...result,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(
-      '归档维护执行失败',
-      error instanceof Error ? error : new Error(message)
-    );
-
+    await handleError(error, { module: 'monitoring:archival', action: 'archival_maintenance' });
     return {
       success: false,
       archives: [],
       compressions: [],
       cleanups: [],
-      error: message,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

@@ -7,6 +7,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import {
   copyFileSync,
   existsSync,
@@ -210,17 +211,13 @@ export class BackupManager {
         success: true,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error(
-        `数据库备份失败: ${name}`,
-        error instanceof Error ? error : new Error(message)
-      );
+      void handleError(error, { module: 'monitoring:backup', action: 'backup_database', context: { dbName: name } });
       return {
         name,
         backupPath: '',
         size: 0,
         success: false,
-        error: message,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -323,17 +320,13 @@ export class BackupManager {
         success: true,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error(
-        `数据库恢复失败: ${name}`,
-        error instanceof Error ? error : new Error(message)
-      );
+      void handleError(error, { module: 'monitoring:backup', action: 'restore_database', context: { dbName: name } });
       return {
         name,
         backupPath: targetBackup,
         dbPath: entry.dbPath,
         success: false,
-        error: message,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }

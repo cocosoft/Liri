@@ -15,6 +15,7 @@ import {
   isToolNameMatch,
 } from './types/PermissionRule';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -105,7 +106,7 @@ export class RuleManager {
         });
       }
     } catch (error) {
-      logger.error('Failed to load permission rules:', { error });
+      void handleError(error, { module: 'permission:rules', action: 'load_rules' });
     }
     return this.rules;
   }
@@ -130,7 +131,7 @@ export class RuleManager {
       fs.writeFileSync(this.ruleSource, rulesData);
       this.rules = rules;
     } catch (error) {
-      logger.error('Failed to save permission rules:', { error });
+      void handleError(error, { module: 'permission:rules', action: 'save_rules' });
     }
   }
 

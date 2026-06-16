@@ -20,6 +20,7 @@ import {
 } from './Permission.js';
 import { createFilePermissionStorage } from './FilePermissionStorage.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { TTLCache } from '../utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -140,7 +141,7 @@ export class FineGrainedPermissionManager {
 
       return defaultDecision;
     } catch (error) {
-      logger.error('Error checking permission:', { error });
+      await handleError(error, { module: 'permission:fine_grained', action: 'check_permission' });
       return {
         action: PermissionAction.DENY,
         reason: 'Error checking permission',
@@ -180,7 +181,7 @@ export class FineGrainedPermissionManager {
 
       return eval(condition);
     } catch (error) {
-      logger.error('Error evaluating condition:', { error });
+      void handleError(error, { module: 'permission:fine_grained', action: 'evaluate_condition' });
       return false;
     }
   }

@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -365,7 +366,7 @@ export class AutoModeStateManager {
       try {
         listener(event);
       } catch (error) {
-        logger.error('AutoMode: State change listener error:', error);
+        void handleError(error, { module: 'permission:auto_mode', action: 'state_change_listener' });
       }
     }
   }

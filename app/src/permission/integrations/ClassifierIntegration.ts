@@ -11,6 +11,7 @@ import {
 } from '../types/PermissionDecision';
 import { PermissionContext } from '../types/PermissionContext';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -143,7 +144,7 @@ export class ClassifierIntegration {
           return createAskDecision('Tool use classification unknown');
       }
     } catch (error) {
-      logger.error('Classifier error:', { error });
+      await handleError(error, { module: 'permission:integration', action: 'classifier_check' });
       return createAskDecision('Classifier error, requiring user approval');
     }
   }

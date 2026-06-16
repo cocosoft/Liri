@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
 import type { ICache, CacheStats } from '@modules/cache/types';
@@ -189,8 +190,7 @@ export function generateInputHash(input: Record<string, unknown>): string {
     }
     return hash.toString(36);
   } catch (error) {
-    const e = error instanceof Error ? error : new Error(String(error));
-    logger.error('Error generating input hash:', e);
+    void handleError(error, { module: 'permission:cache', action: 'generate_input_hash' });
     return Math.random().toString(36).substring(2, 15);
   }
 }

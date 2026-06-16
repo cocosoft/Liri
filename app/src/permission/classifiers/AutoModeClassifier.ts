@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -132,7 +133,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         durationMs: Date.now() - startTime,
       };
     } catch (error) {
-      logger.error('AutoModeClassifier error:', { error });
+      await handleError(error, { module: 'permission:classifier', action: 'classify' });
       return {
         shouldBlock: true,
         unavailable: true,

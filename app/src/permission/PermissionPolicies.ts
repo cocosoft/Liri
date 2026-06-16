@@ -5,6 +5,7 @@
 
 import { join, resolve, normalize } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
 
@@ -112,8 +113,7 @@ export function validatePath(
 
     return { isValid: true, reason: '' };
   } catch (error) {
-    const e = error instanceof Error ? error : new Error(String(error));
-    logger.error('Error validating path:', e);
+    void handleError(error, { module: 'permission:policies', action: 'validate_path' });
     return {
       isValid: false,
       reason: `Error validating path: ${(error as Error).message}`,

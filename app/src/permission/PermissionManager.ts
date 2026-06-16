@@ -50,6 +50,7 @@ import {
   sandboxIntegrationService,
 } from './SandboxIntegration';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -488,7 +489,7 @@ export class PermissionManager {
         );
       }
     } catch (error) {
-      logger.error('Auto classifier error:', { error });
+      await handleError(error, { module: 'permission:manager', action: 'classifier_check' });
       // 分类器出错时，回退到允许
       return createAllowDecision('Classifier error, default allowing');
     }

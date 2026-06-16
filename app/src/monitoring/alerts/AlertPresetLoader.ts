@@ -13,6 +13,7 @@ import {
 } from './AlertSchema.js';
 import { alertRuleService } from '../AlertRuleService.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:alert_preset' });
@@ -139,9 +140,7 @@ export class AlertPresetLoader {
         )
         .map((entry) => path.join(dir, entry.name));
     } catch (error) {
-      logger.error(
-        `扫描预置目录失败: ${error instanceof Error ? error.message : String(error)}`
-      );
+      void handleError(error, { module: 'monitoring:alerts', action: 'scan_preset_files', context: { directory: dir } });
       return [];
     }
   }

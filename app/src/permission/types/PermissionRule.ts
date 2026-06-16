@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -286,7 +287,7 @@ export function isRuleMatch(
     const pattern = new RegExp(rule.contentPattern);
     return pattern.test(inputString);
   } catch (error) {
-    logger.error('Error checking rule match:', { error });
+    void handleError(error, { module: 'permission:rule', action: 'check_rule_match' });
     return false;
   }
 }

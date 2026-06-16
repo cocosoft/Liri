@@ -18,6 +18,7 @@ import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { StructuredLogger } from '../logs/StructuredLogger';
 import type { StructuredLogEntry } from '../logs/LogMemory';
 import { getMetricsService } from '../metrics/MetricsService';
@@ -323,10 +324,7 @@ export class DataArchivalStrategy {
       const parsed = JSON.parse(data);
       return Array.isArray(parsed) ? parsed : [parsed];
     } catch (error) {
-      logger.error(
-        `读取归档文件失败: ${filePath}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'monitoring:archival', action: 'read_archive', context: { filePath } });
       return [];
     }
   }
@@ -489,18 +487,14 @@ export class DataArchivalStrategy {
         success: true,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error(
-        `归档失败: ${dataType}`,
-        error instanceof Error ? error : new Error(message)
-      );
+      void handleError(error, { module: 'monitoring:archival', action: 'snapshot_data', context: { dataType } });
       return {
         dataType,
         filePath: '',
         entryCount: 0,
         size: 0,
         success: false,
-        error: message,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }

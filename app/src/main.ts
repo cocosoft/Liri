@@ -212,7 +212,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     if (existsSync(onboardRetryFlag)) {
       try {
         rmSync(onboardRetryFlag, { force: true });
-      } catch {}
+      } catch {} // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
     return;
   }
@@ -238,7 +238,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     if (existsSync(onboardRetryFlag)) {
       try {
         rmSync(onboardRetryFlag, { force: true });
-      } catch {}
+      } catch {} // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
 
     if (await isAIConfigured()) {
@@ -258,7 +258,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
         mkdirSync(dataDir, { recursive: true });
       }
       writeFileSync(onboardRetryFlag, String(retryCount), 'utf-8');
-    } catch {}
+    } catch {} // @ignore-catch: 重试计数写入失败不影响主流程
 
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.warning('初始化引导失败，可使用 /onboard 命令手动启动', {

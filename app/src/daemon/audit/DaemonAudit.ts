@@ -216,15 +216,17 @@ export class DaemonAudit {
 
   /**
    * 追加到日志文件
+   * @ignore-catch: 审计日志写入失败不阻塞主流程
    */
   private appendToFile(event: AuditEvent): void {
     try {
       fs.appendFileSync(this.logFile, JSON.stringify(event) + '\n', 'utf-8');
-    } catch {}
+    } catch {} // @ignore-catch: io error, non-blocking
   }
 
   /**
    * 轮转日志文件
+   * @ignore-catch: 文件轮转失败不影响后续审计记录
    */
   private rotateLog(): void {
     try {

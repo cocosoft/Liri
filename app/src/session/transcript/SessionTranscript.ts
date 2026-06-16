@@ -156,7 +156,7 @@ export class SessionTranscript {
         const filePath = path.join(this.config.storePath, file);
         total += fs.statSync(filePath).size;
       }
-    } catch {}
+    } catch {} // @ignore-catch: 计算存储占用失败，返回 0
 
     return total;
   }

@@ -930,7 +930,7 @@ export async function executeOnce(
         if (sessions.length > 0) {
           sessionId = sessions[0].id;
         }
-      } catch {}
+      } catch {} // @ignore-catch: 会话查询失败，后续 sendMessage 会重试
 
       profileCheckpoint('execute_once_send_message_start');
       const response = await chatManager.sendMessage(command + ' ' + args, {

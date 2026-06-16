@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -186,7 +187,9 @@ export class ConfigIO {
         try {
           const data = this.readFile(source.path, source.format);
           Object.assign(merged, data);
-        } catch {}
+        } catch (err) {
+          void handleError(err, { module: 'config:io', action: 'catch_error' });
+        }
       }
     }
 

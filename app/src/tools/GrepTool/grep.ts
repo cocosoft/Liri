@@ -3,6 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { handleError } from '@modules/error/handleError';
 
 export type GrepOutputMode = 'content' | 'files_with_matches' | 'count';
 
@@ -205,7 +206,9 @@ function searchFile(
     if (matches.length > 0) {
       results.set(filePath, matches);
     }
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'tools:GrepTool', action: 'catch_error' });
+  }
 }
 
 /**

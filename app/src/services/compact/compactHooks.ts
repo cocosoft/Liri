@@ -1,3 +1,4 @@
+import { handleError } from '@modules/error/handleError';
 /**
  * Compact Hooks（Pre/Post压缩钩子集成）
  */
@@ -49,6 +50,8 @@ export async function executePostCompactHooks(
   for (const hook of postHooks) {
     try {
       await hook.execute(context);
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'services:compact', action: 'catch_error' });
+    }
   }
 }

@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveMediaDir } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 存储配置
@@ -151,7 +152,9 @@ export class MediaStore {
 
     try {
       this.walkDir(this.config.basePath, stats as any);
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'media:store', action: 'catch_error' });
+    }
 
     return stats as any;
   }
@@ -164,7 +167,9 @@ export class MediaStore {
 
     try {
       cleaned = this.removeEmptyDirs(this.config.basePath);
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'media:store', action: 'catch_error' });
+    }
 
     return cleaned;
   }

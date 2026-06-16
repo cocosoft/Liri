@@ -4,6 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 内置插件
@@ -189,11 +190,15 @@ export class BundledPluginManager {
                   builtin: false,
                 });
               }
-            } catch {}
+            } catch (err) {
+              void handleError(err, { module: 'plugins:bundled', action: 'catch_error' });
+            }
           }
         }
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'plugins:bundled', action: 'catch_error' });
+    }
   }
 
   /**

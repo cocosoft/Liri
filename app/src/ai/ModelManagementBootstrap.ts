@@ -32,6 +32,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -183,7 +184,9 @@ export async function initializeModelManagementServices(): Promise<void> {
       name: 'UsageStatsService',
       init: () => usageStatsService.initialize(),
     });
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'ai:ModelManagementBootstrap.ts', action: 'catch_error' });
+  }
 
   try {
     const { modelPricingService } =
@@ -192,7 +195,9 @@ export async function initializeModelManagementServices(): Promise<void> {
       name: 'ModelPricingService',
       init: () => modelPricingService.initialize(),
     });
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'ai:ModelManagementBootstrap.ts', action: 'catch_error' });
+  }
 
   try {
     const { appModelConfigService } =
@@ -201,7 +206,9 @@ export async function initializeModelManagementServices(): Promise<void> {
       name: 'AppModelConfigService',
       init: () => appModelConfigService.initialize(),
     });
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'ai:ModelManagementBootstrap.ts', action: 'catch_error' });
+  }
 
   // 逐个初始化 DB 表
   let initialized = 0;

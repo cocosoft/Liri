@@ -1,3 +1,4 @@
+import { handleError } from '@modules/error/handleError';
 /**
  * IntegrationTestRunner 集成测试运行器
  * 对标 CC 的集成测试框架
@@ -136,7 +137,9 @@ export class IntegrationTestRunner {
 
     try {
       if (suite.afterAll) await suite.afterAll();
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'testing:integration', action: 'catch_error' });
+    }
 
     return results;
   }

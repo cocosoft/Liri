@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 序列化格式
@@ -242,7 +243,9 @@ export class SessionPersistenceManager {
       if (fs.existsSync(metaPath)) {
         Object.assign(existing, JSON.parse(fs.readFileSync(metaPath, 'utf-8')));
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'session:persistence', action: 'catch_error' });
+    }
 
     existing[metadata.snapshotId] = metadata;
 

@@ -1,5 +1,6 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { execSync } from 'child_process';
+import { handleError } from '@modules/error/handleError';
 
 export interface PersistentTerminalSession {
   readonly sessionId: string;
@@ -33,7 +34,9 @@ export class PersistentTerminalVm {
     for (const [, session] of this.sessions) {
       try {
         session.terminate();
-      } catch {}
+      } catch (err) {
+        void handleError(err, { module: 'tools:environments', action: 'catch_error' });
+      }
     }
     this.sessions.clear();
   }

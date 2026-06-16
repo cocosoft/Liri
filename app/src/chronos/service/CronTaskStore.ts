@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 任务状态
@@ -159,7 +160,9 @@ export class CronTaskStore {
       fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
       const tasks = this.getAll();
       fs.writeFileSync(this.storePath, JSON.stringify(tasks, null, 2), 'utf-8');
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'chronos:service', action: 'catch_error' });
+    }
   }
 }
 

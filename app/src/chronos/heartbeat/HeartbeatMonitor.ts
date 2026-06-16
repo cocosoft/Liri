@@ -1,3 +1,4 @@
+import { handleError } from '@modules/error/handleError';
 /**
  * HeartbeatMonitor 心跳监控
  * 对标 OpenClaw 的心跳策略
@@ -178,7 +179,9 @@ export class HeartbeatMonitor {
     for (const listener of this.listeners) {
       try {
         listener(event);
-      } catch {}
+      } catch (err) {
+        void handleError(err, { module: 'chronos:heartbeat', action: 'catch_error' });
+      }
     }
   }
 }

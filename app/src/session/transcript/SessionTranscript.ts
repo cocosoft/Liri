@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 转录配置
@@ -206,7 +207,9 @@ export class SessionTranscript {
 
       const lines = entries.map((e) => JSON.stringify(e)).join('\n') + '\n';
       fs.appendFileSync(filePath, lines, 'utf-8');
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'session:transcript', action: 'catch_error' });
+    }
   }
 
   /**
@@ -229,7 +232,9 @@ export class SessionTranscript {
 
         fs.renameSync(filePath, `${filePath}.1`);
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'session:transcript', action: 'catch_error' });
+    }
   }
 
   /**

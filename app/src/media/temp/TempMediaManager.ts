@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { handleError } from '@modules/error/handleError';
 
 export interface TempFileConfig {
   baseDir: string;
@@ -97,7 +98,9 @@ export class TempMediaManager {
             fs.rmSync(filePath, { recursive: true, force: true });
             deleted++;
           }
-        } catch {}
+        } catch (err) {
+          void handleError(err, { module: 'media:temp', action: 'catch_error' });
+        }
       }
 
       if (files.length - deleted > this.config.maxFiles) {
@@ -118,10 +121,14 @@ export class TempMediaManager {
         for (const file of toDelete) {
           try {
             fs.rmSync(file.path, { recursive: true, force: true });
-          } catch {}
+          } catch (err) {
+            void handleError(err, { module: 'media:temp', action: 'catch_error' });
+          }
         }
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'media:temp', action: 'catch_error' });
+    }
   }
 
   /**
@@ -165,7 +172,9 @@ export class TempMediaManager {
           if (oldestFile === null || stat.mtimeMs < oldestFile) {
             oldestFile = stat.mtimeMs;
           }
-        } catch {}
+        } catch (err) {
+          void handleError(err, { module: 'media:temp', action: 'catch_error' });
+        }
       }
 
       return { fileCount: files.length, totalSize, oldestFile };

@@ -15,6 +15,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -112,7 +113,9 @@ export class NpmDistributor {
       if (existsSync(pluginDir)) {
         try {
           unlinkSync(join(pluginDir, '.plugin-install.json'));
-        } catch {}
+        } catch (err) {
+          void handleError(err, { module: 'plugins:distribution', action: 'catch_error' });
+        }
       }
       logger.info(`插件已移除: ${name}`);
       return true;

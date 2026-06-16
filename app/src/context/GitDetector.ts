@@ -6,6 +6,7 @@
 import { execFileNoThrow } from './execUtils';
 import * as path from 'path';
 import * as fs from 'fs';
+import { handleError } from '@modules/error/handleError';
 
 const MAX_STATUS_CHARS = 2000;
 
@@ -70,7 +71,9 @@ export async function getGitInfo(
       { cwd: root }
     );
     branch = result?.stdout?.trim() || null;
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'context:GitDetector.ts', action: 'catch_error' });
+  }
 
   let status: string | null = null;
   try {
@@ -82,7 +85,9 @@ export async function getGitInfo(
       raw.length > MAX_STATUS_CHARS
         ? raw.substring(0, MAX_STATUS_CHARS) + '\n...(truncated)'
         : raw || '(clean)';
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'context:GitDetector.ts', action: 'catch_error' });
+  }
 
   cachedGitInfo = { branch, status, isGit: true, root };
   return cachedGitInfo;

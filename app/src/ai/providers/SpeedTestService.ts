@@ -27,6 +27,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -164,7 +165,9 @@ export function formatSpeedResults(results: EndpointLatency[]): string {
       if (displayUrl.length > 45) {
         displayUrl = displayUrl.substring(0, 42) + '...';
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'ai:providers', action: 'catch_error' });
+    }
 
     if (r.error) {
       lines.push(`  ${displayUrl.padEnd(45)} ❌ ${r.error}`);

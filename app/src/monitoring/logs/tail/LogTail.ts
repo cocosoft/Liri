@@ -4,6 +4,7 @@
  */
 import fs from 'node:fs';
 import { EventEmitter } from 'node:events';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 追踪选项
@@ -149,7 +150,9 @@ export class LogTail extends EventEmitter {
           this.emit('line', logLine);
         }
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'monitoring:logs', action: 'catch_error' });
+    }
   }
 
   /**

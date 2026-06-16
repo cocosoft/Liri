@@ -11,6 +11,7 @@ import type {
 } from '@modules/commands/types';
 import type { CompactArtifact } from '@modules/services/compact/CompactService';
 import { DefaultContextEngine } from '@modules/query/context/DefaultContextEngine';
+import { handleError } from '@modules/error/handleError';
 
 const contextEngine = new DefaultContextEngine();
 
@@ -57,7 +58,9 @@ export class CompactCommand implements Command {
       if (focusTopic) {
         try {
           await contextEngine.compress([], 12000);
-        } catch (_) {}
+        } catch (_) {
+          void handleError(_, { module: 'commands:builtin', action: 'catch_error' });
+        }
       }
 
       // 构建返回消息

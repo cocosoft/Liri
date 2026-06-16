@@ -7,6 +7,7 @@
  */
 
 import type React from 'react';
+import { handleError } from '@modules/error/handleError';
 
 export interface ToolUIRenderer {
   renderToolUseMessage?: (
@@ -118,51 +119,71 @@ export function initDefaultToolUIRegistry(): void {
   try {
     const fileReadUI = require('../../tools/FileReadTool/UI');
     registerToolUI('file_read', fileReadUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
   try {
     const fileWriteUI = require('../../tools/FileWriteTool/UI');
     registerToolUI('file_write', fileWriteUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
   try {
     const fileEditUI = require('../../tools/FileEditTool/UI');
     registerToolUI('file_edit', fileEditUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const bashUI = require('../../tools/BashTool/UI');
     registerToolUI('bash', bashUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const grepUI = require('../../tools/GrepTool/UI');
     registerToolUI('grep', grepUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const globUI = require('../../tools/GlobTool/UI');
     registerToolUI('glob', globUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const webFetchUI = require('../../tools/WebFetchTool/UI');
     registerToolUI('web_fetch', webFetchUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const webSearchUI = require('../../tools/WebSearchTool/UI');
     registerToolUI('web_search', webSearchUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const skillUI = require('../../tools/SkillTool/UI');
     registerToolUI('skill', skillUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const planUI = require('../../tools/PlanTool/UI');
     registerToolUI('enter_plan_mode', planUI);
     registerToolUI('exit_plan_mode', planUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const taskUI = require('../../tools/TaskTool/UI');
@@ -170,160 +191,222 @@ export function initDefaultToolUIRegistry(): void {
     registerToolUI('task_update', taskUI);
     registerToolUI('task_get', taskUI);
     registerToolUI('task_list', taskUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const briefUI = require('../../tools/BriefTool/UI');
     registerToolUI('brief', briefUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const lspUI = require('../../tools/LSPTool/UI');
     registerToolUI('lsp', lspUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const configUI = require('../../tools/ConfigTool/UI');
     registerToolUI('config', configUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const chronosUI = require('../../tools/ChronosTool/UI');
     registerToolUI('cron_create', chronosUI);
     registerToolUI('cron_delete', chronosUI);
     registerToolUI('cron_list', chronosUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const pwshUI = require('../../tools/PowerShellTool/UI');
     registerToolUI('powershell', pwshUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const teamCreateUI = require('../../tools/TeamCreateTool/UI');
     registerToolUI('team_create', teamCreateUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const teamDeleteUI = require('../../tools/TeamDeleteTool/UI');
     registerToolUI('team_delete', teamDeleteUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const sendMsgUI = require('../../tools/SendMessageTool/UI');
     registerToolUI('send_message', sendMsgUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const mcpUI = require('../../tools/MCPResourceTool/UI');
     registerToolUI('mcp', mcpUI);
     registerToolUI('list_mcp_resources', mcpUI);
     registerToolUI('read_mcp_resource', mcpUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const worktreeEnterUI = require('../../tools/EnterWorktreeTool/UI');
     registerToolUI('enter_worktree', worktreeEnterUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const worktreeExitUI = require('../../tools/ExitWorktreeTool/UI');
     registerToolUI('exit_worktree', worktreeExitUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const peersUI = require('../../tools/ListPeersTool/UI');
     registerToolUI('list_peers', peersUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const clipboardUI = require('../../tools/ClipboardTool/UI');
     registerToolUI('clipboard', clipboardUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const imageUI = require('../../tools/ImageTool/UI');
     registerToolUI('image', imageUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const thinkingUI = require('../../tools/ThinkingTool/UI');
     registerToolUI('thinking', thinkingUI);
     registerToolUI('think', thinkingUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const askUserUI = require('../../tools/AskUserQuestionTool/UI');
     registerToolUI('ask_user_question', askUserUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const browserUI = require('../../tools/BrowserTool/UI');
     registerToolUI('browser', browserUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const codeAnalysisUI = require('../../tools/CodeAnalysisTool/UI');
     registerToolUI('code_analysis', codeAnalysisUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const monitorUI = require('../../tools/MonitorTool/UI');
     registerToolUI('monitor', monitorUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const pushNotifUI = require('../../tools/PushNotificationTool/UI');
     registerToolUI('push_notification', pushNotifUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const sleepUI = require('../../tools/SleepTool/UI');
     registerToolUI('sleep', sleepUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const subscribePRUI = require('../../tools/SubscribePRTool/UI');
     registerToolUI('subscribe_pr', subscribePRUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const taskOutputUI = require('../../tools/TaskOutputTool/UI');
     registerToolUI('task_output', taskOutputUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const taskStopUI = require('../../tools/TaskStopTool/UI');
     registerToolUI('task_stop', taskStopUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const timeUI = require('../../tools/TimeTool/UI');
     registerToolUI('time', timeUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const todoWriteUI = require('../../tools/TodoWriteTool/UI');
     registerToolUI('todo_write', todoWriteUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const toolSearchUI = require('../../tools/ToolSearchTool/UI');
     registerToolUI('tool_search', toolSearchUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const tungstenUI = require('../../tools/TungstenTool/UI');
     registerToolUI('tungsten', tungstenUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const voiceInputUI = require('../../tools/VoiceInputTool/UI');
     registerToolUI('voice_input', voiceInputUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 
   try {
     const voiceOutputUI = require('../../tools/VoiceOutputTool/UI');
     registerToolUI('voice_output', voiceOutputUI);
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+  }
 }

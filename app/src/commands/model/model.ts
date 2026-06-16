@@ -11,6 +11,7 @@ import {
   getModelKeyByName,
   type ModelKey,
 } from '@modules/ai/models/ModelConfigs.js';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 解析命令参数
@@ -301,7 +302,9 @@ const modelCommand = {
           showJson,
           args: subcommand || '',
         });
-      } catch {}
+      } catch (err) {
+        void handleError(err, { module: 'commands:model', action: 'catch_error' });
+      }
 
       if (subcommand === 'info') return handleInfo(modelArg);
 

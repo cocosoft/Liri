@@ -23,6 +23,7 @@ import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js'
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
 import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
 import { modelRouter } from '@modules/ai/modelRouter.js';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -264,7 +265,9 @@ export class ChatCommand {
       for await (const chunk of stream) {
         fullResponse += chunk;
       }
-    } catch (err) {}
+    } catch (err) {
+      void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+    }
 
     const cost = costTracker.addCost(model, inputTokens, outputTokens);
 

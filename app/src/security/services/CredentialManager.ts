@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { resolvePyappHome } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 凭据类型
@@ -328,7 +329,9 @@ export class CredentialManager {
       });
       fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
       fs.writeFileSync(this.storePath, store, 'utf-8');
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'security:services', action: 'catch_error' });
+    }
   }
 
   /**

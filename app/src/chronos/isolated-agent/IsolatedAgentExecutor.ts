@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 执行配置
@@ -122,7 +123,9 @@ export class IsolatedAgentExecutor {
 
         fs.rmdirSync(workDir);
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'chronos:isolated-agent', action: 'catch_error' });
+    }
   }
 }
 

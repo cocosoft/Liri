@@ -13,6 +13,7 @@ import {
 import { dirname, join } from 'path';
 import { resolveChronosDir } from '@modules/core/paths';
 import type { SchedulerLock } from './types';
+import { handleError } from '@modules/error/handleError';
 
 const LOCK_FILE_NAME = 'scheduler.lock';
 
@@ -111,7 +112,9 @@ async function removeLockFile(dir?: string): Promise<void> {
     if (existsSync(lockPath)) {
       unlinkSync(lockPath);
     }
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'chronos:CronTasksLock.ts', action: 'catch_error' });
+  }
 }
 
 /**
@@ -183,7 +186,9 @@ export async function releaseSchedulerLock(opts?: {
   try {
     await removeLockFile(dir);
     console.log('[Chronos] released scheduler lock');
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'chronos:CronTasksLock.ts', action: 'catch_error' });
+  }
 }
 
 /**

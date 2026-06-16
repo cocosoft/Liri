@@ -9,6 +9,7 @@ import { join } from 'path';
 import type { CommandContext } from '@modules/commands/types';
 import { resolvePyappHome } from '@modules/core/paths';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 获取记忆文件目录
@@ -161,10 +162,14 @@ const memoryCommand = {
             try {
               const s = await stat(join(memoryDir, f));
               totalBytes += s.size;
-            } catch {}
+            } catch (err) {
+              void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+            }
           }
         }
-      } catch {}
+      } catch (err) {
+        void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+      }
     }
 
     return {

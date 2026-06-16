@@ -13,6 +13,7 @@ import { promisify } from 'util';
 import { readFile } from 'fs/promises';
 import { join, resolve, dirname } from 'path';
 import type { CommandContext } from '@modules/commands/types';
+import { handleError } from '@modules/error/handleError';
 
 const execAsync = promisify(exec);
 
@@ -72,7 +73,9 @@ function findGitRootImpl(
       if (stat.isDirectory() || stat.isFile()) {
         return current;
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+    }
     const parent = dirname(current);
     if (parent === current) {
       break;
@@ -87,7 +90,9 @@ function findGitRootImpl(
     if (stat.isDirectory() || stat.isFile()) {
       return root;
     }
-  } catch {}
+  } catch (err) {
+    void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+  }
 
   return GIT_ROOT_NOT_FOUND;
 }

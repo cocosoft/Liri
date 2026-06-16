@@ -1,3 +1,4 @@
+import { handleError } from '@modules/error/handleError';
 /**
  * GatewayConfigManager 网关配置管理
  * 对标 CC 的网关配置管理能力
@@ -131,7 +132,9 @@ export class GatewayConfigManager {
     for (const listener of this.listeners) {
       try {
         listener(this.config);
-      } catch {}
+      } catch (err) {
+        void handleError(err, { module: 'core:gateway', action: 'catch_error' });
+      }
     }
   }
 

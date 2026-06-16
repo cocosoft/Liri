@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
 import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 审计事件类型
@@ -245,7 +246,9 @@ export class DaemonAudit {
       for (const old of oldLogs.slice(5)) {
         fs.unlinkSync(path.join(this.logDir, old.name));
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'daemon:audit', action: 'catch_error' });
+    }
   }
 }
 

@@ -7,6 +7,7 @@ import type { Tool, ToolParam, ToolTag } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
 import { readSoulMd, writeSoulMd } from '@modules/services/soul/SoulReader';
 import { readUserMd, writeUserMd } from '@modules/services/soul/UserReader';
+import { handleError } from '@modules/error/handleError';
 
 interface ToolFactoryFn {
   (): Tool[];
@@ -1455,7 +1456,9 @@ export function createUtilityTools(): Tool[] {
           let addresses6: string[] = [];
           try {
             addresses6 = await dnsPromises.resolve6(hostname);
-          } catch {}
+          } catch (err) {
+            void handleError(err, { module: 'tools:UtilityTools.ts', action: 'catch_error' });
+          }
           return {
             success: true,
             output: JSON.stringify({
@@ -1743,7 +1746,9 @@ export function createUtilityTools(): Tool[] {
               if (e.isFile()) {
                 try {
                   info.size = fs.statSync(fullPath).size;
-                } catch {}
+                } catch (err) {
+                  void handleError(err, { module: 'tools:UtilityTools.ts', action: 'catch_error' });
+                }
               }
               return info;
             });

@@ -3,6 +3,7 @@
  * 对标 CC 的日志诊断能力
  */
 import fs from 'node:fs';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 诊断配置
@@ -196,7 +197,9 @@ export class LogDiagnostic {
         stats.oldestEntry = Math.min(...timestamps);
         stats.newestEntry = Math.max(...timestamps);
       }
-    } catch {}
+    } catch (err) {
+      void handleError(err, { module: 'monitoring:logs', action: 'catch_error' });
+    }
 
     return stats;
   }

@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 维护配置
@@ -110,7 +111,9 @@ export class SessionMaintenance {
               fs.unlinkSync(file.path);
               cleaned++;
               freedBytes += file.size;
-            } catch {}
+            } catch (err) {
+              void handleError(err, { module: 'session:maintenance', action: 'catch_error' });
+            }
           }
         }
       }

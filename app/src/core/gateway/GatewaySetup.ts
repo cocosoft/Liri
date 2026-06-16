@@ -8,6 +8,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { cliConfigManager } from '../../cli/config';
 import { configManager } from '@modules/config';
 import { getChannelManager } from './ChannelManager';
@@ -105,9 +106,8 @@ export async function setupGatewayFromConfig(
           logger.info('Telegram 通道已注册');
         }
       } catch (error) {
-        const msg = `Telegram 通道注册失败: ${error instanceof Error ? error.message : String(error)}`;
-        logger.error(msg);
-        result.errors.push(msg);
+        await handleError(error, { module: 'gateway:setup', action: 'register_telegram' });
+        result.errors.push(error instanceof Error ? error.message : String(error));
       }
     }
   }
@@ -137,9 +137,8 @@ export async function setupGatewayFromConfig(
           `WebSocket 通道已注册 (${gatewayConfig.websocket.host}:${gatewayConfig.websocket.port})`
         );
       } catch (error) {
-        const msg = `WebSocket 通道注册失败: ${error instanceof Error ? error.message : String(error)}`;
-        logger.error(msg);
-        result.errors.push(msg);
+        await handleError(error, { module: 'gateway:setup', action: 'register_websocket' });
+        result.errors.push(error instanceof Error ? error.message : String(error));
       }
     }
   }
@@ -154,9 +153,8 @@ export async function setupGatewayFromConfig(
         `Gateway 通道启动完成: ${result.connectedChannels}/${result.registeredChannels} 已连接`
       );
     } catch (error) {
-      const msg = `通道启动失败: ${error instanceof Error ? error.message : String(error)}`;
-      logger.error(msg);
-      result.errors.push(msg);
+      await handleError(error, { module: 'gateway:setup', action: 'start_channels' });
+      result.errors.push(error instanceof Error ? error.message : String(error));
     }
   }
 

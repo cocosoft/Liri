@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { GatewayChannel } from './types';
 import { ChannelStatus } from './types';
 
@@ -110,8 +111,8 @@ export class HealthMonitor extends EventEmitter {
     this.isRunning = true;
 
     this.checkTimer = setInterval(() => {
-      this.runHealthCheck().catch((err) => {
-        logger.error('HealthMonitor: 健康检查异常', { error: String(err) });
+      this.runHealthCheck().catch(async (err) => {
+        await handleError(err, { module: 'gateway:health', action: 'health_check_interval' });
       });
     }, this.config.checkIntervalMs);
 

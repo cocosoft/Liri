@@ -7,6 +7,7 @@
 
 import * as https from 'https';
 import { randomUUID } from 'crypto';
+import { handleError } from '@modules/error/handleError';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   GatewayChannel,
@@ -188,9 +189,7 @@ export class TelegramChannel implements GatewayChannel, ChannelPlugin {
       return true;
     } catch (error) {
       this._errors++;
-      logger.error(`TelegramChannel: 发送消息失败 — ${chatId}`, {
-        error: String(error),
-      });
+      await handleError(error, { module: 'gateway:telegram', action: 'send_message' });
       return false;
     }
   }
@@ -315,7 +314,7 @@ export class TelegramChannel implements GatewayChannel, ChannelPlugin {
     } catch (error) {
       this._errors++;
       const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(`TelegramChannel: 轮询错误`, { error: err.message });
+      await handleError(error, { module: 'gateway:telegram', action: 'poll_updates' });
       this._callbacks.onError?.(err);
     }
 

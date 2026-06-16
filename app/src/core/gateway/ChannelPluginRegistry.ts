@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChannelPlugin } from './ChannelPlugin';
 import { ChannelStatus } from './types';
@@ -114,7 +115,7 @@ export class ChannelPluginRegistry {
       }
     } catch (error) {
       this._totalErrors++;
-      logger.error(`注销时断开插件失败: ${id}`, { error: String(error) });
+      await handleError(error, { module: 'gateway:plugin_registry', action: 'unregister_disconnect' });
     }
 
     this.plugins.delete(id);
@@ -167,7 +168,7 @@ export class ChannelPluginRegistry {
           failed.push(id);
           this._totalErrors++;
           const err = error instanceof Error ? error : new Error(String(error));
-          logger.error(`连接插件失败: ${id}`, { error: err.message });
+          await handleError(error, { module: 'gateway:plugin_registry', action: 'connect_plugin', context: { pluginId: id } });
           this.callbacks.onError?.(id, err);
         }
       }
@@ -187,7 +188,7 @@ export class ChannelPluginRegistry {
             this.callbacks.onDisconnected?.(id);
           } catch (error) {
             this._totalErrors++;
-            logger.error(`断开插件失败: ${id}`, { error: String(error) });
+            await handleError(error, { module: 'gateway:plugin_registry', action: 'disconnect_plugin', context: { pluginId: id } });
           }
         }
       }

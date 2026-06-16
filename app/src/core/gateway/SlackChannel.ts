@@ -7,6 +7,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { handleError } from '@modules/error/handleError';
 import * as https from 'https';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -136,7 +137,7 @@ export class SlackChannel implements GatewayChannel, ChannelPlugin {
     } catch (error) {
       this._status = ChannelStatus.ERROR;
       this._stats.errors++;
-      logger.error(`Slack 通道 "${this.name}" 连接失败`, error);
+      await handleError(error, { module: 'gateway:slack', action: 'connect' });
       this.callbacks.onError?.(error as Error);
     }
   }
@@ -265,7 +266,7 @@ export class SlackChannel implements GatewayChannel, ChannelPlugin {
       try {
         await this.pollEvents();
       } catch (error) {
-        logger.error('Slack 事件轮询失败', error);
+        await handleError(error, { module: 'gateway:slack', action: 'poll_events' });
         this._stats.errors++;
       }
     }, 3000);

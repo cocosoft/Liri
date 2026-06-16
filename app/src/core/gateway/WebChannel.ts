@@ -32,6 +32,7 @@ import type {
   ChannelCapabilities,
   PluginValidationResult,
 } from './ChannelPlugin';
+import { handleError } from '@modules/error/handleError';
 import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channel:websocket' });
@@ -254,9 +255,7 @@ export class WebChannel implements ChannelPlugin {
       return true;
     } catch (error) {
       this._errors++;
-      logger.error(`WebChannel: 发送消息失败 — ${clientId}`, {
-        error: String(error),
-      });
+      await handleError(error, { module: 'gateway:websocket', action: 'send_message' });
       return false;
     }
   }

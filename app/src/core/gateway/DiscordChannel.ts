@@ -7,6 +7,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { handleError } from '@modules/error/handleError';
 import * as https from 'https';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -139,7 +140,7 @@ export class DiscordChannel implements GatewayChannel, ChannelPlugin {
     } catch (error) {
       this._status = ChannelStatus.ERROR;
       this._stats.errors++;
-      logger.error(`Discord 通道 "${this.name}" 连接失败`, error);
+      await handleError(error, { module: 'gateway:discord', action: 'connect' });
       this.callbacks.onError?.(error as Error);
     }
   }

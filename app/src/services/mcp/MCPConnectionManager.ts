@@ -12,6 +12,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -100,10 +101,7 @@ export class MCPConnectionManager {
       // 启动健康检查和自动重连
       await manager.initialize();
     } catch (error) {
-      logger.error(
-        'Failed to initialize MCP connections:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'services:mcp:connection', action: 'initialize' });
     }
   }
 
@@ -224,10 +222,7 @@ export class MCPConnectionManager {
           return;
         }
       } catch (error) {
-        logger.error(
-          `Reconnection attempt ${attempt} failed for server ${client.name}:`,
-          error instanceof Error ? error : new Error(String(error))
-        );
+        await handleError(error, { module: 'services:mcp:connection', action: 'reconnect_attempt', context: { serverName: client.name, attempt } });
 
         if (attempt === MAX_RECONNECT_ATTEMPTS) {
           logger.warn(
@@ -320,10 +315,7 @@ export class MCPConnectionManager {
         } as MCPServerConnection);
       }
     } catch (error) {
-      logger.error(
-        `Toggle failed for server ${serverName}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'services:mcp:connection', action: 'toggle_server', context: { serverName } });
     }
   }
 

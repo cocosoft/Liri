@@ -6,6 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -71,9 +72,7 @@ export class MCPConnection {
     } catch (error) {
       this.status = MCPServerStatus.ERROR;
       this.error = error instanceof Error ? error.message : String(error);
-      logger.error(
-        `Failed to connect to MCP server ${this.name}: ${this.error}`
-      );
+      await handleError(error, { module: 'services:mcp:connection', action: 'connect', context: { serverName: this.name } });
 
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.scheduleReconnect();
@@ -105,9 +104,7 @@ export class MCPConnection {
         `OAuth authentication successful for MCP server: ${this.name}`
       );
     } catch (error) {
-      logger.error(
-        `OAuth authentication failed for MCP server ${this.name}: ${error}`
-      );
+      await handleError(error, { module: 'services:mcp:connection', action: 'oauth', context: { serverName: this.name } });
       throw error;
     }
   }
@@ -150,10 +147,7 @@ export class MCPConnection {
           logger.info(`Successfully reconnected to MCP server: ${this.name}`);
         }
       } catch (error) {
-        logger.error(
-          `MCP server ${this.name} reconnect failed:`,
-          error as Error
-        );
+        void handleError(error, { module: 'services:mcp:connection', action: 'reconnect', context: { serverName: this.name } });
       }
     }, delay);
   }
@@ -350,10 +344,7 @@ export class MCPConnection {
           result.set(connection.getName(), tools);
         }
       } catch (error) {
-        logger.error(
-          `Failed to refresh tools for server ${connection.getName()}:`,
-          error as Error
-        );
+        await handleError(error, { module: 'services:mcp:connection', action: 'batch_refresh_tools', context: { serverName: connection.getName() } });
       }
     });
 

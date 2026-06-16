@@ -8,6 +8,7 @@
 import type { Memory } from './types/Memory';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager';
 import { Logger, LogLevel } from '../monitoring/logs/Logger';
+import { handleError } from '../error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -68,9 +69,7 @@ export class MemoryHookDispatcher {
 
       return { allowed: true };
     } catch (error) {
-      logger.error(
-        `Memory pre-save hook failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      await handleError(error, { module: 'memory:hooks', action: 'pre_save' });
       return { allowed: true };
     }
   }
@@ -87,9 +86,7 @@ export class MemoryHookDispatcher {
         sessionId,
       });
     } catch (error) {
-      logger.error(
-        `Memory post-save hook failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      await handleError(error, { module: 'memory:hooks', action: 'post_save' });
     }
   }
 
@@ -116,9 +113,7 @@ export class MemoryHookDispatcher {
 
       return { allowed: true };
     } catch (error) {
-      logger.error(
-        `Memory pre-load hook failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      await handleError(error, { module: 'memory:hooks', action: 'pre_load' });
       return { allowed: true };
     }
   }
@@ -137,9 +132,7 @@ export class MemoryHookDispatcher {
         sessionId,
       });
     } catch (error) {
-      logger.error(
-        `Memory post-load hook failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      await handleError(error, { module: 'memory:hooks', action: 'post_load' });
     }
   }
 }

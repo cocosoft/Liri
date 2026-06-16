@@ -7,6 +7,7 @@ import { readFile, writeFile, mkdir, copyFile, stat } from 'fs/promises';
 import { join, extname, basename, resolve } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/core/paths';
@@ -330,7 +331,7 @@ export class FileIngestionService {
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      logger.error('文件摄取失败', { filePath, error: errMsg });
+      await handleError(error, { module: 'knowledge:ingestion', action: 'ingest_file', context: { filePath } });
       return {
         success: false,
         rawPath: '',

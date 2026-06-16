@@ -7,6 +7,7 @@ import { join } from 'path';
 import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -151,10 +152,7 @@ export class MemdirService {
 
       logger.info('Memdir service initialized successfully');
     } catch (error) {
-      logger.error(
-        'Failed to initialize memdir service',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:memdir', action: 'initialize' });
       throw error;
     }
   }
@@ -166,10 +164,7 @@ export class MemdirService {
     try {
       await mkdir(this.config.autoMemBaseDir, { recursive: true });
     } catch (error) {
-      logger.error(
-        `Failed to create memory directory`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:memdir', action: 'ensure_dir' });
       throw error;
     }
   }
@@ -197,10 +192,7 @@ export class MemdirService {
 
       logger.info(`Scanned ${this.memoryFiles.size} memory files`);
     } catch (error) {
-      logger.error(
-        'Failed to scan memory files',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'memory:memdir', action: 'scan_files' });
       throw error;
     }
   }

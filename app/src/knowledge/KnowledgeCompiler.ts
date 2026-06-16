@@ -17,6 +17,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/core/paths';
@@ -174,9 +175,7 @@ export class KnowledgeCompiler {
           logger.info('编译后 lint 检查通过');
         }
       } catch (lintError) {
-        logger.error('编译后 lint 执行失败', {
-          error: lintError instanceof Error ? lintError.message : String(lintError),
-        });
+        await handleError(lintError, { module: 'knowledge:compiler', action: 'post_lint' });
       }
     }
 

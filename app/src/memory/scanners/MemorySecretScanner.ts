@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -193,7 +194,7 @@ function compileRule(rule: SecretRule): RegExp {
     compiledRules.set(rule.id, regex);
     return regex;
   } catch (error) {
-    logger.error(`Failed to compile secret rule ${rule.id}:`, error);
+    void handleError(error, { module: 'memory:secret', action: 'compile_rule', context: { ruleId: rule.id } });
     return /\b(?!)\b/; // 空规则
   }
 }

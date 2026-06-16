@@ -868,10 +868,7 @@ export class CoreAPIImpl implements CoreAPI {
         }
       }
     } catch (e) {
-      logger.error('Failed to persist session title', {
-        sessionId,
-        error: String(e),
-      });
+      await handleError(e, { module: 'runtime:api', action: 'persist_session_title', context: { sessionId } });
     }
   }
 

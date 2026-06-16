@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import {
   MemorySecretScanner,
   defaultMemorySecretScanner,
@@ -148,7 +149,7 @@ export class TeamMemorySyncService {
 
     this.syncTimer = setInterval(() => {
       this.sync().catch((error) => {
-        logger.error('Auto sync failed:', error);
+        void handleError(error, { module: 'memory:sync', action: 'auto_sync' });
       });
     }, this.config.syncInterval);
 
@@ -244,7 +245,7 @@ export class TeamMemorySyncService {
       result.success = result.errors.length === 0;
       this.status = result.success ? SyncStatus.SUCCESS : SyncStatus.ERROR;
     } catch (error) {
-      logger.error('Sync failed:', error);
+      await handleError(error, { module: 'memory:sync', action: 'full_sync' });
       result.success = false;
       result.errors.push(`Sync failed: ${error}`);
       this.status = SyncStatus.ERROR;
@@ -631,7 +632,7 @@ export class TeamMemorySyncService {
       try {
         listener(status, result);
       } catch (error) {
-        logger.error('Error in sync listener:', error);
+        void handleError(error, { module: 'memory:sync', action: 'notify_listener' });
       }
     }
   }

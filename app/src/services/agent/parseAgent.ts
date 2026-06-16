@@ -1,10 +1,10 @@
-//
 /**
  * Agent解析工具
  */
 
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { CustomAgentDefinition, SettingSource } from './types';
@@ -256,7 +256,7 @@ export function parseAgentFromMarkdown(
 
     return agentDef;
   } catch (error) {
-    logger.error(`Error parsing agent from ${filePath}:`, error as Error);
+    void handleError(error, { module: 'services:agent:parse', action: 'parse_markdown', context: { filePath } });
     return null;
   }
 }
@@ -350,7 +350,7 @@ export function parseAgentFromJson(
 
     return agent;
   } catch (error) {
-    logger.error(`Error parsing agent '${name}' from JSON:`, error as Error);
+    void handleError(error, { module: 'services:agent:parse', action: 'parse_json', context: { agentName: name } });
     return null;
   }
 }
@@ -372,7 +372,7 @@ export function parseAgentsFromJson(
       .map(([name, def]) => parseAgentFromJson(name, def, source))
       .filter((agent): agent is CustomAgentDefinition => agent !== null);
   } catch (error) {
-    logger.error('Error parsing agents from JSON:', error as Error);
+    void handleError(error, { module: 'services:agent:parse', action: 'parse_agents_json' });
     return [];
   }
 }

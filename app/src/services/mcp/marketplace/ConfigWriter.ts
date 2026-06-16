@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core/paths';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import type {
@@ -40,7 +41,7 @@ export class ConfigWriter {
 
       logger.info(`MCP 服务器安装配置已写入: ${name}`);
     } catch (error) {
-      logger.error(`写入 MCP 服务器配置失败: ${name}`, error as Error);
+      void handleError(error, { module: 'services:mcp:marketplace', action: 'install_write_config', context: { serverName: name } });
       throw new Error(`安装失败: 无法写入配置 - ${(error as Error).message}`);
     }
   }
@@ -62,7 +63,7 @@ export class ConfigWriter {
 
       logger.info(`MCP 服务器配置已删除: ${name}`);
     } catch (error) {
-      logger.error(`删除 MCP 服务器配置失败: ${name}`, error as Error);
+      void handleError(error, { module: 'services:mcp:marketplace', action: 'uninstall_config', context: { serverName: name } });
       throw new Error(`卸载失败: 无法删除配置 - ${(error as Error).message}`);
     }
   }

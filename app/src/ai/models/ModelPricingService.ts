@@ -37,6 +37,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -187,7 +188,7 @@ export class ModelPricingService {
       this.initialized = true;
       logger.info('ModelPricingService 初始化完成（model_registry 单一数据源）');
     } catch (error) {
-      logger.error('ModelPricingService 初始化失败', error);
+      await handleError(error, { module: 'ai:pricing', action: 'initialize' });
       throw new AppError(
         'Failed to initialize ModelPricingService',
         ErrorCategory.EXECUTION,

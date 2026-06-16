@@ -14,6 +14,7 @@
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 
@@ -128,7 +129,7 @@ export class FileCleanupService {
     } catch (err) {
       const msg = `过期清理失败: ${(err as Error).message}`;
       result.errors.push(msg);
-      logger.error(msg);
+      await handleError(err, { module: 'services:file:cleanup', action: 'cleanup_expired', context: { retentionDays, dryRun } });
     }
 
     return result;

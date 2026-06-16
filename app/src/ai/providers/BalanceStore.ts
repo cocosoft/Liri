@@ -27,6 +27,7 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -88,7 +89,7 @@ export class BalanceStore {
       this.initialized = true;
       logger.info('BalanceStore 初始化完成');
     } catch (error) {
-      logger.error('BalanceStore 初始化失败', error);
+      await handleError(error, { module: 'ai:balance', action: 'initialize' });
       throw new AppError(
         'Failed to initialize BalanceStore',
         ErrorCategory.EXECUTION,

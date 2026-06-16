@@ -31,6 +31,7 @@ import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -169,10 +170,7 @@ export class KnowledgeWriteTool implements Tool {
         content: `${actionLabel}知识文档成功：${title.trim()}`,
       };
     } catch (error) {
-      logger.error('知识文档写入失败', {
-        title,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      await handleError(error, { module: 'knowledge:tool', action: 'write', context: { title } });
       return {
         status: ToolExecutionStatus.FAILURE,
         error: error instanceof Error ? error.message : String(error),

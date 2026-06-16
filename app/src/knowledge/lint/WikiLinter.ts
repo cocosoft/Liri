@@ -30,6 +30,7 @@
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
 import { join, relative, basename, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core/paths';
 import type { FieldDef } from '@modules/knowledge/schema/SchemaLoader';
 import { load } from 'js-yaml';
@@ -466,9 +467,7 @@ export class WikiLinter {
         const ruleResults = await rule.check(targetDir);
         allResults.push(...ruleResults);
       } catch (err) {
-        logger.error(`规则 "${rule.name}" 执行失败`, {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        await handleError(err, { module: 'knowledge:linter', action: 'check_rule', context: { ruleName: rule.name } });
       }
     }
 

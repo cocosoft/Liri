@@ -34,6 +34,7 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
 import { getQueryLogStore } from '@modules/query/QueryLogStore';
@@ -166,7 +167,7 @@ export class QueryFeedbackPipeline {
       logger.info('实时反哺完成', { filename, isNew: !exists, query: query.slice(0, 30) });
       return pageId;
     } catch (e) {
-      logger.error('实时反哺失败', { query: query.slice(0, 30), error: e });
+      await handleError(e, { module: 'knowledge:feedback', action: 'on_good_answer', context: { query: query.slice(0, 30) } });
       return undefined;
     }
   }
@@ -301,7 +302,7 @@ summary: 简要摘要，不超过 100 字
     } catch (e) {
       result.errors++;
       result.detail.push(`管道执行失败: ${(e as Error).message}`);
-      logger.error('QueryFeedbackPipeline 失败', { error: e });
+      await handleError(e, { module: 'knowledge:feedback', action: 'execute_pipeline' });
     }
 
     return result;

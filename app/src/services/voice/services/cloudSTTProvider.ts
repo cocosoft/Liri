@@ -11,7 +11,8 @@
  */
 
 import { request as httpsRequest, RequestOptions } from 'https';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTProviderType,
@@ -110,7 +111,7 @@ export class CloudSTTProvider implements STTProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('云端 STT 转录失败', { error: errorMsg });
+      void handleError(error, { module: 'services:voice:cloudSTT', action: 'transcribe' });
 
       return {
         text: '',

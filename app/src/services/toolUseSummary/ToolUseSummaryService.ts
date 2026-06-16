@@ -1,4 +1,3 @@
-//
 /**
  * 工具使用摘要服务
  */
@@ -6,6 +5,7 @@
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole, ContentBlockType } from '@modules/chat/types/message';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -91,9 +91,7 @@ export class ToolUseSummaryService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(
-        `[ToolUseSummaryService] Failed to generate summary: ${errorMessage}`
-      );
+      await handleError(error, { module: 'services:toolUseSummary', action: 'generate_summary' });
       return null;
     }
   }

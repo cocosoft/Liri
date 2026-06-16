@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { InstalledMCPServer, MCPLocalStoreData } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -47,7 +48,7 @@ export class LocalServerStore {
       }
       return data;
     } catch (error) {
-      logger.error('读取 MCP 本地存储失败，使用空数据', error as Error);
+      void handleError(error, { module: 'services:mcp:marketplace', action: 'read_store', context: { storePath: this.storePath } });
       return {
         version: STORE_VERSION,
         updatedAt: new Date().toISOString(),
@@ -68,7 +69,7 @@ export class LocalServerStore {
         'utf8'
       );
     } catch (error) {
-      logger.error('保存 MCP 本地存储失败', error as Error);
+      void handleError(error, { module: 'services:mcp:marketplace', action: 'save_store' });
     }
   }
 

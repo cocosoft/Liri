@@ -32,6 +32,7 @@ import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -151,10 +152,7 @@ export class KnowledgeDeleteTool implements Tool {
         content: `知识文档已删除：${doc.title}`,
       };
     } catch (error) {
-      logger.error('知识文档删除失败', {
-        title,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      await handleError(error, { module: 'knowledge:tool', action: 'delete', context: { title } });
       return {
         status: ToolExecutionStatus.FAILURE,
         error: error instanceof Error ? error.message : String(error),

@@ -31,6 +31,7 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core/paths';
 import type { EventBus } from '@modules/core/events/EventBus';
 
@@ -105,7 +106,7 @@ export class KnowledgeBaseWriter {
       return { success: true, filePath, action };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error('知识库条目写入失败', { filePath, error: errMsg });
+      await handleError(error, { module: 'knowledge:writer', action: 'write_entry', context: { filePath } });
       return {
         success: false,
         filePath,

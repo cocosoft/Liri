@@ -16,6 +16,7 @@ import { readdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolveInboundBaseDir } from '@modules/core/paths';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
@@ -113,7 +114,7 @@ export class FileGCService {
     } catch (err) {
       const msg = `GC 扫描失败: ${(err as Error).message}`;
       result.errors.push(msg);
-      logger.error(msg);
+      await handleError(err, { module: 'services:file:gc', action: 'scan_and_clean' });
     }
 
     return result;

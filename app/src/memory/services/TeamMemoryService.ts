@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import matter from 'gray-matter';
 
@@ -401,10 +402,7 @@ export class TeamMemoryService {
           };
           memories.push(memory);
         } catch (error) {
-          logger.error(
-            `Error reading team memory file ${file}`,
-            error instanceof Error ? error : new Error(String(error))
-          );
+          void handleError(error, { module: 'memory:team', action: 'read_remote_memory', context: { file } });
         }
       }
     }

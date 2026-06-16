@@ -8,6 +8,7 @@ import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
@@ -142,12 +143,12 @@ export class MemoryWatcher {
         `MemoryWatcher initialized with ${this.knownFiles.size} files`
       );
     } catch (error) {
-      logger.error('Failed to scan initial files:', error);
+      await handleError(error, { module: 'memory:watcher', action: 'scan_initial_files' });
     }
   }
 
   /**
-   * 启动文件系统观察
+   * 启动文件系统监听
    */
   private startFsWatcher(): void {
     try {
@@ -234,7 +235,7 @@ export class MemoryWatcher {
 
       this.knownFiles = currentFiles;
     } catch (error) {
-      logger.error('MemoryWatcher poll error:', error);
+      await handleError(error, { module: 'memory:watcher', action: 'poll_changes' });
     }
   }
 
@@ -363,7 +364,7 @@ export class MemoryWatcher {
         }
       }
     } catch (error) {
-      logger.error(`Failed to walk directory ${dir}:`, error);
+      await handleError(error, { module: 'memory:watcher', action: 'walk_dir', context: { dir } });
     }
 
     return results;

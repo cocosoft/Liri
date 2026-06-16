@@ -70,6 +70,7 @@ export type {
 export type { ICache } from './types.js';
 export { CacheFactory, CacheNames } from './CacheFactory.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -80,7 +81,7 @@ export async function initializeCacheSystem(): Promise<void> {
     await initCore();
     logger.info('缓存系统初始化完成');
   } catch (error) {
-    logger.error('缓存系统初始化失败:', { error });
+    await handleError(error, { module: 'cache', action: 'initialize' });
   }
 }
 

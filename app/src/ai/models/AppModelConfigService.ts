@@ -48,6 +48,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, ensureDir } from '@modules/core/paths';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -135,10 +136,9 @@ export class AppModelConfigService {
       await this.ensureDefaultEntry();
       logger.info('AppModelConfigService 初始化完成');
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error('AppModelConfigService 初始化失败', { dbPath: this.dbPath, error: msg });
+      await handleError(error, { module: 'ai:model_config', action: 'initialize', context: { dbPath: this.dbPath } });
       throw new AppError(
-        `Failed to initialize AppModelConfigService: ${msg}`,
+        `Failed to initialize AppModelConfigService: ${error instanceof Error ? error.message : String(error)}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'AMC_INIT_FAILED',

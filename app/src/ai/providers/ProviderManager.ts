@@ -22,13 +22,13 @@
 /**
  * 供应商管理器
  * 提供供应商（API Provider）的增删改查能力
- * 对标 CC 源码 cc-switch/src-tauri/src/provider.rs 实现
  */
 
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -181,7 +181,7 @@ export class ProviderManager {
       this.initialized = true;
       logger.info('ProviderManager 初始化完成');
     } catch (error) {
-      logger.error('ProviderManager 初始化失败', error);
+      await handleError(error, { module: 'ai:provider', action: 'initialize' });
       throw new AppError(
         'Failed to initialize ProviderManager',
         ErrorCategory.EXECUTION,

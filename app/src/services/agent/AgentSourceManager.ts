@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -70,7 +71,7 @@ export class AgentSourceManager {
 
       return allAgents;
     } catch (error) {
-      logger.error('Failed to load agents from all sources:', error as Error);
+      await handleError(error, { module: 'services:agent:source', action: 'load_all' });
       // 即使出错也要返回内置Agent
       return this.loadBuiltInAgents();
     }
@@ -90,7 +91,7 @@ export class AgentSourceManager {
     try {
       return await loadPluginAgents();
     } catch (error) {
-      logger.error('Failed to load plugin agents:', error as Error);
+      await handleError(error, { module: 'services:agent:source', action: 'load_plugin' });
       return [];
     }
   }
@@ -131,7 +132,7 @@ export class AgentSourceManager {
 
       return customAgents;
     } catch (error) {
-      logger.error('Failed to load custom agents:', error as Error);
+      await handleError(error, { module: 'services:agent:source', action: 'load_custom' });
       return [];
     }
   }

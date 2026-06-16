@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { getToolManager } from '@modules/tools/ToolManager';
@@ -38,10 +39,7 @@ export class MCPToolBridge {
         `MCP tool bridge initialized: ${this.registeredMcpTools.size} tools registered`
       );
     } catch (error) {
-      logger.error(
-        'Failed to initialize MCP tool bridge:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'services:mcp:bridge', action: 'initialize' });
     }
   }
 

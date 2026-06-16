@@ -13,6 +13,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getPlatform } from '@modules/utils/platform';
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { isEnvTruthy } from '@modules/utils/envUtils';
 import { configManager } from '@modules/config';
 
@@ -1196,7 +1197,7 @@ $source.Close()
       // 转换失败，降级返回原始数据
       return result.audioData;
     } catch (error) {
-      logger.error('synthesizeSpeech · 格式转换异常', { error });
+      await handleError(error, { module: 'services:voice', action: 'synthesize_speech_format_conversion' });
       return result.audioData;
     } finally {
       try {

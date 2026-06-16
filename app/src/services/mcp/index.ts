@@ -25,6 +25,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
@@ -111,10 +112,7 @@ export class MCPSystem {
       this.initialized = true;
       logger.info('MCP system initialized successfully');
     } catch (error) {
-      logger.error(
-        'Failed to initialize MCP system:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'services:mcp', action: 'initialize' });
       throw error;
     }
   }
@@ -402,10 +400,7 @@ export class MCPSystem {
       this.initialized = false;
       logger.info('MCP system cleaned up successfully');
     } catch (error) {
-      logger.error(
-        'Failed to cleanup MCP system:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, { module: 'services:mcp', action: 'cleanup' });
     }
   }
 }

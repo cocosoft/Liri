@@ -36,6 +36,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { load } from 'js-yaml';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -213,9 +214,7 @@ export class SchemaLoader {
       }
       logger.info(`已加载 ${map.size} 个实体类型定义`);
     } catch (err) {
-      logger.error('加载 entities.yaml 失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      await handleError(err, { module: 'knowledge:schema', action: 'load_entity_schemas' });
     }
 
     return map;
@@ -247,9 +246,7 @@ export class SchemaLoader {
       }
       logger.info(`已加载 ${map.size} 个关系类型定义`);
     } catch (err) {
-      logger.error('加载 edges.yaml 失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      void handleError(err, { module: 'knowledge:schema', action: 'load_edge_schemas' });
     }
 
     return map;
@@ -276,9 +273,7 @@ export class SchemaLoader {
       logger.info(`已加载 ${doc.xref.length} 个链接契约`);
       return doc.xref as XrefRule[];
     } catch (err) {
-      logger.error('加载 xref.yaml 失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      await handleError(err, { module: 'knowledge:schema', action: 'load_xref' });
       return [];
     }
   }

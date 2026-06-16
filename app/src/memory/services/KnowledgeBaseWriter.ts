@@ -3,6 +3,7 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { Memory } from '../types/Memory';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core/paths';
 
 export interface KnowledgeBaseEntry {
@@ -80,7 +81,7 @@ export class KnowledgeBaseWriter {
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error('知识库写入失败', { filePath, error: errMsg });
+      await handleError(error, { module: 'memory:kb:writer', action: 'write', context: { filePath } });
       return {
         success: false,
         filePath,
@@ -125,7 +126,7 @@ export class KnowledgeBaseWriter {
       return { success: true, filePath, action: 'created' };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error('知识库条目写入失败', { filePath, error: errMsg });
+      await handleError(error, { module: 'memory:kb:writer', action: 'write_entry', context: { filePath } });
       return {
         success: false,
         filePath,

@@ -25,6 +25,7 @@ import { join, resolve } from 'path';
 import { randomUUID } from 'crypto';
 import { existsSync, unlinkSync, readFileSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type {
   TTSProvider,
   TTSVoice,
@@ -264,9 +265,7 @@ export class PiperTTSProvider implements TTSProvider {
         }
       });
     } catch (error) {
-      logger.error('扫描模型目录失败', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      void handleError(error, { module: 'services:voice:piper', action: 'scan_voices', context: { modelDir: dir } });
       return [];
     }
 

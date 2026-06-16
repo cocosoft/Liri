@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { CustomAgentDefinition, SettingSource } from './types';
@@ -63,7 +64,7 @@ export class AgentConfigManager {
 
       return agents;
     } catch (error) {
-      logger.error(`Failed to load configs from ${source}:`, error as Error);
+      await handleError(error, { module: 'services:agent:config', action: 'load_configs', context: { source } });
       return [];
     }
   }
@@ -118,7 +119,7 @@ export class AgentConfigManager {
 
       return true;
     } catch (error) {
-      logger.error(`Failed to save configs to ${source}:`, error as Error);
+      await handleError(error, { module: 'services:agent:config', action: 'save_configs', context: { source } });
       return false;
     }
   }
@@ -203,7 +204,7 @@ export class AgentConfigManager {
 
       return true;
     } catch (error) {
-      logger.error('Error validating agent config:', error as Error);
+      void handleError(error, { module: 'services:agent:config', action: 'validate_agent_config' });
       return false;
     }
   }

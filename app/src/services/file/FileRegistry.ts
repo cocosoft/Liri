@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { resolveDbPath, resolveInboundDir, resolveMediaDir } from '@modules/core/paths';
@@ -95,7 +96,7 @@ export class FileRegistry {
       this.initialized = true;
       logger.info('FileRegistry 初始化完成', { dbPath: this.dbPath });
     } catch (error) {
-      logger.error('FileRegistry 初始化失败', error);
+      await handleError(error, { module: 'services:file:registry', action: 'initialize' });
       throw new AppError(
         'FileRegistry 初始化失败',
         ErrorCategory.EXECUTION,

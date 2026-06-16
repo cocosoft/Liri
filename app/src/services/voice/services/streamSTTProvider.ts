@@ -15,6 +15,7 @@
  */
 
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTProviderType,
@@ -164,7 +165,7 @@ export class StreamSTTProvider implements STTProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('流式 STT 转录失败', { error: errorMsg });
+      void handleError(error, { module: 'services:voice:streamSTT', action: 'transcribe' });
 
       return {
         text: '',

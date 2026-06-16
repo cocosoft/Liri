@@ -1,4 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core/paths';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
@@ -33,7 +34,7 @@ export class MCPMarketplace {
       this.initialized = true;
       logger.info('MCPMarketplace 初始化成功');
     } catch (error) {
-      logger.error('MCPMarketplace 初始化失败', error as Error);
+      void handleError(error, { module: 'services:mcp:marketplace', action: 'constructor' });
       // 使用空存储和注册表作为降级方案
       const fs = require('fs');
       const os = require('os');

@@ -12,6 +12,7 @@ import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID } from 'crypto';
 import { writeFileSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type {
   TTSProvider,
   TTSVoice,
@@ -537,7 +538,7 @@ export class EdgeTTSProvider implements TTSProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('Edge TTS 合成失败', { error: errorMsg });
+      void handleError(error, { module: 'services:voice:edgeTTS', action: 'speak' });
       return {
         success: false,
         error: `Edge TTS 合成失败: ${errorMsg}`,
@@ -587,7 +588,7 @@ export class EdgeTTSProvider implements TTSProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('Edge TTS 保存失败', { error: errorMsg });
+      void handleError(error, { module: 'services:voice:edgeTTS', action: 'save', context: { filename: options.filename } });
       return {
         success: false,
         error: `Edge TTS 保存失败: ${errorMsg}`,

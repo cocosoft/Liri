@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -130,9 +131,7 @@ export class MCPServerManager {
             await this.refreshServerTools(name);
           }
         } catch (error: any) {
-          logger.error(
-            `Failed to connect to MCP server ${name}: ${error.message}`
-          );
+          await handleError(error, { module: 'services:mcp:server', action: 'connect_server', context: { serverName: name } });
         }
       }
     );
@@ -269,9 +268,7 @@ export class MCPServerManager {
         `Refreshed tools for server ${serverName}: ${tools.length} tools`
       );
     } catch (error: any) {
-      logger.error(
-        `Failed to refresh tools for server ${serverName}: ${error.message}`
-      );
+      await handleError(error, { module: 'services:mcp:server', action: 'refresh_server_tools', context: { serverName } });
     }
   }
 
@@ -375,9 +372,7 @@ export class MCPServerManager {
               await this.refreshServerTools(name);
             }
           } catch (error: any) {
-            logger.error(
-              `Failed to reconnect to MCP server ${name}: ${error.message}`
-            );
+            await handleError(error, { module: 'services:mcp:server', action: 'reconnect_server', context: { serverName: name } });
           }
         }
       );

@@ -23,6 +23,7 @@ import { readdir, stat, mkdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { resolveInboundDir } from '@modules/core/paths';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
@@ -207,10 +208,7 @@ export class FileExtractTool {
       });
     } catch (err) {
       result.errors.push(`解压失败: ${(err as Error).message}`);
-      logger.error('归档文件解压失败', {
-        archivePath,
-        error: String(err),
-      });
+      await handleError(err, { module: 'services:file:extract', action: 'extract_archive', context: { archivePath } });
     }
 
     return result;

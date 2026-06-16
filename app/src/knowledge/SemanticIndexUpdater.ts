@@ -30,6 +30,7 @@ import { readFile, stat } from 'fs/promises';
 import { join, relative, resolve } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { EventBus } from '@modules/core/events/EventBus';
 import type { EmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
 import { chunkText } from '@modules/knowledge/semantic/chunker';
@@ -93,10 +94,7 @@ export class SemanticIndexUpdater {
       const evt = event as KnowledgeChangedEvent;
       if (evt.action !== 'deleted') {
         this.appendIndex(evt.filePath).catch((err) => {
-          logger.error('语义索引增量更新失败', {
-            filePath: evt.filePath,
-            error: String(err),
-          });
+          void handleError(err, { module: 'knowledge:semantic', action: 'append_index', context: { filePath: evt.filePath } });
         });
       }
     });

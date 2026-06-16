@@ -16,6 +16,7 @@ import { FileSearchTool } from './FileSearchTool/FileSearchTool';//文件搜索�
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { CronListTool } from './ChronosTool/CronListTool';
 import { knowledgeRouter } from '../knowledge/KnowledgeRouter';
 import { resolveMemoryDir } from '@modules/core/paths';
@@ -536,10 +537,7 @@ export class ToolFactory {
     try {
       return new SleepTool();
     } catch (error) {
-      logger.error(
-        'Failed to create SleepTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_sleep_tool' });
       return null;
     }
   }
@@ -560,10 +558,7 @@ export class ToolFactory {
     try {
       return new MonitorTool();
     } catch (error) {
-      logger.error(
-        'Failed to create MonitorTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_monitor_tool' });
       return null;
     }
   }
@@ -576,10 +571,7 @@ export class ToolFactory {
     try {
       return new TraceRecordingTool();
     } catch (error) {
-      logger.error(
-        'Failed to create TraceRecordingTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_trace_recording_tool' });
       return null;
     }
   }
@@ -593,10 +585,7 @@ export class ToolFactory {
     try {
       return new SendMessageTool();
     } catch (error) {
-      logger.error(
-        'Failed to create SendMessageTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_send_message_tool' });
       return null;
     }
   }
@@ -610,10 +599,7 @@ export class ToolFactory {
     try {
       return new TeamCreateTool();
     } catch (error) {
-      logger.error(
-        'Failed to create TeamCreateTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_team_create_tool' });
       return null;
     }
   }
@@ -627,10 +613,7 @@ export class ToolFactory {
     try {
       return new TeamDeleteTool();
     } catch (error) {
-      logger.error(
-        'Failed to create TeamDeleteTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_team_delete_tool' });
       return null;
     }
   }
@@ -740,10 +723,7 @@ export class ToolFactory {
         isEnabled: () => true,
       } as unknown as Tool;
     } catch (error) {
-      logger.error(
-        'Failed to create PushNotificationTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_push_notification_tool' });
       return null;
     }
   }
@@ -816,10 +796,7 @@ export class ToolFactory {
         isEnabled: () => true,
       } as unknown as Tool;
     } catch (error) {
-      logger.error(
-        'Failed to create SubscribePRTool',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, { module: 'tools:factory', action: 'create_subscribe_pr_tool' });
       return null;
     }
   }

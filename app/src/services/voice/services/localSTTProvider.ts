@@ -20,6 +20,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { writeFileSync, unlinkSync } from 'fs';
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { getPlatform } from '@modules/utils/platform';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
@@ -181,7 +182,7 @@ export class LocalSTTProvider implements STTProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('本地 STT 转录失败', { error: errorMsg });
+      void handleError(error, { module: 'services:voice:localSTT', action: 'transcribe' });
 
       return {
         text: '',

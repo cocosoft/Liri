@@ -33,6 +33,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -189,7 +190,7 @@ export class UsageStatsService {
       this.initialized = true;
       logger.info('UsageStatsService 初始化完成');
     } catch (error) {
-      logger.error('UsageStatsService 初始化失败', error);
+      await handleError(error, { module: 'ai:usage', action: 'initialize' });
       throw new AppError(
         'Failed to initialize UsageStatsService',
         ErrorCategory.EXECUTION,

@@ -12,6 +12,7 @@ import { execSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import { getPlatform } from '@modules/utils/platform';
 import { resolvePyappHome, ensureDir } from '@modules/core/paths';
 
@@ -54,9 +55,7 @@ function loadConfig(): AudioDeviceConfig {
       return JSON.parse(raw) as AudioDeviceConfig;
     }
   } catch (error) {
-    logger.warn('读取音频设备配置失败，使用默认配置', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    void handleError(error, { module: 'services:voice:audio', action: 'load_config' });
   }
   return {};
 }
@@ -75,9 +74,7 @@ function saveConfig(config: AudioDeviceConfig): void {
     const fs = require('fs');
     fs.renameSync(tmpPath, configPath);
   } catch (error) {
-    logger.error('保存音频设备配置失败', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    void handleError(error, { module: 'services:voice:audio', action: 'save_config' });
   }
 }
 

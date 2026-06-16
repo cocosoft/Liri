@@ -8,6 +8,7 @@
  *   3. 提供手动触发和自动调度两种模式
  */
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 import type { CompileResult } from './KnowledgeCompiler';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -137,9 +138,7 @@ export class KnowledgeCompileScheduler {
         totalFound: result.totalFound,
       });
     } catch (err) {
-      logger.error('定时编译失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      await handleError(err, { module: 'knowledge:scheduler', action: 'compile' });
     } finally {
       this.state = 'idle';
     }

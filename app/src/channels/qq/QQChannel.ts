@@ -19,6 +19,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 
 const QQ_META: ChannelMeta = {
   id: 'qq',
@@ -278,8 +279,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
           await this.refreshAccessToken();
           this.logger.info('QQ Bot Token 已后台刷新');
         } catch (e) {
-          this.logger.error('QQ Bot Token 后台刷新失败', {
-            error: String(e),
+          await handleError(e, {
+            module: 'channels:qq',
+            action: 'refreshAccessToken',
           });
         }
       }
@@ -692,8 +694,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
       await this.resolveGatewayUrl();
       await this.connectWebSocket();
     } catch (error) {
-      this.logger.error('QQ Bot WebSocket 启动失败', {
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:qq',
+        action: 'startInboundListening',
       });
       this.setInboundListening(false);
     }
@@ -772,8 +775,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
               });
             });
           } catch (error) {
-            this.logger.error('QQ Bot WebSocket 消息解析失败', {
-              error: String(error),
+            handleError(error, {
+              module: 'channels:qq',
+              action: 'handleWsMessage',
             });
           }
         };
@@ -1368,9 +1372,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
         await this.resolveGatewayUrl();
         await this.connectWebSocket();
       } catch (error) {
-        this.logger.error('QQ Bot 重连失败', {
-          error: String(error),
-          attempt: this.reconnectAttempts,
+        await handleError(error, {
+          module: 'channels:qq',
+          action: 'reconnect',
+          context: { attempt: this.reconnectAttempts },
         });
         // 继续递归重连
         if (this.shouldReconnect) {

@@ -24,6 +24,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 import { claimMessage, finalizeMessage } from '../dedup/index.js';
 
 const FEISHU_META: ChannelMeta = {
@@ -832,7 +833,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       finalizeMessage(messageId, true);
     } catch (err) {
       finalizeMessage(messageId, true);
-      this.logger.error('飞书消息处理异常', { messageId, error: String(err) });
+      await handleError(err, {
+        module: 'channels:feishu',
+        action: 'processFeishuEvent',
+        context: { messageId },
+      });
     }
   }
 
@@ -897,7 +902,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         this.logger.error('飞书 WebSocket 错误', { error: String(event) });
       });
     } catch (err) {
-      this.logger.error('飞书 WebSocket 启动失败', { error: String(err) });
+      await handleError(err, {
+        module: 'channels:feishu',
+        action: 'startWebSocket',
+      });
       this.scheduleWsReconnect();
     }
   }

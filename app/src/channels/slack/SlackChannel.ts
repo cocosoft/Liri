@@ -13,6 +13,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import { handleError } from '@modules/error/handleError';
 
 const SLACK_META: ChannelMeta = {
   id: 'slack',
@@ -251,8 +252,9 @@ class SlackChannelPlugin extends BaseChannelPlugin {
         >;
         this.handleSocketModePayload(payload);
       } catch (err) {
-        this.logger.error('Slack Socket Mode 消息解析失败', {
-          error: String(err),
+        handleError(err, {
+          module: 'channels:slack',
+          action: 'connectSocketMode',
         });
       }
     };

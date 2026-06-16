@@ -18,6 +18,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import { handleError } from '@modules/error/handleError';
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',
@@ -638,9 +639,10 @@ class TelegramChannel extends BaseChannelPlugin {
             try {
               regResult = await this.downloadTelegramFile(fileId);
             } catch (error) {
-              this.logger.error('Telegram 语音文件下载失败', {
-                fileId,
-                error: String(error),
+              await handleError(error, {
+                module: 'channels:telegram',
+                action: 'downloadTelegramFile',
+                context: { fileId },
               });
             }
 
@@ -712,8 +714,9 @@ class TelegramChannel extends BaseChannelPlugin {
         }
       }
     } catch (error) {
-      this.logger.error('Telegram getUpdates 轮询失败', {
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:telegram',
+        action: 'pollUpdates',
       });
     }
 

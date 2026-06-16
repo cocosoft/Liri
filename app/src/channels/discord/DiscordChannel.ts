@@ -16,6 +16,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 
 interface DirectoryEntry {
   id: string;
@@ -497,8 +498,9 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
         >;
         this.handleGatewayPayload(payload);
       } catch (err) {
-        this.logger.error('Discord Gateway 消息解析失败', {
-          error: String(err),
+        handleError(err, {
+          module: 'channels:discord',
+          action: 'onMessage',
         });
       }
     };
@@ -760,10 +762,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
       });
       return true;
     } catch (error) {
-      this.logger.error('Discord 加入语音频道失败', {
-        guildId,
-        channelId,
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:discord',
+        action: 'joinVoiceChannel',
+        context: { guildId, channelId },
       });
       return false;
     }

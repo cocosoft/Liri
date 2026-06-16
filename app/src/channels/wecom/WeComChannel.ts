@@ -15,6 +15,7 @@ import type {
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 
 const WECOM_META: ChannelMeta = {
   id: 'wecom',

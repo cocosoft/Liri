@@ -9,6 +9,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import { handleError } from '@modules/error/handleError';
 
 const MATRIX_META: ChannelMeta = {
   id: 'matrix',
@@ -187,7 +188,10 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
           await this.syncPoll();
         } catch (err) {
           if ((err as Error)?.name === 'AbortError') break;
-          this.logger.error('Matrix Sync 轮询异常', { error: String(err) });
+          await handleError(err, {
+            module: 'channels:matrix',
+            action: 'syncPoll',
+          });
           // 出错后等待 5 秒重试
           await this.sleep(5000);
         }

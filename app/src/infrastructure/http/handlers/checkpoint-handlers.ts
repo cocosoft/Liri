@@ -22,6 +22,7 @@
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
 import { createChatManager } from '@modules/chat/ChatManager';
+import { handleError } from '@modules/error/handleError';
 
 // ========== Checkpoint Handlers ==========
 
@@ -38,6 +39,13 @@ export async function handleCreateCheckpoint(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ id: cpId, sessionId, label }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -57,6 +65,13 @@ export async function handleListCheckpoints(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(checkpoints));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -85,6 +100,13 @@ export async function handleGetCheckpoint(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(checkpoint));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -103,6 +125,13 @@ export async function handleRollbackCheckpoint(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, checkpointId: cpId }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -121,5 +150,12 @@ export async function handleDeleteCheckpoint(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, checkpointId: cpId }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }

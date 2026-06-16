@@ -22,6 +22,7 @@
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -48,6 +49,13 @@ export async function handleBuildSemanticIndex(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -87,6 +95,13 @@ export async function handleSearchSemantic(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(hits));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -117,6 +132,13 @@ export async function handleGetSemanticIndexStatus(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(status));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -135,5 +157,12 @@ export async function handleClearSemanticIndex(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }

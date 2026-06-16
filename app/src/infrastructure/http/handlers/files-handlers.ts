@@ -27,6 +27,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { readRequestBody } from './handler-utils';
 import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
+import { handleError } from '@modules/error/handleError';
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {
@@ -282,6 +283,13 @@ export async function handleFileUpload(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ path: attachment.path, size: buffer.length }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -305,6 +313,13 @@ export async function handleConvertFile(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -324,6 +339,13 @@ export async function handleDetectFileType(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -376,6 +398,13 @@ export async function handleSendFileToAI(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, fileName, size: content.length }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 

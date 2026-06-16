@@ -104,7 +104,15 @@ export async function handleUpdateChannel(
         })
       );
 
-    } catch (err) { }
+    } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
+    }
   }
 
   /**

@@ -21,6 +21,7 @@
 
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
+import { handleError } from '@modules/error/handleError';
 
 // ========== Commands Handlers ==========
 
@@ -44,6 +45,13 @@ export async function handleListCommands(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(result));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -102,6 +110,13 @@ export async function handleExecuteCommand(
         })
       );
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -310,6 +325,13 @@ export async function handleSetDataDirectory(
         })
       );
     } catch (error) {
+      await handleError(error, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -443,6 +465,13 @@ export async function handleListSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skills }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -531,6 +560,13 @@ export async function handleListSystemSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skills, total: skills.length }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -620,6 +656,13 @@ export async function handleSystemSkillContent(
         })
       );
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -652,6 +695,13 @@ export async function handleSearchSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ results }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -685,6 +735,13 @@ export async function handleRecommendedSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ recommended, categories }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -720,6 +777,13 @@ export async function handleSkillCategories(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ categories, sourceDistribution: sourceMap }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -740,6 +804,13 @@ export async function handleSkillSources(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ sources }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -779,6 +850,13 @@ export async function handleAddSkillSource(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, sources }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -800,6 +878,13 @@ export async function handleRemoveSkillSource(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, sources }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -862,6 +947,13 @@ export async function handleGetSkillDetail(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skill }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -899,6 +991,13 @@ export async function handleInstallSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, skill: installed }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -918,6 +1017,13 @@ export async function handleUninstallSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -937,6 +1043,13 @@ export async function handleUpdateSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, skill: updated }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -973,5 +1086,12 @@ export async function handleToggleSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, enabled }));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }

@@ -21,6 +21,7 @@
 
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
+import { handleError } from '@modules/error/handleError';
 
 const apiKeys = new Map<string, { name: string; key: string; createdAt: number }>();
 
@@ -45,6 +46,13 @@ export async function handleListApiKeys(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(apiKeyList));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -80,6 +88,13 @@ export async function handleCreateApiKey(
         })
       );
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }
 
@@ -101,5 +116,12 @@ export async function handleDeleteApiKey(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({}));
     } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'handler_error' });
+      if (!res.headersSent) {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+        } catch {} /* res可能已结束, 忽略 */
+      }
     }
   }

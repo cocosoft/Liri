@@ -37,41 +37,53 @@ describe('logger', () => {
   it('should join multiple string arguments', () => {
     const spy = spyOn(console, 'info').mockImplementation(() => {});
     logger.info('hello', 'world');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[INFO\] \[app\] hello world/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('info');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('hello');
+    expect(parsed.meta).toBe('world');
   });
 
   it('should handle single argument', () => {
     const spy = spyOn(console, 'info').mockImplementation(() => {});
     logger.info('test message');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[INFO\] \[app\] test message/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('info');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('test message');
   });
 
   it('should handle object arguments by serializing them', () => {
     const spy = spyOn(console, 'info').mockImplementation(() => {});
     logger.info('data:', { key: 'value' });
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[INFO\] \[app\] data: \{["]?key["]?:["]?value["]?\}/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('info');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('data:');
+    expect(parsed.meta).toEqual({ key: 'value' });
   });
 
   it('should handle error method', () => {
     const spy = spyOn(console, 'error').mockImplementation(() => {});
     logger.error('something went wrong');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[ERROR\] \[app\] something went wrong/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('error');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('something went wrong');
   });
 
   it('should handle warn method', () => {
     const spy = spyOn(console, 'warn').mockImplementation(() => {});
     logger.warn('warning message');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[WARN\] \[app\] warning message/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('warn');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('warning message');
   });
 
   it('should handle debug method', () => {
@@ -81,17 +93,22 @@ describe('logger', () => {
   it('should handle fatal method', () => {
     const spy = spyOn(console, 'error').mockImplementation(() => {});
     logger.fatal('fatal message');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[FATAL\] \[app\] fatal message/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('fatal');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('fatal message');
   });
 
   it('should filter out undefined/null args', () => {
     const spy = spyOn(console, 'info').mockImplementation(() => {});
     logger.info('a', undefined, 'b', null, 'c');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringMatching(/\[.*\] \[INFO\] \[app\] a b c/)
-    );
+    const callArg = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(callArg);
+    expect(parsed.level).toBe('info');
+    expect(parsed.module).toBe('app');
+    expect(parsed.message).toBe('a');
+    expect(parsed.meta).toBeUndefined();
   });
 
 });

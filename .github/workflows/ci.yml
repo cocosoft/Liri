@@ -115,6 +115,44 @@ jobs:
     - name: Run security scan
       run: bun run security-scan
 
+  circular-check:
+    name: Circular Dependency Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Cache node_modules
+      uses: actions/cache@v4
+      with:
+        path: app/node_modules
+        key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Check circular dependencies (baseline: ≤11)
+      run: |
+        OUTPUT=$(npx madge --circular --extensions ts,tsx src/ 2>&1) || true
+        echo "$OUTPUT"
+        COUNT=$(echo "$OUTPUT" | grep -oP 'Found \K\d+' || echo "0")
+        echo "Found $COUNT circular dependencies"
+        if [ "$COUNT" -gt 11 ]; then
+          echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (11)"
+          exit 1
+        fi
+        echo "PASS: Within baseline limit (≤11)"
+      working-directory: app
+
   command-test:
     name: Command Tests (Phase 1 + 2)
     runs-on: ubuntu-latest

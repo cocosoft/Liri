@@ -94,6 +94,7 @@ export async function handleExecuteAgentTask(
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
+      ctx.broadcastEvent('agent:task', { taskId: result?.agentId });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {

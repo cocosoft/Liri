@@ -10,7 +10,7 @@ import type {
   TaskFlowSyncMode,
   TaskFlowStatus,
 } from '../types';
-import type { DeliveryRecord } from '../TaskNotificationService';
+import type { DeliveryRecord } from '../types';
 import type { TaskDeliveryConfig } from '../TaskDeliveryAdapter';
 import type { ITaskStore } from '../store/ITaskStore';
 

@@ -20,94 +20,103 @@
 // SOFTWARE.
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
+import { sendError, readRequestBody } from './handler-utils';
 
 // ========== ChannelPlugin Handlers ==========
 
+/**
+ * 列出所有已安装的渠道插件
+ */
 export async function handleListChannelPlugins(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { NpmDistributor } =
-        await import('@modules/plugins/distribution/NpmDistributor');
-      const distributor = new NpmDistributor();
-      const installed = await distributor.listInstalled();
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { NpmDistributor } =
+      await import('@modules/plugins/distribution/NpmDistributor');
+    const distributor = new NpmDistributor();
+    const installed = await distributor.listInstalled();
 
-      const result = installed.map((p) => ({
-        name: p.name,
-        version: p.version,
-        installed: true,
-        installedAt: p.installedAt,
-      }));
+    const result = installed.map((p) => ({
+      name: p.name,
+      version: p.version,
+      installed: true,
+      installedAt: p.installedAt,
+    }));
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
-  /**
-   * 安装渠道插件（通过 npm）
-   */
+/**
+ * 安装渠道插件（通过 npm）
+ */
 export async function handleInstallChannelPlugin(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const parsed = body ? JSON.parse(body) : {};
-      const packageName = parsed.package as string | undefined;
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const parsed = body ? JSON.parse(body) : {};
+    const packageName = parsed.package as string | undefined;
 
-      if (!packageName || typeof packageName !== 'string') {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: '"package" field is required' } })
-        );
-        return;
-      }
-
-      const { NpmDistributor } =
-        await import('@modules/plugins/distribution/NpmDistributor');
-      const distributor = new NpmDistributor();
-      const result = await distributor.install(packageName);
-
-      if (result.success) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            success: true,
-            name: result.name,
-            version: result.version,
-            path: result.path,
-          })
-        );
-      } else {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: result.error || 'Install failed',
-          })
-        );
-      }
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    if (!packageName || typeof packageName !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: '"package" field is required' } })
+      );
+      return;
     }
+
+    const { NpmDistributor } =
+      await import('@modules/plugins/distribution/NpmDistributor');
+    const distributor = new NpmDistributor();
+    const result = await distributor.install(packageName);
+
+    if (result.success) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          name: result.name,
+          version: result.version,
+          path: result.path,
+        })
+      );
+    } else {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: result.error || 'Install failed',
+        })
+      );
+    }
+  } catch (err) {
+    sendError(res, err);
   }
+}
+
+/**
+ * 卸载渠道插件
+ */
+export async function handleUninstallChannelPlugin(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pluginName: string
+): Promise<void> {
+  try {
+    const { NpmDistributor } =
+      await import('@modules/plugins/distribution/NpmDistributor');
+    const distributor = new NpmDistributor();
+    await distributor.remove(pluginName);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}

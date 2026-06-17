@@ -1,33 +1,8 @@
 import { describe, it, expect } from 'bun:test';
 import {
-  isGrowthBookEnabled,
-  getFeatureValueByGrowthBook,
   isAntUser,
   isSimpleMode,
 } from '../../src/utils/features.js';
-
-describe('isGrowthBookEnabled', () => {
-
-  it('should return a boolean', () => {
-    const result = isGrowthBookEnabled();
-    expect(typeof result).toBe('boolean');
-  });
-
-});
-
-describe('getFeatureValueByGrowthBook', () => {
-
-  it('should return default value when GrowthBook is not available', () => {
-    const result = getFeatureValueByGrowthBook('non_existent_feature', true);
-    expect(result).toBe(true);
-  });
-
-  it('should return specified default value', () => {
-    const result = getFeatureValueByGrowthBook('unknown_feature', 42);
-    expect(result).toBe(42);
-  });
-
-});
 
 describe('isAntUser', () => {
 

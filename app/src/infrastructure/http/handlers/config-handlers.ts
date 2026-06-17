@@ -21,6 +21,7 @@
 
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
+import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error/handleError';
 
 // ========== Config Handlers ==========
@@ -77,6 +78,7 @@ export async function handleSetConfig(
       configManager.setConfigValue(key, value);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, key, value }));
+      broadcastEvent('config:updated', { key, value });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -101,9 +103,9 @@ export async function handleDeleteConfig(
       const current = { ...(getConfig() as Record<string, unknown>) };
       delete current[key];
       configManager.setConfigValue(key, undefined as unknown);
-      // 广播变更
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, key }));
+      broadcastEvent('config:deleted', { key });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -185,6 +187,7 @@ export async function handleRouterUpdateConfig(
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+      broadcastEvent('router:updated', { config });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -200,16 +203,6 @@ export async function handleRouterUpdateConfig(
 
 const _clients = new Set<http.ServerResponse>();
 let _heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-/**
- * 广播事件到所有 SSE 客户端
- */
-function broadcastEvent(event: string, data: Record<string, unknown>): void {
-  const payload = JSON.stringify({ ...data, ts: Date.now() });
-  for (const client of _clients) {
-    client.write(`event: ${event}\ndata: ${payload}\n\n`);
-  }
-}
 
 /**
  * 处理 SSE 事件订阅

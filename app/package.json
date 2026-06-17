@@ -47,6 +47,7 @@
     "deploy:docker": "docker-compose up -d",
     "stop:docker": "docker-compose down",
     "check:paths": "bun run scripts/check-paths.ts",
+    "check:circular": "npx madge --circular --extensions ts,tsx src/",
     "ci": "bun run typecheck && bun run lint && bun run lint:arch && bun run lint:size && bun run check:paths && bun test",
     "ci:full": "bun run ci && bun run test:coverage",
     "modules:test": "bun test src/tests/ModuleSystem.test.ts",

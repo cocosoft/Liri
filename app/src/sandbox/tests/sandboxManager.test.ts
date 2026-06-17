@@ -3,7 +3,7 @@
  * 测试沙箱约束和安全检查功能
  */
 
-import { SandboxManager } from '../managers/SandboxManager';
+import { SandboxManager } from '../SandboxManager';
 import { checkDangerousCommand } from '../utils/DangerousCommandChecker';
 import { validatePathSafety, checkPathAccess } from '../utils/PathRestrictions';
 

@@ -82,7 +82,7 @@ export { TaskDependencyService } from './TaskDependencyService';
 
 // 导出通知服务
 export { TaskNotificationService } from './TaskNotificationService';
-export type { DeliveryRecord } from './TaskNotificationService';
+export type { DeliveryRecord } from './types';
 
 // 导出一致性核对
 export { TaskReconciliationService } from './TaskReconciliationService';

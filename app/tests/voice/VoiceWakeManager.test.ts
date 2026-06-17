@@ -15,7 +15,7 @@ import {
   setVoiceWakeTriggers,
   detectWakeWord,
 } from '../../src/voice/VoiceWakeManager.js';
-import { resolvePyappHome } from '@modules/config/paths';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const CONFIG_PATH = join(resolvePyappHome(), 'settings', 'voicewake.json');
 

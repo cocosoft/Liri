@@ -15,10 +15,12 @@ import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
-import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
-import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
+import {
+  attachmentManager,
+  AttachmentSource,
+} from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
 import { CostReportEndpoint } from '@modules/cost/CostReportEndpoint';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
@@ -27,7 +29,12 @@ import { analyticsService } from '@modules/analytics/AnalyticsService';
 import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitorService';
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
-import { resolveOutputDir, resolveDownloadsDir, resolveAttachmentsDir, resolvePyappHome } from '@modules/core/paths';
+import {
+  resolveOutputDir,
+  resolveDownloadsDir,
+  resolveAttachmentsDir,
+  resolvePyappHome,
+} from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import type {
   ChatRequest,
@@ -35,12 +42,42 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import type { IChannelPlugin } from '@modules/channels/types';
 
-import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail, handleSessionsSummary, handleOTelMetrics, handleInfrastructureStatus } from './handlers/monitoring-handlers';
-import { handleHealthReport, handleAnalyticsDashboard, handleCostSummary, handleCostRecords, handleCostRange, setAnalyticsDependencies } from './handlers/analytics-handlers';
+import {
+  handleMonitorSummary,
+  handleMonitorMetrics,
+  handleMonitorAlerts,
+  handleAcknowledgeAlert,
+  handleMonitorLogs,
+  handleExportLogs,
+  handleMonitorSessions,
+  handleMonitorSessionDetail,
+  handleSessionsSummary,
+  handleOTelMetrics,
+  handleInfrastructureStatus,
+} from './handlers/monitoring-handlers';
+import {
+  handleHealthReport,
+  handleAnalyticsDashboard,
+  handleCostSummary,
+  handleCostRecords,
+  handleCostRange,
+  setAnalyticsDependencies,
+} from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
-import { handleChatCompletions, handleQuestionAnswer } from './handlers/chat-handlers';
-import { handleFileRegistryList, handleFileRegistryDetail, handleFileRegistrySearch, handleFileRegistryStats, handleFileRegistryDelete, handleFileHealth } from './handlers/files-handlers';
+import {
+  handleChatCompletions,
+  handleQuestionAnswer,
+} from './handlers/chat-handlers';
+import {
+  handleFileRegistryList,
+  handleFileRegistryDetail,
+  handleFileRegistrySearch,
+  handleFileRegistryStats,
+  handleFileRegistryDelete,
+  handleFileHealth,
+} from './handlers/files-handlers';
 import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
+import { dispatchRoute } from './handlers/route-table';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
@@ -130,7 +167,7 @@ export class LocalHTTPService {
       analyticsService,
       costTracker,
       getCostRecordRepository(),
-      PerformanceMonitorService,
+      PerformanceMonitorService
     );
     setupInfrastructureDiagnostics();
     this.apiSecret = configManager.env('LIRI_API_SECRET') || '';
@@ -332,7 +369,10 @@ export class LocalHTTPService {
         await import('@modules/knowledge/KnowledgeCompileScheduler');
       this.compileScheduler = new KnowledgeCompileScheduler(
         (force?: boolean) =>
-          runKnowledgeCompile(aiService, { force, model: defaultModel || undefined }),
+          runKnowledgeCompile(aiService, {
+            force,
+            model: defaultModel || undefined,
+          }),
         { runOnStart: !!defaultModel }
       );
       this.compileScheduler.start();
@@ -354,7 +394,10 @@ export class LocalHTTPService {
 
     this.server = http.createServer((req, res) => {
       this.handleRequest(req, res).catch((err) => {
-        void handleError(err, { module: 'infra:http', action: 'handle_request' });
+        void handleError(err, {
+          module: 'infra:http',
+          action: 'handle_request',
+        });
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(
@@ -459,1108 +502,17 @@ export class LocalHTTPService {
       parsedUrl: url,
     });
 
-    // ---- SSE Event Bus ----
-    if (url === '/v1/events') {
-      if (req.method === 'GET') {
-        return this.handleEvents(req, res);
-      }
-      // HEAD 用于心跳保活，返回 200 即可
-      if (req.method === 'HEAD') {
-        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-        res.end();
-        return;
-      }
-    }
-
-    if (req.method === 'POST' && url === '/v1/chat/completions') {
-      return this.handleChatCompletions(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/chat/question-answer') {
-      return this.handleQuestionAnswer(req, res);
-    }
-
-    // ---- Session ----
-    if (req.method === 'GET' && url === '/v1/sessions') {
-      return this.handleListSessions(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/sessions') {
-      return this.handleCreateSession(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/sessions/current') {
-      return this.handleGetCurrentSession(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
-      return this.handleGetSessionMessages(
-        req,
-        res,
-        url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
-      );
-    }
-    if (
-      req.method === 'PUT' &&
-      url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)
-    ) {
-      const match = url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/);
-      return this.handleUpdateMessageBlocks(req, res, match![1], match![2]);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-      return this.handleGetSession(
-        req,
-        res,
-        url.match(/^\/v1\/sessions\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/switch$/)) {
-      return this.handleSwitchSession(
-        req,
-        res,
-        url.match(/^\/v1\/sessions\/(.+)\/switch$/)![1]
-      );
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-      return this.handleRenameSession(
-        req,
-        res,
-        url.match(/^\/v1\/sessions\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/title$/)) {
-      return this.handleGenerateTitle(
-        req,
-        res,
-        url.match(/^\/v1\/sessions\/(.+)\/title$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-      return this.handleDeleteSession(
-        req,
-        res,
-        url.match(/^\/v1\/sessions\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url === '/v1/sessions') {
-      return this.handleClearAllSessions(req, res);
-    }
-
-    // ---- Plans & Flows (编排) ----
-    if (req.method === 'GET' && url === '/v1/plans') {
-      return this.handleListPlans(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/plans') {
-      return this.handleCreatePlan(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/plans\/([^/]+)$/)) {
-      return this.handleGetPlan(
-        req,
-        res,
-        url.match(/^\/v1\/plans\/([^/]+)$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/plans\/(.+)\/execute$/)
-    ) {
-      return this.handleExecutePlan(
-        req,
-        res,
-        url.match(/^\/v1\/plans\/(.+)\/execute$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/plans\/(.+)\/abort$/)
-    ) {
-      return this.handleAbortPlan(
-        req,
-        res,
-        url.match(/^\/v1\/plans\/(.+)\/abort$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url === '/v1/flows') {
-      return this.handleListFlows(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/flows\/([^/]+)$/)) {
-      return this.handleGetFlow(
-        req,
-        res,
-        url.match(/^\/v1\/flows\/([^/]+)$/)![1]
-      );
-    }
-
-    // ---- PDCA (长程任务编排) ----
-    if (req.method === 'POST' && url === '/v1/pdca/start') {
-      return this.handlePdcaStart(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/pdca\/([^/]+)$/)) {
-      return this.handlePdcaStatus(
-        req,
-        res,
-        url.match(/^\/v1\/pdca\/([^/]+)$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/pdca\/(.+)\/audit$/)) {
-      return this.handlePdcaAudit(
-        req,
-        res,
-        url.match(/^\/v1\/pdca\/(.+)\/audit$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/pdca\/(.+)\/confirm$/)
-    ) {
-      return this.handlePdcaConfirm(
-        req,
-        res,
-        url.match(/^\/v1\/pdca\/(.+)\/confirm$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/review$/)
-    ) {
-      const m = url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/review$/)!;
-      return this.handlePdcaReviewStep(req, res, m[1], m[2]);
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/decide$/)
-    ) {
-      const m = url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/decide$/)!;
-      return this.handlePdcaDecideStep(req, res, m[1], m[2]);
-    }
-    if (req.method === 'POST' && url === '/v1/pdca/list') {
-      return this.handlePdcaList(req, res);
-    }
-
-    // ---- Kanban ----
-    if (req.method === 'GET' && url === '/v1/kanban') {
-      return this.handleKanbanList(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/kanban') {
-      return this.handleKanbanCreate(req, res);
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/kanban\/(.+)$/)) {
-      return this.handleKanbanUpdate(
-        req,
-        res,
-        url.match(/^\/v1\/kanban\/(.+)$/)![1],
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/kanban\/(.+)$/)) {
-      return this.handleKanbanDelete(
-        req,
-        res,
-        url.match(/^\/v1\/kanban\/(.+)$/)![1],
-      );
-    }
-    if (
-      req.method === 'PUT' &&
-      url.match(/^\/v1\/kanban\/(.+)\/move$/)
-    ) {
-      return this.handleKanbanMove(
-        req,
-        res,
-        url.match(/^\/v1\/kanban\/(.+)\/move$/)![1],
-      );
-    }
-
-    // ---- Tools ----
-    if (req.method === 'GET' && url === '/v1/tools') {
-      return this.handleListTools(req, res);
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/tools\/(.+)\/execute$/)) {
-      return this.handleExecuteTool(
-        req,
-        res,
-        url.match(/^\/v1\/tools\/(.+)\/execute$/)![1]
-      );
-    }
-
-    // ---- Agent ----
-    if (req.method === 'GET' && url === '/v1/agents/tasks') {
-      return this.handleListAgentTasks(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/agents/tasks') {
-      return this.handleExecuteAgentTask(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/agents\/tasks\/([^/]+)$/)) {
-      return this.handleGetAgentProgress(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/([^/]+)$/)![1]
-      );
-    }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/state$/)
-    ) {
-      return this.handleGetAgentTaskState(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/state$/)![1]
-      );
-    }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/audit$/)
-    ) {
-      return this.handleGetAgentTaskAudit(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/audit$/)![1]
-      );
-    }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/logs$/)
-    ) {
-      return this.handleGetAgentTaskLogs(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/logs$/)![1]
-      );
-    }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/output$/)
-    ) {
-      return this.handleGetAgentTaskOutput(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/output$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/recover$/)
-    ) {
-      return this.handleRecoverAgentTask(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/recover$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/chat$/)
-    ) {
-      return this.handleAgentTaskChat(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/chat$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/agents\/tasks\/(.+)\/cancel$/)
-    ) {
-      return this.handleCancelAgentTask(
-        req,
-        res,
-        url.match(/^\/v1\/agents\/tasks\/(.+)\/cancel$/)![1]
-      );
-    }
-
-    // ---- Voice ----
-    if (req.method === 'POST' && url === '/v1/voice/transcribe') {
-      return this.handleSTTTranscribe(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/voice/settings') {
-      return this.handleGetVoiceSettings(req, res);
-    }
-    if (req.method === 'PUT' && url === '/v1/voice/settings') {
-      return this.handleUpdateVoiceSettings(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/voice/session/start') {
-      return this.handleStartVoiceSession(req, res);
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/voice\/session\/(.+)\/end$/)
-    ) {
-      return this.handleEndVoiceSession(
-        req,
-        res,
-        url.match(/^\/v1\/voice\/session\/(.+)\/end$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url === '/v1/voice/sessions') {
-      return this.handleListVoiceSessions(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/voice\/session\/(.+)$/)) {
-      return this.handleGetVoiceSession(
-        req,
-        res,
-        url.match(/^\/v1\/voice\/session\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/voice/upload') {
-      return this.handleVoiceUpload(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/voice\/stream\/(.+)$/)) {
-      return this.handleVoiceStream(
-        req,
-        res,
-        url.match(/^\/v1\/voice\/stream\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/voice/tts') {
-      return this.handleTTSSynthesize(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/voice/providers') {
-      return this.handleListVoiceProviders(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/voice/voices') {
-      return this.handleListVoices(req, res);
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)
-    ) {
-      return this.handleTestWakeWord(
-        req,
-        res,
-        url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)![1]
-      );
-    }
-
-    // ---- Checkpoints ----
-    if (req.method === 'POST' && url === '/v1/checkpoints') {
-      return this.handleCreateCheckpoint(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/checkpoints') {
-      return this.handleListCheckpoints(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/checkpoints\/(.+)$/)) {
-      return this.handleGetCheckpoint(
-        req,
-        res,
-        url.match(/^\/v1\/checkpoints\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/checkpoints\/(.+)\/rollback$/)) {
-      return this.handleRollbackCheckpoint(
-        req,
-        res,
-        url.match(/^\/v1\/checkpoints\/(.+)\/rollback$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/checkpoints\/(.+)$/)) {
-      return this.handleDeleteCheckpoint(
-        req,
-        res,
-        url.match(/^\/v1\/checkpoints\/(.+)$/)![1]
-      );
-    }
-
-    // ---- Memory ----
-    if (req.method === 'POST' && url === '/v1/memory') {
-      return this.handleCreateMemory(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/memory') {
-      return this.handleListMemories(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/memory\/(.+)$/)) {
-      return this.handleGetMemory(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {
-      return this.handleUpdateMemory(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/memory\/(.+)$/)) {
-      return this.handleDeleteMemory(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/memory/search') {
-      return this.handleSearchMemories(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/memory/create-from-file') {
-      return this.handleCreateMemoryFromFile(req, res);
-    }
-
-    // ---- Semantic Index ----
-    if (req.method === 'POST' && url === '/v1/semantic/index') {
-      return this.handleBuildSemanticIndex(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/semantic/search') {
-      return this.handleSearchSemantic(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/semantic/index/status') {
-      return this.handleGetSemanticIndexStatus(req, res);
-    }
-    if (req.method === 'DELETE' && url === '/v1/semantic/index') {
-      return this.handleClearSemanticIndex(req, res);
-    }
-
-    // ---- Files ----
-    if (req.method === 'GET' && url === '/v1/files/list') {
-      const { handleFileList } = await import('./handlers/files-handlers');
-      return handleFileList(this as any, req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/files/read') {
-      const { handleFileRead } = await import('./handlers/files-handlers');
-      return handleFileRead(this as any, req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/files/upload') {
-      return this.handleFileUpload(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/files/convert') {
-      return this.handleConvertFile(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/files/detect') {
-      return this.handleDetectFileType(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/files/send-to-ai') {
-      return this.handleSendFileToAI(req, res);
-    }
-
-    // ---- Files: Registry API ----
-    if (req.method === 'GET' && url === '/v1/files/health') {
-      return this.handleFileHealth(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/files/registry/list') {
-      return this.handleFileRegistryList(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/files/registry/detail') {
-      return this.handleFileRegistryDetail(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/files/registry/search') {
-      return this.handleFileRegistrySearch(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/files/registry/stats') {
-      return this.handleFileRegistryStats(req, res);
-    }
-    if (req.method === 'DELETE' && url === '/v1/files/registry/delete') {
-      return this.handleFileRegistryDelete(req, res);
-    }
-
-    // ---- Workspaces ----
-    if (req.method === 'GET' && url === '/v1/workspaces') {
-      return this.handleListWorkspaces(req, res);
-    }
-
-    // ---- Knowledge ----
-    if (req.method === 'GET' && url === '/v1/knowledge') {
-      return this.handleListKnowledge(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/search') {
-      return this.handleSearchKnowledge(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge') {
-      return this.handleCreateKnowledge(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/knowledge/bases') {
-      return this.handleListKnowledgeBases(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/bases') {
-      return this.handleCreateKnowledgeBase(req, res);
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/knowledge\/bases\/(.+)$/)) {
-      return this.handleUpdateKnowledgeBase(
-        req,
-        res,
-        url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
-      );
-    }
-    if (
-      req.method === 'DELETE' &&
-      url.match(/^\/v1\/knowledge\/bases\/(.+)$/)
-    ) {
-      return this.handleDeleteKnowledgeBase(
-        req,
-        res,
-        url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/save-from-chat') {
-      return this.handleSaveFromChat(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/upload') {
-      return this.handleKnowledgeUpload(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/compile') {
-      return this.handleKnowledgeCompile(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/knowledge/raw-files') {
-      return this.handleGetRawFiles(req, res);
-    }
-    if (req.method === 'PUT' && url === '/v1/knowledge/docs') {
-      return this.handleUpdateKnowledgeDoc(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/export-to-notebook') {
-      return this.handleExportToNotebook(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/import-from-file') {
-      return this.handleImportFromFile(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/ingest') {
-      return this.handleImportFromFile(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/batch-delete') {
-      return this.handleBatchDeleteKnowledge(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/knowledge/batch-tag') {
-      return this.handleBatchTagKnowledge(req, res);
-    }
-    if (
-      req.method === 'PUT' &&
-      url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)
-    ) {
-      return this.handleUpdateKnowledge(
-        req,
-        res,
-        url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)![1]
-      );
-    }
-    if (
-      req.method === 'DELETE' &&
-      url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)
-    ) {
-      return this.handleDeleteKnowledge(
-        req,
-        res,
-        url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)![1]
-      );
-    }
-
-    // ---- Buddy ----
-    if (req.method === 'GET' && url === '/v1/buddy/companion') {
-      return this.handleGetBuddy(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/buddy/interact') {
-      return this.handleBuddyInteract(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/buddy/stats') {
-      return this.handleGetBuddyStats(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/buddy/dreams') {
-      return this.handleGetDreamLogs(req, res);
-    }
-
-    // ---- Cron ----
-    if (req.method === 'GET' && url === '/v1/cron') {
-      return this.handleListCron(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/cron') {
-      return this.handleCreateCron(req, res);
-    }
-    // 精确路由必须在正则捕获之前，避免 /status 被 /:id 拦截
-    if (req.method === 'GET' && url === '/v1/cron/status') {
-      return this.handleCronStatus(req, res);
-    }
-    if (req.method === 'GET' && url.startsWith('/v1/cron/runs')) {
-      return this.handleCronRuns(req, res, url);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/cron\/(.+)$/)) {
-      return this.handleGetCron(req, res, url.match(/^\/v1\/cron\/(.+)$/)![1]);
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/cron\/(.+)$/)) {
-      return this.handleUpdateCron(
-        req,
-        res,
-        url.match(/^\/v1\/cron\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/cron\/(.+)$/)) {
-      return this.handleDeleteCron(
-        req,
-        res,
-        url.match(/^\/v1\/cron\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/cron\/(.+)\/run$/)) {
-      return this.handleRunCron(
-        req,
-        res,
-        url.match(/^\/v1\/cron\/(.+)\/run$/)![1]
-      );
-    }
-
-    // ---- Channels ----
-    if (req.method === 'GET' && url === '/v1/channels') {
-      return this.handleListChannels(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/channels\/(.+)$/)) {
-      return this.handleGetChannel(
-        req,
-        res,
-        url.match(/^\/v1\/channels\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/channels\/(.+)\/toggle$/)) {
-      return this.handleToggleChannel(
-        req,
-        res,
-        url.match(/^\/v1\/channels\/(.+)\/toggle$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/channels\/(.+)$/)) {
-      return this.handleDeleteChannel(
-        req,
-        res,
-        url.match(/^\/v1\/channels\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/channels\/(.+)$/)) {
-      return this.handleUpdateChannel(
-        req,
-        res,
-        url.match(/^\/v1\/channels\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/channels/config/apply') {
-      return this.handleApplyChannelConfig(req, res);
-    }
-
-    // ---- Channel Plugins ----
-    if (req.method === 'GET' && url === '/v1/channels/plugins') {
-      return this.handleListChannelPlugins(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/channels/plugins/install') {
-      return this.handleInstallChannelPlugin(req, res);
-    }
-
-    // ---- WeChat CLI Status ----
-    if (req.method === 'GET' && url === '/v1/wechat/cli-status') {
-      return this.handleWechatCliStatus(req, res);
-    }
-
-    // ---- Config ----
-    if (req.method === 'GET' && url === '/favicon.ico') {
-      return this.handleFavicon(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/config') {
-      return this.handleListConfig(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/config\/(.+)$/)) {
-      return this.handleGetConfig(
-        req,
-        res,
-        url.match(/^\/v1\/config\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/config\/(.+)$/)) {
-      return this.handleSetConfig(
-        req,
-        res,
-        url.match(/^\/v1\/config\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/config\/(.+)$/)) {
-      return this.handleDeleteConfig(
-        req,
-        res,
-        url.match(/^\/v1\/config\/(.+)$/)![1]
-      );
-    }
-
-    // ---- Router（智能路由）----
-    if (req.method === 'GET' && url === '/v1/router/config') {
-      return this.handleRouterGetConfig(req, res);
-    }
-    if (req.method === 'PUT' && url === '/v1/router/config') {
-      return this.handleRouterUpdateConfig(req, res);
-    }
-
-    // ---- Settings ----
-    if (req.method === 'GET' && url === '/v1/settings/data-directory') {
-      return this.handleGetDataDirectory(req, res);
-    }
-    if (req.method === 'PUT' && url === '/v1/settings/data-directory') {
-      return this.handleSetDataDirectory(req, res);
-    }
-
-    // ---- Skills (ClawHub 生态对接) ----
-    if (req.method === 'GET' && url === '/v1/skills') {
-      return this.handleListSkills(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/skills/system') {
-      return this.handleListSystemSkills(req, res);
-    }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/skills\/system\/(.+)\/content$/)
-    ) {
-      return this.handleSystemSkillContent(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/system\/(.+)\/content$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url === '/v1/skills/search') {
-      return this.handleSearchSkills(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/skills/recommended') {
-      return this.handleRecommendedSkills(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/skills/categories') {
-      return this.handleSkillCategories(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/skills/sources') {
-      return this.handleSkillSources(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/skills/sources') {
-      return this.handleAddSkillSource(req, res);
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/skills\/sources\/(.+)$/)) {
-      return this.handleRemoveSkillSource(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/sources\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/skills\/(.+)$/)) {
-      return this.handleGetSkillDetail(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/skills/install') {
-      return this.handleInstallSkill(req, res);
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/uninstall$/)) {
-      return this.handleUninstallSkill(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)\/uninstall$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/update$/)) {
-      return this.handleUpdateSkill(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)\/update$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/toggle$/)) {
-      return this.handleToggleSkill(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)\/toggle$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/skills') {
-      return this.handleCreateSkill(req, res);
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/skills\/(.+)$/)) {
-      return this.handleUpdateSkillById(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/skills\/(.+)$/)) {
-      return this.handleDeleteSkill(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/enable$/)) {
-      return this.handleEnableSkill(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)\/enable$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/disable$/)) {
-      return this.handleDisableSkill(
-        req,
-        res,
-        url.match(/^\/v1\/skills\/(.+)\/disable$/)![1]
-      );
-    }
-
-    // ---- Monitor ----
-    if (req.method === 'GET' && url === '/v1/monitor/summary') {
-      return this.handleMonitorSummary(req, res);
-    }
-    if (req.method === 'GET' && url.startsWith('/v1/monitor/metrics')) {
-      return this.handleMonitorMetrics(req, res);
-    }
-    if (req.method === 'GET' && url.startsWith('/v1/monitor/alerts')) {
-      return this.handleMonitorAlerts(req, res);
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)
-    ) {
-      return this.handleAcknowledgeAlert(
-        req,
-        res,
-        url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url.startsWith('/v1/monitor/logs')) {
-      return this.handleMonitorLogs(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/monitor/logs/export') {
-      return this.handleExportLogs(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/monitor/sessions') {
-      return this.handleMonitorSessions(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/monitor\/sessions\/(.+)$/)) {
-      return this.handleMonitorSessionDetail(
-        req,
-        res,
-        url.match(/^\/v1\/monitor\/sessions\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url === '/v1/health/report') {
-      return this.handleHealthReport(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/monitor/sessions/summary') {
-      return this.handleSessionsSummary(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/monitor/otel/metrics') {
-      return this.handleOTelMetrics(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/infrastructure/status') {
-      return this.handleInfrastructureStatus(req, res);
-    }
-
-    // ---- Analytics ----
-    if (req.method === 'GET' && url === '/v1/analytics/dashboard') {
-      return this.handleAnalyticsDashboard(req, res);
-    }
-
-    // ---- Cost ----
-    if (req.method === 'GET' && url === '/api/cost/summary') {
-      return this.handleCostSummary(req, res);
-    }
-    if (req.method === 'GET' && url === '/api/cost/records') {
-      return this.handleCostRecords(req, res);
-    }
-    if (req.method === 'GET' && url === '/api/cost/range') {
-      return this.handleCostRange(req, res);
-    }
-    if (req.method === 'GET' && url === '/api/cost/report') {
-      return this.handleCostReport(req, res);
-    }
-
-    // ---- Commands ----
-    if (req.method === 'GET' && url === '/v1/commands') {
-      return this.handleListCommands(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/commands/execute') {
-      return this.handleExecuteCommand(req, res);
-    }
-
-    // ---- MCP Marketplace ----
-    if (req.method === 'GET' && url === '/v1/mcp/marketplace/search') {
-      return this.handleMCPMarketplaceSearch(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/mcp/marketplace/registries') {
-      return this.handleMCPMarketplaceRegistries(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/mcp/marketplace/categories') {
-      return this.handleMCPMarketplaceCategories(req, res);
-    }
-    if (
-      req.method === 'GET' &&
-      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)
-    ) {
-      return this.handleMCPMarketplaceServerDetail(
-        req,
-        res,
-        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url === '/v1/mcp/marketplace/installed') {
-      return this.handleMCPInstalledServers(req, res);
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)
-    ) {
-      return this.handleMCPInstallServer(
-        req,
-        res,
-        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)
-    ) {
-      return this.handleMCPUninstallServer(
-        req,
-        res,
-        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)![1]
-      );
-    }
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)
-    ) {
-      return this.handleMCPToggleServer(
-        req,
-        res,
-        url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)![1]
-      );
-    }
-
-    // ---- MCP Server Verify ----
-    if (
-      req.method === 'POST' &&
-      url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)
-    ) {
-      return this.handleMCPVerifyServer(
-        req,
-        res,
-        url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)![1]
-      );
-    }
-
-    // ---- MCP Tools ----
-    if (req.method === 'GET' && url === '/v1/mcp/tools') {
-      return this.handleMCPListTools(req, res);
-    }
-    if (
-      req.method === 'PATCH' &&
-      url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)
-    ) {
-      return this.handleMCPToggleTool(
-        req,
-        res,
-        url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)![1]
-      );
-    }
-
-    // ---- Auth ----
-    if (req.method === 'POST' && url === '/v1/auth/login') {
-      return this.handleAuthLogin(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/auth/register') {
-      return this.handleAuthRegister(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/auth/logout') {
-      return this.handleAuthLogout(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/auth/me') {
-      return this.handleAuthMe(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/auth/permissions') {
-      return this.handleAuthPermissions(req, res);
-    }
-
-    // ---- API Keys ----
-    if (req.method === 'GET' && url === '/v1/apikeys') {
-      return this.handleListApiKeys(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/apikeys') {
-      return this.handleCreateApiKey(req, res);
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/apikeys\/(.+)$/)) {
-      return this.handleDeleteApiKey(
-        req,
-        res,
-        url.match(/^\/v1\/apikeys\/(.+)$/)![1]
-      );
-    }
-
-    // ---- Memory ----
-    if (req.method === 'GET' && url === '/v1/memory') {
-      return this.handleListMemories(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/memory/search') {
-      return this.handleSearchMemories(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/memory/weights') {
-      return this.handleGetMemoryWeights(req, res);
-    }
-    if (req.method === 'GET' && url === '/v1/memory/sync-status') {
-      return this.handleGetSyncStatus(req, res);
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/memory\/(.+)\/summary$/)) {
-      return this.handleGetMemorySummary(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)\/summary$/)![1]
-      );
-    }
-    if (req.method === 'GET' && url.match(/^\/v1\/memory\/(.+)$/)) {
-      return this.handleGetMemory(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'POST' && url === '/v1/memory') {
-      return this.handleCreateMemory(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/memory/sync') {
-      return this.handleSyncMemories(req, res);
-    }
-    if (req.method === 'POST' && url === '/v1/memory/consolidate') {
-      return this.handleConsolidateMemories(req, res);
-    }
-    if (req.method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {
-      return this.handleUpdateMemory(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)$/)![1]
-      );
-    }
-    if (req.method === 'DELETE' && url === '/v1/memory') {
-      return this.handleDeleteAllMemories(req, res);
-    }
-    if (req.method === 'DELETE' && url.match(/^\/v1\/memory\/(.+)$/)) {
-      return this.handleDeleteMemory(
-        req,
-        res,
-        url.match(/^\/v1\/memory\/(.+)$/)![1]
-      );
-    }
-
-    // ---- File Open ----
-    if (req.method === 'GET' && url === '/api/file/open') {
-      return this.handleFileOpen(req, res);
-    }
-
-    // ---- File Read ----
-    if (req.method === 'GET' && url.startsWith('/api/file/read')) {
-      return this.handleFileRead(req, res);
-    }
-
-    // ---- File Paths ----
-    if (req.method === 'GET' && url === '/api/file/paths') {
-      return this.handleFilePaths(req, res);
-    }
-
-    // ---- File Resolve Path ----
-    if (req.method === 'GET' && url.startsWith('/api/file/resolve-path')) {
-      return this.handleFileResolvePath(req, res);
-    }
-
-    // ---- File Preview ----
-    if (req.method === 'GET' && url === '/api/file/preview') {
-      return this.handleFilePreview(req, res);
-    }
-
-    // ---- Health ----
-    if (req.method === 'GET' && url === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService' }));
-      return;
-    }
-
-    // ---- Model Management API (Providers / Usage / Balance / Pricing) ----
-    const handled = await tryHandleRoute(req, res);
-    if (handled) return;
+    // ---- 所有路由逻辑已提取至 route-table.ts 的 dispatchRoute ----
+    // ---- 路由调度（匹配 method + URL 到对应 handler）----
+    const matched = await dispatchRoute(
+      req,
+      res,
+      url,
+      this as unknown as Record<string, Function>,
+      (event: string, data: any) => this.broadcastEvent(event, data),
+      this._handlerCtx
+    );
+    if (matched) return;
 
     logger.warning('未匹配的路由', {
       method: req.method,
@@ -1585,21 +537,21 @@ export class LocalHTTPService {
 
   private async handleMonitorSummary(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleMonitorSummary(this._handlerCtx, req, res);
   }
 
   private async handleMonitorMetrics(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleMonitorMetrics(this._handlerCtx, req, res);
   }
 
   private async handleMonitorAlerts(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleMonitorAlerts(this._handlerCtx, req, res);
   }
@@ -1607,28 +559,28 @@ export class LocalHTTPService {
   private async handleAcknowledgeAlert(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    alertId: string,
+    alertId: string
   ): Promise<void> {
-    return handleAcknowledgeAlert(this._handlerCtx, req, res, { "$1": alertId });
+    return handleAcknowledgeAlert(this._handlerCtx, req, res, { $1: alertId });
   }
 
   private async handleMonitorLogs(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleMonitorLogs(this._handlerCtx, req, res);
   }
 
   private async handleExportLogs(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleExportLogs(this._handlerCtx, req, res);
   }
 
   private async handleMonitorSessions(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleMonitorSessions(this._handlerCtx, req, res);
   }
@@ -1636,28 +588,30 @@ export class LocalHTTPService {
   private async handleMonitorSessionDetail(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    sessionId: string,
+    sessionId: string
   ): Promise<void> {
-    return handleMonitorSessionDetail(this._handlerCtx, req, res, { "$1": sessionId });
+    return handleMonitorSessionDetail(this._handlerCtx, req, res, {
+      $1: sessionId,
+    });
   }
 
   private async handleSessionsSummary(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleSessionsSummary(this._handlerCtx, req, res);
   }
 
   private async handleOTelMetrics(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleOTelMetrics(this._handlerCtx, req, res);
   }
 
   private async handleInfrastructureStatus(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleInfrastructureStatus(this._handlerCtx, req, res);
   }
@@ -1666,53 +620,57 @@ export class LocalHTTPService {
 
   private async handleHealthReport(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleHealthReport(this._handlerCtx, req, res);
   }
 
   private async handleAnalyticsDashboard(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleAnalyticsDashboard(this._handlerCtx, req, res);
   }
 
   private async handleCostSummary(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleCostSummary(this._handlerCtx, req, res);
   }
 
   private async handleCostRecords(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleCostRecords(this._handlerCtx, req, res);
   }
 
   private async handleCostRange(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleCostRange(this._handlerCtx, req, res);
   }
 
   private async handleCostReport(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     const urlObj = new URL(req.url!, `http://${req.headers.host}`);
     const format = urlObj.searchParams.get('format') || 'json';
     const period = urlObj.searchParams.get('period') || 'all';
 
     const endpoint = new CostReportEndpoint(costTracker);
-    const result = endpoint.handle({ format: format as any, period: period as any });
+    const result = endpoint.handle({
+      format: format as any,
+      period: period as any,
+    });
 
-    const contentType = format === 'text' || format === 'csv' || format === 'prometheus'
-      ? 'text/plain; charset=utf-8'
-      : 'application/json; charset=utf-8';
+    const contentType =
+      format === 'text' || format === 'csv' || format === 'prometheus'
+        ? 'text/plain; charset=utf-8'
+        : 'application/json; charset=utf-8';
 
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(result);
@@ -1722,14 +680,14 @@ export class LocalHTTPService {
 
   private async handleChatCompletions(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleChatCompletions(this._handlerCtx, req, res);
   }
 
   private async handleQuestionAnswer(
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<void> {
     return handleQuestionAnswer(this._handlerCtx, req, res);
   }
@@ -2202,9 +1160,15 @@ export class LocalHTTPService {
       }
 
       // 沙箱权限检查
-      if (!this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+      if (
+        !this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)
+      ) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'Access denied: file path not in whitelist' },
+          })
+        );
         return;
       }
 
@@ -2228,7 +1192,9 @@ export class LocalHTTPService {
       await chatManager.sendMessage(message);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, fileName, size: content.length }));
+      res.end(
+        JSON.stringify({ success: true, fileName, size: content.length })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -2307,9 +1273,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { buildEntries } = await import(
-        '@modules/commands/builtin/workspace/WorkspaceStorage'
-      );
+      const { buildEntries } =
+        await import('@modules/commands/builtin/workspace/WorkspaceStorage');
       const entries = await buildEntries();
 
       const workspaces = entries.map((entry) => ({
@@ -2372,9 +1337,7 @@ export class LocalHTTPService {
         if (openAIApiKey) {
           const { CloudSTTProvider } =
             await import('../../services/voice/services/cloudSTTProvider');
-          STTRegistry.register(
-            new CloudSTTProvider({ apiKey: openAIApiKey })
-          );
+          STTRegistry.register(new CloudSTTProvider({ apiKey: openAIApiKey }));
         }
       }
 
@@ -3585,9 +2548,15 @@ export class LocalHTTPService {
       }
 
       // 沙箱权限检查
-      if (!this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+      if (
+        !this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)
+      ) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'Access denied: file path not in whitelist' },
+          })
+        );
         return;
       }
 
@@ -4109,7 +3078,8 @@ export class LocalHTTPService {
 
   /** 将 CronJob 转为前端 CronTask 格式 */
   private jobToCronTask(job: any): any {
-    const ms = (iso: string | undefined) => (iso ? new Date(iso).getTime() : undefined);
+    const ms = (iso: string | undefined) =>
+      iso ? new Date(iso).getTime() : undefined;
     return {
       id: job.id,
       name: job.name,
@@ -4128,10 +3098,14 @@ export class LocalHTTPService {
       consecutiveErrors: job.consecutiveErrors ?? 0,
       model: job.model,
       provider: job.provider,
-      status: job.state === 'running' ? 'running' as const
-        : job.state === 'failed' ? 'error' as const
-        : job.enabled !== false ? 'idle' as const
-        : 'idle' as const,
+      status:
+        job.state === 'running'
+          ? ('running' as const)
+          : job.state === 'failed'
+            ? ('error' as const)
+            : job.enabled !== false
+              ? ('idle' as const)
+              : ('idle' as const),
     };
   }
 
@@ -4167,24 +3141,45 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const rawBody: Record<string, any> = JSON.parse(body);
-      const { name, expression, description, prompt: bodyPrompt, enabled, scheduleMode, silent,
-              deliver, deliverTo, model, provider, agentId } = rawBody;
+      const {
+        name,
+        expression,
+        description,
+        prompt: bodyPrompt,
+        enabled,
+        scheduleMode,
+        silent,
+        deliver,
+        deliverTo,
+        model,
+        provider,
+        agentId,
+      } = rawBody;
       const cronExpr = (expression || rawBody.cron || '').trim();
       const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();
       const jobPrompt = (bodyPrompt || description || jobName).trim();
 
       if (!cronExpr && !jobName) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'name or expression is required' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'name or expression is required' },
+          })
+        );
         return;
       }
 
       const { parseSchedule } = await import('@modules/chronos/cron');
-      const { computeNextCronRun } = await import('@modules/tasks/cron/CronParser');
+      const { computeNextCronRun } =
+        await import('@modules/tasks/cron/CronParser');
       const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
       const { resolveDbPath } = await import('@modules/core/paths');
 
-      const parsed: any = parseSchedule(cronExpr) || { kind: 'cron', expr: cronExpr, display: cronExpr };
+      const parsed: any = parseSchedule(cronExpr) || {
+        kind: 'cron',
+        expr: cronExpr,
+        display: cronExpr,
+      };
 
       // 根据 scheduleMode 覆盖调度解析
       if (scheduleMode === 'every') {
@@ -4297,7 +3292,8 @@ export class LocalHTTPService {
 
       // Apply allowed updates
       if (updates.name !== undefined) existing.name = updates.name;
-      if (updates.description !== undefined) existing.prompt = updates.description;
+      if (updates.description !== undefined)
+        existing.prompt = updates.description;
       if (updates.enabled !== undefined) existing.enabled = updates.enabled;
       if (updates.silent !== undefined) existing.silent = updates.silent;
       if (updates.expression !== undefined && existing.schedule) {
@@ -4369,7 +3365,9 @@ export class LocalHTTPService {
       await store.close();
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, message: `Task ${cronId} triggered` }));
+      res.end(
+        JSON.stringify({ success: true, message: `Task ${cronId} triggered` })
+      );
       this.broadcastEvent('cron:run', { id: cronId });
     } catch (err) {
       this.sendError(res, err);
@@ -4396,7 +3394,8 @@ export class LocalHTTPService {
         res.end(JSON.stringify(status));
       } else {
         // 调度器未启动，回退到静态查询
-        const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
+        const { CronJobStore } =
+          await import('@modules/tasks/cron/CronJobStore');
         const { resolveDbPath } = await import('@modules/core/paths');
         const store = new CronJobStore(resolveDbPath());
         await store.init();
@@ -4409,13 +3408,15 @@ export class LocalHTTPService {
         await store.close();
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          running: false,
-          lastTickAt: undefined,
-          activeJobs,
-          totalJobs: stats.total,
-          uptimeMs: process.uptime() * 1000,
-        }));
+        res.end(
+          JSON.stringify({
+            running: false,
+            lastTickAt: undefined,
+            activeJobs,
+            totalJobs: stats.total,
+            uptimeMs: process.uptime() * 1000,
+          })
+        );
       }
     } catch (err) {
       this.sendError(res, err);
@@ -4582,12 +3583,16 @@ export class LocalHTTPService {
         const connectSuccess = await channelRegistry.connect(channelId);
         if (!connectSuccess) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: false,
-            id: channelId,
-            enabled: false,
-            error: { message: `通道 ${channelId} 连接失败，请检查配置是否正确` },
-          }));
+          res.end(
+            JSON.stringify({
+              success: false,
+              id: channelId,
+              enabled: false,
+              error: {
+                message: `通道 ${channelId} 连接失败，请检查配置是否正确`,
+              },
+            })
+          );
           return;
         }
       } else {
@@ -4731,15 +3736,17 @@ export class LocalHTTPService {
       const lastDecision = core.getLastRouteDecision();
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        data: {
-          enabled: config?.enabled ?? false,
-          config,
-          lastDecision,
-          active: router !== null,
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          data: {
+            enabled: config?.enabled ?? false,
+            config,
+            lastDecision,
+            active: router !== null,
+          },
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -4761,7 +3768,9 @@ export class LocalHTTPService {
 
       if (!router) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'SmartRouter 未初始化' }));
+        res.end(
+          JSON.stringify({ success: false, error: 'SmartRouter 未初始化' })
+        );
         return;
       }
 
@@ -5863,9 +4872,11 @@ export class LocalHTTPService {
         (parsedUrl.searchParams.get('sourceRegistry') as any) || undefined;
 
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
@@ -5878,7 +4889,9 @@ export class LocalHTTPService {
       });
 
       if (!results || !Array.isArray(results)) {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify([]));
         return;
       }
@@ -5886,14 +4899,19 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(results));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_marketplace_search' });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_marketplace_search',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: '搜索失败',
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '搜索失败',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -5907,23 +4925,29 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
 
       const marketplace = mcpSystem.marketplace;
       if (!marketplace.registryHub) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: '注册表中心未初始化' } }));
         return;
       }
 
       const adapters = marketplace.registryHub.getAdapters();
       if (!adapters || !Array.isArray(adapters)) {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ registries: [] }));
         return;
       }
@@ -5939,14 +4963,19 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ registries }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_registries' });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_registries',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: '获取注册表列表失败',
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '获取注册表列表失败',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -5959,9 +4988,11 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
@@ -5969,7 +5000,9 @@ export class LocalHTTPService {
       const categories = await mcpSystem.marketplace.getCategories();
 
       if (!categories || !Array.isArray(categories)) {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify([]));
         return;
       }
@@ -5979,12 +5012,14 @@ export class LocalHTTPService {
     } catch (err) {
       logger.error('获取 MCP 分类列表失败', err as Error);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: '获取分类列表失败',
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '获取分类列表失败',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -5998,9 +5033,11 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
@@ -6018,12 +5055,14 @@ export class LocalHTTPService {
     } catch (err) {
       logger.error('获取 MCP 服务器详情失败', err as Error);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: '获取服务器详情失败',
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '获取服务器详情失败',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -6036,16 +5075,20 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
 
       const servers = mcpSystem.marketplace.getInstalledServers();
       if (!servers || !Array.isArray(servers)) {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify([]));
         return;
       }
@@ -6062,14 +5105,19 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detailed));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_installed_list' });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_installed_list',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: '获取已安装服务器列表失败',
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '获取已安装服务器列表失败',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -6083,9 +5131,11 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
@@ -6095,14 +5145,20 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_install_server', context: { serverId } });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_install_server',
+        context: { serverId },
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: `安装服务器失败: ${serverId}`,
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `安装服务器失败: ${serverId}`,
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -6116,9 +5172,11 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
@@ -6130,12 +5188,14 @@ export class LocalHTTPService {
     } catch (err) {
       logger.error(`卸载 MCP 服务器失败: ${serverId}`, err as Error);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: `卸载服务器失败: ${serverId}`,
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `卸载服务器失败: ${serverId}`,
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -6163,9 +5223,11 @@ export class LocalHTTPService {
       }
 
       const { mcpSystem } = await import('@modules/services/mcp');
-      
+
       if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(503, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
         res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
         return;
       }
@@ -6175,14 +5237,20 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId, enabled }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_toggle_server', context: { serverId } });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_toggle_server',
+        context: { serverId },
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ 
-        error: { 
-          message: `切换服务器状态失败: ${serverId}`,
-          detail: err instanceof Error ? err.message : String(err)
-        } 
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `切换服务器状态失败: ${serverId}`,
+            detail: err instanceof Error ? err.message : String(err),
+          },
+        })
+      );
     }
   }
 
@@ -6363,7 +5431,8 @@ export class LocalHTTPService {
     taskId: string
   ): Promise<void> {
     try {
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       const state = await store.getTaskState(taskId);
@@ -6385,7 +5454,8 @@ export class LocalHTTPService {
     taskId: string
   ): Promise<void> {
     try {
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       const logs = await store.queryAuditLogs(taskId);
@@ -6406,12 +5476,15 @@ export class LocalHTTPService {
 
       // 从 SQLite 加载日志
       try {
-        const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+        const { SqliteTaskStore } =
+          await import('@modules/tasks/db/SqliteTaskStore');
         const store = new SqliteTaskStore();
         await store.init();
         const state = await store.getTaskState(taskId);
         if (state) {
-          logs.push(`Task: ${state.description || taskId} | Status: ${state.status} | Type: ${state.type}`);
+          logs.push(
+            `Task: ${state.description || taskId} | Status: ${state.status} | Type: ${state.type}`
+          );
           if (state.outputFile) {
             const fs = await import('fs');
             if (fs.existsSync(state.outputFile)) {
@@ -6443,7 +5516,8 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const fs = await import('fs');
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       const state = await store.getTaskState(taskId);
@@ -6470,7 +5544,9 @@ export class LocalHTTPService {
       const recovered = await taskRegistry.recoverLostTask(taskId);
       if (!recovered) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Task not found or not in LOST state' }));
+        res.end(
+          JSON.stringify({ error: 'Task not found or not in LOST state' })
+        );
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6492,7 +5568,8 @@ export class LocalHTTPService {
       let reply = '';
       try {
         const coreAPI = getCoreAPI();
-        reply = (await (coreAPI as any).sendTaskMessage?.(taskId, message)) || '';
+        reply =
+          (await (coreAPI as any).sendTaskMessage?.(taskId, message)) || '';
       } catch {
         // 降级：通过 executor 直接执行
         const { coordinator } = await import('@modules/core/Coordinator');
@@ -6520,9 +5597,13 @@ export class LocalHTTPService {
       const { description, sessionId } = JSON.parse(body);
       const taskId = `pdca_${Date.now().toString(36)}`;
 
-      const { getOrCreateOrchestrator } = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const { getOrCreateOrchestrator } =
+        await import('@modules/tasks/LongRunningTaskOrchestrator');
       const orchestrator = getOrCreateOrchestrator(taskId);
-      const status = await orchestrator.runFullPdca(description, sessionId || '');
+      const status = await orchestrator.runFullPdca(
+        description,
+        sessionId || ''
+      );
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(status));
@@ -6547,7 +5628,9 @@ export class LocalHTTPService {
       }
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] }));
+        res.end(
+          JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] })
+        );
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6564,7 +5647,10 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      try {
+        const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+        orchestrator = m.getOrchestrator(taskId);
+      } catch {}
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ taskId, error: 'Not available' }));
@@ -6573,7 +5659,9 @@ export class LocalHTTPService {
       const report = orchestrator.generateReport();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(report));
-    } catch (err) { this.sendError(res, err); }
+    } catch (err) {
+      this.sendError(res, err);
+    }
   }
 
   private async handlePdcaReviewStep(
@@ -6584,7 +5672,10 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      try {
+        const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+        orchestrator = m.getOrchestrator(taskId);
+      } catch {}
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not available' }));
@@ -6594,7 +5685,9 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(review));
       this.broadcastEvent('pdca:reviewed', { taskId, stepId, review });
-    } catch (err) { this.sendError(res, err); }
+    } catch (err) {
+      this.sendError(res, err);
+    }
   }
 
   private async handlePdcaDecideStep(
@@ -6607,7 +5700,10 @@ export class LocalHTTPService {
       const body = await this.readRequestBody(req);
       const { decision } = JSON.parse(body);
       let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      try {
+        const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+        orchestrator = m.getOrchestrator(taskId);
+      } catch {}
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not available' }));
@@ -6617,7 +5713,9 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
       this.broadcastEvent('pdca:decided', { taskId, stepId, decision });
-    } catch (err) { this.sendError(res, err); }
+    } catch (err) {
+      this.sendError(res, err);
+    }
   }
 
   private async handlePdcaList(
@@ -6626,10 +5724,15 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       let list: any[] = [];
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); list = m.getAllOrchestrators().map((o: any) => o.getStatus()); } catch {}
+      try {
+        const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+        list = m.getAllOrchestrators().map((o: any) => o.getStatus());
+      } catch {}
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(list));
-    } catch (err) { this.sendError(res, err); }
+    } catch (err) {
+      this.sendError(res, err);
+    }
   }
 
   private async handlePdcaConfirm(
@@ -6639,7 +5742,10 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+      try {
+        const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+        orchestrator = m.getOrchestrator(taskId);
+      } catch {}
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
@@ -6647,7 +5753,9 @@ export class LocalHTTPService {
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(orchestrator.getStatus()));
-    } catch (err) { this.sendError(res, err); }
+    } catch (err) {
+      this.sendError(res, err);
+    }
   }
 
   // ========== Kanban Handlers ==========
@@ -6657,7 +5765,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       const cards = await store.loadKanbanCards();
@@ -6674,8 +5783,10 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const body = await this.readRequestBody(req);
-      const { title, description, columnId, assignee, priority, tags } = JSON.parse(body);
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { title, description, columnId, assignee, priority, tags } =
+        JSON.parse(body);
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       const card = {
@@ -6705,10 +5816,18 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { title, description, assignee, priority, tags } = JSON.parse(body);
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
-      await store.saveKanbanCard({ id: cardId, title: title || '', description, assignee, priority, tags });
+      await store.saveKanbanCard({
+        id: cardId,
+        title: title || '',
+        description,
+        assignee,
+        priority,
+        tags,
+      });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
       this.broadcastEvent('kanban:updated', { cardId });
@@ -6723,7 +5842,8 @@ export class LocalHTTPService {
     cardId: string
   ): Promise<void> {
     try {
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
       await store.deleteKanbanCard(cardId);
@@ -6743,10 +5863,15 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { columnId, sortOrder } = JSON.parse(body);
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+      const { SqliteTaskStore } =
+        await import('@modules/tasks/db/SqliteTaskStore');
       const store = new SqliteTaskStore();
       await store.init();
-      await store.updateKanbanCardColumn(cardId, columnId, sortOrder ?? Date.now());
+      await store.updateKanbanCardColumn(
+        cardId,
+        columnId,
+        sortOrder ?? Date.now()
+      );
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
       this.broadcastEvent('kanban:moved', { cardId, columnId });
@@ -6762,7 +5887,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const { taskOrchestrator } =
+        await import('@modules/tasks/TaskOrchestrator');
       await taskOrchestrator['initialize']();
       const plans = taskOrchestrator.getAllPlans();
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6777,13 +5903,14 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const { taskOrchestrator } =
+        await import('@modules/tasks/TaskOrchestrator');
       const body = await this.readRequestBody(req);
       const { description, steps, sessionId } = JSON.parse(body);
       const plan = taskOrchestrator.createPlan(
         description || '',
         steps || [],
-        sessionId || '',
+        sessionId || ''
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(plan));
@@ -6799,7 +5926,8 @@ export class LocalHTTPService {
     planId: string
   ): Promise<void> {
     try {
-      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const { taskOrchestrator } =
+        await import('@modules/tasks/TaskOrchestrator');
       const plan = taskOrchestrator.getPlan(planId);
       if (!plan) {
         res.writeHead(404);
@@ -6820,7 +5948,8 @@ export class LocalHTTPService {
     planId: string
   ): Promise<void> {
     try {
-      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const { taskOrchestrator } =
+        await import('@modules/tasks/TaskOrchestrator');
       const plan = taskOrchestrator.getPlan(planId);
       if (!plan) {
         res.writeHead(404);
@@ -6847,7 +5976,8 @@ export class LocalHTTPService {
     planId: string
   ): Promise<void> {
     try {
-      const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+      const { taskOrchestrator } =
+        await import('@modules/tasks/TaskOrchestrator');
       const plan = taskOrchestrator.getPlan(planId);
       if (!plan) {
         res.writeHead(404);
@@ -6873,7 +6003,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { taskFlowRegistry } = await import('@modules/tasks/TaskFlowRegistry');
+      const { taskFlowRegistry } =
+        await import('@modules/tasks/TaskFlowRegistry');
       const flows = taskFlowRegistry.getAllFlows();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(flows));
@@ -6888,7 +6019,8 @@ export class LocalHTTPService {
     flowId: string
   ): Promise<void> {
     try {
-      const { taskFlowRegistry } = await import('@modules/tasks/TaskFlowRegistry');
+      const { taskFlowRegistry } =
+        await import('@modules/tasks/TaskFlowRegistry');
       const flow = taskFlowRegistry.getFlow(flowId);
       if (!flow) {
         res.writeHead(404);
@@ -7043,9 +6175,17 @@ export class LocalHTTPService {
       });
 
       // 同步写入统一凭据存储（使 ChannelSecretStore 查询可用）
-      if (config && typeof config === 'object' && Object.keys(config).length > 0) {
-        const { ChannelSecretStore } = await import('@modules/channels/secrets/ChannelSecretStore');
-        ChannelSecretStore.getInstance().set(channelId, config as Record<string, unknown>);
+      if (
+        config &&
+        typeof config === 'object' &&
+        Object.keys(config).length > 0
+      ) {
+        const { ChannelSecretStore } =
+          await import('@modules/channels/secrets/ChannelSecretStore');
+        ChannelSecretStore.getInstance().set(
+          channelId,
+          config as Record<string, unknown>
+        );
       }
 
       // 如果 enabled 有变化，执行连接/断开
@@ -7171,32 +6311,162 @@ export class LocalHTTPService {
     importPath: string;
     exportKey: string;
   }> = [
-    { type: 'telegram', name: 'Telegram', importPath: '../../../channels/telegram/TelegramChannel', exportKey: 'telegramChannel' },
-    { type: 'discord', name: 'Discord', importPath: '../../../channels/discord/DiscordChannel', exportKey: 'discordChannel' },
-    { type: 'qq', name: 'QQ', importPath: '../../../channels/qq/QQChannel', exportKey: 'qqChannel' },
-    { type: 'dingtalk', name: '钉钉', importPath: '../../../channels/dingtalk/DingTalkChannel', exportKey: 'dingtalkChannel' },
-    { type: 'feishu', name: '飞书', importPath: '../../../channels/feishu/FeishuChannel', exportKey: 'feishuChannel' },
-    { type: 'wechat', name: '微信', importPath: '../../../channels/wechat/WechatChannel', exportKey: 'wechatChannel' },
-    { type: 'slack', name: 'Slack', importPath: '../../../channels/slack/index', exportKey: 'slackChannelPlugin' },
-    { type: 'line', name: 'Line', importPath: '../../../channels/line/index', exportKey: 'lineChannelPlugin' },
-    { type: 'irc', name: 'IRC', importPath: '../../../channels/irc/index', exportKey: 'ircChannelPlugin' },
-    { type: 'nostr', name: 'Nostr', importPath: '../../../channels/nostr/index', exportKey: 'nostrChannelPlugin' },
-    { type: 'email', name: '邮件', importPath: '../../../channels/email/EmailChannel', exportKey: 'emailChannelPlugin' },
-    { type: 'sms', name: '短信', importPath: '../../../channels/sms/SmsChannel', exportKey: 'smsChannelPlugin' },
-    { type: 'webhook', name: 'Webhook', importPath: '../../../channels/webhook/WebhookChannel', exportKey: 'webhookChannelPlugin' },
-    { type: 'wecom', name: '企业微信', importPath: '../../../channels/wecom/WeComChannel', exportKey: 'wecomChannel' },
-    { type: 'googlechat', name: 'Google Chat', importPath: '../../../channels/googlechat/index', exportKey: 'googleChatChannelPlugin' },
-    { type: 'msteams', name: 'MS Teams', importPath: '../../../channels/msteams/index', exportKey: 'msteamsChannelPlugin' },
-    { type: 'zalo', name: 'Zalo', importPath: '../../../channels/zalo/index', exportKey: 'zaloChannelPlugin' },
-    { type: 'yuanbao', name: '元宝', importPath: '../../../channels/yuanbao/index', exportKey: 'yuanbaoChannelPlugin' },
-    { type: 'whatsapp', name: 'WhatsApp', importPath: '../../../channels/whatsapp/index', exportKey: 'whatsAppChannelPlugin' },
-    { type: 'signal', name: 'Signal', importPath: '../../../channels/signal/index', exportKey: 'signalChannelPlugin' },
-    { type: 'matrix', name: 'Matrix', importPath: '../../../channels/matrix/index', exportKey: 'matrixChannelPlugin' },
-    { type: 'facebook', name: 'Facebook Messenger', importPath: '../../../channels/facebookmessenger/index', exportKey: 'facebookMessengerChannelPlugin' },
-    { type: 'twitter', name: 'Twitter/X', importPath: '../../../channels/twitter/index', exportKey: 'twitterChannelPlugin' },
-    { type: 'claude', name: 'Claude', importPath: '../../../channels/claude/index', exportKey: 'claudeChannelPlugin' },
-    { type: 'mattermost', name: 'Mattermost', importPath: '../../../channels/mattermost/MattermostChannel', exportKey: 'mattermostChannel' },
-    { type: 'bluebubbles', name: 'iMessage', importPath: '../../../channels/bluebubbles/BlueBubblesChannel', exportKey: 'bluebubblesChannelPlugin' },
+    {
+      type: 'telegram',
+      name: 'Telegram',
+      importPath: '../../../channels/telegram/TelegramChannel',
+      exportKey: 'telegramChannel',
+    },
+    {
+      type: 'discord',
+      name: 'Discord',
+      importPath: '../../../channels/discord/DiscordChannel',
+      exportKey: 'discordChannel',
+    },
+    {
+      type: 'qq',
+      name: 'QQ',
+      importPath: '../../../channels/qq/QQChannel',
+      exportKey: 'qqChannel',
+    },
+    {
+      type: 'dingtalk',
+      name: '钉钉',
+      importPath: '../../../channels/dingtalk/DingTalkChannel',
+      exportKey: 'dingtalkChannel',
+    },
+    {
+      type: 'feishu',
+      name: '飞书',
+      importPath: '../../../channels/feishu/FeishuChannel',
+      exportKey: 'feishuChannel',
+    },
+    {
+      type: 'wechat',
+      name: '微信',
+      importPath: '../../../channels/wechat/WechatChannel',
+      exportKey: 'wechatChannel',
+    },
+    {
+      type: 'slack',
+      name: 'Slack',
+      importPath: '../../../channels/slack/index',
+      exportKey: 'slackChannelPlugin',
+    },
+    {
+      type: 'line',
+      name: 'Line',
+      importPath: '../../../channels/line/index',
+      exportKey: 'lineChannelPlugin',
+    },
+    {
+      type: 'irc',
+      name: 'IRC',
+      importPath: '../../../channels/irc/index',
+      exportKey: 'ircChannelPlugin',
+    },
+    {
+      type: 'nostr',
+      name: 'Nostr',
+      importPath: '../../../channels/nostr/index',
+      exportKey: 'nostrChannelPlugin',
+    },
+    {
+      type: 'email',
+      name: '邮件',
+      importPath: '../../../channels/email/EmailChannel',
+      exportKey: 'emailChannelPlugin',
+    },
+    {
+      type: 'sms',
+      name: '短信',
+      importPath: '../../../channels/sms/SmsChannel',
+      exportKey: 'smsChannelPlugin',
+    },
+    {
+      type: 'webhook',
+      name: 'Webhook',
+      importPath: '../../../channels/webhook/WebhookChannel',
+      exportKey: 'webhookChannelPlugin',
+    },
+    {
+      type: 'wecom',
+      name: '企业微信',
+      importPath: '../../../channels/wecom/WeComChannel',
+      exportKey: 'wecomChannel',
+    },
+    {
+      type: 'googlechat',
+      name: 'Google Chat',
+      importPath: '../../../channels/googlechat/index',
+      exportKey: 'googleChatChannelPlugin',
+    },
+    {
+      type: 'msteams',
+      name: 'MS Teams',
+      importPath: '../../../channels/msteams/index',
+      exportKey: 'msteamsChannelPlugin',
+    },
+    {
+      type: 'zalo',
+      name: 'Zalo',
+      importPath: '../../../channels/zalo/index',
+      exportKey: 'zaloChannelPlugin',
+    },
+    {
+      type: 'yuanbao',
+      name: '元宝',
+      importPath: '../../../channels/yuanbao/index',
+      exportKey: 'yuanbaoChannelPlugin',
+    },
+    {
+      type: 'whatsapp',
+      name: 'WhatsApp',
+      importPath: '../../../channels/whatsapp/index',
+      exportKey: 'whatsAppChannelPlugin',
+    },
+    {
+      type: 'signal',
+      name: 'Signal',
+      importPath: '../../../channels/signal/index',
+      exportKey: 'signalChannelPlugin',
+    },
+    {
+      type: 'matrix',
+      name: 'Matrix',
+      importPath: '../../../channels/matrix/index',
+      exportKey: 'matrixChannelPlugin',
+    },
+    {
+      type: 'facebook',
+      name: 'Facebook Messenger',
+      importPath: '../../../channels/facebookmessenger/index',
+      exportKey: 'facebookMessengerChannelPlugin',
+    },
+    {
+      type: 'twitter',
+      name: 'Twitter/X',
+      importPath: '../../../channels/twitter/index',
+      exportKey: 'twitterChannelPlugin',
+    },
+    {
+      type: 'claude',
+      name: 'Claude',
+      importPath: '../../../channels/claude/index',
+      exportKey: 'claudeChannelPlugin',
+    },
+    {
+      type: 'mattermost',
+      name: 'Mattermost',
+      importPath: '../../../channels/mattermost/MattermostChannel',
+      exportKey: 'mattermostChannel',
+    },
+    {
+      type: 'bluebubbles',
+      name: 'iMessage',
+      importPath: '../../../channels/bluebubbles/BlueBubblesChannel',
+      exportKey: 'bluebubblesChannelPlugin',
+    },
   ];
 
   /** CHANNEL_TABLE 的快速索引 */
@@ -7218,25 +6488,26 @@ export class LocalHTTPService {
     try {
       // 动态导入插件模块
       const mod = await import(entry.importPath);
-      const plugin = (mod as Record<string, unknown>)[entry.exportKey] as IChannelPlugin | undefined;
+      const plugin = (mod as Record<string, unknown>)[entry.exportKey] as
+        | IChannelPlugin
+        | undefined;
       if (!plugin) {
-        logger.warning(`tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`);
+        logger.warning(
+          `tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`
+        );
         return false;
       }
 
       // 1. 注册到 ChannelRegistry
-      const { channelRegistry } = await import(
-        '@modules/channels/registry/ChannelRegistry'
-      );
-      const { adaptPluginToInterface } = await import(
-        '@modules/channels/registry/ChannelRegistry'
-      );
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
+      const { adaptPluginToInterface } =
+        await import('@modules/channels/registry/ChannelRegistry');
       channelRegistry.register(adaptPluginToInterface(plugin));
 
       // 2. 注册到 ChannelBootstrapper
-      const { channelBootstrapper } = await import(
-        '../../channels/bootstrap/ChannelBootstrapper'
-      );
+      const { channelBootstrapper } =
+        await import('../../channels/bootstrap/ChannelBootstrapper');
       channelBootstrapper.registerPluginChannel(channelType, () => plugin);
 
       // 3. 写入配置（合并前端传入的凭据）
@@ -7276,8 +6547,7 @@ export class LocalHTTPService {
         _processingMessages.add(message.messageId);
 
         try {
-          const sender =
-            message.senderName || message.senderId || 'unknown';
+          const sender = message.senderName || message.senderId || 'unknown';
           const label = channelType.toUpperCase();
           console.log(`\n── [${label}] ${sender} ──`);
           console.log(message.content);
@@ -7306,7 +6576,11 @@ export class LocalHTTPService {
             );
           }
         } catch (error) {
-          await handleError(error, { module: 'infra:http', action: 'channel_inbound_message', context: { channelType, messageId: message.messageId } });
+          await handleError(error, {
+            module: 'infra:http',
+            action: 'channel_inbound_message',
+            context: { channelType, messageId: message.messageId },
+          });
         } finally {
           setTimeout(() => {
             _processingMessages.delete(message.messageId);
@@ -7834,9 +7108,15 @@ export class LocalHTTPService {
       }
 
       // 沙箱权限检查
-      if (!this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+      if (
+        !this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)
+      ) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+        res.end(
+          JSON.stringify({
+            error: { message: 'Access denied: file path not in whitelist' },
+          })
+        );
         return;
       }
 
@@ -8071,11 +7351,17 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'file_open', context: { path: req.url } });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'file_open',
+        context: { path: req.url },
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: { message: `Failed to open file: ${err instanceof Error ? err.message : String(err)}` },
+          error: {
+            message: `Failed to open file: ${err instanceof Error ? err.message : String(err)}`,
+          },
         })
       );
     }
@@ -8458,7 +7744,11 @@ export class LocalHTTPService {
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'file_preview', context: { path: req.url } });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'file_preview',
+        context: { path: req.url },
+      });
       const message = err instanceof Error ? err.message : String(err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
@@ -8586,7 +7876,8 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { rootDir, incremental = true } = JSON.parse(body);
-      const { IndexBuilder } = await import('@modules/knowledge/semantic/builder');
+      const { IndexBuilder } =
+        await import('@modules/knowledge/semantic/builder');
       const builder = new IndexBuilder();
       const result = await builder.build({
         rootDir,
@@ -8618,17 +7909,21 @@ export class LocalHTTPService {
 
       if (!query) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'q parameter is required' } }));
+        res.end(
+          JSON.stringify({ error: { message: 'q parameter is required' } })
+        );
         return;
       }
 
-      const { SemanticStore } = await import('@modules/knowledge/semantic/store');
-      const { globalEmbeddingManager } = await import('@modules/ai/embedding/EmbeddingManager');
+      const { SemanticStore } =
+        await import('@modules/knowledge/semantic/store');
+      const { globalEmbeddingManager } =
+        await import('@modules/ai/embedding/EmbeddingManager');
       const { resolveDataSubDir } = await import('@modules/core/paths');
-      const store = new SemanticStore(
-        resolveDataSubDir('semantic-index'),
-        { provider: 'local', model: 'nomic-embed-text' }
-      );
+      const store = new SemanticStore(resolveDataSubDir('semantic-index'), {
+        provider: 'local',
+        model: 'nomic-embed-text',
+      });
       await store.load();
 
       globalEmbeddingManager.initialize();
@@ -8655,12 +7950,13 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { SemanticStore, readIndexMeta } = await import('@modules/knowledge/semantic/store');
+      const { SemanticStore, readIndexMeta } =
+        await import('@modules/knowledge/semantic/store');
       const { resolveDataSubDir } = await import('@modules/core/paths');
-      const store = new SemanticStore(
-        resolveDataSubDir('semantic-index'),
-        { provider: 'ollama', model: 'all-minilm' }
-      );
+      const store = new SemanticStore(resolveDataSubDir('semantic-index'), {
+        provider: 'ollama',
+        model: 'all-minilm',
+      });
       await store.load();
 
       const meta = await readIndexMeta(resolveDataSubDir('semantic-index'));
@@ -8685,7 +7981,8 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { wipeStoreFiles } = await import('@modules/knowledge/semantic/store');
+      const { wipeStoreFiles } =
+        await import('@modules/knowledge/semantic/store');
       const { resolveDataSubDir } = await import('@modules/core/paths');
       await wipeStoreFiles(resolveDataSubDir('semantic-index'));
       res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -1,54 +1,32 @@
-// MIT License
-// Copyright (c) 2026 190615273@qq.com
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/**
+ * memory-handlers.ts — 记忆系统 HTTP 处理器（从 LocalHTTPService 提取）
+ */
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { MemoryManagerImpl } from '@modules/memory/MemoryManager';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import fs from 'node:fs';
+import path from 'node:path';
+import { sendError, readRequestBody, checkFilePathPermission } from './handler-utils';
 import { handleError } from '@modules/error/handleError';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-// 模块级状态变量
-let _fileIndex: Map<string, string[]> | null = null;
-let _fileIndexTimestamp: number = 0;
-let _memoryManagerInstance: MemoryManagerImpl | null = null;
+// ---- Memory Manager Singleton ----
 
-/**
- * 获取记忆管理器（单例）
- */
-async function getMemoryManager(): Promise<MemoryManagerImpl> {
-  if (!_memoryManagerInstance) {
-    _memoryManagerInstance = new MemoryManagerImpl();
+let memoryManagerInstance: import('@modules/memory/MemoryManager').MemoryManagerImpl | null = null;
+
+async function getMemoryManager(): Promise<import('@modules/memory/MemoryManager').MemoryManagerImpl> {
+  if (!memoryManagerInstance) {
+    const { MemoryManagerImpl } =
+      await import('@modules/memory/MemoryManager');
+    memoryManagerInstance = new MemoryManagerImpl();
   }
-  return _memoryManagerInstance;
+  return memoryManagerInstance;
 }
 
-// ========== Memory Handlers ==========
-
 export async function handleListMemories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -59,18 +37,11 @@ export async function handleListMemories(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memories }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleSearchMemories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -91,18 +62,11 @@ export async function handleSearchMemories(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memories }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleGetMemory(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     memoryId: string
@@ -120,23 +84,16 @@ export async function handleGetMemory(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memory }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleCreateMemory(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const params = JSON.parse(body);
 
       if (!params.content) {
@@ -160,13 +117,7 @@ export async function handleCreateMemory(
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memory }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -176,12 +127,11 @@ export async function handleCreateMemory(
    * 读取文件内容，将其存入记忆系统
    */
 export async function handleCreateMemoryFromFile(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { filePath, name, tags } = JSON.parse(body);
 
       if (!filePath) {
@@ -191,7 +141,7 @@ export async function handleCreateMemoryFromFile(
       }
 
       // 沙箱权限检查
-      if (!ctx.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+      if (!checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
         return;
@@ -228,24 +178,17 @@ export async function handleCreateMemoryFromFile(
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memory, fileName }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleUpdateMemory(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     memoryId: string
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const updates = JSON.parse(body);
 
       const mm = await getMemoryManager();
@@ -254,18 +197,11 @@ export async function handleUpdateMemory(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, memory }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleDeleteMemory(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     memoryId: string
@@ -277,18 +213,11 @@ export async function handleDeleteMemory(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleDeleteAllMemories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -299,18 +228,11 @@ export async function handleDeleteAllMemories(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, deletedCount: count }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleGetMemorySummary(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     memoryId: string
@@ -340,18 +262,11 @@ export async function handleGetMemorySummary(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, summary }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleGetMemoryWeights(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -364,18 +279,11 @@ export async function handleGetMemoryWeights(
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleGetSyncStatus(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -393,18 +301,11 @@ export async function handleGetSyncStatus(
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleSyncMemories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -417,18 +318,11 @@ export async function handleSyncMemories(
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
 export async function handleConsolidateMemories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -441,13 +335,7 @@ export async function handleConsolidateMemories(
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -457,7 +345,6 @@ export async function handleConsolidateMemories(
    * 在 Tauri WebView 中点击文件链接时调用，通过 child_process 在系统默认程序中打开文件
    */
 export async function handleFileOpen(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -491,12 +378,11 @@ export async function handleFileOpen(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error('打开文件失败', { path: req.url, error: message });
+      await handleError(err, { module: 'infra:http', action: 'file_open', context: { path: req.url } });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: { message: `Failed to open file: ${message}` },
+          error: { message: `Failed to open file: ${err instanceof Error ? err.message : String(err)}` },
         })
       );
     }
@@ -508,7 +394,6 @@ export async function handleFileOpen(
    * 读取文件内容并返回，支持代码/Markdown/JSON/图片等类型
    */
 export async function handleFileRead(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -528,26 +413,19 @@ export async function handleFileRead(
       }
 
       // 检查文件是否存在
-      let actualPath = filePath;
       if (!fs.existsSync(filePath)) {
-        // 文件不存在时，尝试模糊搜索匹配（LLM 返回的路径常有截断错误）
-        const fuzzyMatch = fuzzyFindFile(filePath);
-        if (fuzzyMatch) {
-          actualPath = fuzzyMatch;
-        } else {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(
-            JSON.stringify({ error: { message: `File not found: ${filePath}` } })
-          );
-          return;
-        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `File not found: ${filePath}` } })
+        );
+        return;
       }
 
-      const stats = fs.statSync(actualPath);
+      const stats = fs.statSync(filePath);
       const size = stats.size;
 
       // 判断文件 MIME 类型
-      const ext = path.extname(actualPath).toLowerCase();
+      const ext = path.extname(filePath).toLowerCase();
       const mimeTypes: Record<string, string> = {
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
@@ -561,7 +439,7 @@ export async function handleFileRead(
 
       // 图片文件：返回 base64
       if (mimeTypes[ext]) {
-        const imageBuffer = fs.readFileSync(actualPath);
+        const imageBuffer = fs.readFileSync(filePath);
         const base64 = imageBuffer.toString('base64');
         const dataUri = `data:${mimeTypes[ext]};base64,${base64}`;
 
@@ -610,14 +488,14 @@ export async function handleFileRead(
       const maxPreviewSize = 1 * 1024 * 1024; // 1MB
       let content: string;
       if (size > maxPreviewSize) {
-        const fd = fs.openSync(actualPath, 'r');
+        const fd = fs.openSync(filePath, 'r');
         const buffer = Buffer.alloc(maxPreviewSize);
         fs.readSync(fd, buffer, 0, maxPreviewSize, 0);
         fs.closeSync(fd);
         content =
           buffer.toString('utf-8') + '\n\n... 文件过大，仅显示前 1MB 内容';
       } else {
-        content = fs.readFileSync(actualPath, 'utf-8');
+        content = fs.readFileSync(filePath, 'utf-8');
       }
 
       // 根据扩展名判断类型和语言
@@ -702,7 +580,6 @@ export async function handleFileRead(
    * 返回所有已知的基础目录路径，供前端解析不完整的文件路径使用
    */
 export async function handleFilePaths(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -736,7 +613,6 @@ export async function handleFilePaths(
    * 如果路径已存在，直接返回；否则依次在各基础目录下尝试查找
    */
 export async function handleFileResolvePath(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -768,13 +644,6 @@ export async function handleFileResolvePath(
         if (fs.existsSync(rawPath)) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ resolvedPath: rawPath, exists: true }));
-          return;
-        }
-        // 精确路径不存在时，尝试模糊文件名搜索（LLM 返回的路径常有截断/拼写错误）
-        const fuzzyResult = fuzzyFindFile(rawPath);
-        if (fuzzyResult) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ resolvedPath: fuzzyResult, exists: true }));
           return;
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -829,149 +698,81 @@ export async function handleFileResolvePath(
     }
   }
 
-  // ========== 模糊文件路径搜索（LLM 路径纠错） ==========
-
   /**
-   * 索引缓存过期时间（毫秒）
+   * 处理文件预览转换请求
+   * GET /api/file/preview?path=<encoded_path>
+   * 对 Office 文件（pdf/docx/pptx）自动转换为 Markdown 后返回，
+   * 非 Office 文件降级为纯文本预览（用于前端在转换失败时的兜底展示）
    */
-const FILE_INDEX_TTL = 60 * 60 * 1000; // 1 小时
-
-  /**
-   * 当精确路径不存在时，通过文件名模糊搜索项目目录树，找到最匹配的真实文件
-   *
-   * @param rawPath 可能不准确的路径
-   * @returns 匹配的真实文件绝对路径，未找到则返回 null
-   */
-function fuzzyFindFile(rawPath: string): string | null {
-    const basename = path.basename(rawPath);
-    if (!basename) return null;
-
-    // 构建或重建文件索引
-    const index = getOrBuildFileIndex();
-
-    // 1. 精确匹配 basename（区分大小写）
-    if (index.has(basename)) {
-      return index.get(basename)![0];
-    }
-
-    // 2. 小写不敏感匹配
-    const lowerBasename = basename.toLowerCase();
-    for (const [name, paths] of index) {
-      if (name.toLowerCase() === lowerBasename) {
-        return paths[0];
-      }
-    }
-
-    // 3. 去掉扩展名后匹配
-    const stem = path.parse(basename).name.toLowerCase();
-    for (const [name, paths] of index) {
-      if (path.parse(name).name.toLowerCase() === stem) {
-        return paths[0];
-      }
-    }
-
-    // 4. 包含关系匹配：搜索文件名包含目标关键部分，或目标包含文件名
-    for (const [name, paths] of index) {
-      const lowerName = name.toLowerCase();
-      if (lowerName.includes(lowerBasename) || lowerBasename.includes(lowerName)) {
-        return paths[0];
-      }
-      // 尝试用 stem（无扩展名）做包含匹配
-      if (stem.length > 3) {
-        const nameStem = path.parse(name).name.toLowerCase();
-        if (nameStem.includes(stem) || stem.includes(nameStem)) {
-          return paths[0];
-        }
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * 获取或构建文件索引（带缓存）
-   * 递归扫描项目根目录下所有文件，建立 basename → [fullPath] 映射
-   */
-function getOrBuildFileIndex(): Map<string, string[]> {
-    const now = Date.now();
-    if (
-      _fileIndex &&
-      (now - _fileIndexTimestamp) < FILE_INDEX_TTL
-    ) {
-      return _fileIndex;
-    }
-
-    const index = new Map<string, string[]>();
-
-    // 确定搜索根目录（优先用项目根目录，fallback 到 process.cwd()）
-    let rootDir: string;
+export async function handleFilePreview(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
     try {
-      const { resolveProjectRoot } = require('@modules/core/paths') as typeof import('@modules/core/paths');
-      rootDir = resolveProjectRoot();
-    } catch {
-      rootDir = process.cwd();
-    }
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
+      const filePath = parsedUrl.searchParams.get('path');
 
-    // 非递归栈式遍历（避免深层递归栈溢出）
-    const dirsToScan = [rootDir];
-    const scanned = new Set<string>();
-    const maxFiles = 50000; // 安全上限
-    let fileCount = 0;
-
-    while (dirsToScan.length > 0 && fileCount < maxFiles) {
-      const dir = dirsToScan.pop()!;
-      if (scanned.has(dir)) continue;
-      scanned.add(dir);
-
-      let entries: string[];
-      try {
-        entries = fs.readdirSync(dir);
-      } catch {
-        continue; // 无权限等跳过
+      if (!filePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Missing path parameter' } })
+        );
+        return;
       }
 
-      for (const entry of entries) {
-        if (fileCount >= maxFiles) break;
-        const fullPath = path.join(dir, entry);
-
-        try {
-          const stat = fs.statSync(fullPath);
-          if (stat.isDirectory()) {
-            // 跳过 node_modules、.git、.next、dist 等常见大目录
-            const dirName = path.basename(fullPath);
-            if (
-              dirName === 'node_modules' ||
-              dirName === '.git' ||
-              dirName === '.next' ||
-              dirName === 'dist' ||
-              dirName === '.turbo' ||
-              dirName === 'target' ||
-              dirName === '.cache' ||
-              dirName === '__pycache__' ||
-              dirName === '.pyapp' ||
-              dirName.startsWith('.')
-            ) {
-              continue;
-            }
-            dirsToScan.push(fullPath);
-          } else if (stat.isFile()) {
-            fileCount++;
-            const key = path.basename(fullPath);
-            const existing = index.get(key);
-            if (existing) {
-              existing.push(fullPath);
-            } else {
-              index.set(key, [fullPath]);
-            }
-          }
-        } catch {
-          continue;
-        }
+      if (!fs.existsSync(filePath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `File not found: ${filePath}` } })
+        );
+        return;
       }
-    }
 
-    _fileIndex = index;
-    _fileIndexTimestamp = now;
-    logger.debug('文件索引构建完成', { rootDir, totalFiles: fileCount, uniqueNames: index.size });
-    return index;
+      const stats = fs.statSync(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+
+      // Office 文件扩展名：使用 ConverterEngine 转为 Markdown
+      const officeExts = ['.pdf', '.docx', '.pptx'];
+
+      if (officeExts.includes(ext)) {
+        const coreAPI = getCoreAPI();
+        const result = await coreAPI.convertFile({ filePath });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            content: result.markdown,
+            type: 'markdown',
+            size: stats.size,
+            language: 'markdown',
+            title: result.title,
+          })
+        );
+        return;
+      }
+
+      // 非 Office 文件：读取纯文本内容降级预览
+      const content = fs.readFileSync(filePath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          content,
+          type: 'text',
+          size: stats.size,
+        })
+      );
+    } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'file_preview', context: { path: req.url } });
+      const message = err instanceof Error ? err.message : String(err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: `Failed to preview file: ${message}` },
+        })
+      );
+    }
   }
+

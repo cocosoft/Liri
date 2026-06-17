@@ -1,35 +1,18 @@
-// MIT License
-// Copyright (c) 2026 190615273@qq.com
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/**
+ * mcp-marketplace-handlers.ts — MCP Marketplace HTTP 处理器（从 LocalHTTPService 提取）
+ */
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-// ========== MCPMarketplace Handlers ==========
-
+  /**
+   * 处理 MCP 市场搜索请求 GET /v1/mcp/marketplace/search?query=xx&category=xx
+   */
 export async function handleMCPMarketplaceSearch(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -69,7 +52,7 @@ export async function handleMCPMarketplaceSearch(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(results));
     } catch (err) {
-      await handleError(err, { module: 'infra:mcp', action: 'search_marketplace' });
+      await handleError(err, { module: 'infra:http', action: 'mcp_marketplace_search' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -85,7 +68,6 @@ export async function handleMCPMarketplaceSearch(
    * 返回可用第三方注册表源（GitHub/NPM/Smithery 等）
    */
 export async function handleMCPMarketplaceRegistries(
-  ctx: HandlerCtx,
     _req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -123,7 +105,7 @@ export async function handleMCPMarketplaceRegistries(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ registries }));
     } catch (err) {
-      await handleError(err, { module: 'infra:mcp', action: 'get_registries' });
+      await handleError(err, { module: 'infra:http', action: 'mcp_registries' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -138,7 +120,6 @@ export async function handleMCPMarketplaceRegistries(
    * 处理获取 MCP 市场分类请求 GET /v1/mcp/marketplace/categories
    */
 export async function handleMCPMarketplaceCategories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -162,7 +143,7 @@ export async function handleMCPMarketplaceCategories(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(categories));
     } catch (err) {
-      await handleError(err, { module: 'infra:mcp', action: 'get_categories' });
+      logger.error('获取 MCP 分类列表失败', err as Error);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -177,7 +158,6 @@ export async function handleMCPMarketplaceCategories(
    * 处理获取 MCP 服务器详情请求 GET /v1/mcp/marketplace/servers/:serverId
    */
 export async function handleMCPMarketplaceServerDetail(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     serverId: string
@@ -202,7 +182,7 @@ export async function handleMCPMarketplaceServerDetail(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detail));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_server_detail' });
+      logger.error('获取 MCP 服务器详情失败', err as Error);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -217,7 +197,6 @@ export async function handleMCPMarketplaceServerDetail(
    * 处理获取已安装 MCP 服务器列表 GET /v1/mcp/marketplace/installed
    */
 export async function handleMCPInstalledServers(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -249,7 +228,7 @@ export async function handleMCPInstalledServers(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detailed));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_installed_servers' });
+      await handleError(err, { module: 'infra:http', action: 'mcp_installed_list' });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -264,7 +243,6 @@ export async function handleMCPInstalledServers(
    * 处理安装 MCP 服务器请求 POST /v1/mcp/marketplace/servers/:serverId/install
    */
 export async function handleMCPInstallServer(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     serverId: string
@@ -298,7 +276,6 @@ export async function handleMCPInstallServer(
    * 处理卸载 MCP 服务器请求 POST /v1/mcp/marketplace/servers/:serverId/uninstall
    */
 export async function handleMCPUninstallServer(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     serverId: string
@@ -317,7 +294,7 @@ export async function handleMCPUninstallServer(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'mcp_uninstall_server', context: { serverId } });
+      logger.error(`卸载 MCP 服务器失败: ${serverId}`, err as Error);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ 
         error: { 
@@ -332,13 +309,12 @@ export async function handleMCPUninstallServer(
    * 处理切换 MCP 服务器启用状态 POST /v1/mcp/marketplace/servers/:serverId/toggle
    */
 export async function handleMCPToggleServer(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     serverId: string
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const parsedBody = body ? JSON.parse(body) : {};
       const enabled = parsedBody.enabled;
 
@@ -380,7 +356,6 @@ export async function handleMCPToggleServer(
    * 处理验证 MCP 服务器连接 POST /v1/mcp/servers/:serverId/verify
    */
 export async function handleMCPVerifyServer(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     serverId: string
@@ -449,7 +424,6 @@ export async function handleMCPVerifyServer(
    * 处理列出所有 MCP 工具 GET /v1/mcp/tools
    */
 export async function handleMCPListTools(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -487,13 +461,7 @@ export async function handleMCPListTools(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ tools, total: tools.length }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -502,13 +470,12 @@ export async function handleMCPListTools(
    * body: { enabled: boolean, server?: string }
    */
 export async function handleMCPToggleTool(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     toolName: string
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const parsedBody = body ? JSON.parse(body) : {};
       const enabled = parsedBody.enabled;
       const serverName = parsedBody.server as string | undefined;
@@ -534,12 +501,7 @@ export async function handleMCPToggleTool(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, tool: toolName, enabled }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
+

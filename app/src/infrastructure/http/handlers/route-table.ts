@@ -1,0 +1,1305 @@
+/**
+ * 路由注册表
+ * 将 HTTP 请求的 method + URL 匹配到对应的 handler 函数
+ * 由 LocalHTTPService.handleRequest 调用
+ */
+
+import type http from 'node:http';
+import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
+
+// Voice handlers（直接函数调用，不使用 this.handleXxx）
+import {
+  handleSTTTranscribe,
+  handleGetVoiceSettings,
+  handleUpdateVoiceSettings,
+  handleStartVoiceSession,
+  handleEndVoiceSession,
+  handleListVoiceSessions,
+  handleGetVoiceSession,
+  handleVoiceUpload,
+  handleVoiceStream,
+  handleTTSSynthesize,
+  handleListVoiceProviders,
+  handleListVoices,
+  handleTestWakeWord,
+} from './voice-handlers';
+
+// Cron handlers（直接函数调用，部分需要 broadcastEvent 回调）
+import {
+  handleListCron,
+  handleCreateCron,
+  handleGetCron,
+  handleUpdateCron,
+  handleDeleteCron,
+  handleRunCron,
+  handleCronStatus,
+  handleCronRuns,
+} from './cron-handlers';
+
+// Channel handlers（直接函数调用，部分需要 broadcastEvent 回调）
+import {
+  handleListChannels,
+  handleGetChannel,
+  handleToggleChannel,
+  handleDeleteChannel,
+  handleUpdateChannel,
+  handleApplyChannelConfig,
+} from './channel-handlers';
+
+// Channel plugin handlers（直接函数调用）
+import { handleUninstallChannelPlugin } from './channel-plugin-handlers';
+
+// Auth handlers（直接函数调用）
+import {
+  handleAuthLogin,
+  handleAuthRegister,
+  handleAuthLogout,
+  handleAuthMe,
+  handleAuthPermissions,
+} from './auth-handlers';
+
+/**
+ * 路由调度函数
+ * @param req - HTTP 请求
+ * @param res - HTTP 响应
+ * @param url - 解析后的 URL path
+ * @param self - LocalHTTPService 实例（用于调用 this.handleXxx 方法）
+ * @param broadcastEvent - 事件广播回调
+ * @param handlerCtx - HandlerCtx 实例（用于动态 import 的 handler）
+ * @returns true 表示已匹配路由并处理，false 表示未匹配
+ */
+export async function dispatchRoute(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  self: Record<string, Function>,
+  broadcastEvent: (event: string, data: any) => void,
+  handlerCtx: any
+): Promise<boolean> {
+  const method = req.method || 'GET';
+
+  // ---- SSE Event Bus ----
+  if (url === '/v1/events') {
+    if (req.method === 'GET') {
+      await self['handleEvents'](req, res);
+      return true;
+    }
+    // HEAD 用于心跳保活，返回 200 即可
+    if (req.method === 'HEAD') {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end();
+      return true;
+    }
+  }
+
+  // ---- Chat ----
+  if (method === 'POST' && url === '/v1/chat/completions') {
+    await self['handleChatCompletions'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/chat/question-answer') {
+    await self['handleQuestionAnswer'](req, res);
+    return true;
+  }
+
+  // ---- Session ----
+  if (method === 'GET' && url === '/v1/sessions') {
+    await self['handleListSessions'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/sessions') {
+    await self['handleCreateSession'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/sessions/current') {
+    await self['handleGetCurrentSession'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
+    await self['handleGetSessionMessages'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'PUT' &&
+    url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)
+  ) {
+    const match = url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/);
+    await self['handleUpdateMessageBlocks'](req, res, match![1], match![2]);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
+    await self['handleGetSession'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/switch$/)) {
+    await self['handleSwitchSession'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/switch$/)![1]
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/sessions\/(.+)$/)) {
+    await self['handleRenameSession'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/title$/)) {
+    await self['handleGenerateTitle'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/title$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
+    await self['handleDeleteSession'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url === '/v1/sessions') {
+    await self['handleClearAllSessions'](req, res);
+    return true;
+  }
+
+  // ---- Plans & Flows (编排) ----
+  if (method === 'GET' && url === '/v1/plans') {
+    await self['handleListPlans'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/plans') {
+    await self['handleCreatePlan'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/plans\/([^/]+)$/)) {
+    await self['handleGetPlan'](
+      req,
+      res,
+      url.match(/^\/v1\/plans\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/plans\/(.+)\/execute$/)) {
+    await self['handleExecutePlan'](
+      req,
+      res,
+      url.match(/^\/v1\/plans\/(.+)\/execute$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/plans\/(.+)\/abort$/)) {
+    await self['handleAbortPlan'](
+      req,
+      res,
+      url.match(/^\/v1\/plans\/(.+)\/abort$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/flows') {
+    await self['handleListFlows'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/flows\/([^/]+)$/)) {
+    await self['handleGetFlow'](
+      req,
+      res,
+      url.match(/^\/v1\/flows\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- PDCA (长程任务编排) ----
+  if (method === 'POST' && url === '/v1/pdca/start') {
+    await self['handlePdcaStart'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/pdca\/([^/]+)$/)) {
+    await self['handlePdcaStatus'](
+      req,
+      res,
+      url.match(/^\/v1\/pdca\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/pdca\/(.+)\/audit$/)) {
+    await self['handlePdcaAudit'](
+      req,
+      res,
+      url.match(/^\/v1\/pdca\/(.+)\/audit$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/pdca\/(.+)\/confirm$/)) {
+    await self['handlePdcaConfirm'](
+      req,
+      res,
+      url.match(/^\/v1\/pdca\/(.+)\/confirm$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/review$/)
+  ) {
+    const m = url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/review$/)!;
+    await self['handlePdcaReviewStep'](req, res, m[1], m[2]);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/decide$/)
+  ) {
+    const m = url.match(/^\/v1\/pdca\/(.+)\/step\/(.+)\/decide$/)!;
+    await self['handlePdcaDecideStep'](req, res, m[1], m[2]);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/pdca/list') {
+    await self['handlePdcaList'](req, res);
+    return true;
+  }
+
+  // ---- Kanban ----
+  if (method === 'GET' && url === '/v1/kanban') {
+    await self['handleKanbanList'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/kanban') {
+    await self['handleKanbanCreate'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/kanban\/(.+)$/)) {
+    await self['handleKanbanUpdate'](
+      req,
+      res,
+      url.match(/^\/v1\/kanban\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/kanban\/(.+)$/)) {
+    await self['handleKanbanDelete'](
+      req,
+      res,
+      url.match(/^\/v1\/kanban\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/kanban\/(.+)\/move$/)) {
+    await self['handleKanbanMove'](
+      req,
+      res,
+      url.match(/^\/v1\/kanban\/(.+)\/move$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Tools ----
+  if (method === 'GET' && url === '/v1/tools') {
+    await self['handleListTools'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/tools\/(.+)\/execute$/)) {
+    await self['handleExecuteTool'](
+      req,
+      res,
+      url.match(/^\/v1\/tools\/(.+)\/execute$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Agent ----
+  if (method === 'GET' && url === '/v1/agents/tasks') {
+    await self['handleListAgentTasks'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/agents/tasks') {
+    await self['handleExecuteAgentTask'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/agents\/tasks\/([^/]+)$/)) {
+    await self['handleGetAgentProgress'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/agents\/tasks\/(.+)\/state$/)) {
+    await self['handleGetAgentTaskState'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/state$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/agents\/tasks\/(.+)\/audit$/)) {
+    await self['handleGetAgentTaskAudit'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/audit$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/agents\/tasks\/(.+)\/logs$/)) {
+    await self['handleGetAgentTaskLogs'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/logs$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/agents\/tasks\/(.+)\/output$/)) {
+    await self['handleGetAgentTaskOutput'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/output$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/agents\/tasks\/(.+)\/recover$/)) {
+    await self['handleRecoverAgentTask'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/recover$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/agents\/tasks\/(.+)\/chat$/)) {
+    await self['handleAgentTaskChat'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/chat$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/agents\/tasks\/(.+)\/cancel$/)) {
+    await self['handleCancelAgentTask'](
+      req,
+      res,
+      url.match(/^\/v1\/agents\/tasks\/(.+)\/cancel$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Voice ----
+  if (method === 'POST' && url === '/v1/voice/transcribe') {
+    await handleSTTTranscribe(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/voice/settings') {
+    await handleGetVoiceSettings(req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/voice/settings') {
+    await handleUpdateVoiceSettings(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/voice/session/start') {
+    await handleStartVoiceSession(req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/voice\/session\/(.+)\/end$/)) {
+    await handleEndVoiceSession(
+      req,
+      res,
+      url.match(/^\/v1\/voice\/session\/(.+)\/end$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/voice/sessions') {
+    await handleListVoiceSessions(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/voice\/session\/(.+)$/)) {
+    await handleGetVoiceSession(
+      req,
+      res,
+      url.match(/^\/v1\/voice\/session\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/voice/upload') {
+    await handleVoiceUpload(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/voice\/stream\/(.+)$/)) {
+    await handleVoiceStream(
+      req,
+      res,
+      url.match(/^\/v1\/voice\/stream\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/voice/tts') {
+    await handleTTSSynthesize(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/voice/providers') {
+    await handleListVoiceProviders(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/voice/voices') {
+    await handleListVoices(req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)) {
+    await handleTestWakeWord(
+      req,
+      res,
+      url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Checkpoints ----
+  if (method === 'POST' && url === '/v1/checkpoints') {
+    await self['handleCreateCheckpoint'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/checkpoints') {
+    await self['handleListCheckpoints'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/checkpoints\/(.+)$/)) {
+    await self['handleGetCheckpoint'](
+      req,
+      res,
+      url.match(/^\/v1\/checkpoints\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/checkpoints\/(.+)\/rollback$/)) {
+    await self['handleRollbackCheckpoint'](
+      req,
+      res,
+      url.match(/^\/v1\/checkpoints\/(.+)\/rollback$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/checkpoints\/(.+)$/)) {
+    await self['handleDeleteCheckpoint'](
+      req,
+      res,
+      url.match(/^\/v1\/checkpoints\/(.+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Memory ----
+  if (method === 'POST' && url === '/v1/memory') {
+    await self['handleCreateMemory'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/memory') {
+    await self['handleListMemories'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/memory/search') {
+    await self['handleSearchMemories'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/memory/weights') {
+    await self['handleGetMemoryWeights'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/memory/sync-status') {
+    await self['handleGetSyncStatus'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/memory\/(.+)\/summary$/)) {
+    await self['handleGetMemorySummary'](
+      req,
+      res,
+      url.match(/^\/v1\/memory\/(.+)\/summary$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/memory\/(.+)$/)) {
+    await self['handleGetMemory'](
+      req,
+      res,
+      url.match(/^\/v1\/memory\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/memory') {
+    await self['handleCreateMemory'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/memory/sync') {
+    await self['handleSyncMemories'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/memory/consolidate') {
+    await self['handleConsolidateMemories'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {
+    await self['handleUpdateMemory'](
+      req,
+      res,
+      url.match(/^\/v1\/memory\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url === '/v1/memory') {
+    await self['handleDeleteAllMemories'](req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/memory\/(.+)$/)) {
+    await self['handleDeleteMemory'](
+      req,
+      res,
+      url.match(/^\/v1\/memory\/(.+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Semantic Index ----
+  if (method === 'POST' && url === '/v1/semantic/index') {
+    await self['handleBuildSemanticIndex'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/semantic/search') {
+    await self['handleSearchSemantic'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/semantic/index/status') {
+    await self['handleGetSemanticIndexStatus'](req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url === '/v1/semantic/index') {
+    await self['handleClearSemanticIndex'](req, res);
+    return true;
+  }
+
+  // ---- Files ----
+  if (method === 'GET' && url === '/v1/files/list') {
+    const { handleFileList } = await import('./files-handlers');
+    await handleFileList(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/files/read') {
+    const { handleFileRead } = await import('./files-handlers');
+    await handleFileRead(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/files/upload') {
+    await self['handleFileUpload'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/files/convert') {
+    await self['handleConvertFile'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/files/detect') {
+    await self['handleDetectFileType'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/files/send-to-ai') {
+    await self['handleSendFileToAI'](req, res);
+    return true;
+  }
+
+  // ---- Files: Registry API ----
+  if (method === 'GET' && url === '/v1/files/health') {
+    await self['handleFileHealth'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/files/registry/list') {
+    await self['handleFileRegistryList'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/files/registry/detail') {
+    await self['handleFileRegistryDetail'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/files/registry/search') {
+    await self['handleFileRegistrySearch'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/files/registry/stats') {
+    await self['handleFileRegistryStats'](req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url === '/v1/files/registry/delete') {
+    await self['handleFileRegistryDelete'](req, res);
+    return true;
+  }
+
+  // ---- Workspaces ----
+  if (method === 'GET' && url === '/v1/workspaces') {
+    await self['handleListWorkspaces'](req, res);
+    return true;
+  }
+
+  // ---- Knowledge ----
+  if (method === 'GET' && url === '/v1/knowledge') {
+    await self['handleListKnowledge'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/search') {
+    await self['handleSearchKnowledge'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge') {
+    await self['handleCreateKnowledge'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/knowledge/bases') {
+    await self['handleListKnowledgeBases'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/bases') {
+    await self['handleCreateKnowledgeBase'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/knowledge\/bases\/(.+)$/)) {
+    await self['handleUpdateKnowledgeBase'](
+      req,
+      res,
+      url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/knowledge\/bases\/(.+)$/)) {
+    await self['handleDeleteKnowledgeBase'](
+      req,
+      res,
+      url.match(/^\/v1\/knowledge\/bases\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/save-from-chat') {
+    await self['handleSaveFromChat'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/upload') {
+    await self['handleKnowledgeUpload'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/compile') {
+    await self['handleKnowledgeCompile'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/knowledge/raw-files') {
+    await self['handleGetRawFiles'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/knowledge/docs') {
+    await self['handleUpdateKnowledgeDoc'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/export-to-notebook') {
+    await self['handleExportToNotebook'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/import-from-file') {
+    await self['handleImportFromFile'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/ingest') {
+    await self['handleImportFromFile'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/batch-delete') {
+    await self['handleBatchDeleteKnowledge'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/batch-tag') {
+    await self['handleBatchTagKnowledge'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)) {
+    await self['handleUpdateKnowledge'](
+      req,
+      res,
+      url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)) {
+    await self['handleDeleteKnowledge'](
+      req,
+      res,
+      url.match(/^\/v1\/knowledge\/(?!bases)(.+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Buddy ----
+  if (method === 'GET' && url === '/v1/buddy/companion') {
+    await self['handleGetBuddy'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/buddy/interact') {
+    await self['handleBuddyInteract'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/buddy/stats') {
+    await self['handleGetBuddyStats'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/buddy/dreams') {
+    await self['handleGetDreamLogs'](req, res);
+    return true;
+  }
+
+  // ---- Cron (delegated to handlers/cron-handlers.ts) ----
+  if (method === 'GET' && url === '/v1/cron') {
+    await handleListCron(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/cron') {
+    await handleCreateCron(req, res, (event, data) =>
+      broadcastEvent(event, data)
+    );
+    return true;
+  }
+  // 精确路由必须在正则捕获之前，避免 /status 被 /:id 拦截
+  if (method === 'GET' && url === '/v1/cron/status') {
+    await handleCronStatus(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/cron/runs')) {
+    await handleCronRuns(req, res, url);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/cron\/(.+)$/)) {
+    await handleGetCron(req, res, url.match(/^\/v1\/cron\/(.+)$/)![1]);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/cron\/(.+)$/)) {
+    await handleUpdateCron(
+      req,
+      res,
+      url.match(/^\/v1\/cron\/(.+)$/)![1],
+      (event, data) => broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/cron\/(.+)$/)) {
+    await handleDeleteCron(
+      req,
+      res,
+      url.match(/^\/v1\/cron\/(.+)$/)![1],
+      (event, data) => broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/cron\/(.+)\/run$/)) {
+    await handleRunCron(
+      req,
+      res,
+      url.match(/^\/v1\/cron\/(.+)\/run$/)![1],
+      (event, data) => broadcastEvent(event, data)
+    );
+    return true;
+  }
+
+  // ---- Channels ----
+  if (method === 'GET' && url === '/v1/channels') {
+    await handleListChannels(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/channels\/(.+)$/)) {
+    await handleGetChannel(req, res, url.match(/^\/v1\/channels\/(.+)$/)![1]);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/channels\/(.+)\/toggle$/)) {
+    await handleToggleChannel(
+      req,
+      res,
+      url.match(/^\/v1\/channels\/(.+)\/toggle$/)![1],
+      (event, data) => broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/channels\/(.+)$/)) {
+    await handleDeleteChannel(
+      req,
+      res,
+      url.match(/^\/v1\/channels\/(.+)$/)![1],
+      (event, data) => broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/channels\/(.+)$/)) {
+    await handleUpdateChannel(
+      req,
+      res,
+      url.match(/^\/v1\/channels\/(.+)$/)![1],
+      (event, data) => broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/channels/config/apply') {
+    await handleApplyChannelConfig(req, res);
+    return true;
+  }
+
+  // ---- Channel Plugins ----
+  if (method === 'GET' && url === '/v1/channels/plugins') {
+    await self['handleListChannelPlugins'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/channels/plugins/install') {
+    await self['handleInstallChannelPlugin'](req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/channels\/plugins\/(.+)$/)) {
+    await handleUninstallChannelPlugin(
+      req,
+      res,
+      url.match(/^\/v1\/channels\/plugins\/(.+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- WeChat CLI Status ----
+  if (method === 'GET' && url === '/v1/wechat/cli-status') {
+    await self['handleWechatCliStatus'](req, res);
+    return true;
+  }
+
+  // ---- Config ----
+  if (method === 'GET' && url === '/favicon.ico') {
+    await self['handleFavicon'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/config') {
+    await self['handleListConfig'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/config\/(.+)$/)) {
+    await self['handleGetConfig'](
+      req,
+      res,
+      url.match(/^\/v1\/config\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/config\/(.+)$/)) {
+    await self['handleSetConfig'](
+      req,
+      res,
+      url.match(/^\/v1\/config\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/config\/(.+)$/)) {
+    await self['handleDeleteConfig'](
+      req,
+      res,
+      url.match(/^\/v1\/config\/(.+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Router（智能路由）----
+  if (method === 'GET' && url === '/v1/router/config') {
+    await self['handleRouterGetConfig'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/router/config') {
+    await self['handleRouterUpdateConfig'](req, res);
+    return true;
+  }
+
+  // ---- Settings ----
+  if (method === 'GET' && url === '/v1/settings/data-directory') {
+    await self['handleGetDataDirectory'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/settings/data-directory') {
+    await self['handleSetDataDirectory'](req, res);
+    return true;
+  }
+
+  // ---- Skills (ClawHub 生态对接) ----
+  if (method === 'GET' && url === '/v1/skills') {
+    await self['handleListSkills'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/skills/system') {
+    await self['handleListSystemSkills'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/skills\/system\/(.+)\/content$/)) {
+    await self['handleSystemSkillContent'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/system\/(.+)\/content$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/skills/search') {
+    await self['handleSearchSkills'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/skills/recommended') {
+    await self['handleRecommendedSkills'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/skills/categories') {
+    await self['handleSkillCategories'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/skills/sources') {
+    await self['handleSkillSources'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/skills/sources') {
+    await self['handleAddSkillSource'](req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/skills\/sources\/(.+)$/)) {
+    await self['handleRemoveSkillSource'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/sources\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/skills\/(.+)$/)) {
+    await self['handleGetSkillDetail'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/skills/install') {
+    await self['handleInstallSkill'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/uninstall$/)) {
+    await self['handleUninstallSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/uninstall$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/update$/)) {
+    await self['handleUpdateSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/update$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/toggle$/)) {
+    await self['handleToggleSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/toggle$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/skills') {
+    await self['handleCreateSkill'](req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/skills\/(.+)$/)) {
+    await self['handleUpdateSkillById'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/skills\/(.+)$/)) {
+    await self['handleDeleteSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/enable$/)) {
+    await self['handleEnableSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/enable$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/disable$/)) {
+    await self['handleDisableSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/disable$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Monitor ----
+  if (method === 'GET' && url === '/v1/monitor/summary') {
+    await self['handleMonitorSummary'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/monitor/metrics')) {
+    await self['handleMonitorMetrics'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/monitor/alerts')) {
+    await self['handleMonitorAlerts'](req, res);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)
+  ) {
+    await self['handleAcknowledgeAlert'](
+      req,
+      res,
+      url.match(/^\/v1\/monitor\/alerts\/(.+)\/acknowledge$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/monitor/logs')) {
+    await self['handleMonitorLogs'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/monitor/logs/export') {
+    await self['handleExportLogs'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/monitor/sessions') {
+    await self['handleMonitorSessions'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/monitor\/sessions\/(.+)$/)) {
+    await self['handleMonitorSessionDetail'](
+      req,
+      res,
+      url.match(/^\/v1\/monitor\/sessions\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/health/report') {
+    await self['handleHealthReport'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/monitor/sessions/summary') {
+    await self['handleSessionsSummary'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/monitor/otel/metrics') {
+    await self['handleOTelMetrics'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/infrastructure/status') {
+    await self['handleInfrastructureStatus'](req, res);
+    return true;
+  }
+
+  // ---- Analytics ----
+  if (method === 'GET' && url === '/v1/analytics/dashboard') {
+    await self['handleAnalyticsDashboard'](req, res);
+    return true;
+  }
+
+  // ---- Cost ----
+  if (method === 'GET' && url === '/api/cost/summary') {
+    await self['handleCostSummary'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/records') {
+    await self['handleCostRecords'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/range') {
+    await self['handleCostRange'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/report') {
+    await self['handleCostReport'](req, res);
+    return true;
+  }
+
+  // ---- Commands ----
+  if (method === 'GET' && url === '/v1/commands') {
+    await self['handleListCommands'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/commands/execute') {
+    await self['handleExecuteCommand'](req, res);
+    return true;
+  }
+
+  // ---- MCP Marketplace ----
+  if (method === 'GET' && url === '/v1/mcp/marketplace/search') {
+    await self['handleMCPMarketplaceSearch'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/mcp/marketplace/registries') {
+    await self['handleMCPMarketplaceRegistries'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/mcp/marketplace/categories') {
+    await self['handleMCPMarketplaceCategories'](req, res);
+    return true;
+  }
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)
+  ) {
+    await self['handleMCPMarketplaceServerDetail'](
+      req,
+      res,
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/mcp/marketplace/installed') {
+    await self['handleMCPInstalledServers'](req, res);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)
+  ) {
+    await self['handleMCPInstallServer'](
+      req,
+      res,
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)
+  ) {
+    await self['handleMCPUninstallServer'](
+      req,
+      res,
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)
+  ) {
+    await self['handleMCPToggleServer'](
+      req,
+      res,
+      url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)![1]
+    );
+    return true;
+  }
+
+  // ---- MCP Server Verify ----
+  if (method === 'POST' && url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)) {
+    await self['handleMCPVerifyServer'](
+      req,
+      res,
+      url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)![1]
+    );
+    return true;
+  }
+
+  // ---- MCP Tools ----
+  if (method === 'GET' && url === '/v1/mcp/tools') {
+    await self['handleMCPListTools'](req, res);
+    return true;
+  }
+  if (method === 'PATCH' && url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)) {
+    await self['handleMCPToggleTool'](
+      req,
+      res,
+      url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)![1]
+    );
+    return true;
+  }
+
+  // ---- Auth ----
+  if (method === 'POST' && url === '/v1/auth/login') {
+    await handleAuthLogin(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/auth/register') {
+    await handleAuthRegister(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/auth/logout') {
+    await handleAuthLogout(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/auth/me') {
+    await handleAuthMe(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/auth/permissions') {
+    await handleAuthPermissions(req, res);
+    return true;
+  }
+
+  // ---- API Keys ----
+  if (method === 'GET' && url === '/v1/apikeys') {
+    await self['handleListApiKeys'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/apikeys') {
+    await self['handleCreateApiKey'](req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/apikeys\/(.+)$/)) {
+    await self['handleDeleteApiKey'](
+      req,
+      res,
+      url.match(/^\/v1\/apikeys\/(.+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- File Open/Read/Paths/Resolve/Preview ----
+  if (method === 'GET' && url === '/api/file/open') {
+    await self['handleFileOpen'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/api/file/read')) {
+    await self['handleFileRead'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/file/paths') {
+    await self['handleFilePaths'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/api/file/resolve-path')) {
+    await self['handleFileResolvePath'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/file/preview') {
+    await self['handleFilePreview'](req, res);
+    return true;
+  }
+
+  // ---- Health ----
+  if (method === 'GET' && url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService' }));
+    return true;
+  }
+
+  // ---- Model Management API (Providers / Usage / Balance / Pricing) ----
+  const handled = await tryHandleRoute(req, res);
+  if (handled) return true;
+
+  return false;
+}

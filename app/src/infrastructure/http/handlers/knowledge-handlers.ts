@@ -1,40 +1,15 @@
-// MIT License
-// Copyright (c) 2026 190615273@qq.com
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/**
+ * knowledge-handlers.ts — 知识库相关 HTTP 处理器（从 LocalHTTPService 提取）
+ */
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { notifyFileChanged } from './handler-utils';
+import { sendError, readRequestBody, broadcastEvent, checkFilePathPermission, notifyFileChanged } from './handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 
-  // ========== Knowledge Handlers ==========
-
-  /**
-   * 处理列出知识条目请求
-   * 支持 ?base=<name> 过滤，返回真实文件元数据
-   */
 export async function handleListKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
       const { knowledgeDocsProvider } =
         await import('@modules/docs/FileDocsProvider');
@@ -103,7 +78,7 @@ export async function handleListKnowledge(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -112,12 +87,11 @@ export async function handleListKnowledge(
    * 使用 HybridKnowledgeRouter 进行混合搜索
    */
 export async function handleSearchKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { query } = JSON.parse(body);
       if (!query) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -142,7 +116,7 @@ export async function handleSearchKnowledge(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -151,12 +125,11 @@ export async function handleSearchKnowledge(
    * 将新知识写入用户知识库目录（~/.pyapp/knowledge/）
    */
 export async function handleCreateKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { title, content, category } = JSON.parse(body);
       if (!title) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -190,9 +163,9 @@ export async function handleCreateKnowledge(
           updated_at: Date.now(),
         })
       );
-      ctx.broadcastEvent('knowledge:created', { id: newId, title });
+      broadcastEvent('knowledge:created', { id: newId, title });
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -201,13 +174,12 @@ export async function handleCreateKnowledge(
    * knowledgeId 为 docPath（相对路径），从知识库根目录查找文件
    */
 export async function handleUpdateKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     knowledgeId: string
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { title, content } = JSON.parse(body);
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -240,9 +212,9 @@ export async function handleUpdateKnowledge(
           updated_at: Date.now(),
         })
       );
-      ctx.broadcastEvent('knowledge:updated', { id: knowledgeId });
+      broadcastEvent('knowledge:updated', { id: knowledgeId });
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -251,11 +223,10 @@ export async function handleUpdateKnowledge(
    * knowledgeId 为 docPath（相对路径），从知识库根目录删除文件
    */
 export async function handleDeleteKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     knowledgeId: string
-): Promise<void> {
+  ): Promise<void> {
     try {
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -275,9 +246,9 @@ export async function handleDeleteKnowledge(
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
-      ctx.broadcastEvent('knowledge:deleted', { id: knowledgeId });
+      broadcastEvent('knowledge:deleted', { id: knowledgeId });
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -285,10 +256,9 @@ export async function handleDeleteKnowledge(
    * 处理列出知识库请求 GET /v1/knowledge/bases
    */
 export async function handleListKnowledgeBases(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -297,7 +267,7 @@ export async function handleListKnowledgeBases(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(bases));
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -305,12 +275,11 @@ export async function handleListKnowledgeBases(
    * 处理创建知识库请求 POST /v1/knowledge/bases
    */
 export async function handleCreateKnowledgeBase(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { name, label, icon } = JSON.parse(body);
 
       if (!name || !label) {
@@ -335,7 +304,7 @@ export async function handleCreateKnowledgeBase(
         res.end(JSON.stringify({ error: { message } }));
         return;
       }
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -343,13 +312,12 @@ export async function handleCreateKnowledgeBase(
    * 处理更新知识库请求 PUT /v1/knowledge/bases/:name
    */
 export async function handleUpdateKnowledgeBase(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     baseName: string
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { label, enabled, icon } = JSON.parse(body);
 
       const { getDefaultKnowledgeBaseRegistry } =
@@ -370,7 +338,7 @@ export async function handleUpdateKnowledgeBase(
         res.end(JSON.stringify({ error: { message } }));
         return;
       }
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -378,11 +346,10 @@ export async function handleUpdateKnowledgeBase(
    * 处理删除知识库请求 DELETE /v1/knowledge/bases/:name
    */
 export async function handleDeleteKnowledgeBase(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     baseName: string
-): Promise<void> {
+  ): Promise<void> {
     try {
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -398,7 +365,7 @@ export async function handleDeleteKnowledgeBase(
         res.end(JSON.stringify({ error: { message } }));
         return;
       }
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -406,12 +373,11 @@ export async function handleDeleteKnowledgeBase(
    * 处理聊天保存到知识库请求 POST /v1/knowledge/save-from-chat
    */
 export async function handleSaveFromChat(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { base, title, content, sessionId } = JSON.parse(body);
 
       if (!title || !content) {
@@ -466,7 +432,7 @@ export async function handleSaveFromChat(
         })
       );
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -483,12 +449,11 @@ export async function handleSaveFromChat(
    *   - 其他文本类非 .md 文件写入 raw/ 子目录，以触发后续 LLM 编译
    */
 export async function handleKnowledgeUpload(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { baseName, filename, data, tags, category } = JSON.parse(body);
 
       if (!baseName || !filename || !data) {
@@ -694,7 +659,7 @@ export async function handleKnowledgeUpload(
         })
       );
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -704,12 +669,11 @@ export async function handleKnowledgeUpload(
    * 触发 KnowledgeCompiler 对 raw/ 目录中的原始文件进行 LLM 编译
    */
 export async function handleKnowledgeCompile(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { force } = JSON.parse(body);
 
       const { aiService } = await import('@modules/ai/services/aiService');
@@ -721,7 +685,7 @@ export async function handleKnowledgeCompile(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -731,10 +695,9 @@ export async function handleKnowledgeCompile(
    * 返回 raw/ 目录中所有未编译文件的详细信息（文件名、大小、修改时间、元数据）
    */
 export async function handleGetRawFiles(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
       const { readdir, stat } = await import('node:fs/promises');
       const { join, extname } = await import('node:path');
@@ -792,7 +755,7 @@ export async function handleGetRawFiles(
         })
       );
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -803,12 +766,11 @@ export async function handleGetRawFiles(
    * 将知识文档内容导出为 .md 文件，存放在 ~/.pyapp/output/notebooks/ 目录
    */
 export async function handleExportToNotebook(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { docPath, title } = JSON.parse(body);
 
       if (!docPath) {
@@ -848,7 +810,7 @@ export async function handleExportToNotebook(
         })
       );
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -859,12 +821,11 @@ export async function handleExportToNotebook(
    * 读取指定路径的 .md 文件，将其内容导入到知识库
    */
 export async function handleImportFromFile(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { filePath, baseName, tags } = JSON.parse(body);
 
       if (!filePath) {
@@ -874,7 +835,7 @@ export async function handleImportFromFile(
       }
 
       // 沙箱权限检查
-      if (!ctx.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+      if (!checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
         return;
@@ -973,7 +934,7 @@ export async function handleImportFromFile(
         })
       );
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -988,12 +949,11 @@ export async function handleImportFromFile(
    *   4. 重建 DigestService 缓存
    */
 export async function handleUpdateKnowledgeDoc(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { docPath, content, title, tags, category } = JSON.parse(body);
 
       if (!docPath || !content) {
@@ -1082,7 +1042,7 @@ export async function handleUpdateKnowledgeDoc(
                 updatedAt: new Date().toISOString(),
               })
             );
-            ctx.broadcastEvent('knowledge:updated', { id: docPath });
+            broadcastEvent('knowledge:updated', { id: docPath });
             return;
           }
         }
@@ -1117,9 +1077,9 @@ export async function handleUpdateKnowledgeDoc(
           updatedAt: new Date().toISOString(),
         })
       );
-      ctx.broadcastEvent('knowledge:updated', { id: docPath });
+      broadcastEvent('knowledge:updated', { id: docPath });
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -1130,12 +1090,11 @@ export async function handleUpdateKnowledgeDoc(
    * 批量删除指定的知识库文档文件
    */
 export async function handleBatchDeleteKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { ids } = JSON.parse(body);
 
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -1171,7 +1130,7 @@ export async function handleBatchDeleteKnowledge(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ deleted }));
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
 
@@ -1182,12 +1141,11 @@ export async function handleBatchDeleteKnowledge(
    * 为多个知识文档批量添加标签
    */
 export async function handleBatchTagKnowledge(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
-): Promise<void> {
+  ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { ids, tags } = JSON.parse(body);
 
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -1270,6 +1228,9 @@ export async function handleBatchTagKnowledge(
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ updated }));
     } catch (err) {
-      ctx.sendError(res, err);
+      sendError(res, err);
     }
   }
+
+  // ========== Buddy Handlers ==========
+

@@ -1,0 +1,149 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+import type http from 'node:http';
+import type { HandlerCtx } from './handler-utils';
+
+// ========== Buddy Handlers ==========
+
+/**
+ * 处理获取 Buddy 伙伴信息请求
+ */
+export async function handleGetBuddy(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getCompanion } = await import('@modules/buddy');
+    const companion = getCompanion();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(companion || null));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(null));
+  }
+}
+
+/**
+ * 处理 Buddy 交互请求
+ */
+export async function handleBuddyInteract(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const { action } = JSON.parse(body);
+    const { InteractionManager, getCompanion } =
+      await import('@modules/buddy');
+    const companion = getCompanion();
+    if (!companion) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: '暂无 Buddy', statChanges: {} }));
+      return;
+    }
+    const manager = new InteractionManager();
+    const result = await manager.execute(companion, action);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+    ctx.broadcastEvent('buddy:interacted', {
+      action,
+      result: result.response,
+    });
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 处理获取 Buddy 统计数据请求
+ */
+export async function handleGetBuddyStats(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getDreamStats } = await import('@modules/buddy/dreamLogStore');
+    const dreamStats = getDreamStats();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        interactions: 0,
+        dreamsCompleted: dreamStats.totalCompleted,
+        totalXp: 0,
+      })
+    );
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({ interactions: 0, dreamsCompleted: 0, totalXp: 0 })
+    );
+  }
+}
+
+/**
+ * 处理获取梦境日志请求
+ */
+export async function handleGetDreamLogs(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const urlObj = new URL(
+      req.url || '',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
+    const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
+    const typeFilter = urlObj.searchParams.get('type') || '';
+
+    const { getDreamLogs, getDreamLogsByType, getDreamStats } =
+      await import('@modules/buddy/dreamLogStore');
+
+    const result = typeFilter
+      ? getDreamLogsByType(typeFilter as any, limit, offset)
+      : getDreamLogs(limit, offset);
+
+    const stats = getDreamStats();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ...result, stats }));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        logs: [],
+        total: 0,
+        stats: {
+          totalCompleted: 0,
+          totalFailed: 0,
+          totalSessions: 0,
+          totalInsights: 0,
+        },
+      })
+    );
+  }
+}

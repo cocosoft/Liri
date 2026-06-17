@@ -1,17 +1,9 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { TaskNotifyPolicy, TaskDeliveryStatus, TaskStatus } from './types';
-import type { TaskState } from './types';
+import type { TaskState, DeliveryRecord } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-export interface DeliveryRecord {
-  taskId: string;
-  status: TaskDeliveryStatus;
-  lastAttempt: number;
-  attemptCount: number;
-  error?: string;
-}
 
 export class TaskNotificationService {
   private policies: Map<string, TaskNotifyPolicy> = new Map();

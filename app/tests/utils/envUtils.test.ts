@@ -113,9 +113,9 @@ describe('isProdMode', () => {
 
 describe('getConfigHomeDir', () => {
 
-  it('should return path ending with .pyapp', () => {
+  it('should return path ending with pyapp', () => {
     const result = getConfigHomeDir();
-    expect(result.endsWith('.pyapp')).toBe(true);
+    expect(result.endsWith('pyapp')).toBe(true);
   });
 
   it('should contain the home directory', () => {

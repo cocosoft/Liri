@@ -1,4 +1,3 @@
-//
 /**
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
@@ -44,7 +43,7 @@ import type {
 import {
   ClassifierManager,
   classifierManager,
-} from './classifiers/AutoModeClassifier';
+} from './classifiers/auto-mode-classifier-manager';
 import {
   SandboxIntegrationService,
   sandboxIntegrationService,

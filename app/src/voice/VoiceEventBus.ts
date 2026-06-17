@@ -58,18 +58,39 @@ export class VoiceEventBus extends EventBusImpl implements VoiceEventBusInterfac
 
   /** 向客户端分发事件（服务端事件 → 客户端处理器） */
   emitToClient(event: VoiceServerEvent): void {
-    this.publish(CHANNEL_SERVER, event);
+    this.publishWithErrorPropagation(CHANNEL_SERVER, event);
   }
 
   /** 向服务端分发事件（客户端事件 → 服务端处理器） */
   emitToServer(event: VoiceClientEvent): void {
-    this.publish(CHANNEL_CLIENT, event);
+    this.publishWithErrorPropagation(CHANNEL_CLIENT, event);
   }
 
   /** 分发错误事件 */
   emitError(error: Error): void {
     this.logger.warn('事件总线 · 错误事件', { message: error.message });
     this.publish(CHANNEL_ERROR, error);
+  }
+
+  /**
+   * 发布事件并捕获处理器异常，传播到错误通道
+   */
+  private publishWithErrorPropagation<T>(channel: string, data: T): void {
+    const eventListeners = (this as any).listeners?.get(channel);
+    if (!eventListeners || eventListeners.size === 0) return;
+
+    for (const listener of eventListeners) {
+      try {
+        const result = listener(data);
+        if (result instanceof Promise) {
+          result.catch((error: Error) => {
+            this.emitError(error instanceof Error ? error : new Error(String(error)));
+          });
+        }
+      } catch (error) {
+        this.emitError(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
   }
 
   /** 设置会话状态并通知状态变更处理器 */

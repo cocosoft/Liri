@@ -62,6 +62,7 @@ export async function handleCreateSession(
       const session = await coreAPI.createSession({ title });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(session));
+      ctx.broadcastEvent('session:created', { id: session?.id });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -177,6 +178,7 @@ export async function handleDeleteSession(
       await coreAPI.deleteSession(sessionId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+      ctx.broadcastEvent('session:deleted', { id: sessionId });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -201,6 +203,7 @@ export async function handleClearAllSessions(
       await coreAPI.clearAllSessions();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+      ctx.broadcastEvent('session:cleared', {});
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -278,6 +281,7 @@ export async function handleRenameSession(
       await coreAPI.renameSession(sessionId, title);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+      ctx.broadcastEvent('session:renamed', { id: sessionId, title });
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });
       if (!res.headersSent) {
@@ -311,6 +315,7 @@ export async function handleGenerateTitle(
       res.end(JSON.stringify({ success: true, title }));
       if (title) {
         await coreAPI.renameSession(sessionId, title);
+        ctx.broadcastEvent('session:renamed', { id: sessionId, title });
       }
     } catch (err) {
       await handleError(err, { module: 'infra:http', action: 'handler_error' });

@@ -12,7 +12,7 @@
 // copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// IMPLIED, BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -20,202 +20,177 @@
 // SOFTWARE.
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
+import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 // ========== PDCA Handlers ==========
 
+/**
+ * 启动 PDCA 循环
+ */
 export async function handlePdcaStart(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { description, sessionId } = JSON.parse(body);
-      const taskId = `pdca_${Date.now().toString(36)}`;
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { description, sessionId } = JSON.parse(body);
+    const taskId = `pdca_${Date.now().toString(36)}`;
 
-      const { getOrCreateOrchestrator } = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      const orchestrator = getOrCreateOrchestrator(taskId);
-      const status = await orchestrator.runFullPdca(description, sessionId || '');
+    const { getOrCreateOrchestrator } = await import('@modules/tasks/LongRunningTaskOrchestrator');
+    const orchestrator = getOrCreateOrchestrator(taskId);
+    const status = await orchestrator.runFullPdca(description, sessionId || '');
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(status));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(status));
+    broadcastEvent('pdca:started', { taskId, status });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 获取 PDCA 状态
+ */
 export async function handlePdcaStatus(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse,
-    taskId: string
-  ): Promise<void> {
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    let orchestrator: any = null;
     try {
-      let orchestrator: any = null;
-      try {
-        const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        orchestrator = mod.getOrchestrator(taskId);
-      } catch {
-        // 模块加载失败或无 orchestrator
-      }
-      if (!orchestrator) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] }));
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(orchestrator.getStatus()));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      orchestrator = mod.getOrchestrator(taskId);
+    } catch {
+      // 模块加载失败或无 orchestrator
     }
+    if (!orchestrator) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(orchestrator.getStatus()));
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 获取 PDCA 审计报告
+ */
 export async function handlePdcaAudit(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse,
-    taskId: string
-  ): Promise<void> {
-    try {
-      let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
-      if (!orchestrator) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ taskId, error: 'Not available' }));
-        return;
-      }
-      const report = orchestrator.generateReport();
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    let orchestrator: any = null;
+    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(report));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      res.end(JSON.stringify({ taskId, error: 'Not available' }));
+      return;
     }
+    const report = orchestrator.generateReport();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(report));
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 审阅 PDCA 步骤
+ */
 export async function handlePdcaReviewStep(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse,
-    taskId: string,
-    stepId: string
-  ): Promise<void> {
-    try {
-      let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
-      if (!orchestrator) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Not available' }));
-        return;
-      }
-      const review = await orchestrator.reviewStep(stepId);
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string,
+  stepId: string
+): Promise<void> {
+  try {
+    let orchestrator: any = null;
+    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(review));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      res.end(JSON.stringify({ error: 'Not available' }));
+      return;
     }
+    const review = await orchestrator.reviewStep(stepId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(review));
+    broadcastEvent('pdca:reviewed', { taskId, stepId, review });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 决定 PDCA 步骤
+ */
 export async function handlePdcaDecideStep(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    taskId: string,
-    stepId: string
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { decision } = JSON.parse(body);
-      let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
-      if (!orchestrator) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Not available' }));
-        return;
-      }
-      await orchestrator.decideStep(stepId, decision);
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string,
+  stepId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { decision } = JSON.parse(body);
+    let orchestrator: any = null;
+    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      res.end(JSON.stringify({ error: 'Not available' }));
+      return;
     }
+    await orchestrator.decideStep(stepId, decision);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    broadcastEvent('pdca:decided', { taskId, stepId, decision });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 列出所有 PDCA 任务
+ */
 export async function handlePdcaList(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      let list: any[] = [];
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); list = m.getAllOrchestrators().map((o: any) => o.getStatus()); } catch {}
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(list));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    let list: any[] = [];
+    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); list = m.getAllOrchestrators().map((o: any) => o.getStatus()); } catch {}
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(list));
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 确认 PDCA 任务
+ */
 export async function handlePdcaConfirm(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse,
-    taskId: string
-  ): Promise<void> {
-    try {
-      let orchestrator: any = null;
-      try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
-      if (!orchestrator) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
-        return;
-      }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    let orchestrator: any = null;
+    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(orchestrator.getStatus()));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      res.end(JSON.stringify({ error: 'Not available' }));
+      return;
     }
+    await orchestrator.confirm(undefined);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+  } catch (err) {
+    sendError(res, err);
   }
+}

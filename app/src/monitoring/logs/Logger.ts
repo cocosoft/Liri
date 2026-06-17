@@ -3,7 +3,8 @@ import { logRedact } from './redact/LogRedact.js';
 import { appendLogEntry } from './LogMemory.js';
 import { LogLevel, type StructuredLogEntry, type LogSource } from './types.js';
 
-export { LogLevel, StructuredLogEntry, LogSource } from './types.js';
+export { LogLevel } from './types.js';
+export type { StructuredLogEntry, LogSource } from './types.js';
 
 const LOG_LEVEL_PRIORITY: Record<string, number> = {
   [LogLevel.DEBUG]: 0,

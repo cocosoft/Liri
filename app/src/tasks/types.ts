@@ -144,6 +144,15 @@ export enum TaskDeliveryStatus {
   SKIPPED = 'skipped',
 }
 
+/** 投递记录 */
+export interface DeliveryRecord {
+  taskId: string;
+  status: TaskDeliveryStatus;
+  lastAttempt: number;
+  attemptCount: number;
+  error?: string;
+}
+
 /** 通知策略 */
 export enum TaskNotifyPolicy {
   DONE_ONLY = 'done_only',

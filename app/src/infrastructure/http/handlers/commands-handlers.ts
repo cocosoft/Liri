@@ -1,32 +1,16 @@
-// MIT License
-// Copyright (c) 2026 190615273@qq.com
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/**
+ * commands-handlers.ts — 命令与技能 HTTP 处理器（从 LocalHTTPService 提取）
+ */
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
+import fs from 'node:fs';
+import path from 'node:path';
+import { sendError, readRequestBody } from './handler-utils';
 
-// ========== Commands Handlers ==========
-
+  /**
+   * 处理列出所有命令请求 GET /v1/commands
+   */
 export async function handleListCommands(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -45,13 +29,7 @@ export async function handleListCommands(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(result));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -59,13 +37,11 @@ export async function handleListCommands(
    * 处理执行命令请求 POST /v1/commands/execute
    */
 export async function handleExecuteCommand(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
-
+      const body = await readRequestBody(req);
       if (!body) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
@@ -110,13 +86,7 @@ export async function handleExecuteCommand(
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -189,12 +159,11 @@ function copyDirectory(
    * @param options.migrate 是否迁移现有数据（默认 true）
    */
 export async function handleSetDataDirectory(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const payload = JSON.parse(body);
       const { directory, migrate = true } = payload;
 
@@ -246,8 +215,6 @@ export async function handleSetDataDirectory(
         copied: number;
         skipped: number;
         errors: string[];
-        cleaned?: number;
-        cleanedErrors?: string[];
       } | null = null;
       if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
         // 阶段一：写迁移令牌，标记迁移进行中
@@ -294,11 +261,6 @@ export async function handleSetDataDirectory(
         } catch {
           // 非致命：标记写入失败不影响目录切换
         }
-
-        // 阶段三：迁移成功后清理旧目录内容，释放磁盘空间
-        const { cleaned, cleanedErrors } = cleanupOldDirectory(currentDir, fs, path);
-        migrationResult.cleaned = cleaned;
-        migrationResult.cleanedErrors = cleanedErrors;
       }
 
       // 设置全局覆盖
@@ -309,29 +271,19 @@ export async function handleSetDataDirectory(
         await import('@modules/config/settings/userSettings');
       await updateUserSettings({ dataDirectory: resolvedDir });
 
-      const migrationSummary = migrationResult
-        ? `数据目录已更新，已迁移 ${migrationResult.copied} 个文件，跳过 ${migrationResult.skipped} 个文件`
-        : '数据目录已更新';
-
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           success: true,
-          message: migrationResult?.cleaned
-            ? `${migrationSummary}，已清理旧目录 ${migrationResult.cleaned} 项`
-            : migrationSummary,
+          message: migrationResult
+            ? `数据目录已更新，已迁移 ${migrationResult.copied} 个文件，跳过 ${migrationResult.skipped} 个文件`
+            : '数据目录已更新',
           directory: resolvedDir,
           migration: migrationResult,
         })
       );
     } catch (error) {
-      await handleError(error, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, error);
     }
   }
 
@@ -371,51 +323,6 @@ function rollbackMigration(
     }
   }
 
-  /**
-   * 迁移成功后清理旧目录内容，释放磁盘空间
-   * 只清理已成功复制的子目录和文件，保留旧目录根节点
-   * @param oldDir 原数据目录
-   * @param fs fs 模块
-   * @param path path 模块
-   * @returns 清理结果统计
-   */
-function cleanupOldDirectory(
-    oldDir: string,
-    fs: any,
-    path: any
-  ): { cleaned: number; cleanedErrors: string[] } {
-    let cleaned = 0;
-    const cleanedErrors: string[] = [];
-
-    try {
-      if (!fs.existsSync(oldDir)) {
-        return { cleaned, cleanedErrors };
-      }
-
-      const entries = fs.readdirSync(oldDir, { withFileTypes: true });
-      for (const entry of entries) {
-        // 跳过 .migrating 等标记文件和隐藏元文件
-        if (entry.name.startsWith('.')) continue;
-
-        const entryPath = path.join(oldDir, entry.name);
-        try {
-          if (entry.isDirectory()) {
-            fs.rmSync(entryPath, { recursive: true, force: true });
-          } else {
-            fs.unlinkSync(entryPath);
-          }
-          cleaned++;
-        } catch (err) {
-          cleanedErrors.push(`清理 ${entryPath} 失败: ${(err as Error).message}`);
-        }
-      }
-    } catch (err) {
-      cleanedErrors.push(`读取旧目录失败: ${(err as Error).message}`);
-    }
-
-    return { cleaned, cleanedErrors };
-  }
-
   // ──────────────────────────────────────────────
   // Skills（ClawHub 生态对接）处理器
   // ──────────────────────────────────────────────
@@ -424,7 +331,7 @@ function cleanupOldDirectory(
    * 获取 ClawHubAdapter 实例
    * 优先从 ThirdPartyAdapterRegistry 获取，fallback 到直接 import
    */
-async function getClawHubAdapter(): Promise<any> {
+export async function getClawHubAdapter(): Promise<any> {
     // 优先从注册表获取
     try {
       const { thirdPartyAdapterRegistry } =
@@ -454,7 +361,6 @@ async function getClawHubAdapter(): Promise<any> {
    * 处理列出已安装技能请求 GET /v1/skills
    */
 export async function handleListSkills(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -465,13 +371,7 @@ export async function handleListSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skills }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -481,7 +381,6 @@ export async function handleListSkills(
    * 返回与前端 SkillPage 兼容的技能列表
    */
 export async function handleListSystemSkills(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -560,13 +459,7 @@ export async function handleListSystemSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skills, total: skills.length }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -575,7 +468,6 @@ export async function handleListSystemSkills(
    * 读取 SKILL.md 文件返回原始内容及 frontmatter
    */
 export async function handleSystemSkillContent(
-  ctx: HandlerCtx,
     _req: http.IncomingMessage,
     res: http.ServerResponse,
     skillId: string
@@ -656,13 +548,7 @@ export async function handleSystemSkillContent(
         })
       );
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -671,7 +557,6 @@ export async function handleSystemSkillContent(
    * source: 限定搜索源（clawhub / github），不传则搜索全部
    */
 export async function handleSearchSkills(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -695,13 +580,7 @@ export async function handleSearchSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ results }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -710,7 +589,6 @@ export async function handleSearchSkills(
    * 返回 ClawHub 市场推荐的技能列表
    */
 export async function handleRecommendedSkills(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -735,13 +613,7 @@ export async function handleRecommendedSkills(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ recommended, categories }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -750,7 +622,6 @@ export async function handleRecommendedSkills(
    * 按能力分类统计已安装插件数量，技能统一归入 skill 分类
    */
 export async function handleSkillCategories(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -777,13 +648,7 @@ export async function handleSkillCategories(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ categories, sourceDistribution: sourceMap }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -792,7 +657,6 @@ export async function handleSkillCategories(
    * 返回 SearchEngine 中注册的所有搜索源名称
    */
 export async function handleSkillSources(
-  ctx: HandlerCtx,
     _req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
@@ -804,13 +668,7 @@ export async function handleSkillSources(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ sources }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -819,12 +677,11 @@ export async function handleSkillSources(
    * Body: { name: string, apiBaseUrl: string }
    */
 export async function handleAddSkillSource(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const { name, apiBaseUrl } = JSON.parse(body || '{}');
 
       if (
@@ -850,13 +707,7 @@ export async function handleAddSkillSource(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, sources }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -864,7 +715,6 @@ export async function handleAddSkillSource(
    * 移除自定义技能搜索源 DELETE /v1/skills/sources/:name
    */
 export async function handleRemoveSkillSource(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     name: string
@@ -878,13 +728,7 @@ export async function handleRemoveSkillSource(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, sources }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -927,7 +771,6 @@ function getSkillSourceMap(installed: any[]): Record<string, number> {
    * 处理获取技能详情请求 GET /v1/skills/:id
    */
 export async function handleGetSkillDetail(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     skillId: string
@@ -947,13 +790,7 @@ export async function handleGetSkillDetail(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skill }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -961,13 +798,11 @@ export async function handleGetSkillDetail(
    * 处理安装技能请求 POST /v1/skills/install
    */
 export async function handleInstallSkill(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const body = await ctx.readRequestBody(req);
-
+      const body = await readRequestBody(req);
       if (!body) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
@@ -991,13 +826,7 @@ export async function handleInstallSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, skill: installed }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -1005,7 +834,6 @@ export async function handleInstallSkill(
    * 处理卸载技能请求 POST /v1/skills/:id/uninstall
    */
 export async function handleUninstallSkill(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     skillId: string
@@ -1017,13 +845,7 @@ export async function handleUninstallSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -1031,7 +853,6 @@ export async function handleUninstallSkill(
    * 处理更新技能请求 POST /v1/skills/:id/update
    */
 export async function handleUpdateSkill(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     skillId: string
@@ -1043,13 +864,7 @@ export async function handleUpdateSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, skill: updated }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
 
@@ -1057,13 +872,12 @@ export async function handleUpdateSkill(
    * 处理切换技能启用状态请求 POST /v1/skills/:id/toggle
    */
 export async function handleToggleSkill(
-  ctx: HandlerCtx,
     req: http.IncomingMessage,
     res: http.ServerResponse,
     skillId: string
   ): Promise<void> {
     try {
-    const body = await ctx.readRequestBody(req);
+      const body = await readRequestBody(req);
       const parsedBody = body ? JSON.parse(body) : {};
       const enabled = parsedBody.enabled;
 
@@ -1086,12 +900,7 @@ export async function handleToggleSkill(
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, enabled }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      sendError(res, err);
     }
   }
+

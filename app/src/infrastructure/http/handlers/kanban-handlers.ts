@@ -20,141 +20,124 @@
 // SOFTWARE.
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
+import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 // ========== Kanban Handlers ==========
 
+/**
+ * 获取看板卡片列表
+ */
 export async function handleKanbanList(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      const cards = await store.loadKanbanCards();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(cards));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+    const store = new SqliteTaskStore();
+    await store.init();
+    const cards = await store.loadKanbanCards();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(cards));
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 创建看板卡片
+ */
 export async function handleKanbanCreate(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { title, description, columnId, assignee, priority, tags } = JSON.parse(body);
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      const card = {
-        id: `kb_${Date.now().toString(36)}`,
-        title,
-        description,
-        columnId: columnId || 'todo',
-        assignee,
-        priority: priority || 'medium',
-        tags: tags || [],
-        sortOrder: Date.now(),
-      };
-      await store.saveKanbanCard(card);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(card));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { title, description, columnId, assignee, priority, tags } = JSON.parse(body);
+    const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+    const store = new SqliteTaskStore();
+    await store.init();
+    const card = {
+      id: `kb_${Date.now().toString(36)}`,
+      title,
+      description,
+      columnId: columnId || 'todo',
+      assignee,
+      priority: priority || 'medium',
+      tags: tags || [],
+      sortOrder: Date.now(),
+    };
+    await store.saveKanbanCard(card);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(card));
+    broadcastEvent('kanban:created', { card });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 更新看板卡片
+ */
 export async function handleKanbanUpdate(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cardId: string
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { title, description, assignee, priority, tags } = JSON.parse(body);
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      await store.saveKanbanCard({ id: cardId, title: title || '', description, assignee, priority, tags });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  cardId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { title, description, assignee, priority, tags } = JSON.parse(body);
+    const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+    const store = new SqliteTaskStore();
+    await store.init();
+    await store.saveKanbanCard({ id: cardId, title: title || '', description, assignee, priority, tags });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    broadcastEvent('kanban:updated', { cardId });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 删除看板卡片
+ */
 export async function handleKanbanDelete(
-  ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cardId: string
-  ): Promise<void> {
-    try {
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      await store.deleteKanbanCard(cardId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  cardId: string
+): Promise<void> {
+  try {
+    const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+    const store = new SqliteTaskStore();
+    await store.init();
+    await store.deleteKanbanCard(cardId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    broadcastEvent('kanban:deleted', { cardId });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 移动看板卡片到新列
+ */
 export async function handleKanbanMove(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cardId: string
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { columnId, sortOrder } = JSON.parse(body);
-      const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      await store.updateKanbanCardColumn(cardId, columnId, sortOrder ?? Date.now());
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  cardId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { columnId, sortOrder } = JSON.parse(body);
+    const { SqliteTaskStore } = await import('@modules/tasks/db/SqliteTaskStore');
+    const store = new SqliteTaskStore();
+    await store.init();
+    await store.updateKanbanCardColumn(cardId, columnId, sortOrder ?? Date.now());
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    broadcastEvent('kanban:moved', { cardId, columnId });
+  } catch (err) {
+    sendError(res, err);
   }
+}

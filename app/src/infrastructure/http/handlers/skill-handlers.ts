@@ -12,7 +12,7 @@
 // copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// IMPLIED, BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -20,8 +20,7 @@
 // SOFTWARE.
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
+import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 /**
  * 获取 ClawHubAdapter 实例
@@ -49,120 +48,105 @@ async function getClawHubAdapter(): Promise<any> {
 
 // ========== SkillCRUD Handlers ==========
 
+/**
+ * 创建（安装）技能
+ */
 export async function handleCreateSkill(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { skillId, sourceUrl } = JSON.parse(body);
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { skillId, sourceUrl } = JSON.parse(body);
 
-      if (!skillId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'skillId is required' } }));
-        return;
-      }
-
-      const adapter = await getClawHubAdapter();
-      const skill = await adapter.installSkill(skillId, sourceUrl);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(skill));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    if (!skillId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'skillId is required' } }));
+      return;
     }
-  }
 
+    const adapter = await getClawHubAdapter();
+    const skill = await adapter.installSkill(skillId, sourceUrl);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(skill));
+    broadcastEvent('skill:created', { skill });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 更新指定技能
+ */
 export async function handleUpdateSkillById(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    skillId: string
-  ): Promise<void> {
-    try {
-      const adapter = await getClawHubAdapter();
-      const skill = await adapter.updateSkill(skillId);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(skill));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  skillId: string
+): Promise<void> {
+  try {
+    const adapter = await getClawHubAdapter();
+    const skill = await adapter.updateSkill(skillId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(skill));
+    broadcastEvent('skill:updated', { skill });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 删除（卸载）技能
+ */
 export async function handleDeleteSkill(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    skillId: string
-  ): Promise<void> {
-    try {
-      const adapter = await getClawHubAdapter();
-      await adapter.uninstallSkill(skillId);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({}));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  skillId: string
+): Promise<void> {
+  try {
+    const adapter = await getClawHubAdapter();
+    await adapter.uninstallSkill(skillId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({}));
+    broadcastEvent('skill:deleted', { skillId });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 启用技能
+ */
 export async function handleEnableSkill(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    skillId: string
-  ): Promise<void> {
-    try {
-      const adapter = await getClawHubAdapter();
-      await adapter.enableSkill(skillId);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ id: skillId, status: 'enabled' }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  skillId: string
+): Promise<void> {
+  try {
+    const adapter = await getClawHubAdapter();
+    await adapter.enableSkill(skillId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ id: skillId, status: 'enabled' }));
+    broadcastEvent('skill:enabled', { skillId });
+  } catch (err) {
+    sendError(res, err);
   }
+}
 
+/**
+ * 禁用技能
+ */
 export async function handleDisableSkill(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    skillId: string
-  ): Promise<void> {
-    try {
-      const adapter = await getClawHubAdapter();
-      await adapter.disableSkill(skillId);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ id: skillId, status: 'disabled' }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  skillId: string
+): Promise<void> {
+  try {
+    const adapter = await getClawHubAdapter();
+    await adapter.disableSkill(skillId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ id: skillId, status: 'disabled' }));
+    broadcastEvent('skill:disabled', { skillId });
+  } catch (err) {
+    sendError(res, err);
   }
+}

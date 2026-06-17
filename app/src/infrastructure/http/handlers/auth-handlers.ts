@@ -20,238 +20,217 @@
 // SOFTWARE.
 
 import type http from 'node:http';
-import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
+import { sendError, readRequestBody } from './handler-utils';
 
 const users = new Map<string, { username: string; password: string }>();
 const tokens = new Map<string, { username: string; permissions: string[] }>();
 
 // ========== Auth Handlers ==========
 
+/**
+ * 用户登录 POST /v1/auth/login
+ */
 export async function handleAuthLogin(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { username, password } = JSON.parse(body);
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { username, password } = JSON.parse(body);
 
-      if (!username || !password) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'username and password are required' },
-          })
-        );
-        return;
-      }
-
-      const user = users.get(username);
-      if (!user || user.password !== password) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Invalid username or password' },
-          })
-        );
-        return;
-      }
-
-      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      tokens.set(token, {
-        username,
-        permissions: ['read', 'write'],
-      });
-
-      const now = Date.now();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+    if (!username || !password) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          token,
-          user: {
-            id: `user_${now}`,
-            username,
-            email: '',
-            role: 'user',
-            trustLevel: 2,
-            created_at: now,
-          },
-          expires_at: now + 86400000,
+          error: { message: 'username and password are required' },
         })
       );
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      return;
     }
-  }
 
-export async function handleAuthRegister(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-    const body = await ctx.readRequestBody(req);
-      const { username, password } = JSON.parse(body);
-
-      if (!username || !password) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'username and password are required' },
-          })
-        );
-        return;
-      }
-
-      if (users.has(username)) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Username already exists' },
-          })
-        );
-        return;
-      }
-
-      users.set(username, { username, password });
-      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      tokens.set(token, {
-        username,
-        permissions: ['read', 'write'],
-      });
-
-      const now = Date.now();
-      res.writeHead(201, { 'Content-Type': 'application/json' });
+    const user = users.get(username);
+    if (!user || user.password !== password) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          token,
-          user: {
-            id: `user_${now}`,
-            username,
-            email: '',
-            role: 'user',
-            trustLevel: 2,
-            created_at: now,
-          },
-          expires_at: now + 86400000,
+          error: { message: 'Invalid username or password' },
         })
       );
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      return;
     }
-  }
 
-export async function handleAuthLogout(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
+    const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    tokens.set(token, {
+      username,
+      permissions: ['read', 'write'],
+    });
 
-      if (token) {
-        tokens.delete(token);
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({}));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
-    }
-  }
-
-export async function handleAuthMe(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
-
-      const session = tokens.get(token);
-      if (!session) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
-        return;
-      }
-
-      const now = Date.now();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
+    const now = Date.now();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        token,
+        user: {
           id: `user_${now}`,
-          username: session.username,
+          username,
           email: '',
           role: 'user',
           trustLevel: 2,
           created_at: now,
-          permissions: session.permissions,
+        },
+        expires_at: now + 86400000,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 用户注册 POST /v1/auth/register
+ */
+export async function handleAuthRegister(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { username, password } = JSON.parse(body);
+
+    if (!username || !password) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'username and password are required' },
         })
       );
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      return;
     }
-  }
 
+    if (users.has(username)) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Username already exists' },
+        })
+      );
+      return;
+    }
+
+    users.set(username, { username, password });
+    const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    tokens.set(token, {
+      username,
+      permissions: ['read', 'write'],
+    });
+
+    const now = Date.now();
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        token,
+        user: {
+          id: `user_${now}`,
+          username,
+          email: '',
+          role: 'user',
+          trustLevel: 2,
+          created_at: now,
+        },
+        expires_at: now + 86400000,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 用户登出 POST /v1/auth/logout
+ */
+export async function handleAuthLogout(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.replace('Bearer ', '');
+
+    if (token) {
+      tokens.delete(token);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({}));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 获取当前用户信息 GET /v1/auth/me
+ */
+export async function handleAuthMe(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.replace('Bearer ', '');
+
+    const session = tokens.get(token);
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
+      return;
+    }
+
+    const now = Date.now();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        id: `user_${now}`,
+        username: session.username,
+        email: '',
+        role: 'user',
+        trustLevel: 2,
+        created_at: now,
+        permissions: session.permissions,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 获取当前用户权限列表 GET /v1/auth/permissions
+ */
 export async function handleAuthPermissions(
-  ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.replace('Bearer ', '');
 
-      const session = tokens.get(token);
-      if (!session) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
-        return;
-      }
-
-      const permissionList = session.permissions.map((p: string) => ({
-        scope: p === 'read' ? 'read' : p === 'write' ? 'write' : 'admin',
-        description:
-          p === 'read' ? '读取权限' : p === 'write' ? '写入权限' : '管理权限',
-        level: p as 'none' | 'read' | 'write' | 'admin',
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(permissionList));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    const session = tokens.get(token);
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
+      return;
     }
+
+    const permissionList = session.permissions.map((p: string) => ({
+      scope: p === 'read' ? 'read' : p === 'write' ? 'write' : 'admin',
+      description:
+        p === 'read' ? '读取权限' : p === 'write' ? '写入权限' : '管理权限',
+      level: p as 'none' | 'read' | 'write' | 'admin',
+    }));
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(permissionList));
+  } catch (err) {
+    sendError(res, err);
   }
+}

@@ -70,7 +70,7 @@ jobs:
     - name: Generate coverage report (JSON)
       run: bun test --coverage --reporter=json tests/ > coverage.json 2>&1 || true
 
-    - name: Check coverage threshold (>=60%)
+    - name: Check coverage threshold (at least 60%)
       run: |
         node -e "
           const fs = require('fs');
@@ -140,7 +140,7 @@ jobs:
     - name: Install dependencies
       run: bun install
 
-    - name: Check circular dependencies (baseline: <=11)
+    - name: Check circular dependencies (baseline at most 11)
       run: |
         OUTPUT=$(npx madge --circular --extensions ts,tsx src/ 2>&1) || true
         echo "$OUTPUT"
@@ -150,7 +150,7 @@ jobs:
           echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (11)"
           exit 1
         fi
-        echo "PASS: Within baseline limit (<=11)"
+        echo "PASS: Within baseline limit (at most 11)"
       working-directory: app
 
   command-test:

@@ -31,7 +31,7 @@
  */
 
 import { getDefaultDigestService } from '@modules/knowledge/KnowledgeDigestService';
-import type { IKnowledgeSearch } from '../docs/knowledge-types';
+import type { IKnowledgeSearch, KnowledgeRoute } from '../docs/knowledge-types';
 import type {
   KnowledgeSummary,
   KnowledgeQueryResult as KQR,
@@ -101,7 +101,7 @@ export class KnowledgeSummarizer {
       minScore: 0.1,
     });
 
-    const summaries = routes.map((r) => ({
+    const summaries = routes.map((r: KnowledgeRoute) => ({
       title: r.title,
       content: r.snippet,
       category: r.category,

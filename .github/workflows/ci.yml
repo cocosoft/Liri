@@ -70,7 +70,7 @@ jobs:
     - name: Generate coverage report (JSON)
       run: bun test --coverage --reporter=json tests/ > coverage.json 2>&1 || true
 
-    - name: Check coverage threshold (≥60%)
+    - name: Check coverage threshold (>=60%)
       run: |
         node -e "
           const fs = require('fs');

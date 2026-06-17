@@ -33,8 +33,15 @@
  *   - 新：直接依赖 SemanticStore 做向量检索，持久化存储、重启不丢
  */
 
-import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
-import type { IKnowledgeSearch, KnowledgeRoute, KnowledgeRouterOptions } from '@modules/docs/knowledge-types';
+import {
+  EmbeddingManager,
+  globalEmbeddingManager,
+} from '@modules/ai/embedding/EmbeddingManager';
+import type {
+  IKnowledgeSearch,
+  KnowledgeRoute,
+  KnowledgeRouterOptions,
+} from '@modules/docs/knowledge-types';
 import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -42,19 +49,118 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /** 停用词集合 */
 const COMMON_STOP_WORDS = new Set([
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
-  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-  'and', 'but', 'or', 'nor', 'not', 'so', 'yet', 'both', 'either',
-  'neither', 'each', 'every', 'all', 'any', 'few', 'more', 'most',
-  'other', 'some', 'such', 'no', 'only', 'own', 'same', 'than', 'too',
-  'very', 'just', 'because', 'about', 'this', 'that', 'these', 'those',
-  'it', 'its', 'also', 'how', 'what', 'why', 'when', 'where', 'which',
-  'who', 'whom',
-  '的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都',
-  '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会',
-  '着', '没有', '看', '好', '自己', '这', '他', '她',
+  'the',
+  'a',
+  'an',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'been',
+  'being',
+  'have',
+  'has',
+  'had',
+  'do',
+  'does',
+  'did',
+  'will',
+  'would',
+  'could',
+  'should',
+  'may',
+  'might',
+  'can',
+  'shall',
+  'to',
+  'of',
+  'in',
+  'for',
+  'on',
+  'with',
+  'at',
+  'by',
+  'from',
+  'as',
+  'into',
+  'through',
+  'during',
+  'and',
+  'but',
+  'or',
+  'nor',
+  'not',
+  'so',
+  'yet',
+  'both',
+  'either',
+  'neither',
+  'each',
+  'every',
+  'all',
+  'any',
+  'few',
+  'more',
+  'most',
+  'other',
+  'some',
+  'such',
+  'no',
+  'only',
+  'own',
+  'same',
+  'than',
+  'too',
+  'very',
+  'just',
+  'because',
+  'about',
+  'this',
+  'that',
+  'these',
+  'those',
+  'it',
+  'its',
+  'also',
+  'how',
+  'what',
+  'why',
+  'when',
+  'where',
+  'which',
+  'who',
+  'whom',
+  '的',
+  '了',
+  '在',
+  '是',
+  '我',
+  '有',
+  '和',
+  '就',
+  '不',
+  '人',
+  '都',
+  '一',
+  '一个',
+  '上',
+  '也',
+  '很',
+  '到',
+  '说',
+  '要',
+  '去',
+  '你',
+  '会',
+  '着',
+  '没有',
+  '看',
+  '好',
+  '自己',
+  '这',
+  '他',
+  '她',
 ]);
 
 /** 带权重的文档条目 */
@@ -69,8 +175,8 @@ interface WeightedDoc {
 
 /** 混合搜索配置 */
 interface HybridConfig {
-  keywordWeight?: number;     // default 0.4
-  semanticWeight?: number;    // default 0.6
+  keywordWeight?: number; // default 0.4
+  semanticWeight?: number; // default 0.6
   semanticThreshold?: number; // default 0.3
   keywordFetchMultiplier?: number; // default 3
 }
@@ -346,9 +452,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   }
 
   /** 归一化关键词得分 */
-  private normalizeKeywordResults(
-    results: KnowledgeRoute[]
-  ): KnowledgeRoute[] {
+  private normalizeKeywordResults(results: KnowledgeRoute[]): KnowledgeRoute[] {
     if (results.length === 0) return results;
     const maxScore = Math.max(...results.map((r) => r.score));
     if (maxScore === 0) return results;
@@ -432,7 +536,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     const [keywordResults, semanticResults] = await Promise.all([
       this.keywordSearch(query, keywordFetchCount, minScore),
       this.semanticSearch(query, maxResults).catch((err) => {
-        logger.warn('语义搜索不可用，降级为纯关键词搜索', { error: (err as Error).message });
+        logger.warn('语义搜索不可用，降级为纯关键词搜索', {
+          error: (err as Error).message,
+        });
         return [] as KnowledgeRoute[];
       }),
     ]);

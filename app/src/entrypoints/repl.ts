@@ -62,7 +62,9 @@ export async function startHTTPServer(
   port: number,
   host: string = '127.0.0.1'
 ): Promise<LocalHTTPService> {
-  process.stderr.write(`DEBUG: startHTTPServer 开始, port=${port}, host=${host}\n`);
+  process.stderr.write(
+    `DEBUG: startHTTPServer 开始, port=${port}, host=${host}\n`
+  );
   const service = new LocalHTTPService({ host, port });
   await service.start();
   process.stderr.write('DEBUG: startHTTPServer 完成, HTTP 服务已启动\n');
@@ -117,7 +119,9 @@ export async function initializeChatManager(): Promise<ChatManager> {
 
   // Step 2: 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
   const currentModel = modelRouter.resolve('chat');
-  let provider = currentModel ? providerRegistry.getByModel(currentModel) : undefined;
+  let provider = currentModel
+    ? providerRegistry.getByModel(currentModel)
+    : undefined;
 
   // Step 3: 模型未匹配时回退到 deepseek 类型
   if (!provider) {
@@ -406,7 +410,9 @@ export async function launchRepl(
   // 设置默认信任级别（从 CLI --trust-level 参数传入的全局场景）
   if (finalConfig.trustLevel) {
     try {
-      const currentConfig = configManager.getConfigValue<Record<string, unknown>>('permission') || {};
+      const currentConfig =
+        configManager.getConfigValue<Record<string, unknown>>('permission') ||
+        {};
       configManager.setConfigValue('permission', {
         ...currentConfig,
         defaultTrustLevel: finalConfig.trustLevel,
@@ -430,8 +436,11 @@ export async function launchRepl(
     const { ensureGlobalCronSchedulerStarted } =
       await import('../tasks/cron/GlobalCronScheduler');
     const { createCronExecutor } = await import('../tasks/cron/CronExecutor');
-    const cronModel = modelRouter.resolve('scheduled') || modelRouter.getCurrentModel();
-    let provider = cronModel ? providerRegistry.getByModel(cronModel) : undefined;
+    const cronModel =
+      modelRouter.resolve('scheduled') || modelRouter.getCurrentModel();
+    let provider = cronModel
+      ? providerRegistry.getByModel(cronModel)
+      : undefined;
     if (!provider) {
       const { detectUnifiedProviders } =
         await import('../ai/providers/detectUnifiedProviders.js');
@@ -439,11 +448,14 @@ export async function launchRepl(
       const envProvider = envProviders[0];
 
       if (envProvider) {
-        provider = providerRegistry.getOrCreate(envProvider.providerType as any, {
-          apiKey: envProvider.apiKey || '',
-          baseUrl: envProvider.baseUrl,
-          model: envProvider.model || cronModel,
-        });
+        provider = providerRegistry.getOrCreate(
+          envProvider.providerType as any,
+          {
+            apiKey: envProvider.apiKey || '',
+            baseUrl: envProvider.baseUrl,
+            model: envProvider.model || cronModel,
+          }
+        );
       }
     }
     const realExecutor = createCronExecutor(provider!);
@@ -600,21 +612,42 @@ export async function launchRepl(
           ? trimmedLine.slice(7).trim()
           : '';
         if (!sceneName) {
-          const current = configManager.getConfigValue<{ defaultTrustLevel?: string }>('permission')?.defaultTrustLevel;
-          const label = current === 'chat' ? '聊天' : current === 'work' ? '工作' : current === 'development' ? '开发' : '未设置';
+          const current = configManager.getConfigValue<{
+            defaultTrustLevel?: string;
+          }>('permission')?.defaultTrustLevel;
+          const label =
+            current === 'chat'
+              ? '聊天'
+              : current === 'work'
+                ? '工作'
+                : current === 'development'
+                  ? '开发'
+                  : '未设置';
           ui.showInfo(`当前场景: ${label}${current ? ` (${current})` : ''}`);
           ui.showInfo('使用 /scene <chat|work|development> 切换场景');
         } else {
           const validLevels = ['chat', 'work', 'development'] as const;
-          if (!validLevels.includes(sceneName as typeof validLevels[number])) {
-            ui.showError(`无效场景: ${sceneName}。可选: chat, work, development`);
+          if (
+            !validLevels.includes(sceneName as (typeof validLevels)[number])
+          ) {
+            ui.showError(
+              `无效场景: ${sceneName}。可选: chat, work, development`
+            );
           } else {
-            const currentConfig = configManager.getConfigValue<Record<string, unknown>>('permission') || {};
+            const currentConfig =
+              configManager.getConfigValue<Record<string, unknown>>(
+                'permission'
+              ) || {};
             configManager.setConfigValue('permission', {
               ...currentConfig,
               defaultTrustLevel: sceneName,
             });
-            const label = sceneName === 'chat' ? '聊天' : sceneName === 'work' ? '工作' : '开发';
+            const label =
+              sceneName === 'chat'
+                ? '聊天'
+                : sceneName === 'work'
+                  ? '工作'
+                  : '开发';
             ui.showSuccess(`场景已切换至: ${label} (${sceneName})`);
           }
         }
@@ -626,7 +659,9 @@ export async function launchRepl(
         // 运行时切换模型
         const modelName = trimmedLine.slice(7).trim();
         if (!modelName) {
-          ui.showInfo(`当前模型: ${modelRouter.getCurrentModel() || '(未设置)'}`);
+          ui.showInfo(
+            `当前模型: ${modelRouter.getCurrentModel() || '(未设置)'}`
+          );
         } else {
           modelRouter.setCurrentModel(modelName);
           ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);

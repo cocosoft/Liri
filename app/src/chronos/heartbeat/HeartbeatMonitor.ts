@@ -180,7 +180,10 @@ export class HeartbeatMonitor {
       try {
         listener(event);
       } catch (err) {
-        void handleError(err, { module: 'chronos:heartbeat', action: 'catch_error' });
+        void handleError(err, {
+          module: 'chronos:heartbeat',
+          action: 'catch_error',
+        });
       }
     }
   }

@@ -35,32 +35,162 @@ const CHANNEL_TABLE: Array<{
   importPath: string;
   exportKey: string;
 }> = [
-  { type: 'telegram', name: 'Telegram', importPath: '../../../channels/telegram/TelegramChannel', exportKey: 'telegramChannel' },
-  { type: 'discord', name: 'Discord', importPath: '../../../channels/discord/DiscordChannel', exportKey: 'discordChannel' },
-  { type: 'qq', name: 'QQ', importPath: '../../../channels/qq/QQChannel', exportKey: 'qqChannel' },
-  { type: 'dingtalk', name: '钉钉', importPath: '../../../channels/dingtalk/DingTalkChannel', exportKey: 'dingtalkChannel' },
-  { type: 'feishu', name: '飞书', importPath: '../../../channels/feishu/FeishuChannel', exportKey: 'feishuChannel' },
-  { type: 'wechat', name: '微信', importPath: '../../../channels/wechat/WechatChannel', exportKey: 'wechatChannel' },
-  { type: 'slack', name: 'Slack', importPath: '../../../channels/slack/index', exportKey: 'slackChannelPlugin' },
-  { type: 'line', name: 'Line', importPath: '../../../channels/line/index', exportKey: 'lineChannelPlugin' },
-  { type: 'irc', name: 'IRC', importPath: '../../../channels/irc/index', exportKey: 'ircChannelPlugin' },
-  { type: 'nostr', name: 'Nostr', importPath: '../../../channels/nostr/index', exportKey: 'nostrChannelPlugin' },
-  { type: 'email', name: '邮件', importPath: '../../../channels/email/EmailChannel', exportKey: 'emailChannelPlugin' },
-  { type: 'sms', name: '短信', importPath: '../../../channels/sms/SmsChannel', exportKey: 'smsChannelPlugin' },
-  { type: 'webhook', name: 'Webhook', importPath: '../../../channels/webhook/WebhookChannel', exportKey: 'webhookChannelPlugin' },
-  { type: 'wecom', name: '企业微信', importPath: '../../../channels/wecom/WeComChannel', exportKey: 'wecomChannel' },
-  { type: 'googlechat', name: 'Google Chat', importPath: '../../../channels/googlechat/index', exportKey: 'googleChatChannelPlugin' },
-  { type: 'msteams', name: 'MS Teams', importPath: '../../../channels/msteams/index', exportKey: 'msteamsChannelPlugin' },
-  { type: 'zalo', name: 'Zalo', importPath: '../../../channels/zalo/index', exportKey: 'zaloChannelPlugin' },
-  { type: 'yuanbao', name: '元宝', importPath: '../../../channels/yuanbao/index', exportKey: 'yuanbaoChannelPlugin' },
-  { type: 'whatsapp', name: 'WhatsApp', importPath: '../../../channels/whatsapp/index', exportKey: 'whatsAppChannelPlugin' },
-  { type: 'signal', name: 'Signal', importPath: '../../../channels/signal/index', exportKey: 'signalChannelPlugin' },
-  { type: 'matrix', name: 'Matrix', importPath: '../../../channels/matrix/index', exportKey: 'matrixChannelPlugin' },
-  { type: 'facebook', name: 'Facebook Messenger', importPath: '../../../channels/facebookmessenger/index', exportKey: 'facebookMessengerChannelPlugin' },
-  { type: 'twitter', name: 'Twitter/X', importPath: '../../../channels/twitter/index', exportKey: 'twitterChannelPlugin' },
-  { type: 'claude', name: 'Claude', importPath: '../../../channels/claude/index', exportKey: 'claudeChannelPlugin' },
-  { type: 'mattermost', name: 'Mattermost', importPath: '../../../channels/mattermost/MattermostChannel', exportKey: 'mattermostChannel' },
-  { type: 'bluebubbles', name: 'iMessage', importPath: '../../../channels/bluebubbles/BlueBubblesChannel', exportKey: 'bluebubblesChannelPlugin' },
+  {
+    type: 'telegram',
+    name: 'Telegram',
+    importPath: '../../../channels/telegram/TelegramChannel',
+    exportKey: 'telegramChannel',
+  },
+  {
+    type: 'discord',
+    name: 'Discord',
+    importPath: '../../../channels/discord/DiscordChannel',
+    exportKey: 'discordChannel',
+  },
+  {
+    type: 'qq',
+    name: 'QQ',
+    importPath: '../../../channels/qq/QQChannel',
+    exportKey: 'qqChannel',
+  },
+  {
+    type: 'dingtalk',
+    name: '钉钉',
+    importPath: '../../../channels/dingtalk/DingTalkChannel',
+    exportKey: 'dingtalkChannel',
+  },
+  {
+    type: 'feishu',
+    name: '飞书',
+    importPath: '../../../channels/feishu/FeishuChannel',
+    exportKey: 'feishuChannel',
+  },
+  {
+    type: 'wechat',
+    name: '微信',
+    importPath: '../../../channels/wechat/WechatChannel',
+    exportKey: 'wechatChannel',
+  },
+  {
+    type: 'slack',
+    name: 'Slack',
+    importPath: '../../../channels/slack/index',
+    exportKey: 'slackChannelPlugin',
+  },
+  {
+    type: 'line',
+    name: 'Line',
+    importPath: '../../../channels/line/index',
+    exportKey: 'lineChannelPlugin',
+  },
+  {
+    type: 'irc',
+    name: 'IRC',
+    importPath: '../../../channels/irc/index',
+    exportKey: 'ircChannelPlugin',
+  },
+  {
+    type: 'nostr',
+    name: 'Nostr',
+    importPath: '../../../channels/nostr/index',
+    exportKey: 'nostrChannelPlugin',
+  },
+  {
+    type: 'email',
+    name: '邮件',
+    importPath: '../../../channels/email/EmailChannel',
+    exportKey: 'emailChannelPlugin',
+  },
+  {
+    type: 'sms',
+    name: '短信',
+    importPath: '../../../channels/sms/SmsChannel',
+    exportKey: 'smsChannelPlugin',
+  },
+  {
+    type: 'webhook',
+    name: 'Webhook',
+    importPath: '../../../channels/webhook/WebhookChannel',
+    exportKey: 'webhookChannelPlugin',
+  },
+  {
+    type: 'wecom',
+    name: '企业微信',
+    importPath: '../../../channels/wecom/WeComChannel',
+    exportKey: 'wecomChannel',
+  },
+  {
+    type: 'googlechat',
+    name: 'Google Chat',
+    importPath: '../../../channels/googlechat/index',
+    exportKey: 'googleChatChannelPlugin',
+  },
+  {
+    type: 'msteams',
+    name: 'MS Teams',
+    importPath: '../../../channels/msteams/index',
+    exportKey: 'msteamsChannelPlugin',
+  },
+  {
+    type: 'zalo',
+    name: 'Zalo',
+    importPath: '../../../channels/zalo/index',
+    exportKey: 'zaloChannelPlugin',
+  },
+  {
+    type: 'yuanbao',
+    name: '元宝',
+    importPath: '../../../channels/yuanbao/index',
+    exportKey: 'yuanbaoChannelPlugin',
+  },
+  {
+    type: 'whatsapp',
+    name: 'WhatsApp',
+    importPath: '../../../channels/whatsapp/index',
+    exportKey: 'whatsAppChannelPlugin',
+  },
+  {
+    type: 'signal',
+    name: 'Signal',
+    importPath: '../../../channels/signal/index',
+    exportKey: 'signalChannelPlugin',
+  },
+  {
+    type: 'matrix',
+    name: 'Matrix',
+    importPath: '../../../channels/matrix/index',
+    exportKey: 'matrixChannelPlugin',
+  },
+  {
+    type: 'facebook',
+    name: 'Facebook Messenger',
+    importPath: '../../../channels/facebookmessenger/index',
+    exportKey: 'facebookMessengerChannelPlugin',
+  },
+  {
+    type: 'twitter',
+    name: 'Twitter/X',
+    importPath: '../../../channels/twitter/index',
+    exportKey: 'twitterChannelPlugin',
+  },
+  {
+    type: 'claude',
+    name: 'Claude',
+    importPath: '../../../channels/claude/index',
+    exportKey: 'claudeChannelPlugin',
+  },
+  {
+    type: 'mattermost',
+    name: 'Mattermost',
+    importPath: '../../../channels/mattermost/MattermostChannel',
+    exportKey: 'mattermostChannel',
+  },
+  {
+    type: 'bluebubbles',
+    name: 'iMessage',
+    importPath: '../../../channels/bluebubbles/BlueBubblesChannel',
+    exportKey: 'bluebubblesChannelPlugin',
+  },
 ];
 
 /** CHANNEL_TABLE 的快速索引 */
@@ -194,12 +324,16 @@ export async function handleToggleChannel(
       const connectSuccess = await channelRegistry.connect(channelId);
       if (!connectSuccess) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: false,
-          id: channelId,
-          enabled: false,
-          error: { message: `通道 ${channelId} 连接失败，请检查配置是否正确` },
-        }));
+        res.end(
+          JSON.stringify({
+            success: false,
+            id: channelId,
+            enabled: false,
+            error: {
+              message: `通道 ${channelId} 连接失败，请检查配置是否正确`,
+            },
+          })
+        );
         return;
       }
     } else {
@@ -287,9 +421,17 @@ export async function handleUpdateChannel(
     });
 
     // 同步写入统一凭据存储（使 ChannelSecretStore 查询可用）
-    if (config && typeof config === 'object' && Object.keys(config).length > 0) {
-      const { ChannelSecretStore } = await import('@modules/channels/secrets/ChannelSecretStore');
-      ChannelSecretStore.getInstance().set(channelId, config as Record<string, unknown>);
+    if (
+      config &&
+      typeof config === 'object' &&
+      Object.keys(config).length > 0
+    ) {
+      const { ChannelSecretStore } =
+        await import('@modules/channels/secrets/ChannelSecretStore');
+      ChannelSecretStore.getInstance().set(
+        channelId,
+        config as Record<string, unknown>
+      );
     }
 
     // 如果 enabled 有变化，执行连接/断开
@@ -422,7 +564,9 @@ async function tryDynamicRegister(
     const mod = await import(entry.importPath);
     const plugin = (mod as Record<string, unknown>)[entry.exportKey] as any;
     if (!plugin) {
-      logger.warning(`tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`);
+      logger.warning(
+        `tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`
+      );
       return false;
     }
 
@@ -459,58 +603,56 @@ async function tryDynamicRegister(
 }
 
 /** 绑定入站消息 → AI → 出站 回路 */
-function bindChannelMessageHandler(
-  channelType: string,
-  plugin: any
-): void {
+function bindChannelMessageHandler(channelType: string, plugin: any): void {
   if (!plugin.inbound) return;
 
   const _processingMessages = new Set<string>();
 
-  plugin.inbound.setMessageHandler(
-    async (message: any) => {
-      if (_processingMessages.has(message.messageId)) return;
-      _processingMessages.add(message.messageId);
+  plugin.inbound.setMessageHandler(async (message: any) => {
+    if (_processingMessages.has(message.messageId)) return;
+    _processingMessages.add(message.messageId);
 
-      try {
-        const sender =
-          message.senderName || message.senderId || 'unknown';
-        const label = channelType.toUpperCase();
-        console.log(`\n── [${label}] ${sender} ──`);
-        console.log(message.content);
+    try {
+      const sender = message.senderName || message.senderId || 'unknown';
+      const label = channelType.toUpperCase();
+      console.log(`\n── [${label}] ${sender} ──`);
+      console.log(message.content);
 
-        const coreAPI = getCoreAPI();
-        const response = await coreAPI.chat({
-          content: message.content,
-          sessionId: message.conversationId ?? message.senderId,
-          metadata: {
-            channel: message.channelId,
-            sender: message.senderId,
-            messageType: message.messageType,
-            isDirectMessage: message.isDirectMessage,
-            rawPayload: message.rawPayload,
-          },
-        });
+      const coreAPI = getCoreAPI();
+      const response = await coreAPI.chat({
+        content: message.content,
+        sessionId: message.conversationId ?? message.senderId,
+        metadata: {
+          channel: message.channelId,
+          sender: message.senderId,
+          messageType: message.messageType,
+          isDirectMessage: message.isDirectMessage,
+          rawPayload: message.rawPayload,
+        },
+      });
 
-        if (response.content && plugin.outbound) {
-          console.log(`\n── [${label}] Liri ──`);
-          console.log(response.content);
-          console.log('');
+      if (response.content && plugin.outbound) {
+        console.log(`\n── [${label}] Liri ──`);
+        console.log(response.content);
+        console.log('');
 
-          await plugin.outbound.sendText(
-            message.conversationId ?? message.senderId,
-            response.content
-          );
-        }
-      } catch (error) {
-        await handleError(error, { module: 'infra:http', action: 'channel_inbound_message', context: { channelType, messageId: message.messageId } });
-      } finally {
-        setTimeout(() => {
-          _processingMessages.delete(message.messageId);
-        }, 3000);
+        await plugin.outbound.sendText(
+          message.conversationId ?? message.senderId,
+          response.content
+        );
       }
+    } catch (error) {
+      await handleError(error, {
+        module: 'infra:http',
+        action: 'channel_inbound_message',
+        context: { channelType, messageId: message.messageId },
+      });
+    } finally {
+      setTimeout(() => {
+        _processingMessages.delete(message.messageId);
+      }, 3000);
     }
-  );
+  });
   logger.info(`[${channelType}] 入站消息处理器已绑定`);
 }
 

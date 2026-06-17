@@ -480,9 +480,7 @@ export class WizardEngine extends EventEmitter {
           title: '默认模型',
           description: '选择默认使用的 AI 模型',
           prompt: '请选择模型',
-          options: [
-            '',
-          ],
+          options: [''],
           default: '',
         },
         {

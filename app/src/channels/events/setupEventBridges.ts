@@ -37,7 +37,10 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { channelEventBus, ChannelEvents } from './ChannelEventBus';
 import type { EventBus } from '../../core/events/EventBus';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:events:bridge' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'channels:events:bridge',
+});
 
 /** 桥接状态 */
 let bridgesInitialized = false;
@@ -64,54 +67,66 @@ export function setupEventBridges(
   bridgesInitialized = true;
 
   // 桥接规则 1：通道严重错误 → 全局 APP_ERROR
-  const sub1 = channelEventBus.subscribe(ChannelEvents.CHANNEL_ERROR, (data: any) => {
-    const eventName = systemEvents?.APP_ERROR || 'app:error';
-    globalEventBus.publish(eventName, {
-      message: data?.message || '通道错误',
-      code: data?.code || 'CHANNEL_ERROR',
-      source: 'channel',
-      channelName: data?.channelName,
-      timestamp: Date.now(),
-    });
-  });
+  const sub1 = channelEventBus.subscribe(
+    ChannelEvents.CHANNEL_ERROR,
+    (data: any) => {
+      const eventName = systemEvents?.APP_ERROR || 'app:error';
+      globalEventBus.publish(eventName, {
+        message: data?.message || '通道错误',
+        code: data?.code || 'CHANNEL_ERROR',
+        source: 'channel',
+        channelName: data?.channelName,
+        timestamp: Date.now(),
+      });
+    }
+  );
   bridgeCleanups.push(() => sub1.unsubscribe());
 
   // 桥接规则 2：通道配额告警 → 全局 CONFIG_CHANGE
-  const sub2 = channelEventBus.subscribe(ChannelEvents.CHANNEL_LIMIT_WARNING, (data: any) => {
-    const eventName = systemEvents?.CONFIG_CHANGE || 'config:change';
-    globalEventBus.publish(eventName, {
-      key: 'channel_limit',
-      message: data?.message || '通道配额告警',
-      timestamp: Date.now(),
-    });
-  });
+  const sub2 = channelEventBus.subscribe(
+    ChannelEvents.CHANNEL_LIMIT_WARNING,
+    (data: any) => {
+      const eventName = systemEvents?.CONFIG_CHANGE || 'config:change';
+      globalEventBus.publish(eventName, {
+        key: 'channel_limit',
+        message: data?.message || '通道配额告警',
+        timestamp: Date.now(),
+      });
+    }
+  );
   bridgeCleanups.push(() => sub2.unsubscribe());
 
   // 桥接规则 3：路由错误 → 全局 APP_ERROR（低严重度）
-  const sub3 = channelEventBus.subscribe(ChannelEvents.ROUTING_ERROR, (data: any) => {
-    const eventName = systemEvents?.APP_ERROR || 'app:error';
-    globalEventBus.publish(eventName, {
-      message: data?.message || '路由错误',
-      code: data?.code || 'ROUTING_ERROR',
-      source: 'channel',
-      severity: 'low',
-      timestamp: Date.now(),
-    });
-  });
+  const sub3 = channelEventBus.subscribe(
+    ChannelEvents.ROUTING_ERROR,
+    (data: any) => {
+      const eventName = systemEvents?.APP_ERROR || 'app:error';
+      globalEventBus.publish(eventName, {
+        message: data?.message || '路由错误',
+        code: data?.code || 'ROUTING_ERROR',
+        source: 'channel',
+        severity: 'low',
+        timestamp: Date.now(),
+      });
+    }
+  );
   bridgeCleanups.push(() => sub3.unsubscribe());
 
   // 桥接规则 4（向上）：通道消息入站 → 全局任务创建
   // 每条通道消息在系统事件总线上触发 task:created，供监控/统计订阅
-  const sub4 = channelEventBus.subscribe(ChannelEvents.MESSAGE_RECEIVED, (data: any) => {
-    const eventName = systemEvents?.TASK_CREATED || 'task:created';
-    globalEventBus.publish(eventName, {
-      channelName: data?.channelName,
-      messageId: data?.messageId,
-      senderId: data?.senderId,
-      source: 'channel',
-      timestamp: Date.now(),
-    });
-  });
+  const sub4 = channelEventBus.subscribe(
+    ChannelEvents.MESSAGE_RECEIVED,
+    (data: any) => {
+      const eventName = systemEvents?.TASK_CREATED || 'task:created';
+      globalEventBus.publish(eventName, {
+        channelName: data?.channelName,
+        messageId: data?.messageId,
+        senderId: data?.senderId,
+        source: 'channel',
+        timestamp: Date.now(),
+      });
+    }
+  );
   bridgeCleanups.push(() => sub4.unsubscribe());
 
   // 桥接规则 5（向下）：系统配置变更 → 通道配置重载

@@ -47,7 +47,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (error) {
-      await handleError(error, { module: 'memory:fs', action: 'read_file', context: { filePath } });
+      await handleError(error, {
+        module: 'memory:fs',
+        action: 'read_file',
+        context: { filePath },
+      });
       throw error;
     }
   }
@@ -63,7 +67,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(filePath));
       await fs.writeFile(filePath, content, 'utf-8');
     } catch (error) {
-      await handleError(error, { module: 'memory:fs', action: 'write_file', context: { filePath } });
+      await handleError(error, {
+        module: 'memory:fs',
+        action: 'write_file',
+        context: { filePath },
+      });
       throw error;
     }
   }
@@ -79,7 +87,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
         await fs.unlink(filePath);
       }
     } catch (error) {
-      await handleError(error, { module: 'memory:fs', action: 'delete_file', context: { filePath } });
+      await handleError(error, {
+        module: 'memory:fs',
+        action: 'delete_file',
+        context: { filePath },
+      });
       throw error;
     }
   }
@@ -107,7 +119,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       return await fs.readdir(directory);
     } catch (error) {
-      await handleError(error, { module: 'memory:fs', action: 'read_directory', context: { directory } });
+      await handleError(error, {
+        module: 'memory:fs',
+        action: 'read_directory',
+        context: { directory },
+      });
       throw error;
     }
   }
@@ -122,7 +138,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     } catch (error) {
       // 忽略目录已存在的错误
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        await handleError(error, { module: 'memory:fs', action: 'ensure_directory', context: { directory } });
+        await handleError(error, {
+          module: 'memory:fs',
+          action: 'ensure_directory',
+          context: { directory },
+        });
         throw error;
       }
     }
@@ -192,7 +212,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(destination));
       await fs.rename(source, destination);
     } catch (error) {
-      await handleError(error, { module: 'memory:fs', action: 'move_file', context: { source, destination } });
+      await handleError(error, {
+        module: 'memory:fs',
+        action: 'move_file',
+        context: { source, destination },
+      });
       throw error;
     }
   }

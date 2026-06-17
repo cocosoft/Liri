@@ -142,25 +142,28 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     costTracker.setRecordRepository(repository);
 
     // 注册成本记录事件订阅者（事件驱动持久化）
-    globalEventBus.subscribe(SystemEvents.COST_RECORDED, async (event: CostRecordedEvent) => {
-      try {
-        await repository.recordCost({
-          model: event.model,
-          inputTokens: event.inputTokens,
-          outputTokens: event.outputTokens,
-          cacheReadTokens: event.cacheReadInputTokens,
-          cacheCreationTokens: event.cacheCreationInputTokens,
-          costUSD: event.costUSD,
-          sessionId: event.sessionId,
-        });
-      } catch (error) {
-        logger.error('事件驱动持久化成本记录失败', {
-          error: error instanceof Error ? error.message : String(error),
-          model: event.model,
-          costUSD: event.costUSD,
-        });
+    globalEventBus.subscribe(
+      SystemEvents.COST_RECORDED,
+      async (event: CostRecordedEvent) => {
+        try {
+          await repository.recordCost({
+            model: event.model,
+            inputTokens: event.inputTokens,
+            outputTokens: event.outputTokens,
+            cacheReadTokens: event.cacheReadInputTokens,
+            cacheCreationTokens: event.cacheCreationInputTokens,
+            costUSD: event.costUSD,
+            sessionId: event.sessionId,
+          });
+        } catch (error) {
+          logger.error('事件驱动持久化成本记录失败', {
+            error: error instanceof Error ? error.message : String(error),
+            model: event.model,
+            costUSD: event.costUSD,
+          });
+        }
       }
-    });
+    );
 
     // 初始化分析持久化服务（JSONL 文件）
     const { getGlobalAnalyticsQueue } =

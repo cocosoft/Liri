@@ -170,7 +170,11 @@ export class KnowledgeWriteTool implements Tool {
         content: `${actionLabel}知识文档成功：${title.trim()}`,
       };
     } catch (error) {
-      await handleError(error, { module: 'knowledge:tool', action: 'write', context: { title } });
+      await handleError(error, {
+        module: 'knowledge:tool',
+        action: 'write',
+        context: { title },
+      });
       return {
         status: ToolExecutionStatus.FAILURE,
         error: error instanceof Error ? error.message : String(error),

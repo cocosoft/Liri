@@ -159,10 +159,9 @@ export class KnowledgeCompiler {
         const lintReport = await linter.run(this.knowledgeRoot);
         const { error, warning } = lintReport.summary;
         if (error > 0 || warning > 0) {
-          logger.warn(
-            `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
-            { lintSummary: lintReport.summary }
-          );
+          logger.warn(`编译后 lint 发现 ${error} 个错误, ${warning} 个警告`, {
+            lintSummary: lintReport.summary,
+          });
           // 将 lint 结果追加到 log.md
           await this.indexManager.appendLog({
             timestamp: Date.now(),
@@ -175,14 +174,17 @@ export class KnowledgeCompiler {
           logger.info('编译后 lint 检查通过');
         }
       } catch (lintError) {
-        await handleError(lintError, { module: 'knowledge:compiler', action: 'post_lint' });
+        await handleError(lintError, {
+          module: 'knowledge:compiler',
+          action: 'post_lint',
+        });
       }
     }
 
     logger.info(
       `many-to-many 编译完成: ${result.compiled} 个源文件, ` +
-      `${result.pagesCreated} 个页面, ${result.skipped} 个跳过, ` +
-      `${result.errors.length} 个错误`
+        `${result.pagesCreated} 个页面, ${result.skipped} 个跳过, ` +
+        `${result.errors.length} 个错误`
     );
 
     return result;
@@ -254,7 +256,10 @@ export class KnowledgeCompiler {
    *
    * @returns 生成的所有页面文件路径列表
    */
-  private async compileFile(rawFile: string, model?: string): Promise<string[]> {
+  private async compileFile(
+    rawFile: string,
+    model?: string
+  ): Promise<string[]> {
     const rawContent = await readFile(rawFile, 'utf-8');
     const targetPath = this.getWikiTargetPath(rawFile);
     const fileName =
@@ -293,7 +298,8 @@ export class KnowledgeCompiler {
       for (const pagePath of writtenPages) {
         await registry.registerFile({
           originalName: pagePath.split(/[\\/]/).pop() || 'page.md',
-          content: pagesContent.find((p) => p.filePath === pagePath)?.content || '',
+          content:
+            pagesContent.find((p) => p.filePath === pagePath)?.content || '',
           source: FileSource.AUTO_INGEST,
           sourceId: rawFile.split(/[\\/]/).pop() || 'raw',
           description: `知识编译: ${pagePath.split(/[\\/]/).pop()}`,
@@ -500,10 +506,7 @@ summary: 概念简介
   /**
    * 从 frontmatter 块中提取指定字段值
    */
-  private extractFrontmatterField(
-    block: string,
-    field: string
-  ): string | null {
+  private extractFrontmatterField(block: string, field: string): string | null {
     const match = block.match(/^---\n([\s\S]*?)\n---/);
     if (!match) return null;
     const fm = match[1];

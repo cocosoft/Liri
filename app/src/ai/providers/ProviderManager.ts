@@ -48,7 +48,11 @@ export type ProviderType =
   | 'custom';
 
 /** 供应商分类 */
-export type ProviderCategory = 'official' | 'aggregator' | 'third_party' | 'cn_official';
+export type ProviderCategory =
+  | 'official'
+  | 'aggregator'
+  | 'third_party'
+  | 'cn_official';
 
 /** 供应商记录 */
 export interface ProviderRecord {
@@ -539,4 +543,3 @@ export class ProviderManager {
 
 /** 导出单例 */
 export const providerManager = ProviderManager.getInstance();
-

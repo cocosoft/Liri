@@ -99,7 +99,10 @@ export class TempMediaManager {
             deleted++;
           }
         } catch (err) {
-          void handleError(err, { module: 'media:temp', action: 'catch_error' });
+          void handleError(err, {
+            module: 'media:temp',
+            action: 'catch_error',
+          });
         }
       }
 
@@ -122,7 +125,10 @@ export class TempMediaManager {
           try {
             fs.rmSync(file.path, { recursive: true, force: true });
           } catch (err) {
-            void handleError(err, { module: 'media:temp', action: 'catch_error' });
+            void handleError(err, {
+              module: 'media:temp',
+              action: 'catch_error',
+            });
           }
         }
       }
@@ -173,7 +179,10 @@ export class TempMediaManager {
             oldestFile = stat.mtimeMs;
           }
         } catch (err) {
-          void handleError(err, { module: 'media:temp', action: 'catch_error' });
+          void handleError(err, {
+            module: 'media:temp',
+            action: 'catch_error',
+          });
         }
       }
 

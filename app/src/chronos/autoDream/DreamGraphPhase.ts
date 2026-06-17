@@ -34,7 +34,12 @@
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDomainDir, resolveKnowledgeDir, resolveDbPath, resolveDomainsRoot } from '@modules/core/paths';
+import {
+  resolveDomainDir,
+  resolveKnowledgeDir,
+  resolveDbPath,
+  resolveDomainsRoot,
+} from '@modules/core/paths';
 import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 import { SchemaLoader } from '@modules/knowledge/schema/SchemaLoader';
 import { DomainManager } from '@modules/knowledge/domain/DomainManager';
@@ -95,7 +100,10 @@ export async function runDreamGraphPhase(
     }
   }
 
-  logger.info('DreamGraphPhase 开始扫描', { domainCount: domainsToScan.length, domains: domainsToScan });
+  logger.info('DreamGraphPhase 开始扫描', {
+    domainCount: domainsToScan.length,
+    domains: domainsToScan,
+  });
 
   const graph = new KnowledgeGraph(resolveDbPath());
   let totalFilesScanned = 0;
@@ -119,7 +127,12 @@ export async function runDreamGraphPhase(
       } catch (err) {
         const msg = `读取 wiki 目录失败 (${domain}): ${err instanceof Error ? err.message : String(err)}`;
         logger.error(msg);
-        return { success: false, filesScanned: totalFilesScanned, edgesAdded: totalEdgesAdded, error: msg };
+        return {
+          success: false,
+          filesScanned: totalFilesScanned,
+          edgesAdded: totalEdgesAdded,
+          error: msg,
+        };
       }
 
       if (mdFiles.length === 0) {
@@ -135,7 +148,11 @@ export async function runDreamGraphPhase(
         const filePath = join(wikiDir, file);
         const content = readFileSync(filePath, 'utf-8');
         const sourceSlug = basename(file, '.md');
-        const sourceId = KnowledgeGraph.generateEntityId(domain, 'wiki', sourceSlug);
+        const sourceId = KnowledgeGraph.generateEntityId(
+          domain,
+          'wiki',
+          sourceSlug
+        );
 
         if (sourceSlug === 'index') continue;
 
@@ -180,7 +197,9 @@ export async function runDreamGraphPhase(
       }
     }
 
-    logger.info(`DreamGraphPhase 完成: 扫描 ${domainsToScan.length} 个域, ${totalFilesScanned} 个文件, 添加 ${totalEdgesAdded} 条边`);
+    logger.info(
+      `DreamGraphPhase 完成: 扫描 ${domainsToScan.length} 个域, ${totalFilesScanned} 个文件, 添加 ${totalEdgesAdded} 条边`
+    );
 
     return {
       success: true,
@@ -190,7 +209,12 @@ export async function runDreamGraphPhase(
   } catch (err) {
     const msg = `DreamGraphPhase 执行失败: ${err instanceof Error ? err.message : String(err)}`;
     logger.error(msg);
-    return { success: false, filesScanned: totalFilesScanned, edgesAdded: totalEdgesAdded, error: msg };
+    return {
+      success: false,
+      filesScanned: totalFilesScanned,
+      edgesAdded: totalEdgesAdded,
+      error: msg,
+    };
   } finally {
     await graph.close();
   }

@@ -188,7 +188,7 @@ export default {
 
     const name = args[0]!;
     const scheduleExpr = args[1]!;
-    
+
     // Check for --silent flag
     let silent = false;
     const remaining = args.slice(2).filter((arg) => {
@@ -226,10 +226,18 @@ export default {
       prompt,
       skills: [],
       schedule: {
-        kind: parsed.kind === 'at' ? 'once' : parsed.kind === 'every' ? 'interval' : 'cron',
+        kind:
+          parsed.kind === 'at'
+            ? 'once'
+            : parsed.kind === 'every'
+              ? 'interval'
+              : 'cron',
         expr: cronExpr,
         display: displayText,
-        minutes: parsed.kind === 'every' ? Math.round(parsed.everyMs / 60_000) : undefined,
+        minutes:
+          parsed.kind === 'every'
+            ? Math.round(parsed.everyMs / 60_000)
+            : undefined,
       } as CronSchedule,
       repeat: { times: null, completed: 0 },
       enabled: true,
@@ -456,7 +464,9 @@ export default {
         lines.push(`来源:      ${job.origin.platform}/${job.origin.chatId}`);
       if (job.ownerKey) lines.push(`所有者:   ${job.ownerKey}`);
       if (job.sessionKey) lines.push(`会话:      ${job.sessionKey}`);
-      lines.push(`通知:      ${job.silent ? '🔇 静默（完成后不通知）' : '📢 通知'}`);
+      lines.push(
+        `通知:      ${job.silent ? '🔇 静默（完成后不通知）' : '📢 通知'}`
+      );
 
       return {
         success: true,

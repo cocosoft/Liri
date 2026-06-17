@@ -233,23 +233,36 @@ export class MemoryStoreImpl implements MemoryStore {
         const frontmatter: Record<string, unknown> = {};
 
         if (memory.id !== undefined) frontmatter.id = memory.id;
-        if (memory.metadata.name !== undefined) frontmatter.name = memory.metadata.name;
-        if (memory.metadata.description !== undefined) frontmatter.description = memory.metadata.description;
-        if (memory.metadata.type !== undefined) frontmatter.type = memory.metadata.type;
-        frontmatter.createdAt = memory.metadata.createdAt?.toISOString() ?? new Date().toISOString();
-        frontmatter.updatedAt = memory.metadata.updatedAt?.toISOString() ?? new Date().toISOString();
-        if (memory.metadata.tags && memory.metadata.tags.length > 0) frontmatter.tags = memory.metadata.tags;
-        if (memory.metadata.priority !== undefined) frontmatter.priority = memory.metadata.priority;
-        if (memory.metadata.importance !== undefined) frontmatter.importance = memory.metadata.importance;
-        if (memory.metadata.expiresAt) frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
+        if (memory.metadata.name !== undefined)
+          frontmatter.name = memory.metadata.name;
+        if (memory.metadata.description !== undefined)
+          frontmatter.description = memory.metadata.description;
+        if (memory.metadata.type !== undefined)
+          frontmatter.type = memory.metadata.type;
+        frontmatter.createdAt =
+          memory.metadata.createdAt?.toISOString() ?? new Date().toISOString();
+        frontmatter.updatedAt =
+          memory.metadata.updatedAt?.toISOString() ?? new Date().toISOString();
+        if (memory.metadata.tags && memory.metadata.tags.length > 0)
+          frontmatter.tags = memory.metadata.tags;
+        if (memory.metadata.priority !== undefined)
+          frontmatter.priority = memory.metadata.priority;
+        if (memory.metadata.importance !== undefined)
+          frontmatter.importance = memory.metadata.importance;
+        if (memory.metadata.expiresAt)
+          frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
         if (memory.metadata.author) frontmatter.author = memory.metadata.author;
         if (memory.metadata.source) frontmatter.source = memory.metadata.source;
-        if (memory.metadata.sessionId) frontmatter.sessionId = memory.metadata.sessionId;
+        if (memory.metadata.sessionId)
+          frontmatter.sessionId = memory.metadata.sessionId;
 
         const validatedContent = this.validateMarkdownContent(memory.content);
         const content = matter.stringify(validatedContent, frontmatter);
         // 任务 4：按 session 分目录，使用 sessionId 确定目标路径
-        await this.atomicWrite(this.getMemoryFilePath(id, memory.metadata.sessionId), content);
+        await this.atomicWrite(
+          this.getMemoryFilePath(id, memory.metadata.sessionId),
+          content
+        );
       } catch (error) {
         storeLogger.error(`批量写入失败`, { id, error });
       }
@@ -352,7 +365,12 @@ export class MemoryStoreImpl implements MemoryStore {
   async saveVectorIndex(
     vectors: Record<
       string,
-      { vector: number[]; model: string; timestamp: string; model_version?: string }
+      {
+        vector: number[];
+        model: string;
+        timestamp: string;
+        model_version?: string;
+      }
     >
   ): Promise<void> {
     const db = await this.ensureVectorTable();
@@ -374,7 +392,9 @@ export class MemoryStoreImpl implements MemoryStore {
         else resolve();
       });
     });
-    storeLogger.info('向量索引已保存到 SQLite', { count: Object.keys(vectors).length });
+    storeLogger.info('向量索引已保存到 SQLite', {
+      count: Object.keys(vectors).length,
+    });
   }
 
   /**
@@ -382,7 +402,15 @@ export class MemoryStoreImpl implements MemoryStore {
    * 从 SQLite memory_vectors 表读取所有向量
    */
   async loadVectorIndex(): Promise<
-    Record<string, { vector: number[]; model: string; timestamp: string; model_version?: string }>
+    Record<
+      string,
+      {
+        vector: number[];
+        model: string;
+        timestamp: string;
+        model_version?: string;
+      }
+    >
   > {
     const db = await this.ensureVectorTable();
     const rows = await new Promise<any[]>((resolve, reject) => {
@@ -395,7 +423,15 @@ export class MemoryStoreImpl implements MemoryStore {
       );
     });
 
-    const result: Record<string, { vector: number[]; model: string; timestamp: string; model_version?: string }> = {};
+    const result: Record<
+      string,
+      {
+        vector: number[];
+        model: string;
+        timestamp: string;
+        model_version?: string;
+      }
+    > = {};
     for (const row of rows) {
       result[row.memory_id] = {
         vector: JSON.parse(row.vector),
@@ -437,9 +473,12 @@ export class MemoryStoreImpl implements MemoryStore {
   /**
    * 获取单个记忆的向量
    */
-  async getMemoryVector(
-    memoryId: string
-  ): Promise<{ vector: number[]; model: string; timestamp: string; model_version?: string } | null> {
+  async getMemoryVector(memoryId: string): Promise<{
+    vector: number[];
+    model: string;
+    timestamp: string;
+    model_version?: string;
+  } | null> {
     const db = await this.ensureVectorTable();
     const row = await new Promise<any>((resolve, reject) => {
       db.get(
@@ -696,7 +735,11 @@ export class MemoryStoreImpl implements MemoryStore {
 
       return memory;
     } catch (error) {
-      storeLogger.error(`记忆文件损坏或无法读取，已跳过`, { id, filePath, error });
+      storeLogger.error(`记忆文件损坏或无法读取，已跳过`, {
+        id,
+        filePath,
+        error,
+      });
       return null;
     }
   }

@@ -13,10 +13,7 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import type {
-  ProviderConfig,
-  ProviderValidationResult,
-} from './AIProvider';
+import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -88,7 +85,8 @@ export class VertexAIProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = options?.model || this.defaultModel || this.resolveModel('chat');
+    const model =
+      options?.model || this.defaultModel || this.resolveModel('chat');
     const { systemPrompt } = this.adapter.splitMessages(messages);
     const token = await this.getAccessToken();
 
@@ -149,7 +147,8 @@ export class VertexAIProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || this.defaultModel || this.resolveModel('chat');
+    const model =
+      options?.model || this.defaultModel || this.resolveModel('chat');
     const { systemPrompt } = this.adapter.splitMessages(messages);
     const token = await this.getAccessToken();
 
@@ -167,18 +166,15 @@ export class VertexAIProvider extends BaseAIProvider {
 
     try {
       // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
-      const response = await BaseAIProvider.fetchWithConnectionRetry(
-        url,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(this.timeout * 1.5),
-        }
-      );
+      const response = await BaseAIProvider.fetchWithConnectionRetry(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(this.timeout * 1.5),
+      });
 
       if (!response.ok) {
         const errorBody = await response.text();

@@ -49,7 +49,8 @@ const logger = new Logger({ level: LogLevel.INFO });
 export type { PluginInfo, SkillInfo, MarketplaceEntry, EcosystemConfig };
 
 /** 插件系统未绑定的错误消息 */
-const ERR_NOT_BOUND = 'PluginSystem 未绑定，请在初始化 PluginSystem 后调用 bindPluginSystem()';
+const ERR_NOT_BOUND =
+  'PluginSystem 未绑定，请在初始化 PluginSystem 后调用 bindPluginSystem()';
 
 /**
  * 获取徽章文本
@@ -107,7 +108,11 @@ export class PluginEcosystem {
   /** 检查 PluginSystem 是否已绑定 */
   private ensureBound(): PluginSystem {
     if (!this.pluginSystem) {
-      throw new AppError(ERR_NOT_BOUND, ErrorCategory.EXECUTION, ErrorSeverity.HIGH);
+      throw new AppError(
+        ERR_NOT_BOUND,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
     return this.pluginSystem;
   }
@@ -120,7 +125,9 @@ export class PluginEcosystem {
    */
   getPlugin(pluginId: string): PluginInfo | undefined {
     if (this.pluginSystem) {
-      const ps = this.pluginSystem.getPluginInfoList().find(p => p.id === pluginId);
+      const ps = this.pluginSystem
+        .getPluginInfoList()
+        .find((p) => p.id === pluginId);
       if (ps) return ps;
     }
     return this.sdkPlugins.get(pluginId);
@@ -147,10 +154,12 @@ export class PluginEcosystem {
 
     let sdkResults = Array.from(this.sdkPlugins.values());
     if (category) {
-      sdkResults = sdkResults.filter(p => p.category === category);
+      sdkResults = sdkResults.filter((p) => p.category === category);
     }
     if (tags?.length) {
-      sdkResults = sdkResults.filter(p => tags.some(tag => p.tags.includes(tag)));
+      sdkResults = sdkResults.filter((p) =>
+        tags.some((tag) => p.tags.includes(tag))
+      );
     }
 
     return [...results, ...sdkResults];
@@ -166,7 +175,11 @@ export class PluginEcosystem {
       logger.warn(`Plugin ${plugin.id} is already registered`);
       return;
     }
-    this.sdkPlugins.set(plugin.id, { ...plugin, installed: true, enabled: true });
+    this.sdkPlugins.set(plugin.id, {
+      ...plugin,
+      installed: true,
+      enabled: true,
+    });
   }
 
   /**
@@ -273,10 +286,10 @@ export class PluginEcosystem {
   searchSkills(category?: string, tags?: string[]): SkillInfo[] {
     let results = this.getAllSkills();
     if (category) {
-      results = results.filter(s => s.category === category);
+      results = results.filter((s) => s.category === category);
     }
     if (tags?.length) {
-      results = results.filter(s => tags.some(tag => s.tags.includes(tag)));
+      results = results.filter((s) => tags.some((tag) => s.tags.includes(tag)));
     }
     return results;
   }
@@ -309,13 +322,21 @@ export class PluginEcosystem {
 
     TerminalComponents.printHeader('已安装插件');
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 }) as TableColumn),
-      plugins.map(p => ({
+      ['名称', '版本', '作者', '类别', '状态'].map(
+        (h) => ({ header: h, width: 12 }) as TableColumn
+      ),
+      plugins.map((p) => ({
         cells: [
-          p.name, p.version, p.author, p.category,
-          getBadgeText(p.enabled ? '启用' : '禁用', p.enabled ? 'green' : 'gray'),
+          p.name,
+          p.version,
+          p.author,
+          p.category,
+          getBadgeText(
+            p.enabled ? '启用' : '禁用',
+            p.enabled ? 'green' : 'gray'
+          ),
         ],
-      })) as TableRow[],
+      })) as TableRow[]
     );
   }
 
@@ -331,13 +352,21 @@ export class PluginEcosystem {
 
     TerminalComponents.printHeader('已安装技能');
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 }) as TableColumn),
-      skills.map(s => ({
+      ['名称', '版本', '作者', '类别', '状态'].map(
+        (h) => ({ header: h, width: 12 }) as TableColumn
+      ),
+      skills.map((s) => ({
         cells: [
-          s.name, s.version, s.author, s.category,
-          getBadgeText(s.enabled ? '启用' : '禁用', s.enabled ? 'green' : 'gray'),
+          s.name,
+          s.version,
+          s.author,
+          s.category,
+          getBadgeText(
+            s.enabled ? '启用' : '禁用',
+            s.enabled ? 'green' : 'gray'
+          ),
         ],
-      })) as TableRow[],
+      })) as TableRow[]
     );
   }
 
@@ -353,17 +382,22 @@ export class PluginEcosystem {
 
     TerminalComponents.printHeader('插件市场');
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '技能数', '状态'].map(h => ({ header: h, width: 10 }) as TableColumn),
-      entries.map(e => ({
+      ['名称', '版本', '作者', '类别', '技能数', '状态'].map(
+        (h) => ({ header: h, width: 10 }) as TableColumn
+      ),
+      entries.map((e) => ({
         cells: [
-          e.plugin.name, e.plugin.version, e.plugin.author, e.plugin.category,
+          e.plugin.name,
+          e.plugin.version,
+          e.plugin.author,
+          e.plugin.category,
           `${e.skills.length}个技能`,
           getBadgeText(
             this.sdkPlugins.has(e.plugin.id) ? '已安装' : '可安装',
             this.sdkPlugins.has(e.plugin.id) ? 'green' : 'blue'
           ),
         ],
-      })) as TableRow[],
+      })) as TableRow[]
     );
   }
 
@@ -392,7 +426,7 @@ export class PluginEcosystem {
     const skills = this.getPluginSkills(pluginId);
     if (skills.length > 0) {
       TerminalComponents.printInfo(`包含 ${skills.length} 个技能:`);
-      TerminalComponents.printList(skills.map(s => s.name));
+      TerminalComponents.printList(skills.map((s) => s.name));
     }
   }
 
@@ -418,13 +452,17 @@ export class PluginEcosystem {
     for (const skill of config.skills) {
       this.registerSkill(skill);
     }
-    logger.info(`Imported ${config.plugins.length} plugins and ${config.skills.length} skills`);
+    logger.info(
+      `Imported ${config.plugins.length} plugins and ${config.skills.length} skills`
+    );
   }
 }
 
 /**
  * 创建插件生态系统实例
  */
-export function createPluginEcosystem(config?: EcosystemConfig): PluginEcosystem {
+export function createPluginEcosystem(
+  config?: EcosystemConfig
+): PluginEcosystem {
   return new PluginEcosystem(config);
 }

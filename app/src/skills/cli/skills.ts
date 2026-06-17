@@ -32,8 +32,16 @@ async function loadAllSkills(): Promise<SkillRegistry> {
   // 收集所有加载器
   const loaders = [
     new BundledSkillLoader(),
-    new FileSkillLoader({ directories: [resolveUserSkillsDir()], source: SkillSource.THIRD_PARTY, loadedFrom: 'user' }),
-    new FileSkillLoader({ directories: [join(resolveDataDir(), 'skills')], source: SkillSource.OFFICIAL, loadedFrom: 'project' }),
+    new FileSkillLoader({
+      directories: [resolveUserSkillsDir()],
+      source: SkillSource.THIRD_PARTY,
+      loadedFrom: 'user',
+    }),
+    new FileSkillLoader({
+      directories: [join(resolveDataDir(), 'skills')],
+      source: SkillSource.OFFICIAL,
+      loadedFrom: 'project',
+    }),
     new PluginSkillLoader(),
     new MCPSkillLoader(),
   ];
@@ -144,29 +152,21 @@ export function registerSkillsCommands(program: Command): void {
           )
         );
         console.log(
-          chalk.cyan(
-            `Argument hint: ${skill.argumentHint || 'None'}`
-          )
+          chalk.cyan(`Argument hint: ${skill.argumentHint || 'None'}`)
         );
         console.log(chalk.cyan(`When to use: ${skill.whenToUse || 'None'}`));
         console.log(chalk.cyan(`Version: ${skill.version || 'None'}`));
         console.log(chalk.cyan(`Model: ${skill.model || 'None'}`));
         console.log(chalk.cyan(`Effort: ${skill.effort || 'None'}`));
         console.log(
-          chalk.cyan(
-            `Paths: ${skill.paths ? skill.paths.join(', ') : 'None'}`
-          )
+          chalk.cyan(`Paths: ${skill.paths ? skill.paths.join(', ') : 'None'}`)
         );
         console.log(
-          chalk.cyan(
-            `Content length: ${skill.contentLength || 0} characters`
-          )
+          chalk.cyan(`Content length: ${skill.contentLength || 0} characters`)
         );
         console.log(chalk.cyan('═'.repeat(80)));
       } catch (error: any) {
-        console.error(
-          chalk.red(`Error getting skill info: ${error.message}`)
-        );
+        console.error(chalk.red(`Error getting skill info: ${error.message}`));
       }
     });
 
@@ -201,10 +201,7 @@ export function registerSkillsCommands(program: Command): void {
           console.log(chalk.cyan('═'.repeat(80)));
           console.log(chalk.green(JSON.stringify(result, null, 2)));
         } else {
-          const prompt = await skill.impl.getPromptForCommand(
-            parsedArgs,
-            {}
-          );
+          const prompt = await skill.impl.getPromptForCommand(parsedArgs, {});
           console.log(chalk.bold('Skill prompt:'));
           console.log(chalk.cyan('═'.repeat(80)));
           console.log(chalk.green(JSON.stringify(prompt, null, 2)));

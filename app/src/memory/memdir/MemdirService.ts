@@ -152,7 +152,10 @@ export class MemdirService {
 
       logger.info('Memdir service initialized successfully');
     } catch (error) {
-      await handleError(error, { module: 'memory:memdir', action: 'initialize' });
+      await handleError(error, {
+        module: 'memory:memdir',
+        action: 'initialize',
+      });
       throw error;
     }
   }
@@ -164,7 +167,10 @@ export class MemdirService {
     try {
       await mkdir(this.config.autoMemBaseDir, { recursive: true });
     } catch (error) {
-      await handleError(error, { module: 'memory:memdir', action: 'ensure_dir' });
+      await handleError(error, {
+        module: 'memory:memdir',
+        action: 'ensure_dir',
+      });
       throw error;
     }
   }
@@ -192,7 +198,10 @@ export class MemdirService {
 
       logger.info(`Scanned ${this.memoryFiles.size} memory files`);
     } catch (error) {
-      await handleError(error, { module: 'memory:memdir', action: 'scan_files' });
+      await handleError(error, {
+        module: 'memory:memdir',
+        action: 'scan_files',
+      });
       throw error;
     }
   }

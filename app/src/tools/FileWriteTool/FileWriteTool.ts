@@ -219,7 +219,8 @@ export class FileWriteTool extends BaseTool {
 
     Promise.resolve().then(async () => {
       try {
-        const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+        const { FileRegistry } =
+          await import('@modules/services/file/FileRegistry');
         const { FileSource } = await import('@modules/services/file/types');
 
         const resolved = resolveFilePath(filePath);

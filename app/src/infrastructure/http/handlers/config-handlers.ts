@@ -28,115 +28,120 @@ import { handleError } from '@modules/error/handleError';
 
 export async function handleListConfig(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { configManager } = await import('@modules/config/ConfigManager');
-      const globalConfig = configManager.getGlobalConfig();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(globalConfig || {}));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({}));
-    }
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { configManager } = await import('@modules/config/ConfigManager');
+    const globalConfig = configManager.getGlobalConfig();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(globalConfig || {}));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({}));
   }
+}
 
-  /**
-   * 处理获取指定配置项请求
-   */
+/**
+ * 处理获取指定配置项请求
+ */
 export async function handleGetConfig(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    key: string
-  ): Promise<void> {
-    try {
-      const { configManager } = await import('@modules/config/ConfigManager');
-      const value = configManager.getConfigValue(key);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ key, value }));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ key, value: null }));
-    }
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  key: string
+): Promise<void> {
+  try {
+    const { configManager } = await import('@modules/config/ConfigManager');
+    const value = configManager.getConfigValue(key);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ key, value }));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ key, value: null }));
   }
+}
 
-  /**
-   * 处理设置配置项请求
-   */
+/**
+ * 处理设置配置项请求
+ */
 export async function handleSetConfig(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    key: string
-  ): Promise<void> {
-    try {
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  key: string
+): Promise<void> {
+  try {
     const body = await ctx.readRequestBody(req);
-      const { value } = JSON.parse(body);
-      const { configManager } = await import('@modules/config/ConfigManager');
-      configManager.setConfigValue(key, value);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, key, value }));
-      broadcastEvent('config:updated', { key, value });
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    const { value } = JSON.parse(body);
+    const { configManager } = await import('@modules/config/ConfigManager');
+    configManager.setConfigValue(key, value);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, key, value }));
+    broadcastEvent('config:updated', { key, value });
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
 export async function handleDeleteConfig(
   ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse,
-    key: string
-  ): Promise<void> {
-    try {
-      const { configManager } = await import('@modules/config/ConfigManager');
-      // ConfigManager 没有 deleteConfigValue，通过 saveGlobalConfig 移除 key
-      const { getConfig } = await import('@modules/config');
-      const current = { ...(getConfig() as Record<string, unknown>) };
-      delete current[key];
-      configManager.setConfigValue(key, undefined as unknown);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, key }));
-      broadcastEvent('config:deleted', { key });
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  key: string
+): Promise<void> {
+  try {
+    const { configManager } = await import('@modules/config/ConfigManager');
+    // ConfigManager 没有 deleteConfigValue，通过 saveGlobalConfig 移除 key
+    const { getConfig } = await import('@modules/config');
+    const current = { ...(getConfig() as Record<string, unknown>) };
+    delete current[key];
+    configManager.setConfigValue(key, undefined as unknown);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, key }));
+    broadcastEvent('config:deleted', { key });
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
-  // ========== Router（智能路由）==========
+// ========== Router（智能路由）==========
 
-  /**
-   * 获取 SmartRouter 当前配置与最近一次路由决策
-   */
+/**
+ * 获取 SmartRouter 当前配置与最近一次路由决策
+ */
 export async function handleRouterGetConfig(
   ctx: HandlerCtx,
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-      const core = getCoreAPI();
-      const router = core.getSmartRouter();
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+    const core = getCoreAPI();
+    const router = core.getSmartRouter();
 
-      const config = router?.getConfig() || null;
-      const lastDecision = core.getLastRouteDecision();
+    const config = router?.getConfig() || null;
+    const lastDecision = core.getLastRouteDecision();
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
         success: true,
         data: {
           enabled: config?.enabled ?? false,
@@ -144,60 +149,69 @@ export async function handleRouterGetConfig(
           lastDecision,
           active: router !== null,
         },
-      }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+      })
+    );
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
-  /**
-   * 更新 SmartRouter 配置（运行时动态切换 + 持久化到 GlobalConfig）
-   */
+/**
+ * 更新 SmartRouter 配置（运行时动态切换 + 持久化到 GlobalConfig）
+ */
 export async function handleRouterUpdateConfig(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
     const body = await ctx.readRequestBody(req);
-      const { config } = JSON.parse(body);
-      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-      const core = getCoreAPI();
-      const router = core.getSmartRouter();
+    const { config } = JSON.parse(body);
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+    const core = getCoreAPI();
+    const router = core.getSmartRouter();
 
-      if (!router) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'SmartRouter 未初始化' }));
-        return;
-      }
+    if (!router) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ success: false, error: 'SmartRouter 未初始化' })
+      );
+      return;
+    }
 
-      // 更新运行时
-      router.updateConfig(config);
+    // 更新运行时
+    router.updateConfig(config);
 
-      // 持久化到 GlobalConfig，使重启后配置不丢失
-      const { configManager } = await import('@modules/config/ConfigManager');
-      const current = configManager.getConfigValue<Record<string, unknown>>('models.router') || {};
-      configManager.setConfigValue('models.router', { ...current, ...config });
+    // 持久化到 GlobalConfig，使重启后配置不丢失
+    const { configManager } = await import('@modules/config/ConfigManager');
+    const current =
+      configManager.getConfigValue<Record<string, unknown>>('models.router') ||
+      {};
+    configManager.setConfigValue('models.router', { ...current, ...config });
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-      broadcastEvent('router:updated', { config });
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    broadcastEvent('router:updated', { config });
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
 // ========== SSE Event Bus ==========
 
@@ -209,31 +223,31 @@ let _heartbeatTimer: ReturnType<typeof setInterval> | null = null;
  */
 export async function handleEvents(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    });
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
 
-    _clients.add(res);
+  _clients.add(res);
 
-    if (!_heartbeatTimer) {
-      _heartbeatTimer = setInterval(() => {
-        const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
-        for (const client of _clients) {
-          client.write(`event: heartbeat\ndata: ${payload}\n\n`);
-        }
-      }, 15000);
-    }
-
-    req.on('close', () => {
-      _clients.delete(res);
-      if (_clients.size === 0 && _heartbeatTimer) {
-        clearInterval(_heartbeatTimer);
-        _heartbeatTimer = null;
+  if (!_heartbeatTimer) {
+    _heartbeatTimer = setInterval(() => {
+      const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
+      for (const client of _clients) {
+        client.write(`event: heartbeat\ndata: ${payload}\n\n`);
       }
-    });
+    }, 15000);
   }
+
+  req.on('close', () => {
+    _clients.delete(res);
+    if (_clients.size === 0 && _heartbeatTimer) {
+      clearInterval(_heartbeatTimer);
+      _heartbeatTimer = null;
+    }
+  });
+}

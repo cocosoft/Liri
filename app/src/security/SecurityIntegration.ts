@@ -66,7 +66,12 @@ export class SecurityIntegrationService {
     if (trustLevel && cwd) {
       try {
         const audit = new SecurityAudit();
-        audit.logWorkspaceTrustAllow(cwd, trustLevel, 'command_execution', command);
+        audit.logWorkspaceTrustAllow(
+          cwd,
+          trustLevel,
+          'command_execution',
+          command
+        );
       } catch {
         // 审计日志非阻塞
       }
@@ -172,7 +177,8 @@ export class SecurityIntegrationService {
    */
   isInTrustedWorkspace(targetPath: string): boolean {
     try {
-      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
       const workspaces = permission?.trustedWorkspaces;
       if (!workspaces || workspaces.length === 0) return false;
 
@@ -181,7 +187,9 @@ export class SecurityIntegrationService {
         if (!ws.enabled) return false;
         const wsPath = ws.path.replace(/\\/g, '/');
         // 前缀匹配必须带路径分隔符或完全相等，防止 /proj 匹配 /proj-other
-        return normalizedPath === wsPath || normalizedPath.startsWith(wsPath + '/');
+        return (
+          normalizedPath === wsPath || normalizedPath.startsWith(wsPath + '/')
+        );
       });
     } catch {
       return false;
@@ -195,14 +203,18 @@ export class SecurityIntegrationService {
    */
   getTrustLevelForPath(targetPath: string): string | undefined {
     try {
-      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
       const workspaces = permission?.trustedWorkspaces;
       if (workspaces && workspaces.length > 0) {
         const normalizedPath = targetPath.replace(/\\/g, '/');
         for (const ws of workspaces) {
           if (!ws.enabled) continue;
           const wsPath = ws.path.replace(/\\/g, '/');
-          if (normalizedPath === wsPath || normalizedPath.startsWith(wsPath + '/')) {
+          if (
+            normalizedPath === wsPath ||
+            normalizedPath.startsWith(wsPath + '/')
+          ) {
             return ws.trustLevel || 'development';
           }
         }
@@ -222,9 +234,13 @@ export class SecurityIntegrationService {
    */
   getDefaultTrustLevel(): string | undefined {
     try {
-      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
       const defaultTrustLevel = permission?.defaultTrustLevel;
-      if (defaultTrustLevel && ['chat', 'work', 'development'].includes(defaultTrustLevel)) {
+      if (
+        defaultTrustLevel &&
+        ['chat', 'work', 'development'].includes(defaultTrustLevel)
+      ) {
         return defaultTrustLevel;
       }
       return undefined;

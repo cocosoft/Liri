@@ -44,8 +44,4 @@ export {
 } from './ModuleHealthRegistry';
 export type { ModuleHealth, ModuleHealthCheck } from './ModuleHealthRegistry';
 export type { HealthStatus, UnifiedHealthStatus } from './types.js';
-export {
-  HEALTH_SEVERITY,
-  isAcceptable,
-  mergeHealthStatuses,
-} from './types.js';
+export { HEALTH_SEVERITY, isAcceptable, mergeHealthStatuses } from './types.js';

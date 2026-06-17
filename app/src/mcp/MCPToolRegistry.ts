@@ -23,5 +23,8 @@
  * MCP工具注册表重导出
  * 标准层 services/mcp/MCPToolRegistry 的重导出
  */
-export { MCPToolRegistry, mcpToolRegistry } from '../../services/mcp/MCPToolRegistry.js';
+export {
+  MCPToolRegistry,
+  mcpToolRegistry,
+} from '../../services/mcp/MCPToolRegistry.js';
 export type { MCPToolInfo } from '../../services/mcp/MCPToolRegistry.js';

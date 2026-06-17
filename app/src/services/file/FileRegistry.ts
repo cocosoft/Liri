@@ -28,10 +28,28 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
-import { resolveDbPath, resolveInboundDir, resolveMediaDir } from '@modules/core/paths';
-import { getCreateTableSqlList, FILES_TABLE, FILES_FTS_TABLE } from './fileSchema';
+import {
+  resolveDbPath,
+  resolveInboundDir,
+  resolveMediaDir,
+} from '@modules/core/paths';
+import {
+  getCreateTableSqlList,
+  FILES_TABLE,
+  FILES_FTS_TABLE,
+} from './fileSchema';
 import { generateSavedName, computeMd5 } from './fileNaming';
-import { FileSource, type RegisterFileInput, type RegisterFileResult, type FileRecord, type FileListQuery, type FileListResult, type FileStats, type FileRow, rowToFileRecord } from './types';
+import {
+  FileSource,
+  type RegisterFileInput,
+  type RegisterFileResult,
+  type FileRecord,
+  type FileListQuery,
+  type FileListResult,
+  type FileStats,
+  type FileRow,
+  rowToFileRecord,
+} from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -96,7 +114,10 @@ export class FileRegistry {
       this.initialized = true;
       logger.info('FileRegistry 初始化完成', { dbPath: this.dbPath });
     } catch (error) {
-      await handleError(error, { module: 'services:file:registry', action: 'initialize' });
+      await handleError(error, {
+        module: 'services:file:registry',
+        action: 'initialize',
+      });
       throw new AppError(
         'FileRegistry 初始化失败',
         ErrorCategory.EXECUTION,
@@ -155,7 +176,8 @@ export class FileRegistry {
     } = input;
 
     // Step 1: 计算 MD5
-    const contentBuffer = typeof content === 'string' ? Buffer.from(content, 'utf-8') : content;
+    const contentBuffer =
+      typeof content === 'string' ? Buffer.from(content, 'utf-8') : content;
     const md5 = computeMd5(contentBuffer);
     const fileSize = contentBuffer.length;
 
@@ -173,7 +195,11 @@ export class FileRegistry {
         this.dedupCount++;
         this.dedupSize += existing.size;
 
-        logger.info('文件去重命中', { md5, fileId: existing.fileId, originalName });
+        logger.info('文件去重命中', {
+          md5,
+          fileId: existing.fileId,
+          originalName,
+        });
         return {
           action: 'duplicate',
           fileId: existing.fileId,
@@ -190,7 +216,12 @@ export class FileRegistry {
     const savedName = generateSavedName(originalName, md5);
 
     // 确定保存路径
-    const savedPath = this.resolveSavedPath(storeZone, source, mediaType, savedName);
+    const savedPath = this.resolveSavedPath(
+      storeZone,
+      source,
+      mediaType,
+      savedName
+    );
 
     // Step 4: 写文件到磁盘（自动创建目录）
     try {
@@ -216,14 +247,31 @@ export class FileRegistry {
              source, source_id, store_zone, media_type, description, is_archive, archive_parent_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            fileId, originalName, savedName, savedPath, md5, fileSize, mimeType,
-            source, sourceId, storeZone, mediaType, description,
-            isArchive ? 1 : 0, archiveParentId,
+            fileId,
+            originalName,
+            savedName,
+            savedPath,
+            md5,
+            fileSize,
+            mimeType,
+            source,
+            sourceId,
+            storeZone,
+            mediaType,
+            description,
+            isArchive ? 1 : 0,
+            archiveParentId,
           ]
         );
       });
 
-      logger.info('文件注册成功', { fileId, originalName, savedName, source, size: fileSize });
+      logger.info('文件注册成功', {
+        fileId,
+        originalName,
+        savedName,
+        source,
+        size: fileSize,
+      });
       return {
         action: 'created',
         fileId,
@@ -379,7 +427,8 @@ export class FileRegistry {
       params.push(`%${search}%`);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     return this.dbMutex.run(async () => {
       // 查询总数
@@ -414,7 +463,10 @@ export class FileRegistry {
    * @param limit - 最大返回数量（默认 20）
    * @returns 匹配的文件记录列表
    */
-  async searchFiles(ftsQuery: string, limit: number = 20): Promise<FileRecord[]> {
+  async searchFiles(
+    ftsQuery: string,
+    limit: number = 20
+  ): Promise<FileRecord[]> {
     await this.initDatabase();
     if (!this.db) throw new Error('Database not initialized');
 
@@ -474,9 +526,14 @@ export class FileRegistry {
   ): Promise<FileStats> {
     if (!this.db) {
       return {
-        totalFiles: 0, totalSize: 0, todayCount: 0,
-        dedupSaved: 0, dedupSavedSize: 0,
-        archiveCount: 0, mediaCount: 0, mediaSize: 0,
+        totalFiles: 0,
+        totalSize: 0,
+        todayCount: 0,
+        dedupSaved: 0,
+        dedupSavedSize: 0,
+        archiveCount: 0,
+        mediaCount: 0,
+        mediaSize: 0,
       };
     }
 
@@ -568,7 +625,12 @@ export class FileRegistry {
 
     // 生成保存名（没有 MD5，用空字符串占位）
     const savedName = generateSavedName(originalName, md5 || '00000000');
-    const savedPath = this.resolveSavedPath(storeZone, source, mediaType, savedName);
+    const savedPath = this.resolveSavedPath(
+      storeZone,
+      source,
+      mediaType,
+      savedName
+    );
 
     const fileId = uuidv4().slice(0, 8);
 
@@ -581,14 +643,30 @@ export class FileRegistry {
              source, source_id, store_zone, media_type, description, is_archive, archive_parent_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            fileId, originalName, savedName, savedPath, md5, fileSize, mimeType,
-            source, sourceId, storeZone, mediaType, description,
-            isArchive ? 1 : 0, archiveParentId,
+            fileId,
+            originalName,
+            savedName,
+            savedPath,
+            md5,
+            fileSize,
+            mimeType,
+            source,
+            sourceId,
+            storeZone,
+            mediaType,
+            description,
+            isArchive ? 1 : 0,
+            archiveParentId,
           ]
         );
       });
 
-      logger.info('大文件注册成功', { fileId, originalName, source, size: fileSize });
+      logger.info('大文件注册成功', {
+        fileId,
+        originalName,
+        source,
+        size: fileSize,
+      });
       return {
         action: 'created',
         fileId,
@@ -671,4 +749,3 @@ export class FileRegistry {
     }
   }
 }
-

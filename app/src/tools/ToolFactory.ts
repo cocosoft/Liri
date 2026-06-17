@@ -12,7 +12,7 @@ import { FileEditTool } from './FileEditTool/FileEditTool';
 import { FileConvertTool } from './FileConvertTool/FileConvertTool';
 import { GrepTool } from './GrepTool/GrepTool';
 import { GlobTool } from './search/GlobTool';
-import { FileSearchTool } from './FileSearchTool/FileSearchTool';//文件搜索工具（内部其实调用GlobTool）
+import { FileSearchTool } from './FileSearchTool/FileSearchTool'; //文件搜索工具（内部其实调用GlobTool）
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -537,7 +537,10 @@ export class ToolFactory {
     try {
       return new SleepTool();
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_sleep_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_sleep_tool',
+      });
       return null;
     }
   }
@@ -558,7 +561,10 @@ export class ToolFactory {
     try {
       return new MonitorTool();
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_monitor_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_monitor_tool',
+      });
       return null;
     }
   }
@@ -571,7 +577,10 @@ export class ToolFactory {
     try {
       return new TraceRecordingTool();
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_trace_recording_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_trace_recording_tool',
+      });
       return null;
     }
   }
@@ -585,7 +594,10 @@ export class ToolFactory {
     try {
       return new SendMessageTool();
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_send_message_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_send_message_tool',
+      });
       return null;
     }
   }
@@ -599,7 +611,10 @@ export class ToolFactory {
     try {
       return new TeamCreateTool();
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_team_create_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_team_create_tool',
+      });
       return null;
     }
   }
@@ -613,7 +628,10 @@ export class ToolFactory {
     try {
       return new TeamDeleteTool();
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_team_delete_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_team_delete_tool',
+      });
       return null;
     }
   }
@@ -723,7 +741,10 @@ export class ToolFactory {
         isEnabled: () => true,
       } as unknown as Tool;
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_push_notification_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_push_notification_tool',
+      });
       return null;
     }
   }
@@ -796,7 +817,10 @@ export class ToolFactory {
         isEnabled: () => true,
       } as unknown as Tool;
     } catch (error) {
-      void handleError(error, { module: 'tools:factory', action: 'create_subscribe_pr_tool' });
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_subscribe_pr_tool',
+      });
       return null;
     }
   }

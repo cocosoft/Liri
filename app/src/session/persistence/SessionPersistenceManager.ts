@@ -244,7 +244,10 @@ export class SessionPersistenceManager {
         Object.assign(existing, JSON.parse(fs.readFileSync(metaPath, 'utf-8')));
       }
     } catch (err) {
-      void handleError(err, { module: 'session:persistence', action: 'catch_error' });
+      void handleError(err, {
+        module: 'session:persistence',
+        action: 'catch_error',
+      });
     }
 
     existing[metadata.snapshotId] = metadata;

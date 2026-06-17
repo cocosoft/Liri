@@ -59,7 +59,7 @@ export interface DriftReport {
  */
 export function classifyToolListDrift(
   before: readonly McpToolSpec[],
-  after: readonly McpToolSpec[],
+  after: readonly McpToolSpec[]
 ): DriftReport {
   const beforeNames = before.map((t) => t.name);
   const afterNames = after.map((t) => t.name);
@@ -72,7 +72,10 @@ export function classifyToolListDrift(
   const edited: string[] = [];
   const sharedLen = Math.min(before.length, after.length);
   for (let i = 0; i < sharedLen; i++) {
-    if (beforeNames[i] === afterNames[i] && hashSpec(before[i]!) !== hashSpec(after[i]!)) {
+    if (
+      beforeNames[i] === afterNames[i] &&
+      hashSpec(before[i]!) !== hashSpec(after[i]!)
+    ) {
       edited.push(beforeNames[i]!);
     }
   }
@@ -83,7 +86,13 @@ export function classifyToolListDrift(
     edited.length === 0 &&
     beforeNames.every((n, i) => n === afterNames[i])
   ) {
-    return { kind: 'identity', added: [], removed: [], edited: [], summary: '工具列表无变化' };
+    return {
+      kind: 'identity',
+      added: [],
+      removed: [],
+      edited: [],
+      summary: '工具列表无变化',
+    };
   }
 
   // Remove: 有工具被移除 — 最严重
@@ -101,7 +110,8 @@ export function classifyToolListDrift(
   if (
     after.length > before.length &&
     beforeNames.every(
-      (n, i) => n === afterNames[i] && hashSpec(before[i]!) === hashSpec(after[i]!),
+      (n, i) =>
+        n === afterNames[i] && hashSpec(before[i]!) === hashSpec(after[i]!)
     )
   ) {
     return {
@@ -115,7 +125,8 @@ export function classifyToolListDrift(
 
   // 同名集合相同 → 位置或内容变化
   const sameNameSet =
-    beforeSet.size === afterSet.size && [...beforeSet].every((n) => afterSet.has(n));
+    beforeSet.size === afterSet.size &&
+    [...beforeSet].every((n) => afterSet.has(n));
   if (sameNameSet) {
     const positionsMatch = beforeNames.every((n, i) => n === afterNames[i]);
     if (positionsMatch) {
@@ -151,7 +162,7 @@ export function classifyToolListDrift(
  */
 export function isDriftAcceptable(
   kind: DriftKind,
-  accept: ReadonlyArray<'identity' | 'append'> = ['identity'],
+  accept: ReadonlyArray<'identity' | 'append'> = ['identity']
 ): boolean {
   if (kind === 'identity') return true;
   if (kind === 'append' && accept.includes('append')) return true;

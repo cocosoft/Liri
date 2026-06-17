@@ -47,11 +47,12 @@ export function isThinkingModeModel(model: string): boolean {
  *   - undefined: 第三方端点，跳过该字段
  */
 export function thinkingModeForModel(
-  model: string,
+  model: string
 ): 'enabled' | 'disabled' | undefined {
   if (!model) return undefined;
   if (model.includes('reasoner')) return 'enabled';
-  if (model === 'deepseek-v4-flash' || model === 'deepseek-v4-pro') return 'enabled';
+  if (model === 'deepseek-v4-flash' || model === 'deepseek-v4-pro')
+    return 'enabled';
   return 'disabled';
 }
 
@@ -65,10 +66,13 @@ export function stripHallucinatedToolMarkup(content: string): string {
   let out = content;
 
   // DeepSeek DSML 格式
-  out = out.replace(/<｜DSML｜function_calls>[\s\S]*?<\/?｜DSML｜function_calls>/g, '');
+  out = out.replace(
+    /<｜DSML｜function_calls>[\s\S]*?<\/?｜DSML｜function_calls>/g,
+    ''
+  );
   out = out.replace(
     /<\|DSML\|function_calls>[\s\S]*?<\/?\|DSML\|function_calls>/g,
-    '',
+    ''
   );
   out = out.replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '');
 

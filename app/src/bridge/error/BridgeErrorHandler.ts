@@ -41,7 +41,13 @@ export class BridgeError extends AppError {
       context?: Record<string, unknown>;
     } = {}
   ) {
-    super(message, ErrorCategory.NETWORK, ErrorSeverity.MEDIUM, type, options.context);
+    super(
+      message,
+      ErrorCategory.NETWORK,
+      ErrorSeverity.MEDIUM,
+      type,
+      options.context
+    );
     this.name = 'BridgeError';
     this.type = type;
     this.code = options.code;

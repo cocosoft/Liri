@@ -24,7 +24,5 @@
  */
 
 export { SkillDB, getSkillDB } from './SkillDB';
-export {
-  initializeSkillLifecycle,
-} from './SkillLifecycleManager';
+export { initializeSkillLifecycle } from './SkillLifecycleManager';
 export type { SkillLifecycleConfig } from './SkillLifecycleManager';

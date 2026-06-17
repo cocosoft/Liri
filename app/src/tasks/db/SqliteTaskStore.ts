@@ -722,23 +722,31 @@ export class SqliteTaskStore implements ITaskStore {
         this.db!.run(
           `INSERT INTO ${TABLE_NAMES.TASK_AUDIT_LOG} (task_id, event_type, old_status, new_status, timestamp)
            VALUES (?, ?, ?, ?, ?)`,
-          [entry.taskId, entry.eventType, entry.oldStatus, entry.newStatus, entry.timestamp],
+          [
+            entry.taskId,
+            entry.eventType,
+            entry.oldStatus,
+            entry.newStatus,
+            entry.timestamp,
+          ],
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     });
   }
 
-  async queryAuditLogs(taskId: string): Promise<Array<{
-    taskId: string;
-    eventType: string;
-    oldStatus: string | null;
-    newStatus: string;
-    timestamp: number;
-  }>> {
+  async queryAuditLogs(taskId: string): Promise<
+    Array<{
+      taskId: string;
+      eventType: string;
+      oldStatus: string | null;
+      newStatus: string;
+      timestamp: number;
+    }>
+  > {
     return this.withDb(async () => {
       const rows = await new Promise<any[]>((resolve, reject) => {
         this.db!.all(
@@ -750,7 +758,7 @@ export class SqliteTaskStore implements ITaskStore {
           (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
-          },
+          }
         );
       });
       return rows.map((r) => ({
@@ -781,9 +789,8 @@ export class SqliteTaskStore implements ITaskStore {
           [cutoff],
           function (this: any, err: Error | null) {
             if (err) reject(err);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             else resolve((this as any).changes ?? 0);
-          },
+          }
         );
       });
       logger.info('Task cleanup completed', { deleted: result, retentionDays });
@@ -833,7 +840,7 @@ export class SqliteTaskStore implements ITaskStore {
           (err: Error | null, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows || []);
-          },
+          }
         );
       });
       return rows.map((r: any) => ({
@@ -891,7 +898,7 @@ export class SqliteTaskStore implements ITaskStore {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     });
@@ -911,7 +918,7 @@ export class SqliteTaskStore implements ITaskStore {
   async updateKanbanCardColumn(
     cardId: string,
     columnId: string,
-    sortOrder: number,
+    sortOrder: number
   ): Promise<void> {
     return this.withDb(async () => {
       await new Promise<void>((resolve, reject) => {
@@ -921,7 +928,7 @@ export class SqliteTaskStore implements ITaskStore {
           (err) => {
             if (err) reject(err);
             else resolve();
-          },
+          }
         );
       });
     });
@@ -953,4 +960,3 @@ function rowToDeliveryRecord(row: any): DeliveryRecord {
 export function createSqliteTaskStore(dbPath?: string): SqliteTaskStore {
   return new SqliteTaskStore(dbPath);
 }
-

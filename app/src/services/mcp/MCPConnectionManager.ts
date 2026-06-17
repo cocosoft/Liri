@@ -101,7 +101,10 @@ export class MCPConnectionManager {
       // 启动健康检查和自动重连
       await manager.initialize();
     } catch (error) {
-      await handleError(error, { module: 'services:mcp:connection', action: 'initialize' });
+      await handleError(error, {
+        module: 'services:mcp:connection',
+        action: 'initialize',
+      });
     }
   }
 
@@ -222,7 +225,11 @@ export class MCPConnectionManager {
           return;
         }
       } catch (error) {
-        await handleError(error, { module: 'services:mcp:connection', action: 'reconnect_attempt', context: { serverName: client.name, attempt } });
+        await handleError(error, {
+          module: 'services:mcp:connection',
+          action: 'reconnect_attempt',
+          context: { serverName: client.name, attempt },
+        });
 
         if (attempt === MAX_RECONNECT_ATTEMPTS) {
           logger.warn(
@@ -315,7 +322,11 @@ export class MCPConnectionManager {
         } as MCPServerConnection);
       }
     } catch (error) {
-      await handleError(error, { module: 'services:mcp:connection', action: 'toggle_server', context: { serverName } });
+      await handleError(error, {
+        module: 'services:mcp:connection',
+        action: 'toggle_server',
+        context: { serverName },
+      });
     }
   }
 

@@ -9,10 +9,7 @@ import type {
   ChatOptions,
   ThinkingProviderChunk,
 } from './AIProvider';
-import {
-  BaseAIProvider,
-  type BaseProviderOptions,
-} from './BaseAIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
@@ -30,11 +27,16 @@ const BETA_HEADERS = {
 export class AnthropicProvider extends BaseAIProvider {
   private config: LLMConfig;
 
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     super(options, _extraConfig);
 
     const apiKey = this.resolveApiKey() || '';
-    const baseUrl = (this.resolveBaseUrl() || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const baseUrl = (
+      this.resolveBaseUrl() || 'https://api.anthropic.com'
+    ).replace(/\/+$/, '');
 
     this.config = {
       apiKey,
@@ -45,9 +47,7 @@ export class AnthropicProvider extends BaseAIProvider {
     };
 
     if (!this.transport) {
-      this.transport = new TransportProviderAdapter(
-        new MessagesApiTransport()
-      );
+      this.transport = new TransportProviderAdapter(new MessagesApiTransport());
     }
   }
 
@@ -99,7 +99,8 @@ export class AnthropicProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const model = options?.model || this.config.model || this.resolveModel('chat');
+    const model =
+      options?.model || this.config.model || this.resolveModel('chat');
 
     return this.withRetry(async () => {
       return this.sendRequest(model, messages, options);
@@ -110,9 +111,12 @@ export class AnthropicProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
-    const model = options?.model || this.config.model || this.resolveModel('chat');
+    const model =
+      options?.model || this.config.model || this.resolveModel('chat');
     const apiKey = this.resolveApiKey() || this.config.apiKey || '';
-    const baseUrl = (this.resolveBaseUrl() || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const baseUrl = (
+      this.resolveBaseUrl() || 'https://api.anthropic.com'
+    ).replace(/\/+$/, '');
 
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
@@ -230,7 +234,10 @@ export class AnthropicProvider extends BaseAIProvider {
       'anthropic-version': '2023-06-01',
     };
 
-    if (this.config.model?.includes('claude-sonnet-4') || this.config.model?.includes('opus-4')) {
+    if (
+      this.config.model?.includes('claude-sonnet-4') ||
+      this.config.model?.includes('opus-4')
+    ) {
       headers['anthropic-beta'] = BETA_HEADERS.STRUCTURED_OUTPUTS;
     }
 
@@ -245,7 +252,9 @@ export class AnthropicProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const baseUrl = (this.resolveBaseUrl() || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const baseUrl = (
+      this.resolveBaseUrl() || 'https://api.anthropic.com'
+    ).replace(/\/+$/, '');
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
     const requestBody = this.transport!.buildRequest({

@@ -119,7 +119,9 @@ class TodoManager {
             this.todos.set(row.session_id, todos);
           }
           this.initialized = true;
-          logger.info('TodoManager: 恢复完成', { sessionCount: this.todos.size });
+          logger.info('TodoManager: 恢复完成', {
+            sessionCount: this.todos.size,
+          });
         }
       );
     } catch (e) {
@@ -129,22 +131,33 @@ class TodoManager {
   }
 
   /** 写入单条 todo 到 SQLite */
-  private async saveTodoToDb(sessionId: string, todo: Todo, sortOrder: number): Promise<void> {
+  private async saveTodoToDb(
+    sessionId: string,
+    todo: Todo,
+    sortOrder: number
+  ): Promise<void> {
     await this.dbMutex.run(async () => {
       return new Promise<void>((resolve, reject) => {
         this.db.run(
           `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            todo.id, sessionId, todo.content, todo.status,
+            todo.id,
+            sessionId,
+            todo.content,
+            todo.status,
             todo.activeForm || null,
             todo.metadata ? JSON.stringify(todo.metadata) : null,
             sortOrder,
-            todo.createdAt.getTime(), todo.updatedAt.getTime(),
+            todo.createdAt.getTime(),
+            todo.updatedAt.getTime(),
           ],
           (err: Error | null) => {
             if (err) {
-              logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err) });
+              logger.error('TodoManager: 写入失败', {
+                todoId: todo.id,
+                error: String(err),
+              });
               resolve();
             } else {
               resolve();
@@ -159,41 +172,53 @@ class TodoManager {
   private async saveAllToDb(sessionId: string, todos: Todo[]): Promise<void> {
     await this.dbMutex.run(async () => {
       return new Promise<void>((resolve) => {
-        this.db.run('DELETE FROM todowrite_todos WHERE session_id = ?', [sessionId], (err: Error | null) => {
-          if (err) {
-            logger.error('TodoManager: 清除失败', { error: String(err) });
-            resolve();
-            return;
-          }
+        this.db.run(
+          'DELETE FROM todowrite_todos WHERE session_id = ?',
+          [sessionId],
+          (err: Error | null) => {
+            if (err) {
+              logger.error('TodoManager: 清除失败', { error: String(err) });
+              resolve();
+              return;
+            }
 
-          if (todos.length === 0) {
-            resolve();
-            return;
-          }
+            if (todos.length === 0) {
+              resolve();
+              return;
+            }
 
-          let completed = 0;
-          for (let i = 0; i < todos.length; i++) {
-            const todo = todos[i];
-            this.db.run(
-              `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
+            let completed = 0;
+            for (let i = 0; i < todos.length; i++) {
+              const todo = todos[i];
+              this.db.run(
+                `INSERT OR REPLACE INTO todowrite_todos (id, session_id, content, status, active_form, metadata, sort_order, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                todo.id, sessionId, todo.content, todo.status,
-                todo.activeForm || null,
-                todo.metadata ? JSON.stringify(todo.metadata) : null,
-                i,
-                todo.createdAt.getTime(), todo.updatedAt.getTime(),
-              ],
-              (err2: Error | null) => {
-                if (err2) logger.error('TodoManager: 写入失败', { todoId: todo.id, error: String(err2) });
-                completed++;
-                if (completed >= todos.length) {
-                  resolve();
+                [
+                  todo.id,
+                  sessionId,
+                  todo.content,
+                  todo.status,
+                  todo.activeForm || null,
+                  todo.metadata ? JSON.stringify(todo.metadata) : null,
+                  i,
+                  todo.createdAt.getTime(),
+                  todo.updatedAt.getTime(),
+                ],
+                (err2: Error | null) => {
+                  if (err2)
+                    logger.error('TodoManager: 写入失败', {
+                      todoId: todo.id,
+                      error: String(err2),
+                    });
+                  completed++;
+                  if (completed >= todos.length) {
+                    resolve();
+                  }
                 }
-              }
-            );
+              );
+            }
           }
-        });
+        );
       });
     });
   }
@@ -507,7 +532,9 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /**
    * 获取工具使用摘要
    */
-  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const action = (input?.action as string) || '';
     const content = (input?.content as string) || '';
     const sessionId = (input?.session_id as string) || 'default';
@@ -537,9 +564,16 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     todos: Todo[],
     title: string = '任务计划'
   ): Record<string, unknown> {
-    const allDone = todos.length > 0 && todos.every((t) => t.status === 'completed');
-    const anyActive = todos.some((t) => t.status === 'in_progress' || t.status === 'completed');
-    const phase = allDone ? 'done' as const : anyActive ? 'executing' as const : 'planning' as const;
+    const allDone =
+      todos.length > 0 && todos.every((t) => t.status === 'completed');
+    const anyActive = todos.some(
+      (t) => t.status === 'in_progress' || t.status === 'completed'
+    );
+    const phase = allDone
+      ? ('done' as const)
+      : anyActive
+        ? ('executing' as const)
+        : ('planning' as const);
 
     return {
       title,
@@ -575,7 +609,10 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
           },
         ],
         errorLevel: ErrorLevel.RECOVERABLE,
-        metadata: { errorCategory: 'validation', errorCode: 'VALIDATION_FAILED' },
+        metadata: {
+          errorCategory: 'validation',
+          errorCode: 'VALIDATION_FAILED',
+        },
       });
     }
 
@@ -591,7 +628,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     try {
       onProgress?.({
         toolUseID: toolUseId,
-        data: { percentage: 20, message: `正在执行 todo ${action}...`, stage: 'executing' },
+        data: {
+          percentage: 20,
+          message: `正在执行 todo ${action}...`,
+          stage: 'executing',
+        },
       });
 
       switch (action) {
@@ -842,13 +883,20 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
               },
             ],
             errorLevel: ErrorLevel.RECOVERABLE,
-            metadata: { errorCategory: 'validation', errorCode: 'UNKNOWN_ACTION' },
+            metadata: {
+              errorCategory: 'validation',
+              errorCode: 'UNKNOWN_ACTION',
+            },
           });
       }
     } catch (error: any) {
       onProgress?.({
         toolUseID: toolUseId,
-        data: { percentage: 100, message: `Todo 操作失败: ${error.message}`, stage: 'error' },
+        data: {
+          percentage: 100,
+          message: `Todo 操作失败: ${error.message}`,
+          stage: 'error',
+        },
       });
       return createToolResult(null, {
         newMessages: [
@@ -870,5 +918,3 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 export function createTodoWriteTool(): TodoWriteTool {
   return new TodoWriteTool();
 }
-
-

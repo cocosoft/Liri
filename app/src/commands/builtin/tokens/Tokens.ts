@@ -180,8 +180,7 @@ async function handleJson(): Promise<CommandResult> {
     accumulated: {
       inputTokens: aggregation.totalInputTokens,
       outputTokens: aggregation.totalOutputTokens,
-      totalTokens:
-        aggregation.totalInputTokens + aggregation.totalOutputTokens,
+      totalTokens: aggregation.totalInputTokens + aggregation.totalOutputTokens,
       totalRequests: aggregation.totalRequests,
       cacheReadTokens: aggregation.totalCacheReadTokens,
       cacheCreationTokens: aggregation.totalCacheCreationTokens,
@@ -196,8 +195,7 @@ async function handleJson(): Promise<CommandResult> {
         sessionOutput +
         aggregation.totalInputTokens +
         aggregation.totalOutputTokens,
-      totalRequests:
-        sessionSummary.totalRequests + aggregation.totalRequests,
+      totalRequests: sessionSummary.totalRequests + aggregation.totalRequests,
     },
   };
 
@@ -208,7 +206,10 @@ async function handleJson(): Promise<CommandResult> {
  * 处理 --reset 模式
  */
 async function handleReset(): Promise<CommandResult> {
-  return { success: true, message: '重置已弃用：成本数据已持久化到 SQLite，无需手动重置' };
+  return {
+    success: true,
+    message: '重置已弃用：成本数据已持久化到 SQLite，无需手动重置',
+  };
 }
 
 /**
@@ -255,8 +256,12 @@ async function handleOverview(): Promise<CommandResult> {
   lines.push(`  总计: ${(sessionInput + sessionOutput).toLocaleString()}`);
   lines.push('');
   lines.push('历史累计');
-  lines.push(`  之前输入Tokens: ${(accumulatedInput - sessionInput).toLocaleString()}`);
-  lines.push(`  之前输出Tokens: ${(accumulatedOutput - sessionOutput).toLocaleString()}`);
+  lines.push(
+    `  之前输入Tokens: ${(accumulatedInput - sessionInput).toLocaleString()}`
+  );
+  lines.push(
+    `  之前输出Tokens: ${(accumulatedOutput - sessionOutput).toLocaleString()}`
+  );
   lines.push('');
 
   if (
@@ -274,9 +279,7 @@ async function handleOverview(): Promise<CommandResult> {
   }
 
   lines.push('请求统计');
-  lines.push(
-    `  总请求次数: ${aggregation.totalRequests.toLocaleString()}`
-  );
+  lines.push(`  总请求次数: ${aggregation.totalRequests.toLocaleString()}`);
   lines.push(`  本次会话请求: ${sessionSummary.totalRequests}`);
 
   return { success: true, message: lines.join('\n') };

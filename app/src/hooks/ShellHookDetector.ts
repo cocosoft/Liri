@@ -396,7 +396,8 @@ export class ShellHookDetector {
    * @returns 环境文件路径
    */
   private getEnvFilePath(shell: ShellType): string {
-    const home = configManager.env('HOME') || configManager.env('USERPROFILE') || '';
+    const home =
+      configManager.env('HOME') || configManager.env('USERPROFILE') || '';
 
     switch (shell) {
       case 'bash':

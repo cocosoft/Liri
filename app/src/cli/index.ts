@@ -553,7 +553,8 @@ program
 
       // 使用新的 SkillRegistry
       const { SkillRegistry } = await import('../skills/SkillRegistry');
-      const { BundledSkillLoader } = await import('../skills/loaders/sources/BundledSkillLoader');
+      const { BundledSkillLoader } =
+        await import('../skills/loaders/sources/BundledSkillLoader');
       const registry = new SkillRegistry();
       const loader = new BundledSkillLoader();
       const skillsList = await loader.loadSkills();
@@ -571,7 +572,9 @@ program
             chalk.bold(skill.name)
           );
           console.log(`   ${chalk.gray(skill.description)}`);
-          console.log(`   ${chalk.gray('Kind:')} ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`);
+          console.log(
+            `   ${chalk.gray('Kind:')} ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`
+          );
           console.log();
         });
       }

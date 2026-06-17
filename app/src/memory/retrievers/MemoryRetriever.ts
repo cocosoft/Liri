@@ -376,7 +376,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const textToEmbed =
       `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
     const emb = await globalEmbeddingManager.embedOne(textToEmbed);
-    this.vectorCache.set(itemId, { vector: Array.from(emb), model: this.getEmbeddingModelName() });
+    this.vectorCache.set(itemId, {
+      vector: Array.from(emb),
+      model: this.getEmbeddingModelName(),
+    });
   }
 
   /**
@@ -907,11 +910,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
       // 原子写入：先写 .tmp 文件，再 rename 为最终路径
       const tmpPath = this.indexFilePath + '.tmp';
-      await fs.writeFile(
-        tmpPath,
-        JSON.stringify(indexData, null, 2),
-        'utf8'
-      );
+      await fs.writeFile(tmpPath, JSON.stringify(indexData, null, 2), 'utf8');
       await fs.rename(tmpPath, this.indexFilePath);
     } catch (error) {
       logger.error(

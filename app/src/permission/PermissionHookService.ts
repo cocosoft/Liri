@@ -135,7 +135,11 @@ export class PermissionHookService {
           return decision;
         }
       } catch (error) {
-        await handleError(error, { module: 'permission:hooks', action: 'execute_hooks', context: { hookName: registeredHook.metadata.name } });
+        await handleError(error, {
+          module: 'permission:hooks',
+          action: 'execute_hooks',
+          context: { hookName: registeredHook.metadata.name },
+        });
         // 钩子出错时继续执行其他钩子，而不是中断
       }
     }

@@ -66,7 +66,10 @@ export class BedrockProvider extends BaseAIProvider {
     if (!config.accessKeyId && !configManager.env('AWS_ACCESS_KEY_ID')) {
       errors.push('AWS_ACCESS_KEY_ID is required');
     }
-    if (!config.secretAccessKey && !configManager.env('AWS_SECRET_ACCESS_KEY')) {
+    if (
+      !config.secretAccessKey &&
+      !configManager.env('AWS_SECRET_ACCESS_KEY')
+    ) {
       errors.push('AWS_SECRET_ACCESS_KEY is required');
     }
     if (!config.region && !configManager.env('AWS_REGION')) {

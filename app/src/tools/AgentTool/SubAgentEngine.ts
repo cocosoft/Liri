@@ -160,7 +160,9 @@ export class SubAgentEngine {
 
     try {
       const agentModel = modelRouter.resolve('agent');
-      let llmClient = agentModel ? providerRegistry.getByModel(agentModel) : undefined;
+      let llmClient = agentModel
+        ? providerRegistry.getByModel(agentModel)
+        : undefined;
       if (!llmClient) {
         llmClient = providerRegistry.getOrCreate('deepseek');
       }
@@ -363,7 +365,8 @@ export class SubAgentEngine {
     tools: ToolDefinition[],
     model?: string
   ): Promise<ChatResponse> {
-    const resolvedModel = model || this.config.defaultModel || modelRouter.resolve('agent');
+    const resolvedModel =
+      model || this.config.defaultModel || modelRouter.resolve('agent');
     return client.chat(messages, {
       tools: tools.length > 0 ? tools : undefined,
       model: resolvedModel,

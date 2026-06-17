@@ -67,7 +67,8 @@ export class AdvancedCostAnalyzer {
       totalInputTokens: costTracker.getTotalInputTokens(),
       totalOutputTokens: costTracker.getTotalOutputTokens(),
       totalCacheReadInputTokens: costTracker.getTotalCacheReadInputTokens(),
-      totalCacheCreationInputTokens: costTracker.getTotalCacheCreationInputTokens(),
+      totalCacheCreationInputTokens:
+        costTracker.getTotalCacheCreationInputTokens(),
       totalWebSearchRequests: costTracker.getTotalWebSearchRequests(),
       totalReasoningTokens: costTracker.getTotalReasoningTokens(),
       modelUsage: costTracker.getModelUsage(),

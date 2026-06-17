@@ -24,7 +24,11 @@ const FILE_NAMES = ['startup.yaml', 'startup.yml'];
  */
 export class YamlParseError extends AppError {
   constructor(message: string, line?: number) {
-    super(line !== undefined ? `第 ${line} 行: ${message}` : message, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH);
+    super(
+      line !== undefined ? `第 ${line} 行: ${message}` : message,
+      ErrorCategory.CONFIGURATION,
+      ErrorSeverity.HIGH
+    );
     this.name = 'YamlParseError';
   }
 }

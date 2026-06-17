@@ -61,19 +61,24 @@ export interface FetchModelsResult {
  */
 export const LOCAL_PROVIDER_TYPES = ['ollama', 'lmstudio', 'localai'] as const;
 
-export type LocalProviderType = typeof LOCAL_PROVIDER_TYPES[number];
+export type LocalProviderType = (typeof LOCAL_PROVIDER_TYPES)[number];
 
 /**
  * 判断是否为本地供应商
  */
-export function isLocalProvider(providerType?: string): providerType is LocalProviderType {
+export function isLocalProvider(
+  providerType?: string
+): providerType is LocalProviderType {
   return LOCAL_PROVIDER_TYPES.includes(providerType as LocalProviderType);
 }
 
 /**
  * 获取本地供应商的模型列表端点
  */
-function getLocalProviderModelsEndpoint(providerType: LocalProviderType, baseUrl: string): string {
+function getLocalProviderModelsEndpoint(
+  providerType: LocalProviderType,
+  baseUrl: string
+): string {
   let url = baseUrl.replace(/\/+$/, '');
   // 移除可能存在的 /v1 后缀（Ollama 使用 /api/tags，不需要 /v1）
   if (providerType === 'ollama' && url.endsWith('/v1')) {
@@ -188,7 +193,9 @@ async function fetchLocalProviderModels(
         .sort((a, b) => a.id.localeCompare(b.id));
     } else {
       // LM Studio / LocalAI - 标准 OpenAI 格式
-      const openaiData = data as { data?: Array<{ id: string; owned_by?: string }> };
+      const openaiData = data as {
+        data?: Array<{ id: string; owned_by?: string }>;
+      };
       if (!openaiData?.data || !Array.isArray(openaiData.data)) {
         return { error: 'Invalid response format' };
       }
@@ -200,7 +207,9 @@ async function fetchLocalProviderModels(
     // 搜索过滤
     if (search) {
       const lowerSearch = search.toLowerCase();
-      allModels = allModels.filter((m) => m.id.toLowerCase().includes(lowerSearch));
+      allModels = allModels.filter((m) =>
+        m.id.toLowerCase().includes(lowerSearch)
+      );
     }
 
     // 分页
@@ -208,7 +217,9 @@ async function fetchLocalProviderModels(
     const start = (page - 1) * pageSize;
     const models = allModels.slice(start, start + pageSize);
 
-    logger.info(`[ModelFetch] ${providerType} 成功获取 ${total} 个模型 (显示 ${models.length} 个) from ${url}`);
+    logger.info(
+      `[ModelFetch] ${providerType} 成功获取 ${total} 个模型 (显示 ${models.length} 个) from ${url}`
+    );
     return { models, usedUrl: url, total, page, pageSize };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -290,7 +301,9 @@ export async function fetchModels(
       // 搜索过滤
       if (search) {
         const lowerSearch = search.toLowerCase();
-        allModels = allModels.filter((m) => m.id.toLowerCase().includes(lowerSearch));
+        allModels = allModels.filter((m) =>
+          m.id.toLowerCase().includes(lowerSearch)
+        );
       }
 
       // 分页
@@ -298,7 +311,9 @@ export async function fetchModels(
       const start = (page - 1) * pageSize;
       const models = allModels.slice(start, start + pageSize);
 
-      logger.info(`[ModelFetch] 成功获取 ${total} 个模型 (显示 ${models.length} 个) from ${url}`);
+      logger.info(
+        `[ModelFetch] 成功获取 ${total} 个模型 (显示 ${models.length} 个) from ${url}`
+      );
       return { models, usedUrl: url, total, page, pageSize };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -313,4 +328,9 @@ export async function fetchModels(
   return { error: `All candidates failed: ${lastError || 'no candidates'}` };
 }
 
-export const ModelFetcher = { fetchModels, buildCandidates, isLocalProvider, LOCAL_PROVIDER_TYPES };
+export const ModelFetcher = {
+  fetchModels,
+  buildCandidates,
+  isLocalProvider,
+  LOCAL_PROVIDER_TYPES,
+};

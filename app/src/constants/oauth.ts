@@ -78,13 +78,10 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
   BASE_API_URL: 'https://api.staging.claude.ai',
   AUTHORIZE_URL: 'https://staging.oauth.claude.ai/authorize',
   TOKEN_URL: 'https://staging.oauth.claude.ai/token',
-  API_KEY_URL:
-    'https://api.staging.claude.ai/api/oauth/claude/create_api_key',
+  API_KEY_URL: 'https://api.staging.claude.ai/api/oauth/claude/create_api_key',
   ROLES_URL: 'https://api.staging.claude.ai/api/oauth/claude/roles',
-  SUCCESS_URL:
-    'https://staging.claude.ai/oauth/code/success?app=py-app',
-  MANUAL_REDIRECT_URL:
-    'https://staging.claude.ai/oauth/code/callback',
+  SUCCESS_URL: 'https://staging.claude.ai/oauth/code/success?app=py-app',
+  MANUAL_REDIRECT_URL: 'https://staging.claude.ai/oauth/code/callback',
   CLIENT_ID: 'py-app-staging-client-id',
   OAUTH_FILE_SUFFIX: '-staging-oauth',
   MCP_PROXY_URL: 'http://localhost:8205',

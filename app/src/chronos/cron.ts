@@ -39,7 +39,8 @@ const MACRO_ALIASES: Record<string, string> = {
 };
 
 // ─── Every-style parsing ───
-const EVERY_REGEX = /^every\s+(\d+)\s*(m(?:in(?:ute)?s?)?|hr?s?|h(?:our)?s?|d(?:ay)?s?)$/i;
+const EVERY_REGEX =
+  /^every\s+(\d+)\s*(m(?:in(?:ute)?s?)?|hr?s?|h(?:our)?s?|d(?:ay)?s?)$/i;
 const EVERY_MS_MAP: Record<string, number> = {
   m: 60_000,
   min: 60_000,
@@ -462,9 +463,12 @@ export function scheduleToDisplayText(
   for (const [alias, expanded] of Object.entries(MACRO_ALIASES)) {
     if (trimmed === alias || expanded === parsed.expr) {
       const labels: Record<string, string> = {
-        '@yearly': 'Yearly', '@annually': 'Yearly',
-        '@monthly': 'Monthly', '@weekly': 'Weekly',
-        '@daily': 'Daily', '@midnight': 'Daily',
+        '@yearly': 'Yearly',
+        '@annually': 'Yearly',
+        '@monthly': 'Monthly',
+        '@weekly': 'Weekly',
+        '@daily': 'Daily',
+        '@midnight': 'Daily',
         '@hourly': 'Hourly',
       };
       return labels[alias] || alias;

@@ -62,9 +62,7 @@ export function isDangerousFile(filePath: string): boolean {
 export function isInDangerousDirectory(filePath: string): boolean {
   const parts = filePath.replace(/\\/g, '/').split('/');
   const merged = getMergedDangerousDirectories();
-  return parts.some((p) =>
-    (merged as readonly string[]).includes(p)
-  );
+  return parts.some((p) => (merged as readonly string[]).includes(p));
 }
 
 export function containsPathTraversal(filePath: string): boolean {
@@ -89,7 +87,10 @@ export function isWithinWorkingDirectory(
         if (!ws.enabled) continue;
         // 用 path.resolve 解析工作区路径，确保与 resolvedPath 在同一前缀级别（含盘符）
         const wsResolved = path.resolve(ws.path).replace(/\\/g, '/');
-        if (normalizedPath === wsResolved || normalizedPath.startsWith(wsResolved + '/')) {
+        if (
+          normalizedPath === wsResolved ||
+          normalizedPath.startsWith(wsResolved + '/')
+        ) {
           return true;
         }
       }
@@ -129,7 +130,10 @@ export function checkReadPermissionForTool(
     };
   }
 
-  return { behavior: PermissionBehavior.ALLOW, decisionReason: { type: 'default' } };
+  return {
+    behavior: PermissionBehavior.ALLOW,
+    decisionReason: { type: 'default' },
+  };
 }
 
 export function checkWritePermissionForTool(
@@ -149,5 +153,8 @@ export function checkWritePermissionForTool(
     };
   }
 
-  return { behavior: PermissionBehavior.ALLOW, decisionReason: { type: 'default' } };
+  return {
+    behavior: PermissionBehavior.ALLOW,
+    decisionReason: { type: 'default' },
+  };
 }

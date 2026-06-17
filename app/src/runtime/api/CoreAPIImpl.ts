@@ -246,11 +246,14 @@ export class CoreAPIImpl implements CoreAPI {
         const envProvider = envProviders[0];
 
         if (envProvider) {
-          provider = providerRegistry.getOrCreate(envProvider.providerType as any, {
-            apiKey: envProvider.apiKey || '',
-            baseUrl: envProvider.baseUrl,
-            model: envProvider.model || currentModel,
-          });
+          provider = providerRegistry.getOrCreate(
+            envProvider.providerType as any,
+            {
+              apiKey: envProvider.apiKey || '',
+              baseUrl: envProvider.baseUrl,
+              model: envProvider.model || currentModel,
+            }
+          );
 
           if (envProvider.apiKey) {
             provider.setApiKey?.(envProvider.apiKey);
@@ -325,9 +328,9 @@ export class CoreAPIImpl implements CoreAPI {
       });
 
       // 检查是否返回了待处理的用户交互（非流式路径）
-      const pendingInteraction =
-        (message.metadata as Record<string, unknown> | undefined)
-          ?.pendingInteraction as QuestionData | undefined;
+      const pendingInteraction = (
+        message.metadata as Record<string, unknown> | undefined
+      )?.pendingInteraction as QuestionData | undefined;
       if (pendingInteraction) {
         logger.info('CoreAPI.chat 返回待处理交互', {
           sessionId: request.sessionId,
@@ -868,7 +871,11 @@ export class CoreAPIImpl implements CoreAPI {
         }
       }
     } catch (e) {
-      await handleError(e, { module: 'runtime:api', action: 'persist_session_title', context: { sessionId } });
+      await handleError(e, {
+        module: 'runtime:api',
+        action: 'persist_session_title',
+        context: { sessionId },
+      });
     }
   }
 

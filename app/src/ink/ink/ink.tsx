@@ -1,7 +1,5 @@
 import autoBind from 'auto-bind';
-import {
-  writeSync,
-} from 'fs';
+import { writeSync } from 'fs';
 import noop from 'lodash-es/noop.js';
 import throttle from 'lodash-es/throttle.js';
 import React, { type ReactNode } from 'react';
@@ -29,7 +27,10 @@ import type {
   CursorDeclarationSetter,
 } from './components/CursorDeclarationContext.js';
 import { FRAME_INTERVAL_MS } from './constants.js';
-import { CONSOLE_STDOUT_METHODS, CONSOLE_STDERR_METHODS } from './console-constants.js';
+import {
+  CONSOLE_STDOUT_METHODS,
+  CONSOLE_STDERR_METHODS,
+} from './console-constants.js';
 import * as dom from './dom.js';
 import { drainStdin } from './drain-stdin.js';
 import { KeyboardEvent } from './events/keyboard-event.js';

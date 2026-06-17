@@ -123,11 +123,14 @@ export interface PluginMetadata {
  */
 export interface PluginConfig {
   /** 插件仓库配置 */
-  repositories?: Record<string, {
-    name: string;
-    url: string;
-    type: 'git' | 'npm' | 'local';
-  }>;
+  repositories?: Record<
+    string,
+    {
+      name: string;
+      url: string;
+      type: 'git' | 'npm' | 'local';
+    }
+  >;
 
   /** 启用的插件列表 */
   enabled?: string[];

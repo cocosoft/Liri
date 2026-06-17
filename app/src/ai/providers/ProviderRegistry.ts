@@ -242,20 +242,26 @@ export class ProviderRegistry {
       case 'bedrock':
         return (cfg) => {
           const { BedrockProvider: BP } = require('./BedrockProvider');
-          return new BP({
-            providerId: 'bedrock',
-            displayName: 'AWS Bedrock',
-            defaultModel: (cfg?.model as string) || '',
-          }, cfg);
+          return new BP(
+            {
+              providerId: 'bedrock',
+              displayName: 'AWS Bedrock',
+              defaultModel: (cfg?.model as string) || '',
+            },
+            cfg
+          );
         };
       case 'azure-openai':
         return (cfg) => {
           const { AzureOpenAIProvider: AZ } = require('./AzureOpenAIProvider');
-          return new AZ({
-            providerId: 'azure-openai',
-            displayName: 'Azure OpenAI',
-            defaultModel: (cfg?.model as string) || '',
-          }, cfg);
+          return new AZ(
+            {
+              providerId: 'azure-openai',
+              displayName: 'Azure OpenAI',
+              defaultModel: (cfg?.model as string) || '',
+            },
+            cfg
+          );
         };
       case 'moonshot':
         return (cfg) => {
@@ -292,12 +298,15 @@ export class ProviderRegistry {
       case 'vertex-ai':
         return (cfg) => {
           const { VertexAIProvider: VP } = require('./VertexAIProvider');
-          return new VP({
-            providerId: 'vertex-ai',
-            displayName: 'Google Vertex AI',
-            defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
-            defaultModel: (cfg?.model as string) || '',
-          }, cfg);
+          return new VP(
+            {
+              providerId: 'vertex-ai',
+              displayName: 'Google Vertex AI',
+              defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
+              defaultModel: (cfg?.model as string) || '',
+            },
+            cfg
+          );
         };
       default:
         return null;

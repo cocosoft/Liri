@@ -594,7 +594,8 @@ class TelegramChannel extends BaseChannelPlugin {
       throw new Error(`下载文件失败: HTTP ${fileResp2.status}`);
     }
     const audioBuffer = Buffer.from(await fileResp2.arrayBuffer());
-    const fileName = originalName || filePath.split('/').pop() || `telegram_${fileId}`;
+    const fileName =
+      originalName || filePath.split('/').pop() || `telegram_${fileId}`;
 
     // 通过基类的 handleInboundFile 注册到 FileRegistry
     return this.handleInboundFile({
@@ -635,7 +636,9 @@ class TelegramChannel extends BaseChannelPlugin {
             const duration = (voice['duration'] as number) || 0;
             const mimeType = (voice['mime_type'] as string) || 'audio/ogg';
 
-            let regResult: Awaited<ReturnType<typeof this.downloadTelegramFile>> | null = null;
+            let regResult: Awaited<
+              ReturnType<typeof this.downloadTelegramFile>
+            > | null = null;
             try {
               regResult = await this.downloadTelegramFile(fileId);
             } catch (error) {
@@ -667,11 +670,13 @@ class TelegramChannel extends BaseChannelPlugin {
               isDirectMessage: chatType === 'private',
               rawPayload: update as unknown as Record<string, unknown>,
               attachments: regResult
-                ? [{
-                    fileId,
-                    fileName: regResult.savedName,
-                    mimeType,
-                  }]
+                ? [
+                    {
+                      fileId,
+                      fileName: regResult.savedName,
+                      mimeType,
+                    },
+                  ]
                 : undefined,
             };
 

@@ -40,24 +40,26 @@ const logger = new Logger();
 /** 历史折叠阈值：当 prompt token 使用率超过此值时触发正常折叠 */
 export const HISTORY_FOLD_THRESHOLD = 0.75;
 /** 正常折叠后的尾部预算占比 */
-export const HISTORY_FOLD_TAIL_FRACTION = 0.20;
+export const HISTORY_FOLD_TAIL_FRACTION = 0.2;
 /** 激进折叠阈值：超过此值触发更激进的折叠 */
 export const HISTORY_FOLD_AGGRESSIVE_THRESHOLD = 0.78;
 /** 激进折叠后的尾部预算占比（更小，牺牲更多近期上下文换取空间） */
-export const HISTORY_FOLD_AGGRESSIVE_TAIL_FRACTION = 0.10;
+export const HISTORY_FOLD_AGGRESSIVE_TAIL_FRACTION = 0.1;
 /** 最小节省比例：折叠节省的 token 低于此比例则跳过 */
-export const HISTORY_FOLD_MIN_SAVINGS_FRACTION = 0.30;
+export const HISTORY_FOLD_MIN_SAVINGS_FRACTION = 0.3;
 /** 强制摘要退出阈值：超过此值不折叠，直接退出并生成摘要 */
-export const FORCE_SUMMARY_THRESHOLD = 0.80;
+export const FORCE_SUMMARY_THRESHOLD = 0.8;
 /** 回合开始时预估 token 超过此阈值，触发预折叠 */
-export const TURN_START_FOLD_THRESHOLD = 0.90;
+export const TURN_START_FOLD_THRESHOLD = 0.9;
 /** 折叠摘要超时（毫秒） */
 export const HISTORY_FOLD_SUMMARY_TIMEOUT_MS = 15_000;
 
 /** 折叠摘要标记 — 让模型知道这是合成摘要 */
-export const HISTORY_FOLD_MARKER = '[对话历史摘要 — 以下为之前对话的压缩摘要]\n\n';
+export const HISTORY_FOLD_MARKER =
+  '[对话历史摘要 — 以下为之前对话的压缩摘要]\n\n';
 /** 技能 pin memo 保留头部 */
-export const SKILL_PIN_MEMO_HEADER = '[Active skill memos — preserved verbatim across the fold:]';
+export const SKILL_PIN_MEMO_HEADER =
+  '[Active skill memos — preserved verbatim across the fold:]';
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 
@@ -99,7 +101,7 @@ export interface SummaryGenerator {
     messages: ChatMessage[],
     instruction: string,
     model: string,
-    abortSignal: AbortSignal,
+    abortSignal: AbortSignal
   ): Promise<{ content: string; reasoningContent: string }>;
 }
 
@@ -167,7 +169,7 @@ export class ContextFolder {
    */
   estimateTurnStart(
     messages: ChatMessage[],
-    toolCount: number,
+    toolCount: number
   ): { estimateTokens: number; ctxMax: number; ratio: number } {
     const { ctxMax } = this.deps;
     const estimate = estimateMessageTokens(messages, toolCount);
@@ -183,10 +185,11 @@ export class ContextFolder {
    */
   async fold(
     messages: ChatMessage[],
-    opts?: { keepRecentTokens?: number; requireTailBoundary?: boolean },
+    opts?: { keepRecentTokens?: number; requireTailBoundary?: boolean }
   ): Promise<{ messages: ChatMessage[]; result: FoldResult }> {
     const { ctxMax } = this.deps;
-    const tailBudget = opts?.keepRecentTokens ?? Math.floor(ctxMax * HISTORY_FOLD_TAIL_FRACTION);
+    const tailBudget =
+      opts?.keepRecentTokens ?? Math.floor(ctxMax * HISTORY_FOLD_TAIL_FRACTION);
     const noop: FoldResult = {
       folded: false,
       beforeMessages: messages.length,
@@ -199,7 +202,11 @@ export class ContextFolder {
     // 计算每条消息的 token 数
     const tokenCounts = messages.map((m) => {
       let n = countMessageTokens(m);
-      if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
+      if (
+        m.role === 'assistant' &&
+        Array.isArray(m.tool_calls) &&
+        m.tool_calls.length > 0
+      ) {
         n += estimateStringTokens(JSON.stringify(m.tool_calls));
       }
       return n;
@@ -215,7 +222,8 @@ export class ContextFolder {
       if (messages[i]!.role === 'user') boundary = i;
     }
     if (boundary <= 0) return { messages, result: noop };
-    if (opts?.requireTailBoundary && boundary >= messages.length) return { messages, result: noop };
+    if (opts?.requireTailBoundary && boundary >= messages.length)
+      return { messages, result: noop };
 
     const head = messages.slice(0, boundary);
     const tail = messages.slice(boundary);
@@ -234,7 +242,8 @@ export class ContextFolder {
     const summary = await this.summarizeForFold(head);
     if (!summary.content) return { messages, result: noop };
 
-    const summaryContent = HISTORY_FOLD_MARKER + summary.content + constraintText;
+    const summaryContent =
+      HISTORY_FOLD_MARKER + summary.content + constraintText;
     const summaryMsg: ChatMessage = {
       role: 'user',
       content: summaryContent,
@@ -265,24 +274,31 @@ export class ContextFolder {
   // ─── 私有方法 ──────────────────────────────────────────────────────────
 
   private async summarizeForFold(
-    messagesToSummarize: ChatMessage[],
+    messagesToSummarize: ChatMessage[]
   ): Promise<{ content: string; reasoningContent: string }> {
     const summaryModel = this.deps.summaryModel ?? this.deps.model;
     const healed = healLoadedMessages(messagesToSummarize, 8000);
     const instruction = buildFoldSummaryInstruction();
-    const abortSignal = this.deps.getAbortSignal?.() ?? new AbortController().signal;
+    const abortSignal =
+      this.deps.getAbortSignal?.() ?? new AbortController().signal;
 
     // 超时控制
     const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => timeoutController.abort(), HISTORY_FOLD_SUMMARY_TIMEOUT_MS);
+    const timeoutId = setTimeout(
+      () => timeoutController.abort(),
+      HISTORY_FOLD_SUMMARY_TIMEOUT_MS
+    );
 
     try {
-      const combinedSignal = combineAbortSignals(abortSignal, timeoutController.signal);
+      const combinedSignal = combineAbortSignals(
+        abortSignal,
+        timeoutController.signal
+      );
       return await this.deps.summaryGenerator.summarize(
         healed.messages,
         instruction,
         summaryModel,
-        combinedSignal,
+        combinedSignal
       );
     } catch (err) {
       logger.warn('Fold summary failed', { error: (err as Error).message });
@@ -298,7 +314,7 @@ export class ContextFolder {
 /** 构建折叠摘要指令 */
 function buildFoldSummaryInstruction(): string {
   return (
-    'Summarize the conversation above as one self-contained prose recap. Preserve the user\'s ' +
+    "Summarize the conversation above as one self-contained prose recap. Preserve the user's " +
     'ORIGINAL OBJECTIVE (never paraphrase away negative constraints like "do NOT do X"), all ' +
     '"do not" / "never" / "avoid" instructions, decisions reached, files inspected or modified, ' +
     'tool results still relevant, and any open todos. Skip turn-by-turn play-by-play. ' +
@@ -326,7 +342,10 @@ function combineAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
 // ─── Token 估算工具 ──────────────────────────────────────────────────────────
 
 /** 估算消息列表的 token 数 */
-function estimateMessageTokens(messages: ChatMessage[], toolCount: number): number {
+function estimateMessageTokens(
+  messages: ChatMessage[],
+  toolCount: number
+): number {
   let total = 0;
   for (const msg of messages) {
     total += countMessageTokens(msg);
@@ -338,7 +357,9 @@ function estimateMessageTokens(messages: ChatMessage[], toolCount: number): numb
 
 /** 估算单条消息的 token 数 */
 function countMessageTokens(msg: ChatMessage): number {
-  let n = estimateStringTokens(typeof msg.content === 'string' ? msg.content : '');
+  let n = estimateStringTokens(
+    typeof msg.content === 'string' ? msg.content : ''
+  );
   if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
     n += estimateStringTokens(JSON.stringify(msg.tool_calls));
   }

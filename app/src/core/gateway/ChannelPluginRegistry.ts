@@ -10,7 +10,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChannelPlugin } from './ChannelPlugin';
 import { ChannelStatus } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:plugin_registry' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'gateway:plugin_registry',
+});
 
 /** 注册表事件类型 */
 export enum RegistryEvent {
@@ -115,7 +118,10 @@ export class ChannelPluginRegistry {
       }
     } catch (error) {
       this._totalErrors++;
-      await handleError(error, { module: 'gateway:plugin_registry', action: 'unregister_disconnect' });
+      await handleError(error, {
+        module: 'gateway:plugin_registry',
+        action: 'unregister_disconnect',
+      });
     }
 
     this.plugins.delete(id);
@@ -168,7 +174,11 @@ export class ChannelPluginRegistry {
           failed.push(id);
           this._totalErrors++;
           const err = error instanceof Error ? error : new Error(String(error));
-          await handleError(error, { module: 'gateway:plugin_registry', action: 'connect_plugin', context: { pluginId: id } });
+          await handleError(error, {
+            module: 'gateway:plugin_registry',
+            action: 'connect_plugin',
+            context: { pluginId: id },
+          });
           this.callbacks.onError?.(id, err);
         }
       }
@@ -188,7 +198,11 @@ export class ChannelPluginRegistry {
             this.callbacks.onDisconnected?.(id);
           } catch (error) {
             this._totalErrors++;
-            await handleError(error, { module: 'gateway:plugin_registry', action: 'disconnect_plugin', context: { pluginId: id } });
+            await handleError(error, {
+              module: 'gateway:plugin_registry',
+              action: 'disconnect_plugin',
+              context: { pluginId: id },
+            });
           }
         }
       }

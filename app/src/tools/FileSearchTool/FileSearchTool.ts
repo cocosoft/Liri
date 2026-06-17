@@ -112,9 +112,8 @@ export class FileSearchTool extends BaseTool {
       const truncated = files.length > maxResults || result.truncated;
       const limitedFiles = files.slice(0, maxResults);
 
-      const output = limitedFiles
-        .map((f) => f.canonicalPath)
-        .join('\n') || '(空)';
+      const output =
+        limitedFiles.map((f) => f.canonicalPath).join('\n') || '(空)';
 
       return createSuccessResult(
         {

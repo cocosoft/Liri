@@ -34,7 +34,11 @@ export class DagCycleError extends AppError {
   readonly cycle: string[];
 
   constructor(cycle: string[]) {
-    super(`检测到循环依赖: ${cycle.join(' → ')}`, ErrorCategory.OPERATION, ErrorSeverity.HIGH);
+    super(
+      `检测到循环依赖: ${cycle.join(' → ')}`,
+      ErrorCategory.OPERATION,
+      ErrorSeverity.HIGH
+    );
     this.name = 'DagCycleError';
     this.cycle = cycle;
   }

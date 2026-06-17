@@ -182,7 +182,10 @@ export class LocalSTTProvider implements STTProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      void handleError(error, { module: 'services:voice:localSTT', action: 'transcribe' });
+      void handleError(error, {
+        module: 'services:voice:localSTT',
+        action: 'transcribe',
+      });
 
       return {
         text: '',

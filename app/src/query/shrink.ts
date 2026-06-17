@@ -49,7 +49,7 @@ const TRUNCATION_MARKER = '\n…[truncated]';
  */
 export function shrinkOversizedToolResults(
   messages: ChatMessage[],
-  maxChars: number,
+  maxChars: number
 ): { messages: ChatMessage[]; healedCount: number; healedFrom: number } {
   let healedCount = 0;
   let healedFrom = 0;
@@ -70,7 +70,7 @@ export function shrinkOversizedToolResults(
  */
 export function shrinkOversizedToolCallArgs(
   messages: ChatMessage[],
-  maxChars: number,
+  maxChars: number
 ): { messages: ChatMessage[]; healedCount: number; healedFrom: number } {
   let healedCount = 0;
   let healedFrom = 0;
@@ -103,7 +103,9 @@ function truncateContent(content: string, maxChars: number): string {
   }
   const headSize = Math.floor(maxChars * 0.6);
   const tailSize = maxChars - headSize - markerLen;
-  return content.slice(0, headSize) + TRUNCATION_MARKER + content.slice(-tailSize);
+  return (
+    content.slice(0, headSize) + TRUNCATION_MARKER + content.slice(-tailSize)
+  );
 }
 
 /** 保留短键值（路径、ID）原样；仅截断长字符串值 */

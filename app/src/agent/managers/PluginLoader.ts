@@ -458,7 +458,10 @@ export class PluginLoader {
         registeredAt: new Date(),
       });
     } catch (error) {
-      logger.warning(`Failed to register agent plugin to PluginSystem: ${plugin.id}`, { error });
+      logger.warning(
+        `Failed to register agent plugin to PluginSystem: ${plugin.id}`,
+        { error }
+      );
     }
   }
 }

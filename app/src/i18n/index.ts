@@ -36,7 +36,7 @@ export type LanguageCode = 'zh-CN' | 'en';
 export type TranslationTemplate = string;
 
 /** 翻译 Schema（嵌套对象） */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+
 export interface TranslationSchema {
   [key: string]: string | TranslationSchema;
 }
@@ -156,9 +156,11 @@ const en: TranslationSchema = {
     badparam422: 'Invalid parameter: {inner}',
     badrequest400: 'Bad request: {inner}',
     concurrency429: 'Rate limit exceeded, please retry later: {inner}',
-    upstream5xx: 'Upstream service {host} returned {status}, please retry later',
+    upstream5xx:
+      'Upstream service {host} returned {status}, please retry later',
     deepseek5xxHead: 'DeepSeek service returned {status}, please retry later',
-    deepseek5xxReachable: 'Service is reachable, likely a temporary issue, retry recommended',
+    deepseek5xxReachable:
+      'Service is reachable, likely a temporary issue, retry recommended',
     deepseek5xxUnreachable: 'Service is unreachable, please check network',
     networkError: 'Network error: {message}',
     timeout: 'Request timed out',
@@ -196,7 +198,8 @@ const en: TranslationSchema = {
   },
   semantic: {
     indexing: 'Building semantic index...',
-    indexingComplete: 'Index build complete: {chunks} chunks, {embedded} embedded',
+    indexingComplete:
+      'Index build complete: {chunks} chunks, {embedded} embedded',
     indexingFailed: 'Index build failed: {error}',
     searchNoResults: 'No relevant results found',
     searchResults: 'Found {count} relevant results',
@@ -229,7 +232,10 @@ const listeners: Listener[] = [];
  * // zh-CN: "上下文超限，请求了 1000 tokens"
  * // en: "Context overflow, requested 1000 tokens"
  */
-export function t(path: string, vars?: Record<string, string | number>): string {
+export function t(
+  path: string,
+  vars?: Record<string, string | number>
+): string {
   const parts = path.split('.');
   let val: unknown = translations[currentLang] || translations['zh-CN'];
   for (const part of parts) {
@@ -238,7 +244,9 @@ export function t(path: string, vars?: Record<string, string | number>): string 
   }
   const template = typeof val === 'string' ? val : path;
   if (!vars) return template;
-  return template.replace(/\{(\w+)\}/g, (_, key: string) => String(vars[key] ?? `{${key}}`));
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    String(vars[key] ?? `{${key}}`)
+  );
 }
 
 /**
@@ -251,7 +259,7 @@ export function t(path: string, vars?: Record<string, string | number>): string 
 export function tn(
   path: string,
   count: number,
-  vars?: Record<string, string | number>,
+  vars?: Record<string, string | number>
 ): string {
   return t(path, { ...vars, count: String(count) });
 }

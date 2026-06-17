@@ -74,7 +74,10 @@ export class SkillInjectionService {
    * @param registry SkillRegistry 实例（不传则新建）
    * @param config 可选配置
    */
-  constructor(registry?: SkillRegistry, config?: Partial<SkillInjectionConfig>) {
+  constructor(
+    registry?: SkillRegistry,
+    config?: Partial<SkillInjectionConfig>
+  ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.registry = registry ?? new SkillRegistry();
     this.cache = {

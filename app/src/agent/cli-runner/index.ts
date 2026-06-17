@@ -89,7 +89,9 @@ export class CliRunner {
 
     try {
       const shellPath = opts.shell
-        ? configManager.env('ComSpec') || configManager.env('SHELL') || 'cmd.exe'
+        ? configManager.env('ComSpec') ||
+          configManager.env('SHELL') ||
+          'cmd.exe'
         : undefined;
 
       const stdout = execSync(command, {

@@ -50,7 +50,9 @@ const logger = new Logger();
  * 工具调用修复管道
  */
 export class ToolCallRepair {
-  private readonly config: Required<Omit<RepairConfig, 'isMutating' | 'isStormExempt'>>;
+  private readonly config: Required<
+    Omit<RepairConfig, 'isMutating' | 'isStormExempt'>
+  >;
   private readonly stormBreaker: StormBreaker;
   private readonly isMutating?: (call: ToolCall) => boolean;
   private readonly isStormExempt?: (call: ToolCall) => boolean;
@@ -70,7 +72,7 @@ export class ToolCallRepair {
       this.config.stormWindowSize,
       this.config.stormThreshold,
       this.isMutating,
-      this.isStormExempt,
+      this.isStormExempt
     );
   }
 
@@ -85,7 +87,7 @@ export class ToolCallRepair {
   process(
     calls: ToolCall[],
     reasoningContent: string | null | undefined,
-    allowedNames: ReadonlySet<string>,
+    allowedNames: ReadonlySet<string>
   ): RepairResult {
     const notes: string[] = [];
     const stats = {
@@ -129,7 +131,7 @@ export class ToolCallRepair {
       if (scavenged.calls.length > 0) {
         // 仅添加签名不与已有调用重复的
         const existingSignatures = new Set(
-          processed.map((c) => `${c.function?.name}:${c.function?.arguments}`),
+          processed.map((c) => `${c.function?.name}:${c.function?.arguments}`)
         );
         for (const call of scavenged.calls) {
           const sig = `${call.function?.name}:${call.function?.arguments}`;
@@ -171,7 +173,10 @@ export class ToolCallRepair {
    * 对需要展平的 schema（深层嵌套），返回展平后的版本。
    * 调用方需要记录 flatten 映射，以便在 dispatch 时重新嵌套参数。
    */
-  prepareSchema(name: string, schema: JSONSchema): { schema: JSONSchema; flattened: boolean } {
+  prepareSchema(
+    name: string,
+    schema: JSONSchema
+  ): { schema: JSONSchema; flattened: boolean } {
     if (!this.config.flatten) return { schema, flattened: false };
     const decision = analyzeSchema(schema);
     if (!decision.shouldFlatten) return { schema, flattened: false };
@@ -186,7 +191,10 @@ export class ToolCallRepair {
   /**
    * 重新嵌套展平后的参数
    */
-  renestArgs(args: Record<string, unknown>, wasFlattened: boolean): Record<string, unknown> {
+  renestArgs(
+    args: Record<string, unknown>,
+    wasFlattened: boolean
+  ): Record<string, unknown> {
     if (!wasFlattened) return args;
     return nestArguments(args);
   }

@@ -141,7 +141,10 @@ export class FineGrainedPermissionManager {
 
       return defaultDecision;
     } catch (error) {
-      await handleError(error, { module: 'permission:fine_grained', action: 'check_permission' });
+      await handleError(error, {
+        module: 'permission:fine_grained',
+        action: 'check_permission',
+      });
       return {
         action: PermissionAction.DENY,
         reason: 'Error checking permission',
@@ -181,7 +184,10 @@ export class FineGrainedPermissionManager {
 
       return eval(condition);
     } catch (error) {
-      void handleError(error, { module: 'permission:fine_grained', action: 'evaluate_condition' });
+      void handleError(error, {
+        module: 'permission:fine_grained',
+        action: 'evaluate_condition',
+      });
       return false;
     }
   }

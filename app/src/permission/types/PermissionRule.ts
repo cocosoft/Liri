@@ -287,7 +287,10 @@ export function isRuleMatch(
     const pattern = new RegExp(rule.contentPattern);
     return pattern.test(inputString);
   } catch (error) {
-    void handleError(error, { module: 'permission:rule', action: 'check_rule_match' });
+    void handleError(error, {
+      module: 'permission:rule',
+      action: 'check_rule_match',
+    });
     return false;
   }
 }

@@ -64,7 +64,11 @@ export class AgentConfigManager {
 
       return agents;
     } catch (error) {
-      await handleError(error, { module: 'services:agent:config', action: 'load_configs', context: { source } });
+      await handleError(error, {
+        module: 'services:agent:config',
+        action: 'load_configs',
+        context: { source },
+      });
       return [];
     }
   }
@@ -119,7 +123,11 @@ export class AgentConfigManager {
 
       return true;
     } catch (error) {
-      await handleError(error, { module: 'services:agent:config', action: 'save_configs', context: { source } });
+      await handleError(error, {
+        module: 'services:agent:config',
+        action: 'save_configs',
+        context: { source },
+      });
       return false;
     }
   }
@@ -204,7 +212,10 @@ export class AgentConfigManager {
 
       return true;
     } catch (error) {
-      void handleError(error, { module: 'services:agent:config', action: 'validate_agent_config' });
+      void handleError(error, {
+        module: 'services:agent:config',
+        action: 'validate_agent_config',
+      });
       return false;
     }
   }

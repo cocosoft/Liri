@@ -42,7 +42,10 @@ export type {
 // 通用基类
 export { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter.js';
 export { LocalSkillStore } from './LocalSkillStore.js';
-export type { LocalSkillStoreConfig, SearchFieldExtractor } from './LocalSkillStore.js';
+export type {
+  LocalSkillStoreConfig,
+  SearchFieldExtractor,
+} from './LocalSkillStore.js';
 export { SkillAuditService, SkillAuditAction } from './SkillAuditService.js';
 export type { SkillAuditEntry } from './SkillAuditService.js';
 

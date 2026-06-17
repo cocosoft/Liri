@@ -432,10 +432,7 @@ export class AgentTool implements Tool {
           parameters: t.parameters,
         },
       })),
-      toolInstances: new Map(
-        getAllTools()
-          .map((t) => [t.name, t])
-      ),
+      toolInstances: new Map(getAllTools().map((t) => [t.name, t])),
       maxTurns: 50,
       model: input.model,
     };
@@ -481,7 +478,9 @@ export class AgentTool implements Tool {
     const { providerRegistry } =
       await import('../../ai/providers/ProviderRegistry');
     const agentModel = modelRouter.resolve('chat');
-    let llmClient = agentModel ? providerRegistry.getByModel(agentModel) : undefined;
+    let llmClient = agentModel
+      ? providerRegistry.getByModel(agentModel)
+      : undefined;
     if (!llmClient) {
       llmClient = providerRegistry.getOrCreate('deepseek');
     }

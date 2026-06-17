@@ -42,11 +42,7 @@ export {
   normalizeSchedule,
   scheduleToDisplayText,
 } from './cron';
-export type {
-  ScheduleKind,
-  ParsedSchedule,
-  CronFields,
-} from './cron';
+export type { ScheduleKind, ParsedSchedule, CronFields } from './cron';
 export {
   DEFAULT_CRON_JITTER_CONFIG,
   jitteredNextCronRunMs,

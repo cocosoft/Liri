@@ -33,7 +33,11 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '../../error/handleError';
-import { claimMessage, releaseProcessing, finalizeMessage } from '../dedup/index';
+import {
+  claimMessage,
+  releaseProcessing,
+  finalizeMessage,
+} from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
 import type { SessionSpanContext } from '../../ai/telemetry/SessionSpanTracer';
 
@@ -153,7 +157,12 @@ export async function routeChannelMessage(
   message: MessageContext,
   options: RouteMessageOptions
 ): Promise<RouteResult> {
-  const { coreAPI, onOutbound, channelName = 'unknown', enableTracing = false } = options;
+  const {
+    coreAPI,
+    onOutbound,
+    channelName = 'unknown',
+    enableTracing = false,
+  } = options;
 
   logger.info('[TRACE] routeChannelMessage 入口', {
     channelName,
@@ -170,10 +179,7 @@ export async function routeChannelMessage(
     try {
       const { GatewaySessionTracer } = await import('../GatewaySessionTracer');
       const tracer = new GatewaySessionTracer({ enabled: true });
-      const result = tracer.traceInbound(
-        message,
-        message.content?.length || 0
-      );
+      const result = tracer.traceInbound(message, message.content?.length || 0);
       traceSpanContext = result.spanContext;
     } catch {
       // 追踪不可用时静默降级
@@ -231,11 +237,15 @@ export async function routeChannelMessage(
     // ③ 共享会话写入
     try {
       const { getDIContainer } = await import('../../core/DIContainer');
-      const { MessageType, MessageRole } = await import('../../session/types/Message');
+      const { MessageType, MessageRole } =
+        await import('../../session/types/Message');
       const container = getDIContainer();
       if (container.has('combinedSessionGateway')) {
         const combinedGateway = container.resolve<{
-          sendMessage: (sessionId: string, msg: Record<string, unknown>) => Promise<void>;
+          sendMessage: (
+            sessionId: string,
+            msg: Record<string, unknown>
+          ) => Promise<void>;
         }>('combinedSessionGateway');
         if (typeof combinedGateway.sendMessage === 'function') {
           await combinedGateway.sendMessage('shared-context', {
@@ -306,7 +316,8 @@ export async function routeChannelMessage(
 
     if (enableTracing && traceSpanContext?.isSampled) {
       try {
-        const { GatewaySessionTracer } = await import('../GatewaySessionTracer');
+        const { GatewaySessionTracer } =
+          await import('../GatewaySessionTracer');
         const tracer = new GatewaySessionTracer({ enabled: true });
         tracer.traceOutbound(
           traceSpanContext,

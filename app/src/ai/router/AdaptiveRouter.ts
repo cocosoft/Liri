@@ -191,10 +191,14 @@ export class AdaptiveRouter {
 
     scored.sort((a, b) => {
       const aScore =
-        a.score!.successCount / (a.score!.successCount + a.score!.failureCount) * 0.7 +
+        (a.score!.successCount /
+          (a.score!.successCount + a.score!.failureCount)) *
+          0.7 +
         (1 - (a.score!.avgLatency - minLatency) / latencyRange) * 0.3;
       const bScore =
-        b.score!.successCount / (b.score!.successCount + b.score!.failureCount) * 0.7 +
+        (b.score!.successCount /
+          (b.score!.successCount + b.score!.failureCount)) *
+          0.7 +
         (1 - (b.score!.avgLatency - minLatency) / latencyRange) * 0.3;
       return bScore - aScore;
     });

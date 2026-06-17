@@ -265,19 +265,24 @@ export class MemoryManagerImpl {
     this.cacheWarmupPromise = (async () => {
       try {
         const allMemories = await this.getAllMemories();
-        allMemories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+        allMemories.sort(
+          (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+        );
 
         const summaries = allMemories.map((m) => {
           const name = m.metadata?.name;
           const content = (m.content || '').trim();
-          const truncated = content.length > 200
-            ? content.slice(0, 200) + '…'
-            : content;
+          const truncated =
+            content.length > 200 ? content.slice(0, 200) + '…' : content;
           const prefix = name ? `[${name}] ` : '';
           return `${prefix}${truncated}`;
         });
 
-        this.recentSummaryCache = { memories: allMemories, summaries, totalCount: allMemories.length };
+        this.recentSummaryCache = {
+          memories: allMemories,
+          summaries,
+          totalCount: allMemories.length,
+        };
       } catch {
         // 预热失败不阻塞主流程，下次读取时自动回退全量扫描
         this.recentSummaryCache = null;
@@ -622,7 +627,8 @@ export class MemoryManagerImpl {
 
         // 优先检查显式 expiresAt，其次根据 TTL 判断是否过期
         const isExpired =
-          (memory.metadata.expiresAt && new Date(memory.metadata.expiresAt) <= now) ||
+          (memory.metadata.expiresAt &&
+            new Date(memory.metadata.expiresAt) <= now) ||
           (!memory.metadata.expiresAt && ageMs > ttlMs);
 
         if (isExpired) {
@@ -873,7 +879,10 @@ export class MemoryManagerImpl {
       );
       await fs.promises.rename(tmpPath, this.relationGraphPath);
     } catch (error) {
-      await handleError(error, { module: 'memory:manager', action: 'save_relation_graph' });
+      await handleError(error, {
+        module: 'memory:manager',
+        action: 'save_relation_graph',
+      });
     }
   }
 

@@ -73,10 +73,10 @@ export function resetCpuState(): void {
 export function getSystemCpuPercent(): number {
   if (process.platform === 'win32') {
     try {
-      const output = execSync(
-        'wmic cpu get loadpercentage /value',
-        { encoding: 'utf8', timeout: 3000 },
-      );
+      const output = execSync('wmic cpu get loadpercentage /value', {
+        encoding: 'utf8',
+        timeout: 3000,
+      });
       const match = output.match(/LoadPercentage=(\d+)/);
       if (match && match[1]) {
         return Math.min(parseFloat(match[1]), 100);
@@ -104,10 +104,9 @@ export function getSystemCpuPercent(): number {
 export async function getSystemCpuPercentAsync(): Promise<number> {
   if (process.platform === 'win32') {
     try {
-      const { stdout } = await execAsync(
-        'wmic cpu get loadpercentage /value',
-        { timeout: 3000 },
-      );
+      const { stdout } = await execAsync('wmic cpu get loadpercentage /value', {
+        timeout: 3000,
+      });
       const match = stdout.match(/LoadPercentage=(\d+)/);
       if (match && match[1]) {
         return Math.min(parseFloat(match[1]), 100);
@@ -215,9 +214,9 @@ export function getDiskInfo(): DiskInfo {
       // 使用 PowerShell 替代 wmic，输出 JSON 避免列顺序和编码问题
       const output = execSync(
         'powershell -NoProfile -Command "' +
-        'Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ' +
-        'Select-Object Size,FreeSpace | ConvertTo-Json"',
-        { encoding: 'utf8', timeout: 5000 },
+          'Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ' +
+          'Select-Object Size,FreeSpace | ConvertTo-Json"',
+        { encoding: 'utf8', timeout: 5000 }
       );
       const trimmed = output.trim();
       if (trimmed) {
@@ -256,7 +255,8 @@ export function getDiskInfo(): DiskInfo {
   }
 
   const usedBytes = totalBytes - freeBytes;
-  const percent = totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
+  const percent =
+    totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
   const gb = 1024 * 1024 * 1024;
 
   return {
@@ -282,9 +282,9 @@ export async function getDiskInfoAsync(): Promise<DiskInfo> {
     if (process.platform === 'win32') {
       const { stdout } = await execAsync(
         'powershell -NoProfile -Command "' +
-        'Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ' +
-        'Select-Object Size,FreeSpace | ConvertTo-Json"',
-        { timeout: 5000 },
+          'Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ' +
+          'Select-Object Size,FreeSpace | ConvertTo-Json"',
+        { timeout: 5000 }
       );
       const trimmed = stdout.trim();
       if (trimmed) {
@@ -300,10 +300,9 @@ export async function getDiskInfoAsync(): Promise<DiskInfo> {
         }
       }
     } else {
-      const { stdout } = await execAsync(
-        'df -k --total 2>/dev/null || df -k',
-        { timeout: 3000 },
-      );
+      const { stdout } = await execAsync('df -k --total 2>/dev/null || df -k', {
+        timeout: 3000,
+      });
       const lines = stdout.trim().split('\n').slice(1);
       for (const line of lines) {
         const parts = line.trim().split(/\s+/);
@@ -322,7 +321,8 @@ export async function getDiskInfoAsync(): Promise<DiskInfo> {
   }
 
   const usedBytes = totalBytes - freeBytes;
-  const percent = totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
+  const percent =
+    totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
   const gb = 1024 * 1024 * 1024;
 
   return {

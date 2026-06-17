@@ -289,7 +289,10 @@ let globalTracker: SkillUsageTracker | null = null;
  * @param maxRecords 最大记录数
  * @returns SkillUsageTracker 实例
  */
-export function getSkillUsageTracker(skillDB?: SkillDB, maxRecords?: number): SkillUsageTracker {
+export function getSkillUsageTracker(
+  skillDB?: SkillDB,
+  maxRecords?: number
+): SkillUsageTracker {
   if (!globalTracker) {
     globalTracker = new SkillUsageTracker(maxRecords, skillDB);
   }

@@ -279,7 +279,11 @@ export class MemdirMemoryScanner {
         }
       }
     } catch (error) {
-      await handleError(error, { module: 'memory:scanner', action: 'scan_directory', context: { directory } });
+      await handleError(error, {
+        module: 'memory:scanner',
+        action: 'scan_directory',
+        context: { directory },
+      });
     }
 
     return results;

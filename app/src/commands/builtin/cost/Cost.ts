@@ -543,8 +543,14 @@ async function collectCostData(): Promise<CostData> {
       averageCostPerCall: totalRequests > 0 ? totalCost / totalRequests : 0,
     },
     timeRangeStats: {
-      accumulated: { calls: totalRequests - sessionSummary.totalRequests, cost: totalCost - sessionSummary.totalCost },
-      thisSession: { calls: sessionSummary.totalRequests, cost: sessionSummary.totalCost },
+      accumulated: {
+        calls: totalRequests - sessionSummary.totalRequests,
+        cost: totalCost - sessionSummary.totalCost,
+      },
+      thisSession: {
+        calls: sessionSummary.totalRequests,
+        cost: sessionSummary.totalCost,
+      },
     },
   };
 }

@@ -35,9 +35,11 @@ export class AuthHandler {
   private registerBuiltinProviders(): void {
     // Provider 注册需要 clientId/clientSecret，运行时从环境变量动态读取
     const githubClientId = configManager.env('OAUTH_GITHUB_CLIENT_ID') || '';
-    const githubClientSecret = configManager.env('OAUTH_GITHUB_CLIENT_SECRET') || '';
+    const githubClientSecret =
+      configManager.env('OAUTH_GITHUB_CLIENT_SECRET') || '';
     const googleClientId = configManager.env('OAUTH_GOOGLE_CLIENT_ID') || '';
-    const googleClientSecret = configManager.env('OAUTH_GOOGLE_CLIENT_SECRET') || '';
+    const googleClientSecret =
+      configManager.env('OAUTH_GOOGLE_CLIENT_SECRET') || '';
 
     if (githubClientId && githubClientSecret) {
       const redirectUri =
@@ -104,7 +106,8 @@ export class AuthHandler {
         oauthConfig.authorizeUrl = 'https://github.com/login/oauth/authorize';
         oauthConfig.tokenUrl = 'https://github.com/login/oauth/access_token';
         oauthConfig.profileUrl = 'https://api.github.com/user';
-        oauthConfig.clientId = configManager.env('OAUTH_GITHUB_CLIENT_ID') || '';
+        oauthConfig.clientId =
+          configManager.env('OAUTH_GITHUB_CLIENT_ID') || '';
         oauthConfig.scopes = ['read:user', 'user:email'];
       } else if (provider === 'google') {
         oauthConfig.authorizeUrl =
@@ -112,7 +115,8 @@ export class AuthHandler {
         oauthConfig.tokenUrl = 'https://oauth2.googleapis.com/token';
         oauthConfig.profileUrl =
           'https://www.googleapis.com/oauth2/v3/userinfo';
-        oauthConfig.clientId = configManager.env('OAUTH_GOOGLE_CLIENT_ID') || '';
+        oauthConfig.clientId =
+          configManager.env('OAUTH_GOOGLE_CLIENT_ID') || '';
         oauthConfig.scopes = ['openid', 'email', 'profile'];
       }
 

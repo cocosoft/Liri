@@ -366,7 +366,10 @@ export class AutoModeStateManager {
       try {
         listener(event);
       } catch (error) {
-        void handleError(error, { module: 'permission:auto_mode', action: 'state_change_listener' });
+        void handleError(error, {
+          module: 'permission:auto_mode',
+          action: 'state_change_listener',
+        });
       }
     }
   }

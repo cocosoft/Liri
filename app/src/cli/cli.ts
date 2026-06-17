@@ -148,7 +148,9 @@ async function listSkills(skillRegistry: SkillRegistry) {
     ui.showInfo(`Description: ${skill.description}`);
     ui.showInfo(`Version: ${skill.version || 'N/A'}`);
     ui.showInfo(`Source: ${skill.source}`);
-    ui.showInfo(`Kind: ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`);
+    ui.showInfo(
+      `Kind: ${skill.impl.kind === 'prompt' ? 'Prompt' : 'Executable'}`
+    );
     ui.showSeparator();
   }
 }

@@ -17,7 +17,10 @@ import { TelegramChannel } from './TelegramChannel';
 import { WebChannel } from './WebChannel';
 import { ChannelType } from './types';
 import type { GatewayChannel } from './types';
-import { channelRegistry, adaptPluginToChannelInterface } from '../../channels/registry/ChannelRegistry';
+import {
+  channelRegistry,
+  adaptPluginToChannelInterface,
+} from '../../channels/registry/ChannelRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:setup' });
 
@@ -85,7 +88,9 @@ export async function setupGatewayFromConfig(
     } else {
       try {
         const token =
-          gatewayConfig.telegram.token || configManager.env('TELEGRAM_BOT_TOKEN') || '';
+          gatewayConfig.telegram.token ||
+          configManager.env('TELEGRAM_BOT_TOKEN') ||
+          '';
 
         if (!token) {
           const errMsg =
@@ -106,8 +111,13 @@ export async function setupGatewayFromConfig(
           logger.info('Telegram 通道已注册');
         }
       } catch (error) {
-        await handleError(error, { module: 'gateway:setup', action: 'register_telegram' });
-        result.errors.push(error instanceof Error ? error.message : String(error));
+        await handleError(error, {
+          module: 'gateway:setup',
+          action: 'register_telegram',
+        });
+        result.errors.push(
+          error instanceof Error ? error.message : String(error)
+        );
       }
     }
   }
@@ -137,8 +147,13 @@ export async function setupGatewayFromConfig(
           `WebSocket 通道已注册 (${gatewayConfig.websocket.host}:${gatewayConfig.websocket.port})`
         );
       } catch (error) {
-        await handleError(error, { module: 'gateway:setup', action: 'register_websocket' });
-        result.errors.push(error instanceof Error ? error.message : String(error));
+        await handleError(error, {
+          module: 'gateway:setup',
+          action: 'register_websocket',
+        });
+        result.errors.push(
+          error instanceof Error ? error.message : String(error)
+        );
       }
     }
   }
@@ -153,8 +168,13 @@ export async function setupGatewayFromConfig(
         `Gateway 通道启动完成: ${result.connectedChannels}/${result.registeredChannels} 已连接`
       );
     } catch (error) {
-      await handleError(error, { module: 'gateway:setup', action: 'start_channels' });
-      result.errors.push(error instanceof Error ? error.message : String(error));
+      await handleError(error, {
+        module: 'gateway:setup',
+        action: 'start_channels',
+      });
+      result.errors.push(
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
 

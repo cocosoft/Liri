@@ -39,7 +39,10 @@ export interface NotificationOptions {
   /** 通知去重键：相同 key 的通知会覆盖旧通知 */
   key?: string;
   /** 合并函数：当 key 存在时，使用此函数合并新旧通知 */
-  fold?: (existing: Notification, incoming: NotificationOptions) => Partial<NotificationOptions>;
+  fold?: (
+    existing: Notification,
+    incoming: NotificationOptions
+  ) => Partial<NotificationOptions>;
   action?: {
     label: string;
     handler: () => void;

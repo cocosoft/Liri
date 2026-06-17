@@ -146,7 +146,8 @@ export function StatusLine({
           </Text>
           {cronNextWakeAt !== undefined && cronNextWakeAt > 0 && (
             <Text color="gray" dim>
-              {' '}{formatCronNextWake(cronNextWakeAt, now)}
+              {' '}
+              {formatCronNextWake(cronNextWakeAt, now)}
             </Text>
           )}
           <Text> </Text>

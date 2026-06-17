@@ -61,7 +61,8 @@ export class TelemetryService {
         this.level = data.trim() as TelemetryLevel;
       } else {
         this.level =
-          (configManager.env('Liri_TELEMETRY_LEVEL') as TelemetryLevel) || 'basic';
+          (configManager.env('Liri_TELEMETRY_LEVEL') as TelemetryLevel) ||
+          'basic';
       }
     } catch {
       this.level = 'basic';

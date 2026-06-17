@@ -106,7 +106,10 @@ export class RuleManager {
         });
       }
     } catch (error) {
-      void handleError(error, { module: 'permission:rules', action: 'load_rules' });
+      void handleError(error, {
+        module: 'permission:rules',
+        action: 'load_rules',
+      });
     }
     return this.rules;
   }
@@ -131,7 +134,10 @@ export class RuleManager {
       fs.writeFileSync(this.ruleSource, rulesData);
       this.rules = rules;
     } catch (error) {
-      void handleError(error, { module: 'permission:rules', action: 'save_rules' });
+      void handleError(error, {
+        module: 'permission:rules',
+        action: 'save_rules',
+      });
     }
   }
 
@@ -345,7 +351,8 @@ export class RuleManager {
     // 如果提供了上下文，添加从上下文中获取的规则
     if (context) {
       const contextRules: PermissionRule[] = [];
-      let contextRulesSource: Partial<Record<PermissionRuleSource, string[]>> = {};
+      let contextRulesSource: Partial<Record<PermissionRuleSource, string[]>> =
+        {};
 
       switch (behavior) {
         case PermissionBehavior.ALLOW:

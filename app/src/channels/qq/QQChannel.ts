@@ -221,7 +221,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
   protected validateConfig(config: Record<string, unknown>): string[] {
     const errors: string[] = [];
     const appId = (config['appId'] as string) || '';
-    const clientSecret = (config['clientSecret'] as string) || (config['secret'] as string) || '';
+    const clientSecret =
+      (config['clientSecret'] as string) || (config['secret'] as string) || '';
     if (!appId) errors.push('缺少 appId (QQ Bot AppID)');
     if (!clientSecret) errors.push('缺少 clientSecret (QQ Bot AppSecret)');
     return errors;
@@ -229,7 +230,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
     this.appId = (config['appId'] as string) || '';
-    this.secret = (config['clientSecret'] as string) || (config['secret'] as string) || '';
+    this.secret =
+      (config['clientSecret'] as string) || (config['secret'] as string) || '';
 
     if (!this.appId || !this.secret)
       throw new AppError(
@@ -435,7 +437,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
     content: string
   ): Promise<SendResult> {
     if (!this.appId) {
-      this.logger.error('[TRACE] QQ sendTextMessage 失败: appId 为空', { target });
+      this.logger.error('[TRACE] QQ sendTextMessage 失败: appId 为空', {
+        target,
+      });
       return { success: false, error: '未连接' };
     }
 
@@ -1092,7 +1096,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
     const now = Date.now();
     const lastTime = this.contentDedupCache.get(content);
     if (lastTime && now - lastTime < this.contentDedupWindowMs) {
-      this.logger.info('QQ Bot 内容级去重命中', { content: content.slice(0, 50) });
+      this.logger.info('QQ Bot 内容级去重命中', {
+        content: content.slice(0, 50),
+      });
       return true;
     }
     this.contentDedupCache.set(content, now);
@@ -1111,21 +1117,29 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private handleAtMessageCreate(data: QQAtMessageCreatePayload): void {
     if (this.isDuplicate(data.id)) {
-      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 重复消息已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
 
     // 跨事件去重
-    if (this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)) {
-      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 跨事件去重已跳过', { messageId: data.id });
+    if (
+      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
+    ) {
+      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 跨事件去重已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
     // 内容级去重兜底（纯内容哈希，不依赖 senderId）
     if (this.isContentDuplicate(cleanContent || data.content)) {
-      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 内容级去重已跳过', { messageId: data.id });
+      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 内容级去重已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
@@ -1165,7 +1179,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private handleC2cMessageCreate(data: QQC2cMessageCreatePayload): void {
     if (this.isDuplicate(data.id)) {
-      this.logger.info('[TRACE] QQ C2C_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      this.logger.info('[TRACE] QQ C2C_MESSAGE_CREATE 重复消息已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
@@ -1204,21 +1220,29 @@ class QQChannelPlugin extends BaseChannelPlugin {
     data: QQGroupAtMessageCreatePayload
   ): void {
     if (this.isDuplicate(data.id)) {
-      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 重复消息已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
 
     // 跨事件去重
-    if (this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)) {
-      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 跨事件去重已跳过', { messageId: data.id });
+    if (
+      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
+    ) {
+      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 跨事件去重已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
     // 内容级去重兜底（纯内容哈希，不依赖 senderId）
     if (this.isContentDuplicate(cleanContent || data.content)) {
-      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 内容级去重已跳过', { messageId: data.id });
+      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 内容级去重已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 
@@ -1255,7 +1279,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private handleDirectMessageCreate(data: QQDirectMessageCreatePayload): void {
     if (this.isDuplicate(data.id)) {
-      this.logger.info('[TRACE] QQ DIRECT_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      this.logger.info('[TRACE] QQ DIRECT_MESSAGE_CREATE 重复消息已跳过', {
+        messageId: data.id,
+      });
       return;
     }
 

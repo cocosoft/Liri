@@ -202,6 +202,9 @@ export class SessionRecorder {
   }
 
   static getStorageDir(): string {
-    return configManager.env('VCR_STORAGE_DIR') || resolveDataSubDir('vcr_recordings');
+    return (
+      configManager.env('VCR_STORAGE_DIR') ||
+      resolveDataSubDir('vcr_recordings')
+    );
   }
 }

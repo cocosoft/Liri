@@ -390,8 +390,14 @@ function checkSingletonInstance(): void {
   };
 
   process.on('exit', cleanup);
-  process.on('SIGINT', () => { cleanup(); process.exit(0); });
-  process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+  process.on('SIGINT', () => {
+    cleanup();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    cleanup();
+    process.exit(0);
+  });
 }
 
 /**
@@ -415,11 +421,15 @@ async function displayStartupHealthReport(): Promise<void> {
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 let _cliMain: (() => Promise<void>) | null = null;
-export function setCliMain(fn: () => Promise<void>): void { _cliMain = fn; }
+export function setCliMain(fn: () => Promise<void>): void {
+  _cliMain = fn;
+}
 
 async function launchCLI(_options: LaunchOptions): Promise<void> {
   if (!_cliMain) {
-    throw new Error('CLI main function not registered. Import cli.tsx directly instead.');
+    throw new Error(
+      'CLI main function not registered. Import cli.tsx directly instead.'
+    );
   }
   await _cliMain();
 }
@@ -430,7 +440,6 @@ async function launchCLI(_options: LaunchOptions): Promise<void> {
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchREPL(options: LaunchOptions): Promise<void> {
-
   // 解析 --model 参数并设为全局模型
   const modelArg = parseModelFromArgs(options.args);
   if (modelArg) {
@@ -451,7 +460,9 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     process.env.LIRI_HTTP_STARTED = '1';
     logger.info(`HTTP 服务已启动: http://127.0.0.1:${httpPort}`);
   } catch (e) {
-    logger.warning('HTTP 服务启动失败，引导期间前端不可用', { error: String(e) });
+    logger.warning('HTTP 服务启动失败，引导期间前端不可用', {
+      error: String(e),
+    });
   }
 
   await checkFirstRunAndOnboard();
@@ -461,9 +472,11 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
 
   // REPL 启动前，初始化通道持久化并后台连接
   try {
-    const { setupChannelsFromConfig, lazyConnectChannels } = await import('./channels/setupChannels');
-    const { channelRegistry } = await import('./channels/registry/ChannelRegistry');
-    
+    const { setupChannelsFromConfig, lazyConnectChannels } =
+      await import('./channels/setupChannels');
+    const { channelRegistry } =
+      await import('./channels/registry/ChannelRegistry');
+
     await channelRegistry.initPersistence();
     logger.info('main.ts 通道持久化初始化完成');
 
@@ -755,11 +768,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
       registry.loadUserConfigs();
 
       // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
-      const { modelPricingService } = await import(
-        '@modules/ai/models/ModelPricingService.js'
-      ).catch(() => {
-        return { modelPricingService: null as any };
-      });
+      const { modelPricingService } =
+        await import('@modules/ai/models/ModelPricingService.js').catch(() => {
+          return { modelPricingService: null as any };
+        });
       if (modelPricingService) {
         await modelPricingService.initialize();
       } else {
@@ -794,11 +806,15 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // T1.8: 初始化 SmartRouter 智能路由（非阻塞，失败不影响主流程）
     try {
       const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
-      const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry');
+      const { providerRegistry } =
+        await import('@modules/ai/providers/ProviderRegistry');
       const { configManager } = await import('@modules/config/ConfigManager');
 
       // 从 configManager 读取路由配置，若无则使用默认值
-      const routerCfg = configManager.getConfigValue<Record<string, unknown>>('models.router') || {};
+      const routerCfg =
+        configManager.getConfigValue<Record<string, unknown>>(
+          'models.router'
+        ) || {};
       const routerConfig: import('@modules/ai/router/types').RouterConfig = {
         enabled: (routerCfg as any)?.enabled !== false,
         defaultTier: ((routerCfg as any)?.defaultTier as any) || 'medium',
@@ -821,7 +837,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
       getCoreAPI().setSmartRouter(smartRouter);
       logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
     } catch (e) {
-      logger.warning('SmartRouter 初始化失败（非致命，使用静态路由）', e as Error);
+      logger.warning(
+        'SmartRouter 初始化失败（非致命，使用静态路由）',
+        e as Error
+      );
     }
 
     // T2: 模式分发 + 后台延迟加载
@@ -866,7 +885,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     profileReport();
   } catch (error) {
-    await (await import('./error/handleError.js')).handleError(error, { module: 'app:main', action: 'launch' });
+    await (
+      await import('./error/handleError.js')
+    ).handleError(error, { module: 'app:main', action: 'launch' });
     profileCheckpoint('launch_error');
     profileReport();
     process.exit(1);

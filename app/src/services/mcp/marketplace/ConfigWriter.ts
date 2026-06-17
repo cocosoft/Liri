@@ -41,7 +41,11 @@ export class ConfigWriter {
 
       logger.info(`MCP 服务器安装配置已写入: ${name}`);
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:marketplace', action: 'install_write_config', context: { serverName: name } });
+      void handleError(error, {
+        module: 'services:mcp:marketplace',
+        action: 'install_write_config',
+        context: { serverName: name },
+      });
       throw new Error(`安装失败: 无法写入配置 - ${(error as Error).message}`);
     }
   }
@@ -63,7 +67,11 @@ export class ConfigWriter {
 
       logger.info(`MCP 服务器配置已删除: ${name}`);
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:marketplace', action: 'uninstall_config', context: { serverName: name } });
+      void handleError(error, {
+        module: 'services:mcp:marketplace',
+        action: 'uninstall_config',
+        context: { serverName: name },
+      });
       throw new Error(`卸载失败: 无法删除配置 - ${(error as Error).message}`);
     }
   }

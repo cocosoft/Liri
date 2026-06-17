@@ -72,7 +72,7 @@ export class PromptCacheManager {
   shouldInsertBreakpoint(
     sessionId: string,
     messageIndex: number,
-    totalMessages: number,
+    totalMessages: number
   ): boolean {
     if (!this.config.enabled) return false;
     if (totalMessages < this.config.minMessagesForCache) return false;
@@ -100,7 +100,7 @@ export class PromptCacheManager {
     usage: {
       cacheReadInputTokens?: number;
       cacheCreationInputTokens?: number;
-    },
+    }
   ): void {
     const read = usage.cacheReadInputTokens ?? 0;
     const creation = usage.cacheCreationInputTokens ?? 0;

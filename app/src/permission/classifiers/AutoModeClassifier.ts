@@ -133,7 +133,10 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         durationMs: Date.now() - startTime,
       };
     } catch (error) {
-      await handleError(error, { module: 'permission:classifier', action: 'classify' });
+      await handleError(error, {
+        module: 'permission:classifier',
+        action: 'classify',
+      });
       return {
         shouldBlock: true,
         unavailable: true,
@@ -3107,4 +3110,3 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     return false;
   }
 }
-

@@ -15,13 +15,15 @@ export interface ITaskStore {
     newStatus: string;
     timestamp: number;
   }): Promise<void>;
-  queryAuditLogs?(taskId: string): Promise<Array<{
-    taskId: string;
-    eventType: string;
-    oldStatus: string | null;
-    newStatus: string;
-    timestamp: number;
-  }>>;
+  queryAuditLogs?(taskId: string): Promise<
+    Array<{
+      taskId: string;
+      eventType: string;
+      oldStatus: string | null;
+      newStatus: string;
+      timestamp: number;
+    }>
+  >;
   cleanupExpiredTasks?(retentionDays?: number): Promise<number>;
   rebuildIndexes?(): Promise<void>;
 }

@@ -444,7 +444,12 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
     input?: Record<string, unknown>,
     cwd?: string
   ): Promise<SecurityDecision> {
-    return securityIntegrationService.checkSecurity(command, toolName, input, cwd);
+    return securityIntegrationService.checkSecurity(
+      command,
+      toolName,
+      input,
+      cwd
+    );
   }
 
   /**

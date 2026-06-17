@@ -44,7 +44,9 @@ export class FileStatsService {
   /** 按 source 聚合缓存 */
   private bySourceCache: CacheEntry<Record<string, number>> | null = null;
   /** 按 store_zone 聚合缓存 */
-  private byZoneCache: CacheEntry<Record<string, { count: number; size: number }>> | null = null;
+  private byZoneCache: CacheEntry<
+    Record<string, { count: number; size: number }>
+  > | null = null;
 
   private constructor(ttlMs: number = DEFAULT_TTL_MS) {
     this.registry = FileRegistry.getInstance();
@@ -98,12 +100,18 @@ export class FileStatsService {
   /**
    * 按 store_zone 分组统计（带缓存）
    */
-  async getStatsByZone(): Promise<Record<string, { count: number; size: number }>> {
+  async getStatsByZone(): Promise<
+    Record<string, { count: number; size: number }>
+  > {
     if (this.byZoneCache && Date.now() < this.byZoneCache.expiresAt) {
       return this.byZoneCache.data;
     }
 
-    const rows = await this.registry.query<{ store_zone: string; count: number; size: number }>(
+    const rows = await this.registry.query<{
+      store_zone: string;
+      count: number;
+      size: number;
+    }>(
       `SELECT store_zone, COUNT(*) as count, COALESCE(SUM(size), 0) as size FROM ${FILES_TABLE} WHERE is_deleted = 0 GROUP BY store_zone`
     );
 

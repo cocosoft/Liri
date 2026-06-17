@@ -412,7 +412,11 @@ export class TeamMemoryService {
           };
           memories.push(memory);
         } catch (error) {
-          void handleError(error, { module: 'memory:team', action: 'read_remote_memory', context: { file } });
+          void handleError(error, {
+            module: 'memory:team',
+            action: 'read_remote_memory',
+            context: { file },
+          });
         }
       }
     }

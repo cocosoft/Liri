@@ -233,9 +233,10 @@ export class DomainManager {
     const lines: string[] = ['可用知识域：'];
 
     for (const d of domains) {
-      const tags = d.keywordTags.length > 0
-        ? ` [关键词: ${d.keywordTags.join(', ')}]`
-        : '';
+      const tags =
+        d.keywordTags.length > 0
+          ? ` [关键词: ${d.keywordTags.join(', ')}]`
+          : '';
       lines.push(`- ${d.label}（${d.description}）${tags}`);
     }
 
@@ -285,7 +286,7 @@ export class DomainManager {
           : undefined,
       },
       allowedCrossDomainRefs: Array.isArray(parsed.allowedCrossDomainRefs)
-        ? parsed.allowedCrossDomainRefs as string[]
+        ? (parsed.allowedCrossDomainRefs as string[])
         : [],
       compileRules: parsed.compileRules as CompileRules | undefined,
       createdAt: Number(parsed.createdAt) || 0,

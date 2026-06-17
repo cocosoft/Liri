@@ -90,7 +90,5 @@ export interface ThirdPartySkillAdapter extends SkillLoader {
    * 获取技能详情
    * @param skillId 技能 ID
    */
-  getSkillDetail(
-    skillId: string
-  ): Promise<ThirdPartySkillSearchResult | null>;
+  getSkillDetail(skillId: string): Promise<ThirdPartySkillSearchResult | null>;
 }

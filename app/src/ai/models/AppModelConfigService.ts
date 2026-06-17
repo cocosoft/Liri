@@ -121,7 +121,10 @@ export class AppModelConfigService {
       // 确保数据库文件所在目录存在
       const dir = dirname(this.dbPath);
       ensureDir(dir);
-      logger.debug('AppModelConfigService DB 目录', { dir, dbPath: this.dbPath });
+      logger.debug('AppModelConfigService DB 目录', {
+        dir,
+        dbPath: this.dbPath,
+      });
 
       this.db = await new Promise<Database>((resolve, reject) => {
         const db = new Database(this.dbPath, (err: Error | null) => {
@@ -136,7 +139,11 @@ export class AppModelConfigService {
       await this.ensureDefaultEntry();
       logger.info('AppModelConfigService 初始化完成');
     } catch (error) {
-      await handleError(error, { module: 'ai:model_config', action: 'initialize', context: { dbPath: this.dbPath } });
+      await handleError(error, {
+        module: 'ai:model_config',
+        action: 'initialize',
+        context: { dbPath: this.dbPath },
+      });
       throw new AppError(
         `Failed to initialize AppModelConfigService: ${error instanceof Error ? error.message : String(error)}`,
         ErrorCategory.EXECUTION,
@@ -176,7 +183,10 @@ export class AppModelConfigService {
 
     // 从 ActiveModelService 获取第一个可用模型
     const { activeModelService } = await import('./ActiveModelService.js');
-    const effectiveModel = await activeModelService.getEffectiveModel(undefined, 'ollama');
+    const effectiveModel = await activeModelService.getEffectiveModel(
+      undefined,
+      'ollama'
+    );
     const modelId = effectiveModel || '';
 
     await this.setConfig('default', { model: modelId });
@@ -367,4 +377,3 @@ export class AppModelConfigService {
 }
 
 export const appModelConfigService = AppModelConfigService.getInstance();
-

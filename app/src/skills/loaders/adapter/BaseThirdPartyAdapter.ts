@@ -52,7 +52,9 @@ const logger = new Logger({ level: LogLevel.INFO });
  *
  * 泛型参数 T：适配器内部技能格式（需满足 InstalledThirdPartySkill 约束）
  */
-export abstract class BaseThirdPartyAdapter<T extends InstalledThirdPartySkill = InstalledThirdPartySkill>
+export abstract class BaseThirdPartyAdapter<
+  T extends InstalledThirdPartySkill = InstalledThirdPartySkill,
+>
   extends EventEmitter
   implements ThirdPartySkillAdapter
 {
@@ -83,9 +85,7 @@ export abstract class BaseThirdPartyAdapter<T extends InstalledThirdPartySkill =
     this.localStore = new LocalSkillStore<T>({
       skillsPath: config.skillsPath,
     });
-    this.auditService = new SkillAuditService(
-      this.localStore.getSkillsPath()
-    );
+    this.auditService = new SkillAuditService(this.localStore.getSkillsPath());
   }
 
   // ============================================================
@@ -110,10 +110,7 @@ export abstract class BaseThirdPartyAdapter<T extends InstalledThirdPartySkill =
    * @param sourceUrl 来源 URL（可选）
    * @returns 安装后的内部技能对象
    */
-  protected abstract doInstall(
-    skillId: string,
-    sourceUrl?: string
-  ): Promise<T>;
+  protected abstract doInstall(skillId: string, sourceUrl?: string): Promise<T>;
 
   /**
    * 执行卸载（删除文件）
@@ -172,9 +169,7 @@ export abstract class BaseThirdPartyAdapter<T extends InstalledThirdPartySkill =
    */
   async loadSkills(): Promise<Skill[]> {
     const installed = await this.localStore.getAllSkills();
-    return installed
-      .filter((s) => s.enabled)
-      .map((s) => this.toSkill(s));
+    return installed.filter((s) => s.enabled).map((s) => this.toSkill(s));
   }
 
   /**
@@ -184,12 +179,12 @@ export abstract class BaseThirdPartyAdapter<T extends InstalledThirdPartySkill =
   async searchSkills(query: string): Promise<ThirdPartySkillSearchResult[]> {
     const [localResults, remoteResults] = await Promise.all([
       this.localStore.searchLocal(query),
-      this.doSearchRemote(query).catch(() => [] as ThirdPartySkillSearchResult[]),
+      this.doSearchRemote(query).catch(
+        () => [] as ThirdPartySkillSearchResult[]
+      ),
     ]);
 
-    const installedIds = new Set(
-      localResults.map((r) => r.skill.id)
-    );
+    const installedIds = new Set(localResults.map((r) => r.skill.id));
 
     const merged: ThirdPartySkillSearchResult[] = [
       ...localResults.map((r) => ({

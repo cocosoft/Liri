@@ -299,10 +299,7 @@ export class PluginLoader {
                     pluginIds.push(pluginJson.plugin.name);
                   }
                 } catch {
-                  logger.warning(
-                    `Invalid plugin.json in ${entry.name}:`,
-                    null
-                  );
+                  logger.warning(`Invalid plugin.json in ${entry.name}:`, null);
                 }
               }
             }

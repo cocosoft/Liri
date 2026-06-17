@@ -187,7 +187,9 @@ export function getOwnerChain(fiber: unknown): string[] {
 let debugRepaints: boolean | undefined;
 export function isDebugRepaintsEnabled(): boolean {
   if (debugRepaints === undefined) {
-    debugRepaints = isEnvTruthy(configManager.env('CLAUDE_CODE_DEBUG_REPAINTS'));
+    debugRepaints = isEnvTruthy(
+      configManager.env('CLAUDE_CODE_DEBUG_REPAINTS')
+    );
   }
   return debugRepaints;
 }

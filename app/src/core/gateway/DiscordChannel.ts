@@ -140,7 +140,10 @@ export class DiscordChannel implements GatewayChannel, ChannelPlugin {
     } catch (error) {
       this._status = ChannelStatus.ERROR;
       this._stats.errors++;
-      await handleError(error, { module: 'gateway:discord', action: 'connect' });
+      await handleError(error, {
+        module: 'gateway:discord',
+        action: 'connect',
+      });
       this.callbacks.onError?.(error as Error);
     }
   }

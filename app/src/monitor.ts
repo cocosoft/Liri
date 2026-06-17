@@ -23,9 +23,7 @@ function monitor() {
     console.log(
       `   - 内存使用: ${(status.memory.heapUsed / 1024 / 1024).toFixed(2)} MB / ${(status.memory.heapTotal / 1024 / 1024).toFixed(2)} MB`
     );
-    console.log(
-      `   - CPU 使用: ${getProcessCpuPercent().toFixed(2)}%`
-    );
+    console.log(`   - CPU 使用: ${getProcessCpuPercent().toFixed(2)}%`);
     console.log(`   - 环境: ${status.process.env}`);
 
     // 显示性能报告

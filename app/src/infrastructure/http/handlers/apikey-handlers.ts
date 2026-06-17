@@ -22,7 +22,10 @@
 import type http from 'node:http';
 import { sendError, readRequestBody } from './handler-utils';
 
-const apiKeys = new Map<string, { name: string; key: string; createdAt: number }>();
+const apiKeys = new Map<
+  string,
+  { name: string; key: string; createdAt: number }
+>();
 
 // ========== APIKey Handlers ==========
 
@@ -34,15 +37,13 @@ export async function handleListApiKeys(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const apiKeyList = Array.from(apiKeys.entries()).map(
-      ([id, data]) => ({
-        id,
-        name: data.name,
-        key_prefix: data.key.substring(0, 8),
-        created_at: data.createdAt,
-        permissions: ['read'],
-      })
-    );
+    const apiKeyList = Array.from(apiKeys.entries()).map(([id, data]) => ({
+      id,
+      name: data.name,
+      key_prefix: data.key.substring(0, 8),
+      created_at: data.createdAt,
+      permissions: ['read'],
+    }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(apiKeyList));

@@ -99,7 +99,7 @@ export class StreamableHttpTransport {
         'MCP Streamable HTTP transport is closed',
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000',
+        '1000'
       );
     }
 
@@ -115,7 +115,10 @@ export class StreamableHttpTransport {
     let res: Response;
     try {
       const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
-      const combinedSignal = AbortSignal.any([this.controller.signal, timeoutSignal]);
+      const combinedSignal = AbortSignal.any([
+        this.controller.signal,
+        timeoutSignal,
+      ]);
 
       res = await fetch(this.url, {
         method: 'POST',
@@ -129,14 +132,14 @@ export class StreamableHttpTransport {
           `MCP Streamable HTTP POST ${this.url} timed out after ${this.timeoutMs}ms`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
-          '1000',
+          '1000'
         );
       }
       throw new AppError(
         `MCP Streamable HTTP POST ${this.url} failed: ${(err as Error).message}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000',
+        '1000'
       );
     }
 
@@ -144,7 +147,9 @@ export class StreamableHttpTransport {
     const serverSessionId = res.headers.get(SESSION_HEADER);
     if (serverSessionId && this.sessionId === null) {
       this.sessionId = serverSessionId;
-      logger.info('Streamable HTTP session established', { sessionId: serverSessionId });
+      logger.info('Streamable HTTP session established', {
+        sessionId: serverSessionId,
+      });
     }
 
     // 404 + session header → 会话过期
@@ -154,7 +159,7 @@ export class StreamableHttpTransport {
         `MCP Streamable HTTP session expired (server returned 404 with Mcp-Session-Id "${this.sessionId}"). Reinitialize the client.`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000',
+        '1000'
       );
     }
 
@@ -164,7 +169,7 @@ export class StreamableHttpTransport {
         `MCP Streamable HTTP POST ${this.url} → ${res.status} ${res.statusText}${body ? `: ${body}` : ''}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000',
+        '1000'
       );
     }
 
@@ -186,7 +191,7 @@ export class StreamableHttpTransport {
           `MCP Streamable HTTP body wasn't valid JSON: ${(err as Error).message}`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
-          '1000',
+          '1000'
         );
       }
       if (Array.isArray(parsed)) {
@@ -204,7 +209,7 @@ export class StreamableHttpTransport {
           'MCP Streamable HTTP SSE response had no body',
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
-          '1000',
+          '1000'
         );
       }
       const stream = this.consumeSSEStream(res.body);
@@ -287,7 +292,9 @@ export class StreamableHttpTransport {
   /**
    * 消费 SSE 流，将解析出的事件推入消息队列
    */
-  private async consumeSSEStream(body: ReadableStream<Uint8Array>): Promise<void> {
+  private async consumeSSEStream(
+    body: ReadableStream<Uint8Array>
+  ): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -311,7 +318,9 @@ export class StreamableHttpTransport {
               this.pushMessage(parsed);
             } catch {
               /* 格式错误的 JSON — 丢弃 */
-              logger.warn('Streamable HTTP: dropped malformed SSE event', { data: ev.data });
+              logger.warn('Streamable HTTP: dropped malformed SSE event', {
+                data: ev.data,
+              });
             }
           }
           // 其他事件类型（ping, custom）静默忽略

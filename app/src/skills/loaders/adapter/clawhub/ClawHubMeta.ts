@@ -24,10 +24,7 @@
  * 扩展通用 ThirdPartySkillMeta，添加 ClawHub 特有字段。
  */
 
-import type {
-  ThirdPartySkillMeta,
-  InstalledThirdPartySkill,
-} from '../types';
+import type { ThirdPartySkillMeta, InstalledThirdPartySkill } from '../types';
 
 /**
  * ClawHub 技能元数据（扩展通用格式）

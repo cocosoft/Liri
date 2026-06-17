@@ -66,7 +66,8 @@ export function hasIncompleteScratchpad(content: string): boolean {
  * 获取默认轨迹目录
  */
 function getTrajectoryDir(): string {
-  const dir = configManager.env('Liri_TRAJECTORY_DIR') || DEFAULT_TRAJECTORY_DIR;
+  const dir =
+    configManager.env('Liri_TRAJECTORY_DIR') || DEFAULT_TRAJECTORY_DIR;
   if (!existsSync(dir)) {
     try {
       const { mkdirSync } = require('fs');

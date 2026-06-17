@@ -66,7 +66,8 @@ export function readProjectFiles(cwd: string): ProjectFiles {
 }
 
 export function readUserPyAppMd(): string | null {
-  const home = configManager.env('HOME') || configManager.env('USERPROFILE') || '';
+  const home =
+    configManager.env('HOME') || configManager.env('USERPROFILE') || '';
   if (!home) return null;
   return (
     safeReadFile(path.join(resolvePyappHome(), 'Liri.md')) ||

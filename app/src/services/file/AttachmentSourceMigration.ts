@@ -78,7 +78,8 @@ export class AttachmentSourceMigration {
       failures: [],
     };
 
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
 
     // 检查附件记录表是否存在
     const db = new Database(this.dbPath);
@@ -92,7 +93,10 @@ export class AttachmentSourceMigration {
     }
 
     // 读取所有附件记录
-    const rows = await this.queryAll(db, 'SELECT * FROM attachments_sources ORDER BY id ASC') as AttachmentSourceRow[];
+    const rows = (await this.queryAll(
+      db,
+      'SELECT * FROM attachments_sources ORDER BY id ASC'
+    )) as AttachmentSourceRow[];
 
     result.total = rows.length;
     logger.info(`找到 ${rows.length} 条附件记录待迁移`);
@@ -133,7 +137,8 @@ export class AttachmentSourceMigration {
           source: row.source,
           sourceId: row.source_id || row.attachment_id,
           mimeType: row.mime_type || 'application/octet-stream',
-          description: row.description || `从 attachments_sources 迁移 (id=${row.id})`,
+          description:
+            row.description || `从 attachments_sources 迁移 (id=${row.id})`,
           storeZone: 'inbound',
         });
 
@@ -182,7 +187,11 @@ export class AttachmentSourceMigration {
   /**
    * 执行查询并返回所有行
    */
-  private queryAll(db: Database, sql: string, params: unknown[] = []): Promise<unknown[]> {
+  private queryAll(
+    db: Database,
+    sql: string,
+    params: unknown[] = []
+  ): Promise<unknown[]> {
     return new Promise((resolve, reject) => {
       db.all(sql, params, (err: Error | null, rows: any[]) => {
         if (err) {
@@ -194,4 +203,3 @@ export class AttachmentSourceMigration {
     });
   }
 }
-

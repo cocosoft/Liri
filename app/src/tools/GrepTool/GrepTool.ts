@@ -60,7 +60,8 @@ export class GrepTool extends BaseTool {
     {
       name: 'outputMode',
       type: 'string',
-      description: '输出模式: content（内容）、files_with_matches（仅文件名）、count（计数）',
+      description:
+        '输出模式: content（内容）、files_with_matches（仅文件名）、count（计数）',
       required: false,
       default: 'files_with_matches',
       example: 'content',
@@ -123,7 +124,8 @@ export class GrepTool extends BaseTool {
     try {
       // 验证输入
       const validated: GrepInputType = validateGrepInput(input);
-      const searchPath = validated.searchPath || context.options.cwd || process.cwd();
+      const searchPath =
+        validated.searchPath || context.options.cwd || process.cwd();
 
       // 检查搜索目录可访问性
       const pathCheck = checkPathAccessibility(searchPath, '搜索目录');

@@ -367,7 +367,10 @@ export class MemoryAgeManager {
 
       await this.performAutoArchive();
     } catch (error) {
-      await handleError(error, { module: 'memory:age', action: 'check_auto_archive' });
+      await handleError(error, {
+        module: 'memory:age',
+        action: 'check_auto_archive',
+      });
     } finally {
       // 继续调度下一次检查
       this.scheduleNextArchive();
@@ -415,7 +418,10 @@ export class MemoryAgeManager {
       // 调用归档后回调
       this.autoArchiveConfig.onAfterArchive?.(batch.length);
     } catch (error) {
-      await handleError(error, { module: 'memory:age', action: 'perform_auto_archive' });
+      await handleError(error, {
+        module: 'memory:age',
+        action: 'perform_auto_archive',
+      });
     } finally {
       this.isAutoArchiveRunning = false;
     }

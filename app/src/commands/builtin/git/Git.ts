@@ -74,7 +74,10 @@ function findGitRootImpl(
         return current;
       }
     } catch (err) {
-      void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+      void handleError(err, {
+        module: 'commands:builtin',
+        action: 'catch_error',
+      });
     }
     const parent = dirname(current);
     if (parent === current) {
@@ -91,7 +94,10 @@ function findGitRootImpl(
       return root;
     }
   } catch (err) {
-    void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+    void handleError(err, {
+      module: 'commands:builtin',
+      action: 'catch_error',
+    });
   }
 
   return GIT_ROOT_NOT_FOUND;

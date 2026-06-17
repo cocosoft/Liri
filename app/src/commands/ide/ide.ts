@@ -52,7 +52,10 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'cursor',
     alias: ['cursor'],
     commonPaths: [
-      join(configManager.env('LOCALAPPDATA') || '', 'Programs\\cursor\\Cursor.exe'),
+      join(
+        configManager.env('LOCALAPPDATA') || '',
+        'Programs\\cursor\\Cursor.exe'
+      ),
       join(
         configManager.env('USERPROFILE') || '',
         'AppData\\Local\\Programs\\cursor\\Cursor.exe'
@@ -72,7 +75,10 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'windsurf',
     alias: ['windsurf'],
     commonPaths: [
-      join(configManager.env('LOCALAPPDATA') || '', 'Programs\\Windsurf\\Windsurf.exe'),
+      join(
+        configManager.env('LOCALAPPDATA') || '',
+        'Programs\\Windsurf\\Windsurf.exe'
+      ),
     ],
   },
   {
@@ -236,7 +242,10 @@ function scanStartMenuPrograms(): IDEDetection[] {
       configManager.env('ProgramData') || '',
       'Microsoft\\Windows\\Start Menu\\Programs'
     ),
-    join(configManager.env('APPDATA') || '', 'Microsoft\\Windows\\Start Menu\\Programs'),
+    join(
+      configManager.env('APPDATA') || '',
+      'Microsoft\\Windows\\Start Menu\\Programs'
+    ),
   ];
 
   const knownIDEs: Record<string, { name: string; command: string }> = {

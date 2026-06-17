@@ -464,14 +464,16 @@ export class NotebookToolAdapter implements Tool {
           );
           // 注册导出文件到 FileRegistry
           const safeFormat = format || 'markdown';
-          this.registerNotebookExport(exportedContent, notebook, safeFormat).catch(
-            (err) => {
-              console.error('注册 Notebook 导出文件失败', {
-                notebookId: notebook.id,
-                error: String(err),
-              });
-            }
-          );
+          this.registerNotebookExport(
+            exportedContent,
+            notebook,
+            safeFormat
+          ).catch((err) => {
+            console.error('注册 Notebook 导出文件失败', {
+              notebookId: notebook.id,
+              error: String(err),
+            });
+          });
           return {
             success: true,
             data: { content: exportedContent.toString('utf8'), format },
@@ -573,7 +575,8 @@ export class NotebookToolAdapter implements Tool {
     notebook: { id: string; name: string },
     format: string
   ): Promise<void> {
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     const extMap: Record<string, string> = {
       markdown: '.md',

@@ -34,11 +34,16 @@ export class MCPMarketplace {
       this.initialized = true;
       logger.info('MCPMarketplace 初始化成功');
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:marketplace', action: 'constructor' });
+      void handleError(error, {
+        module: 'services:mcp:marketplace',
+        action: 'constructor',
+      });
       // 使用空存储和注册表作为降级方案
       const fs = require('fs');
       const os = require('os');
-      const tempDir = fs.mkdtempSync(`${os.tmpdir()}${require('path').sep}mcp_`);
+      const tempDir = fs.mkdtempSync(
+        `${os.tmpdir()}${require('path').sep}mcp_`
+      );
       this.store = new LocalServerStore(tempDir);
       this.configWriter = new ConfigWriter();
       this.registryHub = new RegistryHub(true); // 安全模式

@@ -131,8 +131,14 @@ export function jitteredNextCronRunMs(
   isOneShot: boolean = false,
   config: CronJitterConfig = DEFAULT_CRON_JITTER_CONFIG
 ): number | null {
-  const { parseCronExpression, computeNextCronRun, normalizeSchedule } = require('./cron');
-  const normalized = normalizeSchedule ? (normalizeSchedule(cron) ?? cron) : cron;
+  const {
+    parseCronExpression,
+    computeNextCronRun,
+    normalizeSchedule,
+  } = require('./cron');
+  const normalized = normalizeSchedule
+    ? (normalizeSchedule(cron) ?? cron)
+    : cron;
   const fields = parseCronExpression(normalized);
   if (!fields) return null;
 

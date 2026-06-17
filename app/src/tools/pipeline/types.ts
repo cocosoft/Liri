@@ -1,11 +1,11 @@
 /**
  * 工具执行 Pipeline 类型定义
- * 
+ *
  * 设计目标：将 ToolExecutor 中串行的 5 层管理器重构为按需组合的 Middleware 模式。
  * - 简单只读工具（read_file、grep 等）走快速通道：仅 Permission + 直接执行
  * - 写入/破坏性工具走完整通道：Permission + Governance + Sandbox + PostHooks
  * - 高危工具（Bash、PowerShell 等）额外挂载 Sandbox + Governance
- * 
+ *
  * 参考优化方案 §2.2：引入 ToolMiddlewarePipeline，按工具标签声明所需中间件。
  */
 
@@ -88,7 +88,7 @@ export enum MiddlewareGroup {
 
 /**
  * Pipeline 配置：声明工具应经过哪些中间件
- * 
+ *
  * 路由规则（优先级从高到低）：
  * 1. 如果指定 middlewares 数组 → 显式列表
  * 2. 如果 tool.readOnly && !tool.destructive → 快速通道（仅 SECURITY + PERMISSION + VALIDATION）

@@ -54,8 +54,7 @@ export async function handleBuddyInteract(
   try {
     const body = await ctx.readRequestBody(req);
     const { action } = JSON.parse(body);
-    const { InteractionManager, getCompanion } =
-      await import('@modules/buddy');
+    const { InteractionManager, getCompanion } = await import('@modules/buddy');
     const companion = getCompanion();
     if (!companion) {
       res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -3,10 +3,7 @@
  * 展示如何实现 ProviderPlugin 接口，注册 Anthropic Claude 模型提供者
  */
 
-import {
-  createProviderPlugin,
-  type ProviderPlugin,
-} from '../categories.js';
+import { createProviderPlugin, type ProviderPlugin } from '../categories.js';
 
 /**
  * Anthropic 配置

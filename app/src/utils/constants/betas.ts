@@ -23,7 +23,9 @@ export const TOKEN_EFFICIENT_TOOLS_BETA_HEADER =
   'token-efficient-tools-2026-03-28';
 
 export const CLI_INTERNAL_BETA_HEADER =
-  configManager.env('Liri_USER_TYPE') === 'ant' ? 'cli-internal-2026-02-09' : '';
+  configManager.env('Liri_USER_TYPE') === 'ant'
+    ? 'cli-internal-2026-02-09'
+    : '';
 export const ADVISOR_BETA_HEADER = 'advisor-tool-2026-03-01';
 
 export const BEDROCK_EXTRA_PARAMS_HEADERS = new Set([

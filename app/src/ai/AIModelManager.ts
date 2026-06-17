@@ -197,7 +197,9 @@ export class AIModelManager {
   }
 
   getDefaultThinkingEffort(): ThinkingEffort {
-    const envEffort = configManager.env('THINKING_EFFORT') as ThinkingEffort | undefined;
+    const envEffort = configManager.env('THINKING_EFFORT') as
+      | ThinkingEffort
+      | undefined;
     if (envEffort && ['low', 'medium', 'high'].includes(envEffort)) {
       return envEffort;
     }

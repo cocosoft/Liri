@@ -470,4 +470,3 @@ export class DeliveryQueue {
     return new Date(Date.now() + capped + jitter).toISOString();
   }
 }
-

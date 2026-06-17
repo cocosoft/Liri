@@ -59,7 +59,8 @@ export class FileCleanupService {
    * 执行到期清理：删除软删除超过保留天数的文件
    */
   async cleanupExpired(options: CleanupOptions = {}): Promise<CleanupResult> {
-    const { dryRun = true, retentionDays = SOFT_DELETE_RETENTION_DAYS } = options;
+    const { dryRun = true, retentionDays = SOFT_DELETE_RETENTION_DAYS } =
+      options;
     const cutoffDate = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
 
     const result: CleanupResult = {
@@ -104,10 +105,9 @@ export class FileCleanupService {
           }
 
           // 从 DB 中彻底删除记录
-          await this.registry.query(
-            `DELETE FROM ${FILES_TABLE} WHERE id = ?`,
-            [row.id]
-          );
+          await this.registry.query(`DELETE FROM ${FILES_TABLE} WHERE id = ?`, [
+            row.id,
+          ]);
 
           result.cleanedCount++;
           result.cleanedFiles.push(row.saved_path);
@@ -129,7 +129,11 @@ export class FileCleanupService {
     } catch (err) {
       const msg = `过期清理失败: ${(err as Error).message}`;
       result.errors.push(msg);
-      await handleError(err, { module: 'services:file:cleanup', action: 'cleanup_expired', context: { retentionDays, dryRun } });
+      await handleError(err, {
+        module: 'services:file:cleanup',
+        action: 'cleanup_expired',
+        context: { retentionDays, dryRun },
+      });
     }
 
     return result;

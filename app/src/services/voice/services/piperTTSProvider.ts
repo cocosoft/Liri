@@ -265,7 +265,11 @@ export class PiperTTSProvider implements TTSProvider {
         }
       });
     } catch (error) {
-      void handleError(error, { module: 'services:voice:piper', action: 'scan_voices', context: { modelDir: dir } });
+      void handleError(error, {
+        module: 'services:voice:piper',
+        action: 'scan_voices',
+        context: { modelDir: dir },
+      });
       return [];
     }
 

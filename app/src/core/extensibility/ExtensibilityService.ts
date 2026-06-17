@@ -159,7 +159,9 @@ export class ExtensibilityService {
   async init(): Promise<void> {
     // 止血开关：设置 USE_LEGACY_EXTENSIBILITY=true 才启用旧 extensibility 系统
     if (process.env.USE_LEGACY_EXTENSIBILITY !== 'true') {
-      logger.info('ExtensibilityService 已通过 USE_LEGACY_EXTENSIBILITY 禁用，使用主系统替代');
+      logger.info(
+        'ExtensibilityService 已通过 USE_LEGACY_EXTENSIBILITY 禁用，使用主系统替代'
+      );
       return;
     }
 

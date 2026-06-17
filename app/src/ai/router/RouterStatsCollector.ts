@@ -61,10 +61,7 @@ export interface RouterCostRecord {
  * 获取 tier 对应的 baseline model 名称
  * 用于计算"如果不走智能路由，走默认 tier 会用哪个模型"的假设成本
  */
-function resolveBaselineModel(
-  tier: RouterTier,
-  config: RouterConfig
-): string {
+function resolveBaselineModel(tier: RouterTier, config: RouterConfig): string {
   // baseline 使用 defaultTier 的模型
   const defaultTier = config.defaultTier ?? 'medium';
   const defaultTierConfig = config.tiers[defaultTier];
@@ -88,7 +85,12 @@ export class RouterStatsCollector {
     this.costRepo = costRepo ?? null;
 
     // 预计算 baseline model：每个 tier 都对比 defaultTier 模型
-    for (const tier of ['simple', 'medium', 'complex', 'reasoning'] as RouterTier[]) {
+    for (const tier of [
+      'simple',
+      'medium',
+      'complex',
+      'reasoning',
+    ] as RouterTier[]) {
       this.tierBaselineModels.set(tier, resolveBaselineModel(tier, config));
     }
   }
@@ -192,7 +194,12 @@ export class RouterStatsCollector {
       { calls: number; inputTokens: number; outputTokens: number }
     >;
 
-    for (const tier of ['simple', 'medium', 'complex', 'reasoning'] as RouterTier[]) {
+    for (const tier of [
+      'simple',
+      'medium',
+      'complex',
+      'reasoning',
+    ] as RouterTier[]) {
       const summary = this.getTierSummary(tier);
       result[tier] = {
         calls: summary.totalCalls,

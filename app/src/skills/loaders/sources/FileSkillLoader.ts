@@ -128,7 +128,11 @@ export class FileSkillLoader extends SkillLoader {
 
       if (stat.isFile() && (isSkillFile || isNamedSkillFile)) {
         // 直接文件模式：读取并解析
-        return await this.loadSkillFromFile(fullPath, this.getNameWithoutExt(entry), fs);
+        return await this.loadSkillFromFile(
+          fullPath,
+          this.getNameWithoutExt(entry),
+          fs
+        );
       }
 
       return null;

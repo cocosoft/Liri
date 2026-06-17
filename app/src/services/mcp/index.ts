@@ -112,7 +112,10 @@ export class MCPSystem {
       this.initialized = true;
       logger.info('MCP system initialized successfully');
     } catch (error) {
-      await handleError(error, { module: 'services:mcp', action: 'initialize' });
+      await handleError(error, {
+        module: 'services:mcp',
+        action: 'initialize',
+      });
       throw error;
     }
   }

@@ -114,8 +114,18 @@ export class OrchEngine {
    */
   constructor(
     private taskDecomposer: TaskDecomposer,
-    private decideFn: (message: string, options?: { tierHint?: RouterTier; skipJudge?: boolean; sessionId?: string }) => Promise<RouteDecision>,
-    private executeFn: (decision: RouteDecision, message: string) => Promise<string>,
+    private decideFn: (
+      message: string,
+      options?: {
+        tierHint?: RouterTier;
+        skipJudge?: boolean;
+        sessionId?: string;
+      }
+    ) => Promise<RouteDecision>,
+    private executeFn: (
+      decision: RouteDecision,
+      message: string
+    ) => Promise<string>,
     private synthesizeProvider?: AIProvider
   ) {}
 
@@ -136,7 +146,10 @@ export class OrchEngine {
     });
 
     // 2. 执行子任务（按依赖顺序）
-    const subTaskResults = await this.executeSubTasks(message, decomposition.subTasks);
+    const subTaskResults = await this.executeSubTasks(
+      message,
+      decomposition.subTasks
+    );
 
     // 3. 检查是否全部成功
     const allSucceeded = subTaskResults.every((r) => r.success);
@@ -211,7 +224,12 @@ export class OrchEngine {
       if (!result) {
         return {
           subTaskId: t.id,
-          decision: { provider: '', model: '', tier: 'medium', reason: '未执行' },
+          decision: {
+            provider: '',
+            model: '',
+            tier: 'medium',
+            reason: '未执行',
+          },
           response: '',
           success: false,
           durationMs: 0,
@@ -272,7 +290,12 @@ export class OrchEngine {
 
       return {
         subTaskId: task.id,
-        decision: { provider: '', model: '', tier: 'medium', reason: '执行失败' },
+        decision: {
+          provider: '',
+          model: '',
+          tier: 'medium',
+          reason: '执行失败',
+        },
         response: '',
         success: false,
         durationMs,
@@ -291,19 +314,25 @@ export class OrchEngine {
     // 如果只有一个子任务成功，直接返回
     const successful = results.filter((r) => r.success);
     if (successful.length <= 1) {
-      return successful.length === 1 ? successful[0].response : '所有子任务均失败';
+      return successful.length === 1
+        ? successful[0].response
+        : '所有子任务均失败';
     }
 
     // 有合成 Provider → LLM 合成
     if (this.synthesizeProvider) {
       try {
         const resultsText = successful
-          .map((r) => `--- ${r.subTaskId} (${r.decision.tier}, ${r.decision.model}) ---\n${r.response}`)
+          .map(
+            (r) =>
+              `--- ${r.subTaskId} (${r.decision.tier}, ${r.decision.model}) ---\n${r.response}`
+          )
           .join('\n\n');
 
-        const prompt = SYNTHESIZE_PROMPT
-          .replace('{MESSAGE}', message)
-          .replace('{RESULTS}', resultsText);
+        const prompt = SYNTHESIZE_PROMPT.replace('{MESSAGE}', message).replace(
+          '{RESULTS}',
+          resultsText
+        );
 
         const response = await this.synthesizeProvider.chat([
           { role: 'user', content: prompt },
@@ -316,8 +345,6 @@ export class OrchEngine {
     }
 
     // 无合成 Provider 或合成失败 → 简单拼接
-    return successful
-      .map((r) => r.response)
-      .join('\n\n');
+    return successful.map((r) => r.response).join('\n\n');
   }
 }

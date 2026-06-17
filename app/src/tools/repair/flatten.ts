@@ -66,7 +66,9 @@ export function flattenSchema(schema: JSONSchema): JSONSchema {
 /**
  * 重新嵌套：将展平的点路径参数还原为嵌套结构
  */
-export function nestArguments(flatArgs: Record<string, unknown>): Record<string, unknown> {
+export function nestArguments(
+  flatArgs: Record<string, unknown>
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(flatArgs)) {
     setByPath(out, key.split('.'), value);
@@ -79,7 +81,7 @@ export function nestArguments(flatArgs: Record<string, unknown>): Record<string,
 function walk(
   schema: JSONSchema,
   depth: number,
-  visit: (depth: number, isLeaf: boolean) => void,
+  visit: (depth: number, isLeaf: boolean) => void
 ): void {
   if (schema.type === 'object' && schema.properties) {
     for (const child of Object.values(schema.properties)) {
@@ -99,7 +101,7 @@ function collect(
   schema: JSONSchema,
   out: Record<string, JSONSchema>,
   required: string[],
-  isRootRequired: boolean,
+  isRootRequired: boolean
 ): void {
   if (schema.type === 'object' && schema.properties) {
     const requiredSet = new Set(schema.required ?? []);
@@ -115,7 +117,11 @@ function collect(
   if (isRootRequired) required.push(prefix);
 }
 
-function setByPath(target: Record<string, unknown>, path: string[], value: unknown): void {
+function setByPath(
+  target: Record<string, unknown>,
+  path: string[],
+  value: unknown
+): void {
   let cur: Record<string, unknown> = target;
   for (let i = 0; i < path.length - 1; i++) {
     const key = path[i]!;

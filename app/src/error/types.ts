@@ -443,4 +443,3 @@ export class ModuleError extends AppError {
     this.name = 'ModuleError';
   }
 }
-

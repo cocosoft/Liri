@@ -31,7 +31,12 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import type { ChatOptions, ProviderConfig, ProviderValidationResult, ThinkingProviderChunk } from './AIProvider';
+import type {
+  ChatOptions,
+  ProviderConfig,
+  ProviderValidationResult,
+  ThinkingProviderChunk,
+} from './AIProvider';
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -60,16 +65,24 @@ export class DeepSeekProvider extends BaseAIProvider {
    * @param options - 基础选项
    * @param _extraConfig - 扩展配置（未使用）
    */
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     super(options, _extraConfig);
 
     // 通过基类方法解析 API Key / Base URL
     this.apiKey = this.resolveApiKey() || '';
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
 
     // 初始化 Transport 适配器
     if (!this.transport) {
-      this.transport = new TransportProviderAdapter(new ChatCompletionsTransport());
+      this.transport = new TransportProviderAdapter(
+        new ChatCompletionsTransport()
+      );
     }
   }
 
@@ -142,7 +155,9 @@ export class DeepSeekProvider extends BaseAIProvider {
     }
 
     const data = (await response.json()) as Record<string, unknown>;
-    return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
+    return this.transport!.toChatResponse(
+      this.transport!.normalizeResponse(data)
+    );
   }
 
   async *chatStream(
@@ -241,7 +256,9 @@ export class DeepSeekProvider extends BaseAIProvider {
             if (!delta) continue;
 
             // 处理推理内容（DeepSeek R1 的 reasoning_content 字段）
-            const reasoningContent = delta?.['reasoning_content'] as string | undefined;
+            const reasoningContent = delta?.['reasoning_content'] as
+              | string
+              | undefined;
             if (reasoningContent) {
               yield { type: 'thinking', content: reasoningContent };
             }
@@ -337,7 +354,11 @@ export class DeepSeekProvider extends BaseAIProvider {
   override validateConfig(config: ProviderConfig): ProviderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
-    if (!this.apiKey && !config.apiKey && !configManager.env('DEEPSEEK_API_KEY')) {
+    if (
+      !this.apiKey &&
+      !config.apiKey &&
+      !configManager.env('DEEPSEEK_API_KEY')
+    ) {
       errors.push('API key is required (config.apiKey or DEEPSEEK_API_KEY)');
     }
     return { valid: errors.length === 0, errors, warnings };

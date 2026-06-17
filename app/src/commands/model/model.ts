@@ -303,7 +303,10 @@ const modelCommand = {
           args: subcommand || '',
         });
       } catch (err) {
-        void handleError(err, { module: 'commands:model', action: 'catch_error' });
+        void handleError(err, {
+          module: 'commands:model',
+          action: 'catch_error',
+        });
       }
 
       if (subcommand === 'info') return handleInfo(modelArg);

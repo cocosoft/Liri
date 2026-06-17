@@ -110,7 +110,10 @@ export class ModelManager {
   }
 
   getDefaultOpusModel(): string {
-    return configManager.env('ANTHROPIC_DEFAULT_OPUS_MODEL') || this.modelStrings.opus46;
+    return (
+      configManager.env('ANTHROPIC_DEFAULT_OPUS_MODEL') ||
+      this.modelStrings.opus46
+    );
   }
 
   getDefaultSonnetModel(): string {
@@ -121,7 +124,8 @@ export class ModelManager {
 
   getDefaultHaikuModel(): string {
     return (
-      configManager.env('ANTHROPIC_DEFAULT_HAIKU_MODEL') || this.modelStrings.haiku45
+      configManager.env('ANTHROPIC_DEFAULT_HAIKU_MODEL') ||
+      this.modelStrings.haiku45
     );
   }
 

@@ -46,9 +46,7 @@ interface AnthropicToolResultBlock extends AnthropicContentBlock {
 }
 
 export class AnthropicFormatter extends ModelFormatter {
-  readonly supportedModels = [
-    'claude-',
-  ];
+  readonly supportedModels = ['claude-'];
 
   /**
    * 将统一消息转换为 Anthropic 格式

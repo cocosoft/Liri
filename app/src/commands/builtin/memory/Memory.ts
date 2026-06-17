@@ -163,12 +163,18 @@ const memoryCommand = {
               const s = await stat(join(memoryDir, f));
               totalBytes += s.size;
             } catch (err) {
-              void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+              void handleError(err, {
+                module: 'commands:builtin',
+                action: 'catch_error',
+              });
             }
           }
         }
       } catch (err) {
-        void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+        void handleError(err, {
+          module: 'commands:builtin',
+          action: 'catch_error',
+        });
       }
     }
 
@@ -322,7 +328,8 @@ const memoryCommand = {
       await writeFile(filePath, defaultContent, 'utf8');
     }
 
-    const editor = configManager.env('VISUAL') || configManager.env('EDITOR') || 'notepad';
+    const editor =
+      configManager.env('VISUAL') || configManager.env('EDITOR') || 'notepad';
 
     if (useJson) {
       return {

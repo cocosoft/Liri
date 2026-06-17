@@ -36,7 +36,7 @@ export type RouteHandler = (
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  params?: Record<string, string>,
+  params?: Record<string, string>
 ) => Promise<void>;
 
 /**
@@ -72,7 +72,7 @@ export class RouteRegistry {
   registerPattern(
     method: string,
     pattern: RegExp,
-    handler: RouteHandler,
+    handler: RouteHandler
   ): this {
     this.routes.push({ method, pattern, handler });
     return this;
@@ -81,7 +81,13 @@ export class RouteRegistry {
   /**
    * 批量注册路由（{method, path, handler}[] 形式）
    */
-  registerAll(routes: Array<{ method: string; path: string | RegExp; handler: RouteHandler }>): this {
+  registerAll(
+    routes: Array<{
+      method: string;
+      path: string | RegExp;
+      handler: RouteHandler;
+    }>
+  ): this {
     for (const r of routes) {
       this.routes.push({
         method: r.method,
@@ -99,7 +105,7 @@ export class RouteRegistry {
   async handle(
     ctx: HandlerCtx,
     req: http.IncomingMessage,
-    res: http.ServerResponse,
+    res: http.ServerResponse
   ): Promise<boolean> {
     const url = req.url?.split('?')[0] || '';
     const method = req.method || 'GET';

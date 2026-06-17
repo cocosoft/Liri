@@ -50,9 +50,15 @@ const BUILTIN_TOOLSETS: ToolsetDef[] = [
     name: 'browser',
     description: '浏览器自动化（导航、点击、输入、截图）',
     tools: [
-      'browser_navigate', 'browser_snapshot', 'browser_click',
-      'browser_type', 'browser_scroll', 'browser_back',
-      'browser_press', 'browser_vision', 'web_search',
+      'browser_navigate',
+      'browser_snapshot',
+      'browser_click',
+      'browser_type',
+      'browser_scroll',
+      'browser_back',
+      'browser_press',
+      'browser_vision',
+      'web_search',
     ],
   },
   {
@@ -111,14 +117,23 @@ const BUILTIN_TOOLSETS: ToolsetDef[] = [
     description: '全部工具（不含高频成本工具）',
     tools: [],
     includes: [
-      'research', 'vision', 'terminal', 'skills', 'browser',
-      'file', 'code', 'todo', 'memory', 'session_search', 'mcp',
+      'research',
+      'vision',
+      'terminal',
+      'skills',
+      'browser',
+      'file',
+      'code',
+      'todo',
+      'memory',
+      'session_search',
+      'mcp',
     ],
   },
 ];
 
 const toolsetIndex: Map<string, ToolsetDef> = new Map(
-  BUILTIN_TOOLSETS.map((t) => [t.name, t]),
+  BUILTIN_TOOLSETS.map((t) => [t.name, t])
 );
 
 /**
@@ -127,7 +142,7 @@ const toolsetIndex: Map<string, ToolsetDef> = new Map(
  */
 function resolveToolsetNames(
   name: string,
-  visited: Set<string> = new Set(),
+  visited: Set<string> = new Set()
 ): string[] {
   if (visited.has(name)) return [];
   visited.add(name);
@@ -164,7 +179,7 @@ export function resolveToolsets(names: string[]): string[] {
  */
 export function computeToolNames(
   enabled: string[],
-  disabled: string[] = [],
+  disabled: string[] = []
 ): string[] {
   const enabledTools = resolveToolsets(enabled);
   const disabledTools = new Set(resolveToolsets(disabled));

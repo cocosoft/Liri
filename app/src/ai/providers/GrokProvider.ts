@@ -9,21 +9,26 @@ import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import {
-  BaseAIProvider,
-  type BaseProviderOptions,
-} from './BaseAIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 export class GrokProvider extends BaseAIProvider {
   private baseUrl: string;
 
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     super(options, _extraConfig);
 
-    this.baseUrl = (this.resolveBaseUrl() || 'https://api.x.ai/v1').replace(/\/+$/, '');
+    this.baseUrl = (this.resolveBaseUrl() || 'https://api.x.ai/v1').replace(
+      /\/+$/,
+      ''
+    );
 
     if (!this.transport) {
-      this.transport = new TransportProviderAdapter(new ChatCompletionsTransport());
+      this.transport = new TransportProviderAdapter(
+        new ChatCompletionsTransport()
+      );
     }
   }
 
@@ -80,7 +85,8 @@ export class GrokProvider extends BaseAIProvider {
     },
     stream?: boolean
   ): Promise<ChatResponse> {
-    const apiKey = this.resolveApiKey() || configManager.env('GROK_API_KEY') || '';
+    const apiKey =
+      this.resolveApiKey() || configManager.env('GROK_API_KEY') || '';
     const model = this.resolveModel('chat', options);
 
     const requestBody = this.transport!.buildRequest({
@@ -112,6 +118,8 @@ export class GrokProvider extends BaseAIProvider {
     }
 
     const data = (await response.json()) as Record<string, unknown>;
-    return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
+    return this.transport!.toChatResponse(
+      this.transport!.normalizeResponse(data)
+    );
   }
 }

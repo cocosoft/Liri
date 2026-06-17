@@ -1197,7 +1197,10 @@ $source.Close()
       // 转换失败，降级返回原始数据
       return result.audioData;
     } catch (error) {
-      await handleError(error, { module: 'services:voice', action: 'synthesize_speech_format_conversion' });
+      await handleError(error, {
+        module: 'services:voice',
+        action: 'synthesize_speech_format_conversion',
+      });
       return result.audioData;
     } finally {
       try {

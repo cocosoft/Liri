@@ -30,7 +30,10 @@
  * 迁移自 memory/services/UnifiedSearchService.ts，剥离了 Memory 依赖。
  */
 
-import type { KnowledgeRoute, KnowledgeRouterOptions } from '@modules/docs/knowledge-types';
+import type {
+  KnowledgeRoute,
+  KnowledgeRouterOptions,
+} from '@modules/docs/knowledge-types';
 import { KnowledgeRouter } from '@modules/knowledge/KnowledgeRouter';
 
 /** 搜索结果项 */

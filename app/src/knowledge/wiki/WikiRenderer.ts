@@ -29,7 +29,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { Edge } from '@modules/knowledge/graph/KnowledgeGraph';
-import type { EntitySchema, FieldDef } from '@modules/knowledge/schema/SchemaLoader';
+import type {
+  EntitySchema,
+  FieldDef,
+} from '@modules/knowledge/schema/SchemaLoader';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -209,7 +212,12 @@ export class WikiRenderer {
   private formatFrontmatterValue(key: string, value: unknown): string {
     if (typeof value === 'string') {
       // 包含特殊字符时加引号
-      if (value.includes(':') || value.includes('#') || value.includes("'") || value.includes('"')) {
+      if (
+        value.includes(':') ||
+        value.includes('#') ||
+        value.includes("'") ||
+        value.includes('"')
+      ) {
         return `${key}: "${value.replace(/"/g, '\\"')}"`;
       }
       return `${key}: ${value}`;

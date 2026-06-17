@@ -85,7 +85,7 @@ export function generateAuditReport(params: {
           entries
             .filter((e) => e.reviewScore !== undefined)
             .reduce((sum, e) => sum + (e.reviewScore ?? 0), 0) /
-            entries.filter((e) => e.reviewScore !== undefined).length,
+            entries.filter((e) => e.reviewScore !== undefined).length
         )
       : undefined;
 

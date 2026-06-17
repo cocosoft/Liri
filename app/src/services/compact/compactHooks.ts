@@ -51,7 +51,10 @@ export async function executePostCompactHooks(
     try {
       await hook.execute(context);
     } catch (err) {
-      void handleError(err, { module: 'services:compact', action: 'catch_error' });
+      void handleError(err, {
+        module: 'services:compact',
+        action: 'catch_error',
+      });
     }
   }
 }

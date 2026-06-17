@@ -102,7 +102,12 @@ export class Logger {
       level,
       module: this.module,
       message,
-      data: meta !== undefined ? (typeof meta === 'object' ? meta as Record<string, unknown> : { meta }) : undefined,
+      data:
+        meta !== undefined
+          ? typeof meta === 'object'
+            ? (meta as Record<string, unknown>)
+            : { meta }
+          : undefined,
       source: 'logger' as LogSource,
     };
     appendLogEntry(logEntry);

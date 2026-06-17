@@ -32,7 +32,15 @@ function log(level: string, msg: string, ...args: unknown[]): void {
 // ─── 类型定义 ──────────────────────────────────────────
 
 /** weixin-cli 状态枚举 */
-export type CliState = 'idle' | 'installing' | 'installed' | 'starting' | 'running' | 'waiting_scan' | 'logged_in' | 'error';
+export type CliState =
+  | 'idle'
+  | 'installing'
+  | 'installed'
+  | 'starting'
+  | 'running'
+  | 'waiting_scan'
+  | 'logged_in'
+  | 'error';
 
 /** 对外暴露的状态快照 */
 export interface CliStatus {
@@ -55,7 +63,8 @@ export interface CliStatus {
 
 const CLI_PACKAGE = '@tencent-weixin/openclaw-weixin-cli';
 const POLL_INTERVAL_QR_MS = 1_500;
-const QR_LINE_REGEX = /(https:\/\/open\.weixin\.qq\.com\/connect\/qrcode[^\s]*)/i;
+const QR_LINE_REGEX =
+  /(https:\/\/open\.weixin\.qq\.com\/connect\/qrcode[^\s]*)/i;
 const QR_RAW_REGEX = /qrlogin|qrcode|扫码/i;
 
 // ─── 管理器实现 ────────────────────────────────────────
@@ -118,7 +127,9 @@ export class WeixinCliManager extends EventEmitter {
       qrRaw: this._qrRaw,
       lastError: this._lastError,
       pid: this._process?.pid ?? null,
-      uptimeSec: this.running ? Math.floor((Date.now() - this._startedAt) / 1000) : null,
+      uptimeSec: this.running
+        ? Math.floor((Date.now() - this._startedAt) / 1000)
+        : null,
     };
   }
 
@@ -168,7 +179,7 @@ export class WeixinCliManager extends EventEmitter {
       const installOk = await this.runCommand(
         'npx',
         ['-y', `${CLI_PACKAGE}@latest`, 'install'],
-        120_000, // 2 分钟超时
+        120_000 // 2 分钟超时
       );
 
       if (installOk) {
@@ -315,7 +326,11 @@ export class WeixinCliManager extends EventEmitter {
       const proc = this._process!;
       const timeout = setTimeout(() => {
         // 超时强制杀死
-        try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+        try {
+          proc.kill('SIGKILL');
+        } catch {
+          /* ignore */
+        }
       }, 10_000);
 
       proc.on('exit', () => {
@@ -327,7 +342,11 @@ export class WeixinCliManager extends EventEmitter {
       });
 
       // 先 SIGTERM 优雅退出
-      try { proc.kill('SIGTERM'); } catch { /* ignore */ }
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        /* ignore */
+      }
     });
   }
 
@@ -374,7 +393,11 @@ export class WeixinCliManager extends EventEmitter {
    * 运行一个命令并等待完成
    * @returns true 表示退出码为 0
    */
-  private runCommand(cmd: string, args: string[], timeoutMs: number): Promise<boolean> {
+  private runCommand(
+    cmd: string,
+    args: string[],
+    timeoutMs: number
+  ): Promise<boolean> {
     return new Promise((resolve) => {
       const child = spawn(cmd, args, {
         stdio: 'inherit',
@@ -383,7 +406,11 @@ export class WeixinCliManager extends EventEmitter {
       });
 
       const timer = setTimeout(() => {
-        try { child.kill('SIGKILL'); } catch { /* ignore */ }
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* ignore */
+        }
         resolve(false);
       }, timeoutMs);
 
@@ -411,9 +438,10 @@ export class WeixinCliManager extends EventEmitter {
       const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
 
       // 优先使用 bin 字段，其次 main
-      const entry = (pkg.bin as Record<string, string>)?.[Object.keys(pkg.bin || {})[0]]
-        || pkg.main
-        || 'index.js';
+      const entry =
+        (pkg.bin as Record<string, string>)?.[Object.keys(pkg.bin || {})[0]] ||
+        pkg.main ||
+        'index.js';
 
       const entryPath = path.resolve(pkgDir, entry);
       if (fs.existsSync(entryPath)) {

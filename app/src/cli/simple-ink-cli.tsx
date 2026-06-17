@@ -207,7 +207,9 @@ const ProfileReport = ({
  */
 const App = () => {
   const [currentMenu, setCurrentMenu] = useState('main');
-  const [skills, setSkills] = useState<import('@modules/skills/types').Skill[]>([]);
+  const [skills, setSkills] = useState<import('@modules/skills/types').Skill[]>(
+    []
+  );
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -216,7 +218,8 @@ const App = () => {
     const initializeServices = async () => {
       try {
         const { SkillRegistry } = await import('../skills/SkillRegistry');
-        const { BundledSkillLoader } = await import('../skills/loaders/sources/BundledSkillLoader');
+        const { BundledSkillLoader } =
+          await import('../skills/loaders/sources/BundledSkillLoader');
         const registry = new SkillRegistry();
         const loader = new BundledSkillLoader();
         const loadedSkills = await loader.loadSkills();

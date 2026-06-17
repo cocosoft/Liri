@@ -30,7 +30,12 @@
  * 选择性转发到 globalEventBus。
  */
 
-import { EventBusImpl, type EventBus, type EventListener, type EventSubscription } from '../../core/events/EventBus';
+import {
+  EventBusImpl,
+  type EventBus,
+  type EventListener,
+  type EventSubscription,
+} from '../../core/events/EventBus';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:events' });
@@ -79,7 +84,8 @@ export const ChannelEvents = {
   CHANNEL_UNREGISTERED: 'channel:unregistered',
 } as const;
 
-export type ChannelEventType = (typeof ChannelEvents)[keyof typeof ChannelEvents];
+export type ChannelEventType =
+  (typeof ChannelEvents)[keyof typeof ChannelEvents];
 
 // 重新导出常用类型以便消费方使用
 export type { EventBus, EventListener, EventSubscription };

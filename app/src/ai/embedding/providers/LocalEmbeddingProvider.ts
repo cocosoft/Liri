@@ -80,7 +80,8 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
     this.dimensions = 768;
     this.config = {
       provider: config.provider || 'ollama',
-      baseUrl: config.baseUrl || configManager.env('OLLAMA_URL') || DEFAULT_OLLAMA_URL,
+      baseUrl:
+        config.baseUrl || configManager.env('OLLAMA_URL') || DEFAULT_OLLAMA_URL,
       model: config.model || DEFAULT_EMBED_MODEL,
       apiKey: config.apiKey || '',
       timeoutMs: config.timeoutMs || DEFAULT_TIMEOUT_MS,
@@ -92,7 +93,10 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
   /**
    * 批量嵌入
    */
-  async embed(texts: string[], options?: EmbeddingOptions): Promise<EmbeddingResult> {
+  async embed(
+    texts: string[],
+    options?: EmbeddingOptions
+  ): Promise<EmbeddingResult> {
     if (this.config.provider === 'openai-compat') {
       return this.embedOpenAICompat(texts);
     }
@@ -113,12 +117,21 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
   /**
    * 探测 Ollama 服务
    */
-  async probeOllama(): Promise<{ ok: boolean; models: string[]; error?: string }> {
+  async probeOllama(): Promise<{
+    ok: boolean;
+    models: string[];
+    error?: string;
+  }> {
     try {
       const res = await fetch(`${this.config.baseUrl}/api/tags`, {
         signal: AbortSignal.timeout(5000),
       });
-      if (!res.ok) return { ok: false, models: [], error: `Ollama returned ${res.status}` };
+      if (!res.ok)
+        return {
+          ok: false,
+          models: [],
+          error: `Ollama returned ${res.status}`,
+        };
       const json = (await res.json()) as { models?: Array<{ name?: string }> };
       const models = (json.models ?? [])
         .map((m) => m.name)
@@ -139,7 +152,10 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
     let totalTokens = 0;
 
     for (const text of texts) {
-      const { controller } = this.composeAbort(this.config.timeoutMs, 'embedding timeout');
+      const { controller } = this.composeAbort(
+        this.config.timeoutMs,
+        'embedding timeout'
+      );
       try {
         const res = await fetch(`${this.config.baseUrl}/api/embeddings`, {
           method: 'POST',
@@ -149,7 +165,9 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
         });
 
         if (!res.ok) {
-          throw new Error(`Ollama embedding failed: ${res.status} ${res.statusText}`);
+          throw new Error(
+            `Ollama embedding failed: ${res.status} ${res.statusText}`
+          );
         }
         const json = (await res.json()) as { embedding?: number[] };
         if (!json.embedding || !Array.isArray(json.embedding)) {
@@ -177,9 +195,16 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
     const embeddings: number[][] = [];
     let totalTokens = 0;
 
-    for (let batchStart = 0; batchStart < texts.length; batchStart += this.config.batchSize) {
+    for (
+      let batchStart = 0;
+      batchStart < texts.length;
+      batchStart += this.config.batchSize
+    ) {
       const batch = texts.slice(batchStart, batchStart + this.config.batchSize);
-      const { controller } = this.composeAbort(this.config.timeoutMs, 'embedding timeout');
+      const { controller } = this.composeAbort(
+        this.config.timeoutMs,
+        'embedding timeout'
+      );
 
       try {
         const body: Record<string, unknown> = {
@@ -235,10 +260,13 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
 
   private composeAbort(
     timeoutMs: number,
-    timeoutMsg: string,
+    timeoutMsg: string
   ): { controller: AbortController } {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error(timeoutMsg)), timeoutMs);
+    const timer = setTimeout(
+      () => controller.abort(new Error(timeoutMsg)),
+      timeoutMs
+    );
     (controller as any)._timer = timer;
     return { controller };
   }

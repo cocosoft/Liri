@@ -5,10 +5,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
-import {
-  ModuleCategory,
-  type ModuleDefinition,
-} from './moduleTypes';
+import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
 /**
  * 所有模块的定义

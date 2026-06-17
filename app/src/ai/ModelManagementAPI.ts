@@ -28,8 +28,16 @@
 
 import type http from 'node:http';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { readSoulMd, writeSoulMd, ensureDefaultSoulMd } from '@modules/services/soul/SoulReader';
-import { readUserMd, writeUserMd, ensureDefaultUserMd } from '@modules/services/soul/UserReader';
+import {
+  readSoulMd,
+  writeSoulMd,
+  ensureDefaultSoulMd,
+} from '@modules/services/soul/SoulReader';
+import {
+  readUserMd,
+  writeUserMd,
+  ensureDefaultUserMd,
+} from '@modules/services/soul/UserReader';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -131,7 +139,8 @@ async function handleAddProvider(
     } as Parameters<typeof providerManager.createProvider>[0]);
 
     // 实时间步到 ProviderRegistry
-    const { registerProviderFromDB } = await import('./providers/ProviderSyncService.js');
+    const { registerProviderFromDB } =
+      await import('./providers/ProviderSyncService.js');
     await registerProviderFromDB(created.id);
 
     sendJson(res, { data: created }, 201);
@@ -157,7 +166,8 @@ async function handleUpdateProvider(
     }
 
     // 实时间步到 ProviderRegistry（配置变更后重新注册）
-    const { registerProviderFromDB } = await import('./providers/ProviderSyncService.js');
+    const { registerProviderFromDB } =
+      await import('./providers/ProviderSyncService.js');
     await registerProviderFromDB(id);
 
     sendJson(res, { data: updated });
@@ -174,7 +184,8 @@ async function handleDeleteProvider(
   const id = decodeURIComponent(match![1]);
   try {
     // 先从 Registry 中移除（防止 DB 删除后仍残留在运行时）
-    const { unregisterProviderFromRegistry } = await import('./providers/ProviderSyncService.js');
+    const { unregisterProviderFromRegistry } =
+      await import('./providers/ProviderSyncService.js');
     unregisterProviderFromRegistry(id);
 
     const { providerManager } = await import('./providers/ProviderManager.js');
@@ -275,23 +286,24 @@ async function handleProviderModels(
   match: RegExpMatchArray | null
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
-  
+
   // 解析分页参数
   const url = new URL(req.url || '/', 'http://localhost');
   const page = parseInt(url.searchParams.get('page') || '1');
   const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
   const search = url.searchParams.get('search') || undefined;
-  
+
   try {
     const { providerManager } = await import('./providers/ProviderManager.js');
-    const { fetchModels, isLocalProvider } = await import('./providers/ModelFetcher.js');
+    const { fetchModels, isLocalProvider } =
+      await import('./providers/ModelFetcher.js');
     await providerManager.initialize();
     const p = await providerManager.getProvider(id);
     if (!p) {
       sendError(res, '供应商不存在', 404);
       return;
     }
-    
+
     // 本地供应商跳过 API Key 校验
     // 云供应商需要 API Key（除非 requiresAuth 为 false）
     const isLocal = isLocalProvider(p.providerType);
@@ -299,14 +311,20 @@ async function handleProviderModels(
       sendError(res, '供应商需要 API Key 但未设置', 400);
       return;
     }
-    
+
     const apiKey = p.requiresAuth ? p.apiKey || '' : '';
     // 传递 providerType 和分页参数到 fetchModels
-    const result = await fetchModels(p.baseUrl, apiKey, p.modelsUrl, p.providerType, {
-      page,
-      pageSize,
-      search
-    });
+    const result = await fetchModels(
+      p.baseUrl,
+      apiKey,
+      p.modelsUrl,
+      p.providerType,
+      {
+        page,
+        pageSize,
+        search,
+      }
+    );
     sendJson(res, result);
   } catch (err) {
     sendError(res, `获取模型列表失败: ${(err as Error).message}`, 500);
@@ -462,7 +480,7 @@ async function handleBatchBalances(
     for (const p of activeProviders) {
       const cachedRecord = cachedMap.get(p.id);
 
-      if (cachedRecord && (Date.now() / 1000 - cachedRecord.queriedAt) < 300) {
+      if (cachedRecord && Date.now() / 1000 - cachedRecord.queriedAt < 300) {
         // 缓存有效
         results.push({
           providerId: p.id,
@@ -629,7 +647,9 @@ async function handleUpsertPricing(
     });
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
-    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
+    ModelRegistry.getInstance()
+      .refreshDbPricing()
+      .catch(() => {});
     sendJson(res, { data: record }, 201);
   } catch (err) {
     sendError(res, `更新定价失败: ${(err as Error).message}`, 500);
@@ -649,7 +669,9 @@ async function handleDeletePricing(
     const ok = await modelPricingService.deletePricing(modelId);
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
-    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
+    ModelRegistry.getInstance()
+      .refreshDbPricing()
+      .catch(() => {});
     sendJson(res, { success: ok });
   } catch (err) {
     sendError(res, `删除定价失败: ${(err as Error).message}`, 500);
@@ -667,15 +689,15 @@ async function handleCreateCustomModel(
     const { modelPricingService } =
       await import('./models/ModelPricingService.js');
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
-    
+
     await modelPricingService.initialize();
-    
+
     const modelId = body.modelId as string;
     if (!modelId) {
       sendError(res, 'modelId 不能为空', 400);
       return;
     }
-    
+
     // 创建模型定价记录
     const record = await modelPricingService.upsertPricing({
       modelId,
@@ -685,10 +707,12 @@ async function handleCreateCustomModel(
       maxOutputTokens: (body.maxOutputTokens as number) || 4096,
       inputCostPerMillion: (body.inputCostPerMillion as number) || 0,
       outputCostPerMillion: (body.outputCostPerMillion as number) || 0,
-      cacheReadCostPerMillion: (body.cacheReadCostPerMillion as number) || undefined,
-      cacheWriteCostPerMillion: (body.cacheWriteCostPerMillion as number) || undefined,
+      cacheReadCostPerMillion:
+        (body.cacheReadCostPerMillion as number) || undefined,
+      cacheWriteCostPerMillion:
+        (body.cacheWriteCostPerMillion as number) || undefined,
     });
-    
+
     // 在注册表中发现该模型
     const registry = ModelRegistry.getInstance();
     registry.discoverModel(modelId, {
@@ -698,7 +722,7 @@ async function handleCreateCustomModel(
     });
     // 刷新 ModelRegistry 定价缓存
     registry.refreshDbPricing().catch(() => {});
-    
+
     sendJson(res, { data: record }, 201);
   } catch (err) {
     sendError(res, `创建模型失败: ${(err as Error).message}`, 500);
@@ -769,7 +793,9 @@ async function handleToggleModel(
     }
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
-    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
+    ModelRegistry.getInstance()
+      .refreshDbPricing()
+      .catch(() => {});
     sendJson(res, { data: { modelId, enabled: result } });
   } catch (err) {
     sendError(res, `切换模型状态失败: ${(err as Error).message}`, 500);
@@ -793,7 +819,9 @@ async function handleDeleteModel(
     }
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
-    ModelRegistry.getInstance().refreshDbPricing().catch(() => {});
+    ModelRegistry.getInstance()
+      .refreshDbPricing()
+      .catch(() => {});
     sendJson(res, { success: true });
   } catch (err) {
     sendError(res, `删除模型失败: ${(err as Error).message}`, 500);
@@ -807,7 +835,8 @@ async function handleListAppConfigs(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    const { appModelConfigService } =
+      await import('./models/AppModelConfigService.js');
     await appModelConfigService.initialize();
     const configs = await appModelConfigService.getAllConfigs();
     sendJson(res, { data: configs });
@@ -823,7 +852,8 @@ async function handleGetAppConfig(
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
-    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    const { appModelConfigService } =
+      await import('./models/AppModelConfigService.js');
     await appModelConfigService.initialize();
     const config = await appModelConfigService.getConfig(appType);
     if (!config) {
@@ -844,7 +874,8 @@ async function handleSetAppConfig(
   const appType = decodeURIComponent(match![1]);
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    const { appModelConfigService } =
+      await import('./models/AppModelConfigService.js');
     await appModelConfigService.initialize();
     const config = await appModelConfigService.setConfig(appType, {
       model: body.model as string | undefined,
@@ -865,7 +896,8 @@ async function handleDeleteAppConfig(
 ): Promise<void> {
   const appType = decodeURIComponent(match![1]);
   try {
-    const { appModelConfigService } = await import('./models/AppModelConfigService.js');
+    const { appModelConfigService } =
+      await import('./models/AppModelConfigService.js');
     await appModelConfigService.initialize();
     await appModelConfigService.deleteConfig(appType);
     sendJson(res, { success: true });
@@ -882,35 +914,51 @@ async function handleDeleteAppConfig(
 async function handleListModels(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const { providerManager } = await import('./providers/ProviderManager.js');
-    const { modelPricingService } = await import('./models/ModelPricingService.js');
+    const { modelPricingService } =
+      await import('./models/ModelPricingService.js');
     await providerManager.initialize();
     await modelPricingService.initialize();
 
-    const { syncDBProvidersToRegistry } = await import('./providers/ProviderSyncService.js');
+    const { syncDBProvidersToRegistry } =
+      await import('./providers/ProviderSyncService.js');
     await syncDBProvidersToRegistry();
 
     const providers = await providerManager.listProviders();
     const pricingList = await modelPricingService.getAllPricing();
-    const pricingByModel = new Map(pricingList.map(
-      (pr: {
-        modelId: string; providerId?: string; displayName: string; enabled: boolean;
-        inputCostPerMillion: number; outputCostPerMillion: number;
-        cacheReadCostPerMillion: number; cacheWriteCostPerMillion: number;
-        providerType?: string;
-      }) => [pr.modelId, pr],
-    ));
+    const pricingByModel = new Map(
+      pricingList.map(
+        (pr: {
+          modelId: string;
+          providerId?: string;
+          displayName: string;
+          enabled: boolean;
+          inputCostPerMillion: number;
+          outputCostPerMillion: number;
+          cacheReadCostPerMillion: number;
+          cacheWriteCostPerMillion: number;
+          providerType?: string;
+        }) => [pr.modelId, pr]
+      )
+    );
 
     const models: Array<{
-      id: string; name: string; provider: string; providerId: string;
-      type: string; context_length: number; enabled: boolean; requiresAuth: boolean;
+      id: string;
+      name: string;
+      provider: string;
+      providerId: string;
+      type: string;
+      context_length: number;
+      enabled: boolean;
+      requiresAuth: boolean;
       pricing?: Record<string, number>;
     }> = [];
 
-    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const { providerRegistry } =
+      await import('./providers/ProviderRegistry.js');
 
     for (const pr of pricingList) {
       let matchingProvider;
@@ -925,7 +973,7 @@ async function handleListModels(
           matchingProvider = providers.find(
             (p) =>
               pr.modelId.startsWith(p.providerType) ||
-              p.name.toLowerCase().includes(pr.modelId.split('-')[0]),
+              p.name.toLowerCase().includes(pr.modelId.split('-')[0])
           );
         }
       }
@@ -937,9 +985,12 @@ async function handleListModels(
         requiresAuth: matchingProvider ? matchingProvider.requiresAuth : true,
         type: 'chat',
         context_length: 65536,
-        enabled: pr.enabled !== undefined
-          ? pr.enabled
-          : matchingProvider ? matchingProvider.isActive : true,
+        enabled:
+          pr.enabled !== undefined
+            ? pr.enabled
+            : matchingProvider
+              ? matchingProvider.isActive
+              : true,
         pricing: {
           inputPer1M: pr.inputCostPerMillion,
           outputPer1M: pr.outputCostPerMillion,
@@ -951,8 +1002,14 @@ async function handleListModels(
 
     if (models.length === 0) {
       models.push({
-        id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp', providerId: '',
-        requiresAuth: false, type: 'chat', context_length: 65536, enabled: true,
+        id: 'pyapp-default',
+        name: 'Liri 默认',
+        provider: 'pyapp',
+        providerId: '',
+        requiresAuth: false,
+        type: 'chat',
+        context_length: 65536,
+        enabled: true,
       });
     }
 
@@ -961,13 +1018,22 @@ async function handleListModels(
   } catch (err) {
     logger.error('获取模型列表失败', { error: (err as Error).message });
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      object: 'list',
-      data: [{
-        id: 'pyapp-default', name: 'Liri 默认', provider: 'pyapp', providerId: '',
-        type: 'chat', context_length: 65536, enabled: true,
-      }],
-    }));
+    res.end(
+      JSON.stringify({
+        object: 'list',
+        data: [
+          {
+            id: 'pyapp-default',
+            name: 'Liri 默认',
+            provider: 'pyapp',
+            providerId: '',
+            type: 'chat',
+            context_length: 65536,
+            enabled: true,
+          },
+        ],
+      })
+    );
   }
 }
 
@@ -977,7 +1043,7 @@ async function handleListModels(
 async function handleSystemSkillFileContent(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  match: RegExpMatchArray | null,
+  match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const skillId = match?.[1] || '';
@@ -991,11 +1057,19 @@ async function handleSystemSkillFileContent(
 
     const { readFile } = await import('fs/promises');
     const { existsSync } = await import('fs');
-    const { resolveProjectRoot, resolvePyappHome } = await import('@modules/core/paths');
+    const { resolveProjectRoot, resolvePyappHome } =
+      await import('@modules/core/paths');
     const pathMod = await import('node:path');
 
     const candidateDirs = [
-      pathMod.join(resolveProjectRoot(), 'app', 'src', 'builtin', 'skills', decodeURIComponent(skillId)),
+      pathMod.join(
+        resolveProjectRoot(),
+        'app',
+        'src',
+        'builtin',
+        'skills',
+        decodeURIComponent(skillId)
+      ),
       pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
     ];
 
@@ -1023,12 +1097,18 @@ async function handleSystemSkillFileContent(
     const content = await readFile(fullPath, 'utf-8');
     const ext = pathMod.extname(fullPath).toLowerCase();
     const mimeTypes: Record<string, string> = {
-      '.md': 'text/markdown', '.txt': 'text/plain',
-      '.json': 'application/json', '.ts': 'text/typescript',
-      '.tsx': 'text/typescript', '.js': 'text/javascript',
-      '.css': 'text/css', '.html': 'text/html',
+      '.md': 'text/markdown',
+      '.txt': 'text/plain',
+      '.json': 'application/json',
+      '.ts': 'text/typescript',
+      '.tsx': 'text/typescript',
+      '.js': 'text/javascript',
+      '.css': 'text/css',
+      '.html': 'text/html',
     };
-    res.writeHead(200, { 'Content-Type': `${mimeTypes[ext] || 'text/plain'}; charset=utf-8` });
+    res.writeHead(200, {
+      'Content-Type': `${mimeTypes[ext] || 'text/plain'}; charset=utf-8`,
+    });
     res.end(content);
   } catch (err) {
     logger.error('获取技能文件内容失败', { error: (err as Error).message });
@@ -1043,28 +1123,34 @@ async function handleSystemSkillFileContent(
 async function handleTestModel(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
     const { modelId, providerId } = body;
 
-    const { syncDBProvidersToRegistry } = await import('./providers/ProviderSyncService.js');
+    const { syncDBProvidersToRegistry } =
+      await import('./providers/ProviderSyncService.js');
     await syncDBProvidersToRegistry();
 
-    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
-    const provider = providerRegistry.has(providerId) ? providerRegistry.get(providerId) : undefined;
+    const { providerRegistry } =
+      await import('./providers/ProviderRegistry.js');
+    const provider = providerRegistry.has(providerId)
+      ? providerRegistry.get(providerId)
+      : undefined;
 
     if (!provider) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: { message: `Provider ${providerId} 未找到` } }));
+      res.end(
+        JSON.stringify({ error: { message: `Provider ${providerId} 未找到` } })
+      );
       return;
     }
 
-    const result = await provider.chat(
-      [{ role: 'user', content: 'ping' }],
-      { model: modelId, maxTokens: 10 },
-    );
+    const result = await provider.chat([{ role: 'user', content: 'ping' }], {
+      model: modelId,
+      maxTokens: 10,
+    });
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, response: result }));
@@ -1080,12 +1166,13 @@ async function handleTestModel(
 async function handleGetCurrentModel(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
     const { modelRouter } = await import('./modelRouter.js');
-    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const { providerRegistry } =
+      await import('./providers/ProviderRegistry.js');
     const { getTotalCostUSD } = await import('@modules/cost/CostTracker.js');
 
     const coreAPI = getCoreAPI();
@@ -1100,9 +1187,8 @@ async function handleGetCurrentModel(
     }
 
     const currentModel = lastDecision?.model ?? modelRouter.resolve('chat');
-    const defaultProviderId = lastDecision?.provider
-      ?? providerRegistry.getDefaultProviderId()
-      ?? '';
+    const defaultProviderId =
+      lastDecision?.provider ?? providerRegistry.getDefaultProviderId() ?? '';
 
     const response = {
       modelId: currentModel,
@@ -1128,19 +1214,21 @@ async function handleGetCurrentModel(
 async function handleSwitchModel(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
     const { modelId } = body;
-    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const { providerRegistry } =
+      await import('./providers/ProviderRegistry.js');
     const { modelRouter } = await import('./modelRouter.js');
 
     const resolvedProvider = providerRegistry.getByModel(modelId);
     if (resolvedProvider) {
       providerRegistry.setDefaultProvider(resolvedProvider.id);
 
-      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+      const { getCoreAPI } =
+        await import('@modules/runtime/api/CoreAPIImpl.js');
       getCoreAPI().setModelName(modelId);
     } else {
       providerRegistry.setDefaultProvider(modelId);
@@ -1163,7 +1251,7 @@ async function handleSwitchModel(
 async function handleGetTaskDefinitions(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const { TASK_DEFINITIONS } = await import('./modelRouter.js');
@@ -1181,7 +1269,7 @@ async function handleGetTaskDefinitions(
 async function handleGetTasks(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const { modelRouter } = await import('./modelRouter.js');
@@ -1200,7 +1288,7 @@ async function handleGetTasks(
 async function handleSaveTasks(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
@@ -1220,12 +1308,13 @@ async function handleSaveTasks(
 async function handleSetDefaultModel(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  _match: RegExpMatchArray | null,
+  _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
     const { modelId } = body;
-    const { providerRegistry } = await import('./providers/ProviderRegistry.js');
+    const { providerRegistry } =
+      await import('./providers/ProviderRegistry.js');
     providerRegistry.setDefaultProvider(modelId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
@@ -1242,9 +1331,8 @@ async function handleListPresets(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getPresetsByCategory } = await import(
-      './providers/providerPresetsData.js'
-    );
+    const { getPresetsByCategory } =
+      await import('./providers/providerPresetsData.js');
     const grouped = getPresetsByCategory();
     sendJson(res, { data: grouped });
   } catch (err) {
@@ -1259,7 +1347,7 @@ async function handleListPresets(
  */
 async function handleGetSoul(
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     ensureDefaultSoulMd();
@@ -1275,7 +1363,7 @@ async function handleGetSoul(
  */
 async function handlePutSoul(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
@@ -1296,7 +1384,7 @@ async function handlePutSoul(
  */
 async function handleGetUser(
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     ensureDefaultUserMd();
@@ -1312,7 +1400,7 @@ async function handleGetUser(
  */
 async function handlePutUser(
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
@@ -1382,21 +1470,57 @@ const ROUTES: RouteEntry[] = [
   { method: 'POST', pattern: /^\/v1\/providers$/, handler: handleAddProvider },
 
   // Custom Models
-  { method: 'POST', pattern: /^\/v1\/models$/, handler: handleCreateCustomModel },
-  { method: 'POST', pattern: /^\/v1\/models\/bulk-import$/, handler: handleBulkImportModels },
-  { method: 'PATCH', pattern: /^\/v1\/models\/([^/]+)\/toggle$/, handler: handleToggleModel },
-  { method: 'DELETE', pattern: /^\/v1\/models\/([^/]+)$/, handler: handleDeleteModel },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models$/,
+    handler: handleCreateCustomModel,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/bulk-import$/,
+    handler: handleBulkImportModels,
+  },
+  {
+    method: 'PATCH',
+    pattern: /^\/v1\/models\/([^/]+)\/toggle$/,
+    handler: handleToggleModel,
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/v1\/models\/([^/]+)$/,
+    handler: handleDeleteModel,
+  },
 
   // Model runtime routes (merged from model-handlers.ts)
-  { method: 'GET', pattern: /^\/v1\/models\/tasks\/definitions$/, handler: handleGetTaskDefinitions },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/tasks\/definitions$/,
+    handler: handleGetTaskDefinitions,
+  },
   { method: 'GET', pattern: /^\/v1\/models\/tasks$/, handler: handleGetTasks },
   { method: 'PUT', pattern: /^\/v1\/models\/tasks$/, handler: handleSaveTasks },
-  { method: 'GET', pattern: /^\/v1\/models\/current$/, handler: handleGetCurrentModel },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/current$/,
+    handler: handleGetCurrentModel,
+  },
   { method: 'POST', pattern: /^\/v1\/models\/test$/, handler: handleTestModel },
-  { method: 'POST', pattern: /^\/v1\/models\/switch$/, handler: handleSwitchModel },
-  { method: 'PUT', pattern: /^\/v1\/models\/default$/, handler: handleSetDefaultModel },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/switch$/,
+    handler: handleSwitchModel,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/default$/,
+    handler: handleSetDefaultModel,
+  },
   { method: 'GET', pattern: /^\/v1\/models$/, handler: handleListModels },
-  { method: 'GET', pattern: /^\/v1\/skills\/system\/([^/]+)\/files\/content$/, handler: handleSystemSkillFileContent },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/skills\/system\/([^/]+)\/files\/content$/,
+    handler: handleSystemSkillFileContent,
+  },
 
   // Usage
   {

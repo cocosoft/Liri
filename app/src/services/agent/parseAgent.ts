@@ -256,7 +256,11 @@ export function parseAgentFromMarkdown(
 
     return agentDef;
   } catch (error) {
-    void handleError(error, { module: 'services:agent:parse', action: 'parse_markdown', context: { filePath } });
+    void handleError(error, {
+      module: 'services:agent:parse',
+      action: 'parse_markdown',
+      context: { filePath },
+    });
     return null;
   }
 }
@@ -350,7 +354,11 @@ export function parseAgentFromJson(
 
     return agent;
   } catch (error) {
-    void handleError(error, { module: 'services:agent:parse', action: 'parse_json', context: { agentName: name } });
+    void handleError(error, {
+      module: 'services:agent:parse',
+      action: 'parse_json',
+      context: { agentName: name },
+    });
     return null;
   }
 }
@@ -372,7 +380,10 @@ export function parseAgentsFromJson(
       .map(([name, def]) => parseAgentFromJson(name, def, source))
       .filter((agent): agent is CustomAgentDefinition => agent !== null);
   } catch (error) {
-    void handleError(error, { module: 'services:agent:parse', action: 'parse_agents_json' });
+    void handleError(error, {
+      module: 'services:agent:parse',
+      action: 'parse_agents_json',
+    });
     return [];
   }
 }

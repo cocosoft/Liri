@@ -65,8 +65,11 @@ class AnalyticsService extends EventEmitter {
 
     // 独立累计工具调用计数（不受队列清空影响）
     if (['tool_call', 'tool_execute', 'tool_result'].includes(type)) {
-      const toolName = (metadata?.tool_name || name || 'unknown');
-      this.toolCallCounts.set(toolName, (this.toolCallCounts.get(toolName) || 0) + 1);
+      const toolName = metadata?.tool_name || name || 'unknown';
+      this.toolCallCounts.set(
+        toolName,
+        (this.toolCallCounts.get(toolName) || 0) + 1
+      );
       this.totalToolCalls++;
     }
 
@@ -268,7 +271,8 @@ class AnalyticsService extends EventEmitter {
   getToolCallStats() {
     const topTools = Array.from(this.toolCallCounts.entries())
       .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count).slice(0, 10);
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
     return {
       totalCalls: this.totalToolCalls,
       uniqueTools: this.toolCallCounts.size,

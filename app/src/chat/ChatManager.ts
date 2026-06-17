@@ -75,7 +75,10 @@ import type {
   ToolDefinition,
 } from '@modules/ai/models/types.js';
 import type { ThinkingProviderChunk } from '@modules/ai/providers/index.js';
-import type { ChatStreamChunk, QuestionData } from '@modules/runtime/api/CoreAPI.js';
+import type {
+  ChatStreamChunk,
+  QuestionData,
+} from '@modules/runtime/api/CoreAPI.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
@@ -524,7 +527,10 @@ export class ChatManagerImpl implements ChatManager {
     this._sanitizePass(apiMessages);
 
     // 末尾孤立 tool 消息（没有 preceding assistant 含 tool_calls）
-    while (apiMessages.length > 0 && apiMessages[apiMessages.length - 1].role === 'tool') {
+    while (
+      apiMessages.length > 0 &&
+      apiMessages[apiMessages.length - 1].role === 'tool'
+    ) {
       apiMessages.pop();
     }
 
@@ -885,7 +891,9 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    console.log(`[DIAG] ChatManager.sendMessage -> 准备调用 activeClient.sendMessage, constructor=${(activeClient as any)?.constructor?.name}, providerId=${activeClient?.getProviderId()}`);
+    console.log(
+      `[DIAG] ChatManager.sendMessage -> 准备调用 activeClient.sendMessage, constructor=${(activeClient as any)?.constructor?.name}, providerId=${activeClient?.getProviderId()}`
+    );
 
     const response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
@@ -1023,7 +1031,10 @@ export class ChatManagerImpl implements ChatManager {
             } catch (error) {
               logger.warn('工具调用参数 JSON 解析失败，使用空参数兜底', {
                 toolName: normalizedToolCall.name,
-                rawArguments: (normalizedToolCall.arguments as string).slice(0, 500),
+                rawArguments: (normalizedToolCall.arguments as string).slice(
+                  0,
+                  500
+                ),
               });
               parsedArguments = {};
             }
@@ -1052,11 +1063,15 @@ export class ChatManagerImpl implements ChatManager {
           // sendMessage 是非流式路径，无法 yield question 分块到 SSE，
           // 因此采用"保存状态 + 提前返回"机制，由外部在用户回答后通过
           // continueInteraction() 恢复工具循环
-          const sendMsgToolObj = (this.toolRegistry as unknown as {
-            getTool: (name: string) => {
-              requiresUserInteraction?: () => boolean;
-            } | undefined;
-          }).getTool?.(normalizedToolCall.name);
+          const sendMsgToolObj = (
+            this.toolRegistry as unknown as {
+              getTool: (name: string) =>
+                | {
+                    requiresUserInteraction?: () => boolean;
+                  }
+                | undefined;
+            }
+          ).getTool?.(normalizedToolCall.name);
 
           if (sendMsgToolObj?.requiresUserInteraction?.()) {
             logger.info('sendMessage 检测到需要用户交互的工具', {
@@ -1064,11 +1079,18 @@ export class ChatManagerImpl implements ChatManager {
             });
 
             // 提取界面显示数据
-            const questionId = (parsedArguments.questionId as string) || crypto.randomUUID();
-            const question = parsedArguments.question as string || '请选择';
-            const header = parsedArguments.header as string || '提问';
-            const rawOptions = parsedArguments.options as Array<{ label: string; description?: string }> || [];
-            const multiSelect = parsedArguments.multiSelect as boolean | undefined;
+            const questionId =
+              (parsedArguments.questionId as string) || crypto.randomUUID();
+            const question = (parsedArguments.question as string) || '请选择';
+            const header = (parsedArguments.header as string) || '提问';
+            const rawOptions =
+              (parsedArguments.options as Array<{
+                label: string;
+                description?: string;
+              }>) || [];
+            const multiSelect = parsedArguments.multiSelect as
+              | boolean
+              | undefined;
 
             const questionData: QuestionData = {
               questionId,
@@ -1489,11 +1511,15 @@ export class ChatManagerImpl implements ChatManager {
         // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
         // 旧版工具循环是非流式路径，无法 yield question 分块，
         // 因此对需要交互的工具，跳过执行，返回空结果
-        const legacyToolObj = (this.toolRegistry as unknown as {
-          getTool: (name: string) => {
-            requiresUserInteraction?: () => boolean;
-          } | undefined;
-        }).getTool?.(toolName);
+        const legacyToolObj = (
+          this.toolRegistry as unknown as {
+            getTool: (name: string) =>
+              | {
+                  requiresUserInteraction?: () => boolean;
+                }
+              | undefined;
+          }
+        ).getTool?.(toolName);
 
         if (legacyToolObj?.requiresUserInteraction?.()) {
           logger.warn('旧版工具循环跳过需要用户交互的工具', {
@@ -1505,10 +1531,12 @@ export class ChatManagerImpl implements ChatManager {
             result: { skipped: true, reason: 'user_interaction_required' },
             error: undefined,
           };
-          const toolResultMessage =
-            this.messageService.createToolResultMessage(toolResult, {
+          const toolResultMessage = this.messageService.createToolResultMessage(
+            toolResult,
+            {
               sessionId: session.id,
-            });
+            }
+          );
           this._addAndPersistMessage(session.id, toolResultMessage);
           processedResults.push({
             normalizedToolCall: {
@@ -2065,11 +2093,15 @@ export class ChatManagerImpl implements ChatManager {
           options?.onToolCall?.('start', toolName, toolCall.id, argsStr);
 
           // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
-          const toolObj = (this.toolRegistry as unknown as {
-            getTool: (name: string) => {
-              requiresUserInteraction?: () => boolean;
-            } | undefined;
-          }).getTool?.(toolName);
+          const toolObj = (
+            this.toolRegistry as unknown as {
+              getTool: (name: string) =>
+                | {
+                    requiresUserInteraction?: () => boolean;
+                  }
+                | undefined;
+            }
+          ).getTool?.(toolName);
 
           if (toolObj?.requiresUserInteraction?.()) {
             const toolArgs = toolCall.arguments as Record<string, unknown>;
@@ -2084,7 +2116,9 @@ export class ChatManagerImpl implements ChatManager {
               };
             });
             // 修复循环引用：将 promise 指向自身
-            (this._pendingInteraction as { promise: Promise<string[]> }).promise = interactionPromise;
+            (
+              this._pendingInteraction as { promise: Promise<string[]> }
+            ).promise = interactionPromise;
 
             // yield 问题分块到 UI 层
             const questionChunk: ChatStreamChunk = {
@@ -2110,11 +2144,15 @@ export class ChatManagerImpl implements ChatManager {
             yield questionChunk;
 
             // 阻塞等待用户输入
-            logger.info('等待用户回答', { questionId, question: toolArgs.question });
+            logger.info('等待用户回答', {
+              questionId,
+              question: toolArgs.question,
+            });
             const answers = await interactionPromise;
 
             // 将用户答案注入工具参数
-            (toolCall.arguments as Record<string, unknown>)._userAnswers = answers;
+            (toolCall.arguments as Record<string, unknown>)._userAnswers =
+              answers;
             logger.info('收到用户回答', { questionId, answers });
           }
           // ---- 结束用户交互检查 ----
@@ -2448,10 +2486,16 @@ export class ChatManagerImpl implements ChatManager {
       // 解析参数
       let parsedArguments: Record<string, unknown>;
       if (typeof normalizedToolCall.arguments === 'string') {
-        try { parsedArguments = JSON.parse(normalizedToolCall.arguments); }
-        catch { parsedArguments = {}; }
+        try {
+          parsedArguments = JSON.parse(normalizedToolCall.arguments);
+        } catch {
+          parsedArguments = {};
+        }
       } else {
-        parsedArguments = normalizedToolCall.arguments as Record<string, unknown>;
+        parsedArguments = normalizedToolCall.arguments as Record<
+          string,
+          unknown
+        >;
       }
 
       // 如果是交互工具（第一个），注入用户答案
@@ -3010,7 +3054,8 @@ export class ChatManagerImpl implements ChatManager {
     if (resolvedProvider && resolvedProvider.id !== currentProviderId) {
       return new ToolAwareClient(
         resolvedProvider,
-        this.toolRegistry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
+        this
+          .toolRegistry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
         this.toolExecutor
       );
     }
@@ -3525,7 +3570,9 @@ export class ChatManagerImpl implements ChatManager {
    * 检测 metadata._todoData 并返回结构化 TodoBlockData
    */
   private _extractTodoData(toolResult: ToolResult): TodoBlockData | null {
-    const result = toolResult as unknown as { metadata?: Record<string, unknown> };
+    const result = toolResult as unknown as {
+      metadata?: Record<string, unknown>;
+    };
     const metadata = result.metadata;
     if (!metadata?._todoData) return null;
 

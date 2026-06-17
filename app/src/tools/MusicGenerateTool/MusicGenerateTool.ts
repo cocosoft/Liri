@@ -128,7 +128,12 @@ export class MusicGenerateTool extends BaseTool {
       if (musicUrl) {
         Promise.resolve().then(async () => {
           const format = params.format || 'mp3';
-          await registerGeneratedMedia(musicUrl, params.prompt, 'audio', format);
+          await registerGeneratedMedia(
+            musicUrl,
+            params.prompt,
+            'audio',
+            format
+          );
         });
       }
 

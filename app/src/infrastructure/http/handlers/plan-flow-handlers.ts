@@ -32,7 +32,8 @@ export async function handleListPlans(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } =
+      await import('@modules/tasks/TaskOrchestrator');
     await taskOrchestrator['initialize']();
     const plans = taskOrchestrator.getAllPlans();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -50,13 +51,14 @@ export async function handleCreatePlan(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } =
+      await import('@modules/tasks/TaskOrchestrator');
     const body = await readRequestBody(req);
     const { description, steps, sessionId } = JSON.parse(body);
     const plan = taskOrchestrator.createPlan(
       description || '',
       steps || [],
-      sessionId || '',
+      sessionId || ''
     );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(plan));
@@ -75,7 +77,8 @@ export async function handleGetPlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } =
+      await import('@modules/tasks/TaskOrchestrator');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
@@ -99,7 +102,8 @@ export async function handleExecutePlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } =
+      await import('@modules/tasks/TaskOrchestrator');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
@@ -129,7 +133,8 @@ export async function handleAbortPlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } =
+      await import('@modules/tasks/TaskOrchestrator');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
@@ -158,7 +163,8 @@ export async function handleListFlows(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskFlowRegistry } = await import('@modules/tasks/TaskFlowRegistry');
+    const { taskFlowRegistry } =
+      await import('@modules/tasks/TaskFlowRegistry');
     const flows = taskFlowRegistry.getAllFlows();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(flows));
@@ -176,7 +182,8 @@ export async function handleGetFlow(
   flowId: string
 ): Promise<void> {
   try {
-    const { taskFlowRegistry } = await import('@modules/tasks/TaskFlowRegistry');
+    const { taskFlowRegistry } =
+      await import('@modules/tasks/TaskFlowRegistry');
     const flow = taskFlowRegistry.getFlow(flowId);
     if (!flow) {
       res.writeHead(404);

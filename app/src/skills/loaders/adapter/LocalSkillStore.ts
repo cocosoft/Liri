@@ -27,18 +27,10 @@
  */
 
 import { join } from 'path';
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-} from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolveUserSkillsDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type {
-  InstalledThirdPartySkill,
-  LocalSkillSearchResult,
-} from './types';
+import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -58,9 +50,9 @@ const INDEX_VERSION = '1.0';
  * 搜索字段提取器
  * 各适配器提供此函数，从内部技能格式中提取搜索所需字段。
  */
-export type SearchFieldExtractor<T extends InstalledThirdPartySkill = InstalledThirdPartySkill> = (
-  skill: T
-) => {
+export type SearchFieldExtractor<
+  T extends InstalledThirdPartySkill = InstalledThirdPartySkill,
+> = (skill: T) => {
   name: string;
   description: string;
   tags?: string[];
@@ -96,7 +88,9 @@ export interface LocalSkillStoreConfig {
  * 泛型本地技能存储，管理第三方技能目录。
  * 参数 T 为适配器内部技能类型（需满足 InstalledThirdPartySkill 约束）。
  */
-export class LocalSkillStore<T extends InstalledThirdPartySkill = InstalledThirdPartySkill> {
+export class LocalSkillStore<
+  T extends InstalledThirdPartySkill = InstalledThirdPartySkill,
+> {
   private skillsPath: string;
   private index: SkillIndex = {
     version: INDEX_VERSION,
@@ -116,7 +110,8 @@ export class LocalSkillStore<T extends InstalledThirdPartySkill = InstalledThird
     searchExtractor?: SearchFieldExtractor<T>
   ) {
     this.skillsPath = config.skillsPath || resolveUserSkillsDir();
-    this.searchExtractor = searchExtractor || (defaultSearchExtractor as SearchFieldExtractor<T>);
+    this.searchExtractor =
+      searchExtractor || (defaultSearchExtractor as SearchFieldExtractor<T>);
   }
 
   /**
@@ -284,9 +279,7 @@ export class LocalSkillStore<T extends InstalledThirdPartySkill = InstalledThird
           !query ||
           fields.name.toLowerCase().includes(lowerQuery) ||
           fields.description.toLowerCase().includes(lowerQuery) ||
-          fields.tags?.some((tag) =>
-            tag.toLowerCase().includes(lowerQuery)
-          );
+          fields.tags?.some((tag) => tag.toLowerCase().includes(lowerQuery));
 
         const matchesCategory =
           !options?.category || fields.category === options.category;

@@ -103,7 +103,7 @@ export interface StreamModelOptions {
  *   - 用法统计收集
  */
 export async function* streamModelResponse(
-  opts: StreamModelOptions,
+  opts: StreamModelOptions
 ): AsyncGenerator<StreamEvent, StreamResult, void> {
   const { deltas, turn, signal } = opts;
   let assistantContent = '';
@@ -147,11 +147,16 @@ export async function* streamModelResponse(
       };
       if (d.id) cur.id = d.id;
       if (d.name) cur.name = (cur.name ?? '') + d.name;
-      if (d.argumentsDelta) cur.arguments = (cur.arguments ?? '') + d.argumentsDelta;
+      if (d.argumentsDelta)
+        cur.arguments = (cur.arguments ?? '') + d.argumentsDelta;
       callBuf.set(d.index, cur);
 
       // 检测工具调用参数是否完整
-      if (!readyIndices.has(d.index) && cur.name && looksLikeCompleteJson(cur.arguments)) {
+      if (
+        !readyIndices.has(d.index) &&
+        cur.name &&
+        looksLikeCompleteJson(cur.arguments)
+      ) {
         readyIndices.add(d.index);
       }
 

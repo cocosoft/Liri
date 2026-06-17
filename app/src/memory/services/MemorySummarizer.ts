@@ -47,7 +47,9 @@ export class MemorySummarizer {
         });
       }
 
-      const summaries = candidates.slice(0, limit).map((m) => this.toSummary(m));
+      const summaries = candidates
+        .slice(0, limit)
+        .map((m) => this.toSummary(m));
       return {
         summaries,
         totalCount: cache.totalCount,

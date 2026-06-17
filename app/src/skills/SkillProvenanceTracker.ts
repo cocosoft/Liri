@@ -83,9 +83,13 @@ export class SkillProvenanceTracker {
   subscribeToRegistry(registry: SkillRegistry): void {
     registry.on('registered', (_event, skill) => {
       if (skill) {
-        this.track(skill.name, skill.source === SkillSource.THIRD_PARTY ? 'external' : 'builtin', {
-          sourceVersion: skill.version,
-        });
+        this.track(
+          skill.name,
+          skill.source === SkillSource.THIRD_PARTY ? 'external' : 'builtin',
+          {
+            sourceVersion: skill.version,
+          }
+        );
       }
     });
 
@@ -185,7 +189,9 @@ let globalProvenanceTracker: SkillProvenanceTracker | null = null;
  * @param skillDB 可选的 DB 持久化实例
  * @returns SkillProvenanceTracker 实例
  */
-export function getSkillProvenanceTracker(skillDB?: SkillDB): SkillProvenanceTracker {
+export function getSkillProvenanceTracker(
+  skillDB?: SkillDB
+): SkillProvenanceTracker {
   if (!globalProvenanceTracker) {
     globalProvenanceTracker = new SkillProvenanceTracker(skillDB);
   }

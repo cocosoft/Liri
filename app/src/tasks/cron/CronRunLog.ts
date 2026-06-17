@@ -87,8 +87,8 @@ function rowToEntry(row: Record<string, unknown>): CronRunLogEntry {
     nextRunAtMs: (row.next_run_at_ms as number | undefined) ?? undefined,
     model: row.model as string | undefined,
     provider: row.provider as string | undefined,
-    inputTokens: row.input_tokens as number | undefined ?? undefined,
-    outputTokens: row.output_tokens as number | undefined ?? undefined,
+    inputTokens: (row.input_tokens as number | undefined) ?? undefined,
+    outputTokens: (row.output_tokens as number | undefined) ?? undefined,
     deliveryStatus: row.delivery_status as string | undefined,
     deliveryError: row.delivery_error as string | undefined,
   };
@@ -384,4 +384,3 @@ export class CronRunLog {
     this.db = db;
   }
 }
-

@@ -192,9 +192,7 @@ try {
 // 注意：项目数据（第二层）已移至用户目录 ~/.pyapp/data/，
 //       由 paths.ts 的 ensureDataDirectories() 在 init() 阶段创建。
 //       此处仅创建项目结构目录（app/ 用于文档等只读资源）。
-const PROJECT_DIRS = [
-  'app',
-];
+const PROJECT_DIRS = ['app'];
 
 {
   const fs = require('fs') as typeof import('fs');

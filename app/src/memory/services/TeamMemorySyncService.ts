@@ -632,7 +632,10 @@ export class TeamMemorySyncService {
       try {
         listener(status, result);
       } catch (error) {
-        void handleError(error, { module: 'memory:sync', action: 'notify_listener' });
+        void handleError(error, {
+          module: 'memory:sync',
+          action: 'notify_listener',
+        });
       }
     }
   }

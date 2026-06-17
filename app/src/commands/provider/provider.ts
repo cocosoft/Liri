@@ -48,7 +48,10 @@ import {
   formatEnvProviderName,
 } from '@modules/ai/providers/detectUnifiedProviders.js';
 
-const logger = new Logger({ level: LogLevel.WARNING, module: 'commands:provider' });
+const logger = new Logger({
+  level: LogLevel.WARNING,
+  module: 'commands:provider',
+});
 
 const VALID_PROVIDER_TYPES: ProviderType[] = [
   'openai',
@@ -381,7 +384,11 @@ async function handleToggle(id: string): Promise<CommandResult> {
       unregisterProviderFromRegistry(id);
     }
   } catch {
-    logger.warning('切换供应商状态后注册表同步失败', { id, name: provider.name, enabled: newState });
+    logger.warning('切换供应商状态后注册表同步失败', {
+      id,
+      name: provider.name,
+      enabled: newState,
+    });
   }
 
   return {
@@ -690,7 +697,10 @@ async function handleSeed(): Promise<CommandResult> {
       try {
         await registerProviderFromDB(created.id);
       } catch {
-        logger.warning('添加供应商后注册表同步失败', { id: created.id, name: created.name });
+        logger.warning('添加供应商后注册表同步失败', {
+          id: created.id,
+          name: created.name,
+        });
       }
     } catch (err) {
       // 预置失败不阻塞

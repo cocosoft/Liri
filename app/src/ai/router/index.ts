@@ -33,7 +33,11 @@ export { RouterStatsCollector } from './RouterStatsCollector.js';
 export { executeFallbackChain } from './FallbackChain.js';
 export type { FallbackChainOptions, FallbackResult } from './FallbackChain.js';
 export { executeWithRetry } from './RetryPolicy.js';
-export type { RetryPolicyOptions, RetryableResponse, RetryResult } from './RetryPolicy.js';
+export type {
+  RetryPolicyOptions,
+  RetryableResponse,
+  RetryResult,
+} from './RetryPolicy.js';
 
 // Phase 3: 自动编排
 export { TaskDecomposer } from './TaskDecomposer.js';

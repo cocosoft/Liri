@@ -66,16 +66,26 @@ const MAX_RECENT = 100;
  * @param appError 标准化后的 AppError
  * @param context 附加上下文
  */
-function recordError(appError: AppError, context?: Record<string, unknown>): void {
+function recordError(
+  appError: AppError,
+  context?: Record<string, unknown>
+): void {
   const id = `track_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-  const entry: TrackedEntry = { id, error: appError, timestamp: Date.now(), context };
+  const entry: TrackedEntry = {
+    id,
+    error: appError,
+    timestamp: Date.now(),
+    context,
+  };
 
   trackedErrors.set(id, entry);
 
   // 更新统计
   errorStats.total++;
-  errorStats.byCategory[appError.category] = (errorStats.byCategory[appError.category] || 0) + 1;
-  errorStats.bySeverity[appError.severity] = (errorStats.bySeverity[appError.severity] || 0) + 1;
+  errorStats.byCategory[appError.category] =
+    (errorStats.byCategory[appError.category] || 0) + 1;
+  errorStats.bySeverity[appError.severity] =
+    (errorStats.bySeverity[appError.severity] || 0) + 1;
 
   // 维护最近错误列表
   errorStats.recent.unshift(entry);
@@ -94,8 +104,14 @@ function recordError(appError: AppError, context?: Record<string, unknown>): voi
   }
 
   // 严重/高严重性错误额外记录 warning
-  if (appError.severity === ErrorSeverity.CRITICAL || appError.severity === ErrorSeverity.HIGH) {
-    const warnLogger = new Logger({ level: LogLevel.WARN, module: 'error:tracker' });
+  if (
+    appError.severity === ErrorSeverity.CRITICAL ||
+    appError.severity === ErrorSeverity.HIGH
+  ) {
+    const warnLogger = new Logger({
+      level: LogLevel.WARN,
+      module: 'error:tracker',
+    });
     warnLogger.warn(`High severity error: ${appError.name}`, {
       category: appError.category,
       severity: appError.severity,
@@ -127,15 +143,16 @@ export async function handleError(
   options: HandleErrorOptions
 ): Promise<AppError> {
   // 1. 转为 AppError（非 AppError 包装为 UNHANDLED_ERROR）
-  const appError = error instanceof AppError
-    ? error
-    : new AppError(
-        (error as Error)?.message || String(error),
-        ErrorCategory.UNKNOWN,
-        ErrorSeverity.MEDIUM,
-        'UNHANDLED_ERROR',
-        { ...options.context, originalType: typeof error }
-      );
+  const appError =
+    error instanceof AppError
+      ? error
+      : new AppError(
+          (error as Error)?.message || String(error),
+          ErrorCategory.UNKNOWN,
+          ErrorSeverity.MEDIUM,
+          'UNHANDLED_ERROR',
+          { ...options.context, originalType: typeof error }
+        );
 
   // 2. 日志记录
   const logger = new Logger({ level: LogLevel.ERROR, module: options.module });

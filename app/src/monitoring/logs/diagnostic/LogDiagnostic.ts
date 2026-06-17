@@ -198,7 +198,10 @@ export class LogDiagnostic {
         stats.newestEntry = Math.max(...timestamps);
       }
     } catch (err) {
-      void handleError(err, { module: 'monitoring:logs', action: 'catch_error' });
+      void handleError(err, {
+        module: 'monitoring:logs',
+        action: 'catch_error',
+      });
     }
 
     return stats;

@@ -36,10 +36,17 @@
  * ```
  */
 
-import type { EventBus, EventListener, EventSubscription } from '../../core/events/EventBus';
+import type {
+  EventBus,
+  EventListener,
+  EventSubscription,
+} from '../../core/events/EventBus';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.DEBUG, module: 'channels:events:compat' });
+const logger = new Logger({
+  level: LogLevel.DEBUG,
+  module: 'channels:events:compat',
+});
 
 /*
  * EventBusCompat 类型声明（使用 interface 确保与 EventEmitter 的兼容性）
@@ -60,7 +67,10 @@ export interface EventBusCompat {
  * 无缝切换到 EventBusImpl 而不需要改动事件订阅语法。
  */
 export function createEventBusCompat(bus: EventBus): EventBusCompat {
-  const subscriptions = new Map<string, Map<EventListener, EventSubscription>>();
+  const subscriptions = new Map<
+    string,
+    Map<EventListener, EventSubscription>
+  >();
 
   function ensureSubMap(event: string): Map<EventListener, EventSubscription> {
     if (!subscriptions.has(event)) {

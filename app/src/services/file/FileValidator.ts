@@ -34,39 +34,36 @@ export interface ValidationResult {
  */
 const MAGIC_BYTES: Record<string, [number[], string]> = {
   // ─── 图片 ───
-  png: [[0x89, 0x50, 0x4E, 0x47], 'image/png'],
-  jpg: [[0xFF, 0xD8, 0xFF], 'image/jpeg'],
-  jpeg: [[0xFF, 0xD8, 0xFF], 'image/jpeg'],
+  png: [[0x89, 0x50, 0x4e, 0x47], 'image/png'],
+  jpg: [[0xff, 0xd8, 0xff], 'image/jpeg'],
+  jpeg: [[0xff, 0xd8, 0xff], 'image/jpeg'],
   gif: [[0x47, 0x49, 0x46, 0x38], 'image/gif'],
   webp: [[0x52, 0x49, 0x46, 0x46], 'image/webp'],
-  bmp: [[0x42, 0x4D], 'image/bmp'],
+  bmp: [[0x42, 0x4d], 'image/bmp'],
 
   // ─── 音频 ───
-  mp3: [[0xFF, 0xFB], 'audio/mpeg'],
-  ogg: [[0x4F, 0x67, 0x67, 0x53], 'audio/ogg'],
+  mp3: [[0xff, 0xfb], 'audio/mpeg'],
+  ogg: [[0x4f, 0x67, 0x67, 0x53], 'audio/ogg'],
   wav: [[0x52, 0x49, 0x46, 0x46], 'audio/wav'],
-  flac: [[0x66, 0x4C, 0x61, 0x43], 'audio/flac'],
+  flac: [[0x66, 0x4c, 0x61, 0x43], 'audio/flac'],
 
   // ─── 视频 ───
   mp4: [[0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], 'video/mp4'],
-  webm: [[0x1A, 0x45, 0xDF, 0xA3], 'video/webm'],
+  webm: [[0x1a, 0x45, 0xdf, 0xa3], 'video/webm'],
 
   // ─── 文档 / 压缩包 ───
   pdf: [[0x25, 0x50, 0x44, 0x46], 'application/pdf'],
-  zip: [[0x50, 0x4B, 0x03, 0x04], 'application/zip'],
-  gz: [[0x1F, 0x8B], 'application/gzip'],
-  rar: [[0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00], 'application/vnd.rar'],
-  '7z': [[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C], 'application/x-7z-compressed'],
+  zip: [[0x50, 0x4b, 0x03, 0x04], 'application/zip'],
+  gz: [[0x1f, 0x8b], 'application/gzip'],
+  rar: [[0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00], 'application/vnd.rar'],
+  '7z': [[0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c], 'application/x-7z-compressed'],
   tar: [[0x75, 0x73, 0x74, 0x61, 0x72], 'application/x-tar'],
 
   // ─── 可执行文件（高风险） ───
-  exe: [[0x4D, 0x5A], 'application/vnd.microsoft.portable-executable'],
-  dll: [[0x4D, 0x5A], 'application/vnd.microsoft.portable-executable'],
-  elf: [[0x7F, 0x45, 0x4C, 0x46], 'application/x-elf'],
-  macho: [
-    [0xFE, 0xED, 0xFA, 0xCE],
-    'application/x-mach-binary',
-  ],
+  exe: [[0x4d, 0x5a], 'application/vnd.microsoft.portable-executable'],
+  dll: [[0x4d, 0x5a], 'application/vnd.microsoft.portable-executable'],
+  elf: [[0x7f, 0x45, 0x4c, 0x46], 'application/x-elf'],
+  macho: [[0xfe, 0xed, 0xfa, 0xce], 'application/x-mach-binary'],
 };
 
 /**
@@ -98,9 +95,7 @@ export class FileValidator {
       };
     }
 
-    const matches = magicBytes.every(
-      (byte, i) => content[i] === byte
-    );
+    const matches = magicBytes.every((byte, i) => content[i] === byte);
 
     if (matches) {
       return { valid: true, detectedMimeType: expectedMime };
@@ -109,7 +104,9 @@ export class FileValidator {
     logger.warn('文件扩展名与 Magic Bytes 不匹配', {
       fileName,
       expectedExt: ext,
-      actualHeader: content.slice(0, Math.min(16, content.length)).toString('hex'),
+      actualHeader: content
+        .slice(0, Math.min(16, content.length))
+        .toString('hex'),
     });
 
     return {

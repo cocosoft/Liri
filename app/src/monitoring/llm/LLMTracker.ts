@@ -4,7 +4,11 @@
  */
 
 import { Logger, LogLevel } from '../logs/Logger.js';
-import { appendLogEntry, type StructuredLogEntry, type LogSource } from '../logs/LogMemory.js';
+import {
+  appendLogEntry,
+  type StructuredLogEntry,
+  type LogSource,
+} from '../logs/LogMemory.js';
 import { getOTelLoggerAdapter } from '../otel/OTelLoggerAdapter.js';
 import type { OTelLoggerAdapter } from '../otel/OTelLoggerAdapter.js';
 
@@ -93,9 +97,7 @@ class SensitiveDataScrubber {
     /([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}/g,
   ];
 
-  private urlPatterns = [
-    /(?:https?:\/\/)[^\s]+/g,
-  ];
+  private urlPatterns = [/(?:https?:\/\/)[^\s]+/g];
 
   private credentialPatterns = [
     /password.*?["']([^"']+)["']/gi,
@@ -219,9 +221,7 @@ class SensitiveDataScrubber {
       'databaseUrl',
       'dsn',
     ];
-    return sensitiveKeys.some((k) =>
-      key.toLowerCase().includes(k)
-    );
+    return sensitiveKeys.some((k) => key.toLowerCase().includes(k));
   }
 }
 
@@ -269,8 +269,12 @@ export class LLMTracker {
       reasoningTokens: params.reasoningTokens ?? 0,
       costUsd: params.costUsd,
       durationMs: params.durationMs,
-      request: params.request ? (this.scrubber.scrub(params.request) as object) : undefined,
-      response: params.response ? (this.scrubber.scrub(params.response) as object) : undefined,
+      request: params.request
+        ? (this.scrubber.scrub(params.request) as object)
+        : undefined,
+      response: params.response
+        ? (this.scrubber.scrub(params.response) as object)
+        : undefined,
     };
 
     // 更新会话统计
@@ -344,10 +348,13 @@ export class LLMTracker {
     };
     appendLogEntry(logEntry);
 
-    this.logger.info(`LLM call recorded: ${params.model} ${params.inputTokens}/${params.outputTokens} tokens, $${params.costUsd.toFixed(4)}`, {
-      sessionId: params.sessionId,
-      provider: params.provider,
-    });
+    this.logger.info(
+      `LLM call recorded: ${params.model} ${params.inputTokens}/${params.outputTokens} tokens, $${params.costUsd.toFixed(4)}`,
+      {
+        sessionId: params.sessionId,
+        provider: params.provider,
+      }
+    );
 
     // 输出 OTel 结构化日志（debug 级别，默认不可见）
     if (this.otelLogger) {
@@ -475,7 +482,9 @@ export class LLMTracker {
     }
 
     if (cleanedCount > 0) {
-      this.logger.info(`Cleaned up ${cleanedCount} old sessions (older than ${daysToKeep} days)`);
+      this.logger.info(
+        `Cleaned up ${cleanedCount} old sessions (older than ${daysToKeep} days)`
+      );
     }
 
     return cleanedCount;

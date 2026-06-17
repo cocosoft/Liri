@@ -642,7 +642,11 @@ export class SecurityManager extends EventEmitter {
   /**
    * 获取信任工作区列表
    */
-  getTrustedWorkspaces(): Array<{ path: string; trustLevel: string; enabled: boolean }> {
+  getTrustedWorkspaces(): Array<{
+    path: string;
+    trustLevel: string;
+    enabled: boolean;
+  }> {
     return [...(this.trustState.trustedWorkspaces || [])];
   }
 

@@ -128,7 +128,8 @@ export class PowerShellTool extends BaseTool {
     {
       name: 'exclude',
       type: 'string',
-      description: 'Exclude output lines containing this text (simple text match)',
+      description:
+        'Exclude output lines containing this text (simple text match)',
       required: false,
     },
   ];
@@ -235,7 +236,10 @@ export class PowerShellTool extends BaseTool {
           {
             executionTime: Date.now() - startTime,
             errorLevel: ErrorLevel.RECOVERABLE,
-            metadata: { errorCategory: 'filesystem', errorCode: 'WORKING_DIR_NOT_ACCESSIBLE' },
+            metadata: {
+              errorCategory: 'filesystem',
+              errorCode: 'WORKING_DIR_NOT_ACCESSIBLE',
+            },
           }
         );
       }
@@ -244,14 +248,21 @@ export class PowerShellTool extends BaseTool {
         return createFailureResult('command is required', {
           executionTime: Date.now() - startTime,
           errorLevel: ErrorLevel.RECOVERABLE,
-          metadata: { errorCategory: 'validation', errorCode: 'COMMAND_REQUIRED' },
+          metadata: {
+            errorCategory: 'validation',
+            errorCode: 'COMMAND_REQUIRED',
+          },
         });
       }
 
       if (!skipSecurityCheck) {
         onProgress?.({
           toolUseID: toolUseId,
-          data: { percentage: 10, message: '正在执行安全检查...', stage: 'security_check' },
+          data: {
+            percentage: 10,
+            message: '正在执行安全检查...',
+            stage: 'security_check',
+          },
         });
         const securityResult = this.securityAnalyzer.analyze(command);
 
@@ -261,7 +272,10 @@ export class PowerShellTool extends BaseTool {
             {
               executionTime: Date.now() - startTime,
               errorLevel: ErrorLevel.FATAL,
-              metadata: { errorCategory: 'security', errorCode: 'SECURITY_DENIED' },
+              metadata: {
+                errorCategory: 'security',
+                errorCode: 'SECURITY_DENIED',
+              },
             }
           );
         }
@@ -272,7 +286,10 @@ export class PowerShellTool extends BaseTool {
             {
               executionTime: Date.now() - startTime,
               errorLevel: ErrorLevel.RECOVERABLE,
-              metadata: { errorCategory: 'permission', errorCode: 'USER_CONFIRMATION_REQUIRED' },
+              metadata: {
+                errorCategory: 'permission',
+                errorCode: 'USER_CONFIRMATION_REQUIRED',
+              },
             }
           );
         }
@@ -280,11 +297,20 @@ export class PowerShellTool extends BaseTool {
 
       const depth = input.depth as number | undefined;
       const exclude = input.exclude as string | undefined;
-      const pwshCommand = this.buildPowerShellCommand(command, executionPolicy, depth, exclude);
+      const pwshCommand = this.buildPowerShellCommand(
+        command,
+        executionPolicy,
+        depth,
+        exclude
+      );
 
       onProgress?.({
         toolUseID: toolUseId,
-        data: { percentage: 30, message: `正在执行: ${command.substring(0, 80)}`, stage: 'executing' },
+        data: {
+          percentage: 30,
+          message: `正在执行: ${command.substring(0, 80)}`,
+          stage: 'executing',
+        },
       });
 
       const { stdout, stderr } = await execAsync(pwshCommand, {
@@ -297,7 +323,11 @@ export class PowerShellTool extends BaseTool {
 
       onProgress?.({
         toolUseID: toolUseId,
-        data: { percentage: 100, message: 'PowerShell 命令执行完成', stage: 'completed' },
+        data: {
+          percentage: 100,
+          message: 'PowerShell 命令执行完成',
+          stage: 'completed',
+        },
       });
 
       return createSuccessResult(output, {
@@ -307,7 +337,11 @@ export class PowerShellTool extends BaseTool {
     } catch (error: any) {
       onProgress?.({
         toolUseID: toolUseId,
-        data: { percentage: 100, message: `执行失败: ${error.message}`, stage: 'error' },
+        data: {
+          percentage: 100,
+          message: `执行失败: ${error.message}`,
+          stage: 'error',
+        },
       });
 
       if (

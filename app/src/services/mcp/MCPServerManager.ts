@@ -131,7 +131,11 @@ export class MCPServerManager {
             await this.refreshServerTools(name);
           }
         } catch (error: any) {
-          await handleError(error, { module: 'services:mcp:server', action: 'connect_server', context: { serverName: name } });
+          await handleError(error, {
+            module: 'services:mcp:server',
+            action: 'connect_server',
+            context: { serverName: name },
+          });
         }
       }
     );
@@ -268,7 +272,11 @@ export class MCPServerManager {
         `Refreshed tools for server ${serverName}: ${tools.length} tools`
       );
     } catch (error: any) {
-      await handleError(error, { module: 'services:mcp:server', action: 'refresh_server_tools', context: { serverName } });
+      await handleError(error, {
+        module: 'services:mcp:server',
+        action: 'refresh_server_tools',
+        context: { serverName },
+      });
     }
   }
 
@@ -372,7 +380,11 @@ export class MCPServerManager {
               await this.refreshServerTools(name);
             }
           } catch (error: any) {
-            await handleError(error, { module: 'services:mcp:server', action: 'reconnect_server', context: { serverName: name } });
+            await handleError(error, {
+              module: 'services:mcp:server',
+              action: 'reconnect_server',
+              context: { serverName: name },
+            });
           }
         }
       );

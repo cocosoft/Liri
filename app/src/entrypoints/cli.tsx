@@ -172,7 +172,9 @@ export async function main(): Promise<void> {
     console.log('  --bg, --background        后台会话模式');
     console.log('  --dump-system-prompt      输出系统提示并退出');
     console.log('  --doctor                  运行系统诊断');
-    console.log('  --trust-level <level>     设置信任级别 (chat, work, development)');
+    console.log(
+      '  --trust-level <level>     设置信任级别 (chat, work, development)'
+    );
     console.log('  --list-modes              列出可用运行模式');
     console.log();
     console.log('Commands:');

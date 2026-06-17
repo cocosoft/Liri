@@ -27,32 +27,33 @@ import { handleError } from '@modules/error/handleError';
 
 export async function handleListWorkspaces(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { buildEntries } = await import(
-        '@modules/commands/builtin/workspace/WorkspaceStorage'
-      );
-      const entries = await buildEntries();
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { buildEntries } =
+      await import('@modules/commands/builtin/workspace/WorkspaceStorage');
+    const entries = await buildEntries();
 
-      const workspaces = entries.map((entry) => ({
-        id: entry.meta.id,
-        name: entry.name,
-        description: entry.meta.description,
-        createdAt: new Date(entry.meta.createdAt).getTime(),
-        updatedAt: new Date(entry.meta.updatedAt).getTime(),
-      }));
+    const workspaces = entries.map((entry) => ({
+      id: entry.meta.id,
+      name: entry.name,
+      description: entry.meta.description,
+      createdAt: new Date(entry.meta.createdAt).getTime(),
+      updatedAt: new Date(entry.meta.updatedAt).getTime(),
+    }));
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(workspaces));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(workspaces));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}

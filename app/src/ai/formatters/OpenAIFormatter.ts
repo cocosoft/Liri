@@ -23,11 +23,7 @@ import type {
 import type { ContentPart } from '../models/types';
 
 export class OpenAIFormatter extends ModelFormatter {
-  readonly supportedModels = [
-    'gpt-',
-    'o1',
-    'o3',
-  ];
+  readonly supportedModels = ['gpt-', 'o1', 'o3'];
 
   /**
    * 将统一消息转换为 OpenAI 格式

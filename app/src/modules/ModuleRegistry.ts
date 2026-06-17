@@ -11,7 +11,11 @@ import {
   type DIContainer,
   type ServiceDescriptor,
 } from '@modules/core/DIContainer';
-import { ModuleCategory, type ModuleDefinition, initRegistry } from './moduleTypes';
+import {
+  ModuleCategory,
+  type ModuleDefinition,
+  initRegistry,
+} from './moduleTypes';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

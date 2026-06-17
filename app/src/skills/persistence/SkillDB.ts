@@ -263,10 +263,14 @@ export class SkillDB {
     await this.init();
     if (skillName) {
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DELETE FROM ${USAGE_TABLE} WHERE skill_name = ?`, [skillName], (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        });
+        this.db!.run(
+          `DELETE FROM ${USAGE_TABLE} WHERE skill_name = ?`,
+          [skillName],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
       });
     } else {
       await new Promise<void>((resolve, reject) => {
@@ -284,24 +288,30 @@ export class SkillDB {
   async pruneUsage(keepCount: number = 10000): Promise<number> {
     await this.init();
     // 获取应保留的最小 id
-    const row = await new Promise<{ min_id: number } | undefined>((resolve, reject) => {
-      this.db!.get(
-        `SELECT id as min_id FROM ${USAGE_TABLE} ORDER BY id DESC LIMIT 1 OFFSET ?`,
-        [keepCount - 1],
-        (err, row: any) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const row = await new Promise<{ min_id: number } | undefined>(
+      (resolve, reject) => {
+        this.db!.get(
+          `SELECT id as min_id FROM ${USAGE_TABLE} ORDER BY id DESC LIMIT 1 OFFSET ?`,
+          [keepCount - 1],
+          (err, row: any) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      }
+    );
 
     if (!row) return 0;
 
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${USAGE_TABLE} WHERE id < ?`, [row.min_id], (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        `DELETE FROM ${USAGE_TABLE} WHERE id < ?`,
+        [row.min_id],
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
 
     return row.min_id;
@@ -355,10 +365,13 @@ export class SkillDB {
   async loadAllCuration(): Promise<Map<string, SkillCurationState>> {
     await this.init();
     const rows = await new Promise<CurationRow[]>((resolve, reject) => {
-      this.db!.all(`SELECT * FROM ${CURATION_TABLE}`, (err, rows: CurationRow[]) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+      this.db!.all(
+        `SELECT * FROM ${CURATION_TABLE}`,
+        (err, rows: CurationRow[]) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
     });
 
     const map = new Map<string, SkillCurationState>();
@@ -383,10 +396,14 @@ export class SkillDB {
   async deleteCuration(skillName: string): Promise<void> {
     await this.init();
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${CURATION_TABLE} WHERE skill_name = ?`, [skillName], (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        `DELETE FROM ${CURATION_TABLE} WHERE skill_name = ?`,
+        [skillName],
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
   }
 
@@ -395,22 +412,31 @@ export class SkillDB {
   /**
    * 插入策展操作记录
    */
-  async insertCurationHistory(record: CuratorActionRecord, skillName: string): Promise<void> {
+  async insertCurationHistory(
+    record: CuratorActionRecord,
+    skillName: string
+  ): Promise<void> {
     await this.init();
     const sql = `INSERT INTO ${CURATION_HISTORY_TABLE} (skill_name, action, timestamp, details)
       VALUES (?, ?, ?, ?)`;
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(sql, [skillName, record.action, record.timestamp, record.details], (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        sql,
+        [skillName, record.action, record.timestamp, record.details],
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
   }
 
   /**
    * 加载技能的策展历史
    */
-  private async loadCurationHistory(skillName: string): Promise<CuratorActionRecord[]> {
+  private async loadCurationHistory(
+    skillName: string
+  ): Promise<CuratorActionRecord[]> {
     const rows = await new Promise<CurationHistoryRow[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${CURATION_HISTORY_TABLE} WHERE skill_name = ? ORDER BY timestamp DESC`,
@@ -465,10 +491,13 @@ export class SkillDB {
   async loadAllProvenance(): Promise<Map<string, SkillProvenanceEntry>> {
     await this.init();
     const rows = await new Promise<ProvenanceRow[]>((resolve, reject) => {
-      this.db!.all(`SELECT * FROM ${PROVENANCE_TABLE}`, (err, rows: ProvenanceRow[]) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+      this.db!.all(
+        `SELECT * FROM ${PROVENANCE_TABLE}`,
+        (err, rows: ProvenanceRow[]) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
     });
 
     const map = new Map<string, SkillProvenanceEntry>();
@@ -492,10 +521,14 @@ export class SkillDB {
   async deleteProvenance(skillName: string): Promise<void> {
     await this.init();
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${PROVENANCE_TABLE} WHERE skill_name = ?`, [skillName], (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        `DELETE FROM ${PROVENANCE_TABLE} WHERE skill_name = ?`,
+        [skillName],
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
   }
 
@@ -528,4 +561,3 @@ export function getSkillDB(): SkillDB {
   }
   return globalSkillDB;
 }
-

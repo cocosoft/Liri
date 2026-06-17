@@ -146,9 +146,7 @@ async function checkBrokenLinks(wikiDir: string): Promise<LintResult[]> {
   }
 
   // 收集所有现有页面名
-  const existingPages = new Set(
-    files.map((f) => basename(f, '.md'))
-  );
+  const existingPages = new Set(files.map((f) => basename(f, '.md')));
 
   for (const file of files) {
     const content = readFileSync(join(wikiDir, file), 'utf-8');
@@ -292,7 +290,11 @@ async function checkSchemaFieldMatch(wikiDir: string): Promise<LintResult[]> {
   const entitiesPath = join(schemaDir, 'entities.yaml');
   if (!existsSync(entitiesPath)) return results;
 
-  let schemaEntities: Array<{ kind: string; fields: Record<string, FieldDef>; displayName: string }>;
+  let schemaEntities: Array<{
+    kind: string;
+    fields: Record<string, FieldDef>;
+    displayName: string;
+  }>;
   try {
     const raw = readFileSync(entitiesPath, 'utf-8');
     const parsed = load(raw) as any;
@@ -308,9 +310,15 @@ async function checkSchemaFieldMatch(wikiDir: string): Promise<LintResult[]> {
   }
 
   // 建立 kind → schema 映射
-  const schemaMap = new Map<string, { fields: Record<string, FieldDef>; displayName: string }>();
+  const schemaMap = new Map<
+    string,
+    { fields: Record<string, FieldDef>; displayName: string }
+  >();
   for (const entity of schemaEntities) {
-    schemaMap.set(entity.kind, { fields: entity.fields || {}, displayName: entity.displayName });
+    schemaMap.set(entity.kind, {
+      fields: entity.fields || {},
+      displayName: entity.displayName,
+    });
   }
 
   if (schemaMap.size === 0) return results;
@@ -344,7 +352,10 @@ async function checkSchemaFieldMatch(wikiDir: string): Promise<LintResult[]> {
       const colonIdx = line.indexOf(':');
       if (colonIdx === -1) continue;
       const key = line.slice(0, colonIdx).trim();
-      const value = line.slice(colonIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+      const value = line
+        .slice(colonIdx + 1)
+        .trim()
+        .replace(/^['"]|['"]$/g, '');
       fmFields.set(key, value);
       if (key === 'kind') kind = value;
     }
@@ -375,7 +386,15 @@ async function checkSchemaFieldMatch(wikiDir: string): Promise<LintResult[]> {
     }
 
     // 检查未知字段（warning）：不在 schema 中定义的字段
-    const knownFields = new Set(['kind', 'title', 'description', 'tags', 'created', 'updated', ...Object.keys(entitySchema.fields)]);
+    const knownFields = new Set([
+      'kind',
+      'title',
+      'description',
+      'tags',
+      'created',
+      'updated',
+      ...Object.keys(entitySchema.fields),
+    ]);
     for (const fieldName of fmFields.keys()) {
       if (!knownFields.has(fieldName)) {
         results.push({
@@ -413,7 +432,11 @@ export const defaultRules: LintRule[] = [
   { name: 'orphan-files', severity: 'warning', check: checkOrphanFiles },
   { name: 'broken-links', severity: 'error', check: checkBrokenLinks },
   { name: 'stale-entities', severity: 'info', check: checkStaleEntities },
-  { name: 'missing-frontmatter', severity: 'error', check: checkMissingFrontmatter },
+  {
+    name: 'missing-frontmatter',
+    severity: 'error',
+    check: checkMissingFrontmatter,
+  },
   { name: 'schema-mismatch', severity: 'error', check: checkSchemaFieldMatch },
 ];
 
@@ -453,7 +476,7 @@ export class WikiLinter {
   async run(wikiDir?: string, domainName?: string): Promise<LintReport> {
     const targetDir = domainName
       ? join(resolveDomainDir(domainName), 'wiki')
-      : (wikiDir || join(resolveKnowledgeDir(), 'wiki'));
+      : wikiDir || join(resolveKnowledgeDir(), 'wiki');
 
     if (!existsSync(targetDir)) {
       logger.info(`wiki 目录不存在，跳过 lint: ${targetDir}`);
@@ -467,7 +490,11 @@ export class WikiLinter {
         const ruleResults = await rule.check(targetDir);
         allResults.push(...ruleResults);
       } catch (err) {
-        await handleError(err, { module: 'knowledge:linter', action: 'check_rule', context: { ruleName: rule.name } });
+        await handleError(err, {
+          module: 'knowledge:linter',
+          action: 'check_rule',
+          context: { ruleName: rule.name },
+        });
       }
     }
 

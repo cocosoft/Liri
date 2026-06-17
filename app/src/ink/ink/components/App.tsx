@@ -746,7 +746,11 @@ export function handleMouseEvent(app: App, m: any): void {
       // own link-opening; Cmd+click is the native UX there anyway.
       // TERM_PROGRAM is the sync fast-path; isXtermJs() is the XTVERSION
       // probe result (catches SSH + non-VS Code embedders like Hyper).
-      if (url && configManager.env('TERM_PROGRAM') !== 'vscode' && !isXtermJs()) {
+      if (
+        url &&
+        configManager.env('TERM_PROGRAM') !== 'vscode' &&
+        !isXtermJs()
+      ) {
         // Clear any prior pending timer �?clicking a second link
         // supersedes the first (only the latest click opens).
         if (app.pendingHyperlinkTimer) {

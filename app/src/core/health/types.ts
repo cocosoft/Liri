@@ -74,9 +74,7 @@ export function isAcceptable(status: HealthStatus): boolean {
  * 合并多个健康状态
  * 取最严重的那个
  */
-export function mergeHealthStatuses(
-  statuses: HealthStatus[]
-): HealthStatus {
+export function mergeHealthStatuses(statuses: HealthStatus[]): HealthStatus {
   let worst: HealthStatus = 'healthy';
   for (const s of statuses) {
     if (HEALTH_SEVERITY[s] > HEALTH_SEVERITY[worst]) {

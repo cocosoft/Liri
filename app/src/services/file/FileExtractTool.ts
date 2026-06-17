@@ -134,7 +134,11 @@ export class FileExtractTool {
         await this.extractTarGz(archivePath, result.outputDir);
       } else if (ext === '.tar' || name.endsWith('.tar')) {
         await this.extractTar(archivePath, result.outputDir);
-      } else if (ext === '.gz' && !name.endsWith('.tar.gz') && !name.endsWith('.tgz')) {
+      } else if (
+        ext === '.gz' &&
+        !name.endsWith('.tar.gz') &&
+        !name.endsWith('.tgz')
+      ) {
         await this.extractGz(archivePath, result.outputDir);
       } else {
         result.errors.push(`不支持的归档格式: ${ext}`);
@@ -208,7 +212,11 @@ export class FileExtractTool {
       });
     } catch (err) {
       result.errors.push(`解压失败: ${(err as Error).message}`);
-      await handleError(err, { module: 'services:file:extract', action: 'extract_archive', context: { archivePath } });
+      await handleError(err, {
+        module: 'services:file:extract',
+        action: 'extract_archive',
+        context: { archivePath },
+      });
     }
 
     return result;
@@ -217,7 +225,10 @@ export class FileExtractTool {
   /**
    * 解压 .zip 文件（使用 PowerShell Expand-Archive）
    */
-  private async extractZip(archivePath: string, outputDir: string): Promise<void> {
+  private async extractZip(
+    archivePath: string,
+    outputDir: string
+  ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const cmd = `Expand-Archive -Path '${archivePath}' -DestinationPath '${outputDir}' -Force`;
       execFile(
@@ -226,7 +237,11 @@ export class FileExtractTool {
         { timeout: 300000 },
         (err, stdout, stderr) => {
           if (err) {
-            reject(new Error(`PowerShell Expand-Archive 失败: ${stderr || err.message}`));
+            reject(
+              new Error(
+                `PowerShell Expand-Archive 失败: ${stderr || err.message}`
+              )
+            );
           } else {
             resolve();
           }
@@ -238,7 +253,10 @@ export class FileExtractTool {
   /**
    * 解压 .tar.gz 文件（使用系统 tar 命令）
    */
-  private async extractTarGz(archivePath: string, outputDir: string): Promise<void> {
+  private async extractTarGz(
+    archivePath: string,
+    outputDir: string
+  ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       execFile(
         'tar',
@@ -258,7 +276,10 @@ export class FileExtractTool {
   /**
    * 解压 .tar 文件（使用系统 tar 命令）
    */
-  private async extractTar(archivePath: string, outputDir: string): Promise<void> {
+  private async extractTar(
+    archivePath: string,
+    outputDir: string
+  ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       execFile(
         'tar',
@@ -278,7 +299,10 @@ export class FileExtractTool {
   /**
    * 解压 .gz 文件（单文件压缩，使用 Node.js zlib）
    */
-  private async extractGz(archivePath: string, outputDir: string): Promise<void> {
+  private async extractGz(
+    archivePath: string,
+    outputDir: string
+  ): Promise<void> {
     const { createGunzip } = await import('zlib');
     const { createReadStream, createWriteStream } = await import('fs');
     const { pipeline } = await import('stream/promises');

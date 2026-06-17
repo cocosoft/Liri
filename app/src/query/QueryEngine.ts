@@ -17,7 +17,10 @@ import {
  * 避免 ChatManager ↔ QueryEngine 循环依赖
  */
 interface IChatManagerForQuery {
-  sendMessage(content: string, options?: Record<string, unknown>): Promise<Message>;
+  sendMessage(
+    content: string,
+    options?: Record<string, unknown>
+  ): Promise<Message>;
   executeTool(toolCall: ToolCall): Promise<ToolResult>;
   getSessions(): ChatSession[];
 }
@@ -368,7 +371,10 @@ export class QueryEngine {
    * @param chatManager 聊天管理器
    * @param config 查询引擎配置
    */
-  constructor(chatManager: IChatManagerForQuery, config: QueryEngineConfig = {}) {
+  constructor(
+    chatManager: IChatManagerForQuery,
+    config: QueryEngineConfig = {}
+  ) {
     this.chatManager = chatManager;
     this.postSamplingHookManager = createPostSamplingHookManager({
       enableLogging: false,

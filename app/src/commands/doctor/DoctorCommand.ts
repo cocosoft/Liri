@@ -174,11 +174,7 @@ function checkModelStatus(report: DoctorReport): void {
 
     if (existsSync(modelsConfigPath)) {
       report.model.health = 'ok';
-      report.model.models = [
-        '',
-        'deepseek-v4-pro',
-        'deepseek-v4-flash',
-      ];
+      report.model.models = ['', 'deepseek-v4-pro', 'deepseek-v4-flash'];
     } else {
       report.model.health = 'unavailable';
     }

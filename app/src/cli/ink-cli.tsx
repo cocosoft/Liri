@@ -159,13 +159,14 @@ const SkillsList = ({
           skills.map((skill) => (
             <Box key={skill.name} marginBottom={2}>
               <Text bold>{skill.name}</Text>
-              <Text color="gray">
-                Description: {skill.description}
-              </Text>
+              <Text color="gray">Description: {skill.description}</Text>
               <Text color="gray">Version: {skill.version || 'N/A'}</Text>
               <Text color="gray">Source: {skill.source}</Text>
-              <Text color={skill.impl.kind === 'executable' ? 'green' : 'yellow'}>
-                Kind: {skill.impl.kind === 'executable' ? 'Executable' : 'Prompt'}
+              <Text
+                color={skill.impl.kind === 'executable' ? 'green' : 'yellow'}
+              >
+                Kind:{' '}
+                {skill.impl.kind === 'executable' ? 'Executable' : 'Prompt'}
               </Text>
             </Box>
           ))
@@ -282,7 +283,8 @@ const TasksView = ({
               (status === 'running' && mappedStatus === 'running') ||
               (status === 'pending' && mappedStatus === 'pending') ||
               (status === 'completed' && mappedStatus === 'completed') ||
-              (status === 'failed' && (mappedStatus === 'failed' || mappedStatus === 'cancelled'))
+              (status === 'failed' &&
+                (mappedStatus === 'failed' || mappedStatus === 'cancelled'))
             ) {
               const meta = state.metadata || {};
               statusTasks.push({
@@ -297,10 +299,13 @@ const TasksView = ({
           }
           if (statusTasks.length > 0) {
             const label =
-              status === 'running' ? 'Running' :
-              status === 'pending' ? 'Pending' :
-              status === 'completed' ? 'Completed' :
-              'Failed/Cancelled';
+              status === 'running'
+                ? 'Running'
+                : status === 'pending'
+                  ? 'Pending'
+                  : status === 'completed'
+                    ? 'Completed'
+                    : 'Failed/Cancelled';
             groups.push({ name: label, tasks: statusTasks });
           }
         }
@@ -366,7 +371,9 @@ const TasksView = ({
  */
 const App = () => {
   const [currentMenu, setCurrentMenu] = useState('main');
-  const [skills, setSkills] = useState<import('@modules/skills/types').Skill[]>([]);
+  const [skills, setSkills] = useState<import('@modules/skills/types').Skill[]>(
+    []
+  );
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

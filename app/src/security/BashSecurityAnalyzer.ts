@@ -123,9 +123,12 @@ export class BashSecurityAnalyzer {
    * 白名单前置检查：当 config.json 配置了 whitelist 模式时，
    * 只放行匹配白名单的指令，其余直接拒绝
    */
-  private checkWhitelistPreCheck(command: string): SecurityAnalysisResult | null {
+  private checkWhitelistPreCheck(
+    command: string
+  ): SecurityAnalysisResult | null {
     try {
-      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
       const rules = permission?.customRules?.commandRules;
       if (!rules || rules.mode !== 'whitelist') return null;
 
@@ -159,13 +162,17 @@ export class BashSecurityAnalyzer {
    */
   private loadSensitiveDirectories(): string[] {
     try {
-      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
       const blacklist = permission?.customRules?.directoryRules?.blacklist;
       if (blacklist && blacklist.length > 0) {
         const userDirs = blacklist
           .map((r) => r.path)
           .filter((p: string) => p.startsWith('/'));
-        return loadRules(DEFAULT_SENSITIVE_DIRECTORIES, userDirs.length > 0 ? userDirs : undefined);
+        return loadRules(
+          DEFAULT_SENSITIVE_DIRECTORIES,
+          userDirs.length > 0 ? userDirs : undefined
+        );
       }
     } catch {
       // config 系统未初始化时静默降级
@@ -184,7 +191,8 @@ export class BashSecurityAnalyzer {
     ]);
 
     try {
-      const permission = configManager.getConfigValue<PermissionConfig>('permission');
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
       const rules = permission?.customRules?.commandRules;
       if (rules?.blacklist && rules.blacklist.length > 0) {
         for (const rule of rules.blacklist) {

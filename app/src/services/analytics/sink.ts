@@ -92,7 +92,8 @@ export function initializeAnalyticsSink(options?: {
   type?: 'console' | 'file';
   flushPath?: string;
 }): void {
-  const type = options?.type || configManager.env('ANALYTICS_SINK_TYPE') || 'console';
+  const type =
+    options?.type || configManager.env('ANALYTICS_SINK_TYPE') || 'console';
 
   let sink: AnalyticsSink;
   switch (type) {

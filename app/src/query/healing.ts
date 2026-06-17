@@ -31,7 +31,10 @@
  * 借鉴: DeepSeek-Reasonix src/loop/healing.ts
  */
 
-import { shrinkOversizedToolResults, shrinkOversizedToolCallArgs } from './shrink';
+import {
+  shrinkOversizedToolResults,
+  shrinkOversizedToolCallArgs,
+} from './shrink';
 import type { ToolCall, ChatMessage } from '../tools/repair/types';
 
 let _stampSeq = 0;
@@ -39,7 +42,7 @@ let _stampSeq = 0;
 /** 为缺少 id 的 tool_calls 生成回退 ID — DeepSeek 拒绝无 id 的调用 */
 function stampMissingIds(calls: ToolCall[]): ToolCall[] {
   return calls.map((c) =>
-    c.id ? c : { ...c, id: `z-ext-${Date.now()}-${_stampSeq++}` },
+    c.id ? c : { ...c, id: `z-ext-${Date.now()}-${_stampSeq++}` }
   );
 }
 
@@ -60,7 +63,11 @@ export function fixToolCallPairing(messages: ChatMessage[]): {
   let droppedStrayTools = 0;
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i]!;
-    if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+    if (
+      msg.role === 'assistant' &&
+      Array.isArray(msg.tool_calls) &&
+      msg.tool_calls.length > 0
+    ) {
       // 补全缺失 ID
       const calls = stampMissingIds(msg.tool_calls);
       const needed = new Set<string>();
@@ -103,12 +110,19 @@ export function fixToolCallPairing(messages: ChatMessage[]): {
  */
 export function healLoadedMessages(
   messages: ChatMessage[],
-  maxChars: number,
+  maxChars: number
 ): { messages: ChatMessage[]; healedCount: number; healedFrom: number } {
   const shrunk = shrinkOversizedToolResults(messages, maxChars);
   const paired = fixToolCallPairing(shrunk.messages);
-  const healedCount = shrunk.healedCount + paired.droppedAssistantCalls + paired.droppedStrayTools;
-  return { messages: paired.messages, healedCount, healedFrom: shrunk.healedFrom };
+  const healedCount =
+    shrunk.healedCount +
+    paired.droppedAssistantCalls +
+    paired.droppedStrayTools;
+  return {
+    messages: paired.messages,
+    healedCount,
+    healedFrom: shrunk.healedFrom,
+  };
 }
 
 /**
@@ -116,7 +130,7 @@ export function healLoadedMessages(
  */
 export function healLoadedMessagesFull(
   messages: ChatMessage[],
-  maxChars: number,
+  maxChars: number
 ): {
   messages: ChatMessage[];
   healedCount: number;
@@ -143,7 +157,7 @@ export function healLoadedMessagesFull(
  */
 export function stampMissingReasoningForThinkingMode(
   messages: ChatMessage[],
-  isThinkingModel: boolean,
+  isThinkingModel: boolean
 ): { messages: ChatMessage[]; stampedCount: number } {
   if (!isThinkingModel) {
     return { messages, stampedCount: 0 };

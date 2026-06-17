@@ -58,7 +58,7 @@ export class StormBreaker {
     windowSize = 6,
     threshold = 3,
     isMutating?: IsMutating,
-    isStormExempt?: IsStormExempt,
+    isStormExempt?: IsStormExempt
   ) {
     this.windowSize = windowSize;
     this.threshold = threshold;
@@ -87,7 +87,7 @@ export class StormBreaker {
 
     const count = this.recent.reduce(
       (n, e) => (e.name === name && e.args === args ? n + 1 : n),
-      0,
+      0
     );
     if (count >= this.threshold - 1) {
       return {

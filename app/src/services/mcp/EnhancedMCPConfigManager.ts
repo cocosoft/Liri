@@ -47,7 +47,10 @@ export class EnhancedMCPConfigManager {
       this.configs = configs;
       return configs;
     } catch (error) {
-      await handleError(error, { module: 'services:mcp:config', action: 'load_configs' });
+      await handleError(error, {
+        module: 'services:mcp:config',
+        action: 'load_configs',
+      });
       return {};
     }
   }
@@ -101,7 +104,11 @@ export class EnhancedMCPConfigManager {
             } as ScopedMcpServerConfig;
           }
         } catch (error) {
-          void handleError(error, { module: 'services:mcp:config', action: 'parse_env', context: { key } });
+          void handleError(error, {
+            module: 'services:mcp:config',
+            action: 'parse_env',
+            context: { key },
+          });
         }
       }
     }
@@ -135,7 +142,11 @@ export class EnhancedMCPConfigManager {
 
       return scopedConfigs;
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:config', action: 'load_file', context: { configPath: path } });
+      void handleError(error, {
+        module: 'services:mcp:config',
+        action: 'load_file',
+        context: { configPath: path },
+      });
       return {};
     }
   }
@@ -176,7 +187,10 @@ export class EnhancedMCPConfigManager {
       );
       // 这里可以触发配置更新事件
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:config', action: 'reload_configs' });
+      void handleError(error, {
+        module: 'services:mcp:config',
+        action: 'reload_configs',
+      });
     }
   }
 
@@ -208,7 +222,10 @@ export class EnhancedMCPConfigManager {
    * @param name 服务器名称
    * @param config 服务器配置
    */
-  addDiscoveredServer(name: string, config: Partial<ScopedMcpServerConfig>): void {
+  addDiscoveredServer(
+    name: string,
+    config: Partial<ScopedMcpServerConfig>
+  ): void {
     if (!this.configs[name]) {
       const scopedConfig: ScopedMcpServerConfig = {
         ...config,
@@ -295,7 +312,10 @@ export class EnhancedMCPConfigManager {
       logger.info(`Saved MCP server config: ${name} to ${configPath}`);
       return true;
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:config', action: 'save_server_config' });
+      void handleError(error, {
+        module: 'services:mcp:config',
+        action: 'save_server_config',
+      });
       return false;
     }
   }
@@ -313,7 +333,10 @@ export class EnhancedMCPConfigManager {
       const config = JSON.parse(content);
       return config.mcpServers || {};
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:config', action: 'read_mcp_config' });
+      void handleError(error, {
+        module: 'services:mcp:config',
+        action: 'read_mcp_config',
+      });
       return {};
     }
   }
@@ -336,7 +359,10 @@ export class EnhancedMCPConfigManager {
       fullConfig.mcpServers = servers;
       fs.writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:config', action: 'write_mcp_config' });
+      void handleError(error, {
+        module: 'services:mcp:config',
+        action: 'write_mcp_config',
+      });
     }
   }
 
@@ -359,7 +385,10 @@ export class EnhancedMCPConfigManager {
           }
         }
       } catch (error) {
-        void handleError(error, { module: 'services:mcp:config', action: 'parse_env_servers' });
+        void handleError(error, {
+          module: 'services:mcp:config',
+          action: 'parse_env_servers',
+        });
       }
     }
 

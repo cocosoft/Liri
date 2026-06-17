@@ -179,9 +179,12 @@ export class CronScheduler {
       const now = Date.now();
       const interruptedReason = 'cron: job interrupted by gateway restart';
 
-      logger.warning(`[CronScheduler] 发现 ${runningJobs.length} 个中断作业，执行恢复`, {
-        jobIds: runningJobs.map((j) => j.id),
-      });
+      logger.warning(
+        `[CronScheduler] 发现 ${runningJobs.length} 个中断作业，执行恢复`,
+        {
+          jobIds: runningJobs.map((j) => j.id),
+        }
+      );
 
       for (const job of runningJobs) {
         try {
@@ -517,7 +520,15 @@ export class CronScheduler {
         nextRunAtMs = new Date(nextRun).getTime();
       }
       await this.runLog
-        .recordRun(job, result, startTime, nextRunAtMs, undefined, job.sessionKey, deliveryError)
+        .recordRun(
+          job,
+          result,
+          startTime,
+          nextRunAtMs,
+          undefined,
+          job.sessionKey,
+          deliveryError
+        )
         .catch((logErr) => {
           logger.warning('[CronScheduler] 记录运行日志失败', {
             jobId: job.id,
@@ -581,7 +592,11 @@ export class CronScheduler {
         nextRunMs = new Date(cronNextRun).getTime();
 
         // 错峰执行：对整点表达式基于 jobId 哈希分配偏移
-        const staggerWindowMs = resolveCronStaggerMs(expr, job.id, job.schedule.staggerMs as number | undefined);
+        const staggerWindowMs = resolveCronStaggerMs(
+          expr,
+          job.id,
+          job.schedule.staggerMs as number | undefined
+        );
         if (staggerWindowMs > 0) {
           const offset = resolveStaggerOffsetMs(job.id, staggerWindowMs);
           nextRunMs += offset;

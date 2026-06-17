@@ -62,5 +62,3 @@ export interface LSPTool {
    */
   restartServer(): Promise<void>;
 }
-
-

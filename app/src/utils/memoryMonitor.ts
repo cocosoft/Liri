@@ -335,7 +335,9 @@ export class ResourceManager {
               result
                 .then(() => resolve())
                 .catch((error) => {
-                  logger.error('Failed to cleanup resource: ' + String(error), { name });
+                  logger.error('Failed to cleanup resource: ' + String(error), {
+                    name,
+                  });
                   resolve();
                 });
             } else {

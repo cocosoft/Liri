@@ -32,9 +32,9 @@ export const EFFORT_TO_BUDGET: Record<ThinkingEffort, number> = {
  * 根据模型能力动态放大 thinking budget，充分发挥高端模型潜力
  */
 export const MODEL_BUDGET_MULTIPLIERS: Record<string, number> = {
-  'claude-opus-4': 2.0,       // effort=high → 64K
-  'claude-sonnet-4': 1.5,     // effort=high → 48K
-  'claude-3.5-sonnet': 1.0,   // 32K（与当前 high 值一致）
+  'claude-opus-4': 2.0, // effort=high → 64K
+  'claude-sonnet-4': 1.5, // effort=high → 48K
+  'claude-3.5-sonnet': 1.0, // 32K（与当前 high 值一致）
 };
 
 /**
@@ -57,7 +57,8 @@ export function buildThinkingConfig(
   // 有 model 时使用模型感知的动态 budget 计算
   const budgetTokens = model
     ? getThinkingBudgetForModel(model, options.effort, options.budgetTokens)
-    : (options.budgetTokens ?? EFFORT_TO_BUDGET[options.effort ?? DEFAULT_THINKING_EFFORT]);
+    : (options.budgetTokens ??
+      EFFORT_TO_BUDGET[options.effort ?? DEFAULT_THINKING_EFFORT]);
 
   return {
     type: 'enabled',
@@ -136,14 +137,18 @@ export function getThinkingBudgetForModel(
 
   // 根据模型型号动态计算 budget
   const canonicalModel = model.toLowerCase();
-  const multiplier = Object.entries(MODEL_BUDGET_MULTIPLIERS)
-    .find(([key]) => canonicalModel.includes(key))?.[1] ?? 1.0;
+  const multiplier =
+    Object.entries(MODEL_BUDGET_MULTIPLIERS).find(([key]) =>
+      canonicalModel.includes(key)
+    )?.[1] ?? 1.0;
 
   const computed = Math.floor(base * multiplier);
 
   // 应用硬上限
-  const maxBudget = Object.entries(MAX_BUDGET_PER_MODEL)
-    .find(([key]) => canonicalModel.includes(key))?.[1] ?? 64000;
+  const maxBudget =
+    Object.entries(MAX_BUDGET_PER_MODEL).find(([key]) =>
+      canonicalModel.includes(key)
+    )?.[1] ?? 64000;
 
   return Math.min(computed, maxBudget);
 }
@@ -179,8 +184,7 @@ export const ADAPTIVE_EFFORT_MAP: Record<string, string> = {
   minimal: 'low',
 };
 
-export const ANTHROPIC_OUTPUT_LIMITS: Record<string, number> = {
-};
+export const ANTHROPIC_OUTPUT_LIMITS: Record<string, number> = {};
 
 export function resolveAnthropicMaxTokens(model: string): number {
   const normalized = model.toLowerCase().replace(/_/g, '-');

@@ -318,7 +318,8 @@ export async function init(): Promise<void> {
           getCoreAPI();
 
           // Gateway 旧通道止血开关：设置 GATEWAY_LEGACY_DISABLED=true 可禁用旧 Gateway 系统
-          const gatewayLegacyDisabled = configManager.env('GATEWAY_LEGACY_DISABLED') === 'true';
+          const gatewayLegacyDisabled =
+            configManager.env('GATEWAY_LEGACY_DISABLED') === 'true';
 
           if (!gatewayLegacyDisabled) {
             // 预创建 ChannelManager 单例
@@ -610,16 +611,19 @@ async function startDeferredPrefetches(): Promise<void> {
           }
 
           // 注册定时清理（每 6 小时）
-          setInterval(async () => {
-            try {
-              const cleaned = await memoryManager.cleanupExpiredMemories();
-              if (cleaned > 0) {
-                logger.info(`定时清理了 ${cleaned} 条过期记忆`);
+          setInterval(
+            async () => {
+              try {
+                const cleaned = await memoryManager.cleanupExpiredMemories();
+                if (cleaned > 0) {
+                  logger.info(`定时清理了 ${cleaned} 条过期记忆`);
+                }
+              } catch (error) {
+                logger.warning('定时清理过期记忆失败', { error });
               }
-            } catch (error) {
-              logger.warning('定时清理过期记忆失败', { error });
-            }
-          }, 6 * 60 * 60 * 1000);
+            },
+            6 * 60 * 60 * 1000
+          );
 
           // 检查旧目录残留记忆文件（问题 2）
           try {
@@ -630,7 +634,9 @@ async function startDeferredPrefetches(): Promise<void> {
             const legacyDir = join(resolveDataDir(), 'pyapp', 'data', 'memory');
             if (existsSync(legacyDir)) {
               const legacyFiles = await readdir(legacyDir);
-              const mdFiles = legacyFiles.filter((f: string) => f.endsWith('.md'));
+              const mdFiles = legacyFiles.filter((f: string) =>
+                f.endsWith('.md')
+              );
               if (mdFiles.length > 0) {
                 logger.warning(`发现 ${mdFiles.length} 个旧目录残留记忆文件`, {
                   legacyDir,
@@ -722,7 +728,8 @@ async function startDeferredPrefetches(): Promise<void> {
       // 初始化内置技能（BundledSkillLoader → SkillRegistry 注册）
       (async () => {
         try {
-          const { initBuiltinSkills } = await import('../constants/systemPromptSections.js');
+          const { initBuiltinSkills } =
+            await import('../constants/systemPromptSections.js');
           await initBuiltinSkills();
           logger.info('内置技能初始化完成');
         } catch (error) {
@@ -733,8 +740,10 @@ async function startDeferredPrefetches(): Promise<void> {
       // 初始化技能生命周期（辅助组件 DB 持久化 + 事件订阅）
       (async () => {
         try {
-          const { skillRegistry } = await import('../constants/systemPromptSections.js');
-          const { getSkillDB, initializeSkillLifecycle } = await import('../skills/persistence/index.js');
+          const { skillRegistry } =
+            await import('../constants/systemPromptSections.js');
+          const { getSkillDB, initializeSkillLifecycle } =
+            await import('../skills/persistence/index.js');
           const skillDB = getSkillDB();
           await initializeSkillLifecycle(skillRegistry, skillDB);
           logger.info('技能生命周期初始化完成');
@@ -746,9 +755,12 @@ async function startDeferredPrefetches(): Promise<void> {
       // 注册第三方适配器（ClawHubAdapter → ThirdPartyAdapterRegistry）
       (async () => {
         try {
-          const { ClawHubAdapter } = await import('../skills/loaders/adapter/clawhub/ClawHubAdapter.js');
-          const { thirdPartyAdapterRegistry, getSkillHub } = await import('../skills/index.js');
-          const { skillRegistry } = await import('../constants/systemPromptSections.js');
+          const { ClawHubAdapter } =
+            await import('../skills/loaders/adapter/clawhub/ClawHubAdapter.js');
+          const { thirdPartyAdapterRegistry, getSkillHub } =
+            await import('../skills/index.js');
+          const { skillRegistry } =
+            await import('../constants/systemPromptSections.js');
           const adapter = ClawHubAdapter.getInstance();
           await adapter.initialize();
           // 注入 SkillRegistry 引用，使安装/卸载操作同步通知 Registry

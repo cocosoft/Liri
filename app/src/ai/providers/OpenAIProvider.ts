@@ -31,17 +31,18 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
-import type { ProviderConfig, ProviderValidationResult, ThinkingProviderChunk } from './AIProvider';
+import type {
+  ProviderConfig,
+  ProviderValidationResult,
+  ThinkingProviderChunk,
+} from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import {
-  BaseAIProvider,
-  type BaseProviderOptions,
-} from './BaseAIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -58,14 +59,22 @@ export class OpenAIProvider extends BaseAIProvider {
    * @param options - 基础选项（providerId, displayName, defaultBaseUrl, envApiKey, defaultModel 等）
    * @param _extraConfig - 扩展配置（保留接口一致）
    */
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     super(options, _extraConfig);
 
     this.apiKey = this.resolveApiKey() || '';
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
 
     if (!this.transport) {
-      this.transport = new TransportProviderAdapter(new ChatCompletionsTransport());
+      this.transport = new TransportProviderAdapter(
+        new ChatCompletionsTransport()
+      );
     }
   }
 
@@ -109,7 +118,9 @@ export class OpenAIProvider extends BaseAIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
+      return this.transport!.toChatResponse(
+        this.transport!.normalizeResponse(data)
+      );
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -212,7 +223,9 @@ export class OpenAIProvider extends BaseAIProvider {
             const delta = choice?.delta as Record<string, unknown> | undefined;
 
             // 处理推理内容（OpenAI o1/o3 的 reasoning_content 字段）
-            const reasoningContent = delta?.['reasoning_content'] as string | undefined;
+            const reasoningContent = delta?.['reasoning_content'] as
+              | string
+              | undefined;
             if (reasoningContent) {
               yield { type: 'thinking', content: reasoningContent };
             }

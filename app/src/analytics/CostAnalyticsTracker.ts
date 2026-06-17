@@ -150,7 +150,13 @@ export class CostAnalyticsTracker {
 
     // 无配置时回退到 ModelPricing 统一定价
     if (!pricing) {
-      return calculateModelCost(model, usage.inputTokens, usage.outputTokens, usage.cacheReadInputTokens, usage.cacheCreationInputTokens);
+      return calculateModelCost(
+        model,
+        usage.inputTokens,
+        usage.outputTokens,
+        usage.cacheReadInputTokens,
+        usage.cacheCreationInputTokens
+      );
     }
 
     let inputCost: number;

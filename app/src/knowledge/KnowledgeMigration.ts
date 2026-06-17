@@ -7,10 +7,7 @@ import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
-import {
-  resolvePyappHome,
-  resolveKnowledgeBaseDir,
-} from '@modules/core/paths';
+import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -95,7 +92,11 @@ export async function migrateKnowledgeBase(): Promise<MigrationResult> {
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       result.errors.push(`${file}: ${errMsg}`);
-      await handleError(error, { module: 'knowledge:migration', action: 'migrate_document', context: { file: oldFile } });
+      await handleError(error, {
+        module: 'knowledge:migration',
+        action: 'migrate_document',
+        context: { file: oldFile },
+      });
     }
   }
 

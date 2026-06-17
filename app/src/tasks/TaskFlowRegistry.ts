@@ -159,7 +159,10 @@ export class TaskFlowRegistry {
    * 按 flowId + 调用方 ownerKey 获取流记录。
    * 如果调用方不是该 flow 的 owner，返回 undefined。
    */
-  getFlowByIdForOwner(flowId: string, callerOwnerKey: string): TaskFlowRecord | undefined {
+  getFlowByIdForOwner(
+    flowId: string,
+    callerOwnerKey: string
+  ): TaskFlowRecord | undefined {
     const flow = this.flows.get(flowId);
     if (!flow) return undefined;
     if (flow.ownerKey !== callerOwnerKey) return undefined;
@@ -172,7 +175,7 @@ export class TaskFlowRegistry {
    */
   ensureOwnerAccess(
     flowId: string,
-    callerOwnerKey: string,
+    callerOwnerKey: string
   ): { ok: true; flow: TaskFlowRecord } | { ok: false } {
     const flow = this.getFlowByIdForOwner(flowId, callerOwnerKey);
     if (!flow) return { ok: false };

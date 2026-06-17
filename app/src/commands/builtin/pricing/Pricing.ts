@@ -186,9 +186,8 @@ async function handleSync(commandArgs: string): Promise<CommandResult> {
   }
 
   try {
-    const { modelPricingService } = await import(
-      '@modules/ai/models/ModelPricingService.js'
-    );
+    const { modelPricingService } =
+      await import('@modules/ai/models/ModelPricingService.js');
     await modelPricingService.initialize();
     const count = await modelPricingService.reSeedFromYaml();
     return {

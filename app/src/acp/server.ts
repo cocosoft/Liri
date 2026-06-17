@@ -29,4 +29,7 @@
 export { AcpGateway, createAcpGateway } from './AcpGateway.js';
 export type { AgentSideConnection, GatewayClient } from './AcpGateway.js';
 
-export { AcpWebSocketServer, createAcpWebSocketServer } from './AcpWebSocketServer.js';
+export {
+  AcpWebSocketServer,
+  createAcpWebSocketServer,
+} from './AcpWebSocketServer.js';

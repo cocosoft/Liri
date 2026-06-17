@@ -14,7 +14,7 @@ export interface Task<T = unknown> {
   priority: TaskPriority;
   execute: (
     signal: AbortSignal,
-    onProgress: (pct: number) => void,
+    onProgress: (pct: number) => void
   ) => Promise<T>;
   timeout?: number;
   retryCount?: number;

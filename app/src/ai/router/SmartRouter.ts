@@ -109,7 +109,10 @@ export class SmartRouter {
       options.config.judge,
       options.cloudJudgeProvider
     );
-    this.tierResolver = new TierResolver(options.config, options.providerRegistry);
+    this.tierResolver = new TierResolver(
+      options.config,
+      options.providerRegistry
+    );
     this.sessionStore = options.sessionStore ?? null;
     this.modelRouter = ModelRouter.getInstance();
     this.adaptiveRouter = new AdaptiveRouter(options.config);
@@ -127,7 +130,10 @@ export class SmartRouter {
     this.orchEngine = new OrchEngine(
       this.taskDecomposer,
       async (msg, opts) => {
-        return this.decide(msg, opts?.sessionId, { skipJudge: opts?.skipJudge, tierHint: opts?.tierHint });
+        return this.decide(msg, opts?.sessionId, {
+          skipJudge: opts?.skipJudge,
+          tierHint: opts?.tierHint,
+        });
       },
       async (decision, msg) => {
         // 由 execute() 使用的 executeFn 占位 — 外部应优先调用 orchestrate()
@@ -338,9 +344,7 @@ export class SmartRouter {
    * 编排复杂任务（Phase 3）
    * 当任务需要分解时自动分解并编排执行
    */
-  async orchestrate(
-    message: string
-  ): Promise<OrchResult> {
+  async orchestrate(message: string): Promise<OrchResult> {
     return this.orchEngine.orchestrate(message);
   }
 
@@ -355,7 +359,10 @@ export class SmartRouter {
   /**
    * 关闭时回退到 ModelRouter 静态路由
    */
-  private fallbackToModelRouter(message: string, reason: string): RouteDecision {
+  private fallbackToModelRouter(
+    message: string,
+    reason: string
+  ): RouteDecision {
     const taskType = this.inferTaskType(message);
     const model = this.modelRouter.resolve(taskType);
 
@@ -371,7 +378,9 @@ export class SmartRouter {
   /**
    * 尝试从会话黏性获取上次决策
    */
-  private async trySessionSticky(sessionId: string): Promise<RouteDecision | null> {
+  private async trySessionSticky(
+    sessionId: string
+  ): Promise<RouteDecision | null> {
     if (!this.sessionStore) return null;
 
     try {
@@ -422,13 +431,13 @@ export class SmartRouter {
     const lower = message.toLowerCase();
 
     if (
-      /code|function|class|implement|refactor|debug|fix|error|bug|test/.test(lower)
+      /code|function|class|implement|refactor|debug|fix|error|bug|test/.test(
+        lower
+      )
     ) {
       return 'coding';
     }
-    if (
-      /hello|hi|你好|嗨|weather|time|date/.test(lower)
-    ) {
+    if (/hello|hi|你好|嗨|weather|time|date/.test(lower)) {
       return 'quick';
     }
 

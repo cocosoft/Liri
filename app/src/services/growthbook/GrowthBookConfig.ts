@@ -27,7 +27,8 @@ export interface GrowthBookConfig {
 }
 
 export const DEFAULT_GROWTHBOOK_CONFIG: GrowthBookConfig = {
-  apiHost: configManager.env('GROWTHBOOK_API_HOST') || 'https://cdn.growthbook.io',
+  apiHost:
+    configManager.env('GROWTHBOOK_API_HOST') || 'https://cdn.growthbook.io',
   clientKey: configManager.env('GROWTHBOOK_CLIENT_KEY') || '',
   enabled: configManager.env('GROWTHBOOK_ENABLED') !== 'false',
   remoteEval: true,

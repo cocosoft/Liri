@@ -1,6 +1,6 @@
 /**
  * PipelineBuilder + 中间件适配器
- * 
+ *
  * 将现有 5 层管理器适配为 ToolMiddleware 接口，按工具标签自动路由。
  * 快速通道（readOnly 工具）：SecurityCheck + Permission → 直接执行
  * 完整通道（write/destructive 工具）：全部中间件
@@ -17,9 +17,7 @@ import {
   type PipelineConfig,
   MiddlewareGroup,
 } from './types';
-import {
-  preExecutionCheck,
-} from '@modules/security/securityUtils';
+import { preExecutionCheck } from '@modules/security/securityUtils';
 
 // ── 中间件注册表 ─────────────────────────────────────────────────────
 
@@ -29,7 +27,10 @@ const middlewareRegistry = new Map<MiddlewareGroup, ToolMiddleware>();
 /**
  * 注册中间件实例
  */
-export function registerMiddleware(group: MiddlewareGroup, middleware: ToolMiddleware): void {
+export function registerMiddleware(
+  group: MiddlewareGroup,
+  middleware: ToolMiddleware
+): void {
   middlewareRegistry.set(group, middleware);
 }
 
@@ -56,9 +57,7 @@ export function hasMiddleware(group: MiddlewareGroup): boolean {
 const securityMiddleware: ToolMiddleware = {
   name: 'SecurityCheck',
   before: async (ctx: PipelineContext): Promise<MiddlewareResult> => {
-    const check = preExecutionCheck(ctx.tool.name, [
-      JSON.stringify(ctx.input),
-    ]);
+    const check = preExecutionCheck(ctx.tool.name, [JSON.stringify(ctx.input)]);
     if (!check.safe) {
       return { continue: false, error: check.warnings.join('; ') };
     }
@@ -73,16 +72,19 @@ registerMiddleware(MiddlewareGroup.SECURITY, securityMiddleware);
 
 /**
  * 根据工具属性自动决定所需中间件组
- * 
+ *
  * 规则：
  * 1. readOnly + !destructive → 快速通道：SECURITY + PERMISSION + VALIDATION
  * 2. destructive → 完整通道：所有中间件
  * 3. 默认 → 完整通道
  */
-function resolveMiddlewareGroups(tool: Tool, config?: PipelineConfig): MiddlewareGroup[] {
+function resolveMiddlewareGroups(
+  tool: Tool,
+  config?: PipelineConfig
+): MiddlewareGroup[] {
   // 显式声明优先级最高
   if (config?.middlewares) {
-    return config.middlewares.filter(g => !config.exclude?.includes(g));
+    return config.middlewares.filter((g) => !config.exclude?.includes(g));
   }
 
   const isReadOnly = tool.isReadOnly() && !tool.isDestructive?.();
@@ -95,7 +97,7 @@ function resolveMiddlewareGroups(tool: Tool, config?: PipelineConfig): Middlewar
       MiddlewareGroup.VALIDATION,
     ];
     return config?.exclude
-      ? groups.filter(g => !config.exclude!.includes(g))
+      ? groups.filter((g) => !config.exclude!.includes(g))
       : groups;
   }
 
@@ -112,7 +114,7 @@ function resolveMiddlewareGroups(tool: Tool, config?: PipelineConfig): Middlewar
   ];
 
   return config?.exclude
-    ? groups.filter(g => !config.exclude!.includes(g))
+    ? groups.filter((g) => !config.exclude!.includes(g))
     : groups;
 }
 
@@ -120,12 +122,15 @@ function resolveMiddlewareGroups(tool: Tool, config?: PipelineConfig): Middlewar
 
 /**
  * 创建 Pipeline 执行函数
- * 
+ *
  * 注：executeFn 由外部注入（来自 ToolExecutor 的 tool.execute），
  * 因为实际执行逻辑与中间件解耦。
  */
 export function createPipelineExecutor(
-  executeFn: (input: Record<string, unknown>, context: ToolUseContext) => Promise<ToolResult>
+  executeFn: (
+    input: Record<string, unknown>,
+    context: ToolUseContext
+  ) => Promise<ToolResult>
 ) {
   /**
    * 通过 Pipeline 执行工具
@@ -170,10 +175,12 @@ export function createPipelineExecutor(
           return mwResult.result;
         }
         return createToolResult(null, {
-          newMessages: [{
-            role: 'system',
-            content: mwResult.error || 'Execution blocked by middleware',
-          }],
+          newMessages: [
+            {
+              role: 'system',
+              content: mwResult.error || 'Execution blocked by middleware',
+            },
+          ],
         });
       }
     }
@@ -216,7 +223,7 @@ export interface BenchmarkResult {
 
 /**
  * 对工具执行进行基准测试（不改任何逻辑，仅测量）
- * 
+ *
  * @param label 测试标签
  * @param executeFn 执行函数
  * @param iterations 迭代次数
@@ -243,7 +250,7 @@ export async function benchmark(
     records.push(r);
   }
 
-  const durations = records.map(r => r.durationMs).sort((a, b) => a - b);
+  const durations = records.map((r) => r.durationMs).sort((a, b) => a - b);
   const avgMs = durations.reduce((s, v) => s + v, 0) / durations.length;
   const p50Ms = durations[Math.floor(durations.length * 0.5)];
   const p90Ms = durations[Math.floor(durations.length * 0.9)];

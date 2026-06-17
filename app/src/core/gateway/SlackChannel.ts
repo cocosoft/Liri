@@ -266,7 +266,10 @@ export class SlackChannel implements GatewayChannel, ChannelPlugin {
       try {
         await this.pollEvents();
       } catch (error) {
-        await handleError(error, { module: 'gateway:slack', action: 'poll_events' });
+        await handleError(error, {
+          module: 'gateway:slack',
+          action: 'poll_events',
+        });
         this._stats.errors++;
       }
     }, 3000);

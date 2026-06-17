@@ -31,7 +31,10 @@
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { chunkDirectory } from './chunker';
 import type { CodeChunk, ChunkOptions } from './chunker';
-import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
+import {
+  EmbeddingManager,
+  globalEmbeddingManager,
+} from '@modules/ai/embedding/EmbeddingManager';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry, IndexMeta } from './store';
 import { resolveDataSubDir } from '@modules/core/paths';
@@ -153,7 +156,10 @@ export class IndexBuilder {
             embeddings.push(null);
           }
         } catch (err) {
-          logger.warn('Embedding failed for chunk', { index: i, error: String(err) });
+          logger.warn('Embedding failed for chunk', {
+            index: i,
+            error: String(err),
+          });
           embeddings.push(null);
         }
 
@@ -229,17 +235,27 @@ export class IndexBuilder {
   /**
    * 检查本地嵌入提供者是否可用
    */
-  async checkOllama(_baseUrl?: string): Promise<{ ok: boolean; models: string[]; error?: string }> {
+  async checkOllama(
+    _baseUrl?: string
+  ): Promise<{ ok: boolean; models: string[]; error?: string }> {
     const provider = globalEmbeddingManager.getProvider('local');
     if (!provider) {
-      return { ok: false, models: [], error: 'Local embedding provider not registered' };
+      return {
+        ok: false,
+        models: [],
+        error: 'Local embedding provider not registered',
+      };
     }
 
     const available = await provider.isAvailable();
     if (available) {
       return { ok: true, models: [] };
     }
-    return { ok: false, models: [], error: 'Local embedding provider not available' };
+    return {
+      ok: false,
+      models: [],
+      error: 'Local embedding provider not available',
+    };
   }
 }
 

@@ -37,7 +37,10 @@ import { join, dirname } from 'path';
 import { load } from 'js-yaml';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
-import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core/paths';
+import {
+  resolveKnowledgeDir,
+  resolveDomainSchemaDir,
+} from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -214,7 +217,10 @@ export class SchemaLoader {
       }
       logger.info(`已加载 ${map.size} 个实体类型定义`);
     } catch (err) {
-      await handleError(err, { module: 'knowledge:schema', action: 'load_entity_schemas' });
+      await handleError(err, {
+        module: 'knowledge:schema',
+        action: 'load_entity_schemas',
+      });
     }
 
     return map;
@@ -246,7 +252,10 @@ export class SchemaLoader {
       }
       logger.info(`已加载 ${map.size} 个关系类型定义`);
     } catch (err) {
-      void handleError(err, { module: 'knowledge:schema', action: 'load_edge_schemas' });
+      void handleError(err, {
+        module: 'knowledge:schema',
+        action: 'load_edge_schemas',
+      });
     }
 
     return map;
@@ -273,7 +282,10 @@ export class SchemaLoader {
       logger.info(`已加载 ${doc.xref.length} 个链接契约`);
       return doc.xref as XrefRule[];
     } catch (err) {
-      await handleError(err, { module: 'knowledge:schema', action: 'load_xref' });
+      await handleError(err, {
+        module: 'knowledge:schema',
+        action: 'load_xref',
+      });
       return [];
     }
   }
@@ -301,7 +313,10 @@ export class SchemaLoader {
       const value = data[fieldName];
 
       // 必填字段检查
-      if (fieldDef.required && (value === undefined || value === null || value === '')) {
+      if (
+        fieldDef.required &&
+        (value === undefined || value === null || value === '')
+      ) {
         errors.push(`${kind}.${fieldName}: 必填字段缺失`);
         continue;
       }
@@ -309,7 +324,9 @@ export class SchemaLoader {
       // 类型检查（有值时）
       if (value !== undefined && value !== null) {
         if (!this.checkType(value, fieldDef.type)) {
-          errors.push(`${kind}.${fieldName}: 类型不匹配，期望 ${fieldDef.type}`);
+          errors.push(
+            `${kind}.${fieldName}: 类型不匹配，期望 ${fieldDef.type}`
+          );
         }
       }
     }
@@ -331,7 +348,9 @@ export class SchemaLoader {
       case 'array':
         return Array.isArray(value);
       case 'object':
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
+        return (
+          typeof value === 'object' && value !== null && !Array.isArray(value)
+        );
       case 'date':
         return value instanceof Date || !isNaN(Date.parse(String(value)));
       default:

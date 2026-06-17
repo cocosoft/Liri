@@ -41,18 +41,18 @@ export interface ConfigReviewTarget {
 
 export interface ExtendedReviewResult {
   files?: {
-    stale: FileReviewTarget[];       // 过期文件
-    large: FileReviewTarget[];       // 大文件
+    stale: FileReviewTarget[]; // 过期文件
+    large: FileReviewTarget[]; // 大文件
     unreferenced: FileReviewTarget[]; // 未被引用的文件
     totalScanned: number;
   };
   memories?: {
-    stale: MemoryReviewTarget[];     // 过期记忆
-    redundant: MemoryReviewTarget[];  // 重复记忆
+    stale: MemoryReviewTarget[]; // 过期记忆
+    redundant: MemoryReviewTarget[]; // 重复记忆
     totalScanned: number;
   };
   configs?: {
-    deprecated: ConfigReviewTarget[];  // 废弃配置
+    deprecated: ConfigReviewTarget[]; // 废弃配置
     securityWarnings: ConfigReviewTarget[]; // 安全警告
     totalScanned: number;
   };
@@ -77,9 +77,7 @@ export interface CuratorScopeConfig {
 const DEFAULT_SCOPE_CONFIG: CuratorScopeConfig = {
   fileMaxAgeDays: 90,
   fileLargeThresholdBytes: 10 * 1024 * 1024, // 10MB
-  fileScanDirs: [
-    resolvePyappHome(),
-  ],
+  fileScanDirs: [resolvePyappHome()],
   memoryMaxAgeDays: 60,
   memoryDedupThreshold: 0.8,
   configSecurityCheck: true,
@@ -129,14 +127,19 @@ export class CuratorReviewScope {
     return targets;
   }
 
-  private _scanDir(dir: string, targets: FileReviewTarget[], now: number): void {
+  private _scanDir(
+    dir: string,
+    targets: FileReviewTarget[],
+    now: number
+  ): void {
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
       try {
         if (entry.isDirectory()) {
           // 跳过 node_modules / .git 等
-          if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          if (entry.name.startsWith('.') || entry.name === 'node_modules')
+            continue;
           this._scanDir(fullPath, targets, now);
         } else if (entry.isFile()) {
           const stat = statSync(fullPath);
@@ -175,13 +178,18 @@ export class CuratorReviewScope {
     return targets.sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, 20);
   }
 
-  private _scanLargeFiles(dir: string, targets: FileReviewTarget[], now: number): void {
+  private _scanLargeFiles(
+    dir: string,
+    targets: FileReviewTarget[],
+    now: number
+  ): void {
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
       try {
         if (entry.isDirectory()) {
-          if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          if (entry.name.startsWith('.') || entry.name === 'node_modules')
+            continue;
           this._scanLargeFiles(fullPath, targets, now);
         } else if (entry.isFile()) {
           const stat = statSync(fullPath);
@@ -201,7 +209,13 @@ export class CuratorReviewScope {
   }
 
   /** 审查记忆列表 */
-  reviewMemories(memories: Array<{ key: string; lastAccessedAt?: number; accessCount?: number }>): MemoryReviewTarget[] {
+  reviewMemories(
+    memories: Array<{
+      key: string;
+      lastAccessedAt?: number;
+      accessCount?: number;
+    }>
+  ): MemoryReviewTarget[] {
     const now = Date.now();
     const targets: MemoryReviewTarget[] = [];
 
@@ -244,7 +258,10 @@ export class CuratorReviewScope {
         });
       }
 
-      if (this.config.configSecurityCheck && SECURITY_CONFIG_KEYS.has(keyLower)) {
+      if (
+        this.config.configSecurityCheck &&
+        SECURITY_CONFIG_KEYS.has(keyLower)
+      ) {
         securityWarnings.push({
           key,
           value: '***',
@@ -260,7 +277,11 @@ export class CuratorReviewScope {
 
   /** 执行完整审查并生成报告 */
   async runFullReview(params?: {
-    memories?: Array<{ key: string; lastAccessedAt?: number; accessCount?: number }>;
+    memories?: Array<{
+      key: string;
+      lastAccessedAt?: number;
+      accessCount?: number;
+    }>;
     configs?: Record<string, unknown>;
   }): Promise<ExtendedReviewResult> {
     const files = this.scanStaleFiles();
@@ -281,14 +302,18 @@ export class CuratorReviewScope {
 
     const summaryParts: string[] = [];
     if (files.length > 0) summaryParts.push(`${files.length} 个过期文件`);
-    if (largeFiles.length > 0) summaryParts.push(`${largeFiles.length} 个大文件`);
+    if (largeFiles.length > 0)
+      summaryParts.push(`${largeFiles.length} 个大文件`);
     if (memories.length > 0) summaryParts.push(`${memories.length} 条过期记忆`);
-    if (deprecated.length > 0) summaryParts.push(`${deprecated.length} 项废弃配置`);
-    if (securityWarnings.length > 0) summaryParts.push(`${securityWarnings.length} 项安全警告`);
+    if (deprecated.length > 0)
+      summaryParts.push(`${deprecated.length} 项废弃配置`);
+    if (securityWarnings.length > 0)
+      summaryParts.push(`${securityWarnings.length} 项安全警告`);
 
-    const summary = summaryParts.length > 0
-      ? `审查完成: ${summaryParts.join(', ')}`
-      : '审查完成: 未发现问题';
+    const summary =
+      summaryParts.length > 0
+        ? `审查完成: ${summaryParts.join(', ')}`
+        : '审查完成: 未发现问题';
 
     return {
       files: {
@@ -297,16 +322,22 @@ export class CuratorReviewScope {
         unreferenced: [],
         totalScanned: files.length + largeFiles.length,
       },
-      memories: memories.length > 0 ? {
-        stale: memories,
-        redundant: [],
-        totalScanned: memories.length,
-      } : undefined,
-      configs: (deprecated.length > 0 || securityWarnings.length > 0) ? {
-        deprecated,
-        securityWarnings,
-        totalScanned: deprecated.length + securityWarnings.length,
-      } : undefined,
+      memories:
+        memories.length > 0
+          ? {
+              stale: memories,
+              redundant: [],
+              totalScanned: memories.length,
+            }
+          : undefined,
+      configs:
+        deprecated.length > 0 || securityWarnings.length > 0
+          ? {
+              deprecated,
+              securityWarnings,
+              totalScanned: deprecated.length + securityWarnings.length,
+            }
+          : undefined,
       summary,
     };
   }

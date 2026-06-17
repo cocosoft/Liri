@@ -47,7 +47,7 @@ export interface ReasoningPruneResult {
  * - 仅处理最后一个 user 消息之后的 assistant 消息
  */
 export function stripDroppableReasoningContent(
-  messages: ChatMessage[],
+  messages: ChatMessage[]
 ): ReasoningPruneResult {
   // 找到最后一个 user 消息的位置
   let lastUser = -1;
@@ -80,9 +80,10 @@ export function stripDroppableReasoningContent(
 
     if (next === null) next = messages.slice();
 
-    const { reasoning_content: dropped, ...replacement } = msg as ChatMessage & {
-      reasoning_content?: string;
-    };
+    const { reasoning_content: dropped, ...replacement } =
+      msg as ChatMessage & {
+        reasoning_content?: string;
+      };
     if (typeof dropped === 'string') charsDropped += dropped.length;
     next[i] = replacement;
     prunedCount += 1;
@@ -101,7 +102,10 @@ export function stripDroppableReasoningContent(
 export function countReasoningChars(messages: ChatMessage[]): number {
   let total = 0;
   for (const msg of messages) {
-    if ('reasoning_content' in msg && typeof msg.reasoning_content === 'string') {
+    if (
+      'reasoning_content' in msg &&
+      typeof msg.reasoning_content === 'string'
+    ) {
       total += (msg.reasoning_content as string).length;
     }
   }

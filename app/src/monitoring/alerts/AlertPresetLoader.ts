@@ -16,7 +16,10 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:alert_preset' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'monitoring:alert_preset',
+});
 
 /**
  * 预置加载结果
@@ -77,7 +80,8 @@ export class AlertPresetLoader {
 
     const presetsDir = this.config.presetsDir;
     if (!presetsDir || !fs.existsSync(presetsDir)) {
-      const projectRoot = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
+      const projectRoot =
+        configManager.env('LIRI_PROJECT_DIR') || process.cwd();
       const fallbackDir = path.join(
         projectRoot,
         'app',
@@ -140,7 +144,11 @@ export class AlertPresetLoader {
         )
         .map((entry) => path.join(dir, entry.name));
     } catch (error) {
-      void handleError(error, { module: 'monitoring:alerts', action: 'scan_preset_files', context: { directory: dir } });
+      void handleError(error, {
+        module: 'monitoring:alerts',
+        action: 'scan_preset_files',
+        context: { directory: dir },
+      });
       return [];
     }
   }

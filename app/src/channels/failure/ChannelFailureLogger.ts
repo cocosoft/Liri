@@ -97,7 +97,12 @@ export function writeChannelFailureLog(record: ChannelFailureRecord): void {
  * 从 AppError 构建失败日志记录
  */
 export function buildFailureRecord(
-  error: Error & { code?: string; category?: string; severity?: string; stack?: string },
+  error: Error & {
+    code?: string;
+    category?: string;
+    severity?: string;
+    stack?: string;
+  },
   channelInfo: {
     messageId?: string;
     channelName: string;

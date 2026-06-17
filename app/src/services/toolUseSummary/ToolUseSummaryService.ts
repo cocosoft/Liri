@@ -91,7 +91,10 @@ export class ToolUseSummaryService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      await handleError(error, { module: 'services:toolUseSummary', action: 'generate_summary' });
+      await handleError(error, {
+        module: 'services:toolUseSummary',
+        action: 'generate_summary',
+      });
       return null;
     }
   }

@@ -110,7 +110,9 @@ export class SecurityConfigManager {
     if (auditLogFile) {
       this.config.securityAuditLogFile = auditLogFile;
     }
-    const auditRetentionDays = configManager.env('SECURITY_AUDIT_RETENTION_DAYS');
+    const auditRetentionDays = configManager.env(
+      'SECURITY_AUDIT_RETENTION_DAYS'
+    );
     if (auditRetentionDays) {
       this.config.securityAuditRetentionDays = parseInt(auditRetentionDays);
     }
@@ -124,15 +126,21 @@ export class SecurityConfigManager {
     }
 
     // 安全功能配置
-    const inputValidation = configManager.env('SECURITY_INPUT_VALIDATION_ENABLED');
+    const inputValidation = configManager.env(
+      'SECURITY_INPUT_VALIDATION_ENABLED'
+    );
     if (inputValidation) {
       this.config.securityInputValidationEnabled = inputValidation === 'true';
     }
-    const outputEncoding = configManager.env('SECURITY_OUTPUT_ENCODING_ENABLED');
+    const outputEncoding = configManager.env(
+      'SECURITY_OUTPUT_ENCODING_ENABLED'
+    );
     if (outputEncoding) {
       this.config.securityOutputEncodingEnabled = outputEncoding === 'true';
     }
-    const dangerousCommand = configManager.env('SECURITY_DANGEROUS_COMMAND_CHECK');
+    const dangerousCommand = configManager.env(
+      'SECURITY_DANGEROUS_COMMAND_CHECK'
+    );
     if (dangerousCommand) {
       this.config.securityDangerousCommandCheck = dangerousCommand === 'true';
     }
@@ -144,13 +152,19 @@ export class SecurityConfigManager {
     if (xssProtection) {
       this.config.securityXssProtectionEnabled = xssProtection === 'true';
     }
-    const unicodeSanitization = configManager.env('SECURITY_UNICODE_SANITIZATION_ENABLED');
+    const unicodeSanitization = configManager.env(
+      'SECURITY_UNICODE_SANITIZATION_ENABLED'
+    );
     if (unicodeSanitization) {
-      this.config.securityUnicodeSanitizationEnabled = unicodeSanitization === 'true';
+      this.config.securityUnicodeSanitizationEnabled =
+        unicodeSanitization === 'true';
     }
-    const permissionEnforcement = configManager.env('SECURITY_PERMISSION_ENFORCEMENT');
+    const permissionEnforcement = configManager.env(
+      'SECURITY_PERMISSION_ENFORCEMENT'
+    );
     if (permissionEnforcement) {
-      this.config.securityPermissionEnforcement = permissionEnforcement === 'true';
+      this.config.securityPermissionEnforcement =
+        permissionEnforcement === 'true';
     }
 
     // 安全限制配置
@@ -158,7 +172,9 @@ export class SecurityConfigManager {
     if (maxInputLength) {
       this.config.securityMaxInputLength = parseInt(maxInputLength);
     }
-    const maxFilePathLength = configManager.env('SECURITY_MAX_FILE_PATH_LENGTH');
+    const maxFilePathLength = configManager.env(
+      'SECURITY_MAX_FILE_PATH_LENGTH'
+    );
     if (maxFilePathLength) {
       this.config.securityMaxFilePathLength = parseInt(maxFilePathLength);
     }

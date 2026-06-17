@@ -33,12 +33,16 @@
  * 更名为 ActiveModelService 以消除与 AIProvider 的歧义。
  */
 
-import { modelPricingService, type ModelPricingRecord } from './ModelPricingService.js';
+import {
+  modelPricingService,
+  type ModelPricingRecord,
+} from './ModelPricingService.js';
 
 const CACHE_TTL_MS = 30_000;
 
 class ActiveModelService {
-  private cache: { models: ModelPricingRecord[]; timestamp: number } | null = null;
+  private cache: { models: ModelPricingRecord[]; timestamp: number } | null =
+    null;
 
   /** 获取所有启用模型的 ModelPricingRecord 列表 */
   async getActiveModels(): Promise<ModelPricingRecord[]> {
@@ -76,7 +80,7 @@ class ActiveModelService {
    */
   async getEffectiveModel(
     preferredModel?: string,
-    preferredProvider?: string,
+    preferredProvider?: string
   ): Promise<string | null> {
     const active = await this.getActiveModels();
     if (!active.length) return null;
@@ -88,7 +92,9 @@ class ActiveModelService {
 
     // 2. 指定 provider 的第一个启用模型
     if (preferredProvider) {
-      const byProvider = active.filter((m) => m.providerId === preferredProvider);
+      const byProvider = active.filter(
+        (m) => m.providerId === preferredProvider
+      );
       if (byProvider.length) return byProvider[0].modelId;
     }
 
@@ -97,7 +103,9 @@ class ActiveModelService {
   }
 
   /** 获取指定 provider 的启用模型 */
-  async getActiveModelsByProvider(providerId: string): Promise<ModelPricingRecord[]> {
+  async getActiveModelsByProvider(
+    providerId: string
+  ): Promise<ModelPricingRecord[]> {
     const all = await this.getActiveModels();
     return all.filter((m) => m.providerId === providerId);
   }

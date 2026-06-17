@@ -194,7 +194,11 @@ function compileRule(rule: SecretRule): RegExp {
     compiledRules.set(rule.id, regex);
     return regex;
   } catch (error) {
-    void handleError(error, { module: 'memory:secret', action: 'compile_rule', context: { ruleId: rule.id } });
+    void handleError(error, {
+      module: 'memory:secret',
+      action: 'compile_rule',
+      context: { ruleId: rule.id },
+    });
     return /\b(?!)\b/; // 空规则
   }
 }

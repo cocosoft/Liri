@@ -459,4 +459,3 @@ export function getQueryLogStore(): QueryLogStore {
 export function resetQueryLogStore(): void {
   globalQueryLogStore = null;
 }
-

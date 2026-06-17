@@ -19,8 +19,13 @@ export const DEFAULT_DATADOG_CONFIG: DatadogConfig = {
   serviceName: configManager.env('DD_SERVICE') || 'Liri',
   env: configManager.env('DD_ENV') || 'production',
   version: configManager.env('DD_VERSION') || '1.0.0',
-  enabled: configManager.env('DD_ENABLED') === 'true' || !!configManager.env('DD_API_KEY'),
-  flushInterval: parseInt(configManager.env('DD_FLUSH_INTERVAL') || '10000', 10),
+  enabled:
+    configManager.env('DD_ENABLED') === 'true' ||
+    !!configManager.env('DD_API_KEY'),
+  flushInterval: parseInt(
+    configManager.env('DD_FLUSH_INTERVAL') || '10000',
+    10
+  ),
   batchSize: parseInt(configManager.env('DD_BATCH_SIZE') || '100', 10),
 };
 
@@ -60,7 +65,9 @@ export class DatadogMetricsClient {
   constructor(config?: Partial<DatadogConfig>) {
     this.config = { ...DEFAULT_DATADOG_CONFIG, ...config };
     this.hostname =
-      configManager.env('HOSTNAME') || configManager.env('COMPUTERNAME') || 'unknown';
+      configManager.env('HOSTNAME') ||
+      configManager.env('COMPUTERNAME') ||
+      'unknown';
   }
 
   get isEnabled(): boolean {

@@ -39,7 +39,14 @@ import type {
 } from './types';
 import { AgentEventType } from './types';
 
-export { AgentEventType, type EventPriority, type AgentEvent, type EventSubscription, type EventHandler, type EventStats } from './types';
+export {
+  AgentEventType,
+  type EventPriority,
+  type AgentEvent,
+  type EventSubscription,
+  type EventHandler,
+  type EventStats,
+} from './types';
 export { SSEEncoder } from './SSEEncoder';
 export type { SSEFrame } from './SSEEncoder';
 

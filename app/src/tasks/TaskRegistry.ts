@@ -494,7 +494,7 @@ export class TaskRegistry {
     taskId: string,
     eventType: string,
     oldStatus: TaskStatus | undefined,
-    newStatus: TaskStatus,
+    newStatus: TaskStatus
   ): Promise<void> {
     const entry = {
       taskId,
@@ -530,13 +530,15 @@ export class TaskRegistry {
   /**
    * 查询指定任务的审计日志
    */
-  async getAuditLogs(taskId: string): Promise<Array<{
-    taskId: string;
-    eventType: string;
-    oldStatus: string | null;
-    newStatus: string;
-    timestamp: number;
-  }>> {
+  async getAuditLogs(taskId: string): Promise<
+    Array<{
+      taskId: string;
+      eventType: string;
+      oldStatus: string | null;
+      newStatus: string;
+      timestamp: number;
+    }>
+  > {
     if (this.sqliteStore) {
       return this.sqliteStore.queryAuditLogs(taskId);
     }
@@ -555,12 +557,22 @@ export class TaskRegistry {
     const lostIds: string[] = [];
 
     for (const task of running) {
-      const lastTime = this.lastProgressTime.get(task.id) ?? task.taskState.startTime;
+      const lastTime =
+        this.lastProgressTime.get(task.id) ?? task.taskState.startTime;
       if (now - lastTime > LOST_TIMEOUT_MS) {
         const taskId = task.id;
         await task.kill();
-        task['updateState']?.({ status: TaskStatus.LOST, endTime: now, error: 'Task lost: no progress update for 30 minutes' });
-        this.writeAuditLog(taskId, 'lost_detected', TaskStatus.RUNNING, TaskStatus.LOST);
+        task['updateState']?.({
+          status: TaskStatus.LOST,
+          endTime: now,
+          error: 'Task lost: no progress update for 30 minutes',
+        });
+        this.writeAuditLog(
+          taskId,
+          'lost_detected',
+          TaskStatus.RUNNING,
+          TaskStatus.LOST
+        );
         lostIds.push(taskId);
         logger.warn('Task marked as LOST', { taskId, idleMs: now - lastTime });
       }
@@ -576,9 +588,18 @@ export class TaskRegistry {
     const task = this.tasks.get(taskId);
     if (!task || task.status !== TaskStatus.LOST) return false;
 
-    task['updateState']?.({ status: TaskStatus.PENDING, endTime: undefined, error: undefined });
+    task['updateState']?.({
+      status: TaskStatus.PENDING,
+      endTime: undefined,
+      error: undefined,
+    });
     this.lastProgressTime.set(taskId, Date.now());
-    this.writeAuditLog(taskId, 'recovered', TaskStatus.LOST, TaskStatus.PENDING);
+    this.writeAuditLog(
+      taskId,
+      'recovered',
+      TaskStatus.LOST,
+      TaskStatus.PENDING
+    );
     return true;
   }
 

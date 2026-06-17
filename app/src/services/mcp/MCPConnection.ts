@@ -9,11 +9,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO });
-import {
-  MCPServerConfig,
-  MCPToolDefinition,
-  MCPServerStatus,
-} from './types';
+import { MCPServerConfig, MCPToolDefinition, MCPServerStatus } from './types';
 import { TransportFactory } from './TransportFactory';
 import { MCPTransport } from './transports/MCPTransport';
 import { mcpAuthManager } from './auth/MCPAuth';
@@ -72,7 +68,11 @@ export class MCPConnection {
     } catch (error) {
       this.status = MCPServerStatus.ERROR;
       this.error = error instanceof Error ? error.message : String(error);
-      await handleError(error, { module: 'services:mcp:connection', action: 'connect', context: { serverName: this.name } });
+      await handleError(error, {
+        module: 'services:mcp:connection',
+        action: 'connect',
+        context: { serverName: this.name },
+      });
 
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.scheduleReconnect();
@@ -104,7 +104,11 @@ export class MCPConnection {
         `OAuth authentication successful for MCP server: ${this.name}`
       );
     } catch (error) {
-      await handleError(error, { module: 'services:mcp:connection', action: 'oauth', context: { serverName: this.name } });
+      await handleError(error, {
+        module: 'services:mcp:connection',
+        action: 'oauth',
+        context: { serverName: this.name },
+      });
       throw error;
     }
   }
@@ -147,7 +151,11 @@ export class MCPConnection {
           logger.info(`Successfully reconnected to MCP server: ${this.name}`);
         }
       } catch (error) {
-        void handleError(error, { module: 'services:mcp:connection', action: 'reconnect', context: { serverName: this.name } });
+        void handleError(error, {
+          module: 'services:mcp:connection',
+          action: 'reconnect',
+          context: { serverName: this.name },
+        });
       }
     }, delay);
   }
@@ -344,7 +352,11 @@ export class MCPConnection {
           result.set(connection.getName(), tools);
         }
       } catch (error) {
-        await handleError(error, { module: 'services:mcp:connection', action: 'batch_refresh_tools', context: { serverName: connection.getName() } });
+        await handleError(error, {
+          module: 'services:mcp:connection',
+          action: 'batch_refresh_tools',
+          context: { serverName: connection.getName() },
+        });
       }
     });
 

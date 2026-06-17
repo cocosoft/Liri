@@ -133,7 +133,10 @@ export class GatewayConfigManager {
       try {
         listener(this.config);
       } catch (err) {
-        void handleError(err, { module: 'core:gateway', action: 'catch_error' });
+        void handleError(err, {
+          module: 'core:gateway',
+          action: 'catch_error',
+        });
       }
     }
   }

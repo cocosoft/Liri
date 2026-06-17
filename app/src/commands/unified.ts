@@ -6,9 +6,7 @@
  *
  * 用法：import { commandRegistry, CommandExecutor, AdvancedCommandHistory } from '@modules/commands';
  */
-export {
-  commandRegistry,
-} from './registry/index.js';
+export { commandRegistry } from './registry/index.js';
 export { CommandExecutor, commandExecutor } from './executor/index.js';
 export {
   CommandPipeline,

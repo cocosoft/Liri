@@ -682,7 +682,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
         // 异步下载图片（不阻塞消息处理）
         this.downloadFeishuImage(imageKey, baseMessage).catch((err) => {
-          this.logger.error('飞书图片下载失败', { imageKey, error: String(err) });
+          this.logger.error('飞书图片下载失败', {
+            imageKey,
+            error: String(err),
+          });
         });
 
         return {
@@ -694,12 +697,17 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
       if (msgType === 'file') {
         const fileKey = String(contentObj['file_key'] || '');
-        const fileName = String(contentObj['file_name'] || `feishu_file_${fileKey}`);
+        const fileName = String(
+          contentObj['file_name'] || `feishu_file_${fileKey}`
+        );
         if (!fileKey) return null;
 
         // 异步下载文件（不阻塞消息处理）
         this.downloadFeishuFile(fileKey, fileName, baseMessage).catch((err) => {
-          this.logger.error('飞书文件下载失败', { fileKey, error: String(err) });
+          this.logger.error('飞书文件下载失败', {
+            fileKey,
+            error: String(err),
+          });
         });
 
         return {
@@ -743,7 +751,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     );
 
     if (!resp.ok) {
-      this.logger.error('飞书图片下载请求失败', { imageKey, status: resp.status });
+      this.logger.error('飞书图片下载请求失败', {
+        imageKey,
+        status: resp.status,
+      });
       return;
     }
 
@@ -786,7 +797,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     );
 
     if (!resp.ok) {
-      this.logger.error('飞书文件下载请求失败', { fileKey, status: resp.status });
+      this.logger.error('飞书文件下载请求失败', {
+        fileKey,
+        status: resp.status,
+      });
       return;
     }
 

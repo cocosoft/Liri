@@ -147,7 +147,12 @@ export class KnowledgeGraph {
    * Domain-First: 新增 domain 列，通过 ALTER TABLE 迁移已有数据
    */
   private async createTables(): Promise<void> {
-    if (!this.db) throw new AppError('数据库未初始化', ErrorCategory.DATABASE, ErrorSeverity.HIGH);
+    if (!this.db)
+      throw new AppError(
+        '数据库未初始化',
+        ErrorCategory.DATABASE,
+        ErrorSeverity.HIGH
+      );
 
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
@@ -164,20 +169,36 @@ export class KnowledgeGraph {
             updated_at  INTEGER NOT NULL
           )`,
           (err: Error | null) => {
-            if (err) { reject(err); return; }
+            if (err) {
+              reject(err);
+              return;
+            }
 
             // 并行创建索引
-            this!.db!.run(`CREATE INDEX IF NOT EXISTS idx_kg_from ON ${KG_EDGES_TABLE}(from_id)`);
-            this!.db!.run(`CREATE INDEX IF NOT EXISTS idx_kg_to ON ${KG_EDGES_TABLE}(to_id)`);
-            this!.db!.run(`CREATE INDEX IF NOT EXISTS idx_kg_type ON ${KG_EDGES_TABLE}(edge_type)`);
-            this!.db!.run(`CREATE INDEX IF NOT EXISTS idx_kg_domain ON ${KG_EDGES_TABLE}(domain)`);
+            this!.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_kg_from ON ${KG_EDGES_TABLE}(from_id)`
+            );
+            this!.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_kg_to ON ${KG_EDGES_TABLE}(to_id)`
+            );
+            this!.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_kg_type ON ${KG_EDGES_TABLE}(edge_type)`
+            );
+            this!.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_kg_domain ON ${KG_EDGES_TABLE}(domain)`
+            );
 
             // 迁移：为旧表添加 domain 列（若不存在）
             this!.db!.run(
               `ALTER TABLE ${KG_EDGES_TABLE} ADD COLUMN domain TEXT DEFAULT ''`,
               (alterErr) => {
-                if (alterErr && !alterErr.message.includes('duplicate column')) {
-                  logger.warning('添加 domain 列失败（非致命，可能已存在）', { error: alterErr.message });
+                if (
+                  alterErr &&
+                  !alterErr.message.includes('duplicate column')
+                ) {
+                  logger.warning('添加 domain 列失败（非致命，可能已存在）', {
+                    error: alterErr.message,
+                  });
                 }
               }
             );
@@ -289,7 +310,10 @@ export class KnowledgeGraph {
         `SELECT * FROM ${KG_EDGES_TABLE} WHERE edge_id = ?`,
         [id],
         (err, row: any) => {
-          if (err) { reject(err); return; }
+          if (err) {
+            reject(err);
+            return;
+          }
           resolve(row ? this.rowToEdge(row) : null);
         }
       );
@@ -327,7 +351,11 @@ export class KnowledgeGraph {
 
     // 按实体 ID + 方向过滤
     if (filters.entityId) {
-      if (filters.direction === 'outgoing' || !filters.direction || filters.direction === 'both') {
+      if (
+        filters.direction === 'outgoing' ||
+        !filters.direction ||
+        filters.direction === 'both'
+      ) {
         conditions.push('from_id = ?');
         params.push(filters.entityId);
       }
@@ -361,9 +389,8 @@ export class KnowledgeGraph {
       params.push(filters.domain);
     }
 
-    const whereClause = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const limitClause = filters.limit ? `LIMIT ${filters.limit}` : '';
 
@@ -371,7 +398,10 @@ export class KnowledgeGraph {
 
     return new Promise((resolve, reject) => {
       this.db!.all(sql, params, (err, rows: any[]) => {
-        if (err) { reject(err); return; }
+        if (err) {
+          reject(err);
+          return;
+        }
         resolve(rows.map((r) => this.rowToEdge(r)));
       });
     });
@@ -461,9 +491,10 @@ export class KnowledgeGraph {
       type: row.edge_type,
       direction: row.direction as 'directed' | 'symmetric',
       domain: row.domain || undefined,
-      attributes: typeof row.attributes === 'string'
-        ? JSON.parse(row.attributes)
-        : (row.attributes ?? {}),
+      attributes:
+        typeof row.attributes === 'string'
+          ? JSON.parse(row.attributes)
+          : (row.attributes ?? {}),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -487,7 +518,9 @@ export class KnowledgeGraph {
    * @example parseEntityId('botany:species:venus_flytrap')
    *   → { domain: 'botany', kind: 'species', slug: 'venus_flytrap' }
    */
-  static parseEntityId(entityId: string): { domain: string; kind: string; slug: string } | null {
+  static parseEntityId(
+    entityId: string
+  ): { domain: string; kind: string; slug: string } | null {
     const parts = entityId.split(':');
     if (parts.length < 3) return null;
     return {
@@ -505,7 +538,10 @@ export class KnowledgeGraph {
    * @param domain 可选，限缩到特定域
    * @returns 删除的悬挂边数量
    */
-  async cleanupOrphans(validEntityIds: Set<string>, domain?: string): Promise<number> {
+  async cleanupOrphans(
+    validEntityIds: Set<string>,
+    domain?: string
+  ): Promise<number> {
     if (!this.db) await this.init();
 
     const conditions: string[] = [];
@@ -517,15 +553,26 @@ export class KnowledgeGraph {
       params.push(domain);
     }
 
-    const wherePrefix = conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')} AND`
-      : 'WHERE';
+    const wherePrefix =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')} AND` : 'WHERE';
 
-    const sql = `SELECT edge_id, from_id, to_id FROM ${KG_EDGES_TABLE} ${wherePrefix} (from_id NOT IN (${Array.from(validEntityIds).map(() => '?').join(',')}) OR to_id NOT IN (${Array.from(validEntityIds).map(() => '?').join(',')}))`;
+    const sql = `SELECT edge_id, from_id, to_id FROM ${KG_EDGES_TABLE} ${wherePrefix} (from_id NOT IN (${Array.from(
+      validEntityIds
+    )
+      .map(() => '?')
+      .join(',')}) OR to_id NOT IN (${Array.from(validEntityIds)
+      .map(() => '?')
+      .join(',')}))`;
 
-    const allParams = [...params, ...Array.from(validEntityIds), ...Array.from(validEntityIds)];
+    const allParams = [
+      ...params,
+      ...Array.from(validEntityIds),
+      ...Array.from(validEntityIds),
+    ];
 
-    const orphans = await new Promise<Array<{ edge_id: string; from_id: string; to_id: string }>>((resolve, reject) => {
+    const orphans = await new Promise<
+      Array<{ edge_id: string; from_id: string; to_id: string }>
+    >((resolve, reject) => {
       this.db!.all(sql, allParams, (err, rows: any[]) => {
         if (err) reject(err);
         else resolve(rows ?? []);
@@ -549,8 +596,10 @@ export class KnowledgeGraph {
       });
     });
 
-    logger.info('清理悬挂边', { count: orphanIds.length, domain: domain || 'all' });
+    logger.info('清理悬挂边', {
+      count: orphanIds.length,
+      domain: domain || 'all',
+    });
     return orphanIds.length;
   }
 }
-

@@ -23,7 +23,8 @@ export class CronListTool {
       execute: async (_input, _context) => {
         const startTime = Date.now();
         try {
-          const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
+          const { CronJobStore } =
+            await import('@modules/tasks/cron/CronJobStore');
           const { resolveDbPath } = await import('@modules/core/paths');
           const store = new CronJobStore(resolveDbPath());
           await store.init();
@@ -43,37 +44,61 @@ export class CronListTool {
           }));
 
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
-          const output = list.length === 0
-            ? 'No scheduled tasks.'
-            : list.map((j) => {
-                const status = j.enabled
-                  ? j.state === 'running' ? ' [running]' : ' [active]'
-                  : ' [disabled]';
-                const next = j.nextRunAt
-                  ? ` | next: ${new Date(j.nextRunAt).toLocaleString()}`
-                  : '';
-                const silent = j.silent ? ' (silent)' : '';
-                return `${j.id}: "${j.name}" — ${j.schedule}${status}${next}${silent}\n  ${j.prompt}`;
-              }).join('\n\n');
+          const output =
+            list.length === 0
+              ? 'No scheduled tasks.'
+              : list
+                  .map((j) => {
+                    const status = j.enabled
+                      ? j.state === 'running'
+                        ? ' [running]'
+                        : ' [active]'
+                      : ' [disabled]';
+                    const next = j.nextRunAt
+                      ? ` | next: ${new Date(j.nextRunAt).toLocaleString()}`
+                      : '';
+                    const silent = j.silent ? ' (silent)' : '';
+                    return `${j.id}: "${j.name}" — ${j.schedule}${status}${next}${silent}\n  ${j.prompt}`;
+                  })
+                  .join('\n\n');
 
           return ToolUtils.createSuccessResult(
             { jobs: list, count: list.length },
-            { executionTime, output, toolName: 'cron_list', executionId: ToolUtils.generateExecutionId('cron_list'), timestamp: Date.now() }
+            {
+              executionTime,
+              output,
+              toolName: 'cron_list',
+              executionId: ToolUtils.generateExecutionId('cron_list'),
+              timestamp: Date.now(),
+            }
           );
         } catch (error) {
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
           return ToolUtils.createFailureResult(
             error instanceof Error ? error.message : 'Unknown error',
-            { executionTime, errorOutput: error instanceof Error ? error.stack || '' : '', toolName: 'cron_list', executionId: ToolUtils.generateExecutionId('cron_list'), timestamp: Date.now() }
+            {
+              executionTime,
+              errorOutput: error instanceof Error ? error.stack || '' : '',
+              toolName: 'cron_list',
+              executionId: ToolUtils.generateExecutionId('cron_list'),
+              timestamp: Date.now(),
+            }
           );
         }
       },
       getInfo: function () {
         return {
-          name: this.name, description: this.description, params: this.params,
-          aliases: this.aliases, searchTips: this.searchTips,
-          enabled: true, readOnly: true, destructive: false,
-          concurrencySafe: true, deferred: false, alwaysLoad: false,
+          name: this.name,
+          description: this.description,
+          params: this.params,
+          aliases: this.aliases,
+          searchTips: this.searchTips,
+          enabled: true,
+          readOnly: true,
+          destructive: false,
+          concurrencySafe: true,
+          deferred: false,
+          alwaysLoad: false,
           interruptBehavior: 'block' as const,
         };
       },

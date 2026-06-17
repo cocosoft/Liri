@@ -185,7 +185,10 @@ export async function initializeModelManagementServices(): Promise<void> {
       init: () => usageStatsService.initialize(),
     });
   } catch (err) {
-    void handleError(err, { module: 'ai:ModelManagementBootstrap.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'ai:ModelManagementBootstrap.ts',
+      action: 'catch_error',
+    });
   }
 
   try {
@@ -196,7 +199,10 @@ export async function initializeModelManagementServices(): Promise<void> {
       init: () => modelPricingService.initialize(),
     });
   } catch (err) {
-    void handleError(err, { module: 'ai:ModelManagementBootstrap.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'ai:ModelManagementBootstrap.ts',
+      action: 'catch_error',
+    });
   }
 
   try {
@@ -207,7 +213,10 @@ export async function initializeModelManagementServices(): Promise<void> {
       init: () => appModelConfigService.initialize(),
     });
   } catch (err) {
-    void handleError(err, { module: 'ai:ModelManagementBootstrap.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'ai:ModelManagementBootstrap.ts',
+      action: 'catch_error',
+    });
   }
 
   // 逐个初始化 DB 表

@@ -20,7 +20,10 @@ import {
   createDefaultBackupManager,
 } from './backup/BackupManager.js';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:service' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'monitoring:service',
+});
 
 /**
  * 监控配置
@@ -125,7 +128,8 @@ export class MonitoringService {
    */
   private loadAlertPresets(): void {
     try {
-      const projectRoot = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
+      const projectRoot =
+        configManager.env('LIRI_PROJECT_DIR') || process.cwd();
       const presetsDir = path.join(
         projectRoot,
         'app',

@@ -68,7 +68,9 @@ export interface ExecutableImplementation {
 }
 
 /** 技能执行模型联合 */
-export type SkillImplementation = PromptImplementation | ExecutableImplementation;
+export type SkillImplementation =
+  | PromptImplementation
+  | ExecutableImplementation;
 
 // ==================== 统一 Skill 接口 ====================
 

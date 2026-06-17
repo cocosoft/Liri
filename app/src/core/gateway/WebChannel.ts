@@ -35,7 +35,10 @@ import type {
 import { handleError } from '@modules/error/handleError';
 import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channel:websocket' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'channel:websocket',
+});
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -255,7 +258,10 @@ export class WebChannel implements ChannelPlugin {
       return true;
     } catch (error) {
       this._errors++;
-      await handleError(error, { module: 'gateway:websocket', action: 'send_message' });
+      await handleError(error, {
+        module: 'gateway:websocket',
+        action: 'send_message',
+      });
       return false;
     }
   }
@@ -312,7 +318,10 @@ export class WebChannel implements ChannelPlugin {
     let successCount = 0;
 
     for (const [clientId] of this.clients) {
-      const success = await this.handleOutbound({ ...message, recipient: clientId });
+      const success = await this.handleOutbound({
+        ...message,
+        recipient: clientId,
+      });
       if (success) {
         successCount++;
       }

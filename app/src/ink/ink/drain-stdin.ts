@@ -43,12 +43,7 @@
  * 持续几毫秒到达。
  */
 
-import {
-  closeSync,
-  constants as fsConstants,
-  openSync,
-  readSync,
-} from 'fs';
+import { closeSync, constants as fsConstants, openSync, readSync } from 'fs';
 
 export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   if (!stdin.isTTY) return;
@@ -83,10 +78,18 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
     // EAGAIN, ENXIO/ENOENT, EBADF/EIO
   } finally {
     if (fd >= 0) {
-      try { closeSync(fd); } catch { /* ignore */ }
+      try {
+        closeSync(fd);
+      } catch {
+        /* ignore */
+      }
     }
     if (!wasRaw) {
-      try { tty.setRawMode?.(false); } catch { /* TTY may be gone */ }
+      try {
+        tty.setRawMode?.(false);
+      } catch {
+        /* TTY may be gone */
+      }
     }
   }
 }

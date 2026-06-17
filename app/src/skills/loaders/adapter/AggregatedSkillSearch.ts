@@ -131,7 +131,10 @@ export class AggregatedSkillSearch {
     const result = await Promise.race([
       adapter.searchSkills(query),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`搜索超时: ${adapter.name}`)), timeoutMs)
+        setTimeout(
+          () => reject(new Error(`搜索超时: ${adapter.name}`)),
+          timeoutMs
+        )
       ),
     ]);
     return result;

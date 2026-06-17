@@ -42,7 +42,11 @@ import {
   loadPolicySettings,
   isPolicySettingsAvailable,
 } from './settings/policySettings.js';
-import { resolveUserConfigPath, resolvePyappHome, ensureDir } from '@modules/core/paths';
+import {
+  resolveUserConfigPath,
+  resolvePyappHome,
+  ensureDir,
+} from '@modules/core/paths';
 import {
   setRuntimeConfigSnapshot,
   clearRuntimeConfigSnapshot,
@@ -81,7 +85,13 @@ export class ConfigMutationConflictError extends AppError {
     message: string,
     params: { expectedHash: string | null; actualHash: string | null }
   ) {
-    super(message, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH, undefined, params);
+    super(
+      message,
+      ErrorCategory.CONFIGURATION,
+      ErrorSeverity.HIGH,
+      undefined,
+      params
+    );
     this.name = 'ConfigMutationConflictError';
     this.expectedHash = params.expectedHash;
     this.actualHash = params.actualHash;
@@ -253,7 +263,10 @@ export class ConfigManager {
       this.startFreshnessWatcher();
       return config;
     } catch (error) {
-      void handleError(error, { module: 'config:manager', action: 'get_global_config' });
+      void handleError(error, {
+        module: 'config:manager',
+        action: 'get_global_config',
+      });
       // 诊断：记录调用栈
       logger.warning('getGlobalConfig catch 调用栈', {
         errorName: error instanceof Error ? error.name : typeof error,
@@ -831,10 +844,10 @@ export class ConfigManager {
 
   /**
    * 获取环境变量值（统一入口）
-   * 
+   *
    * 所有 process.env 读取应优先通过此方法访问，便于集中管理和审计。
    * 当前为轻量代理层，后续可扩展为支持默认值、类型转换、变量白名单等功能。
-   * 
+   *
    * @param name 环境变量名称
    * @param defaultValue 可选默认值
    */

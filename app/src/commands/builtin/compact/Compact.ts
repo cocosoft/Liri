@@ -59,7 +59,10 @@ export class CompactCommand implements Command {
         try {
           await contextEngine.compress([], 12000);
         } catch (_) {
-          void handleError(_, { module: 'commands:builtin', action: 'catch_error' });
+          void handleError(_, {
+            module: 'commands:builtin',
+            action: 'catch_error',
+          });
         }
       }
 

@@ -83,20 +83,25 @@ export async function setupChannelsFromConfig(): Promise<{
     },
     {
       type: 'qq',
-      enabled: !!configManager.env('QQ_APP_ID') && !!configManager.env('QQ_APP_SECRET'),
+      enabled:
+        !!configManager.env('QQ_APP_ID') &&
+        !!configManager.env('QQ_APP_SECRET'),
       importPath: '../channels/qq/QQChannel',
       exportKey: 'qqChannel',
     },
     {
       type: 'dingtalk',
       enabled:
-        !!configManager.env('DINGTALK_APP_KEY') && !!configManager.env('DINGTALK_APP_SECRET'),
+        !!configManager.env('DINGTALK_APP_KEY') &&
+        !!configManager.env('DINGTALK_APP_SECRET'),
       importPath: '../channels/dingtalk/DingTalkChannel',
       exportKey: 'dingtalkChannel',
     },
     {
       type: 'feishu',
-      enabled: !!configManager.env('FEISHU_APP_ID') && !!configManager.env('FEISHU_APP_SECRET'),
+      enabled:
+        !!configManager.env('FEISHU_APP_ID') &&
+        !!configManager.env('FEISHU_APP_SECRET'),
       importPath: '../channels/feishu/FeishuChannel',
       exportKey: 'feishuChannel',
     },
@@ -109,7 +114,8 @@ export async function setupChannelsFromConfig(): Promise<{
     {
       type: 'slack',
       enabled:
-        !!configManager.env('SLACK_BOT_TOKEN') && !!configManager.env('SLACK_SIGNING_SECRET'),
+        !!configManager.env('SLACK_BOT_TOKEN') &&
+        !!configManager.env('SLACK_SIGNING_SECRET'),
       importPath: '../channels/slack/index',
       exportKey: 'slackChannelPlugin',
     },
@@ -123,19 +129,23 @@ export async function setupChannelsFromConfig(): Promise<{
     },
     {
       type: 'irc',
-      enabled: !!configManager.env('IRC_SERVER') && !!configManager.env('IRC_NICK'),
+      enabled:
+        !!configManager.env('IRC_SERVER') && !!configManager.env('IRC_NICK'),
       importPath: '../channels/irc/index',
       exportKey: 'ircChannelPlugin',
     },
     {
       type: 'nostr',
-      enabled: !!configManager.env('NOSTR_PRIVATE_KEY') || !!configManager.env('NOSTR_RELAYS'),
+      enabled:
+        !!configManager.env('NOSTR_PRIVATE_KEY') ||
+        !!configManager.env('NOSTR_RELAYS'),
       importPath: '../channels/nostr/index',
       exportKey: 'nostrChannelPlugin',
     },
     {
       type: 'email',
-      enabled: !!configManager.env('EMAIL_HOST') && !!configManager.env('EMAIL_USER'),
+      enabled:
+        !!configManager.env('EMAIL_HOST') && !!configManager.env('EMAIL_USER'),
       importPath: '../channels/email/EmailChannel',
       exportKey: 'emailChannelPlugin',
     },
@@ -169,19 +179,24 @@ export async function setupChannelsFromConfig(): Promise<{
     {
       type: 'msteams',
       enabled:
-        !!configManager.env('MSTEAMS_BOT_ID') && !!configManager.env('MSTEAMS_BOT_PASSWORD'),
+        !!configManager.env('MSTEAMS_BOT_ID') &&
+        !!configManager.env('MSTEAMS_BOT_PASSWORD'),
       importPath: '../channels/msteams/index',
       exportKey: 'msteamsChannelPlugin',
     },
     {
       type: 'zalo',
-      enabled: !!configManager.env('ZALO_APP_ID') && !!configManager.env('ZALO_APP_SECRET'),
+      enabled:
+        !!configManager.env('ZALO_APP_ID') &&
+        !!configManager.env('ZALO_APP_SECRET'),
       importPath: '../channels/zalo/index',
       exportKey: 'zaloChannelPlugin',
     },
     {
       type: 'yuanbao',
-      enabled: !!configManager.env('YUANBAO_APP_ID') && !!configManager.env('YUANBAO_APP_KEY'),
+      enabled:
+        !!configManager.env('YUANBAO_APP_ID') &&
+        !!configManager.env('YUANBAO_APP_KEY'),
       importPath: '../channels/yuanbao/index',
       exportKey: 'yuanbaoChannelPlugin',
     },
@@ -216,27 +231,32 @@ export async function setupChannelsFromConfig(): Promise<{
     {
       type: 'twitter',
       enabled:
-        !!configManager.env('TWITTER_API_KEY') && !!configManager.env('TWITTER_API_SECRET_KEY'),
+        !!configManager.env('TWITTER_API_KEY') &&
+        !!configManager.env('TWITTER_API_SECRET_KEY'),
       importPath: '../channels/twitter/index',
       exportKey: 'twitterChannelPlugin',
     },
     {
       type: 'claude',
       enabled:
-        !!configManager.env('CLAUDE_CHANNEL_ENABLED') && !!configManager.env('CLAUDE_API_KEY'),
+        !!configManager.env('CLAUDE_CHANNEL_ENABLED') &&
+        !!configManager.env('CLAUDE_API_KEY'),
       importPath: '../channels/claude/index',
       exportKey: 'claudeChannelPlugin',
     },
     {
       type: 'mattermost',
-      enabled: !!configManager.env('MATTERMOST_URL') && !!configManager.env('MATTERMOST_TOKEN'),
+      enabled:
+        !!configManager.env('MATTERMOST_URL') &&
+        !!configManager.env('MATTERMOST_TOKEN'),
       importPath: '../channels/mattermost/MattermostChannel',
       exportKey: 'mattermostChannel',
     },
     {
       type: 'bluebubbles',
       enabled:
-        !!configManager.env('BLUEBUBBLES_URL') && !!configManager.env('BLUEBUBBLES_PASSWORD'),
+        !!configManager.env('BLUEBUBBLES_URL') &&
+        !!configManager.env('BLUEBUBBLES_PASSWORD'),
       importPath: '../channels/bluebubbles/BlueBubblesChannel',
       exportKey: 'bluebubblesChannelPlugin',
     },
@@ -262,10 +282,15 @@ export async function setupChannelsFromConfig(): Promise<{
   }
 
   // DB 来源的通道不受 MAX_CHANNELS 限制（前端显式配置的凭据 → 始终注册）
-  const MAX_CHANNELS = parseInt(configManager.env('CHANNEL_MAX_COUNT') || '10', 10);
+  const MAX_CHANNELS = parseInt(
+    configManager.env('CHANNEL_MAX_COUNT') || '10',
+    10
+  );
   const priorityStr = configManager.env('CHANNEL_PRIORITY') || '';
 
-  logger.info(`通道上限配置: ${MAX_CHANNELS} 个（可通过 CHANNEL_MAX_COUNT 环境变量调整）`);
+  logger.info(
+    `通道上限配置: ${MAX_CHANNELS} 个（可通过 CHANNEL_MAX_COUNT 环境变量调整）`
+  );
 
   // 环境变量通道按优先级选择（上限 MAX_CHANNELS）
   let selectedEnvDefs: typeof channelCandidates;
@@ -466,10 +491,13 @@ export async function lazyConnectChannels(): Promise<void> {
 
               if (plugin.outbound) {
                 try {
-                  logger.info('[TRACE] setupChannels 调用 plugin.outbound.sendText', {
-                    channelName: channel.name,
-                    target,
-                  });
+                  logger.info(
+                    '[TRACE] setupChannels 调用 plugin.outbound.sendText',
+                    {
+                      channelName: channel.name,
+                      target,
+                    }
+                  );
                   const sendResult = await plugin.outbound.sendText(
                     target,
                     content
@@ -481,23 +509,17 @@ export async function lazyConnectChannels(): Promise<void> {
                     messageId: sendResult.messageId,
                   });
                   if (!sendResult.success) {
-                    logger.warning(
-                      `通道 ${channel.name} 消息发送失败`,
-                      {
-                        target,
-                        error: sendResult.error,
-                        messageId: sendResult.messageId,
-                      }
-                    );
+                    logger.warning(`通道 ${channel.name} 消息发送失败`, {
+                      target,
+                      error: sendResult.error,
+                      messageId: sendResult.messageId,
+                    });
                   }
                 } catch (sendError) {
-                  logger.error(
-                    `通道 ${channel.name} 消息发送异常`,
-                    {
-                      target,
-                      error: String(sendError),
-                    }
-                  );
+                  logger.error(`通道 ${channel.name} 消息发送异常`, {
+                    target,
+                    error: String(sendError),
+                  });
                 }
               }
             },

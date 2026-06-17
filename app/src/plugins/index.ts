@@ -534,14 +534,22 @@ export class PluginSystem {
       id: p.id,
       name: p.name,
       version: p.version,
-      description: (p.manifest as Record<string, unknown> | undefined)
-        ?.description as string | undefined || '',
-      author: (p.manifest as Record<string, unknown> | undefined)
-        ?.author as string | undefined || 'Unknown',
-      tags: (p.manifest as Record<string, unknown> | undefined)
-        ?.tags as string[] | undefined || [],
-      category: (p.manifest as Record<string, unknown> | undefined)
-        ?.category as string | undefined || 'uncategorized',
+      description:
+        ((p.manifest as Record<string, unknown> | undefined)?.description as
+          | string
+          | undefined) || '',
+      author:
+        ((p.manifest as Record<string, unknown> | undefined)?.author as
+          | string
+          | undefined) || 'Unknown',
+      tags:
+        ((p.manifest as Record<string, unknown> | undefined)?.tags as
+          | string[]
+          | undefined) || [],
+      category:
+        ((p.manifest as Record<string, unknown> | undefined)?.category as
+          | string
+          | undefined) || 'uncategorized',
       installed: true,
       enabled: p.enabled,
       path: p.path,
@@ -551,7 +559,11 @@ export class PluginSystem {
   /**
    * 搜索插件（按名称/类别/标签）
    */
-  searchPlugins(query?: string, category?: string, tags?: string[]): PluginInfo[] {
+  searchPlugins(
+    query?: string,
+    category?: string,
+    tags?: string[]
+  ): PluginInfo[] {
     let results = this.getPluginInfoList();
 
     if (query) {

@@ -39,10 +39,7 @@ import { configManager } from '@modules/config';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import {
-  BaseAIProvider,
-  type BaseProviderOptions,
-} from './BaseAIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -59,11 +56,17 @@ export class GoogleProvider extends BaseAIProvider {
    * @param options - 基础选项
    * @param _extraConfig - 扩展配置（保留接口一致）
    */
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     super(options, _extraConfig);
 
     this.apiKey = this.resolveApiKey() || '';
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
 
     if (!this.transport) {
       this.transport = new TransportProviderAdapter(new GeminiTransport());
@@ -153,15 +156,12 @@ export class GoogleProvider extends BaseAIProvider {
 
     try {
       // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
-      const response = await BaseAIProvider.fetchWithConnectionRetry(
-        url,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(180000),
-        }
-      );
+      const response = await BaseAIProvider.fetchWithConnectionRetry(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(180000),
+      });
 
       if (!response.ok) {
         const errorBody = await response.text();

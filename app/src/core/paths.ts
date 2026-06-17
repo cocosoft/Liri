@@ -611,10 +611,12 @@ export const PROJECT_SETTINGS_PATH = resolveProjectSettingsPath();
  *
  * 仅打印 warning 不抛异常——路径错误不应阻塞启动。
  */
-export function validatePathConsistency(
-  logger?: { warn: (msg: string) => void }
-): void {
-  const log = logger ?? { warn: (msg: string) => console.warn('[路径验证]', msg) };
+export function validatePathConsistency(logger?: {
+  warn: (msg: string) => void;
+}): void {
+  const log = logger ?? {
+    warn: (msg: string) => console.warn('[路径验证]', msg),
+  };
 
   // 1. LIRI_HOME 必须已设置
   const liriHome = process.env['LIRI_HOME']?.trim();
@@ -628,7 +630,7 @@ export function validatePathConsistency(
   if (resolvedHome !== resolve(liriHome)) {
     log.warn(
       `resolvePyappHome() 返回 "${resolvedHome}" 与 LIRI_HOME="${liriHome}" 不一致。` +
-      '可能出现数据分散，请检查 setUserDataDirOverride() 调用栈'
+        '可能出现数据分散，请检查 setUserDataDirOverride() 调用栈'
     );
   }
 
@@ -638,13 +640,13 @@ export function validatePathConsistency(
   if (SOUL_PATH !== soulExpected) {
     log.warn(
       `SOUL_PATH="${SOUL_PATH}" 与预期路径 "${soulExpected}" 不一致。` +
-      'SOUL.md 应位于 LIRI_HOME 根目录（第三层）'
+        'SOUL.md 应位于 LIRI_HOME 根目录（第三层）'
     );
   }
   if (USER_PROFILE_PATH !== userExpected) {
     log.warn(
       `USER_PROFILE_PATH="${USER_PROFILE_PATH}" 与预期路径 "${userExpected}" 不一致。` +
-      'USER.md 应位于 LIRI_HOME 根目录（第三层）'
+        'USER.md 应位于 LIRI_HOME 根目录（第三层）'
     );
   }
 }

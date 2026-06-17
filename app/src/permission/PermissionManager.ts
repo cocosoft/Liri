@@ -488,7 +488,10 @@ export class PermissionManager {
         );
       }
     } catch (error) {
-      await handleError(error, { module: 'permission:manager', action: 'classifier_check' });
+      await handleError(error, {
+        module: 'permission:manager',
+        action: 'classifier_check',
+      });
       // 分类器出错时，回退到允许
       return createAllowDecision('Classifier error, default allowing');
     }

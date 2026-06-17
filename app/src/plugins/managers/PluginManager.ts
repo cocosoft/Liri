@@ -11,7 +11,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
  * 插件系统单例引用（DI 方式注入，避免循环依赖）
  */
 let _pluginSystem: {
-  loadPlugin(id: string): Promise<import('../types/PluginTypes').PluginLoadResult>;
+  loadPlugin(
+    id: string
+  ): Promise<import('../types/PluginTypes').PluginLoadResult>;
   getLoader(): {
     getAllPlugins(): LoadedPlugin[];
     getPlugin(id: string): LoadedPlugin | undefined;
@@ -30,7 +32,9 @@ export function setPluginSystem(ps: typeof _pluginSystem): void {
 
 function getPS(): NonNullable<typeof _pluginSystem> {
   if (!_pluginSystem) {
-    throw new Error('PluginSystem not initialized. Call setPluginSystem() first.');
+    throw new Error(
+      'PluginSystem not initialized. Call setPluginSystem() first.'
+    );
   }
   return _pluginSystem;
 }
@@ -72,9 +76,11 @@ export class PluginManager {
   /**
    * 加载多个插件
    */
-  public async loadPlugins(
-    pluginIds: string[]
-  ): Promise<{ enabled: LoadedPlugin[]; disabled: LoadedPlugin[]; errors: string[] }> {
+  public async loadPlugins(pluginIds: string[]): Promise<{
+    enabled: LoadedPlugin[];
+    disabled: LoadedPlugin[];
+    errors: string[];
+  }> {
     const enabled: LoadedPlugin[] = [];
     const disabled: LoadedPlugin[] = [];
 

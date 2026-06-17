@@ -25,4 +25,7 @@ export { OpenAIEmbeddingProvider } from './OpenAIEmbeddingProvider';
 export type { OpenAIEmbeddingConfig } from './OpenAIEmbeddingProvider';
 
 export { LocalEmbeddingProvider } from './LocalEmbeddingProvider';
-export type { LocalEmbeddingConfig, LocalEmbeddingBackend } from './LocalEmbeddingProvider';
+export type {
+  LocalEmbeddingConfig,
+  LocalEmbeddingBackend,
+} from './LocalEmbeddingProvider';

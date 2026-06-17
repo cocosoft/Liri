@@ -45,7 +45,9 @@ export class OpenAIEmbeddingProvider extends EmbeddingBase {
     this.modelName = config.model || 'text-embedding-3-small';
     this.dimensions = config.dimensions || 1536;
     this.baseURL =
-      config.baseURL || configManager.env('OPENAI_BASE_URL') || DEFAULT_BASE_URL;
+      config.baseURL ||
+      configManager.env('OPENAI_BASE_URL') ||
+      DEFAULT_BASE_URL;
   }
 
   /**

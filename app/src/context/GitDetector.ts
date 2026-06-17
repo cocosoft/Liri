@@ -72,7 +72,10 @@ export async function getGitInfo(
     );
     branch = result?.stdout?.trim() || null;
   } catch (err) {
-    void handleError(err, { module: 'context:GitDetector.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'context:GitDetector.ts',
+      action: 'catch_error',
+    });
   }
 
   let status: string | null = null;
@@ -86,7 +89,10 @@ export async function getGitInfo(
         ? raw.substring(0, MAX_STATUS_CHARS) + '\n...(truncated)'
         : raw || '(clean)';
   } catch (err) {
-    void handleError(err, { module: 'context:GitDetector.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'context:GitDetector.ts',
+      action: 'catch_error',
+    });
   }
 
   cachedGitInfo = { branch, status, isGit: true, root };

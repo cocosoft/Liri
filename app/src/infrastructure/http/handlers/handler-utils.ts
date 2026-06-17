@@ -44,8 +44,10 @@ const logger = new Logger({ level: LogLevel.INFO });
 // ── broadcastEvent DI ────────────────────────────────────────────
 
 /** 内部存储的 broadcastEvent 函数引用，由 setBroadcastHandler 注入 */
-let broadcastEventFn: (event: string, data?: Record<string, unknown>) => void =
-  () => {};
+let broadcastEventFn: (
+  event: string,
+  data?: Record<string, unknown>
+) => void = () => {};
 
 /**
  * 注册 broadcastEvent 实现（由 LocalHTTPService 构造函数调用）

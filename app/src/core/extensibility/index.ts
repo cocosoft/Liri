@@ -52,7 +52,11 @@ export { PluginLoader, createPluginLoader } from './PluginLoader.js';
 export { ModuleManager, createModuleManager } from './ModuleManager.js';
 
 // 配置管理
-export { MemoryConfig, ConfigManager, createConfigManager } from './ConfigManager.js';
+export {
+  MemoryConfig,
+  ConfigManager,
+  createConfigManager,
+} from './ConfigManager.js';
 
 // 事件总线
 export { EventBus, createEventBus } from './EventBus.js';
@@ -65,21 +69,16 @@ export {
 } from './ExtensibilityService.js';
 
 // 默认导出（兼容旧引用）
-import { getExtensibilityService, ExtensibilityService } from './ExtensibilityService.js';
 import {
-  PluginLoader,
-  createPluginLoader,
-} from './PluginLoader.js';
+  getExtensibilityService,
+  ExtensibilityService,
+} from './ExtensibilityService.js';
+import { PluginLoader, createPluginLoader } from './PluginLoader.js';
 import { ModuleManager, createModuleManager } from './ModuleManager.js';
 import { ConfigManager, createConfigManager } from './ConfigManager.js';
 import { EventBus, createEventBus } from './EventBus.js';
 import { extensibilityUtils } from './ExtensibilityService.js';
-import {
-  PluginState,
-  PluginType,
-  ModuleType,
-  EventType,
-} from './types.js';
+import { PluginState, PluginType, ModuleType, EventType } from './types.js';
 
 export default {
   PluginState,

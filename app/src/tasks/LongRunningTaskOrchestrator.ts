@@ -131,7 +131,9 @@ export class LongRunningTaskOrchestrator {
               { role: 'user', content: params.userPrompt },
             ],
           });
-          return typeof response === 'string' ? response : response?.content ?? '';
+          return typeof response === 'string'
+            ? response
+            : (response?.content ?? '');
         } catch (e) {
           logger.warn('AI executor failed, using mock', { error: String(e) });
           return `[模拟输出] 执行完成: ${params.userPrompt.slice(0, 100)}`;
@@ -153,7 +155,10 @@ export class LongRunningTaskOrchestrator {
 
   // ─── Phase 1: PLAN ──────────────────────────────────
 
-  async executePlanPhase(description: string, sessionId: string): Promise<Plan> {
+  async executePlanPhase(
+    description: string,
+    sessionId: string
+  ): Promise<Plan> {
     throwIfAborted(this.isolation);
     this.phase = 'plan';
     this.lifecycle.record('started', 'running' as any, 'Plan phase started');
@@ -197,11 +202,15 @@ export class LongRunningTaskOrchestrator {
       steps,
       sessionId,
       undefined,
-      acceptance,
+      acceptance
     );
 
     this.planId = plan.id;
-    this.lifecycle.record('progress', 'running' as any, `Plan created with ${steps.length} steps`);
+    this.lifecycle.record(
+      'progress',
+      'running' as any,
+      `Plan created with ${steps.length} steps`
+    );
 
     return plan;
   }
@@ -220,7 +229,11 @@ export class LongRunningTaskOrchestrator {
       if (this.isolation.abortController.signal.aborted) break;
 
       // 跳过已完成/失败/取消的步骤
-      if (step.status === 'completed' || step.status === 'failed' || step.status === 'cancelled') {
+      if (
+        step.status === 'completed' ||
+        step.status === 'failed' ||
+        step.status === 'cancelled'
+      ) {
         continue;
       }
 
@@ -235,13 +248,15 @@ export class LongRunningTaskOrchestrator {
   private async executeSingleStep(step: PlanStep, plan: Plan): Promise<void> {
     taskOrchestrator.markStepRunning(step.id);
     this.stepDurations.set(step.id, { startMs: Date.now() });
-    this.lifecycle.record('progress', 'running' as any, `Executing step: ${step.description}`);
+    this.lifecycle.record(
+      'progress',
+      'running' as any,
+      `Executing step: ${step.description}`
+    );
 
     const execPrompt = [
       `执行以下步骤: ${step.description}`,
-      step.acceptanceCriteria
-        ? `验收标准: ${step.acceptanceCriteria}`
-        : '',
+      step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
       step.reviewResult
         ? `注意: 上次审查发现以下问题，本次请修正：\n${step.reviewResult.issues.map((i) => `- ${i.description}`).join('\n')}`
         : '',
@@ -264,7 +279,7 @@ export class LongRunningTaskOrchestrator {
       this.lifecycle.record(
         'progress',
         'running' as any,
-        `Step completed: ${step.description}`,
+        `Step completed: ${step.description}`
       );
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -275,7 +290,7 @@ export class LongRunningTaskOrchestrator {
       this.lifecycle.record(
         'progress',
         'running' as any,
-        `Step failed: ${step.description} — ${errMsg}`,
+        `Step failed: ${step.description} — ${errMsg}`
       );
     }
   }
@@ -293,9 +308,7 @@ export class LongRunningTaskOrchestrator {
     const reviewPrompt = [
       `审查以下步骤的执行结果：`,
       `步骤: ${step.description}`,
-      step.acceptanceCriteria
-        ? `验收标准: ${step.acceptanceCriteria}`
-        : '',
+      step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
       `实际输出: ${step.result || '(无输出)'}`,
       `请输出 JSON 审查结果: {"pass":bool,"score":0-100,"issues":[{"severity":"critical|major|minor","description":"..."}],"summary":"..."}`,
     ].join('\n');
@@ -313,7 +326,7 @@ export class LongRunningTaskOrchestrator {
     this.lifecycle.record(
       'progress',
       'running' as any,
-      `Review: ${formatReviewSummary(review)}`,
+      `Review: ${formatReviewSummary(review)}`
     );
 
     return review;
@@ -337,10 +350,7 @@ export class LongRunningTaskOrchestrator {
 
   // ─── Phase 4: DECIDE ────────────────────────────────
 
-  async decideStep(
-    stepId: string,
-    decision: ReviewDecision,
-  ): Promise<void> {
+  async decideStep(stepId: string, decision: ReviewDecision): Promise<void> {
     throwIfAborted(this.isolation);
     if (!this.planId) throw new Error('No plan created');
 
@@ -356,7 +366,7 @@ export class LongRunningTaskOrchestrator {
         this.lifecycle.record(
           'progress',
           'running' as any,
-          `Approved: ${step.description}`,
+          `Approved: ${step.description}`
         );
         break;
 
@@ -370,7 +380,7 @@ export class LongRunningTaskOrchestrator {
           this.lifecycle.record(
             'progress',
             'running' as any,
-            `Retry limit exceeded for: ${step.description}`,
+            `Retry limit exceeded for: ${step.description}`
           );
           break;
         }
@@ -383,7 +393,7 @@ export class LongRunningTaskOrchestrator {
         this.lifecycle.record(
           'progress',
           'running' as any,
-          `Retry #${step.retryCount} for: ${step.description}`,
+          `Retry #${step.retryCount} for: ${step.description}`
         );
         break;
       }
@@ -393,7 +403,7 @@ export class LongRunningTaskOrchestrator {
         this.lifecycle.record(
           'progress',
           'running' as any,
-          `Skipped: ${step.description}`,
+          `Skipped: ${step.description}`
         );
         break;
 
@@ -402,7 +412,7 @@ export class LongRunningTaskOrchestrator {
         this.lifecycle.record(
           'progress',
           'running' as any,
-          `Escalated: ${step.description}`,
+          `Escalated: ${step.description}`
         );
         break;
     }
@@ -422,7 +432,9 @@ export class LongRunningTaskOrchestrator {
       await this.reviewStep(stepId);
     }
 
-    const isPassed = step.reviewResult ? isReviewPassed(step.reviewResult) : false;
+    const isPassed = step.reviewResult
+      ? isReviewPassed(step.reviewResult)
+      : false;
     const maxRetries = step.maxRetries ?? 3;
 
     let decision: ReviewDecision;
@@ -444,7 +456,10 @@ export class LongRunningTaskOrchestrator {
    * 运行完整 PDCA 流程：Plan → Execute → Review → Decide
    * 自动循环直到所有步骤完成或失败。
    */
-  async runFullPdca(description: string, sessionId: string): Promise<PdcaStatus> {
+  async runFullPdca(
+    description: string,
+    sessionId: string
+  ): Promise<PdcaStatus> {
     // Plan
     const plan = await this.executePlanPhase(description, sessionId);
 
@@ -464,10 +479,10 @@ export class LongRunningTaskOrchestrator {
       // 重新执行 retry 步骤
       const latestPlan = taskOrchestrator.getPlan(this.planId!)!;
       const hasRetry = latestPlan.steps.some(
-        (s) => s.status === 'pending' && s.decision === undefined,
+        (s) => s.status === 'pending' && s.decision === undefined
       );
       const hasEscalated = latestPlan.steps.some(
-        (s) => s.decision === 'escalate',
+        (s) => s.decision === 'escalate'
       );
 
       if (!hasRetry) {
@@ -506,9 +521,7 @@ export class LongRunningTaskOrchestrator {
           status: s.status,
           reviewResult: s.reviewResult,
           retryCount: s.retryCount,
-          durationMs: dur
-            ? (dur.endMs ?? Date.now()) - dur.startMs
-            : 0,
+          durationMs: dur ? (dur.endMs ?? Date.now()) - dur.startMs : 0,
           error: s.error,
         };
       }),
@@ -559,7 +572,7 @@ export class LongRunningTaskOrchestrator {
 const activeOrchestrators = new Map<string, LongRunningTaskOrchestrator>();
 
 export function getOrCreateOrchestrator(
-  taskId: string,
+  taskId: string
 ): LongRunningTaskOrchestrator {
   let orchestrator = activeOrchestrators.get(taskId);
   if (!orchestrator) {
@@ -570,7 +583,7 @@ export function getOrCreateOrchestrator(
 }
 
 export function getOrchestrator(
-  taskId: string,
+  taskId: string
 ): LongRunningTaskOrchestrator | undefined {
   return activeOrchestrators.get(taskId);
 }

@@ -55,15 +55,20 @@ export class EmbeddingManager {
     // 从 ModelRouter 读取用户在前端"任务分工→嵌入"配置的模型
     const resolved = this._resolveEmbeddingProvider(config);
     if (resolved.type === 'openai' && resolved.apiKey) {
-      this.providers.set('openai', new OpenAIEmbeddingProvider({
-        apiKey: resolved.apiKey,
-        baseURL: resolved.baseUrl,
-        ...(config?.openai || {}),
-      }));
+      this.providers.set(
+        'openai',
+        new OpenAIEmbeddingProvider({
+          apiKey: resolved.apiKey,
+          baseURL: resolved.baseUrl,
+          ...(config?.openai || {}),
+        })
+      );
     }
 
     // 设置默认提供者：用户配置的 Provider 优先，否则降级到 local
-    this.defaultProviderId = this.providers.has(resolved.type) ? resolved.type : 'local';
+    this.defaultProviderId = this.providers.has(resolved.type)
+      ? resolved.type
+      : 'local';
 
     this.initialized = true;
   }

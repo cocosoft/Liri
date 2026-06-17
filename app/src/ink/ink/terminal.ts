@@ -91,7 +91,8 @@ export function isSynchronizedOutputSupported(): boolean {
   }
 
   // kitty sets TERM=xterm-kitty or KITTY_WINDOW_ID
-  if (term?.includes('kitty') || configManager.env('KITTY_WINDOW_ID')) return true;
+  if (term?.includes('kitty') || configManager.env('KITTY_WINDOW_ID'))
+    return true;
 
   // Ghostty may set TERM=xterm-ghostty without TERM_PROGRAM
   if (term === 'xterm-ghostty') return true;

@@ -30,7 +30,13 @@ export interface TodoTaskItem {
   id: string;
   name: string;
   description?: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'blocked' | 'skipped';
+  status:
+    | 'pending'
+    | 'in_progress'
+    | 'completed'
+    | 'failed'
+    | 'blocked'
+    | 'skipped';
   dependsOn: string[];
   result?: string;
   durationMs?: number;

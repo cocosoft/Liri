@@ -94,4 +94,5 @@ export class ThirdPartyAdapterRegistry {
 }
 
 /** 全局单例引用 */
-export const thirdPartyAdapterRegistry = ThirdPartyAdapterRegistry.getInstance();
+export const thirdPartyAdapterRegistry =
+  ThirdPartyAdapterRegistry.getInstance();

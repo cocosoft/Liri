@@ -70,7 +70,11 @@ export class IndexManager {
    * @param domainName 域名称（可选）。指定后默认路径为域目录
    * @param eventBus 事件总线（可选）。传入后监听知识变更事件，自动刷新文本索引
    */
-  constructor(knowledgeRoot?: string, domainName?: string, eventBus?: EventBus) {
+  constructor(
+    knowledgeRoot?: string,
+    domainName?: string,
+    eventBus?: EventBus
+  ) {
     this.domainName = domainName;
     this.eventBus = eventBus;
     if (knowledgeRoot) {
@@ -115,7 +119,10 @@ export class IndexManager {
     }
 
     // 按 kind 分组，同时提取摘要
-    const byKind = new Map<string, Array<{ id: string; title: string; summary: string }>>();
+    const byKind = new Map<
+      string,
+      Array<{ id: string; title: string; summary: string }>
+    >();
 
     for (const page of pages) {
       const filePath = join(this.knowledgeRoot, page);
@@ -160,7 +167,9 @@ export class IndexManager {
     lines.push('');
     lines.push('# 知识库索引');
     lines.push('');
-    lines.push('> 自动生成 — 最后更新: ' + new Date().toISOString().slice(0, 10));
+    lines.push(
+      '> 自动生成 — 最后更新: ' + new Date().toISOString().slice(0, 10)
+    );
     lines.push('');
     lines.push(`共 ${pages.length} 个页面`);
     lines.push('');
@@ -169,9 +178,8 @@ export class IndexManager {
       lines.push(`## ${kind}（${pageList.length}）`);
       lines.push('');
       for (const item of pageList) {
-        const display = item.title !== item.id
-          ? `${item.title} — \`${item.id}\``
-          : item.id;
+        const display =
+          item.title !== item.id ? `${item.title} — \`${item.id}\`` : item.id;
         const summaryLine = item.summary
           ? `  — ${item.summary.slice(0, 60)}`
           : '';
@@ -181,7 +189,9 @@ export class IndexManager {
     }
 
     await this.writeIndex(lines.join('\n'));
-    logger.info(`index.md 已更新: ${pages.length} 个页面, ${byKind.size} 个分类`);
+    logger.info(
+      `index.md 已更新: ${pages.length} 个页面, ${byKind.size} 个分类`
+    );
   }
 
   /**
@@ -213,10 +223,13 @@ export class IndexManager {
         const titleMatch = content.match(/^title:\s*(.+)$/m);
         if (titleMatch) title = titleMatch[1].trim().replace(/["'"]/g, '');
         const summaryMatch = content.match(/^summary:\s*(.+)$/m);
-        if (summaryMatch) summary = summaryMatch[1].trim().replace(/["'"]/g, '');
+        if (summaryMatch)
+          summary = summaryMatch[1].trim().replace(/["'"]/g, '');
         const kindMatch = content.match(/^kind:\s*(.+)$/m);
         if (kindMatch) kind = kindMatch[1].trim().replace(/["'"]/g, '');
-      } catch { /* 忽略 */ }
+      } catch {
+        /* 忽略 */
+      }
 
       const kindTag = kind ? `[${kind}] ` : '';
       const summarySuffix = summary ? ` — ${summary.slice(0, 80)}` : '';

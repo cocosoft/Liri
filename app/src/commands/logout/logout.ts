@@ -17,7 +17,8 @@ export async function executeLogout(
   try {
     // 清除API Key
     const hadToken = !!(
-      configManager.env('Liri_API_KEY') || configManager.env('ANTHROPIC_API_KEY')
+      configManager.env('Liri_API_KEY') ||
+      configManager.env('ANTHROPIC_API_KEY')
     );
 
     delete process.env.Liri_API_KEY;

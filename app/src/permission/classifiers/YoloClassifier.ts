@@ -118,7 +118,10 @@ export class YoloClassifier {
 
   constructor(config: Partial<YoloClassifierConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.cache = new TTLCache<YoloClassifierResult>(100, this.config.cacheTtlMs);
+    this.cache = new TTLCache<YoloClassifierResult>(
+      100,
+      this.config.cacheTtlMs
+    );
   }
 
   /**
@@ -181,7 +184,10 @@ export class YoloClassifier {
 
       return result;
     } catch (error) {
-      await handleError(error, { module: 'permission:yolo', action: 'classify' });
+      await handleError(error, {
+        module: 'permission:yolo',
+        action: 'classify',
+      });
       return this.createDefaultResult(toolName, toolInput, true, 'error');
     }
   }
@@ -275,7 +281,10 @@ export class YoloClassifier {
 
       return this.parseResponse(toolName, toolInput, response);
     } catch (error) {
-      await handleError(error, { module: 'permission:yolo', action: 'perform_classification' });
+      await handleError(error, {
+        module: 'permission:yolo',
+        action: 'perform_classification',
+      });
       throw error;
     }
   }

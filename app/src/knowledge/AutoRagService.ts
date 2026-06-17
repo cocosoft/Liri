@@ -37,7 +37,10 @@ import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core/paths';
-import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
+import {
+  EmbeddingManager,
+  globalEmbeddingManager,
+} from '@modules/ai/embedding/EmbeddingManager';
 import { IndexManager } from './IndexManager';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -128,7 +131,10 @@ export class AutoRagService {
    * @param maxPages 最大返回页数，默认 3
    * @returns 匹配的页面全文列表
    */
-  async searchPages(keywords: string[], maxPages: number = 3): Promise<RagResult[]> {
+  async searchPages(
+    keywords: string[],
+    maxPages: number = 3
+  ): Promise<RagResult[]> {
     const results: RagResult[] = [];
     const pages = await this.listMdPages();
 
@@ -146,7 +152,9 @@ export class AutoRagService {
 
       // 对每个关键词做大小写不敏感匹配
       const lowerContent = content.toLowerCase();
-      const matched = keywords.some((kw) => lowerContent.includes(kw.toLowerCase()));
+      const matched = keywords.some((kw) =>
+        lowerContent.includes(kw.toLowerCase())
+      );
 
       if (!matched) continue;
 
@@ -335,12 +343,8 @@ export class AutoRagService {
     const kindMatch = content.match(/^kind:\s*(.+)$/m);
 
     return {
-      title: titleMatch
-        ? titleMatch[1].trim().replace(/["'"]/g, '')
-        : '',
-      kind: kindMatch
-        ? kindMatch[1].trim().replace(/["'"]/g, '')
-        : '其他',
+      title: titleMatch ? titleMatch[1].trim().replace(/["'"]/g, '') : '',
+      kind: kindMatch ? kindMatch[1].trim().replace(/["'"]/g, '') : '其他',
     };
   }
 
@@ -350,13 +354,58 @@ export class AutoRagService {
   private extractKeywords(query: string): string[] {
     // 移除常见停用词后，提取 2-4 字以上的词
     const stopWords = new Set([
-      '的', '了', '是', '在', '我', '有', '和', '就',
-      '不', '人', '都', '一', '一个', '上', '也', '很',
-      '到', '说', '要', '去', '你', '会', '着', '没有',
-      '看', '好', '自己', '这', '他', '她', '它', '们',
-      '什么', '怎么', '如何', '为什么', '哪个', '哪些',
-      'the', 'a', 'an', 'is', 'are', 'was', 'were',
-      'in', 'on', 'at', 'to', 'for', 'of', 'with',
+      '的',
+      '了',
+      '是',
+      '在',
+      '我',
+      '有',
+      '和',
+      '就',
+      '不',
+      '人',
+      '都',
+      '一',
+      '一个',
+      '上',
+      '也',
+      '很',
+      '到',
+      '说',
+      '要',
+      '去',
+      '你',
+      '会',
+      '着',
+      '没有',
+      '看',
+      '好',
+      '自己',
+      '这',
+      '他',
+      '她',
+      '它',
+      '们',
+      '什么',
+      '怎么',
+      '如何',
+      '为什么',
+      '哪个',
+      '哪些',
+      'the',
+      'a',
+      'an',
+      'is',
+      'are',
+      'was',
+      'were',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
     ]);
 
     return query

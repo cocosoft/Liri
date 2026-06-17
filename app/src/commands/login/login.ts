@@ -45,7 +45,8 @@ export async function executeLogin(
     const params = parseLoginArgs(args);
 
     const existingToken =
-      configManager.env('Liri_API_KEY') || configManager.env('ANTHROPIC_API_KEY');
+      configManager.env('Liri_API_KEY') ||
+      configManager.env('ANTHROPIC_API_KEY');
 
     if (existingToken && !params.force) {
       return {

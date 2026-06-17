@@ -1,6 +1,9 @@
 import type { PermissionMode } from './PermissionMode';
 import { shouldAvoidPermissionPrompts } from './PermissionMode';
-import { PermissionBehavior, PermissionRuleSource } from './types/PermissionRule';
+import {
+  PermissionBehavior,
+  PermissionRuleSource,
+} from './types/PermissionRule';
 import { permissionRuleValueFromString } from './types/PermissionRule';
 import type { PermissionRuleEntry } from './PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
@@ -52,7 +55,9 @@ export function getAllowRules(
   );
 }
 
-export function getDenyRules(context: ToolPermissionContext): PermissionRuleEntry[] {
+export function getDenyRules(
+  context: ToolPermissionContext
+): PermissionRuleEntry[] {
   return RULE_SOURCES.flatMap((source) =>
     (context.alwaysDenyRules[source] || []).map((ruleString) => ({
       source,
@@ -62,7 +67,9 @@ export function getDenyRules(context: ToolPermissionContext): PermissionRuleEntr
   );
 }
 
-export function getAskRules(context: ToolPermissionContext): PermissionRuleEntry[] {
+export function getAskRules(
+  context: ToolPermissionContext
+): PermissionRuleEntry[] {
   return RULE_SOURCES.flatMap((source) =>
     (context.alwaysAskRules[source] || []).map((ruleString) => ({
       source,
@@ -175,5 +182,8 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
     };
   }
 
-  return { behavior: PermissionBehavior.ALLOW, decisionReason: { type: 'default' } };
+  return {
+    behavior: PermissionBehavior.ALLOW,
+    decisionReason: { type: 'default' },
+  };
 }

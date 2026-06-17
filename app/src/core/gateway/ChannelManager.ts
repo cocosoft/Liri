@@ -29,7 +29,10 @@ import { ChannelStatusReporter } from './ChannelStatusReporter';
 import type { StatusReport } from './ChannelStatusReporter';
 import { RateLimiter } from './RateLimiter';
 import { GatewayAuth } from './auth/GatewayAuth';
-import { channelEventBus, ChannelEvents } from '../../channels/events/ChannelEventBus.js';
+import {
+  channelEventBus,
+  ChannelEvents,
+} from '../../channels/events/ChannelEventBus.js';
 import { ChannelPluginRegistry } from './ChannelPluginRegistry';
 import { isChannelPlugin } from './ChannelPlugin';
 import type { ChannelPlugin } from './ChannelPlugin';
@@ -37,7 +40,10 @@ import { routeChannelMessage } from '../../channels/routing/messageRouter';
 import type { MessageContext } from '../../channels/types/IChannel';
 import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 import type { ChannelInterface } from '../../channels/registry/ChannelRegistry';
-const rawLogger = new Logger({ level: LogLevel.INFO, module: 'channel:manager' });
+const rawLogger = new Logger({
+  level: LogLevel.INFO,
+  module: 'channel:manager',
+});
 
 class RedactedLogger {
   info(msg: string, meta?: Record<string, unknown>) {
@@ -107,7 +113,7 @@ export class ChannelManager extends EventEmitter {
       _channelManagerDeprecationWarned = true;
       logger.warning(
         'ChannelManager 已废弃，请迁移至 channels/registry/ChannelRegistry。' +
-        'core/gateway/ 体系将在未来版本中移除。'
+          'core/gateway/ 体系将在未来版本中移除。'
       );
     }
 
@@ -182,7 +188,11 @@ export class ChannelManager extends EventEmitter {
       const registry = ChannelPluginRegistry.getInstance();
       if (registry.has(channel.name)) {
         registry.unregister(channel.name).catch(async (err) => {
-          await handleError(err, { module: 'channel:manager', action: 'unregister_old_entry', context: { channelName: channel.name } });
+          await handleError(err, {
+            module: 'channel:manager',
+            action: 'unregister_old_entry',
+            context: { channelName: channel.name },
+          });
         });
       }
     }
@@ -244,7 +254,11 @@ export class ChannelManager extends EventEmitter {
     }
 
     this.stopChannelInternal(registration).catch(async (err) => {
-      await handleError(err, { module: 'channel:manager', action: 'stop_channel', context: { channelName: name } });
+      await handleError(err, {
+        module: 'channel:manager',
+        action: 'stop_channel',
+        context: { channelName: name },
+      });
     });
 
     this.channels.delete(name);
@@ -255,7 +269,11 @@ export class ChannelManager extends EventEmitter {
     const registry = ChannelPluginRegistry.getInstance();
     if (registry.has(name)) {
       registry.unregister(name).catch(async (err) => {
-        await handleError(err, { module: 'channel:manager', action: 'registry_unregister', context: { channelName: name } });
+        await handleError(err, {
+          module: 'channel:manager',
+          action: 'registry_unregister',
+          context: { channelName: name },
+        });
       });
     }
 
@@ -399,7 +417,11 @@ export class ChannelManager extends EventEmitter {
       }
       return result;
     } catch (error) {
-      await handleError(error, { module: 'channel:manager', action: 'send_message', context: { channelName: name } });
+      await handleError(error, {
+        module: 'channel:manager',
+        action: 'send_message',
+        context: { channelName: name },
+      });
       return false;
     }
   }
@@ -502,7 +524,9 @@ export class ChannelManager extends EventEmitter {
           reg.reconnectAttempts = 0;
         }
         this.emit(ChannelEvent.CONNECTED, channel.name);
-        channelEventBus.publish(ChannelEvents.CHANNEL_CONNECTED, { channelName: channel.name });
+        channelEventBus.publish(ChannelEvents.CHANNEL_CONNECTED, {
+          channelName: channel.name,
+        });
         logger.info(`ChannelManager: 通道已连接 — ${channel.name}`);
       },
 
@@ -528,7 +552,11 @@ export class ChannelManager extends EventEmitter {
           channelName: channel.name,
           error: error.message,
         });
-        await handleError(error, { module: 'channel:manager', action: 'channel_error', context: { channelName: channel.name } });
+        await handleError(error, {
+          module: 'channel:manager',
+          action: 'channel_error',
+          context: { channelName: channel.name },
+        });
       },
 
       onMessage: (message: InboundMessage) => {
@@ -667,7 +695,11 @@ export class ChannelManager extends EventEmitter {
         });
       }
     } catch (sendError) {
-      await handleError(sendError, { module: 'channel:manager', action: 'send_error_frame', context: { channelName: channel.name } });
+      await handleError(sendError, {
+        module: 'channel:manager',
+        action: 'send_error_frame',
+        context: { channelName: channel.name },
+      });
     }
 
     logger.warning(`ChannelManager: 非法消息被拦截 — ${channel.name}`, {
@@ -764,7 +796,11 @@ export class ChannelManager extends EventEmitter {
       await channel.connect();
       logger.info(`ChannelManager: 通道已启动 — ${channel.name}`);
     } catch (error) {
-      await handleError(error, { module: 'channel:manager', action: 'start_channel', context: { channelName: channel.name } });
+      await handleError(error, {
+        module: 'channel:manager',
+        action: 'start_channel',
+        context: { channelName: channel.name },
+      });
 
       if (this.config.autoReconnect) {
         this.attemptReconnect(channel.name, registration);
@@ -791,7 +827,11 @@ export class ChannelManager extends EventEmitter {
       await channel.disconnect();
       logger.info(`ChannelManager: 通道已停止 — ${channel.name}`);
     } catch (error) {
-      await handleError(error, { module: 'channel:manager', action: 'stop_channel', context: { channelName: channel.name } });
+      await handleError(error, {
+        module: 'channel:manager',
+        action: 'stop_channel',
+        context: { channelName: channel.name },
+      });
     }
   }
 
@@ -833,7 +873,11 @@ export class ChannelManager extends EventEmitter {
         registration.reconnectAttempts = 0;
         logger.info(`ChannelManager: 通道 ${name} 重连成功`);
       } catch (error) {
-        await handleError(error, { module: 'channel:manager', action: 'reconnect_channel', context: { channelName: name } });
+        await handleError(error, {
+          module: 'channel:manager',
+          action: 'reconnect_channel',
+          context: { channelName: name },
+        });
         this.attemptReconnect(name, registration);
       }
     }, this.config.reconnectInterval);

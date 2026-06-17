@@ -3,7 +3,10 @@
  * 从 AutoModeClassifier.ts 拆分而来，降低文件体积
  */
 import { AutoModeClassifier } from './AutoModeClassifier';
-import type { IAutoModeClassifier, ClassifierDecision } from './AutoModeClassifier';
+import type {
+  IAutoModeClassifier,
+  ClassifierDecision,
+} from './AutoModeClassifier';
 
 /**
  * 分类器管理器

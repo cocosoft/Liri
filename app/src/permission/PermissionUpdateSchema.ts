@@ -1,5 +1,8 @@
 //
-import { PermissionBehavior, PermissionRuleSource } from './types/PermissionRule';
+import {
+  PermissionBehavior,
+  PermissionRuleSource,
+} from './types/PermissionRule';
 import type {
   PermissionUpdateDestination,
   PermissionUpdate,

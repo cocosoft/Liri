@@ -81,7 +81,11 @@ function renderRow(
 ): React.ReactNode {
   const statusIcon = job.running ? '▶' : job.enabled ? '●' : '○';
   const statusColor = job.running ? 'cyan' : job.enabled ? 'green' : 'red';
-  const statusLabel = job.running ? 'running' : job.enabled ? 'enabled' : 'disabled';
+  const statusLabel = job.running
+    ? 'running'
+    : job.enabled
+      ? 'enabled'
+      : 'disabled';
 
   const scheduleDisplay = job.displayText || job.schedule;
 
@@ -89,13 +93,13 @@ function renderRow(
     <Box key={job.id} flexDirection="row">
       <Text dimColor>{truncate(job.id, idWidth).padEnd(idWidth)} </Text>
       <Text>{truncate(job.name, nameWidth).padEnd(nameWidth)} </Text>
-      <Text dimColor>{truncate(scheduleDisplay, schedWidth).padEnd(schedWidth)} </Text>
+      <Text dimColor>
+        {truncate(scheduleDisplay, schedWidth).padEnd(schedWidth)}{' '}
+      </Text>
       <Text color={statusColor}>
         {statusIcon} {statusLabel.padEnd(8)}
       </Text>
-      <Text dimColor>
-        {' '}{formatTimestamp(job.lastFiredAt).padEnd(20)}
-      </Text>
+      <Text dimColor> {formatTimestamp(job.lastFiredAt).padEnd(20)}</Text>
     </Box>
   );
 }
@@ -103,7 +107,11 @@ function renderRow(
 function renderDetailedRow(job: CronJobItem): React.ReactNode {
   const statusIcon = job.running ? '▶' : job.enabled ? '●' : '○';
   const statusColor = job.running ? 'cyan' : job.enabled ? 'green' : 'red';
-  const statusLabel = job.running ? 'running' : job.enabled ? 'enabled' : 'disabled';
+  const statusLabel = job.running
+    ? 'running'
+    : job.enabled
+      ? 'enabled'
+      : 'disabled';
 
   return (
     <Box key={job.id} flexDirection="column" marginBottom={1}>
@@ -148,9 +156,7 @@ export function CronList({
   maxJobs,
   title = 'Cron 任务列表',
 }: CronListProps): React.ReactNode {
-  const filtered = onlyEnabled
-    ? jobs.filter((j) => j.enabled)
-    : jobs;
+  const filtered = onlyEnabled ? jobs.filter((j) => j.enabled) : jobs;
   const displayJobs = maxJobs ? filtered.slice(0, maxJobs) : filtered;
 
   const enabledCount = jobs.filter((j) => j.enabled).length;
@@ -163,9 +169,7 @@ export function CronList({
     return (
       <Box>
         <Text color="gray" dim>
-          {jobs.length === 0
-            ? '暂无 Cron 任务'
-            : '无匹配的 Cron 任务'}
+          {jobs.length === 0 ? '暂无 Cron 任务' : '无匹配的 Cron 任务'}
         </Text>
       </Box>
     );
@@ -187,8 +191,12 @@ export function CronList({
           <Box marginBottom={1}>
             <Text bold dimColor>
               {truncate('ID', FIELD_WIDTHS.id).padEnd(FIELD_WIDTHS.id + 1)}
-              {truncate('Name', FIELD_WIDTHS.name).padEnd(FIELD_WIDTHS.name + 1)}
-              {truncate('Schedule', FIELD_WIDTHS.schedule).padEnd(FIELD_WIDTHS.schedule + 1)}
+              {truncate('Name', FIELD_WIDTHS.name).padEnd(
+                FIELD_WIDTHS.name + 1
+              )}
+              {truncate('Schedule', FIELD_WIDTHS.schedule).padEnd(
+                FIELD_WIDTHS.schedule + 1
+              )}
               {'Status'.padEnd(15)}
               {'Last Fire'}
             </Text>
@@ -198,7 +206,12 @@ export function CronList({
           </Box>
           {/* Rows */}
           {displayJobs.map((job) =>
-            renderRow(job, FIELD_WIDTHS.id, FIELD_WIDTHS.name, FIELD_WIDTHS.schedule)
+            renderRow(
+              job,
+              FIELD_WIDTHS.id,
+              FIELD_WIDTHS.name,
+              FIELD_WIDTHS.schedule
+            )
           )}
         </>
       ) : (

@@ -26,7 +26,10 @@ import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { readRequestBody } from './handler-utils';
-import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
+import {
+  attachmentManager,
+  AttachmentSource,
+} from '@modules/components/attachments';
 import { handleError } from '@modules/error/handleError';
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
@@ -35,7 +38,11 @@ function resolveStorePath(rawPath: string): string {
 
   // 空路径或 "." 表示 LIRI_HOME（~/.pyapp/），展示全目录
   if (!rawPath || rawPath === '.') {
-    return process.env.LIRI_HOME || process.env.PYAPP_HOME || join(require('node:os').homedir(), '.pyapp');
+    return (
+      process.env.LIRI_HOME ||
+      process.env.PYAPP_HOME ||
+      join(require('node:os').homedir(), '.pyapp')
+    );
   }
 
   const firstSegment = rawPath.split(/[/\\]/).filter(Boolean)[0] || rawPath;
@@ -44,13 +51,17 @@ function resolveStorePath(rawPath: string): string {
   const ENV_MAP: Record<string, string | undefined> = {
     output: process.env.OUTPUT_DIR,
     downloads: process.env.DOWNLOADS_DIR,
-    attachments: process.env.ATTACHMENTS_DIR || (() => {
-      // 从已知解析函数回退
-      try {
-        const { resolveAttachmentsDir } = require('@modules/core/paths');
-        return resolveAttachmentsDir();
-      } catch { return undefined; }
-    })(),
+    attachments:
+      process.env.ATTACHMENTS_DIR ||
+      (() => {
+        // 从已知解析函数回退
+        try {
+          const { resolveAttachmentsDir } = require('@modules/core/paths');
+          return resolveAttachmentsDir();
+        } catch {
+          return undefined;
+        }
+      })(),
     home: process.env.LIRI_HOME || process.env.PYAPP_HOME,
   };
 
@@ -115,17 +126,51 @@ export async function handleFileList(
 /**
  * 图片扩展名集合
  */
-const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']);
+const IMAGE_EXTS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.svg',
+]);
 
 /**
  * 二进制文件扩展名集合（不可作为文本预览）
  */
 const BINARY_EXTS = new Set([
-  '.pdf', '.docx', '.pptx', '.xls', '.xlsx',
-  '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',
-  '.zip', '.rar', '.7z', '.gz', '.tar', '.bz2',
-  '.exe', '.dll', '.so', '.dylib', '.bin', '.dat',
-  '.ico', '.icns', '.tiff', '.tif', '.psd', '.ai', '.eps',
+  '.pdf',
+  '.docx',
+  '.pptx',
+  '.xls',
+  '.xlsx',
+  '.mp3',
+  '.mp4',
+  '.avi',
+  '.mov',
+  '.wmv',
+  '.flv',
+  '.mkv',
+  '.zip',
+  '.rar',
+  '.7z',
+  '.gz',
+  '.tar',
+  '.bz2',
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.bin',
+  '.dat',
+  '.ico',
+  '.icns',
+  '.tiff',
+  '.tif',
+  '.psd',
+  '.ai',
+  '.eps',
 ]);
 
 /**
@@ -251,162 +296,176 @@ export async function handleFileRead(
 
 export async function handleFileUpload(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
     const body = await ctx.readRequestBody(req);
-      const { filename, data } = JSON.parse(body);
-      if (!filename || !data) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'filename and data are required' },
-          })
-        );
-        return;
-      }
-      const buffer = Buffer.from(data, 'base64');
-      const safeName = path.basename(filename);
-      // 使用 AttachmentManager 保存到用户附件目录（第三层：~/.pyapp/attachments/）
-      const attachment = attachmentManager.saveAttachment(
-        safeName,
-        buffer,
-        'file',
-        'application/octet-stream',
-        AttachmentSource.SESSION
+    const { filename, data } = JSON.parse(body);
+    if (!filename || !data) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'filename and data are required' },
+        })
       );
+      return;
+    }
+    const buffer = Buffer.from(data, 'base64');
+    const safeName = path.basename(filename);
+    // 使用 AttachmentManager 保存到用户附件目录（第三层：~/.pyapp/attachments/）
+    const attachment = attachmentManager.saveAttachment(
+      safeName,
+      buffer,
+      'file',
+      'application/octet-stream',
+      AttachmentSource.SESSION
+    );
 
-      // 同步注册到 FileRegistry（异步执行，不阻塞响应）
-      registerUploadToFileRegistry(safeName, buffer, attachment.path).catch(() => {});
+    // 同步注册到 FileRegistry（异步执行，不阻塞响应）
+    registerUploadToFileRegistry(safeName, buffer, attachment.path).catch(
+      () => {}
+    );
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ path: attachment.path, size: buffer.length }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ path: attachment.path, size: buffer.length }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
-  /**
-   * 处理文件格式转换请求
-   */
+/**
+ * 处理文件格式转换请求
+ */
 export async function handleConvertFile(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
     const body = await ctx.readRequestBody(req);
-      const { filePath, outputFormat, options } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const result = await coreAPI.convertFile({
-        filePath,
-        outputFormat,
-        options,
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    const { filePath, outputFormat, options } = JSON.parse(body);
+    const coreAPI = getCoreAPI();
+    const result = await coreAPI.convertFile({
+      filePath,
+      outputFormat,
+      options,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
-  /**
-   * 处理文件类型检测请求
-   */
+/**
+ * 处理文件类型检测请求
+ */
 export async function handleDetectFileType(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
     const body = await ctx.readRequestBody(req);
-      const { filePath } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const result = await coreAPI.detectFileType(filePath);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    const { filePath } = JSON.parse(body);
+    const coreAPI = getCoreAPI();
+    const result = await coreAPI.detectFileType(filePath);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
-  /**
-   * 处理发送文件给AI分析请求
-   * POST /v1/files/send-to-ai
-   * 读取文件内容，将其作为用户消息发送给AI
-   */
+/**
+ * 处理发送文件给AI分析请求
+ * POST /v1/files/send-to-ai
+ * 读取文件内容，将其作为用户消息发送给AI
+ */
 export async function handleSendFileToAI(
   ctx: HandlerCtx,
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
     const body = await ctx.readRequestBody(req);
-      const { filePath } = JSON.parse(body);
+    const { filePath } = JSON.parse(body);
 
-      if (!filePath) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
-        return;
-      }
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
+      return;
+    }
 
-      // 沙箱权限检查
-      if (!ctx.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
-        return;
-      }
+    // 沙箱权限检查
+    if (!ctx.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Access denied: file path not in whitelist' },
+        })
+      );
+      return;
+    }
 
-      const { readFile } = await import('node:fs/promises');
-      const { existsSync } = await import('node:fs');
-      const { basename } = await import('node:path');
+    const { readFile } = await import('node:fs/promises');
+    const { existsSync } = await import('node:fs');
+    const { basename } = await import('node:path');
 
-      if (!existsSync(filePath)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'File not found' } }));
-        return;
-      }
+    if (!existsSync(filePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'File not found' } }));
+      return;
+    }
 
-      const content = await readFile(filePath, 'utf-8');
-      const fileName = basename(filePath);
+    const content = await readFile(filePath, 'utf-8');
+    const fileName = basename(filePath);
 
-      // 将文件内容作为消息发送给AI
-      const chatManager = createChatManager();
+    // 将文件内容作为消息发送给AI
+    const chatManager = createChatManager();
 
-      const message = `请分析以下文件内容（文件名: ${fileName}）:\n\n${content}`;
-      await chatManager.sendMessage(message);
+    const message = `请分析以下文件内容（文件名: ${fileName}）:\n\n${content}`;
+    await chatManager.sendMessage(message);
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, fileName, size: content.length }));
-    } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'handler_error' });
-      if (!res.headersSent) {
-        try {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
-        } catch {} /* res可能已结束, 忽略 */
-      }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, fileName, size: content.length }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
     }
   }
+}
 
 /**
  * 将 HTTP 上传的文件注册到 FileRegistry
@@ -418,7 +477,8 @@ async function registerUploadToFileRegistry(
   savedPath: string
 ): Promise<void> {
   try {
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const { FileSource } = await import('@modules/services/file/types');
 
     const registry = FileRegistry.getInstance();
@@ -452,7 +512,8 @@ export async function handleFileRegistryList(
 ): Promise<void> {
   try {
     const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
 
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
@@ -498,12 +559,17 @@ export async function handleFileHealth(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
-    const { DiskSpaceMonitor } = await import('@modules/core/delivery/monitor/DiskSpaceMonitor');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
+    const { DiskSpaceMonitor } =
+      await import('@modules/core/delivery/monitor/DiskSpaceMonitor');
     const { resolvePyappHome } = await import('@modules/core/paths');
     const { existsSync } = await import('fs');
 
-    const checks: Record<string, { status: string; message: string; value?: unknown }> = {};
+    const checks: Record<
+      string,
+      { status: string; message: string; value?: unknown }
+    > = {};
 
     // 1. DB 连通性检查
     try {
@@ -527,18 +593,27 @@ export async function handleFileHealth(
       const monitor = new DiskSpaceMonitor();
       const disks = monitor.check();
       const pyappDir = resolvePyappHome();
-      const mainDisk = disks.find(d => pyappDir.startsWith(d.drive)) || disks[0];
+      const mainDisk =
+        disks.find((d) => pyappDir.startsWith(d.drive)) || disks[0];
 
       if (mainDisk) {
-        const freeGB = Math.round((mainDisk.freeBytes / (1024 * 1024 * 1024)) * 100) / 100;
+        const freeGB =
+          Math.round((mainDisk.freeBytes / (1024 * 1024 * 1024)) * 100) / 100;
         const usagePercent = Math.round(mainDisk.usagePercent * 100) / 100;
 
         checks.disk = {
-          status: usagePercent > 95 ? 'critical' : usagePercent > 85 ? 'warning' : 'ok',
+          status:
+            usagePercent > 95
+              ? 'critical'
+              : usagePercent > 85
+                ? 'warning'
+                : 'ok',
           message: `磁盘使用率 ${usagePercent}%`,
           value: {
             drive: mainDisk.drive,
-            totalGB: Math.round((mainDisk.totalBytes / (1024 * 1024 * 1024)) * 100) / 100,
+            totalGB:
+              Math.round((mainDisk.totalBytes / (1024 * 1024 * 1024)) * 100) /
+              100,
             freeGB,
             usagePercent,
           },
@@ -557,10 +632,12 @@ export async function handleFileHealth(
     const inboundDir = resolvePyappHome() + '/knowledge/raw/inbound';
     checks.inboundDirectory = {
       status: existsSync(inboundDir) ? 'ok' : 'warning',
-      message: existsSync(inboundDir) ? 'Inbound 目录存在' : 'Inbound 目录不存在',
+      message: existsSync(inboundDir)
+        ? 'Inbound 目录存在'
+        : 'Inbound 目录不存在',
     };
 
-    const allOk = Object.values(checks).every(c => c.status === 'ok');
+    const allOk = Object.values(checks).every((c) => c.status === 'ok');
     res.writeHead(allOk ? 200 : 503, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: allOk ? 'healthy' : 'degraded', checks }));
   } catch (err) {
@@ -586,7 +663,8 @@ export async function handleFileRegistryDetail(
       return;
     }
 
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
@@ -623,7 +701,8 @@ export async function handleFileRegistrySearch(
     const q = url.searchParams.get('q');
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
@@ -631,7 +710,12 @@ export async function handleFileRegistrySearch(
       // 有搜索词 → FTS5 全文搜索
       const results = await registry.searchFiles(q, Math.min(limit, 50));
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: { items: results, total: results.length } }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          data: { items: results, total: results.length },
+        })
+      );
     } else {
       // 无搜索词 → 按筛选条件列表（来源/分区/日期）
       const source = url.searchParams.get('source') || undefined;
@@ -650,10 +734,12 @@ export async function handleFileRegistrySearch(
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        data: { items: listResult.files, total: listResult.total },
-      }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          data: { items: listResult.files, total: listResult.total },
+        })
+      );
     }
   } catch (err) {
     ctx.sendError(res, err);
@@ -670,7 +756,8 @@ export async function handleFileRegistryStats(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
@@ -697,13 +784,21 @@ export async function handleFileRegistryDelete(
     const fileIdsParam = url.searchParams.get('fileIds');
     if (!fileIdsParam) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'fileIds is required (comma-separated)' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'fileIds is required (comma-separated)' },
+        })
+      );
       return;
     }
 
-    const fileIds = fileIdsParam.split(',').map(id => id.trim()).filter(Boolean);
+    const fileIds = fileIdsParam
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
 
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 

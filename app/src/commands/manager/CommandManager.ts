@@ -350,7 +350,10 @@ export class CommandManager {
    */
   private checkDesktopAvailability(): boolean {
     // 检查是否在桌面环境中运行
-    return configManager.env('DESKTOP_ENV') === 'true' || typeof window !== 'undefined';
+    return (
+      configManager.env('DESKTOP_ENV') === 'true' ||
+      typeof window !== 'undefined'
+    );
   }
 
   /**

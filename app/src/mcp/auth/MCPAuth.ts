@@ -3,4 +3,7 @@
  * @deprecated 请从 @modules/services/mcp/auth 导入
  */
 
-export { MCPAuthManager, mcpAuthManager } from '../../services/mcp/auth/MCPAuth.js';
+export {
+  MCPAuthManager,
+  mcpAuthManager,
+} from '../../services/mcp/auth/MCPAuth.js';

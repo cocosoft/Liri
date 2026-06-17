@@ -89,9 +89,11 @@ export function setupInfrastructureDiagnostics(): void {
       ).length;
 
       return {
-        status: report.overallStatus === 'healthy' || report.overallStatus === 'warning'
-          ? 'healthy' as const
-          : 'unhealthy' as const,
+        status:
+          report.overallStatus === 'healthy' ||
+          report.overallStatus === 'warning'
+            ? ('healthy' as const)
+            : ('unhealthy' as const),
         details: {
           overallStatus: report.overallStatus,
           checkCount: report.checks.length,
@@ -113,7 +115,12 @@ export function setupInfrastructureDiagnostics(): void {
       const lag = Date.now() - start;
 
       return {
-        status: lag > 500 ? 'unhealthy' as const : lag > 100 ? 'degraded' as const : 'healthy' as const,
+        status:
+          lag > 500
+            ? ('unhealthy' as const)
+            : lag > 100
+              ? ('degraded' as const)
+              : ('healthy' as const),
         details: { lagMs: lag },
       };
     },
@@ -127,22 +134,27 @@ export function setupInfrastructureDiagnostics(): void {
       const providerInfo: Record<string, unknown> = {};
 
       try {
-        const { STTRegistry } = await import('@modules/services/voice/services/sttRegistry');
+        const { STTRegistry } =
+          await import('@modules/services/voice/services/sttRegistry');
         providerInfo.sttProviders = STTRegistry.getProviderIds();
       } catch {
         providerInfo.sttProviders = [];
       }
 
       try {
-        const { TTSRegistry } = await import('@modules/services/voice/services/ttsProvider');
+        const { TTSRegistry } =
+          await import('@modules/services/voice/services/ttsProvider');
         providerInfo.ttsProviders = TTSRegistry.getProviderNames();
       } catch {
         providerInfo.ttsProviders = [];
       }
 
       try {
-        const { channelRegistry } = await import('@modules/channels/registry/ChannelRegistry');
-        providerInfo.channelNames = channelRegistry.getAll().map(ch => ch.name);
+        const { channelRegistry } =
+          await import('@modules/channels/registry/ChannelRegistry');
+        providerInfo.channelNames = channelRegistry
+          .getAll()
+          .map((ch) => ch.name);
       } catch {
         providerInfo.channelNames = [];
       }

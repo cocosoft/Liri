@@ -48,7 +48,8 @@ const BELL_CHAR = '\x07';
 export async function sendNotification(
   notif: NotificationOptions
 ): Promise<NotificationResult> {
-  const channel = configManager.env('Liri_NOTIFICATION_CHANNEL') || DEFAULT_CHANNEL;
+  const channel =
+    configManager.env('Liri_NOTIFICATION_CHANNEL') || DEFAULT_CHANNEL;
 
   if (channel === 'notifications_disabled') {
     return { channel: 'notifications_disabled', success: true };

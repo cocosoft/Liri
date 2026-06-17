@@ -51,7 +51,8 @@ export class CronCreateTool {
         {
           name: 'every_value',
           type: 'number',
-          description: 'For interval mode: how many units between runs (e.g. 30)',
+          description:
+            'For interval mode: how many units between runs (e.g. 30)',
           required: false,
         },
         {
@@ -87,7 +88,14 @@ export class CronCreateTool {
         },
       ],
       aliases: ['schedule', 'cron_add', 'create_task', 'timer'],
-      searchTips: ['cron', 'schedule', 'recurring', 'reminder', 'timer', 'task'],
+      searchTips: [
+        'cron',
+        'schedule',
+        'recurring',
+        'reminder',
+        'timer',
+        'task',
+      ],
       isEnabled: () => true,
       isReadOnly: () => false,
       isDestructive: () => false,
@@ -101,16 +109,25 @@ export class CronCreateTool {
         if (!prompt) {
           return { result: false, message: 'prompt is required' };
         }
-        if ((input.schedule_mode as string) !== 'every' && (input.schedule_mode as string) !== 'at') {
+        if (
+          (input.schedule_mode as string) !== 'every' &&
+          (input.schedule_mode as string) !== 'at'
+        ) {
           const expr = (input.expression as string)?.trim();
           if (!expr) {
-            return { result: false, message: 'expression is required for cron mode' };
+            return {
+              result: false,
+              message: 'expression is required for cron mode',
+            };
           }
         }
         return { result: true };
       },
       checkPermissions: async () => ({ behavior: 'allow' as const }),
-      execute: async (input: Record<string, unknown>, context: ToolUseContext) => {
+      execute: async (
+        input: Record<string, unknown>,
+        context: ToolUseContext
+      ) => {
         const startTime = Date.now();
         const name = (input.name as string).trim();
         const prompt = (input.prompt as string).trim();
@@ -122,7 +139,7 @@ export class CronCreateTool {
           // 构建 expression
           let expression = (input.expression as string)?.trim() || '';
           if (scheduleMode === 'every') {
-            const v = input.every_value as number || 30;
+            const v = (input.every_value as number) || 30;
             const u = (input.every_unit as string) || 'minutes';
             expression = `every ${v}${u === 'minutes' ? 'm' : u === 'hours' ? 'h' : 'd'}`;
           } else if (scheduleMode === 'at') {
@@ -133,11 +150,17 @@ export class CronCreateTool {
 
           // 解析调度
           const { parseSchedule } = await import('@modules/chronos/cron');
-          const { computeNextCronRun } = await import('@modules/tasks/cron/CronParser');
-          const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
+          const { computeNextCronRun } =
+            await import('@modules/tasks/cron/CronParser');
+          const { CronJobStore } =
+            await import('@modules/tasks/cron/CronJobStore');
           const { resolveDbPath } = await import('@modules/core/paths');
 
-          const parsed: any = parseSchedule(expression) || { kind: 'cron', expr: expression, display: expression };
+          const parsed: any = parseSchedule(expression) || {
+            kind: 'cron',
+            expr: expression,
+            display: expression,
+          };
 
           if (scheduleMode === 'every') {
             const everyValue = (input.every_value as number) || 30;
@@ -189,7 +212,8 @@ export class CronCreateTool {
 
           // 唤醒全局调度器，确保新作业立即被检查
           try {
-            const { wakeGlobalCronScheduler } = await import('@modules/tasks/cron/GlobalCronScheduler');
+            const { wakeGlobalCronScheduler } =
+              await import('@modules/tasks/cron/GlobalCronScheduler');
             wakeGlobalCronScheduler();
           } catch {
             // 调度器可能未启动，忽略
@@ -212,7 +236,13 @@ export class CronCreateTool {
           const executionTime = ToolUtils.calculateExecutionTime(startTime);
           return ToolUtils.createFailureResult(
             error instanceof Error ? error.message : 'Unknown error',
-            { executionTime, errorOutput: error instanceof Error ? error.stack || '' : '', toolName: 'cron_create', executionId: ToolUtils.generateExecutionId('cron_create'), timestamp: Date.now() }
+            {
+              executionTime,
+              errorOutput: error instanceof Error ? error.stack || '' : '',
+              toolName: 'cron_create',
+              executionId: ToolUtils.generateExecutionId('cron_create'),
+              timestamp: Date.now(),
+            }
           );
         }
       },

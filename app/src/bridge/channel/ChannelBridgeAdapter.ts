@@ -104,7 +104,10 @@ export class ChannelBridgeAdapter {
         {}
       );
     }
-    this.options = { ...DEFAULT_OPTIONS, ...options } as Required<ChannelBridgeOptions>;
+    this.options = {
+      ...DEFAULT_OPTIONS,
+      ...options,
+    } as Required<ChannelBridgeOptions>;
   }
 
   /**

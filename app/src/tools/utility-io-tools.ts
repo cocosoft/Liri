@@ -1,4 +1,12 @@
-import { makeTool, booleanParam, stringParam, numberParam, anyParam, updateMarkdownSection, type ToolExecResult } from './utility-helpers';
+import {
+  makeTool,
+  booleanParam,
+  stringParam,
+  numberParam,
+  anyParam,
+  updateMarkdownSection,
+  type ToolExecResult,
+} from './utility-helpers';
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
 import { handleError } from '@modules/error/handleError';
@@ -120,7 +128,10 @@ export function collectIoTools(tools: Tool[]): void {
           try {
             addresses6 = await dnsPromises.resolve6(hostname);
           } catch (err) {
-            void handleError(err, { module: 'tools:UtilityTools.ts', action: 'catch_error' });
+            void handleError(err, {
+              module: 'tools:UtilityTools.ts',
+              action: 'catch_error',
+            });
           }
           return {
             success: true,
@@ -410,7 +421,10 @@ export function collectIoTools(tools: Tool[]): void {
                 try {
                   info.size = fs.statSync(fullPath).size;
                 } catch (err) {
-                  void handleError(err, { module: 'tools:UtilityTools.ts', action: 'catch_error' });
+                  void handleError(err, {
+                    module: 'tools:UtilityTools.ts',
+                    action: 'catch_error',
+                  });
                 }
               }
               return info;
@@ -810,5 +824,4 @@ export function collectIoTools(tools: Tool[]): void {
       },
     })
   );
-
 }

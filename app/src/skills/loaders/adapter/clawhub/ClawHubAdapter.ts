@@ -225,7 +225,9 @@ export class ClawHubAdapter extends BaseThirdPartyAdapter<InstalledClawHubSkill>
   createFallbackLoader(): (pluginName: string) => any {
     return (pluginName: string) => {
       const installed = this.localStore.getAllSkillsSync();
-      const match = installed.find((s) => s.meta.name === pluginName || s.meta.id === pluginName);
+      const match = installed.find(
+        (s) => s.meta.name === pluginName || s.meta.id === pluginName
+      );
       if (!match) return null;
 
       return {

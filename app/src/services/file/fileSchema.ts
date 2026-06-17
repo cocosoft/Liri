@@ -78,7 +78,12 @@ export const CREATE_FILES_INDEXES_SQL: string[] = [
  * FTS5 搜索字段列表
  * 只对文本类字段建立全文索引（file_id 和路径类字段不搜索）
  */
-export const FTS5_COLUMNS = ['original_name', 'description', 'source', 'mime_type'] as const;
+export const FTS5_COLUMNS = [
+  'original_name',
+  'description',
+  'source',
+  'mime_type',
+] as const;
 
 /**
  * 创建 FTS5 虚拟表

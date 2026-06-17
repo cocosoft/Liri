@@ -81,7 +81,11 @@ export class KnowledgeBaseWriter {
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      await handleError(error, { module: 'memory:kb:writer', action: 'write', context: { filePath } });
+      await handleError(error, {
+        module: 'memory:kb:writer',
+        action: 'write',
+        context: { filePath },
+      });
       return {
         success: false,
         filePath,
@@ -126,7 +130,11 @@ export class KnowledgeBaseWriter {
       return { success: true, filePath, action: 'created' };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      await handleError(error, { module: 'memory:kb:writer', action: 'write_entry', context: { filePath } });
+      await handleError(error, {
+        module: 'memory:kb:writer',
+        action: 'write_entry',
+        context: { filePath },
+      });
       return {
         success: false,
         filePath,

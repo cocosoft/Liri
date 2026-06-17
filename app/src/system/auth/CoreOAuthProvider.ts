@@ -4,7 +4,13 @@
  * 实现统一的OAuthProvider接口
  */
 
-import { OAuthProvider, OAuthProviderConfig, AuthorizeOptions, OAuthToken, UserInfo } from '@modules/oauth';
+import {
+  OAuthProvider,
+  OAuthProviderConfig,
+  AuthorizeOptions,
+  OAuthToken,
+  UserInfo,
+} from '@modules/oauth';
 import { OAuthClient, OAuthConfig } from '@modules/oauth';
 import { configManager } from '@modules/config';
 
@@ -20,9 +26,11 @@ export class CoreOAuthProvider implements OAuthProvider {
   constructor() {
     this.config = {
       authorizeUrl:
-        configManager.env('OAUTH_AUTH_URL') || 'https://auth.pyapp.dev/oauth/authorize',
+        configManager.env('OAUTH_AUTH_URL') ||
+        'https://auth.pyapp.dev/oauth/authorize',
       tokenUrl:
-        configManager.env('OAUTH_TOKEN_URL') || 'https://auth.pyapp.dev/oauth/token',
+        configManager.env('OAUTH_TOKEN_URL') ||
+        'https://auth.pyapp.dev/oauth/token',
       profileUrl:
         configManager.env('OAUTH_PROFILE_URL') ||
         'https://auth.pyapp.dev/oauth/userinfo',

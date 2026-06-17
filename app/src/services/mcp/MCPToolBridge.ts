@@ -39,7 +39,10 @@ export class MCPToolBridge {
         `MCP tool bridge initialized: ${this.registeredMcpTools.size} tools registered`
       );
     } catch (error) {
-      await handleError(error, { module: 'services:mcp:bridge', action: 'initialize' });
+      await handleError(error, {
+        module: 'services:mcp:bridge',
+        action: 'initialize',
+      });
     }
   }
 

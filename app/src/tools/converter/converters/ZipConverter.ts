@@ -8,7 +8,17 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
  * 转换引擎引用（DI 注入，避免循环依赖）
  * ConverterEngine → ZipConverter → getConverterEngine → ConverterEngine
  */
-let _convertContent: ((fileInfo: { path: string; extension: string; mimeType: string; size: number }, buffer: Buffer) => Promise<{ markdown: string }>) | null = null;
+let _convertContent:
+  | ((
+      fileInfo: {
+        path: string;
+        extension: string;
+        mimeType: string;
+        size: number;
+      },
+      buffer: Buffer
+    ) => Promise<{ markdown: string }>)
+  | null = null;
 
 export function setZipConverterEngine(convertFn: typeof _convertContent): void {
   _convertContent = convertFn;
@@ -16,7 +26,9 @@ export function setZipConverterEngine(convertFn: typeof _convertContent): void {
 
 function getConvertContent(): NonNullable<typeof _convertContent> {
   if (!_convertContent) {
-    throw new Error('ConverterEngine not initialized. Call setZipConverterEngine() first.');
+    throw new Error(
+      'ConverterEngine not initialized. Call setZipConverterEngine() first.'
+    );
   }
   return _convertContent;
 }

@@ -68,11 +68,14 @@ const DATA_FILE = 'index.jsonl';
 
 // ─── 元数据读写 ──────────────────────────────────────────────────────────────
 
-export async function readIndexMeta(indexDir: string): Promise<IndexMeta | null> {
+export async function readIndexMeta(
+  indexDir: string
+): Promise<IndexMeta | null> {
   try {
     const raw = await fs.readFile(path.join(indexDir, META_FILE), 'utf8');
     const parsed = JSON.parse(raw) as Partial<IndexMeta>;
-    if (!parsed.version || !parsed.dim || !parsed.provider || !parsed.model) return null;
+    if (!parsed.version || !parsed.dim || !parsed.provider || !parsed.model)
+      return null;
     return {
       provider: parsed.provider,
       model: parsed.model,
@@ -85,9 +88,16 @@ export async function readIndexMeta(indexDir: string): Promise<IndexMeta | null>
   }
 }
 
-async function writeIndexMeta(indexDir: string, meta: IndexMeta): Promise<void> {
+async function writeIndexMeta(
+  indexDir: string,
+  meta: IndexMeta
+): Promise<void> {
   await fs.mkdir(indexDir, { recursive: true });
-  await fs.writeFile(path.join(indexDir, META_FILE), JSON.stringify(meta, null, 2), 'utf8');
+  await fs.writeFile(
+    path.join(indexDir, META_FILE),
+    JSON.stringify(meta, null, 2),
+    'utf8'
+  );
 }
 
 export async function wipeStoreFiles(indexDir: string): Promise<void> {
@@ -103,7 +113,7 @@ export class SemanticStore {
 
   constructor(
     public readonly indexDir: string,
-    public readonly identity: IndexIdentity,
+    public readonly identity: IndexIdentity
   ) {}
 
   get empty(): boolean {
@@ -134,7 +144,11 @@ export class SemanticStore {
     }
 
     await fs.mkdir(this.indexDir, { recursive: true });
-    await fs.appendFile(path.join(this.indexDir, DATA_FILE), lines.join('\n') + '\n', 'utf8');
+    await fs.appendFile(
+      path.join(this.indexDir, DATA_FILE),
+      lines.join('\n') + '\n',
+      'utf8'
+    );
 
     await writeIndexMeta(this.indexDir, {
       provider: this.identity.provider,
@@ -152,8 +166,13 @@ export class SemanticStore {
    * @param topK 返回前 K 个结果
    * @param minScore 最低相似度阈值
    */
-  search(queryEmbedding: Float32Array, topK: number = 10, minScore: number = 0.3): SearchHit[] {
-    if (this.entries.length === 0 || queryEmbedding.length !== this.dim) return [];
+  search(
+    queryEmbedding: Float32Array,
+    topK: number = 10,
+    minScore: number = 0.3
+  ): SearchHit[] {
+    if (this.entries.length === 0 || queryEmbedding.length !== this.dim)
+      return [];
 
     const hits: SearchHit[] = [];
     for (const entry of this.entries) {

@@ -106,7 +106,11 @@ export class KnowledgeBaseWriter {
       return { success: true, filePath, action };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      await handleError(error, { module: 'knowledge:writer', action: 'write_entry', context: { filePath } });
+      await handleError(error, {
+        module: 'knowledge:writer',
+        action: 'write_entry',
+        context: { filePath },
+      });
       return {
         success: false,
         filePath,

@@ -54,9 +54,7 @@ export async function handleSTTTranscribe(
       if (openAIApiKey) {
         const { CloudSTTProvider } =
           await import('../../../services/voice/services/cloudSTTProvider');
-        STTRegistry.register(
-          new CloudSTTProvider({ apiKey: openAIApiKey })
-        );
+        STTRegistry.register(new CloudSTTProvider({ apiKey: openAIApiKey }));
       }
     }
 

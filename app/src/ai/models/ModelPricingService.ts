@@ -105,13 +105,17 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
   try {
     const raw = row.capabilities as string;
     if (raw) capabilities = JSON.parse(raw);
-  } catch { /* 静默忽略 */ }
+  } catch {
+    /* 静默忽略 */
+  }
 
   let providerMappings: Record<string, string> = {};
   try {
     const raw = row.provider_mappings as string;
     if (raw) providerMappings = JSON.parse(raw);
-  } catch { /* 静默忽略 */ }
+  } catch {
+    /* 静默忽略 */
+  }
 
   return {
     id: row.id as string,
@@ -186,7 +190,9 @@ export class ModelPricingService {
       await this.seedFromYamlIfEmpty();
 
       this.initialized = true;
-      logger.info('ModelPricingService 初始化完成（model_registry 单一数据源）');
+      logger.info(
+        'ModelPricingService 初始化完成（model_registry 单一数据源）'
+      );
     } catch (error) {
       await handleError(error, { module: 'ai:pricing', action: 'initialize' });
       throw new AppError(
@@ -276,32 +282,40 @@ export class ModelPricingService {
     if (registryCount > 0) {
       // 已有数据，直接删旧表
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        });
+        this.db!.run(
+          `DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`,
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
       });
       logger.info('旧 model_pricing 表已废弃并删除（新表已有数据）');
       return;
     }
 
     // 迁移数据
-    const oldRows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
-      this.db!.all(
-        `SELECT * FROM ${OLD_PRICING_TABLE}`,
-        (err: Error | null, rows: any[]) => {
-          if (err) reject(err);
-          else resolve(rows as Record<string, unknown>[]);
-        }
-      );
-    });
+    const oldRows = await new Promise<Record<string, unknown>[]>(
+      (resolve, reject) => {
+        this.db!.all(
+          `SELECT * FROM ${OLD_PRICING_TABLE}`,
+          (err: Error | null, rows: any[]) => {
+            if (err) reject(err);
+            else resolve(rows as Record<string, unknown>[]);
+          }
+        );
+      }
+    );
 
     if (oldRows.length === 0) {
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        });
+        this.db!.run(
+          `DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`,
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
       });
       logger.info('旧 model_pricing 表为空，已直接删除');
       return;
@@ -320,10 +334,18 @@ export class ModelPricingService {
             [
               old.model_id,
               old.display_name || '',
-              old.input_price as number || old.input_cost_per_million as number || 0,
-              old.output_price as number || old.output_cost_per_million as number || 0,
-              old.cache_read_price as number || old.cache_read_cost_per_million as number || 0,
-              old.cache_write_price as number || old.cache_write_cost_per_million as number || 0,
+              (old.input_price as number) ||
+                (old.input_cost_per_million as number) ||
+                0,
+              (old.output_price as number) ||
+                (old.output_cost_per_million as number) ||
+                0,
+              (old.cache_read_price as number) ||
+                (old.cache_read_cost_per_million as number) ||
+                0,
+              (old.cache_write_price as number) ||
+                (old.cache_write_cost_per_million as number) ||
+                0,
               (old.provider_id as string) || (old.provider as string) || '',
               old.enabled ?? 1,
               old.is_custom ?? 0,
@@ -344,13 +366,18 @@ export class ModelPricingService {
 
     // 删除旧表
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`, (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        `DROP TABLE IF EXISTS ${OLD_PRICING_TABLE}`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
 
-    logger.info(`旧 model_pricing 表已迁移：${migrated}/${oldRows.length} 条记录 → model_registry，旧表已删除`);
+    logger.info(
+      `旧 model_pricing 表已迁移：${migrated}/${oldRows.length} 条记录 → model_registry，旧表已删除`
+    );
   }
 
   /** 首次启动时从 YAML 种子数据到 DB */
@@ -407,7 +434,8 @@ export class ModelPricingService {
               entry.pricing?.cacheReadPer1M || 0,
               entry.pricing?.cacheWritePer1M || 0,
               // 推断主 provider：取 provider_mappings 中除了 firstParty 外的第一个 key
-              Object.keys(providerMappings).find(k => k !== 'firstParty') || '',
+              Object.keys(providerMappings).find((k) => k !== 'firstParty') ||
+                '',
               now,
               now,
             ],
@@ -452,10 +480,14 @@ export class ModelPricingService {
     if (existing) {
       const providerMappings = params.providerMappings
         ? JSON.stringify(params.providerMappings)
-        : (existing.providerMappings ? JSON.stringify(existing.providerMappings) : '{}');
+        : existing.providerMappings
+          ? JSON.stringify(existing.providerMappings)
+          : '{}';
       const capabilities = params.capabilities
         ? JSON.stringify(params.capabilities)
-        : (existing.capabilities ? JSON.stringify(existing.capabilities) : '[]');
+        : existing.capabilities
+          ? JSON.stringify(existing.capabilities)
+          : '[]';
 
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
@@ -475,7 +507,8 @@ export class ModelPricingService {
             params.inputCostPerMillion,
             params.outputCostPerMillion,
             params.cacheReadCostPerMillion ?? existing.cacheReadCostPerMillion,
-            params.cacheWriteCostPerMillion ?? existing.cacheWriteCostPerMillion,
+            params.cacheWriteCostPerMillion ??
+              existing.cacheWriteCostPerMillion,
             params.providerId || existing.providerId || '',
             now,
             params.modelId,
@@ -558,9 +591,7 @@ export class ModelPricingService {
         (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else {
-            resolve(
-              (rows as Record<string, unknown>[]).map(rowToRecord)
-            );
+            resolve((rows as Record<string, unknown>[]).map(rowToRecord));
           }
         }
       );
@@ -577,9 +608,7 @@ export class ModelPricingService {
         (err: Error | null, rows: any[]) => {
           if (err) reject(err);
           else {
-            resolve(
-              (rows as Record<string, unknown>[]).map(rowToRecord)
-            );
+            resolve((rows as Record<string, unknown>[]).map(rowToRecord));
           }
         }
       );
@@ -701,7 +730,9 @@ export class ModelPricingService {
               entry.pricing?.outputPer1M || 0,
               entry.pricing?.cacheReadPer1M || 0,
               entry.pricing?.cacheWritePer1M || 0,
-              Object.keys(entry.providers || {}).find(k => k !== 'firstParty') || '',
+              Object.keys(entry.providers || {}).find(
+                (k) => k !== 'firstParty'
+              ) || '',
               now,
               now,
             ],
@@ -726,4 +757,3 @@ export class ModelPricingService {
 }
 
 export const modelPricingService = ModelPricingService.getInstance();
-

@@ -197,7 +197,12 @@ export class ImageGenerateTool extends BaseTool {
       Promise.resolve().then(async () => {
         for (const img of images) {
           const format = img.format || 'png';
-          await registerGeneratedMedia(img.url, params.prompt, 'images', format);
+          await registerGeneratedMedia(
+            img.url,
+            params.prompt,
+            'images',
+            format
+          );
         }
       });
 

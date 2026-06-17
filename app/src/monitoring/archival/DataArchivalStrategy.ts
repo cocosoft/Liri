@@ -28,7 +28,10 @@ import { IncidentManager } from '../incidents/IncidentManager';
 import type { Incident } from '../incidents/IncidentManager';
 import { getPerformanceAnalyzer } from '../performance/PerformanceAnalyzer';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:archival' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'monitoring:archival',
+});
 
 /**
  * 可归档的监控数据类型
@@ -324,7 +327,11 @@ export class DataArchivalStrategy {
       const parsed = JSON.parse(data);
       return Array.isArray(parsed) ? parsed : [parsed];
     } catch (error) {
-      await handleError(error, { module: 'monitoring:archival', action: 'read_archive', context: { filePath } });
+      await handleError(error, {
+        module: 'monitoring:archival',
+        action: 'read_archive',
+        context: { filePath },
+      });
       return [];
     }
   }
@@ -487,7 +494,11 @@ export class DataArchivalStrategy {
         success: true,
       };
     } catch (error) {
-      void handleError(error, { module: 'monitoring:archival', action: 'snapshot_data', context: { dataType } });
+      void handleError(error, {
+        module: 'monitoring:archival',
+        action: 'snapshot_data',
+        context: { dataType },
+      });
       return {
         dataType,
         filePath: '',

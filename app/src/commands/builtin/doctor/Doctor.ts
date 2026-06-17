@@ -292,14 +292,11 @@ async function checkNetworkConnectivity(): Promise<DiagnosisResult[]> {
 
   checks.push({
     check: 'API 服务连接',
-    status:
-      hasAnyApiKey() ? 'pass' : 'warning',
-    message:
-      hasAnyApiKey() ? 'API 密钥已配置' : '未配置 API 密钥',
-    suggestion:
-      hasAnyApiKey()
-        ? undefined
-        : '请在 .env 中设置 PROVIDER_{NAME}_KEY 或 DEEPSEEK_API_KEY/OPENAI_API_KEY 等',
+    status: hasAnyApiKey() ? 'pass' : 'warning',
+    message: hasAnyApiKey() ? 'API 密钥已配置' : '未配置 API 密钥',
+    suggestion: hasAnyApiKey()
+      ? undefined
+      : '请在 .env 中设置 PROVIDER_{NAME}_KEY 或 DEEPSEEK_API_KEY/OPENAI_API_KEY 等',
   });
 
   return checks;
@@ -515,9 +512,7 @@ async function checkBasicNetwork(): Promise<DiagnosisResult[]> {
     {
       check: 'API 服务连接',
       status: hasAnyApiKey() ? 'pass' : 'warning',
-      message: hasAnyApiKey()
-        ? 'API 密钥已配置'
-        : '未配置 API 密钥',
+      message: hasAnyApiKey() ? 'API 密钥已配置' : '未配置 API 密钥',
     },
   ];
 }

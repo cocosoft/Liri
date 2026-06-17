@@ -48,7 +48,11 @@ export class LocalServerStore {
       }
       return data;
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:marketplace', action: 'read_store', context: { storePath: this.storePath } });
+      void handleError(error, {
+        module: 'services:mcp:marketplace',
+        action: 'read_store',
+        context: { storePath: this.storePath },
+      });
       return {
         version: STORE_VERSION,
         updatedAt: new Date().toISOString(),
@@ -69,7 +73,10 @@ export class LocalServerStore {
         'utf8'
       );
     } catch (error) {
-      void handleError(error, { module: 'services:mcp:marketplace', action: 'save_store' });
+      void handleError(error, {
+        module: 'services:mcp:marketplace',
+        action: 'save_store',
+      });
     }
   }
 

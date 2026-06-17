@@ -15,7 +15,10 @@ export class PermissionSync {
   private pendingRequests: Map<string, PermissionRequest> = new Map();
 
   constructor() {
-    this.permissionCache = new TTLCache<PermissionResponse>(1000, 5 * 60 * 1000);
+    this.permissionCache = new TTLCache<PermissionResponse>(
+      1000,
+      5 * 60 * 1000
+    );
   }
 
   /**

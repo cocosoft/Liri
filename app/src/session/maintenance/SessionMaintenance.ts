@@ -112,7 +112,10 @@ export class SessionMaintenance {
               cleaned++;
               freedBytes += file.size;
             } catch (err) {
-              void handleError(err, { module: 'session:maintenance', action: 'catch_error' });
+              void handleError(err, {
+                module: 'session:maintenance',
+                action: 'catch_error',
+              });
             }
           }
         }

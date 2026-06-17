@@ -284,9 +284,7 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     }, this.pollingIntervalMs);
 
     this.setInboundListening(true);
-    this.logger.info(
-      `微信消息轮询已启动 (${this.pollingIntervalMs}ms)`
-    );
+    this.logger.info(`微信消息轮询已启动 (${this.pollingIntervalMs}ms)`);
   }
 
   /** 停止消息轮询 */
@@ -325,7 +323,8 @@ class WechatChannelPlugin extends BaseChannelPlugin {
         channelId: 'wechat',
         senderId: msg.senderId || msg.from || 'unknown',
         senderName: msg.senderName || msg.from || 'unknown',
-        conversationId: msg.senderId || msg.from || msg.conversationId || 'unknown',
+        conversationId:
+          msg.senderId || msg.from || msg.conversationId || 'unknown',
         messageId: msg.id,
         messageType: msg.type === 'image' ? 'image' : 'text',
         content: msg.content || '',

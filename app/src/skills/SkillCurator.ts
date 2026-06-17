@@ -403,7 +403,10 @@ let globalCurator: SkillCurator | null = null;
  * @param config 策展配置
  * @returns SkillCurator 实例
  */
-export function getSkillCurator(skillDB?: SkillDB, config?: Partial<CuratorConfig>): SkillCurator {
+export function getSkillCurator(
+  skillDB?: SkillDB,
+  config?: Partial<CuratorConfig>
+): SkillCurator {
   if (!globalCurator) {
     globalCurator = new SkillCurator(config, skillDB);
   }

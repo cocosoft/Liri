@@ -38,11 +38,7 @@ export type {
   PluginLoadResult,
   PluginValidationResult,
 } from './PluginTypes.js';
-export {
-  PluginState,
-  PluginType,
-  PluginEventType,
-} from './PluginTypes.js';
+export { PluginState, PluginType, PluginEventType } from './PluginTypes.js';
 
 // === 从 Plugin.ts 重导出（插件开发者 API） ===
 export { PluginStatus } from './Plugin.js';

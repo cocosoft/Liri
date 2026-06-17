@@ -116,7 +116,10 @@ export class JudgeService {
     ]);
 
     const parsed = this.parseResponse(response.content);
-    logger.debug('JudgeService: 云端分类结果', { tier: parsed.tier, confidence: parsed.confidence });
+    logger.debug('JudgeService: 云端分类结果', {
+      tier: parsed.tier,
+      confidence: parsed.confidence,
+    });
 
     return {
       ...parsed,
@@ -127,7 +130,11 @@ export class JudgeService {
   /**
    * 解析 LLM 返回的 JSON
    */
-  private parseResponse(content: string): { tier: RouterTier; confidence: number; reason: string } {
+  private parseResponse(content: string): {
+    tier: RouterTier;
+    confidence: number;
+    reason: string;
+  } {
     try {
       // 尝试从 JSON 块中提取
       const jsonMatch = content.match(/\{[\s\S]*"tier"[\s\S]*\}/);
@@ -137,7 +144,8 @@ export class JudgeService {
       const tier = this.normalizeTier(parsed.tier);
       return {
         tier,
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.7,
+        confidence:
+          typeof parsed.confidence === 'number' ? parsed.confidence : 0.7,
         reason: `LLM Judge 分类: ${tier}`,
       };
     } catch {
@@ -167,7 +175,8 @@ export class JudgeService {
   private heuristicClassify(content: string): RouterTier {
     const lower = content.toLowerCase();
     if (lower.includes('simple')) return 'simple';
-    if (lower.includes('reasoning') || lower.includes('complex')) return 'reasoning';
+    if (lower.includes('reasoning') || lower.includes('complex'))
+      return 'reasoning';
     if (lower.includes('complex')) return 'complex';
     return 'medium';
   }

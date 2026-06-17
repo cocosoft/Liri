@@ -203,14 +203,17 @@ export class BalanceStore {
   }
 
   /** 写入/更新供应商余额 */
-  async setBalance(providerId: string, data: {
-    remaining: number | null;
-    total: number | null;
-    used: number | null;
-    unit?: string;
-    isSupported: boolean;
-    belowThreshold: boolean;
-  }): Promise<void> {
+  async setBalance(
+    providerId: string,
+    data: {
+      remaining: number | null;
+      total: number | null;
+      used: number | null;
+      unit?: string;
+      isSupported: boolean;
+      belowThreshold: boolean;
+    }
+  ): Promise<void> {
     const db = this.ensureDb();
     const now = Math.floor(Date.now() / 1000);
 
@@ -253,4 +256,3 @@ export class BalanceStore {
     });
   }
 }
-

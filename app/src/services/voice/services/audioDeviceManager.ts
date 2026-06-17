@@ -55,7 +55,10 @@ function loadConfig(): AudioDeviceConfig {
       return JSON.parse(raw) as AudioDeviceConfig;
     }
   } catch (error) {
-    void handleError(error, { module: 'services:voice:audio', action: 'load_config' });
+    void handleError(error, {
+      module: 'services:voice:audio',
+      action: 'load_config',
+    });
   }
   return {};
 }
@@ -74,7 +77,10 @@ function saveConfig(config: AudioDeviceConfig): void {
     const fs = require('fs');
     fs.renameSync(tmpPath, configPath);
   } catch (error) {
-    void handleError(error, { module: 'services:voice:audio', action: 'save_config' });
+    void handleError(error, {
+      module: 'services:voice:audio',
+      action: 'save_config',
+    });
   }
 }
 

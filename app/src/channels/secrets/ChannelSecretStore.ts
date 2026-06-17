@@ -21,8 +21,13 @@
  * ChannelRegistry 最小接口（避免 import type 被 madge 视作循环依赖）
  */
 interface _ChannelRegistry {
-  getConfig(name: string): { options?: Record<string, unknown>; type?: string } | undefined;
-  updateConfig(name: string, changes: { options?: Record<string, unknown> }): boolean;
+  getConfig(
+    name: string
+  ): { options?: Record<string, unknown>; type?: string } | undefined;
+  updateConfig(
+    name: string,
+    changes: { options?: Record<string, unknown> }
+  ): boolean;
   getAllConfigs(): Array<{ type: string; options?: Record<string, unknown> }>;
 }
 
@@ -40,7 +45,9 @@ export function initRegistry(registry: _ChannelRegistry): void {
 /** 获取 channelRegistry 引用 */
 function getRegistry(): _ChannelRegistry {
   if (!_registry) {
-    throw new Error('ChannelSecretStore: channelRegistry 未初始化，请先调用 initRegistry()');
+    throw new Error(
+      'ChannelSecretStore: channelRegistry 未初始化，请先调用 initRegistry()'
+    );
   }
   return _registry;
 }

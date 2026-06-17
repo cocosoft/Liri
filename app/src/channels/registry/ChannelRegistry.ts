@@ -23,7 +23,10 @@ import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:registry' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'channels:registry',
+});
 
 /**
  * 通道接口
@@ -75,7 +78,8 @@ export function adaptPluginToInterface(
     },
     connect: async () => {
       // 从统一凭据存储获取该通道的所有已保存配置（DB 优先，.env 兜底）
-      const { ChannelSecretStore } = await import('../secrets/ChannelSecretStore');
+      const { ChannelSecretStore } =
+        await import('../secrets/ChannelSecretStore');
       const store = ChannelSecretStore.getInstance();
       const credentials = store.get(plugin.id);
       await plugin.lifecycle.connect(credentials);
@@ -166,10 +170,18 @@ export function adaptPluginToChannelInterface(
     sendMessage: async (_target: string, text: string) => {
       // 尝试使用 outbound 属性（部分 ChannelPlugin 实现可能包含）
       const pluginWithOutbound = plugin as unknown as {
-        outbound?: { sendText(target: string, message: string): Promise<{ success: boolean }> };
+        outbound?: {
+          sendText(
+            target: string,
+            message: string
+          ): Promise<{ success: boolean }>;
+        };
       };
       if (pluginWithOutbound.outbound?.sendText) {
-        const result = await pluginWithOutbound.outbound.sendText(_target, text);
+        const result = await pluginWithOutbound.outbound.sendText(
+          _target,
+          text
+        );
         return result.success;
       }
       // 兜底：ChannelPlugin 无 outbound 属性，发送能力由 ChannelManager 补充
@@ -306,12 +318,28 @@ export class ChannelRegistry extends EventEmitter {
     return new Promise((resolve, reject) => {
       this.db!.all(
         'SELECT id, name, type, enabled, options FROM channel_configs',
-        (err: Error | null, rows: Array<{ id: string; name: string; type: string; enabled: number; options: string }>) => {
-          if (err) { reject(err); return; }
+        (
+          err: Error | null,
+          rows: Array<{
+            id: string;
+            name: string;
+            type: string;
+            enabled: number;
+            options: string;
+          }>
+        ) => {
+          if (err) {
+            reject(err);
+            return;
+          }
 
           for (const row of rows) {
             let options: Record<string, unknown> = {};
-            try { options = JSON.parse(row.options || '{}'); } catch { /* ignore */ }
+            try {
+              options = JSON.parse(row.options || '{}');
+            } catch {
+              /* ignore */
+            }
 
             this.configs.set(row.id, {
               name: row.name,
@@ -348,7 +376,10 @@ export class ChannelRegistry extends EventEmitter {
         [type, name, type, enabled ? 1 : 0, optionsJson, Date.now()],
         (err: Error | null) => {
           if (err) {
-            logger.error(`持久化通道配置失败: ${type}`, { error: err.message, config });
+            logger.error(`持久化通道配置失败: ${type}`, {
+              error: err.message,
+              config,
+            });
             resolve(false);
           } else {
             resolve(true);
@@ -370,7 +401,9 @@ export class ChannelRegistry extends EventEmitter {
         [id],
         (err: Error | null) => {
           if (err) {
-            logger.error(`删除持久化通道配置失败: ${id}`, { error: err.message });
+            logger.error(`删除持久化通道配置失败: ${id}`, {
+              error: err.message,
+            });
             resolve(false);
           } else {
             resolve(true);
@@ -389,7 +422,9 @@ export class ChannelRegistry extends EventEmitter {
       if (ok) successCount++;
     }
     if (successCount < this.configs.size) {
-      logger.warning(`同步配置到 DB 不完全: ${successCount}/${this.configs.size}`);
+      logger.warning(
+        `同步配置到 DB 不完全: ${successCount}/${this.configs.size}`
+      );
     }
     return successCount;
   }
@@ -438,15 +473,23 @@ export class ChannelRegistry extends EventEmitter {
       // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
       this.persistConfig(config).then((ok) => {
         if (!ok) {
-          logger.warning(`注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`);
+          logger.warning(
+            `注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`
+          );
         }
       });
     }
 
     // 仅首次注册时发出事件，避免双重注册路径（ChannelManager + ChannelPluginRegistry 同步）产生重复事件
     if (!isDuplicate) {
-      this.emit('channel:registered', { name: adapted.name, type: adapted.type });
-      channelEventBus.publish(ChannelEvents.CHANNEL_REGISTERED, { name: adapted.name, type: adapted.type });
+      this.emit('channel:registered', {
+        name: adapted.name,
+        type: adapted.type,
+      });
+      channelEventBus.publish(ChannelEvents.CHANNEL_REGISTERED, {
+        name: adapted.name,
+        type: adapted.type,
+      });
     }
   }
 
@@ -589,7 +632,11 @@ export class ChannelRegistry extends EventEmitter {
     return result;
   }
 
-  async sendThreadReply(name: string, threadId: string, text: string): Promise<boolean> {
+  async sendThreadReply(
+    name: string,
+    threadId: string,
+    text: string
+  ): Promise<boolean> {
     const channel = this.channels.get(name);
     if (!channel || !channel.supportsThreads || !channel.sendThreadMessage)
       return false;
@@ -699,4 +746,3 @@ export class ChannelRegistry extends EventEmitter {
 }
 
 export const channelRegistry = new ChannelRegistry();
-

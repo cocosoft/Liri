@@ -330,7 +330,10 @@ export class CredentialManager {
       fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
       fs.writeFileSync(this.storePath, store, 'utf-8');
     } catch (err) {
-      void handleError(err, { module: 'security:services', action: 'catch_error' });
+      void handleError(err, {
+        module: 'security:services',
+        action: 'catch_error',
+      });
     }
   }
 

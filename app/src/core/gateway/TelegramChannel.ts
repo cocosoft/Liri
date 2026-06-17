@@ -189,7 +189,10 @@ export class TelegramChannel implements GatewayChannel, ChannelPlugin {
       return true;
     } catch (error) {
       this._errors++;
-      await handleError(error, { module: 'gateway:telegram', action: 'send_message' });
+      await handleError(error, {
+        module: 'gateway:telegram',
+        action: 'send_message',
+      });
       return false;
     }
   }
@@ -314,7 +317,10 @@ export class TelegramChannel implements GatewayChannel, ChannelPlugin {
     } catch (error) {
       this._errors++;
       const err = error instanceof Error ? error : new Error(String(error));
-      await handleError(error, { module: 'gateway:telegram', action: 'poll_updates' });
+      await handleError(error, {
+        module: 'gateway:telegram',
+        action: 'poll_updates',
+      });
       this._callbacks.onError?.(err);
     }
 

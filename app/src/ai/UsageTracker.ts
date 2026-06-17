@@ -172,7 +172,7 @@ export async function trackUsage(
       // 实时日志输出（用户可见，便于监控 API 调用）
       logger.info(
         `API ${params.model} | in=${inputTokens} out=${outputTokens} ` +
-        `cache=${cacheReadTokens}/${cacheCreationTokens} cost=$${costUSD.toFixed(4)} | ${params.providerId || 'unknown'}`
+          `cache=${cacheReadTokens}/${cacheCreationTokens} cost=$${costUSD.toFixed(4)} | ${params.providerId || 'unknown'}`
       );
     }
   } catch (err) {
@@ -203,9 +203,8 @@ async function syncToTrackers(
   try {
     // 同步到 CostTracker（累计统计）
     const { costTracker } = await import('@modules/cost/CostTracker');
-    const { getCostRecordRepository } = await import(
-      '@modules/cost/CostRecordRepository'
-    );
+    const { getCostRecordRepository } =
+      await import('@modules/cost/CostRecordRepository');
 
     // 确保 recordRepository 已初始化（防止启动时序问题导致静默跳过持久化）
     const repository = getCostRecordRepository();
@@ -221,9 +220,8 @@ async function syncToTrackers(
     );
 
     // 同步到 LLMTracker（按会话分组）
-    const { getLLMTracker } = await import(
-      '@modules/monitoring/llm/getLLMTracker'
-    );
+    const { getLLMTracker } =
+      await import('@modules/monitoring/llm/getLLMTracker');
     const llmTracker = getLLMTracker();
     const sessionId = params.sessionId || 'default';
     const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

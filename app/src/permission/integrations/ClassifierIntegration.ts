@@ -144,7 +144,10 @@ export class ClassifierIntegration {
           return createAskDecision('Tool use classification unknown');
       }
     } catch (error) {
-      await handleError(error, { module: 'permission:integration', action: 'classifier_check' });
+      await handleError(error, {
+        module: 'permission:integration',
+        action: 'classifier_check',
+      });
       return createAskDecision('Classifier error, requiring user approval');
     }
   }

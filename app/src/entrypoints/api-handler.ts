@@ -28,7 +28,9 @@ export type APIHandler = (req: Request) => Promise<Response>;
  */
 export function createAPIHandler(): APIHandler {
   // 共享引用：内联 → 真实处理器的切换点
-  const shared = { realHandler: null as ((req: Request) => Promise<Response>) | null };
+  const shared = {
+    realHandler: null as ((req: Request) => Promise<Response>) | null,
+  };
 
   // 后台异步加载真实处理器（不阻塞当前请求）
   tryInitRealHandler(shared);
@@ -52,7 +54,7 @@ export function createAPIHandler(): APIHandler {
     } catch (err) {
       return jsonResponse(
         { error: 'Internal Server Error', message: String(err) },
-        500,
+        500
       );
     }
   };
@@ -131,9 +133,11 @@ async function handleRoute(req: Request, pathname: string): Promise<Response> {
  * GET /v1/models — 模型列表
  */
 function handleListModels(): Promise<Response> {
-  return Promise.resolve(jsonResponse({
-    data: [{ id: 'default', name: '默认模型', provider: 'system' }],
-  }));
+  return Promise.resolve(
+    jsonResponse({
+      data: [{ id: 'default', name: '默认模型', provider: 'system' }],
+    })
+  );
 }
 
 /**
@@ -149,22 +153,24 @@ function handleGetCurrentModel(): Promise<Response> {
  * 返回当前系统配置信息，前端用于初始化页面状态。
  */
 function handleGetConfig(): Promise<Response> {
-  return Promise.resolve(jsonResponse({
-    version: '7.9.0',
-    mode: 'daemon',
-    ai: {
-      providers: [
-        { id: 'deepseek', name: 'DeepSeek', enabled: true },
-        { id: 'ollama', name: 'Ollama', enabled: false },
-      ],
-    },
-    features: {
-      chat: true,
-      sessions: true,
-      tools: false,
-      agents: false,
-    },
-  }));
+  return Promise.resolve(
+    jsonResponse({
+      version: '7.9.0',
+      mode: 'daemon',
+      ai: {
+        providers: [
+          { id: 'deepseek', name: 'DeepSeek', enabled: true },
+          { id: 'ollama', name: 'Ollama', enabled: false },
+        ],
+      },
+      features: {
+        chat: true,
+        sessions: true,
+        tools: false,
+        agents: false,
+      },
+    })
+  );
 }
 
 /**
@@ -178,7 +184,9 @@ function handleListSessions(): Promise<Response> {
  * POST /v1/sessions — 创建会话
  */
 function handleCreateSession(): Promise<Response> {
-  return Promise.resolve(jsonResponse({ data: { id: '', name: '新会话' }, message: 'created' }, 201));
+  return Promise.resolve(
+    jsonResponse({ data: { id: '', name: '新会话' }, message: 'created' }, 201)
+  );
 }
 
 /**
@@ -199,26 +207,30 @@ function handleMonitorSummary(): Promise<Response> {
   const freeMemMB = Math.round(os.freemem() / 1024 / 1024);
   const usedMemMB = totalMemMB - freeMemMB;
   const uptime = Math.floor(process.uptime());
-  const loadAvg = (os.loadavg?.()) as number[] || [0, 0, 0];
+  const loadAvg = (os.loadavg?.() as number[]) || [0, 0, 0];
   const cpuCores = os.cpus()?.length || 0;
-  const memoryPercent = totalMemMB > 0 ? Math.round((usedMemMB / totalMemMB) * 100) : 0;
-  const cpuPercent = cpuCores > 0 ? Math.min(Math.round((loadAvg[0] / cpuCores) * 100), 100) : 0;
+  const memoryPercent =
+    totalMemMB > 0 ? Math.round((usedMemMB / totalMemMB) * 100) : 0;
+  const cpuPercent =
+    cpuCores > 0 ? Math.min(Math.round((loadAvg[0] / cpuCores) * 100), 100) : 0;
 
-  return Promise.resolve(jsonResponse({
-    uptime,
-    cpuPercent,
-    memoryPercent,
-    memoryUsedMB: usedMemMB,
-    memoryTotalMB: totalMemMB,
-    diskTotalGB: 0,
-    diskUsedGB: 0,
-    diskFreeGB: 0,
-    diskUsagePercent: 0,
-    loadAverage: loadAvg,
-    requestCount: 0,
-    errorCount: 0,
-    avgResponseTime: 0,
-  }));
+  return Promise.resolve(
+    jsonResponse({
+      uptime,
+      cpuPercent,
+      memoryPercent,
+      memoryUsedMB: usedMemMB,
+      memoryTotalMB: totalMemMB,
+      diskTotalGB: 0,
+      diskUsedGB: 0,
+      diskFreeGB: 0,
+      diskUsagePercent: 0,
+      loadAverage: loadAvg,
+      requestCount: 0,
+      errorCount: 0,
+      avgResponseTime: 0,
+    })
+  );
 }
 
 /**
@@ -233,16 +245,18 @@ function handleEvents(): Promise<Response> {
   const body = new ReadableStream({
     start(controller) {
       // 发送初始连接事件
-      controller.enqueue(new TextEncoder().encode(
-        'data: {"type":"connected","message":"SSE 连接已建立"}\n\n',
-      ));
+      controller.enqueue(
+        new TextEncoder().encode(
+          'data: {"type":"connected","message":"SSE 连接已建立"}\n\n'
+        )
+      );
 
       // 每 15 秒发送心跳
       heartbeat = setInterval(() => {
         try {
-          controller.enqueue(new TextEncoder().encode(
-            'data: {"type":"heartbeat"}\n\n',
-          ));
+          controller.enqueue(
+            new TextEncoder().encode('data: {"type":"heartbeat"}\n\n')
+          );
         } catch {
           if (heartbeat) clearInterval(heartbeat);
         }
@@ -253,13 +267,15 @@ function handleEvents(): Promise<Response> {
     },
   });
 
-  return Promise.resolve(new Response(body, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  }));
+  return Promise.resolve(
+    new Response(body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
+  );
 }
 
 /**
@@ -270,26 +286,28 @@ function handleEvents(): Promise<Response> {
  *   sessionInputTokens, sessionOutputTokens, totalTokens, ... }
  */
 function handleCostSummary(): Promise<Response> {
-  return Promise.resolve(jsonResponse({
-    todayCost: 0,
-    weeklyCost: 0,
-    monthlyCost: 0,
-    yearlyCost: 0,
-    todayTokens: 0,
-    monthlyTokens: 0,
-    totalInputTokens: 0,
-    totalOutputTokens: 0,
-    totalTokens: 0,
-    totalCacheReadTokens: 0,
-    totalCacheCreationTokens: 0,
-    totalRequests: 0,
-    sessionCost: 0,
-    sessionInputTokens: 0,
-    sessionOutputTokens: 0,
-    sessionTokens: 0,
-    topProviders: [],
-    dailyBreakdown: [],
-  }));
+  return Promise.resolve(
+    jsonResponse({
+      todayCost: 0,
+      weeklyCost: 0,
+      monthlyCost: 0,
+      yearlyCost: 0,
+      todayTokens: 0,
+      monthlyTokens: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheCreationTokens: 0,
+      totalRequests: 0,
+      sessionCost: 0,
+      sessionInputTokens: 0,
+      sessionOutputTokens: 0,
+      sessionTokens: 0,
+      topProviders: [],
+      dailyBreakdown: [],
+    })
+  );
 }
 
 /**
@@ -326,15 +344,15 @@ function jsonResponse(data: unknown, status = 200): Response {
  * 使用 timeout 防止 @modules/* 导入挂起导致请求超时。
  * 加载成功后设置 shared.realHandler 供后续请求使用。
  */
-async function tryInitRealHandler(
-  shared: { realHandler: ((req: Request) => Promise<Response>) | null },
-): Promise<void> {
+async function tryInitRealHandler(shared: {
+  realHandler: ((req: Request) => Promise<Response>) | null;
+}): Promise<void> {
   try {
     // 5 秒超时，防止 @modules/* 导入挂起
     await Promise.race([
       doInitRealHandler(shared),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('初始化真实处理器超时')), 5000),
+        setTimeout(() => reject(new Error('初始化真实处理器超时')), 5000)
       ),
     ]);
   } catch (e) {
@@ -346,27 +364,24 @@ async function tryInitRealHandler(
 /**
  * 真实处理器初始化逻辑
  */
-async function doInitRealHandler(
-  shared: { realHandler: ((req: Request) => Promise<Response>) | null },
-): Promise<void> {
+async function doInitRealHandler(shared: {
+  realHandler: ((req: Request) => Promise<Response>) | null;
+}): Promise<void> {
   const { default: http } = await import('node:http');
 
   // 动态导入 LocalHTTPService
-  const { LocalHTTPService } = await import(
-    '@modules/infrastructure/http/LocalHTTPService'
-  );
+  const { LocalHTTPService } =
+    await import('@modules/infrastructure/http/LocalHTTPService');
 
   // 创建服务实例
   const service = new LocalHTTPService({ host: '127.0.0.1', port: 0 });
 
   // 创建 node:http 服务器
-  const realServer = http.createServer(
-    (nodeReq, nodeRes) => {
-      // LocalHTTPService 内部有 request 事件监听器
-      // 这里我们利用 server 的 events 机制
-      realServer.emit('request', nodeReq, nodeRes);
-    },
-  );
+  const realServer = http.createServer((nodeReq, nodeRes) => {
+    // LocalHTTPService 内部有 request 事件监听器
+    // 这里我们利用 server 的 events 机制
+    realServer.emit('request', nodeReq, nodeRes);
+  });
 
   // 监听随机端口
   await new Promise<void>((resolve, reject) => {
@@ -380,9 +395,10 @@ async function doInitRealHandler(
   // 设置桥接函数
   shared.realHandler = async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    const body = req.method !== 'GET' && req.method !== 'HEAD'
-      ? await req.text()
-      : undefined;
+    const body =
+      req.method !== 'GET' && req.method !== 'HEAD'
+        ? await req.text()
+        : undefined;
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -411,10 +427,10 @@ async function doInitRealHandler(
               new Response(Buffer.concat(chunks), {
                 status: nodeRes.statusCode,
                 headers: nodeRes.headers as Record<string, string>,
-              }),
+              })
             );
           });
-        },
+        }
       );
 
       nodeReq.on('error', (err: Error) => {

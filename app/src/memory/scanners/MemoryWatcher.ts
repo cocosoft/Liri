@@ -143,7 +143,10 @@ export class MemoryWatcher {
         `MemoryWatcher initialized with ${this.knownFiles.size} files`
       );
     } catch (error) {
-      await handleError(error, { module: 'memory:watcher', action: 'scan_initial_files' });
+      await handleError(error, {
+        module: 'memory:watcher',
+        action: 'scan_initial_files',
+      });
     }
   }
 
@@ -235,7 +238,10 @@ export class MemoryWatcher {
 
       this.knownFiles = currentFiles;
     } catch (error) {
-      await handleError(error, { module: 'memory:watcher', action: 'poll_changes' });
+      await handleError(error, {
+        module: 'memory:watcher',
+        action: 'poll_changes',
+      });
     }
   }
 
@@ -364,7 +370,11 @@ export class MemoryWatcher {
         }
       }
     } catch (error) {
-      await handleError(error, { module: 'memory:watcher', action: 'walk_dir', context: { dir } });
+      await handleError(error, {
+        module: 'memory:watcher',
+        action: 'walk_dir',
+        context: { dir },
+      });
     }
 
     return results;

@@ -125,7 +125,10 @@ export class HealthMonitor extends EventEmitter {
 
     this.checkTimer = setInterval(() => {
       this.runHealthCheck().catch(async (err) => {
-        await handleError(err, { module: 'gateway:health', action: 'health_check_interval' });
+        await handleError(err, {
+          module: 'gateway:health',
+          action: 'health_check_interval',
+        });
       });
     }, this.config.checkIntervalMs);
 
@@ -218,18 +221,23 @@ export class HealthMonitor extends EventEmitter {
 
     // 将健康检查结果写入日志系统，持久化到内存日志
     if (report.unhealthyCount > 0) {
-      logger.warn(`健康检查完成: ${report.totalChannels} 通道, ${report.healthyCount} 健康, ${report.unhealthyCount} 异常`, {
-        healthReport: {
-          totalChannels: report.totalChannels,
-          healthyCount: report.healthyCount,
-          unhealthyCount: report.unhealthyCount,
-          unhealthyChannels: results.filter((r) => !r.healthy).map((r) => ({
-            channelName: r.channelName,
-            message: r.message,
-            failedPings: r.failedPings,
-          })),
-        },
-      });
+      logger.warn(
+        `健康检查完成: ${report.totalChannels} 通道, ${report.healthyCount} 健康, ${report.unhealthyCount} 异常`,
+        {
+          healthReport: {
+            totalChannels: report.totalChannels,
+            healthyCount: report.healthyCount,
+            unhealthyCount: report.unhealthyCount,
+            unhealthyChannels: results
+              .filter((r) => !r.healthy)
+              .map((r) => ({
+                channelName: r.channelName,
+                message: r.message,
+                failedPings: r.failedPings,
+              })),
+          },
+        }
+      );
     } else {
       logger.info(`健康检查完成: ${report.totalChannels} 通道全部健康`, {
         healthReport: {

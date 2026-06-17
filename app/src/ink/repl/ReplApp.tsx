@@ -20,7 +20,10 @@ import type {
   ActiveToolCall,
 } from './types';
 import type { ChatManager } from '@modules/chat/ChatManager';
-import type { ChatStreamChunk, QuestionData } from '@modules/runtime/api/CoreAPI';
+import type {
+  ChatStreamChunk,
+  QuestionData,
+} from '@modules/runtime/api/CoreAPI';
 
 const logger = new Logger({ level: 'info' as never });
 
@@ -39,9 +42,13 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
   const [terminalHeight, setTerminalHeight] = useState(24);
   const [submitCount, setSubmitCount] = useState(0);
-  const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(
+    null
+  );
   const [modelName, setModelName] = useState('');
-  const [routingMode, setRoutingMode] = useState<'dynamic' | 'static' | 'off'>('static');
+  const [routingMode, setRoutingMode] = useState<'dynamic' | 'static' | 'off'>(
+    'static'
+  );
   const [routerTier, setRouterTier] = useState<string | undefined>(undefined);
   const abortRef = useRef<AbortController | null>(null);
   const pauseResolveRef = useRef<(() => void) | null>(null);
@@ -82,7 +89,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         const initialModel = modelRouter.resolve('chat');
         setModelName(initialModel);
 
-        const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+        const { getCoreAPI } =
+          await import('@modules/runtime/api/CoreAPIImpl.js');
         const core = getCoreAPI();
         const lastDecision = core.getLastRouteDecision();
         const sr = core.getSmartRouter();
@@ -214,7 +222,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         ]);
         // 动态加载，避免循环依赖
         try {
-          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+          const { getCoreAPI } =
+            await import('@modules/runtime/api/CoreAPIImpl');
           const core = getCoreAPI();
           const router = core.getSmartRouter();
           const lastDecision = core.getLastRouteDecision();
@@ -245,7 +254,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             {
               id: `router-status-${Date.now()}`,
               role: 'system',
-              content: '❌ 无法获取路由状态（SmartRouter 未初始化或 CoreAPI 不可用）',
+              content:
+                '❌ 无法获取路由状态（SmartRouter 未初始化或 CoreAPI 不可用）',
               timestamp: Date.now(),
             },
           ]);
@@ -265,15 +275,23 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           },
         ]);
         try {
-          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-          const { configManager } = await import('@modules/config/ConfigManager');
+          const { getCoreAPI } =
+            await import('@modules/runtime/api/CoreAPIImpl');
+          const { configManager } =
+            await import('@modules/config/ConfigManager');
           const core = getCoreAPI();
           const router = core.getSmartRouter();
           if (router) {
             router.updateConfig({ enabled: enable } as any);
             // 同时持久化到 config.json
-            const current = configManager.getConfigValue<Record<string, unknown>>('models.router') || {};
-            configManager.setConfigValue('models.router', { ...current, enabled: enable });
+            const current =
+              configManager.getConfigValue<Record<string, unknown>>(
+                'models.router'
+              ) || {};
+            configManager.setConfigValue('models.router', {
+              ...current,
+              enabled: enable,
+            });
             setMessages((prev) => [
               ...prev,
               {
@@ -319,7 +337,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           },
         ]);
         try {
-          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+          const { getCoreAPI } =
+            await import('@modules/runtime/api/CoreAPIImpl');
           const core = getCoreAPI();
           const router = core.getSmartRouter();
           const routerConfig = router?.getConfig();
@@ -337,7 +356,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
                     '',
                     'Tier 映射:',
                     ...Object.entries(routerConfig.tiers || {}).map(
-                      ([tier, cfg]) => `  ${tier}: ${cfg?.model} (${cfg?.providerHint || 'auto'})`
+                      ([tier, cfg]) =>
+                        `  ${tier}: ${cfg?.model} (${cfg?.providerHint || 'auto'})`
                     ),
                     '',
                     'Judge 配置:',
@@ -347,7 +367,11 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
                     '',
                     '回退链:',
                     (routerConfig.fallback?.length ?? 0) > 0
-                      ? routerConfig.fallback!.map((f, i) => `  ${i + 1}. ${f.provider}/${f.model}`).join('\n')
+                      ? routerConfig
+                          .fallback!.map(
+                            (f, i) => `  ${i + 1}. ${f.provider}/${f.model}`
+                          )
+                          .join('\n')
                       : '  （无配置）',
                     '',
                     '零用量重试:',
@@ -589,7 +613,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
 
         // 流结束后更新模型信息（可能已有新决策记录）
         try {
-          const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+          const { getCoreAPI } =
+            await import('@modules/runtime/api/CoreAPIImpl.js');
           const core = getCoreAPI();
           const lastDecision = core.getLastRouteDecision();
           const sr = core.getSmartRouter();
@@ -631,7 +656,10 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         .map((s) => parseInt(s, 10))
         .filter((n) => !isNaN(n));
 
-      if (indices.length > 0 && indices.every((i) => i >= 1 && i <= qData.options.length)) {
+      if (
+        indices.length > 0 &&
+        indices.every((i) => i >= 1 && i <= qData.options.length)
+      ) {
         // 用户输入的是有效数字索引（1-indexed）
         answers = indices.map((i) => qData.options[i - 1].label);
       } else {
@@ -640,7 +668,10 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
       }
 
       logger.info('用户回答问题', { questionId: qData.questionId, answers });
-      const resolved = chatManager.resolveInteraction(qData.questionId, answers);
+      const resolved = chatManager.resolveInteraction(
+        qData.questionId,
+        answers
+      );
 
       if (resolved) {
         // 清除问题状态，恢复流式输出
@@ -673,7 +704,9 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         <ConversationArea
           messages={messages}
           streamingContent={streamingContent}
-          isStreaming={streamState === 'streaming' || streamState === 'question'}
+          isStreaming={
+            streamState === 'streaming' || streamState === 'question'
+          }
           streamState={streamState}
           activeToolCalls={activeToolCalls}
           height={conversationHeight}

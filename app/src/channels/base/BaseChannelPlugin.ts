@@ -18,7 +18,10 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import type { RegisterFileInput, RegisterFileResult } from '@modules/services/file/types';
+import type {
+  RegisterFileInput,
+  RegisterFileResult,
+} from '@modules/services/file/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { handleError } from '@modules/error/handleError';
@@ -330,7 +333,8 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       senderId: message.senderId,
       conversationId: message.conversationId,
       hasHandler: !!this._messageHandler,
-      contentPrefix: typeof message.content === 'string' ? message.content.slice(0, 50) : '',
+      contentPrefix:
+        typeof message.content === 'string' ? message.content.slice(0, 50) : '',
     });
 
     if (this._messageHandler) {
@@ -352,7 +356,11 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
     } else {
       this.logger.warning(
         `${this.id} 通道收到消息但 messageHandler 未注册，消息将被丢弃`,
-        { id: this.id, messageId: message.messageId, senderId: message.senderId }
+        {
+          id: this.id,
+          messageId: message.messageId,
+          senderId: message.senderId,
+        }
       );
     }
   }
@@ -378,7 +386,8 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       source?: RegisterFileInput['source'];
     }
   ): Promise<RegisterFileResult> {
-    const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+    const { FileRegistry } =
+      await import('@modules/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     return registry.registerFile({
       content: input.content,

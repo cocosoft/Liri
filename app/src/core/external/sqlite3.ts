@@ -41,12 +41,21 @@ import { dirname } from 'path';
 
 // 使用 Bun 内置的 sqlite
 const { Database: BunDB } = require('bun:sqlite') as {
-  Database: new (path: string, options?: { create?: boolean; strict?: boolean }) => {
-    run: (sql: string, ...params: unknown[]) => { changes: number; lastInsertRowid: number | bigint };
+  Database: new (
+    path: string,
+    options?: { create?: boolean; strict?: boolean }
+  ) => {
+    run: (
+      sql: string,
+      ...params: unknown[]
+    ) => { changes: number; lastInsertRowid: number | bigint };
     prepare: (sql: string) => {
       get: (...params: unknown[]) => Record<string, unknown> | undefined;
       all: (...params: unknown[]) => Record<string, unknown>[];
-      run: (...params: unknown[]) => { changes: number; lastInsertRowid: number | bigint };
+      run: (...params: unknown[]) => {
+        changes: number;
+        lastInsertRowid: number | bigint;
+      };
       finalize: () => void;
     };
     exec: (sql: string) => void;
@@ -70,9 +79,17 @@ class Database {
    * @param mode  可选，兼容 sqlite3 的第二个参数（OPEN_READWRITE | OPEN_CREATE）
    * @param openCallback  打开完成回调
    */
-  constructor(path: string, mode?: number | ((err: Error | null) => void), openCallback?: (err: Error | null) => void) {
+  constructor(
+    path: string,
+    mode?: number | ((err: Error | null) => void),
+    openCallback?: (err: Error | null) => void
+  ) {
     // 确保父目录存在
-    try { mkdirSync(dirname(path), { recursive: true }); } catch { /* 忽略 */ }
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+    } catch {
+      /* 忽略 */
+    }
 
     // 解析回调参数
     let cb: ((err: Error | null) => void) | undefined;
@@ -119,7 +136,10 @@ class Database {
    * 执行 SQL（无返回结果集），兼容 sqlite3 回调式 API
    */
   run(sql: string, ...args: unknown[]): this {
-    const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null) => void : undefined;
+    const callback =
+      typeof args[args.length - 1] === 'function'
+        ? (args.pop() as (err: Error | null) => void)
+        : undefined;
     try {
       this._db.run(sql, ...this.resolveParams(args));
       callback?.(null);
@@ -133,7 +153,13 @@ class Database {
    * 执行查询并返回单行
    */
   get(sql: string, ...args: unknown[]): this {
-    const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null, row?: Record<string, unknown>) => void : undefined;
+    const callback =
+      typeof args[args.length - 1] === 'function'
+        ? (args.pop() as (
+            err: Error | null,
+            row?: Record<string, unknown>
+          ) => void)
+        : undefined;
     try {
       const row = this._db.prepare(sql).get(...this.resolveParams(args));
       callback?.(null, row ?? undefined);
@@ -147,7 +173,13 @@ class Database {
    * 执行查询并返回所有行
    */
   all(sql: string, ...args: unknown[]): this {
-    const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null, rows?: Record<string, unknown>[]) => void : undefined;
+    const callback =
+      typeof args[args.length - 1] === 'function'
+        ? (args.pop() as (
+            err: Error | null,
+            rows?: Record<string, unknown>[]
+          ) => void)
+        : undefined;
     try {
       const rows = this._db.prepare(sql).all(...this.resolveParams(args));
       callback?.(null, rows);
@@ -161,7 +193,13 @@ class Database {
    * 逐行迭代结果
    */
   each(sql: string, ...args: unknown[]): this {
-    const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null, row?: Record<string, unknown>) => void : undefined;
+    const callback =
+      typeof args[args.length - 1] === 'function'
+        ? (args.pop() as (
+            err: Error | null,
+            row?: Record<string, unknown>
+          ) => void)
+        : undefined;
     try {
       const rows = this._db.prepare(sql).all(...this.resolveParams(args));
       for (const row of rows) {
@@ -195,4 +233,3 @@ class Database {
 }
 
 export { Database };
-

@@ -123,7 +123,9 @@ export class AttachmentManager {
       `,
         (err: Error | null) => {
           if (err) {
-            logger.error('创建 attachments_sources 表失败', { error: err.message });
+            logger.error('创建 attachments_sources 表失败', {
+              error: err.message,
+            });
             this.closeDb();
           } else {
             logger.info('attachments_sources 表创建/验证完成');
@@ -149,7 +151,11 @@ export class AttachmentManager {
   /** 关闭数据库连接 */
   private closeDb(): void {
     if (this.db) {
-      try { this.db.close(); } catch { /* 忽略关闭错误 */ }
+      try {
+        this.db.close();
+      } catch {
+        /* 忽略关闭错误 */
+      }
       this.db = null;
     }
   }
@@ -308,7 +314,7 @@ export class AttachmentManager {
     mimeType: string,
     source: AttachmentSource = AttachmentSource.SESSION,
     sourceId?: string,
-    description?: string,
+    description?: string
   ): Attachment {
     // 生成唯一ID
     const id = `attach_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -617,16 +623,21 @@ export class AttachmentManager {
    * 将附件注册到 FileRegistry 文件注册中心
    * 异步执行，不阻塞附件保存主流程
    */
-  private registerAttachmentToFileRegistry(attachment: Attachment, data: Buffer): void {
+  private registerAttachmentToFileRegistry(
+    attachment: Attachment,
+    data: Buffer
+  ): void {
     Promise.resolve().then(async () => {
       try {
-        const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+        const { FileRegistry } =
+          await import('@modules/services/file/FileRegistry');
         const { FileSource } = await import('@modules/services/file/types');
 
         const metadata = attachment.metadata;
-        const source = metadata?.source === AttachmentSource.KNOWLEDGE_AUTO
-          ? FileSource.AUTO_INGEST
-          : FileSource.UPLOAD;
+        const source =
+          metadata?.source === AttachmentSource.KNOWLEDGE_AUTO
+            ? FileSource.AUTO_INGEST
+            : FileSource.UPLOAD;
 
         const registry = FileRegistry.getInstance();
         await registry.initDatabase();
@@ -655,4 +666,3 @@ export class AttachmentManager {
 
 // 导出默认实例
 export const attachmentManager = new AttachmentManager();
-

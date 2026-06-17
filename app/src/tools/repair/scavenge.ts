@@ -42,13 +42,15 @@ const MAX_SCAVENGE_INPUT = 100 * 1024;
  */
 export function scavengeToolCalls(
   reasoningContent: string | null | undefined,
-  opts: ScavengeOptions,
+  opts: ScavengeOptions
 ): ScavengeResult {
   if (!reasoningContent) return { calls: [], notes: [] };
   if (reasoningContent.length > MAX_SCAVENGE_INPUT) {
     return {
       calls: [],
-      notes: [`scavenge skipped: reasoning_content too large (${reasoningContent.length} chars)`],
+      notes: [
+        `scavenge skipped: reasoning_content too large (${reasoningContent.length} chars)`,
+      ],
     };
   }
   const max = opts.maxCalls ?? 4;
@@ -91,13 +93,20 @@ interface DsmlInvoke {
 /** 移除 DSML invoke 块，防止参数 JSON 被重复回收 */
 function stripDsmlBlocks(text: string): string {
   let out = text;
-  out = out.replace(/<[｜|]DSML[｜|]function_calls>[\s\S]*?<\/?[｜|]DSML[｜|]function_calls>/g, '');
-  out = out.replace(/<[｜|]DSML[｜|]invoke\s+[^>]*>[\s\S]*?<\/[｜|]DSML[｜|]invoke>/g, '');
+  out = out.replace(
+    /<[｜|]DSML[｜|]function_calls>[\s\S]*?<\/?[｜|]DSML[｜|]function_calls>/g,
+    ''
+  );
+  out = out.replace(
+    /<[｜|]DSML[｜|]invoke\s+[^>]*>[\s\S]*?<\/[｜|]DSML[｜|]invoke>/g,
+    ''
+  );
   return out;
 }
 
 function* iterateDsmlInvokes(text: string): Generator<DsmlInvoke> {
-  const INVOKE_RE = /<[｜|]DSML[｜|]invoke\s+name="([^"]+)">([\s\S]*?)<\/[｜|]DSML[｜|]invoke>/g;
+  const INVOKE_RE =
+    /<[｜|]DSML[｜|]invoke\s+name="([^"]+)">([\s\S]*?)<\/[｜|]DSML[｜|]invoke>/g;
   for (const match of text.matchAll(INVOKE_RE)) {
     const name = match[1];
     const body = match[2];
@@ -170,7 +179,7 @@ function* iterateJsonObjects(text: string): Generator<string> {
 
 function coerceToToolCall(
   candidateJson: string,
-  allowedNames: ReadonlySet<string>,
+  allowedNames: ReadonlySet<string>
 ): ToolCall | null {
   let parsed: Record<string, unknown>;
   try {
@@ -197,7 +206,9 @@ function coerceToToolCall(
     parsed.function &&
     typeof parsed.function === 'object' &&
     typeof (parsed.function as Record<string, unknown>).name === 'string' &&
-    allowedNames.has((parsed.function as Record<string, unknown>).name as string)
+    allowedNames.has(
+      (parsed.function as Record<string, unknown>).name as string
+    )
   ) {
     const fn = parsed.function as Record<string, unknown>;
     const args = fn.arguments;
@@ -211,7 +222,10 @@ function coerceToToolCall(
   }
 
   // Pattern 3: R1 自由格式 { tool_name, tool_args }
-  if (typeof parsed.tool_name === 'string' && allowedNames.has(parsed.tool_name)) {
+  if (
+    typeof parsed.tool_name === 'string' &&
+    allowedNames.has(parsed.tool_name)
+  ) {
     return {
       function: {
         name: parsed.tool_name,

@@ -31,7 +31,10 @@ import { configManager } from '@modules/config';
  * 检查是否有API Key认证
  */
 function hasApiKeyAuth(): boolean {
-  return !!configManager.env('ANTHROPIC_API_KEY') || !!configManager.env('Liri_API_KEY');
+  return (
+    !!configManager.env('ANTHROPIC_API_KEY') ||
+    !!configManager.env('Liri_API_KEY')
+  );
 }
 
 /**

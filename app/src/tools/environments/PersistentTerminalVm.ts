@@ -35,7 +35,10 @@ export class PersistentTerminalVm {
       try {
         session.terminate();
       } catch (err) {
-        void handleError(err, { module: 'tools:environments', action: 'catch_error' });
+        void handleError(err, {
+          module: 'tools:environments',
+          action: 'catch_error',
+        });
       }
     }
     this.sessions.clear();

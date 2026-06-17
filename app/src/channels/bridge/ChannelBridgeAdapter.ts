@@ -42,7 +42,10 @@ import { handleError } from '../../error/handleError';
 import type { MessageContext, ChannelId } from '../types/IChannel';
 import type { ChannelInterface } from '../registry/ChannelRegistry';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:bridge:adapter' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'channels:bridge:adapter',
+});
 
 /** 遗留通道信道的简化接口（来自 ChannelManager 的 ChannelRegistration） */
 export interface LegacyChannel {
@@ -53,18 +56,38 @@ export interface LegacyChannel {
   /** 是否已连接 */
   isConnected(): boolean;
   /** 入站消息回调注册 */
-  onMessage?(handler: (msg: { content: string; sender: string; metadata?: Record<string, unknown> }) => void): void;
+  onMessage?(
+    handler: (msg: {
+      content: string;
+      sender: string;
+      metadata?: Record<string, unknown>;
+    }) => void
+  ): void;
   /** 发送文本消息 */
-  send?(params: { content: string; sessionId: string; recipient: string; type: string; metadata?: Record<string, unknown> }): Promise<void>;
+  send?(params: {
+    content: string;
+    sessionId: string;
+    recipient: string;
+    type: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void>;
   /** 获取状态 */
-  getStatus?(): { connected: boolean; type: string; metrics?: Record<string, unknown> };
+  getStatus?(): {
+    connected: boolean;
+    type: string;
+    metrics?: Record<string, unknown>;
+  };
 }
 
 /** 桥接选项 */
 export interface BridgeOptions {
   /** CoreAPI 实例 */
   coreAPI: {
-    chat(params: { content: string; sessionId: string; metadata?: Record<string, unknown> }): Promise<{ content: string }>;
+    chat(params: {
+      content: string;
+      sessionId: string;
+      metadata?: Record<string, unknown>;
+    }): Promise<{ content: string }>;
   };
   /** 桥接的通道列表 */
   channels: LegacyChannel[];

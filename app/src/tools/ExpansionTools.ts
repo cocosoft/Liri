@@ -1221,7 +1221,10 @@ export function createReviewAssignTool(): Tool {
       const prNumber = input.prNumber as number;
       const reviewer = input.reviewer as string;
 
-      const token = configManager.env('GITHUB_TOKEN') || configManager.env('GIT_TOKEN') || '';
+      const token =
+        configManager.env('GITHUB_TOKEN') ||
+        configManager.env('GIT_TOKEN') ||
+        '';
 
       try {
         let url = '';

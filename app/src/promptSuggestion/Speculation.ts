@@ -24,7 +24,8 @@ let currentState: SpeculationState = { ...IDLE_SPECULATION_STATE };
  * 获取Speculation临时目录路径
  */
 function getOverlayPath(id: string): string {
-  const tempDir = configManager.env('TEMP') || configManager.env('TMP') || '/tmp';
+  const tempDir =
+    configManager.env('TEMP') || configManager.env('TMP') || '/tmp';
   return join(tempDir, 'speculation', String(process.pid), id);
 }
 

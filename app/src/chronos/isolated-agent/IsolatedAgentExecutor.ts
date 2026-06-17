@@ -124,7 +124,10 @@ export class IsolatedAgentExecutor {
         fs.rmdirSync(workDir);
       }
     } catch (err) {
-      void handleError(err, { module: 'chronos:isolated-agent', action: 'catch_error' });
+      void handleError(err, {
+        module: 'chronos:isolated-agent',
+        action: 'catch_error',
+      });
     }
   }
 }

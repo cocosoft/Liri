@@ -71,7 +71,10 @@ export class AgentSourceManager {
 
       return allAgents;
     } catch (error) {
-      await handleError(error, { module: 'services:agent:source', action: 'load_all' });
+      await handleError(error, {
+        module: 'services:agent:source',
+        action: 'load_all',
+      });
       // 即使出错也要返回内置Agent
       return this.loadBuiltInAgents();
     }
@@ -91,7 +94,10 @@ export class AgentSourceManager {
     try {
       return await loadPluginAgents();
     } catch (error) {
-      await handleError(error, { module: 'services:agent:source', action: 'load_plugin' });
+      await handleError(error, {
+        module: 'services:agent:source',
+        action: 'load_plugin',
+      });
       return [];
     }
   }
@@ -132,7 +138,10 @@ export class AgentSourceManager {
 
       return customAgents;
     } catch (error) {
-      await handleError(error, { module: 'services:agent:source', action: 'load_custom' });
+      await handleError(error, {
+        module: 'services:agent:source',
+        action: 'load_custom',
+      });
       return [];
     }
   }

@@ -157,7 +157,10 @@ export class MemoryIntegrationService {
 
       logger.info('Memory integration service initialized successfully');
     } catch (error) {
-      await handleError(error, { module: 'memory:integration', action: 'initialize' });
+      await handleError(error, {
+        module: 'memory:integration',
+        action: 'initialize',
+      });
       throw error;
     }
   }
@@ -450,7 +453,10 @@ export class MemoryIntegrationService {
       try {
         await this.syncMemories();
       } catch (error) {
-        await handleError(error, { module: 'memory:integration', action: 'auto_sync' });
+        await handleError(error, {
+          module: 'memory:integration',
+          action: 'auto_sync',
+        });
       }
     }, this.config.syncInterval);
   }

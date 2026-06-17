@@ -22,7 +22,10 @@
 import type http from 'node:http';
 import path from 'node:path';
 import type { HandlerCtx } from './handler-utils';
-import { attachmentManager, AttachmentSource } from '@modules/components/attachments';
+import {
+  attachmentManager,
+  AttachmentSource,
+} from '@modules/components/attachments';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
@@ -140,7 +143,11 @@ export async function handleSendFileToAI(
     // 沙箱权限检查
     if (!ctx.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Access denied: file path not in whitelist' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Access denied: file path not in whitelist' },
+        })
+      );
       return;
     }
 

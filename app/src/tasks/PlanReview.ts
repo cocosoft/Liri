@@ -18,7 +18,7 @@ export interface ReviewIssue {
 export interface PlanReview {
   stepId: string;
   pass: boolean;
-  score: number;           // 0-100
+  score: number; // 0-100
   issues: ReviewIssue[];
   summary: string;
   reviewedAt: number;
@@ -47,7 +47,7 @@ export interface ReviewableStep {
 export function isReviewPassed(review: PlanReview): boolean {
   if (!review.pass) return false;
   const blocking = review.issues.filter(
-    (i) => i.severity === 'critical' || i.severity === 'major',
+    (i) => i.severity === 'critical' || i.severity === 'major'
   );
   return blocking.length === 0;
 }
@@ -58,7 +58,7 @@ export function isReviewPassed(review: PlanReview): boolean {
 export function parseReviewFromText(
   text: string,
   stepId: string,
-  reviewerAgentId?: string,
+  reviewerAgentId?: string
 ): PlanReview {
   // 尝试解析 JSON
   try {
@@ -108,7 +108,9 @@ export function parseReviewFromText(
  */
 export function formatReviewSummary(review: PlanReview): string {
   const status = review.pass ? '✅ 通过' : '❌ 未通过';
-  const critical = review.issues.filter((i) => i.severity === 'critical').length;
+  const critical = review.issues.filter(
+    (i) => i.severity === 'critical'
+  ).length;
   const major = review.issues.filter((i) => i.severity === 'major').length;
   const minor = review.issues.filter((i) => i.severity === 'minor').length;
 

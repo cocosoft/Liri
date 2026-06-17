@@ -232,9 +232,7 @@ export type {
   ContextCompressionConfig,
   CompressionResult,
 } from './ContextCompressor';
-import {
-  StrategySelector,
-} from './StrategySelector';
+import { StrategySelector } from './StrategySelector';
 import {
   TaskComplexity,
   ContextSize,

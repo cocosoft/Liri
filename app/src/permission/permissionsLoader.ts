@@ -74,7 +74,11 @@ export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
     'local_settings.json'
   );
 
-  context = loadPermissionsFromSettings(userSettings, PermissionRuleSource.USER_SETTINGS, context);
+  context = loadPermissionsFromSettings(
+    userSettings,
+    PermissionRuleSource.USER_SETTINGS,
+    context
+  );
   context = loadPermissionsFromSettings(
     projectSettings,
     PermissionRuleSource.PROJECT_SETTINGS,

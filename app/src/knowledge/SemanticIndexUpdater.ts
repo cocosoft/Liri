@@ -74,7 +74,7 @@ export class SemanticIndexUpdater {
   constructor(
     embeddingManager: EmbeddingManager,
     options: SemanticIndexUpdaterOptions,
-    eventBus?: EventBus,
+    eventBus?: EventBus
   ) {
     this.embeddingManager = embeddingManager;
     this.options = {
@@ -94,7 +94,11 @@ export class SemanticIndexUpdater {
       const evt = event as KnowledgeChangedEvent;
       if (evt.action !== 'deleted') {
         this.appendIndex(evt.filePath).catch((err) => {
-          void handleError(err, { module: 'knowledge:semantic', action: 'append_index', context: { filePath: evt.filePath } });
+          void handleError(err, {
+            module: 'knowledge:semantic',
+            action: 'append_index',
+            context: { filePath: evt.filePath },
+          });
         });
       }
     });
@@ -130,7 +134,7 @@ export class SemanticIndexUpdater {
         content,
         relPath,
         this.options.windowLines,
-        this.options.overlap,
+        this.options.overlap
       );
 
       if (chunks.length === 0) return;

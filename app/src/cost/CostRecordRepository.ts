@@ -737,4 +737,3 @@ export function getCostRecordRepository(): CostRecordRepository {
   }
   return defaultRepository;
 }
-

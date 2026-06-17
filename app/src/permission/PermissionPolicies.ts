@@ -113,7 +113,10 @@ export function validatePath(
 
     return { isValid: true, reason: '' };
   } catch (error) {
-    void handleError(error, { module: 'permission:policies', action: 'validate_path' });
+    void handleError(error, {
+      module: 'permission:policies',
+      action: 'validate_path',
+    });
     return {
       isValid: false,
       reason: `Error validating path: ${(error as Error).message}`,

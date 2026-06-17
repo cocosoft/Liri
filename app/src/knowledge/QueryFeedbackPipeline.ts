@@ -135,7 +135,13 @@ export class QueryFeedbackPipeline {
 
     try {
       // 用 LLM 将问答编译为结构化 wiki 页面
-      const content = await this.generateAnswerWikiContent(query, answer, pageId, kind, exists);
+      const content = await this.generateAnswerWikiContent(
+        query,
+        answer,
+        pageId,
+        kind,
+        exists
+      );
 
       await writeFile(targetPath, content, 'utf-8');
 
@@ -164,10 +170,18 @@ export class QueryFeedbackPipeline {
         // 图谱注册失败是非致命的
       }
 
-      logger.info('实时反哺完成', { filename, isNew: !exists, query: query.slice(0, 30) });
+      logger.info('实时反哺完成', {
+        filename,
+        isNew: !exists,
+        query: query.slice(0, 30),
+      });
       return pageId;
     } catch (e) {
-      await handleError(e, { module: 'knowledge:feedback', action: 'on_good_answer', context: { query: query.slice(0, 30) } });
+      await handleError(e, {
+        module: 'knowledge:feedback',
+        action: 'on_good_answer',
+        context: { query: query.slice(0, 30) },
+      });
       return undefined;
     }
   }
@@ -203,8 +217,16 @@ summary: 简要摘要，不超过 100 字
 ---`;
 
     const messages: AIMessage[] = [
-      { role: AIMessageRole.SYSTEM, content: systemPrompt, timestamp: Date.now() },
-      { role: AIMessageRole.USER, content: `问题: ${query}\n\n回答: ${answer}`, timestamp: Date.now() },
+      {
+        role: AIMessageRole.SYSTEM,
+        content: systemPrompt,
+        timestamp: Date.now(),
+      },
+      {
+        role: AIMessageRole.USER,
+        content: `问题: ${query}\n\n回答: ${answer}`,
+        timestamp: Date.now(),
+      },
     ];
 
     const response = await this.aiService.generate(messages);
@@ -241,7 +263,9 @@ summary: 简要摘要，不超过 100 字
       let pageCount = 0;
       for (const topic of topics) {
         if (pageCount >= this.config.maxPages) {
-          result.detail.push(`达到最大页面数限制 (${this.config.maxPages})，停止`);
+          result.detail.push(
+            `达到最大页面数限制 (${this.config.maxPages})，停止`
+          );
           break;
         }
 
@@ -262,10 +286,14 @@ summary: 简要摘要，不超过 100 字
           }
 
           pageCount++;
-          result.detail.push(`${action === 'create' ? '创建' : '更新'} 页面: ${filename}`);
+          result.detail.push(
+            `${action === 'create' ? '创建' : '更新'} 页面: ${filename}`
+          );
         } catch (e) {
           result.errors++;
-          result.detail.push(`处理话题 "${topic.name}" 失败: ${(e as Error).message}`);
+          result.detail.push(
+            `处理话题 "${topic.name}" 失败: ${(e as Error).message}`
+          );
           logger.warn('话题处理失败', { topic: topic.name, error: e });
         }
       }
@@ -302,7 +330,10 @@ summary: 简要摘要，不超过 100 字
     } catch (e) {
       result.errors++;
       result.detail.push(`管道执行失败: ${(e as Error).message}`);
-      await handleError(e, { module: 'knowledge:feedback', action: 'execute_pipeline' });
+      await handleError(e, {
+        module: 'knowledge:feedback',
+        action: 'execute_pipeline',
+      });
     }
 
     return result;
@@ -311,7 +342,9 @@ summary: 简要摘要，不超过 100 字
   /**
    * 分析查询日志提取热点话题
    */
-  private async extractHotTopics(): Promise<Array<{ name: string; count: number }>> {
+  private async extractHotTopics(): Promise<
+    Array<{ name: string; count: number }>
+  > {
     const store = getQueryLogStore();
     const now = Date.now();
     const cutoff = now - this.config.windowMs;
@@ -441,10 +474,12 @@ tags: []
    * 话题名转页面 ID
    */
   private toPageId(name: string): string {
-    return name
-      .replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-      .toLowerCase() || `topic-${Date.now()}`;
+    return (
+      name
+        .replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase() || `topic-${Date.now()}`
+    );
   }
 }

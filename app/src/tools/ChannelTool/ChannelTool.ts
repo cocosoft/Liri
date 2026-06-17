@@ -35,13 +35,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 
 export interface ChannelToolOperation {
-  action:
-    | 'list'
-    | 'status'
-    | 'connect'
-    | 'disconnect'
-    | 'health'
-    | 'logs';
+  action: 'list' | 'status' | 'connect' | 'disconnect' | 'health' | 'logs';
   channel?: string;
   logLevel?: string;
   logLimit?: number;
@@ -58,7 +52,8 @@ export class ChannelTool extends BaseTool {
       name: 'action',
       type: 'string',
       enum: ['list', 'status', 'connect', 'disconnect', 'health', 'logs'],
-      description: 'Action: list channels, get status, connect/disconnect, check health, view logs',
+      description:
+        'Action: list channels, get status, connect/disconnect, check health, view logs',
       required: true,
     },
     {
@@ -107,7 +102,10 @@ export class ChannelTool extends BaseTool {
 
       case 'status': {
         if (!channel) {
-          return { success: false, output: 'channel name is required for status action' };
+          return {
+            success: false,
+            output: 'channel name is required for status action',
+          };
         }
         const ch = channelRegistry.get(channel);
         if (!ch) {
@@ -123,25 +121,35 @@ export class ChannelTool extends BaseTool {
 
       case 'connect': {
         if (!channel) {
-          return { success: false, output: 'channel name is required for connect action' };
+          return {
+            success: false,
+            output: 'channel name is required for connect action',
+          };
         }
         const ok = await channelRegistry.connect(channel);
         return {
           success: ok,
           data: { channel, connected: ok },
-          output: ok ? `Channel '${channel}' connected` : `Failed to connect channel '${channel}'`,
+          output: ok
+            ? `Channel '${channel}' connected`
+            : `Failed to connect channel '${channel}'`,
         };
       }
 
       case 'disconnect': {
         if (!channel) {
-          return { success: false, output: 'channel name is required for disconnect action' };
+          return {
+            success: false,
+            output: 'channel name is required for disconnect action',
+          };
         }
         const ok = await channelRegistry.disconnect(channel);
         return {
           success: ok,
           data: { channel, disconnected: ok },
-          output: ok ? `Channel '${channel}' disconnected` : `Failed to disconnect channel '${channel}'`,
+          output: ok
+            ? `Channel '${channel}' disconnected`
+            : `Failed to disconnect channel '${channel}'`,
         };
       }
 
@@ -168,7 +176,8 @@ export class ChannelTool extends BaseTool {
         const level = logLevel || 'info';
         const limit = logLimit || 50;
         try {
-          const { ChannelLogManager } = await import('../../channels/log/ChannelLogManager');
+          const { ChannelLogManager } =
+            await import('../../channels/log/ChannelLogManager');
           const logManager = new ChannelLogManager();
           const logs = logManager.query({
             channelId: channel as any,
@@ -177,7 +186,12 @@ export class ChannelTool extends BaseTool {
           });
           return {
             success: true,
-            data: { logs, count: logs.length, level, channel: channel || 'all' },
+            data: {
+              logs,
+              count: logs.length,
+              level,
+              channel: channel || 'all',
+            },
             output: `Logs: ${logs.length} entries (level: ${level})`,
           };
         } catch (error) {

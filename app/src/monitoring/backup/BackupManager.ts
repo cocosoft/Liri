@@ -20,7 +20,10 @@ import { join, basename, dirname, resolve, extname } from 'path';
 
 import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:backup' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'monitoring:backup',
+});
 
 /**
  * 数据库注册信息
@@ -211,7 +214,11 @@ export class BackupManager {
         success: true,
       };
     } catch (error) {
-      void handleError(error, { module: 'monitoring:backup', action: 'backup_database', context: { dbName: name } });
+      void handleError(error, {
+        module: 'monitoring:backup',
+        action: 'backup_database',
+        context: { dbName: name },
+      });
       return {
         name,
         backupPath: '',
@@ -320,7 +327,11 @@ export class BackupManager {
         success: true,
       };
     } catch (error) {
-      void handleError(error, { module: 'monitoring:backup', action: 'restore_database', context: { dbName: name } });
+      void handleError(error, {
+        module: 'monitoring:backup',
+        action: 'restore_database',
+        context: { dbName: name },
+      });
       return {
         name,
         backupPath: targetBackup,

@@ -34,10 +34,7 @@
  *   - QueryFeedbackPipeline 查询反哺
  */
 
-export {
-  KnowledgeRouter,
-  getKnowledgeRouter,
-} from './KnowledgeRouter';
+export { KnowledgeRouter, getKnowledgeRouter } from './KnowledgeRouter';
 
 export { KnowledgeCompiler, runKnowledgeCompile } from './KnowledgeCompiler';
 export type { CompileOptions, CompileResult } from './KnowledgeCompiler';
@@ -122,11 +119,17 @@ export type { LogEntry } from './IndexManager';
 export { AutoRagService } from './AutoRagService';
 export type { RagResult } from './AutoRagService';
 
-export { KnowledgeBaseWriter, createKnowledgeBaseWriter } from './KnowledgeBaseWriter';
+export {
+  KnowledgeBaseWriter,
+  createKnowledgeBaseWriter,
+} from './KnowledgeBaseWriter';
 export type { KnowledgeBaseEntry, WriteResult } from './KnowledgeBaseWriter';
 
 export { SemanticIndexUpdater } from './SemanticIndexUpdater';
-export type { KnowledgeChangedEvent, SemanticIndexUpdaterOptions } from './SemanticIndexUpdater';
+export type {
+  KnowledgeChangedEvent,
+  SemanticIndexUpdaterOptions,
+} from './SemanticIndexUpdater';
 
 export { KnowledgeSummarizer } from './KnowledgeSummarizer';
 export type { KnowledgeQueryResult } from './KnowledgeSummarizer';

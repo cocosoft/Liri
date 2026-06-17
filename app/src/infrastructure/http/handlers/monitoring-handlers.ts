@@ -38,7 +38,10 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 // ── 指标数据环形缓冲区 ────────────────────────────────────────────
 
-interface MetricPoint { timestamp: number; value: number; }
+interface MetricPoint {
+  timestamp: number;
+  value: number;
+}
 
 const MAX_BUFFER_POINTS = 360;
 // 系统级指标
@@ -99,7 +102,7 @@ function pushMetric(buffer: MetricPoint[], point: MetricPoint): void {
  */
 function filterMetric(buffer: MetricPoint[], range: number): MetricPoint[] {
   const cutoff = Date.now() - range;
-  return buffer.filter(p => p.timestamp >= cutoff);
+  return buffer.filter((p) => p.timestamp >= cutoff);
 }
 
 // ── 处理器 ────────────────────────────────────────────────────────
@@ -110,7 +113,7 @@ function filterMetric(buffer: MetricPoint[], range: number): MetricPoint[] {
 export async function handleMonitorSummary(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const service = getMonitoringService();
@@ -120,36 +123,51 @@ export async function handleMonitorSummary(
     const freeMemMB = Math.round(os.freemem() / 1024 / 1024);
     const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
     const usedMemMB = totalMemMB - freeMemMB;
-    const memoryPercent = totalMemMB > 0 ? Math.round((usedMemMB / totalMemMB) * 100) : 0;
+    const memoryPercent =
+      totalMemMB > 0 ? Math.round((usedMemMB / totalMemMB) * 100) : 0;
     const disk = await getDiskInfoAsync();
-    const loadAverage = status.loadAverage.length > 0
-      ? status.loadAverage.map((l) => Math.round(l * 100) / 100)
-      : [];
+    const loadAverage =
+      status.loadAverage.length > 0
+        ? status.loadAverage.map((l) => Math.round(l * 100) / 100)
+        : [];
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      uptime: Math.floor(status.uptime),
-      cpuPercent,
-      memoryPercent,
-      memoryUsedMB: usedMemMB,
-      memoryTotalMB: totalMemMB,
-      diskTotalGB: disk.totalGB,
-      diskUsedGB: disk.usedGB,
-      diskFreeGB: disk.freeGB,
-      diskUsagePercent: disk.percent,
-      loadAverage,
-      requestCount: 0,
-      errorCount: 0,
-      avgResponseTime: 0,
-    }));
+    res.end(
+      JSON.stringify({
+        uptime: Math.floor(status.uptime),
+        cpuPercent,
+        memoryPercent,
+        memoryUsedMB: usedMemMB,
+        memoryTotalMB: totalMemMB,
+        diskTotalGB: disk.totalGB,
+        diskUsedGB: disk.usedGB,
+        diskFreeGB: disk.freeGB,
+        diskUsagePercent: disk.percent,
+        loadAverage,
+        requestCount: 0,
+        errorCount: 0,
+        avgResponseTime: 0,
+      })
+    );
   } catch {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      uptime: 0, cpuPercent: 0, memoryPercent: 0, memoryUsedMB: 0,
-      memoryTotalMB: 0, diskTotalGB: 0, diskUsedGB: 0, diskFreeGB: 0,
-      diskUsagePercent: 0, loadAverage: [], requestCount: 0,
-      errorCount: 0, avgResponseTime: 0,
-    }));
+    res.end(
+      JSON.stringify({
+        uptime: 0,
+        cpuPercent: 0,
+        memoryPercent: 0,
+        memoryUsedMB: 0,
+        memoryTotalMB: 0,
+        diskTotalGB: 0,
+        diskUsedGB: 0,
+        diskFreeGB: 0,
+        diskUsagePercent: 0,
+        loadAverage: [],
+        requestCount: 0,
+        errorCount: 0,
+        avgResponseTime: 0,
+      })
+    );
   }
 }
 
@@ -160,14 +178,15 @@ export async function handleMonitorSummary(
 export async function handleMonitorMetrics(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const now = Date.now();
 
     // 系统级采样
     const sysCpu = await getSystemCpuPercentAsync();
-    const sysMem = Math.round(((os.totalmem() - os.freemem()) / 1024 / 1024) * 100) / 100;
+    const sysMem =
+      Math.round(((os.totalmem() - os.freemem()) / 1024 / 1024) * 100) / 100;
 
     // 应用级（进程级）采样
     const appCpu = sampleProcessCpuPercent();
@@ -181,19 +200,30 @@ export async function handleMonitorMetrics(
 
     const range = 3600000; // 默认返回最近 1 小时数据
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      requests: [], responseTime: [], errorRate: [],
-      cpu: filterMetric(cpuHistory, range),            // 系统 CPU
-      memory: filterMetric(memoryHistory, range),       // 系统内存
-      appCpu: filterMetric(appCpuHistory, range),       // 应用 CPU
-      appMemory: filterMetric(appMemoryHistory, range), // 应用内存
-    }));
+    res.end(
+      JSON.stringify({
+        requests: [],
+        responseTime: [],
+        errorRate: [],
+        cpu: filterMetric(cpuHistory, range), // 系统 CPU
+        memory: filterMetric(memoryHistory, range), // 系统内存
+        appCpu: filterMetric(appCpuHistory, range), // 应用 CPU
+        appMemory: filterMetric(appMemoryHistory, range), // 应用内存
+      })
+    );
   } catch {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      requests: [], responseTime: [], errorRate: [],
-      cpu: [], memory: [], appCpu: [], appMemory: [],
-    }));
+    res.end(
+      JSON.stringify({
+        requests: [],
+        responseTime: [],
+        errorRate: [],
+        cpu: [],
+        memory: [],
+        appCpu: [],
+        appMemory: [],
+      })
+    );
   }
 }
 
@@ -203,13 +233,16 @@ export async function handleMonitorMetrics(
 export async function handleMonitorAlerts(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const service = getMonitoringService();
     const alerts = service.getAlerts().map((msg, index) => ({
-      id: `alert-${index}`, level: 'info' as const, message: msg,
-      timestamp: Date.now(), acknowledged: false,
+      id: `alert-${index}`,
+      level: 'info' as const,
+      message: msg,
+      timestamp: Date.now(),
+      acknowledged: false,
     }));
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(alerts));
@@ -226,7 +259,7 @@ export async function handleAcknowledgeAlert(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  params?: Record<string, string>,
+  params?: Record<string, string>
 ): Promise<void> {
   const alertId = params?.['$1'] || 'unknown';
   res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -239,7 +272,7 @@ export async function handleAcknowledgeAlert(
 export async function handleMonitorLogs(
   _ctx: HandlerCtx,
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const urlObj = new URL(req.url!, `http://${req.headers.host}`);
@@ -250,8 +283,10 @@ export async function handleMonitorLogs(
     const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
 
     const levelMap: Record<string, LogLevel> = {
-      debug: LogLevel.DEBUG, info: LogLevel.INFO,
-      warn: LogLevel.WARN, error: LogLevel.ERROR,
+      debug: LogLevel.DEBUG,
+      info: LogLevel.INFO,
+      warn: LogLevel.WARN,
+      error: LogLevel.ERROR,
     };
 
     let entries = StructuredLogger.queryLogs({
@@ -259,13 +294,18 @@ export async function handleMonitorLogs(
       limit: 1000,
     });
 
-    if (source && source !== 'all') entries = entries.filter((e) => e.source === source);
+    if (source && source !== 'all')
+      entries = entries.filter((e) => e.source === source);
     if (search) {
       const lowerSearch = search.toLowerCase();
       entries = entries.filter((e) => {
-        const inMessage = e.message && e.message.toLowerCase().includes(lowerSearch);
-        const inData = e.data ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch) : false;
-        const inModule = e.module && e.module.toLowerCase().includes(lowerSearch);
+        const inMessage =
+          e.message && e.message.toLowerCase().includes(lowerSearch);
+        const inData = e.data
+          ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch)
+          : false;
+        const inModule =
+          e.module && e.module.toLowerCase().includes(lowerSearch);
         return inMessage || inData || inModule;
       });
     }
@@ -273,12 +313,17 @@ export async function handleMonitorLogs(
     const total = entries.length;
     const logs = entries.slice(offset, offset + limit).map((entry, idx) => ({
       id: `log-${idx}-${Date.now()}`,
-      level: entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
+      level:
+        entry.level === LogLevel.WARNING ? 'warn' : (entry.level as string),
       message: entry.message,
       timestamp: new Date(entry.timestamp).getTime(),
       source: entry.source,
       module: entry.module,
-      details: entry.data ? JSON.stringify(entry.data) : entry.error ? entry.error.message : undefined,
+      details: entry.data
+        ? JSON.stringify(entry.data)
+        : entry.error
+          ? entry.error.message
+          : undefined,
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -295,12 +340,14 @@ export async function handleMonitorLogs(
 export async function handleExportLogs(
   _ctx: HandlerCtx,
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     let body = '';
     await new Promise((resolve) => {
-      req.on('data', (chunk) => { body += chunk; });
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
       req.on('end', resolve);
     });
 
@@ -311,8 +358,10 @@ export async function handleExportLogs(
     const search = params.search;
 
     const levelMap: Record<string, LogLevel> = {
-      debug: LogLevel.DEBUG, info: LogLevel.INFO,
-      warn: LogLevel.WARN, error: LogLevel.ERROR,
+      debug: LogLevel.DEBUG,
+      info: LogLevel.INFO,
+      warn: LogLevel.WARN,
+      error: LogLevel.ERROR,
     };
 
     let entries = StructuredLogger.queryLogs({
@@ -320,13 +369,18 @@ export async function handleExportLogs(
       limit: 10000,
     });
 
-    if (source && source !== 'all') entries = entries.filter((e) => e.source === source);
+    if (source && source !== 'all')
+      entries = entries.filter((e) => e.source === source);
     if (search) {
       const lowerSearch = search.toLowerCase();
       entries = entries.filter((e) => {
-        const inMessage = e.message && e.message.toLowerCase().includes(lowerSearch);
-        const inData = e.data ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch) : false;
-        const inModule = e.module && e.module.toLowerCase().includes(lowerSearch);
+        const inMessage =
+          e.message && e.message.toLowerCase().includes(lowerSearch);
+        const inData = e.data
+          ? JSON.stringify(e.data).toLowerCase().includes(lowerSearch)
+          : false;
+        const inModule =
+          e.module && e.module.toLowerCase().includes(lowerSearch);
         return inMessage || inData || inModule;
       });
     }
@@ -337,10 +391,16 @@ export async function handleExportLogs(
     if (format === 'csv') {
       const csvHeader = 'timestamp,level,module,source,message,data\n';
       const csvRows = entries.map((entry) => {
-        const dataStr = entry.data ? JSON.stringify(entry.data).replace(/"/g, '""') : '';
+        const dataStr = entry.data
+          ? JSON.stringify(entry.data).replace(/"/g, '""')
+          : '';
         return [
-          `"${entry.timestamp}"`, `"${entry.level}"`, `"${entry.module || ''}"`,
-          `"${entry.source || ''}"`, `"${entry.message.replace(/"/g, '""')}"`, `"${dataStr}"`,
+          `"${entry.timestamp}"`,
+          `"${entry.level}"`,
+          `"${entry.module || ''}"`,
+          `"${entry.source || ''}"`,
+          `"${entry.message.replace(/"/g, '""')}"`,
+          `"${dataStr}"`,
         ].join(',');
       });
       res.writeHead(200, {
@@ -354,10 +414,14 @@ export async function handleExportLogs(
         total: entries.length,
         filters: { level, source, search },
         logs: entries.map((entry) => ({
-          timestamp: entry.timestamp, level: entry.level,
-          module: entry.module, source: entry.source,
-          message: entry.message, data: entry.data,
-          traceId: entry.traceId, error: entry.error,
+          timestamp: entry.timestamp,
+          level: entry.level,
+          module: entry.module,
+          source: entry.source,
+          message: entry.message,
+          data: entry.data,
+          traceId: entry.traceId,
+          error: entry.error,
         })),
       };
       res.writeHead(200, {
@@ -379,17 +443,23 @@ export async function handleExportLogs(
 export async function handleMonitorSessions(
   _ctx: HandlerCtx,
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+    const { getLLMTracker } =
+      await import('@modules/monitoring/llm/getLLMTracker');
     const llmTracker = getLLMTracker();
     const urlObj = new URL(req.url!, `http://${req.headers.host}`);
     const limit = parseInt(urlObj.searchParams.get('limit') || '20', 10);
     const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
     const sessions = llmTracker.getAllSessions();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ sessions: sessions.slice(offset, offset + limit), total: sessions.length }));
+    res.end(
+      JSON.stringify({
+        sessions: sessions.slice(offset, offset + limit),
+        total: sessions.length,
+      })
+    );
   } catch (error) {
     logger.error('获取会话列表失败', { error: String(error) });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -404,11 +474,12 @@ export async function handleMonitorSessionDetail(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
   res: http.ServerResponse,
-  params?: Record<string, string>,
+  params?: Record<string, string>
 ): Promise<void> {
   try {
     const sessionId = params?.['$1'] || '';
-    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+    const { getLLMTracker } =
+      await import('@modules/monitoring/llm/getLLMTracker');
     const sessionDetail = getLLMTracker().getSessionDetail(sessionId);
     if (!sessionDetail) {
       res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -430,10 +501,11 @@ export async function handleMonitorSessionDetail(
 export async function handleSessionsSummary(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+    const { getLLMTracker } =
+      await import('@modules/monitoring/llm/getLLMTracker');
     const summary = getLLMTracker().getGlobalSummary();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(summary));
@@ -450,10 +522,11 @@ export async function handleSessionsSummary(
 export async function handleOTelMetrics(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getOTelMetrics } = await import('@modules/monitoring/otel/OTelMetrics');
+    const { getOTelMetrics } =
+      await import('@modules/monitoring/otel/OTelMetrics');
     const oTelMetrics = getOTelMetrics();
 
     // OTel Metrics 是 Push 模型，无法直接查询值。
@@ -476,11 +549,13 @@ export async function handleOTelMetrics(
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      enabled: (oTelMetrics as any)?.enabled ?? false,
-      serviceName: (oTelMetrics as any)?.config?.serviceName,
-      snapshot,
-    }));
+    res.end(
+      JSON.stringify({
+        enabled: (oTelMetrics as any)?.enabled ?? false,
+        serviceName: (oTelMetrics as any)?.config?.serviceName,
+        snapshot,
+      })
+    );
   } catch (error) {
     logger.error('获取 OTel 指标失败', { error: String(error) });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -496,15 +571,17 @@ export async function handleOTelMetrics(
 export async function handleInfrastructureStatus(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { infraHealthChecker, eventLoopMonitor } = await import(
-      '@modules/diagnostics/infrastructure-diagnostics'
-    );
-    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
-    const { getOTelMetrics } = await import('@modules/monitoring/otel/OTelMetrics');
-    const { getHealthMonitor } = await import('@modules/core/gateway/HealthMonitor');
+    const { infraHealthChecker, eventLoopMonitor } =
+      await import('@modules/diagnostics/infrastructure-diagnostics');
+    const { getLLMTracker } =
+      await import('@modules/monitoring/llm/getLLMTracker');
+    const { getOTelMetrics } =
+      await import('@modules/monitoring/otel/OTelMetrics');
+    const { getHealthMonitor } =
+      await import('@modules/core/gateway/HealthMonitor');
 
     const [healthResult, llmSummary] = await Promise.allSettled([
       infraHealthChecker.runAllChecks(),
@@ -514,7 +591,8 @@ export async function handleInfrastructureStatus(
     // 系统健康检查（独立于 HealthChecker）
     let sysHealth = null;
     try {
-      const { systemHealthChecker } = await import('@modules/diagnostics/SystemHealthChecker');
+      const { systemHealthChecker } =
+        await import('@modules/diagnostics/SystemHealthChecker');
       sysHealth = await systemHealthChecker.performFullCheck();
     } catch {
       sysHealth = null;
@@ -537,38 +615,47 @@ export async function handleInfrastructureStatus(
       // 默认 false
     }
 
-    const checks = healthResult.status === 'fulfilled' ? healthResult.value : null;
+    const checks =
+      healthResult.status === 'fulfilled' ? healthResult.value : null;
     const llm = llmSummary.status === 'fulfilled' ? llmSummary.value : null;
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      timestamp: Date.now(),
-      health: checks ? {
-        overall: checks.overall,
-        summary: checks.summary,
-        checks: checks.checks.map((c) => ({
-          name: c.name,
-          status: c.status,
-          latency: c.latency,
-          error: c.error,
-        })),
-      } : null,
-      system: sysHealth ? {
-        overallStatus: sysHealth.overallStatus,
-        resourceUsage: sysHealth.resourceUsage,
-        recommendations: sysHealth.recommendations,
-      } : null,
-      channels: channelStatuses,
-      llm: llm ? {
-        totalSessions: llm.totalSessions,
-        totalRequests: llm.totalRequests,
-        totalInputTokens: llm.totalInputTokens,
-        totalOutputTokens: llm.totalOutputTokens,
-        totalCostUsd: llm.totalCostUsd,
-      } : null,
-      otel: { enabled: otelEnabled },
-      eventLoop: { monitoring: true },
-    }));
+    res.end(
+      JSON.stringify({
+        timestamp: Date.now(),
+        health: checks
+          ? {
+              overall: checks.overall,
+              summary: checks.summary,
+              checks: checks.checks.map((c) => ({
+                name: c.name,
+                status: c.status,
+                latency: c.latency,
+                error: c.error,
+              })),
+            }
+          : null,
+        system: sysHealth
+          ? {
+              overallStatus: sysHealth.overallStatus,
+              resourceUsage: sysHealth.resourceUsage,
+              recommendations: sysHealth.recommendations,
+            }
+          : null,
+        channels: channelStatuses,
+        llm: llm
+          ? {
+              totalSessions: llm.totalSessions,
+              totalRequests: llm.totalRequests,
+              totalInputTokens: llm.totalInputTokens,
+              totalOutputTokens: llm.totalOutputTokens,
+              totalCostUsd: llm.totalCostUsd,
+            }
+          : null,
+        otel: { enabled: otelEnabled },
+        eventLoop: { monitoring: true },
+      })
+    );
   } catch (error) {
     logger.error('获取基础设施状态失败', { error: String(error) });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });

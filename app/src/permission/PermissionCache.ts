@@ -9,7 +9,11 @@ import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
 import type { ICache, CacheStats } from '@modules/cache/types';
 import { TTLCache } from '@modules/utils/cache';
-import { PermissionBehavior, PermissionRuleSource, permissionRuleValueFromString } from './types/PermissionRule';
+import {
+  PermissionBehavior,
+  PermissionRuleSource,
+  permissionRuleValueFromString,
+} from './types/PermissionRule';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -25,7 +29,10 @@ export interface PermissionCacheKey {
 /**
  * 权限缓存
  */
-export class PermissionCache implements ICache<PermissionCacheKey, PermissionDecision> {
+export class PermissionCache implements ICache<
+  PermissionCacheKey,
+  PermissionDecision
+> {
   private cache: TTLCache<PermissionDecision>;
   private defaultExpiry: number = 5 * 60 * 1000;
   private hits = 0;
@@ -190,7 +197,10 @@ export function generateInputHash(input: Record<string, unknown>): string {
     }
     return hash.toString(36);
   } catch (error) {
-    void handleError(error, { module: 'permission:cache', action: 'generate_input_hash' });
+    void handleError(error, {
+      module: 'permission:cache',
+      action: 'generate_input_hash',
+    });
     return Math.random().toString(36).substring(2, 15);
   }
 }

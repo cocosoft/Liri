@@ -3,10 +3,7 @@
  * 展示如何实现 ProviderPlugin 接口，注册 AI 模型提供者
  */
 
-import {
-  createProviderPlugin,
-  type ProviderPlugin,
-} from '../categories.js';
+import { createProviderPlugin, type ProviderPlugin } from '../categories.js';
 
 /**
  * OpenAI 配置

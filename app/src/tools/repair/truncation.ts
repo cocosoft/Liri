@@ -59,7 +59,8 @@ export function repairTruncatedJson(input: string): TruncationRepairResult {
 
   for (let i = 0; i < input.length; i++) {
     const c = input[i]!;
-    if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') lastSignificant = i;
+    if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r')
+      lastSignificant = i;
     if (escaped) {
       escaped = false;
       continue;
@@ -117,7 +118,9 @@ export function repairTruncatedJson(input: string): TruncationRepairResult {
     return { repaired: s, changed: s !== input, notes, fallback: false };
   } catch (err) {
     const preview =
-      input.length <= 500 ? input : `${input.slice(0, 500)} …[+${input.length - 500} chars]`;
+      input.length <= 500
+        ? input
+        : `${input.slice(0, 500)} …[+${input.length - 500} chars]`;
     notes.push(`fallback to {}: ${(err as Error).message}`);
     notes.push(`unrecoverable truncation — original args preview: ${preview}`);
     return { repaired: '{}', changed: true, notes, fallback: true };

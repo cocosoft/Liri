@@ -138,7 +138,10 @@ export class KnowledgeCompileScheduler {
         totalFound: result.totalFound,
       });
     } catch (err) {
-      await handleError(err, { module: 'knowledge:scheduler', action: 'compile' });
+      await handleError(err, {
+        module: 'knowledge:scheduler',
+        action: 'compile',
+      });
     } finally {
       this.state = 'idle';
     }

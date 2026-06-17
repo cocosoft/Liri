@@ -24,7 +24,8 @@ import { sendError, readRequestBody } from './handler-utils';
 
 /** 将 CronJob 转为前端 CronTask 响应格式 */
 function jobToCronTask(job: any): any {
-  const ms = (iso: string | undefined) => (iso ? new Date(iso).getTime() : undefined);
+  const ms = (iso: string | undefined) =>
+    iso ? new Date(iso).getTime() : undefined;
   return {
     id: job.id,
     name: job.name,
@@ -43,10 +44,14 @@ function jobToCronTask(job: any): any {
     consecutiveErrors: job.consecutiveErrors ?? 0,
     model: job.model,
     provider: job.provider,
-    status: job.state === 'running' ? 'running' as const
-      : job.state === 'failed' ? 'error' as const
-      : job.enabled !== false ? 'idle' as const
-      : 'idle' as const,
+    status:
+      job.state === 'running'
+        ? ('running' as const)
+        : job.state === 'failed'
+          ? ('error' as const)
+          : job.enabled !== false
+            ? ('idle' as const)
+            : ('idle' as const),
   };
 }
 
@@ -85,24 +90,43 @@ export async function handleCreateCron(
   try {
     const body = await readRequestBody(req);
     const rawBody: Record<string, any> = JSON.parse(body);
-    const { name, expression, description, prompt: bodyPrompt, enabled, scheduleMode, silent,
-            deliver, deliverTo, model, provider, agentId } = rawBody;
+    const {
+      name,
+      expression,
+      description,
+      prompt: bodyPrompt,
+      enabled,
+      scheduleMode,
+      silent,
+      deliver,
+      deliverTo,
+      model,
+      provider,
+      agentId,
+    } = rawBody;
     const cronExpr = (expression || rawBody.cron || '').trim();
     const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();
     const jobPrompt = (bodyPrompt || description || jobName).trim();
 
     if (!cronExpr && !jobName) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'name or expression is required' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'name or expression is required' } })
+      );
       return;
     }
 
     const { parseSchedule } = await import('@modules/chronos/cron');
-    const { computeNextCronRun } = await import('@modules/tasks/cron/CronParser');
+    const { computeNextCronRun } =
+      await import('@modules/tasks/cron/CronParser');
     const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
     const { resolveDbPath } = await import('@modules/core/paths');
 
-    const parsed: any = parseSchedule(cronExpr) || { kind: 'cron', expr: cronExpr, display: cronExpr };
+    const parsed: any = parseSchedule(cronExpr) || {
+      kind: 'cron',
+      expr: cronExpr,
+      display: cronExpr,
+    };
 
     // 根据 scheduleMode 覆盖调度解析
     if (scheduleMode === 'every') {
@@ -217,7 +241,8 @@ export async function handleUpdateCron(
 
     // Apply allowed updates
     if (updates.name !== undefined) existing.name = updates.name;
-    if (updates.description !== undefined) existing.prompt = updates.description;
+    if (updates.description !== undefined)
+      existing.prompt = updates.description;
     if (updates.enabled !== undefined) existing.enabled = updates.enabled;
     if (updates.silent !== undefined) existing.silent = updates.silent;
     if (updates.expression !== undefined && existing.schedule) {
@@ -292,7 +317,9 @@ export async function handleRunCron(
     await store.close();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: `Task ${cronId} triggered` }));
+    res.end(
+      JSON.stringify({ success: true, message: `Task ${cronId} triggered` })
+    );
 
     broadcastEvent?.('cron:run', { id: cronId });
   } catch (err) {
@@ -332,13 +359,15 @@ export async function handleCronStatus(
       await store.close();
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        running: false,
-        lastTickAt: undefined,
-        activeJobs,
-        totalJobs: stats.total,
-        uptimeMs: process.uptime() * 1000,
-      }));
+      res.end(
+        JSON.stringify({
+          running: false,
+          lastTickAt: undefined,
+          activeJobs,
+          totalJobs: stats.total,
+          uptimeMs: process.uptime() * 1000,
+        })
+      );
     }
   } catch (err) {
     sendError(res, err);

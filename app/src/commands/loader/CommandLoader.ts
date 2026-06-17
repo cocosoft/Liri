@@ -326,7 +326,8 @@ export class SkillCommandLoader implements CommandLoader {
 
     try {
       const { SkillRegistry } = await import('../../skills/SkillRegistry.js');
-      const { BundledSkillLoader } = await import('../../skills/loaders/sources/BundledSkillLoader.js');
+      const { BundledSkillLoader } =
+        await import('../../skills/loaders/sources/BundledSkillLoader.js');
       const registry = new SkillRegistry();
       const loader = new BundledSkillLoader();
       const loadedSkills = await loader.loadSkills();
@@ -349,9 +350,10 @@ export class SkillCommandLoader implements CommandLoader {
           loadedFrom: 'skill',
           isHidden: skill.isHidden,
           load: async () => ({
-            getPromptForCommand: skill.impl.kind === 'prompt'
-              ? (skill.impl as any).getPromptForCommand?.bind(skill.impl)
-              : undefined,
+            getPromptForCommand:
+              skill.impl.kind === 'prompt'
+                ? (skill.impl as any).getPromptForCommand?.bind(skill.impl)
+                : undefined,
           }),
         };
         commands.push(command);

@@ -90,14 +90,43 @@ const DEFAULT_IGNORE_DIRS = new Set([
 
 /** 默认忽略的扩展名 */
 const DEFAULT_IGNORE_EXTS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg',
-  '.mp3', '.mp4', '.avi', '.mov', '.mkv', '.webm',
-  '.zip', '.tar', '.gz', '.rar', '.7z',
-  '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-  '.exe', '.dll', '.so', '.dylib',
-  '.o', '.obj', '.class',
-  '.woff', '.woff2', '.ttf', '.eot',
-  '.lock', '.min.js', '.min.css',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.ico',
+  '.svg',
+  '.mp3',
+  '.mp4',
+  '.avi',
+  '.mov',
+  '.mkv',
+  '.webm',
+  '.zip',
+  '.tar',
+  '.gz',
+  '.rar',
+  '.7z',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.o',
+  '.obj',
+  '.class',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.eot',
+  '.lock',
+  '.min.js',
+  '.min.css',
 ]);
 
 /**
@@ -108,7 +137,7 @@ export function chunkText(
   filePath: string,
   windowLines: number,
   overlap: number,
-  maxChunkChars: number = DEFAULT_MAX_CHUNK_CHARS,
+  maxChunkChars: number = DEFAULT_MAX_CHUNK_CHARS
 ): CodeChunk[] {
   const lines = text.split(/\r?\n/);
   if (lines.length === 0 || (lines.length === 1 && lines[0] === '')) return [];
@@ -138,7 +167,7 @@ export function chunkText(
  */
 export async function chunkDirectory(
   rootDir: string,
-  opts: ChunkOptions = {},
+  opts: ChunkOptions = {}
 ): Promise<CodeChunk[]> {
   const windowLines = opts.windowLines ?? 60;
   const overlap = opts.overlap ?? 12;
@@ -161,7 +190,9 @@ export async function chunkDirectory(
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      const relPath = path.relative(normalizedRoot, fullPath).replace(/\\/g, '/');
+      const relPath = path
+        .relative(normalizedRoot, fullPath)
+        .replace(/\\/g, '/');
 
       if (entry.isDirectory()) {
         if (DEFAULT_IGNORE_DIRS.has(entry.name)) {
@@ -210,7 +241,13 @@ export async function chunkDirectory(
           continue;
         }
 
-        const fileChunks = chunkText(content, relPath, windowLines, overlap, maxChunkChars);
+        const fileChunks = chunkText(
+          content,
+          relPath,
+          windowLines,
+          overlap,
+          maxChunkChars
+        );
         chunks.push(...fileChunks);
       }
     }

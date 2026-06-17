@@ -17,7 +17,10 @@ export class AtomicWriteError extends AppError {
     message: string,
     details: { path: string; tmpPath: string; cause?: unknown }
   ) {
-    super(message, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, undefined, { path: details.path, tmpPath: details.tmpPath });
+    super(message, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, undefined, {
+      path: details.path,
+      tmpPath: details.tmpPath,
+    });
     this.name = 'AtomicWriteError';
     this.path = details.path;
     this.tmpPath = details.tmpPath;

@@ -44,9 +44,7 @@ export {
   ThirdPartyAdapterRegistry,
   thirdPartyAdapterRegistry,
 } from './loaders/adapter/ThirdPartyAdapterRegistry.js';
-export {
-  AggregatedSkillSearch,
-} from './loaders/adapter/AggregatedSkillSearch.js';
+export { AggregatedSkillSearch } from './loaders/adapter/AggregatedSkillSearch.js';
 export type { AggregatedSearchItem } from './loaders/adapter/AggregatedSkillSearch.js';
 
 export {

@@ -55,15 +55,15 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /** 系统任务类型，与前端 TaskAssignment 严格同步 */
 export type TaskType =
-  | 'default'     // 兜底默认模型（状态栏选择的模型即此值）
-  | 'chat'        // 日常对话、问题解答
-  | 'coding'      // 代码生成、调试、审查
+  | 'default' // 兜底默认模型（状态栏选择的模型即此值）
+  | 'chat' // 日常对话、问题解答
+  | 'coding' // 代码生成、调试、审查
   | 'translation' // 多语言翻译、润色
-  | 'quick'       // 简单问答、摘要（低成本）
-  | 'agent'       // SubAgent / 自主代理任务
-  | 'scheduled'   // 定时任务
-  | 'local'       // 本地模型（Ollama 等）
-  | 'embedding';  // 文本向量化（知识库）
+  | 'quick' // 简单问答、摘要（低成本）
+  | 'agent' // SubAgent / 自主代理任务
+  | 'scheduled' // 定时任务
+  | 'local' // 本地模型（Ollama 等）
+  | 'embedding'; // 文本向量化（知识库）
 
 /**
  * 默认任务分工配置
@@ -128,15 +128,55 @@ export interface TaskDefinition {
  * 前后端共享此数据，前端 TaskAssignment 页面从 API 拉取
  */
 export const TASK_DEFINITIONS: TaskDefinition[] = [
-  { type: 'default',     label: '默认',   description: '未指定任务类型时的兜底模型，状态栏选择的模型即此值', icon: '⭐' },
-  { type: 'chat',        label: '对话',   description: '日常对话、问题解答',                         icon: '💬' },
-  { type: 'coding',      label: '编程',   description: '代码生成、调试、审查',                       icon: '💻' },
-  { type: 'translation', label: '翻译',   description: '多语言翻译、润色',                           icon: '🌐' },
-  { type: 'quick',       label: '快速',   description: '简单问答、摘要（低成本）',                    icon: '⚡' },
-  { type: 'agent',       label: '代理',   description: 'SubAgent / 自主代理任务',                    icon: '🤖' },
-  { type: 'scheduled',   label: '定时',   description: '定时任务',                                   icon: '⏰' },
-  { type: 'local',       label: '本地',   description: '本地模型（Ollama 等）',                      icon: '🖥️' },
-  { type: 'embedding',   label: '嵌入',   description: '文本向量化（知识库）',                        icon: '📐' },
+  {
+    type: 'default',
+    label: '默认',
+    description: '未指定任务类型时的兜底模型，状态栏选择的模型即此值',
+    icon: '⭐',
+  },
+  {
+    type: 'chat',
+    label: '对话',
+    description: '日常对话、问题解答',
+    icon: '💬',
+  },
+  {
+    type: 'coding',
+    label: '编程',
+    description: '代码生成、调试、审查',
+    icon: '💻',
+  },
+  {
+    type: 'translation',
+    label: '翻译',
+    description: '多语言翻译、润色',
+    icon: '🌐',
+  },
+  {
+    type: 'quick',
+    label: '快速',
+    description: '简单问答、摘要（低成本）',
+    icon: '⚡',
+  },
+  {
+    type: 'agent',
+    label: '代理',
+    description: 'SubAgent / 自主代理任务',
+    icon: '🤖',
+  },
+  { type: 'scheduled', label: '定时', description: '定时任务', icon: '⏰' },
+  {
+    type: 'local',
+    label: '本地',
+    description: '本地模型（Ollama 等）',
+    icon: '🖥️',
+  },
+  {
+    type: 'embedding',
+    label: '嵌入',
+    description: '文本向量化（知识库）',
+    icon: '📐',
+  },
 ];
 
 /** ModelRouter 构造选项 */
@@ -211,7 +251,9 @@ export class ModelRouter {
     }
 
     // 4. 最后回退到硬编码默认值
-    logger.debug(`ModelRouter: 任务 ${taskType} 使用硬编码默认 → ${this.defaultModel || '(空)'}`);
+    logger.debug(
+      `ModelRouter: 任务 ${taskType} 使用硬编码默认 → ${this.defaultModel || '(空)'}`
+    );
     return this.defaultModel;
   }
 
@@ -232,9 +274,14 @@ export class ModelRouter {
 
     try {
       const registry = ModelRegistry.getInstance();
-      const mapped = registry.getModelNameForProvider(modelKey, providerId as APIProvider);
+      const mapped = registry.getModelNameForProvider(
+        modelKey,
+        providerId as APIProvider
+      );
       if (mapped) {
-        logger.debug(`ModelRouter: ${modelKey} → ${mapped} (provider: ${providerId})`);
+        logger.debug(
+          `ModelRouter: ${modelKey} → ${mapped} (provider: ${providerId})`
+        );
         return mapped;
       }
     } catch {
@@ -264,7 +311,9 @@ export class ModelRouter {
         default: modelId,
       },
     });
-    logger.info(`ModelRouter: 当前模型已设置为 ${modelId}（同步写入 tasks.default）`);
+    logger.info(
+      `ModelRouter: 当前模型已设置为 ${modelId}（同步写入 tasks.default）`
+    );
   }
 
   /**
@@ -279,7 +328,10 @@ export class ModelRouter {
    */
   setTasks(tasks: TaskModelConfig): void {
     const current = this.readModelConfig();
-    this.writeModelConfig({ ...current, tasks: tasks as Record<string, string> });
+    this.writeModelConfig({
+      ...current,
+      tasks: tasks as Record<string, string>,
+    });
     logger.info('ModelRouter: 任务分工已保存', { tasks });
   }
 
@@ -307,7 +359,10 @@ export class ModelRouter {
     if (flatCurrent) return flatCurrent;
 
     // 向前兼容：读取旧 process.env
-    const envModel = configManager.env('Liri_MODEL') || configManager.env('DEEPSEEK_MODEL') || configManager.env('AI_MODEL');
+    const envModel =
+      configManager.env('Liri_MODEL') ||
+      configManager.env('DEEPSEEK_MODEL') ||
+      configManager.env('AI_MODEL');
     if (envModel) return envModel;
 
     return '';
@@ -321,7 +376,8 @@ export class ModelRouter {
     }
 
     // 向前兼容：读取旧 flat key models.tasks
-    const flatTasks = configManager.getConfigValue<TaskModelConfig>('models.tasks');
+    const flatTasks =
+      configManager.getConfigValue<TaskModelConfig>('models.tasks');
     if (flatTasks && Object.keys(flatTasks).length > 0) return flatTasks;
 
     // 向前兼容：读取旧 process.env

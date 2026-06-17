@@ -145,10 +145,7 @@ export type {
   TAORPhaseInfo,
   TAORPhaseCallback,
 } from './TAORLoop.js';
-export type {
-  TAORCheckpoint,
-  CheckpointStorage,
-} from './types.js';
+export type { TAORCheckpoint, CheckpointStorage } from './types.js';
 export {
   QueryLogStore,
   getQueryLogStore,

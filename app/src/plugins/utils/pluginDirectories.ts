@@ -14,7 +14,8 @@ import { configManager } from '@modules/config';
  */
 export function getPluginsDirectory(): string {
   const baseDir =
-    configManager.env('Liri_PLUGINS_DIR') || join(resolvePyappHome(), 'plugins');
+    configManager.env('Liri_PLUGINS_DIR') ||
+    join(resolvePyappHome(), 'plugins');
 
   // 确保目录存在
   if (!existsSync(baseDir)) {

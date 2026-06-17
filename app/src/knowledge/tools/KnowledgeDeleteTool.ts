@@ -152,7 +152,11 @@ export class KnowledgeDeleteTool implements Tool {
         content: `知识文档已删除：${doc.title}`,
       };
     } catch (error) {
-      await handleError(error, { module: 'knowledge:tool', action: 'delete', context: { title } });
+      await handleError(error, {
+        module: 'knowledge:tool',
+        action: 'delete',
+        context: { title },
+      });
       return {
         status: ToolExecutionStatus.FAILURE,
         error: error instanceof Error ? error.message : String(error),

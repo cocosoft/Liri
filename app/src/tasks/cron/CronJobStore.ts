@@ -180,48 +180,48 @@ export class CronJobStore {
           return;
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
-            if (schemaErr) {
-              logger.error('[CronJobStore] 初始化表结构失败', {
-                error: schemaErr.message,
-              });
-              reject(schemaErr);
-              return;
+          if (schemaErr) {
+            logger.error('[CronJobStore] 初始化表结构失败', {
+              error: schemaErr.message,
+            });
+            reject(schemaErr);
+            return;
+          }
+          // 迁移：添加 silent 列（兼容旧库）
+          this.db!.run(
+            `ALTER TABLE cron_jobs ADD COLUMN silent INTEGER NOT NULL DEFAULT 0`,
+            (/* noop */) => {
+              // 忽略 "column already exists" 错误
             }
-            // 迁移：添加 silent 列（兼容旧库）
-            this.db!.run(
-              `ALTER TABLE cron_jobs ADD COLUMN silent INTEGER NOT NULL DEFAULT 0`,
-              (/* noop */) => {
-                // 忽略 "column already exists" 错误
-              }
-            );
-            // 迁移：添加 running_at_ms 列
-            this.db!.run(
-              `ALTER TABLE cron_jobs ADD COLUMN running_at_ms INTEGER DEFAULT NULL`,
-              (/* noop */) => {}
-            );
-            // 迁移：添加连续错误保护列
-            this.db!.run(
-              `ALTER TABLE cron_jobs ADD COLUMN consecutive_errors INTEGER NOT NULL DEFAULT 0`,
-              (/* noop */) => {
-                this.db!.run(
-                  `ALTER TABLE cron_jobs ADD COLUMN consecutive_skipped INTEGER NOT NULL DEFAULT 0`,
-                  (/* noop */) => {
-                    this.db!.run(
-                      `ALTER TABLE cron_jobs ADD COLUMN schedule_error_count INTEGER NOT NULL DEFAULT 0`,
-                      (/* noop */) => {
-                        this.db!.run(
-                          `ALTER TABLE cron_jobs ADD COLUMN schedule_tz TEXT DEFAULT NULL`,
-                          (/* noop */) => {}
-                        );
-                      }
-                    );
-                  }
-                );
-              }
-            );
-            logger.info('[CronJobStore] 数据库初始化完成');
-            resolve();
-          });
+          );
+          // 迁移：添加 running_at_ms 列
+          this.db!.run(
+            `ALTER TABLE cron_jobs ADD COLUMN running_at_ms INTEGER DEFAULT NULL`,
+            (/* noop */) => {}
+          );
+          // 迁移：添加连续错误保护列
+          this.db!.run(
+            `ALTER TABLE cron_jobs ADD COLUMN consecutive_errors INTEGER NOT NULL DEFAULT 0`,
+            (/* noop */) => {
+              this.db!.run(
+                `ALTER TABLE cron_jobs ADD COLUMN consecutive_skipped INTEGER NOT NULL DEFAULT 0`,
+                (/* noop */) => {
+                  this.db!.run(
+                    `ALTER TABLE cron_jobs ADD COLUMN schedule_error_count INTEGER NOT NULL DEFAULT 0`,
+                    (/* noop */) => {
+                      this.db!.run(
+                        `ALTER TABLE cron_jobs ADD COLUMN schedule_tz TEXT DEFAULT NULL`,
+                        (/* noop */) => {}
+                      );
+                    }
+                  );
+                }
+              );
+            }
+          );
+          logger.info('[CronJobStore] 数据库初始化完成');
+          resolve();
+        });
       });
     });
   }
@@ -573,14 +573,21 @@ export class CronJobStore {
       WHERE id = ?`;
 
     return new Promise((resolve, reject) => {
-      db.run(sql, [reason ? `已自动禁用: ${reason}` : null, Date.now(), jobId], (err) => {
-        if (err) {
-          logger.error('[CronJobStore] 禁用作业失败', { jobId, error: err.message });
-          reject(err);
-          return;
+      db.run(
+        sql,
+        [reason ? `已自动禁用: ${reason}` : null, Date.now(), jobId],
+        (err) => {
+          if (err) {
+            logger.error('[CronJobStore] 禁用作业失败', {
+              jobId,
+              error: err.message,
+            });
+            reject(err);
+            return;
+          }
+          resolve();
         }
-        resolve();
-      });
+      );
     });
   }
 
@@ -619,17 +626,21 @@ export class CronJobStore {
       WHERE id = ?`;
 
     return new Promise((resolve, reject) => {
-      db.run(sql, [errors, skipped, scheduleErrors, Date.now(), jobId], (err) => {
-        if (err) {
-          logger.error('[CronJobStore] 更新错误计数失败', {
-            jobId,
-            error: err.message,
-          });
-          reject(err);
-          return;
+      db.run(
+        sql,
+        [errors, skipped, scheduleErrors, Date.now(), jobId],
+        (err) => {
+          if (err) {
+            logger.error('[CronJobStore] 更新错误计数失败', {
+              jobId,
+              error: err.message,
+            });
+            reject(err);
+            return;
+          }
+          resolve();
         }
-        resolve();
-      });
+      );
     });
   }
 

@@ -33,11 +33,9 @@ export const DEFAULT_ERROR_THRESHOLD_BUFFER_TOKENS = 20000;
 export const DEFAULT_MANUAL_COMPACT_BUFFER_TOKENS = 3000;
 export const MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3;
 
-const CONTEXT_WINDOW_MAP: Record<string, number> = {
-};
+const CONTEXT_WINDOW_MAP: Record<string, number> = {};
 
-const MAX_OUTPUT_TOKENS_MAP: Record<string, number> = {
-};
+const MAX_OUTPUT_TOKENS_MAP: Record<string, number> = {};
 
 export function getContextWindowForModel(model: string): number {
   return (

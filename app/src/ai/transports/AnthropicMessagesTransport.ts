@@ -64,9 +64,7 @@ export class MessagesApiTransport extends BaseTransport {
    * 兼容 Messages API 协议格式的模型。
    * 不限于 Anthropic —— 任何实现同格式的 provider 均可使用。
    */
-  readonly supportedModels = [
-    '*',
-  ];
+  readonly supportedModels = ['*'];
 
   /** 是否启用 prompt caching */
   enableCaching = true;
@@ -77,7 +75,7 @@ export class MessagesApiTransport extends BaseTransport {
       content: string | null;
       tool_calls?: Array<Record<string, unknown>>;
       tool_call_id?: string;
-    }>,
+    }>
   ): MessagesAPIMessage[] {
     const result: MessagesAPIMessage[] = [];
 
@@ -102,9 +100,10 @@ export class MessagesApiTransport extends BaseTransport {
               type: 'tool_use',
               id: (tc as any).id || `tc_${Math.random().toString(36).slice(2)}`,
               name: fn.name || '',
-              input: typeof fn.arguments === 'string'
-                ? JSON.parse(fn.arguments)
-                : (fn.arguments || {}),
+              input:
+                typeof fn.arguments === 'string'
+                  ? JSON.parse(fn.arguments)
+                  : fn.arguments || {},
             });
           }
         }
@@ -132,7 +131,7 @@ export class MessagesApiTransport extends BaseTransport {
       name: string;
       description: string;
       parameters: Record<string, unknown>;
-    }>,
+    }>
   ): MessagesAPIToolDef[] {
     return tools.map((t, i) => ({
       name: t.name,
@@ -154,12 +153,16 @@ export class MessagesApiTransport extends BaseTransport {
       ? this.convertTools(params.tools as any)
       : undefined;
 
-    const systemMsg = (params.messages as Array<{ role: string; content: string | null }>)
+    const systemMsg = (
+      params.messages as Array<{ role: string; content: string | null }>
+    )
       .filter((m) => m.role === 'system' && m.content)
       .map((m) => ({
         type: 'text',
         text: m.content!,
-        ...(this.enableCaching ? { cache_control: { type: 'ephemeral' as const } } : {}),
+        ...(this.enableCaching
+          ? { cache_control: { type: 'ephemeral' as const } }
+          : {}),
       }));
 
     const body: Record<string, unknown> = {
@@ -238,7 +241,7 @@ export class MessagesApiTransport extends BaseTransport {
 
   override mapFinishReason(
     rawStopReason: string,
-    hasToolCalls: boolean,
+    hasToolCalls: boolean
   ): string {
     if (hasToolCalls) return 'tool_calls';
     switch (rawStopReason) {

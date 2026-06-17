@@ -1,13 +1,17 @@
 /**
  * 中间件适配器
- * 
+ *
  * 将 ToolExecutor 现有的 5 层管理器包装为 ToolMiddleware 接口。
  * 各适配器仅做薄层包装，不修改原有逻辑。
- * 
+ *
  * 注册顺序在 ToolExecutor 初始化时调用 registerMiddleware() 完成。
  */
 
-import type { ToolMiddleware, PipelineContext, MiddlewareResult } from './types';
+import type {
+  ToolMiddleware,
+  PipelineContext,
+  MiddlewareResult,
+} from './types';
 import { MiddlewareGroup } from './types';
 import { registerMiddleware } from './PipelineBuilder';
 import {
@@ -66,7 +70,9 @@ export function createPreHookMiddleware(): ToolMiddleware {
         abortSignal: undefined,
       };
 
-      for await (const hookResult of hookManager.executePreToolUseHooks(hookContext)) {
+      for await (const hookResult of hookManager.executePreToolUseHooks(
+        hookContext
+      )) {
         if (hookResult.type === 'hookUpdatedInput' && hookResult.updatedInput) {
           ctx.input = hookResult.updatedInput;
         }
@@ -104,10 +110,7 @@ export function createPostHookMiddleware(): ToolMiddleware {
         abortSignal: undefined,
       };
 
-      await hookManager.executePostToolUseHooks(
-        hookContext,
-        {}
-      );
+      await hookManager.executePostToolUseHooks(hookContext, {});
     },
   };
 }

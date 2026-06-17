@@ -35,9 +35,12 @@ function toHealthStatus(
 ): 'healthy' | 'degraded' | 'unhealthy' | 'unknown' {
   if (ok) return 'healthy';
   switch (severity) {
-    case 'error':   return 'unhealthy';
-    case 'warning': return 'degraded';
-    case 'info':    return 'healthy';
+    case 'error':
+      return 'unhealthy';
+    case 'warning':
+      return 'degraded';
+    case 'info':
+      return 'healthy';
   }
 }
 
@@ -130,7 +133,11 @@ export function registerHealthCheck(check: HealthCheck): void {
       const result = await check.check(cp);
       return {
         status: toHealthStatus(result.ok, result.severity),
-        details: { message: result.message ?? '', check: result.check, severity: result.severity },
+        details: {
+          message: result.message ?? '',
+          check: result.check,
+          severity: result.severity,
+        },
       };
     },
     { critical: check.severity === 'error' }

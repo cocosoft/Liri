@@ -161,7 +161,10 @@ export class CronTaskStore {
       const tasks = this.getAll();
       fs.writeFileSync(this.storePath, JSON.stringify(tasks, null, 2), 'utf-8');
     } catch (err) {
-      void handleError(err, { module: 'chronos:service', action: 'catch_error' });
+      void handleError(err, {
+        module: 'chronos:service',
+        action: 'catch_error',
+      });
     }
   }
 }

@@ -15,7 +15,12 @@ export type TaskStatus =
   | 'cancelled';
 
 export const ALL_TASK_STATUSES: TaskStatus[] = [
-  'pending', 'running', 'completed', 'failed', 'skipped', 'cancelled',
+  'pending',
+  'running',
+  'completed',
+  'failed',
+  'skipped',
+  'cancelled',
 ];
 
 export interface TaskItem {
@@ -330,13 +335,12 @@ export function TaskListV2({
       {/* Active filter indicator */}
       {hasActiveFilter && (
         <Box marginBottom={1}>
-          {searchQuery && (
-            <Text color="yellow">
-              🔍 "{searchQuery}"
-            </Text>
-          )}
+          {searchQuery && <Text color="yellow">🔍 "{searchQuery}"</Text>}
           {searchQuery && statusFilter !== 'all' && (
-            <Text color="gray" dim> + </Text>
+            <Text color="gray" dim>
+              {' '}
+              +{' '}
+            </Text>
           )}
           {statusFilter !== 'all' && (
             <Text color={statusColors[statusFilter as TaskStatus] ?? 'gray'}>

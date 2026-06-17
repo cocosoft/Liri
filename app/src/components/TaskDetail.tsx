@@ -134,11 +134,19 @@ export function TaskDetail({
         )}
         <Box flexDirection="row">
           <Text dimColor>{'Status:   '}</Text>
-          <Text color={statusColor} bold>{task.status}</Text>
+          <Text color={statusColor} bold>
+            {task.status}
+          </Text>
           {task.priority && (
             <>
               <Text dimColor>{' | Priority: '}</Text>
-              <Text color={task.priority === 'high' || task.priority === 'urgent' ? 'red' : 'yellow'}>
+              <Text
+                color={
+                  task.priority === 'high' || task.priority === 'urgent'
+                    ? 'red'
+                    : 'yellow'
+                }
+              >
                 {task.priority}
               </Text>
             </>
@@ -156,7 +164,10 @@ export function TaskDetail({
       {task.progress !== undefined && task.status === 'running' && (
         <Box marginBottom={1}>
           <Text dimColor>{'Progress: '}</Text>
-          <Text color="cyan">{'█'.repeat(Math.round(task.progress / 5))}{'░'.repeat(Math.max(0, 20 - Math.round(task.progress / 5)))}</Text>
+          <Text color="cyan">
+            {'█'.repeat(Math.round(task.progress / 5))}
+            {'░'.repeat(Math.max(0, 20 - Math.round(task.progress / 5)))}
+          </Text>
           <Text> {task.progress}%</Text>
         </Box>
       )}
@@ -192,7 +203,9 @@ export function TaskDetail({
         <Box marginBottom={1} flexDirection="row">
           <Text dimColor>{'Tokens:   '}</Text>
           <Text>
-            in={formatTokens(task.tokens.input)} out={formatTokens(task.tokens.output)} total={formatTokens(task.tokens.total)}
+            in={formatTokens(task.tokens.input)} out=
+            {formatTokens(task.tokens.output)} total=
+            {formatTokens(task.tokens.total)}
           </Text>
           {task.cost !== undefined && (
             <>
@@ -204,16 +217,19 @@ export function TaskDetail({
       )}
 
       {/* Dependencies */}
-      {(task.blockedBy && task.blockedBy.length > 0) && (
+      {task.blockedBy && task.blockedBy.length > 0 && (
         <Box marginBottom={1} flexDirection="row">
           <Text dimColor>{'BlockedBy:'}</Text>
-          <Text color="yellow"> {task.blockedBy.map(id => id.slice(0, 8)).join(', ')}</Text>
+          <Text color="yellow">
+            {' '}
+            {task.blockedBy.map((id) => id.slice(0, 8)).join(', ')}
+          </Text>
         </Box>
       )}
-      {(task.blocks && task.blocks.length > 0) && (
+      {task.blocks && task.blocks.length > 0 && (
         <Box marginBottom={1} flexDirection="row">
           <Text dimColor>{'Blocks:   '}</Text>
-          <Text>{task.blocks.map(id => id.slice(0, 8)).join(', ')}</Text>
+          <Text>{task.blocks.map((id) => id.slice(0, 8)).join(', ')}</Text>
         </Box>
       )}
 
@@ -245,7 +261,9 @@ export function TaskDetail({
       {task.error && (
         <Box marginBottom={1} flexDirection="column">
           <Box>
-            <Text color="red" bold>{'Error:'}</Text>
+            <Text color="red" bold>
+              {'Error:'}
+            </Text>
           </Box>
           <Box marginLeft={2}>
             <Text color="red">{task.error}</Text>

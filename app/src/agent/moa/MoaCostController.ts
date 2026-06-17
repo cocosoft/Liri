@@ -78,8 +78,7 @@ export interface CostSnapshot {
  * 模型成本映射（Token/美元）
  * 参考价格，可根据实际情况调整
  */
-const MODEL_COST_MAP: Record<string, { input: number; output: number }> = {
-};
+const MODEL_COST_MAP: Record<string, { input: number; output: number }> = {};
 
 /**
  * MoA 成本控制器

@@ -201,7 +201,9 @@ export class ClawHubConverter {
    * 将 InstalledClawHubSkill 转换为第三方搜索结果
    * @param installed 已安装的技能
    */
-  toSearchResult(installed: InstalledClawHubSkill): ThirdPartySkillSearchResult {
+  toSearchResult(
+    installed: InstalledClawHubSkill
+  ): ThirdPartySkillSearchResult {
     return {
       id: installed.meta.id,
       name: installed.meta.name,

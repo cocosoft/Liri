@@ -44,7 +44,8 @@ export class TierResolver {
    */
   resolve(tier: RouterTier): RouteDecision {
     // 从配置中获取该 tier 的模型映射
-    const tierConfig = this.config.tiers[tier] || this.config.tiers[this.config.defaultTier];
+    const tierConfig =
+      this.config.tiers[tier] || this.config.tiers[this.config.defaultTier];
 
     if (!tierConfig) {
       logger.warning('TierResolver: 无可用 tier 配置，使用默认', { tier });
@@ -63,7 +64,11 @@ export class TierResolver {
       providerId = this.inferProvider(tierConfig.model);
     }
 
-    logger.debug('TierResolver: 解析完成', { tier, model: tierConfig.model, provider: providerId });
+    logger.debug('TierResolver: 解析完成', {
+      tier,
+      model: tierConfig.model,
+      provider: providerId,
+    });
 
     return {
       provider: providerId,

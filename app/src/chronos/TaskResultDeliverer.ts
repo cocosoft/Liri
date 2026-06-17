@@ -44,10 +44,9 @@ export function initializeTaskResultDelivery(): void {
     const eventData = data as Record<string, unknown>;
     // 静默任务不投递通知
     if (eventData.silent === true) {
-      logger.info(
-        `[F-10] 静默任务完成（跳过通知）`,
-        { taskId: eventData.taskId || eventData.cronTaskId }
-      );
+      logger.info(`[F-10] 静默任务完成（跳过通知）`, {
+        taskId: eventData.taskId || eventData.cronTaskId,
+      });
       return;
     }
     const message = formatTaskMessage(SystemEvents.TASK_COMPLETED, eventData);

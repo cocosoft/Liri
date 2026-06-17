@@ -14,10 +14,7 @@ import type {
 export class BedrockTransport extends BaseTransport {
   readonly provider = 'bedrock';
 
-  readonly supportedModels = [
-    'anthropic.claude-',
-    'amazon.nova-',
-  ];
+  readonly supportedModels = ['anthropic.claude-', 'amazon.nova-'];
 
   convertMessages(
     messages: Array<{ role: string; content: string | null }>

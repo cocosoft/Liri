@@ -3,7 +3,12 @@
  * 从 ChatManager.ts 拆分而来
  */
 
-import type { Message, SendMessageOptions, StreamMessageOptions, ChatResponse } from './types/message.js';
+import type {
+  Message,
+  SendMessageOptions,
+  StreamMessageOptions,
+  ChatResponse,
+} from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import type { MessageService } from './services/MessageService.js';
@@ -13,8 +18,15 @@ import type { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
 import type { QueryEngine, QueryEngineConfig } from '../query/QueryEngine.js';
-import type { CompactServiceImpl, CompactBoundary, CompactArtifact } from '../services/compact/CompactService.js';
-import type { ChatStreamChunk, QuestionData } from '@modules/runtime/api/CoreAPI.js';
+import type {
+  CompactServiceImpl,
+  CompactBoundary,
+  CompactArtifact,
+} from '../services/compact/CompactService.js';
+import type {
+  ChatStreamChunk,
+  QuestionData,
+} from '@modules/runtime/api/CoreAPI.js';
 import { sessionStateService } from './services/SessionStateService.js';
 import { sessionMetadataService } from './services/SessionMetadataService.js';
 import { eventNotificationService } from './services/EventNotificationService.js';

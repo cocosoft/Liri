@@ -105,11 +105,22 @@ export class OTelLoggerAdapter {
     let filteredData = data;
     if (!logConfig.showTokenCost && data) {
       const {
-        inputTokens, outputTokens, costUSD, costUsd,
-        cacheReadTokens, cacheCreationTokens, cacheCreateTokens,
-        reasoningTokens, totalCostUSD, totalCostUsd, totalInputTokens,
-        totalOutputTokens, totalCachedInputTokens, totalReasoningTokens,
-        totalCost, ...rest
+        inputTokens,
+        outputTokens,
+        costUSD,
+        costUsd,
+        cacheReadTokens,
+        cacheCreationTokens,
+        cacheCreateTokens,
+        reasoningTokens,
+        totalCostUSD,
+        totalCostUsd,
+        totalInputTokens,
+        totalOutputTokens,
+        totalCachedInputTokens,
+        totalReasoningTokens,
+        totalCost,
+        ...rest
       } = data as Record<string, unknown>;
       filteredData = rest;
     }

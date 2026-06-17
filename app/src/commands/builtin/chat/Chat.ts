@@ -98,7 +98,9 @@ export class ChatCommand {
       }
     } else if (!this.llmClient) {
       const chatModel = modelRouter.resolve('chat');
-      let provider = chatModel ? providerRegistry.getByModel(chatModel) : undefined;
+      let provider = chatModel
+        ? providerRegistry.getByModel(chatModel)
+        : undefined;
 
       if (!provider) {
         const config = getConfig();
@@ -266,7 +268,10 @@ export class ChatCommand {
         fullResponse += chunk;
       }
     } catch (err) {
-      void handleError(err, { module: 'commands:builtin', action: 'catch_error' });
+      void handleError(err, {
+        module: 'commands:builtin',
+        action: 'catch_error',
+      });
     }
 
     const cost = costTracker.addCost(model, inputTokens, outputTokens);
@@ -335,12 +340,14 @@ export class ChatCommand {
         name: 'Anthropic',
         key: 'anthropic',
         configured:
-          !!config.ai?.anthropic?.apiKey || !!configManager.env('ANTHROPIC_API_KEY'),
+          !!config.ai?.anthropic?.apiKey ||
+          !!configManager.env('ANTHROPIC_API_KEY'),
       },
       {
         name: 'OpenAI',
         key: 'openai',
-        configured: !!config.ai?.openai?.apiKey || !!configManager.env('OPENAI_API_KEY'),
+        configured:
+          !!config.ai?.openai?.apiKey || !!configManager.env('OPENAI_API_KEY'),
       },
       { name: 'Azure', key: 'azure', configured: !!config.ai?.azure?.apiKey },
       {

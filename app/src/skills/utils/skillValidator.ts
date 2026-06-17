@@ -80,7 +80,10 @@ export function validateSkill(skill: Skill): {
   }
 
   // 验证getPromptForCommand方法（prompt技能）
-  if (skill.impl.kind === 'prompt' && typeof skill.impl.getPromptForCommand !== 'function') {
+  if (
+    skill.impl.kind === 'prompt' &&
+    typeof skill.impl.getPromptForCommand !== 'function'
+  ) {
     errors.push('prompt skill must have a getPromptForCommand function');
   }
 

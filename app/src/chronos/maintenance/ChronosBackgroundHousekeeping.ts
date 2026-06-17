@@ -97,8 +97,10 @@ const BALANCE_WARN_THRESHOLD = 10;
 async function refreshBalancesInBackground(): Promise<void> {
   try {
     const { BalanceStore } = await import('../../ai/providers/BalanceStore.js');
-    const { providerManager } = await import('../../ai/providers/ProviderManager.js');
-    const { checkBalance } = await import('../../ai/providers/BalanceChecker.js');
+    const { providerManager } =
+      await import('../../ai/providers/ProviderManager.js');
+    const { checkBalance } =
+      await import('../../ai/providers/BalanceChecker.js');
 
     const store = BalanceStore.getInstance();
     await store.initialize();
@@ -113,7 +115,8 @@ async function refreshBalancesInBackground(): Promise<void> {
         if (result.success && result.data.length > 0) {
           const d = result.data[0];
           const remaining = d.remaining ?? null;
-          const belowThreshold = remaining !== null && remaining < BALANCE_WARN_THRESHOLD;
+          const belowThreshold =
+            remaining !== null && remaining < BALANCE_WARN_THRESHOLD;
 
           await store.setBalance(p.id, {
             remaining,
@@ -125,7 +128,9 @@ async function refreshBalancesInBackground(): Promise<void> {
           });
 
           if (belowThreshold) {
-            logger.warn(`供应商余额不足: ${p.name} (${p.id}) - 剩余 ${remaining?.toFixed(2)} ${d.unit || 'CNY'}`);
+            logger.warn(
+              `供应商余额不足: ${p.name} (${p.id}) - 剩余 ${remaining?.toFixed(2)} ${d.unit || 'CNY'}`
+            );
           }
         }
       } catch {

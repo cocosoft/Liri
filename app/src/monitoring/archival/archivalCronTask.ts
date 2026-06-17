@@ -22,7 +22,10 @@ import { Logger, LogLevel } from '../logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'monitoring:archival_cron' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'monitoring:archival_cron',
+});
 
 /** 默认归档 cron 表达式：每日凌晨 3 点 */
 export const DEFAULT_ARCHIVAL_CRON = '0 3 * * *';
@@ -82,7 +85,10 @@ export async function executeArchivalMaintenance(
       ...result,
     };
   } catch (error) {
-    await handleError(error, { module: 'monitoring:archival', action: 'archival_maintenance' });
+    await handleError(error, {
+      module: 'monitoring:archival',
+      action: 'archival_maintenance',
+    });
     return {
       success: false,
       archives: [],
@@ -141,7 +147,9 @@ export function setupArchivalScheduler(
 /**
  * 停止归档调度器
  */
-export function stopArchivalScheduler(scheduler: ArchivalSchedulerHandle): void {
+export function stopArchivalScheduler(
+  scheduler: ArchivalSchedulerHandle
+): void {
   scheduler.stop();
   logger.info('归档调度器已停止');
 }

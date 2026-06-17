@@ -31,7 +31,9 @@ export type SupportedLocale = 'zh' | 'en' | 'ja' | 'ko';
  */
 export function detectSystemLocale(): SupportedLocale {
   const envLocale =
-    configManager.env('LANG') || configManager.env('LC_ALL') || configManager.env('LC_MESSAGES');
+    configManager.env('LANG') ||
+    configManager.env('LC_ALL') ||
+    configManager.env('LC_MESSAGES');
 
   if (envLocale) {
     const normalized = envLocale.toLowerCase();

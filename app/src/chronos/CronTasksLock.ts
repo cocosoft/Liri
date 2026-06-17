@@ -113,7 +113,10 @@ async function removeLockFile(dir?: string): Promise<void> {
       unlinkSync(lockPath);
     }
   } catch (err) {
-    void handleError(err, { module: 'chronos:CronTasksLock.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'chronos:CronTasksLock.ts',
+      action: 'catch_error',
+    });
   }
 }
 
@@ -187,7 +190,10 @@ export async function releaseSchedulerLock(opts?: {
     await removeLockFile(dir);
     console.log('[Chronos] released scheduler lock');
   } catch (err) {
-    void handleError(err, { module: 'chronos:CronTasksLock.ts', action: 'catch_error' });
+    void handleError(err, {
+      module: 'chronos:CronTasksLock.ts',
+      action: 'catch_error',
+    });
   }
 }
 

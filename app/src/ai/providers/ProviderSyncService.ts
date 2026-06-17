@@ -108,30 +108,40 @@ function createProviderByType(
         defaultModel: (config?.model as string) || '',
       });
     case 'bedrock':
-      return new BedrockProvider({
-        providerId: 'bedrock',
-        displayName: 'AWS Bedrock',
-        defaultModel: (config?.model as string) || '',
-      }, config);
+      return new BedrockProvider(
+        {
+          providerId: 'bedrock',
+          displayName: 'AWS Bedrock',
+          defaultModel: (config?.model as string) || '',
+        },
+        config
+      );
     case 'vertex':
-      return new VertexAIProvider({
-        providerId: 'vertex-ai',
-        displayName: 'Google Vertex AI',
-        defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
-        defaultModel: (config?.model as string) || '',
-      }, config);
+      return new VertexAIProvider(
+        {
+          providerId: 'vertex-ai',
+          displayName: 'Google Vertex AI',
+          defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
+          defaultModel: (config?.model as string) || '',
+        },
+        config
+      );
     case 'azure':
-      return new AzureOpenAIProvider({
-        providerId: 'azure-openai',
-        displayName: 'Azure OpenAI',
-        defaultModel: (config?.model as string) || '',
-      }, config);
+      return new AzureOpenAIProvider(
+        {
+          providerId: 'azure-openai',
+          displayName: 'Azure OpenAI',
+          defaultModel: (config?.model as string) || '',
+        },
+        config
+      );
     default:
       // custom → 默认用 OpenAI 兼容格式
       return new OpenAIProvider({
         providerId: 'custom',
         displayName: 'Custom OpenAI-compatible',
-        defaultBaseUrl: (config?.baseUrl as string) || 'https://api.openai.com/v1',
+        defaultBaseUrl:
+          (config?.baseUrl as string) || 'https://api.openai.com/v1',
         envApiKey: 'OPENAI_API_KEY',
         defaultModel: (config?.model as string) || '',
       });
@@ -175,12 +185,16 @@ function syncOneProvider(record: ProviderRecord): void {
   const wrapped = Object.create(provider) as AIProvider;
   Object.defineProperties(wrapped, {
     id: {
-      get() { return registryId; },
+      get() {
+        return registryId;
+      },
       configurable: true,
       enumerable: true,
     },
     displayName: {
-      get() { return record.name; },
+      get() {
+        return record.name;
+      },
       configurable: true,
       enumerable: true,
     },

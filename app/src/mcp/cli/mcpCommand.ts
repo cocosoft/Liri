@@ -15,7 +15,8 @@ import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 export function createMcpCommand(): Command {
   const mcpCommand = new Command('mcp');
   const serverManager = getMCPServerManager();
-  const configPath = configManager.env('MCP_CONFIG_PATH') || './mcp.config.json';
+  const configPath =
+    configManager.env('MCP_CONFIG_PATH') || './mcp.config.json';
 
   mcpCommand
     .description('Manage MCP (Model Context Protocol) servers and tools')

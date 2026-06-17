@@ -307,7 +307,9 @@ export class WebFetchTool extends BaseTool {
       // 若开启 saveToFile，保存到 downloads 目录并注册到 FileRegistry
       const saveToFile = input.saveToFile as boolean;
       if (saveToFile && content.length > 0) {
-        this.saveToFileAndRegister(url, content, contentType, startTime).catch(() => {});
+        this.saveToFileAndRegister(url, content, contentType, startTime).catch(
+          () => {}
+        );
       }
 
       return createToolResult(result, {
@@ -411,12 +413,16 @@ export class WebFetchTool extends BaseTool {
 
       // 从 URL 提取文件名
       const urlObj = new URL(url);
-      let fileName = urlObj.pathname.split('/').filter(Boolean).pop() || 'index';
+      let fileName =
+        urlObj.pathname.split('/').filter(Boolean).pop() || 'index';
       if (!fileName.includes('.')) {
-        const ext = contentType.includes('json') ? '.json'
-          : contentType.includes('html') ? '.html'
-          : contentType.includes('xml') ? '.xml'
-          : '.txt';
+        const ext = contentType.includes('json')
+          ? '.json'
+          : contentType.includes('html')
+            ? '.html'
+            : contentType.includes('xml')
+              ? '.xml'
+              : '.txt';
         fileName += ext;
       }
       // 添加时间戳前缀防重名
@@ -427,7 +433,8 @@ export class WebFetchTool extends BaseTool {
       await writeFile(filePath, content, 'utf-8');
 
       // 注册到 FileRegistry
-      const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+      const { FileRegistry } =
+        await import('@modules/services/file/FileRegistry');
       const { FileSource } = await import('@modules/services/file/types');
       const registry = FileRegistry.getInstance();
       await registry.initDatabase();

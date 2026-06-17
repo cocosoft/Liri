@@ -37,9 +37,7 @@ interface GeminiPart {
 }
 
 export class GeminiFormatter extends ModelFormatter {
-  readonly supportedModels = [
-    'gemini-',
-  ];
+  readonly supportedModels = ['gemini-'];
 
   /**
    * 将统一消息转换为 Gemini 格式

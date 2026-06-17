@@ -115,7 +115,8 @@ export function createAITracePlugin(deps?: MonitoringDeps): AITracePlugin {
   const config: TraceConfig = {
     traceDir: configManager.env('AI_TRACE_DIR') || 'traces',
     mode: (configManager.env('AI_TRACE_MODE') as TraceConfig['mode']) || 'all',
-    slowThresholdMs: Number(configManager.env('AI_TRACE_SLOW_THRESHOLD')) || 30000,
+    slowThresholdMs:
+      Number(configManager.env('AI_TRACE_SLOW_THRESHOLD')) || 30000,
     liveViewPort: Number(configManager.env('AI_TRACE_LIVE_VIEW_PORT')) || 0,
   };
 

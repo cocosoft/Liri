@@ -20,9 +20,7 @@ export class ChatCompletionsTransport extends BaseTransport {
    * 兼容 OpenAI Chat Completions 格式的模型。
    * 不限于 OpenAI —— DeepSeek / Moonshot / Groq / Ollama / vLLM 等均可用。
    */
-  readonly supportedModels = [
-    '*',
-  ];
+  readonly supportedModels = ['*'];
 
   /**
    * 统一 tool_calls 格式为 OpenAI 兼容格式:

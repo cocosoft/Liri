@@ -169,7 +169,10 @@ export abstract class BaseAIProvider implements AIProvider {
    * @param options - 基础选项（providerId, displayName, defaultBaseUrl, envApiKey 等）
    * @param _extraConfig - 子类特有扩展配置（可选）
    */
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     this.id = options.providerId;
     this.displayName = options.displayName;
     this.options = options;
@@ -372,10 +375,11 @@ export abstract class BaseAIProvider implements AIProvider {
         if (error instanceof TypeError && attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);
 
-          logger.warning(
-            `fetch 连接失败，第 ${attempt + 1} 次重试`,
-            { url, delayMs: delay, error: lastError.message }
-          );
+          logger.warning(`fetch 连接失败，第 ${attempt + 1} 次重试`, {
+            url,
+            delayMs: delay,
+            error: lastError.message,
+          });
 
           await new Promise<void>((resolve) => setTimeout(resolve, delay));
           continue;
@@ -602,8 +606,7 @@ export abstract class BaseAIProvider implements AIProvider {
         if (tc.id) pending.id = tc.id as string;
         if (func) {
           if (func.name) pending.name = func.name as string;
-          if (func.arguments)
-            pending.arguments += func.arguments as string;
+          if (func.arguments) pending.arguments += func.arguments as string;
         }
       }
     }
@@ -731,8 +734,10 @@ export abstract class BaseAIProvider implements AIProvider {
       }
 
       case 'content_block_start': {
-        const contentBlock = (json.content_block ||
-          {}) as Record<string, unknown>;
+        const contentBlock = (json.content_block || {}) as Record<
+          string,
+          unknown
+        >;
         if (contentBlock.type === 'tool_use' && pendingToolCalls) {
           const idx = (json.index as number) || 0;
           pendingToolCalls.set(idx, {
@@ -766,7 +771,11 @@ export abstract class BaseAIProvider implements AIProvider {
         const stopReason = delta.stop_reason as string | undefined;
 
         // tool_use 停止 → 组装 tool_calls
-        if (stopReason === 'tool_use' && pendingToolCalls && pendingToolCalls.size > 0) {
+        if (
+          stopReason === 'tool_use' &&
+          pendingToolCalls &&
+          pendingToolCalls.size > 0
+        ) {
           const sortedCalls = Array.from(pendingToolCalls.entries())
             .sort(([a], [b]) => a - b)
             .map(([_, tc]) => {
@@ -774,7 +783,10 @@ export abstract class BaseAIProvider implements AIProvider {
                 return {
                   id: tc.id,
                   name: tc.name,
-                  arguments: JSON.parse(tc.arguments) as Record<string, unknown>,
+                  arguments: JSON.parse(tc.arguments) as Record<
+                    string,
+                    unknown
+                  >,
                 };
               } catch {
                 return {

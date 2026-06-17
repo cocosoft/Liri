@@ -12,9 +12,7 @@ import type {
 export class GeminiTransport extends BaseTransport {
   readonly provider = 'gemini';
 
-  readonly supportedModels = [
-    '*',
-  ];
+  readonly supportedModels = ['*'];
 
   convertMessages(
     messages: Array<{ role: string; content: string | null }>

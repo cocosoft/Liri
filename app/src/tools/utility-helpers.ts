@@ -8,23 +8,43 @@ export interface ToolFactoryFn {
   (): Tool[];
 }
 
-export function booleanParam(name: string, desc: string, required = false): ToolParam {
+export function booleanParam(
+  name: string,
+  desc: string,
+  required = false
+): ToolParam {
   return { name, type: 'boolean', description: desc, required };
 }
 
-export function stringParam(name: string, desc: string, required = false): ToolParam {
+export function stringParam(
+  name: string,
+  desc: string,
+  required = false
+): ToolParam {
   return { name, type: 'string', description: desc, required };
 }
 
-export function numberParam(name: string, desc: string, required = false): ToolParam {
+export function numberParam(
+  name: string,
+  desc: string,
+  required = false
+): ToolParam {
   return { name, type: 'number', description: desc, required };
 }
 
-export function anyParam(name: string, desc: string, required = false): ToolParam {
+export function anyParam(
+  name: string,
+  desc: string,
+  required = false
+): ToolParam {
   return { name, type: 'object', description: desc, required };
 }
 
-export type ToolExecResult = { success: boolean; output?: string; error?: string };
+export type ToolExecResult = {
+  success: boolean;
+  output?: string;
+  error?: string;
+};
 
 export function makeTool(def: {
   name: string;

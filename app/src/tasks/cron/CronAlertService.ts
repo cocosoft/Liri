@@ -27,7 +27,11 @@ const DEFAULT_CONFIG: CronAlertConfig = {
  * 告警回调类型：由外部注入，实现具体的通知发送逻辑
  * (如调用 NotificationService、日志、Webhook 等)
  */
-export type AlertCallback = (job: CronJob, reason: string, errorCount: number) => void;
+export type AlertCallback = (
+  job: CronJob,
+  reason: string,
+  errorCount: number
+) => void;
 
 export class CronAlertService {
   private config: CronAlertConfig;
@@ -45,8 +49,13 @@ export class CronAlertService {
    * @param consecutiveErrors 当前连续错误数
    * @param consecutiveSkipped 当前连续跳过数
    */
-  check(job: CronJob, consecutiveErrors: number, consecutiveSkipped: number): void {
-    const totalFailures = consecutiveErrors + (this.config.includeSkipped ? consecutiveSkipped : 0);
+  check(
+    job: CronJob,
+    consecutiveErrors: number,
+    consecutiveSkipped: number
+  ): void {
+    const totalFailures =
+      consecutiveErrors + (this.config.includeSkipped ? consecutiveSkipped : 0);
 
     if (totalFailures < this.config.after) return;
 

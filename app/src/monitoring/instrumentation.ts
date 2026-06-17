@@ -74,11 +74,15 @@ export function bootstrapTelemetry() {
     if (antTracesExporter) {
       process.env.OTEL_TRACES_EXPORTER = antTracesExporter;
     }
-    const antOtlpProtocol = configManager.env('ANT_OTEL_EXPORTER_OTLP_PROTOCOL');
+    const antOtlpProtocol = configManager.env(
+      'ANT_OTEL_EXPORTER_OTLP_PROTOCOL'
+    );
     if (antOtlpProtocol) {
       process.env.OTEL_EXPORTER_OTLP_PROTOCOL = antOtlpProtocol;
     }
-    const antOtlpEndpoint = configManager.env('ANT_OTEL_EXPORTER_OTLP_ENDPOINT');
+    const antOtlpEndpoint = configManager.env(
+      'ANT_OTEL_EXPORTER_OTLP_ENDPOINT'
+    );
     if (antOtlpEndpoint) {
       process.env.OTEL_EXPORTER_OTLP_ENDPOINT = antOtlpEndpoint;
     }
@@ -105,7 +109,9 @@ export function parseExporterTypes(value: string | undefined): string[] {
 }
 
 async function getOtlpReaders() {
-  const exporterTypes = parseExporterTypes(configManager.env('OTEL_METRICS_EXPORTER') ?? '');
+  const exporterTypes = parseExporterTypes(
+    configManager.env('OTEL_METRICS_EXPORTER') ?? ''
+  );
   const exportInterval = parseInt(
     configManager.env('OTEL_METRIC_EXPORT_INTERVAL') ||
       DEFAULT_METRICS_EXPORT_INTERVAL_MS.toString(),
@@ -437,7 +443,9 @@ export async function flushTelemetry(): Promise<void> {
     return;
   }
 
-  const timeoutMs = parseInt(configManager.env('Liri_OTEL_FLUSH_TIMEOUT_MS') || '5000');
+  const timeoutMs = parseInt(
+    configManager.env('Liri_OTEL_FLUSH_TIMEOUT_MS') || '5000'
+  );
 
   try {
     const flushPromises = [meterProvider.forceFlush()];

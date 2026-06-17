@@ -37,8 +37,16 @@ async function loadAllSkills(): Promise<SkillRegistry> {
   const registry = new SkillRegistry();
   const loaders = [
     new BundledSkillLoader(),
-    new FileSkillLoader({ directories: [resolveUserSkillsDir()], source: SkillSource.THIRD_PARTY, loadedFrom: 'user' }),
-    new FileSkillLoader({ directories: [join(resolveDataDir(), 'skills')], source: SkillSource.OFFICIAL, loadedFrom: 'project' }),
+    new FileSkillLoader({
+      directories: [resolveUserSkillsDir()],
+      source: SkillSource.THIRD_PARTY,
+      loadedFrom: 'user',
+    }),
+    new FileSkillLoader({
+      directories: [join(resolveDataDir(), 'skills')],
+      source: SkillSource.OFFICIAL,
+      loadedFrom: 'project',
+    }),
     new PluginSkillLoader(),
     new MCPSkillLoader(),
   ];
@@ -70,7 +78,9 @@ export const skillCommand: Command = {
       switch (subcommand) {
         case '': {
           // 没有子命令，显示技能概览
-          const skills = registry.getAll().filter((s) => s.userInvocable !== false);
+          const skills = registry
+            .getAll()
+            .filter((s) => s.userInvocable !== false);
           const loadedCount = skills.length;
 
           let content = `🧰 技能概览\n\n`;

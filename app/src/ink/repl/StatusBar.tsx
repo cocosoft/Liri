@@ -50,11 +50,14 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     tokens = {
       total: streamStats.tokenCount,
     };
-    elapsedMs = streamStats.startTime ? Date.now() - streamStats.startTime : undefined;
+    elapsedMs = streamStats.startTime
+      ? Date.now() - streamStats.startTime
+      : undefined;
   } else if (streamState === 'idle') {
-    statusText = submitCount > 0
-      ? `💬 [${submitCount}] 输入消息，Enter 发送。 /help 查看命令。`
-      : '💬 输入消息，Enter 发送。 /help 查看命令。';
+    statusText =
+      submitCount > 0
+        ? `💬 [${submitCount}] 输入消息，Enter 发送。 /help 查看命令。`
+        : '💬 输入消息，Enter 发送。 /help 查看命令。';
   }
 
   return (

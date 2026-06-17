@@ -111,7 +111,7 @@ export class McpReconnectManager {
   async reconnect(
     clientFactory: () => Promise<McpClientLike>,
     beforeTools: readonly McpToolSpec[],
-    onSwap: (newClient: McpClientLike) => Promise<void>,
+    onSwap: (newClient: McpClientLike) => Promise<void>
   ): Promise<ReconnectResult> {
     const t0 = Date.now();
     let attemptCount = 0;
@@ -188,7 +188,10 @@ export class McpReconnectManager {
 
         // 指数退避
         await sleep(delay);
-        delay = Math.min(delay * this.config.backoffMultiplier, this.config.maxDelayMs);
+        delay = Math.min(
+          delay * this.config.backoffMultiplier,
+          this.config.maxDelayMs
+        );
       }
     }
 
@@ -206,7 +209,7 @@ export class McpReconnectManager {
    */
   async tryReconnect(
     clientFactory: () => Promise<McpClientLike>,
-    beforeTools: readonly McpToolSpec[],
+    beforeTools: readonly McpToolSpec[]
   ): Promise<ReconnectResult> {
     const t0 = Date.now();
     try {

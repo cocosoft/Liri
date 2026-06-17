@@ -76,7 +76,15 @@ export interface QuestionData {
 }
 
 export interface ChatStreamChunk {
-  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'done' | 'error' | 'question' | 'todo';
+  type:
+    | 'text'
+    | 'thinking'
+    | 'tool_call'
+    | 'status'
+    | 'done'
+    | 'error'
+    | 'question'
+    | 'todo';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;

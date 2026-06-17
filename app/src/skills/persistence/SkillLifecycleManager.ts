@@ -83,7 +83,8 @@ export async function initializeSkillLifecycle(
   // 2. 获取或创建辅助组件
   const { getSkillUsageTracker } = await import('../SkillUsageTracker');
   const { getSkillCurator } = await import('../SkillCurator');
-  const { getSkillProvenanceTracker } = await import('../SkillProvenanceTracker');
+  const { getSkillProvenanceTracker } =
+    await import('../SkillProvenanceTracker');
 
   const usageTracker = getSkillUsageTracker(skillDB, cfg.maxUsageRecords);
   const curator = getSkillCurator(skillDB);

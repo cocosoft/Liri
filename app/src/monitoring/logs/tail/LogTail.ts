@@ -151,7 +151,10 @@ export class LogTail extends EventEmitter {
         }
       }
     } catch (err) {
-      void handleError(err, { module: 'monitoring:logs', action: 'catch_error' });
+      void handleError(err, {
+        module: 'monitoring:logs',
+        action: 'catch_error',
+      });
     }
   }
 

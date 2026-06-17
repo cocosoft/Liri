@@ -191,13 +191,19 @@ export class BundledPluginManager {
                 });
               }
             } catch (err) {
-              void handleError(err, { module: 'plugins:bundled', action: 'catch_error' });
+              void handleError(err, {
+                module: 'plugins:bundled',
+                action: 'catch_error',
+              });
             }
           }
         }
       }
     } catch (err) {
-      void handleError(err, { module: 'plugins:bundled', action: 'catch_error' });
+      void handleError(err, {
+        module: 'plugins:bundled',
+        action: 'catch_error',
+      });
     }
   }
 

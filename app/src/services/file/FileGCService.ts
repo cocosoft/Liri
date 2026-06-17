@@ -114,7 +114,10 @@ export class FileGCService {
     } catch (err) {
       const msg = `GC 扫描失败: ${(err as Error).message}`;
       result.errors.push(msg);
-      await handleError(err, { module: 'services:file:gc', action: 'scan_and_clean' });
+      await handleError(err, {
+        module: 'services:file:gc',
+        action: 'scan_and_clean',
+      });
     }
 
     return result;
@@ -136,7 +139,11 @@ export class FileGCService {
       for (const entry of entries) {
         const fullPath = join(dirPath, entry.name);
         if (entry.isDirectory()) {
-          const subFiles = await this.collectFiles(fullPath, depth + 1, maxDepth);
+          const subFiles = await this.collectFiles(
+            fullPath,
+            depth + 1,
+            maxDepth
+          );
           files.push(...subFiles);
         } else if (entry.isFile()) {
           files.push(fullPath);

@@ -26,10 +26,7 @@
  * 无需第三方依赖。接受远程 ACP 客户端连接，将消息路由到 AcpRuntime。
  */
 
-import type {
-  AcpServerOptions,
-  AcpWebSocketServerConfig,
-} from './types.js';
+import type { AcpServerOptions, AcpWebSocketServerConfig } from './types.js';
 import type {
   AcpRuntime,
   AcpRuntimeHandle,
@@ -132,17 +129,13 @@ export class AcpWebSocketServer {
         reject(err);
       });
 
-      this.httpServer.listen(
-        this.config.port,
-        this.config.host,
-        () => {
-          logger.info(
-            `[ACP] 远程桥接服务器已启动: ws://${this.config.host}:${this.config.port}${this.config.path}`
-          );
-          this.started = true;
-          resolve();
-        }
-      );
+      this.httpServer.listen(this.config.port, this.config.host, () => {
+        logger.info(
+          `[ACP] 远程桥接服务器已启动: ws://${this.config.host}:${this.config.port}${this.config.path}`
+        );
+        this.started = true;
+        resolve();
+      });
     });
   }
 

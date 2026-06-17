@@ -14,10 +14,7 @@ import { configManager } from '@modules/config';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import {
-  BaseAIProvider,
-  type BaseProviderOptions,
-} from './BaseAIProvider';
+import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -35,10 +32,16 @@ export class OllamaProvider extends BaseAIProvider {
    * @param options - 基础选项
    * @param _extraConfig - 扩展配置
    */
-  constructor(options: BaseProviderOptions, _extraConfig?: Record<string, unknown>) {
+  constructor(
+    options: BaseProviderOptions,
+    _extraConfig?: Record<string, unknown>
+  ) {
     super(options, _extraConfig);
 
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
     this.timeout = parseInt(configManager.env('OLLAMA_TIMEOUT') || '30000', 10);
 
     if (!this.transport) {
@@ -86,7 +89,9 @@ export class OllamaProvider extends BaseAIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return this.transport!.toChatResponse(this.transport!.normalizeResponse(data));
+      return this.transport!.toChatResponse(
+        this.transport!.normalizeResponse(data)
+      );
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(

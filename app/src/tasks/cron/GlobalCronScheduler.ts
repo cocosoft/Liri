@@ -54,7 +54,9 @@ export async function ensureGlobalCronSchedulerStarted(
   // 简单日志告警
   const alertService = new CronAlertService((job, reason, count) => {
     // eslint-disable-next-line no-console
-    console.warn(`[CronAlert] ${job.name} ${reason} | consecutiveErrors=${count}`);
+    console.warn(
+      `[CronAlert] ${job.name} ${reason} | consecutiveErrors=${count}`
+    );
   });
 
   instance = new CronScheduler(

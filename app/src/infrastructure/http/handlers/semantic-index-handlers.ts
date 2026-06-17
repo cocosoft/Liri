@@ -37,7 +37,8 @@ export async function handleBuildSemanticIndex(
   try {
     const body = await readRequestBody(req);
     const { rootDir, incremental = true } = JSON.parse(body);
-    const { IndexBuilder } = await import('@modules/knowledge/semantic/builder');
+    const { IndexBuilder } =
+      await import('@modules/knowledge/semantic/builder');
     const builder = new IndexBuilder();
     const result = await builder.build({
       rootDir,
@@ -69,17 +70,20 @@ export async function handleSearchSemantic(
 
     if (!query) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'q parameter is required' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'q parameter is required' } })
+      );
       return;
     }
 
     const { SemanticStore } = await import('@modules/knowledge/semantic/store');
-    const { globalEmbeddingManager } = await import('@modules/ai/embedding/EmbeddingManager');
+    const { globalEmbeddingManager } =
+      await import('@modules/ai/embedding/EmbeddingManager');
     const { resolveDataSubDir } = await import('@modules/core/paths');
-    const store = new SemanticStore(
-      resolveDataSubDir('semantic-index'),
-      { provider: 'local', model: 'nomic-embed-text' }
-    );
+    const store = new SemanticStore(resolveDataSubDir('semantic-index'), {
+      provider: 'local',
+      model: 'nomic-embed-text',
+    });
     await store.load();
 
     globalEmbeddingManager.initialize();
@@ -106,12 +110,13 @@ export async function handleGetSemanticIndexStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { SemanticStore, readIndexMeta } = await import('@modules/knowledge/semantic/store');
+    const { SemanticStore, readIndexMeta } =
+      await import('@modules/knowledge/semantic/store');
     const { resolveDataSubDir } = await import('@modules/core/paths');
-    const store = new SemanticStore(
-      resolveDataSubDir('semantic-index'),
-      { provider: 'ollama', model: 'all-minilm' }
-    );
+    const store = new SemanticStore(resolveDataSubDir('semantic-index'), {
+      provider: 'ollama',
+      model: 'all-minilm',
+    });
     await store.load();
 
     const meta = await readIndexMeta(resolveDataSubDir('semantic-index'));
@@ -136,7 +141,8 @@ export async function handleClearSemanticIndex(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { wipeStoreFiles } = await import('@modules/knowledge/semantic/store');
+    const { wipeStoreFiles } =
+      await import('@modules/knowledge/semantic/store');
     const { resolveDataSubDir } = await import('@modules/core/paths');
     await wipeStoreFiles(resolveDataSubDir('semantic-index'));
     res.writeHead(200, { 'Content-Type': 'application/json' });

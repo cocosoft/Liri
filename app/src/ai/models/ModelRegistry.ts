@@ -109,9 +109,8 @@ export class ModelRegistry {
   /** 从 ModelPricingService（DB）加载定价到内存缓存 */
   async loadDbPricing(): Promise<void> {
     try {
-      const { modelPricingService } = await import(
-        '@modules/ai/models/ModelPricingService.js'
-      );
+      const { modelPricingService } =
+        await import('@modules/ai/models/ModelPricingService.js');
       await modelPricingService.initialize();
       const all = await modelPricingService.getAllPricing();
       this.dbPricing.clear();
@@ -286,9 +285,8 @@ export class ModelRegistry {
     modelName: string
   ): Promise<{ inputPer1M: number; outputPer1M: number } | null> {
     try {
-      const { modelPricingService } = await import(
-        '@modules/ai/models/ModelPricingService.js'
-      );
+      const { modelPricingService } =
+        await import('@modules/ai/models/ModelPricingService.js');
       // 确保已初始化
       await modelPricingService.initialize();
       const dbPricing = await modelPricingService.getPricing(modelName);

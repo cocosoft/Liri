@@ -9,10 +9,10 @@ import { TaskStatus } from './types';
 
 /** 生命周期阶段 */
 export type LifecyclePhase =
-  | 'created'   // 任务已注册，等待启动
-  | 'started'   // 任务已开始执行
-  | 'progress'  // 任务执行中（可多次）
-  | 'finalized' // 任务已终止（成功/失败/取消）
+  | 'created' // 任务已注册，等待启动
+  | 'started' // 任务已开始执行
+  | 'progress' // 任务执行中（可多次）
+  | 'finalized'; // 任务已终止（成功/失败/取消）
 
 /** 生命周期事件 */
 export interface LifecycleEvent {
@@ -74,7 +74,8 @@ export class LifecycleTracker {
       const prev = this.events[i - 1]!;
       const curr = this.events[i]!;
       if (prev.phase !== curr.phase) {
-        result[prev.phase] = (result[prev.phase] ?? 0) + (curr.timestamp - prev.timestamp);
+        result[prev.phase] =
+          (result[prev.phase] ?? 0) + (curr.timestamp - prev.timestamp);
       }
     }
     return result;

@@ -244,7 +244,9 @@ export class BashTool extends BaseTool {
 
       if (!skipSecurityCheck) {
         // 对标CC：路径安全检查（适配 Windows 盘符路径）
-        const pathMatch = command.match(/['"]?((?:\/[^\s'"]+|[A-Za-z]:\\[^\s'"]*))['"]?/);
+        const pathMatch = command.match(
+          /['"]?((?:\/[^\s'"]+|[A-Za-z]:\\[^\s'"]*))['"]?/
+        );
         if (pathMatch && !isPathSafe(pathMatch[1])) {
           return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
             newMessages: [

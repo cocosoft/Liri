@@ -382,12 +382,7 @@ const POWERSHELL_DANGEROUS_PATTERNS: SecurityPattern[] = [
  * 检查 Unix 路径是否安全（防止路径遍历攻击 / 系统目录访问）
  */
 function isPathSafe(path: string): boolean {
-  const pathTraversalPatterns = [
-    /\.\.\//,
-    /^\.\//,
-    /\/\.\.\//,
-    /^\//,
-  ];
+  const pathTraversalPatterns = [/\.\.\//, /^\.\//, /\/\.\.\//, /^\//];
 
   const dangerousPaths = [
     /^\/etc\//,
@@ -428,15 +423,11 @@ export class ShellExecutor {
 
     // 1. 安全检查
     if (!options.skipSecurity) {
-      const securityResult = this.securityCheck(
-        options.command,
-        options.shell
-      );
+      const securityResult = this.securityCheck(options.command, options.shell);
 
       if (securityResult.behavior === 'deny') {
         const errorMessage =
-          securityResult.errors.join('; ') ||
-          '命令被安全策略拒绝';
+          securityResult.errors.join('; ') || '命令被安全策略拒绝';
 
         throw new AppError(
           `命令安全拦截: ${errorMessage}`,
@@ -455,14 +446,11 @@ export class ShellExecutor {
     );
 
     // 3. 执行
-    const { stdout, stderr, exitCode } = await this.executeRaw(
-      encodedCommand,
-      {
-        cwd: options.cwd,
-        env: options.env,
-        timeout: options.timeout,
-      }
-    );
+    const { stdout, stderr, exitCode } = await this.executeRaw(encodedCommand, {
+      cwd: options.cwd,
+      env: options.env,
+      timeout: options.timeout,
+    });
 
     return {
       stdout,
@@ -568,10 +556,7 @@ export class ShellExecutor {
           if (psPattern.behavior === 'deny') {
             finalBehavior = 'deny';
             errors.push(psPattern.message);
-          } else if (
-            psPattern.behavior === 'ask' &&
-            finalBehavior !== 'deny'
-          ) {
+          } else if (psPattern.behavior === 'ask' && finalBehavior !== 'deny') {
             finalBehavior = 'ask';
             warnings.push(psPattern.message);
           }

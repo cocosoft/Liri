@@ -36,7 +36,8 @@ export async function handlePdcaStart(
     const { description, sessionId } = JSON.parse(body);
     const taskId = `pdca_${Date.now().toString(36)}`;
 
-    const { getOrCreateOrchestrator } = await import('@modules/tasks/LongRunningTaskOrchestrator');
+    const { getOrCreateOrchestrator } =
+      await import('@modules/tasks/LongRunningTaskOrchestrator');
     const orchestrator = getOrCreateOrchestrator(taskId);
     const status = await orchestrator.runFullPdca(description, sessionId || '');
 
@@ -66,7 +67,9 @@ export async function handlePdcaStatus(
     }
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] }));
+      res.end(
+        JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] })
+      );
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -86,7 +89,10 @@ export async function handlePdcaAudit(
 ): Promise<void> {
   try {
     let orchestrator: any = null;
-    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    try {
+      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      orchestrator = m.getOrchestrator(taskId);
+    } catch {}
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ taskId, error: 'Not available' }));
@@ -111,7 +117,10 @@ export async function handlePdcaReviewStep(
 ): Promise<void> {
   try {
     let orchestrator: any = null;
-    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    try {
+      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      orchestrator = m.getOrchestrator(taskId);
+    } catch {}
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Not available' }));
@@ -139,7 +148,10 @@ export async function handlePdcaDecideStep(
     const body = await readRequestBody(req);
     const { decision } = JSON.parse(body);
     let orchestrator: any = null;
-    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    try {
+      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      orchestrator = m.getOrchestrator(taskId);
+    } catch {}
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Not available' }));
@@ -163,7 +175,10 @@ export async function handlePdcaList(
 ): Promise<void> {
   try {
     let list: any[] = [];
-    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); list = m.getAllOrchestrators().map((o: any) => o.getStatus()); } catch {}
+    try {
+      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      list = m.getAllOrchestrators().map((o: any) => o.getStatus());
+    } catch {}
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(list));
   } catch (err) {
@@ -181,7 +196,10 @@ export async function handlePdcaConfirm(
 ): Promise<void> {
   try {
     let orchestrator: any = null;
-    try { const m = await import('@modules/tasks/LongRunningTaskOrchestrator'); orchestrator = m.getOrchestrator(taskId); } catch {}
+    try {
+      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      orchestrator = m.getOrchestrator(taskId);
+    } catch {}
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Not available' }));

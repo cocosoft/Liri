@@ -13,9 +13,7 @@ import type { FormatContext, FormatResult } from './ModelFormatter';
 import type { ChatMessage, ChatResponse } from '../models/types';
 
 export class DeepSeekFormatter extends OpenAIFormatter {
-  override readonly supportedModels = [
-    'deepseek-',
-  ];
+  override readonly supportedModels = ['deepseek-'];
 
   /**
    * DeepSeek 消息格式基本与 OpenAI 一致

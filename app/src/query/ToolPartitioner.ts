@@ -35,12 +35,7 @@ const PARALLEL_SAFE_TOOLS = new Set([
 ]);
 
 /** 路径作用域工具：不同路径可并行，同路径需串行 */
-const PATH_SCOPED_TOOLS = new Set([
-  'read_file',
-  'write_file',
-  'patch',
-  'edit',
-]);
+const PATH_SCOPED_TOOLS = new Set(['read_file', 'write_file', 'patch', 'edit']);
 
 export interface PartitionedCalls {
   /** 可安全并行执行的第一组 */
@@ -54,7 +49,8 @@ export interface PartitionedCalls {
  */
 function extractPath(item: ToolCallItem): string | null {
   const input = item.input;
-  const rawPath = input?.path ?? input?.file ?? input?.filePath ?? input?.file_path;
+  const rawPath =
+    input?.path ?? input?.file ?? input?.filePath ?? input?.file_path;
   if (typeof rawPath !== 'string' || !rawPath.trim()) return null;
   return rawPath.trim();
 }

@@ -138,7 +138,10 @@ export class IntegrationTestRunner {
     try {
       if (suite.afterAll) await suite.afterAll();
     } catch (err) {
-      void handleError(err, { module: 'testing:integration', action: 'catch_error' });
+      void handleError(err, {
+        module: 'testing:integration',
+        action: 'catch_error',
+      });
     }
 
     return results;

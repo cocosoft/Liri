@@ -91,7 +91,7 @@ interface StreamChunk {
 export async function handleChatCompletions(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   const body = await ctx.readRequestBody(req);
 
@@ -100,17 +100,31 @@ export async function handleChatCompletions(
     request = JSON.parse(body);
   } catch {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: { message: 'Invalid JSON in request body', type: 'invalid_request_error' },
-    }));
+    res.end(
+      JSON.stringify({
+        error: {
+          message: 'Invalid JSON in request body',
+          type: 'invalid_request_error',
+        },
+      })
+    );
     return;
   }
 
-  if (!request.messages || !Array.isArray(request.messages) || request.messages.length === 0) {
+  if (
+    !request.messages ||
+    !Array.isArray(request.messages) ||
+    request.messages.length === 0
+  ) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: { message: 'messages field is required and must be a non-empty array', type: 'invalid_request_error' },
-    }));
+    res.end(
+      JSON.stringify({
+        error: {
+          message: 'messages field is required and must be a non-empty array',
+          type: 'invalid_request_error',
+        },
+      })
+    );
     return;
   }
 
@@ -127,14 +141,19 @@ export async function handleChatCompletions(
  */
 async function handleNormalChat(
   res: http.ServerResponse,
-  request: ChatCompletionRequest,
+  request: ChatCompletionRequest
 ): Promise<void> {
   const userMessage = request.messages[request.messages.length - 1];
   if (!userMessage || userMessage.role !== 'user') {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: { message: 'Last message must be from user', type: 'invalid_request_error' },
-    }));
+    res.end(
+      JSON.stringify({
+        error: {
+          message: 'Last message must be from user',
+          type: 'invalid_request_error',
+        },
+      })
+    );
     return;
   }
 
@@ -151,27 +170,41 @@ async function handleNormalChat(
     const chatDurationMs = Date.now() - chatStartTime;
 
     // 检查是否需要用户交互
-    if (response.finishReason === 'pending_interaction' && response.pendingInteraction) {
+    if (
+      response.finishReason === 'pending_interaction' &&
+      response.pendingInteraction
+    ) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        id: `chatcmpl-${randomUUID().slice(0, 8)}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: request.model || 'pyapp-default',
-        choices: [
-          { index: 0, message: { role: 'assistant', content: null }, finish_reason: 'pending_interaction' },
-        ],
-        pending_interaction: response.pendingInteraction,
-        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-      }));
+      res.end(
+        JSON.stringify({
+          id: `chatcmpl-${randomUUID().slice(0, 8)}`,
+          object: 'chat.completion',
+          created: Math.floor(Date.now() / 1000),
+          model: request.model || 'pyapp-default',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: null },
+              finish_reason: 'pending_interaction',
+            },
+          ],
+          pending_interaction: response.pendingInteraction,
+          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        })
+      );
       return;
     }
 
     if (response.finishReason === 'error' || !response.content) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        error: { message: 'AI 服务返回错误，请检查 API 密钥和模型配置', type: 'server_error' },
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
+            type: 'server_error',
+          },
+        })
+      );
       return;
     }
 
@@ -188,7 +221,11 @@ async function handleNormalChat(
       created: Math.floor(Date.now() / 1000),
       model: request.model || 'pyapp-default',
       choices: [
-        { index: 0, message: { role: 'assistant', content: response.content }, finish_reason: response.finishReason || 'stop' },
+        {
+          index: 0,
+          message: { role: 'assistant', content: response.content },
+          finish_reason: response.finishReason || 'stop',
+        },
       ],
     };
 
@@ -197,9 +234,14 @@ async function handleNormalChat(
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'chat_completion' });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      error: { message: 'AI 服务返回错误，请检查 API 密钥和模型配置', type: 'server_error' },
-    }));
+    res.end(
+      JSON.stringify({
+        error: {
+          message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
+          type: 'server_error',
+        },
+      })
+    );
   }
 }
 
@@ -208,14 +250,19 @@ async function handleNormalChat(
  */
 async function handleStreamingChat(
   res: http.ServerResponse,
-  request: ChatCompletionRequest,
+  request: ChatCompletionRequest
 ): Promise<void> {
   const userMessage = request.messages[request.messages.length - 1];
   if (!userMessage || userMessage.role !== 'user') {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: { message: 'Last message must be from user', type: 'invalid_request_error' },
-    }));
+    res.end(
+      JSON.stringify({
+        error: {
+          message: 'Last message must be from user',
+          type: 'invalid_request_error',
+        },
+      })
+    );
     return;
   }
 
@@ -231,16 +278,34 @@ async function handleStreamingChat(
   const model = request.model || 'pyapp-default';
 
   // 发送 role 和状态事件
-  res.write(`data: ${JSON.stringify({
-    id: responseId, object: 'chat.completion.chunk', created, model,
-    choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }],
-  })}\n\n`);
+  res.write(
+    `data: ${JSON.stringify({
+      id: responseId,
+      object: 'chat.completion.chunk',
+      created,
+      model,
+      choices: [
+        { index: 0, delta: { role: 'assistant' }, finish_reason: null },
+      ],
+    })}\n\n`
+  );
 
-  res.write(`data: ${JSON.stringify({
-    id: responseId, object: 'chat.completion.chunk', created, model,
-    __pyapp_type: 'status',
-    choices: [{ index: 0, delta: { content: 'AI is thinking...' }, finish_reason: null }],
-  })}\n\n`);
+  res.write(
+    `data: ${JSON.stringify({
+      id: responseId,
+      object: 'chat.completion.chunk',
+      created,
+      model,
+      __pyapp_type: 'status',
+      choices: [
+        {
+          index: 0,
+          delta: { content: 'AI is thinking...' },
+          finish_reason: null,
+        },
+      ],
+    })}\n\n`
+  );
 
   try {
     const coreAPI = getCoreAPI();
@@ -252,10 +317,16 @@ async function handleStreamingChat(
 
     const generator = coreAPI.chatStream(chatRequest);
     let result = await generator.next();
-    let streamUsage: {
-      inputTokens: number; outputTokens: number; totalTokens: number;
-      estimatedCostUsd?: number; cacheReadInputTokens?: number; cacheCreationInputTokens?: number;
-    } | undefined;
+    let streamUsage:
+      | {
+          inputTokens: number;
+          outputTokens: number;
+          totalTokens: number;
+          estimatedCostUsd?: number;
+          cacheReadInputTokens?: number;
+          cacheCreationInputTokens?: number;
+        }
+      | undefined;
 
     while (!result.done) {
       const chunk = result.value as ChatStreamChunk;
@@ -266,67 +337,129 @@ async function handleStreamingChat(
           break;
         case 'text':
           if (chunk.content) {
-            res.write(`data: ${JSON.stringify({
-              id: responseId, object: 'chat.completion.chunk', created, model,
-              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null }],
-            })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: chunk.content },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`
+            );
           }
           break;
         case 'thinking':
         case 'status':
           if (chunk.content) {
-            res.write(`data: ${JSON.stringify({
-              id: responseId, object: 'chat.completion.chunk', created, model,
-              __pyapp_type: chunk.type,
-              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null }],
-            })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: chunk.type,
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: chunk.content },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`
+            );
           }
           break;
         case 'error':
           if (chunk.content) {
-            res.write(`data: ${JSON.stringify({
-              id: responseId, object: 'chat.completion.chunk', created, model,
-              __pyapp_type: 'error',
-              choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: 'error' }],
-            })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'error',
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: chunk.content },
+                    finish_reason: 'error',
+                  },
+                ],
+              })}\n\n`
+            );
           }
           break;
         case 'tool_call':
           if (chunk.toolCall) {
-            res.write(`data: ${JSON.stringify({
-              id: responseId, object: 'chat.completion.chunk', created, model,
-              __pyapp_type: 'tool_call',
-              __pyapp_tool_status: chunk.toolCall.status || 'running',
-              choices: [{
-                index: 0,
-                delta: {
-                  content: '',
-                  tool_calls: [{
-                    id: chunk.toolCall.id, type: 'function',
-                    function: { name: chunk.toolCall.name, arguments: JSON.stringify(chunk.toolCall.arguments) },
-                  }],
-                },
-                finish_reason: null,
-              }],
-            })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'tool_call',
+                __pyapp_tool_status: chunk.toolCall.status || 'running',
+                choices: [
+                  {
+                    index: 0,
+                    delta: {
+                      content: '',
+                      tool_calls: [
+                        {
+                          id: chunk.toolCall.id,
+                          type: 'function',
+                          function: {
+                            name: chunk.toolCall.name,
+                            arguments: JSON.stringify(chunk.toolCall.arguments),
+                          },
+                        },
+                      ],
+                    },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`
+            );
           }
           break;
         case 'question':
           if (chunk.questionData) {
-            res.write(`data: ${JSON.stringify({
-              id: responseId, object: 'chat.completion.chunk', created, model,
-              __pyapp_type: 'question', __pyapp_question: chunk.questionData,
-              choices: [{ index: 0, delta: { content: '' }, finish_reason: null }],
-            })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'question',
+                __pyapp_question: chunk.questionData,
+                choices: [
+                  { index: 0, delta: { content: '' }, finish_reason: null },
+                ],
+              })}\n\n`
+            );
           }
           break;
         case 'todo':
           if (chunk.todoData) {
-            res.write(`data: ${JSON.stringify({
-              id: responseId, object: 'chat.completion.chunk', created, model,
-              __pyapp_type: 'todo', __pyapp_todo: chunk.todoData,
-              choices: [{ index: 0, delta: { content: '' }, finish_reason: null }],
-            })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'todo',
+                __pyapp_todo: chunk.todoData,
+                choices: [
+                  { index: 0, delta: { content: '' }, finish_reason: null },
+                ],
+              })}\n\n`
+            );
           }
           break;
       }
@@ -336,39 +469,64 @@ async function handleStreamingChat(
 
     // 发送 usage 和 done
     if (streamUsage) {
-      res.write(`data: ${JSON.stringify({
-        id: responseId, object: 'chat.completion.chunk', created, model,
-        __pyapp_type: 'usage',
-        usage: {
-          prompt_tokens: streamUsage.inputTokens,
-          completion_tokens: streamUsage.outputTokens,
-          total_tokens: streamUsage.totalTokens,
-          estimated_cost_usd: streamUsage.estimatedCostUsd,
-          cache_read_input_tokens: streamUsage.cacheReadInputTokens,
-          cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
-        },
-        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          id: responseId,
+          object: 'chat.completion.chunk',
+          created,
+          model,
+          __pyapp_type: 'usage',
+          usage: {
+            prompt_tokens: streamUsage.inputTokens,
+            completion_tokens: streamUsage.outputTokens,
+            total_tokens: streamUsage.totalTokens,
+            estimated_cost_usd: streamUsage.estimatedCostUsd,
+            cache_read_input_tokens: streamUsage.cacheReadInputTokens,
+            cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
+          },
+          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+        })}\n\n`
+      );
     } else {
-      res.write(`data: ${JSON.stringify({
-        id: responseId, object: 'chat.completion.chunk', created, model,
-        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          id: responseId,
+          object: 'chat.completion.chunk',
+          created,
+          model,
+          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+        })}\n\n`
+      );
     }
 
     res.write('data: [DONE]\n\n');
-    logger.info('Stream chat completed', { model, sessionId: request.session_id });
+    logger.info('Stream chat completed', {
+      model,
+      sessionId: request.session_id,
+    });
     res.end();
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'chat_stream_request' });
-    res.write(`data: ${JSON.stringify({
-      id: responseId, object: 'chat.completion.chunk', created, model,
-      choices: [{
-        index: 0,
-        delta: { content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}` },
-        finish_reason: 'error',
-      }],
-    })}\n\n`);
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'chat_stream_request',
+    });
+    res.write(
+      `data: ${JSON.stringify({
+        id: responseId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            },
+            finish_reason: 'error',
+          },
+        ],
+      })}\n\n`
+    );
     res.write('data: [DONE]\n\n');
     res.end();
   }
@@ -380,7 +538,7 @@ async function handleStreamingChat(
 export async function handleQuestionAnswer(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
@@ -412,20 +570,28 @@ export async function handleQuestionAnswer(
     const pendingData = coreAPI.getPendingInteraction(sessionId);
     if (!pendingData || pendingData.questionId !== questionId) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: '未找到匹配的待处理交互', resolved: false }));
+      res.end(
+        JSON.stringify({ error: '未找到匹配的待处理交互', resolved: false })
+      );
       return;
     }
 
     // 恢复非流式路径的工具循环
-    const chatResponse = await coreAPI.continueInteraction(sessionId, questionId, answers);
+    const chatResponse = await coreAPI.continueInteraction(
+      sessionId,
+      questionId,
+      answers
+    );
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({
-      success: true,
-      content: chatResponse.content || '',
-      finish_reason: chatResponse.finishReason || 'stop',
-      sessionId,
-    }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        content: chatResponse.content || '',
+        finish_reason: chatResponse.finishReason || 'stop',
+        sessionId,
+      })
+    );
   } catch (err) {
     ctx.sendError(res, err);
   }
@@ -437,14 +603,11 @@ export async function handleQuestionAnswer(
 export async function handleGetDataDirectory(
   _ctx: HandlerCtx,
   _req: http.IncomingMessage,
-  res: http.ServerResponse,
+  res: http.ServerResponse
 ): Promise<void> {
   try {
-    const {
-      resolvePyappHome,
-      getUserDataDirOverride,
-      setUserDataDirOverride,
-    } = await import('@modules/core/paths');
+    const { resolvePyappHome, getUserDataDirOverride, setUserDataDirOverride } =
+      await import('@modules/core/paths');
 
     const currentDir = resolvePyappHome();
     const configuredDir = getUserDataDirOverride();
@@ -458,13 +621,15 @@ export async function handleGetDataDirectory(
     const envLiriDataDir = process.env['LIRI_DATA_DIR']?.trim() || null;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      currentDirectory: currentDir,
-      configuredDirectory: configuredDir || null,
-      defaultDirectory: defaultDir,
-      envLiriHome,
-      envLiriDataDir,
-    }));
+    res.end(
+      JSON.stringify({
+        currentDirectory: currentDir,
+        configuredDirectory: configuredDir || null,
+        defaultDirectory: defaultDir,
+        envLiriHome,
+        envLiriDataDir,
+      })
+    );
   } catch (error) {
     // 使用 Logger 记录错误
     logger.error('获取数据目录失败', { error: String(error) });

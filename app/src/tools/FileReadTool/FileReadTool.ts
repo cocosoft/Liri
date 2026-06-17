@@ -175,7 +175,8 @@ export class FileReadTool extends BaseTool {
     {
       name: 'file_id',
       type: 'string',
-      description: 'FileRegistry ID（优先于 file_path 使用，可从 file_list 结果中获取）',
+      description:
+        'FileRegistry ID（优先于 file_path 使用，可从 file_list 结果中获取）',
       required: false,
     },
     {
@@ -376,7 +377,8 @@ export class FileReadTool extends BaseTool {
    */
   private async resolveFileId(fileId: string): Promise<string | null> {
     try {
-      const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+      const { FileRegistry } =
+        await import('@modules/services/file/FileRegistry');
       const registry = FileRegistry.getInstance();
       await registry.initDatabase();
       const record = await registry.getFileDetail(fileId);
@@ -433,7 +435,8 @@ export class FileReadTool extends BaseTool {
     Promise.resolve().then(async () => {
       try {
         // Step 1: 注册到 FileRegistry
-        const { FileRegistry } = await import('@modules/services/file/FileRegistry');
+        const { FileRegistry } =
+          await import('@modules/services/file/FileRegistry');
         const registry = FileRegistry.getInstance();
         const { readFile } = await import('fs/promises');
         const { basename } = await import('path');

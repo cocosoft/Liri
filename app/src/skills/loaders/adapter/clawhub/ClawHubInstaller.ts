@@ -25,13 +25,7 @@
  */
 
 import { join, dirname } from 'path';
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  rmSync,
-  readdirSync,
-} from 'fs';
+import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
@@ -64,7 +58,10 @@ export class ClawHubInstaller {
   /**
    * 安装技能
    */
-  async install(skillId: string, sourceUrl?: string): Promise<InstalledClawHubSkill> {
+  async install(
+    skillId: string,
+    sourceUrl?: string
+  ): Promise<InstalledClawHubSkill> {
     const installPath = this.localStore.getSkillInstallPath(skillId);
 
     if (existsSync(installPath)) {
@@ -168,12 +165,15 @@ export class ClawHubInstaller {
     }
 
     if (!skillContent) {
-      throw new Error(
-        `无法从仓库获取 SKILL.md: ${repo}`
-      );
+      throw new Error(`无法从仓库获取 SKILL.md: ${repo}`);
     }
 
-    const meta = this.parseSkillFrontmatter(skillContent, skillId, prefix, repo);
+    const meta = this.parseSkillFrontmatter(
+      skillContent,
+      skillId,
+      prefix,
+      repo
+    );
 
     if (!existsSync(installPath)) {
       mkdirSync(installPath, { recursive: true });

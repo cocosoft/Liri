@@ -156,7 +156,7 @@ export class TaskOrchestrator {
     stepDescriptions: string[],
     sessionId: string,
     existingTaskIds?: string[],
-    acceptanceCriteria?: string[],
+    acceptanceCriteria?: string[]
   ): Plan {
     void this.initialize();
 

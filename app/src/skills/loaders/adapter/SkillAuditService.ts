@@ -26,12 +26,7 @@
  */
 
 import { join } from 'path';
-import {
-  existsSync,
-  mkdirSync,
-  appendFileSync,
-  readFileSync,
-} from 'fs';
+import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

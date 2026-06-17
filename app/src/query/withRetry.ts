@@ -131,7 +131,11 @@ export class CannotRetryError extends AppError {
     public readonly originalError: unknown,
     message?: string
   ) {
-    super(message || 'Cannot retry error', ErrorCategory.OPERATION, ErrorSeverity.LOW);
+    super(
+      message || 'Cannot retry error',
+      ErrorCategory.OPERATION,
+      ErrorSeverity.LOW
+    );
     this.name = 'CannotRetryError';
     if (originalError instanceof Error && originalError.stack) {
       this.stack = originalError.stack;

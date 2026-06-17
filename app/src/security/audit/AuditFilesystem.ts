@@ -15,7 +15,11 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 敏感文件路径（相对于 resolveDataDir()）
  */
 const SENSITIVE_DATA_FILES = [
-  { file: 'oauth-tokens.json', label: 'OAuth Token 存储', severity: 'HIGH' as AuditSeverity },
+  {
+    file: 'oauth-tokens.json',
+    label: 'OAuth Token 存储',
+    severity: 'HIGH' as AuditSeverity,
+  },
   { file: 'app.db', label: '数据库文件', severity: 'MEDIUM' as AuditSeverity },
 ];
 

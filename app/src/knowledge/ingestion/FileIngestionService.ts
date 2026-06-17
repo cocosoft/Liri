@@ -192,13 +192,17 @@ function shouldSkipFile(filePath: string): boolean {
 
   // 用户配置白名单模式：仅落库 include 列表中的类型
   const mergedConfig = configManager.getMergedConfig();
-  const includeExts = mergedConfig['knowledge.ingest.include'] as string[] | undefined;
+  const includeExts = mergedConfig['knowledge.ingest.include'] as
+    | string[]
+    | undefined;
   if (includeExts && Array.isArray(includeExts) && includeExts.length > 0) {
     return !includeExts.some((e: string) => e.toLowerCase() === ext);
   }
 
   // 用户配置黑名单模式：在内置规则基础上额外排除
-  const excludeExts = mergedConfig['knowledge.ingest.exclude'] as string[] | undefined;
+  const excludeExts = mergedConfig['knowledge.ingest.exclude'] as
+    | string[]
+    | undefined;
   if (excludeExts && Array.isArray(excludeExts) && excludeExts.length > 0) {
     if (excludeExts.some((e: string) => e.toLowerCase() === ext)) return true;
   }
@@ -331,7 +335,11 @@ export class FileIngestionService {
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      await handleError(error, { module: 'knowledge:ingestion', action: 'ingest_file', context: { filePath } });
+      await handleError(error, {
+        module: 'knowledge:ingestion',
+        action: 'ingest_file',
+        context: { filePath },
+      });
       return {
         success: false,
         rawPath: '',
@@ -411,7 +419,15 @@ export class FileIngestionService {
    */
   private getMediaCategory(filePath: string): FileCategory {
     const ext = extname(filePath).toLowerCase();
-    const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico']);
+    const imageExtensions = new Set([
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.bmp',
+      '.webp',
+      '.ico',
+    ]);
     const audioExtensions = new Set(['.mp3', '.wav']);
     const videoExtensions = new Set(['.mp4', '.avi', '.mov']);
     const fontExtensions = new Set(['.woff', '.woff2', '.ttf', '.eot']);

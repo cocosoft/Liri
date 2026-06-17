@@ -19,7 +19,12 @@ export interface MonitorTarget {
 }
 
 export const DEFAULT_MONITOR_TARGETS: MonitorTarget[] = [
-  { name: 'mcp-server', url: 'http://localhost:7890/health', checkIntervalMs: 30_000, timeoutMs: 5000 },
+  {
+    name: 'mcp-server',
+    url: 'http://localhost:7890/health',
+    checkIntervalMs: 30_000,
+    timeoutMs: 5000,
+  },
 ];
 
 export class MonitorTask extends BaseTask {
@@ -33,7 +38,7 @@ export class MonitorTask extends BaseTask {
     id: string,
     description: string,
     outputFile: string,
-    targets: MonitorTarget[] = DEFAULT_MONITOR_TARGETS,
+    targets: MonitorTarget[] = DEFAULT_MONITOR_TARGETS
   ) {
     super(id, description, outputFile, TaskType.MONITOR_MCP);
     this.targets = targets;
@@ -81,7 +86,9 @@ export class MonitorTask extends BaseTask {
       }
     }, 10_000); // 每 10s 检查一轮
 
-    this.writeOutput(`[${new Date().toISOString()}] 监控已启动，共 ${this.targets.length} 个目标\n`);
+    this.writeOutput(
+      `[${new Date().toISOString()}] 监控已启动，共 ${this.targets.length} 个目标\n`
+    );
   }
 
   async kill(): Promise<void> {
@@ -96,7 +103,10 @@ export class MonitorTask extends BaseTask {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), target.timeoutMs);
-      const res = await fetch(target.url, { signal: controller.signal, method: 'GET' });
+      const res = await fetch(target.url, {
+        signal: controller.signal,
+        method: 'GET',
+      });
       clearTimeout(timer);
       return res.ok;
     } catch {

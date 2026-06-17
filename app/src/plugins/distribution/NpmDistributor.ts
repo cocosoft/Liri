@@ -114,7 +114,10 @@ export class NpmDistributor {
         try {
           unlinkSync(join(pluginDir, '.plugin-install.json'));
         } catch (err) {
-          void handleError(err, { module: 'plugins:distribution', action: 'catch_error' });
+          void handleError(err, {
+            module: 'plugins:distribution',
+            action: 'catch_error',
+          });
         }
       }
       logger.info(`插件已移除: ${name}`);

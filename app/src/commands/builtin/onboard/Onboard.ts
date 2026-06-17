@@ -1027,7 +1027,9 @@ export async function runOnboard(
       console.log('请通过以下方式完成配置：');
       console.log('  1. 手动编辑 .env 文件，设置 API 密钥（任选一种方式）：');
       console.log('     - 方式一（大厂专用变量名）: DEEPSEEK_API_KEY=sk-xxx');
-      console.log('     - 方式二（统一格式，支持任意供应商）: PROVIDER_xxx_KEY=sk-xxx');
+      console.log(
+        '     - 方式二（统一格式，支持任意供应商）: PROVIDER_xxx_KEY=sk-xxx'
+      );
       console.log('  2. 手动编辑 ~/.pyapp/SOUL.md 设置 AI 人格');
       console.log('  3. 手动编辑 ~/.pyapp/USER.md 设置用户档案');
       console.log('');

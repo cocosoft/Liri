@@ -24,7 +24,10 @@ const CHANNEL_CLIENT = 'voice:client';
 const CHANNEL_SERVER = 'voice:server';
 const CHANNEL_ERROR = 'voice:error';
 
-export class VoiceEventBus extends EventBusImpl implements VoiceEventBusInterface {
+export class VoiceEventBus
+  extends EventBusImpl
+  implements VoiceEventBusInterface
+{
   private logger = new Logger({ level: LogLevel.INFO });
 
   /** 状态变更处理器 —— 与 VoiceSessionState 状态机耦合，保留在领域层 */
@@ -84,11 +87,15 @@ export class VoiceEventBus extends EventBusImpl implements VoiceEventBusInterfac
         const result = listener(data);
         if (result instanceof Promise) {
           result.catch((error: Error) => {
-            this.emitError(error instanceof Error ? error : new Error(String(error)));
+            this.emitError(
+              error instanceof Error ? error : new Error(String(error))
+            );
           });
         }
       } catch (error) {
-        this.emitError(error instanceof Error ? error : new Error(String(error)));
+        this.emitError(
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     }
   }

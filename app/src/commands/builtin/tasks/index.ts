@@ -31,8 +31,7 @@ const tasksCommand: Command = {
   description: '任务管理与跟踪（创建/查看/完成/删除/统计）',
   aliases: ['task', 'todo', 'todos'],
   argumentHint: '[list|add|done|delete|priority|stats|<ID>|help]',
-  load: () =>
-    import('../../tasks/tasks.js').then((m) => m.default),
+  load: () => import('../../tasks/tasks.js').then((m) => m.default),
 };
 
 export { tasksCommand };

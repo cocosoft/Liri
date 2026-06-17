@@ -165,7 +165,8 @@ export function getOAuthProviders(): Map<string, OAuthProviderConfig> {
     const customConfig = getCustomOAuthConfig();
     providers.set('custom', {
       providerId: 'custom',
-      providerName: configManager.env('CUSTOM_OAUTH_PROVIDER_NAME') || 'Custom OAuth',
+      providerName:
+        configManager.env('CUSTOM_OAUTH_PROVIDER_NAME') || 'Custom OAuth',
       ...customConfig,
       enabled: true,
       priority: 2,
@@ -176,7 +177,8 @@ export function getOAuthProviders(): Map<string, OAuthProviderConfig> {
 }
 
 export function getOauthConfig(inferenceOnly: boolean = false): OAuthConfig {
-  const baseApiUrl = configManager.env('Liri_API_BASE_URL') || DEFAULT_API_BASE_URL;
+  const baseApiUrl =
+    configManager.env('Liri_API_BASE_URL') || DEFAULT_API_BASE_URL;
   const clientId = getDefaultClientId();
 
   const scopes = inferenceOnly ? [Liri_INFERENCE_SCOPE] : ALL_OAUTH_SCOPES;

@@ -45,10 +45,7 @@ export function createCronExecutor(
 
     // 动态读取模型配置（通过 ModelRouter 统一路由）
     const model =
-      job.model ||
-      cfg.model ||
-      modelRouter.resolve('scheduled') ||
-      '';
+      job.model || cfg.model || modelRouter.resolve('scheduled') || '';
 
     const messages: ChatMessage[] = [
       { role: 'system', content: cfg.systemPrompt! },

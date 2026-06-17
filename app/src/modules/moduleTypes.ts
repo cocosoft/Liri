@@ -66,7 +66,9 @@ export function initRegistry(registry: _ModuleRegistry): void {
 
 export function getRegistry(): _ModuleRegistry {
   if (!_registry) {
-    throw new Error('ModuleRegistry not initialized. Call initRegistry() first.');
+    throw new Error(
+      'ModuleRegistry not initialized. Call initRegistry() first.'
+    );
   }
   return _registry;
 }

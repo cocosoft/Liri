@@ -11,70 +11,11 @@ import {
   type DIContainer,
   type ServiceDescriptor,
 } from '@modules/core/DIContainer';
+import { ModuleCategory, type ModuleDefinition, initRegistry } from './moduleTypes';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export enum ModuleCategory {
-  // 核心模块
-  CORE = 'core',
-  INFRASTRUCTURE = 'infrastructure',
-
-  // 功能模块
-  AI = 'ai',
-  AGENT = 'agent',
-  BRIDGE = 'bridge',
-
-  // 界面模块
-  UI = 'ui',
-  CLI = 'cli',
-
-  // 工具模块
-  TOOLS = 'tools',
-  COMMANDS = 'commands',
-
-  // 数据模块
-  MEMORY = 'memory',
-  CACHE = 'cache',
-
-  // 系统模块
-  SECURITY = 'security',
-  PERFORMANCE = 'performance',
-  MONITORING = 'monitoring',
-
-  // 其他模块
-  OTHER = 'other',
-}
-
-/**
- * 模块定义接口
- */
-export interface ModuleDefinition {
-  // 基本信息
-  id: string;
-  name: string;
-  displayName: string;
-  version: string;
-
-  // 功能信息
-  category: ModuleCategory;
-  description: string;
-  /** 版本层级标记（如 'enterprise'），用于构建时按版裁切 */
-  tier?: string;
-
-  // 依赖信息
-  dependencies: string[];
-  optionalDependencies: string[];
-
-  // 配置信息
-  configSchema?: object;
-
-  // 生命周期
-  initialize?: () => Promise<void>;
-  destroy?: () => Promise<void>;
-
-  // 模块实例
-  instance?: any;
-}
+export { ModuleCategory, type ModuleDefinition };
 
 /**
  * 模块注册表类
@@ -337,6 +278,7 @@ export class ModuleRegistry {
    * @param options - 启动选项（模式、调试标志等）
    */
   public async bootstrap(options?: BootstrapOptions): Promise<void> {
+    initRegistry(this);
     const moduleInitializerModule = await import('./ModuleInitializer');
     moduleInitializerModule.moduleInitializer.registerAllModules();
 

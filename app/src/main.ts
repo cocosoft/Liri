@@ -59,14 +59,12 @@ import {
 } from '@modules/core/paths';
 import { modelRouter } from '@modules/ai/modelRouter';
 import { configManager } from './config/index.js';
+import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
 
 const logger = new Logger({ level: 'info' as any });
 
 /** 最大首次引导重试次数 */
 const MAX_ONBOARD_RETRIES = 3;
-
-/** 离线模式（无 AI 密钥）标志，供 REPL 等模块使用 */
-export let isOfflineMode = true;
 
 /** 已知的占位 API 密钥值（用户未替换的真实密钥） */
 const PLACEHOLDER_API_KEYS = new Set([
@@ -163,7 +161,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   if (existsSync(onboardedFlag)) {
     // 已有标记文件，检查 AI 状态
     if (await isAIConfigured()) {
-      isOfflineMode = false;
+      setOfflineMode(false);
     }
     return;
   }
@@ -245,7 +243,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     }
 
     if (await isAIConfigured()) {
-      isOfflineMode = false;
+      setOfflineMode(false);
       console.log('  ✅ AI 已配置，准备就绪！');
     } else {
       console.log('  💡 提示: AI 密钥未配置，将进入离线模式。');
@@ -412,13 +410,18 @@ async function displayStartupHealthReport(): Promise<void> {
 }
 
 /**
- * 启动 CLI 模式
+ * 启动 CLI 模式（通过 DI 回调，避免循环依赖）
  * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
+let _cliMain: (() => Promise<void>) | null = null;
+export function setCliMain(fn: () => Promise<void>): void { _cliMain = fn; }
+
 async function launchCLI(_options: LaunchOptions): Promise<void> {
-  const { main } = await import('./entrypoints/cli');
-  await main();
+  if (!_cliMain) {
+    throw new Error('CLI main function not registered. Import cli.tsx directly instead.');
+  }
+  await _cliMain();
 }
 
 /**

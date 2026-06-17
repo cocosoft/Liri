@@ -738,6 +738,11 @@ export class PluginSystem {
 // 创建全局插件系统实例（构造函数轻量，不创建任何子系统）
 export const pluginSystem = new PluginSystem();
 
+// 将自身注入 PluginManager（DI 模式，避免循环依赖）
+import('./managers/PluginManager').then(({ setPluginSystem }) => {
+  setPluginSystem(pluginSystem);
+});
+
 export type {
   PluginState,
   PluginType,

@@ -7,6 +7,7 @@ import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Tool, type ToolResult } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
+import { setAgentToolManager } from './AgentTool/AgentTool';
 import { ToolRegistry, setToolRegistry } from './ToolRegistry';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { optimizedExecuteTool } from './utils/OptimizedToolManagerUtils.js';
@@ -410,6 +411,9 @@ export class ToolManager extends EventEmitter {
     this._initialized = true;
 
     this.ensureToolsLoaded();
+
+    // 注入 AgentTool 的工具管理器引用（DI 模式，避免循环依赖）
+    setAgentToolManager(() => this.getAllTools());
 
     this.emitToolEvent('initialized', {
       toolName: 'system',

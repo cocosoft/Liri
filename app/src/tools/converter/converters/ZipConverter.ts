@@ -1,9 +1,25 @@
 import { BaseConverter } from '../engine/BaseConverter';
-import { getConverterEngine } from '../engine/ConverterEngine';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
+
+/**
+ * 转换引擎引用（DI 注入，避免循环依赖）
+ * ConverterEngine → ZipConverter → getConverterEngine → ConverterEngine
+ */
+let _convertContent: ((fileInfo: { path: string; extension: string; mimeType: string; size: number }, buffer: Buffer) => Promise<{ markdown: string }>) | null = null;
+
+export function setZipConverterEngine(convertFn: typeof _convertContent): void {
+  _convertContent = convertFn;
+}
+
+function getConvertContent(): NonNullable<typeof _convertContent> {
+  if (!_convertContent) {
+    throw new Error('ConverterEngine not initialized. Call setZipConverterEngine() first.');
+  }
+  return _convertContent;
+}
 
 let _depError: Error | null = null;
 let _AdmZip: any = null;
@@ -39,7 +55,7 @@ export class ZipConverter extends BaseConverter {
         : context.content;
 
     const zip = new _AdmZip(buffer);
-    const engine = getConverterEngine();
+    const engine = getConvertContent();
     const parts: string[] = [];
 
     const entries = zip
@@ -64,7 +80,7 @@ export class ZipConverter extends BaseConverter {
           mimeType: 'application/octet-stream' as const,
           size: entryBuffer.length,
         };
-        const result = await engine.convertContent(subFileInfo, entryBuffer);
+        const result = await engine(subFileInfo, entryBuffer);
 
         if (result && result.markdown.trim()) {
           parts.push(`## 文件: ${entryName}\n\n${result.markdown.trim()}`);

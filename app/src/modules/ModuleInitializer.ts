@@ -5,7 +5,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { ModuleDefinition, moduleRegistry } from './ModuleRegistry';
+import { type ModuleDefinition, getRegistry } from './moduleTypes';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
@@ -86,7 +86,7 @@ export class ModuleInitializer {
     // 注册所有模块
     for (const definition of Object.values(MODULE_DEFINITIONS)) {
       try {
-        moduleRegistry.register(definition);
+        getRegistry().register(definition);
         this.initializationStates.set(definition.id, { status: 'pending' });
       } catch (error) {
         logger.error(`注册模块失败: ${definition.id}`, { error });
@@ -171,7 +171,7 @@ export class ModuleInitializer {
       logger.info(`初始化模块: ${moduleId}`);
 
       // 使用模块注册表的初始化方法
-      await moduleRegistry.initialize(moduleId);
+      await getRegistry().initialize(moduleId);
 
       // 模块初始化后置钩子：session 模块初始化后注册 CombinedSessionGateway
       if (moduleId === 'session') {
@@ -231,7 +231,7 @@ export class ModuleInitializer {
       logger.info(`销毁模块: ${moduleId}`);
 
       // 使用模块注册表的销毁方法
-      await moduleRegistry.destroy(moduleId);
+      await getRegistry().destroy(moduleId);
 
       // 更新状态
       state.status = 'pending';
@@ -284,7 +284,7 @@ export class ModuleInitializer {
    * 打印初始化统计信息
    */
   private printInitializationStats(): void {
-    const stats = moduleRegistry.getStatistics();
+    const stats = getRegistry().getStatistics();
     const states = this.getAllModuleStates();
 
     let totalDuration = 0;

@@ -5,7 +5,8 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { ModuleDefinition, moduleRegistry } from './ModuleRegistry';
+import type { ModuleDefinition } from './moduleTypes';
+import { getRegistry } from './moduleTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -248,7 +249,7 @@ export class ImportManager {
     moduleId: string,
     options: ImportOptions = {}
   ): Promise<ImportResult<T>> {
-    const moduleDef = moduleRegistry.find(moduleId);
+    const moduleDef = getRegistry().find(moduleId);
     if (!moduleDef) {
       throw new AppError(
         ErrorCodes.ENTITY_NOT_FOUND.message,

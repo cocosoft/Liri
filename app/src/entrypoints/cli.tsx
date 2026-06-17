@@ -37,6 +37,10 @@ import {
   normalizeArgs,
 } from '@modules/utils/cliArgs.js';
 import { generateBanner, getVersionString } from '@modules/cli/banner/index.js';
+import { setCliMain } from '../main.js';
+
+// 注册 CLI 主函数回调（DI 模式，避免 main.ts → cli.tsx 循环依赖）
+setCliMain(main);
 
 /**
  * 启动前环境变量优化

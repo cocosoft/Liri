@@ -18,7 +18,7 @@ import { PdfConverter } from '../converters/PdfConverter';
 import { ImageConverter } from '../converters/ImageConverter';
 import { AudioConverter } from '../converters/AudioConverter';
 import { EpubConverter } from '../converters/EpubConverter';
-import { ZipConverter } from '../converters/ZipConverter';
+import { ZipConverter, setZipConverterEngine } from '../converters/ZipConverter';
 import { IpynbConverter } from '../converters/IpynbConverter';
 import { RssConverter } from '../converters/RssConverter';
 import { OutlookMsgConverter } from '../converters/OutlookMsgConverter';
@@ -67,6 +67,9 @@ export class ConverterEngine {
     this.registry.register(new RssConverter());
     this.registry.register(new OutlookMsgConverter());
     logger.info('内置转换器注册完成');
+
+    // 注入 ZipConverter 的转换引擎引用（DI 模式，避免循环依赖）
+    setZipConverterEngine((fileInfo, buffer) => this.convertContent(fileInfo, buffer));
   }
 
   getRegistry(): ConverterRegistry {

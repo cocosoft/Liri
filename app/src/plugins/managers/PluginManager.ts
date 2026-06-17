@@ -1,11 +1,39 @@
 /**
  * PluginManager - 插件管理器
  * 代理到 PluginSystem 的单例，消除双轨实现
+ * 使用 DI 模式避免循环依赖（plugins/index.ts ↔ managers/PluginManager）
  */
 
 import type { LoadedPlugin } from '../types';
-import { pluginSystem } from '../index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
+/**
+ * 插件系统单例引用（DI 方式注入，避免循环依赖）
+ */
+let _pluginSystem: {
+  loadPlugin(id: string): Promise<import('../types/PluginTypes').PluginLoadResult>;
+  getLoader(): {
+    getAllPlugins(): LoadedPlugin[];
+    getPlugin(id: string): LoadedPlugin | undefined;
+    activatePlugin(id: string): void;
+    deactivatePlugin(id: string): void;
+    unloadPlugin(id: string): void;
+  };
+} | null = null;
+
+/**
+ * 设置插件系统引用（在 index.ts 中初始化时调用）
+ */
+export function setPluginSystem(ps: typeof _pluginSystem): void {
+  _pluginSystem = ps;
+}
+
+function getPS(): NonNullable<typeof _pluginSystem> {
+  if (!_pluginSystem) {
+    throw new Error('PluginSystem not initialized. Call setPluginSystem() first.');
+  }
+  return _pluginSystem;
+}
 
 /**
  * 插件管理器类
@@ -29,7 +57,7 @@ export class PluginManager {
    * 加载插件
    */
   public async loadPlugin(pluginId: string): Promise<LoadedPlugin> {
-    const result = await pluginSystem.loadPlugin(pluginId);
+    const result = await getPS().loadPlugin(pluginId);
     if (result.success && result.plugin) {
       return result.plugin;
     }
@@ -52,7 +80,7 @@ export class PluginManager {
 
     for (const id of pluginIds) {
       try {
-        const result = await pluginSystem.loadPlugin(id);
+        const result = await getPS().loadPlugin(id);
         if (result.success && result.plugin) {
           enabled.push(result.plugin);
         } else {
@@ -70,14 +98,14 @@ export class PluginManager {
    * 获取所有插件
    */
   public getAllPlugins(): LoadedPlugin[] {
-    return pluginSystem.getLoader().getAllPlugins();
+    return getPS().getLoader().getAllPlugins();
   }
 
   /**
    * 根据插件标识符获取插件
    */
   public getPlugin(pluginId: string): LoadedPlugin | undefined {
-    return pluginSystem.getLoader().getPlugin(pluginId);
+    return getPS().getLoader().getPlugin(pluginId);
   }
 
   /**
@@ -85,7 +113,7 @@ export class PluginManager {
    */
   public enablePlugin(pluginId: string): boolean {
     try {
-      pluginSystem.getLoader().activatePlugin(pluginId);
+      getPS().getLoader().activatePlugin(pluginId);
       return true;
     } catch {
       return false;
@@ -97,7 +125,7 @@ export class PluginManager {
    */
   public disablePlugin(pluginId: string): boolean {
     try {
-      pluginSystem.getLoader().deactivatePlugin(pluginId);
+      getPS().getLoader().deactivatePlugin(pluginId);
       return true;
     } catch {
       return false;
@@ -109,7 +137,7 @@ export class PluginManager {
    */
   public uninstallPlugin(pluginId: string): boolean {
     try {
-      pluginSystem.getLoader().unloadPlugin(pluginId);
+      getPS().getLoader().unloadPlugin(pluginId);
       return true;
     } catch {
       return false;
@@ -120,7 +148,7 @@ export class PluginManager {
    * 检查插件是否存在
    */
   public hasPlugin(pluginId: string): boolean {
-    return pluginSystem.getLoader().getPlugin(pluginId) !== undefined;
+    return getPS().getLoader().getPlugin(pluginId) !== undefined;
   }
 
   /**
@@ -146,7 +174,7 @@ export class PluginManager {
    * 检查插件是否启用
    */
   public isPluginEnabled(pluginId: string): boolean {
-    const loader = pluginSystem.getLoader();
+    const loader = getPS().getLoader();
     const plugin = loader.getPlugin(pluginId);
     if (!plugin) return false;
     return plugin.state === 'activated' || plugin.state === 'enabled';
@@ -156,7 +184,7 @@ export class PluginManager {
    * 清空所有插件
    */
   public clearPlugins(): void {
-    const loader = pluginSystem.getLoader();
+    const loader = getPS().getLoader();
     for (const p of loader.getAllPlugins()) {
       loader.unloadPlugin(p.id);
     }
@@ -166,7 +194,7 @@ export class PluginManager {
    * 获取启用的插件数量
    */
   public getEnabledPluginCount(): number {
-    const loader = pluginSystem.getLoader();
+    const loader = getPS().getLoader();
     return loader
       .getAllPlugins()
       .filter(
@@ -181,6 +209,6 @@ export class PluginManager {
    * 获取总插件数量
    */
   public getTotalPluginCount(): number {
-    return pluginSystem.getLoader().getAllPlugins().length;
+    return getPS().getLoader().getAllPlugins().length;
   }
 }

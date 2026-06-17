@@ -41,8 +41,22 @@ import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { modelRouter } from '@modules/ai/modelRouter';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
-import { getToolManager } from '../ToolManager';
 import { Logger } from '@modules/monitoring/logs/Logger';
+
+/**
+ * 工具管理器引用（DI 注入，避免循环依赖）
+ * ToolManager → ToolFactory → AgentTool → ToolManager 闭环
+ */
+let _getAllTools: (() => Tool[]) | null = null;
+
+export function setAgentToolManager(getter: () => Tool[]): void {
+  _getAllTools = getter;
+}
+
+function getAllTools(): Tool[] {
+  if (!_getAllTools) return [];
+  return _getAllTools();
+}
 
 const logger = new Logger();
 
@@ -357,8 +371,7 @@ export class AgentTool implements Tool {
     description: string;
     parameters: Record<string, unknown>;
   }> {
-    const toolManager = getToolManager();
-    const tools = toolManager.getAllTools();
+    const tools = getAllTools();
 
     return tools.map((tool) => {
       const info = tool.getInfo();
@@ -420,8 +433,7 @@ export class AgentTool implements Tool {
         },
       })),
       toolInstances: new Map(
-        getToolManager()
-          .getAllTools()
+        getAllTools()
           .map((t) => [t.name, t])
       ),
       maxTurns: 50,

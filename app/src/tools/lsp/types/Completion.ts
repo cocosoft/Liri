@@ -2,7 +2,7 @@
  * LSP补全类型定义
  */
 
-import { Position, Range } from './LSPTool.js';
+import { Position, Range } from './LSPTypes.js';
 
 /**
  * 补全项

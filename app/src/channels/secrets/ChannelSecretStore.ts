@@ -17,7 +17,33 @@
  * ```
  */
 
-import { channelRegistry } from '../registry/ChannelRegistry';
+/**
+ * ChannelRegistry 最小接口（避免 import type 被 madge 视作循环依赖）
+ */
+interface _ChannelRegistry {
+  getConfig(name: string): { options?: Record<string, unknown>; type?: string } | undefined;
+  updateConfig(name: string, changes: { options?: Record<string, unknown> }): boolean;
+  getAllConfigs(): Array<{ type: string; options?: Record<string, unknown> }>;
+}
+
+/**
+ * 模块级 channelRegistry 引用（延迟初始化）
+ * 避免 ChannelSecretStore ↔ ChannelRegistry 循环依赖
+ */
+let _registry: _ChannelRegistry | null = null;
+
+/** 设置 channelRegistry 引用（由启动代码在初始化时调用） */
+export function initRegistry(registry: _ChannelRegistry): void {
+  _registry = registry;
+}
+
+/** 获取 channelRegistry 引用 */
+function getRegistry(): _ChannelRegistry {
+  if (!_registry) {
+    throw new Error('ChannelSecretStore: channelRegistry 未初始化，请先调用 initRegistry()');
+  }
+  return _registry;
+}
 
 /**
  * 渠道凭据环境变量对照表
@@ -159,7 +185,7 @@ export class ChannelSecretStore {
     const credentials: Record<string, unknown> = {};
 
     // 第一步：从 DB 持久化配置中读取
-    const config = channelRegistry.getConfig(channelId);
+    const config = getRegistry().getConfig(channelId);
     if (config?.options && Object.keys(config.options).length > 0) {
       Object.assign(credentials, config.options);
     }
@@ -191,7 +217,7 @@ export class ChannelSecretStore {
    * @param credentials 凭据对象
    */
   set(channelId: string, credentials: Record<string, unknown>): void {
-    channelRegistry.updateConfig(channelId, { options: credentials });
+    getRegistry().updateConfig(channelId, { options: credentials });
   }
 
   /**
@@ -200,7 +226,7 @@ export class ChannelSecretStore {
    * @param channelId 渠道 ID
    */
   delete(channelId: string): void {
-    channelRegistry.updateConfig(channelId, { options: {} });
+    getRegistry().updateConfig(channelId, { options: {} });
   }
 
   /**
@@ -208,7 +234,7 @@ export class ChannelSecretStore {
    * 用于仪表盘展示或调试
    */
   getAllSanitized(): Record<string, Record<string, unknown>> {
-    const configs = channelRegistry.getAllConfigs();
+    const configs = getRegistry().getAllConfigs();
     const result: Record<string, Record<string, unknown>> = {};
 
     for (const config of configs) {

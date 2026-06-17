@@ -7,6 +7,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { channelBootstrapper } from './bootstrap/ChannelBootstrapper';
 import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
+import { initRegistry } from './secrets/ChannelSecretStore';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type { IChannelPlugin, MessageContext } from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
@@ -56,6 +57,9 @@ export async function setupChannelsFromConfig(): Promise<{
   errors: string[];
 }> {
   const t0 = Date.now();
+
+  // 初始化 ChannelSecretStore 的 channelRegistry 引用
+  initRegistry(channelRegistry);
 
   // 第一步：定义通道映射 + 筛选已启用的通道
   // 注意：import() 路径定义在函数内部而非模块顶层，避免 Bun 预解析所有路径

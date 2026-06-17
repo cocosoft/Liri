@@ -54,15 +54,7 @@ export enum ModelCapability {
   CODE_EXECUTION = 'code_execution',
 }
 
-/**
- * 模型能力映射（已迁移到 ModelConfigs.ts）
- * @deprecated 使用 ModelConfigs.ts 中的 getModelCapabilities() 替代
- */
-export {
-  getModelCapabilities,
-  modelSupportsCapability,
-  getModelsWithCapability,
-} from './ModelConfigs.js';
+// 模型能力函数已迁移到 ModelConfigs.ts，请直接引用
 
 export enum AIMessageRole {
   USER = 'user',

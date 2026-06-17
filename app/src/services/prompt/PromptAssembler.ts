@@ -14,10 +14,10 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
+import type { PromptMode } from './types';
+export type { PromptMode };
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-export type PromptMode = 'full' | 'conversation' | 'minimal' | 'none';
 
 const CORE_SECTION_NAMES = new Set([
   'identity',

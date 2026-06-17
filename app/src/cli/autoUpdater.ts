@@ -18,17 +18,8 @@ export interface AutoUpdaterOptions {
   releaseChannel?: UpdateChannel;
 }
 
-export interface UpdateInfo {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-  changelog?: string[];
-  downloadUrl?: string;
-  releaseDate?: string;
-  checksum?: string;
-  releaseNotesUrl?: string;
-  releaseChannel?: UpdateChannel;
-}
+import { UpdateInfo } from './updater/GitHubReleaseFetcher';
+export { UpdateInfo };
 
 export class AutoUpdater {
   private options: AutoUpdaterOptions;

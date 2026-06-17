@@ -8,7 +8,20 @@ import {
   getGitHubReleasesUrl,
   type UpdateChannel,
 } from '../../constants/product';
-import type { UpdateInfo } from '../autoUpdater';
+/**
+ * 版本更新信息
+ */
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  changelog?: string[];
+  downloadUrl?: string;
+  releaseDate?: string;
+  checksum?: string;
+  releaseNotesUrl?: string;
+  releaseChannel?: UpdateChannel;
+}
 
 const logger = new Logger({ level: LogLevel.INFO });
 

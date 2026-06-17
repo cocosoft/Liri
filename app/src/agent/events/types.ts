@@ -24,6 +24,40 @@
  * 覆盖 Agent 执行全生命周期
  */
 
+// ========== 共享类型（从 index.ts 提取，解决与 SSEEncoder 的循环依赖） ==========
+
+export type EventPriority = 'low' | 'normal' | 'high';
+
+export interface AgentEvent {
+  id: string;
+  type: string;
+  source: string;
+  target?: string;
+  data?: unknown;
+  priority: EventPriority;
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EventHandler {
+  (event: AgentEvent): Promise<void> | void;
+}
+
+export interface EventSubscription {
+  id: string;
+  type: string | '*';
+  handler: EventHandler;
+  priority: EventPriority;
+  once: boolean;
+}
+
+export interface EventStats {
+  totalEmitted: number;
+  totalHandled: number;
+  activeSubscriptions: number;
+  eventsByType: Record<string, number>;
+}
+
 export enum AgentEventType {
   // ========== 回复生命周期 ==========
 

@@ -22,15 +22,10 @@ import type {
   CompressionFeature,
 } from './context/ContextEngineRegistry.js';
 import { FileCheckpointStorage } from './FileCheckpointStorage.js';
+import { TAORPhase } from './types.js';
+import type { TAORCheckpoint, CheckpointStorage } from './types.js';
 
 const logger = new Logger();
-
-export enum TAORPhase {
-  THINK = 'think',
-  ACT = 'act',
-  OBSERVE = 'observe',
-  COMPLETED = 'completed',
-}
 
 export interface TAORPhaseInfo {
   phase: TAORPhase;
@@ -71,46 +66,6 @@ export interface TAORPhaseCallback {
   onCheckpointSaved?: (checkpoint: TAORCheckpoint) => void;
   /** 从检查点恢复回调 */
   onResumed?: (checkpoint: TAORCheckpoint) => void;
-}
-
-/**
- * TAOR检查点数据结构
- */
-export interface TAORCheckpoint {
-  /** 检查点唯一标识 */
-  id: string;
-  /** 会话ID */
-  sessionId: string;
-  /** 当前轮次 */
-  turnCount: number;
-  /** 当前阶段 */
-  phase: TAORPhase;
-  /** Token预算状态 */
-  budgetState: TokenBudgetState;
-  /** 对话历史摘要 */
-  conversationSummary: string;
-  /** 最后提示 */
-  lastPrompt: string;
-  /** 创建时间 */
-  createdAt: number;
-  /** 检查点类型 */
-  type: 'auto' | 'manual' | 'before_abort';
-}
-
-/**
- * 检查点存储接口
- */
-export interface CheckpointStorage {
-  /** 保存检查点 */
-  save(checkpoint: TAORCheckpoint): Promise<string>;
-  /** 根据ID加载检查点 */
-  load(id: string): Promise<TAORCheckpoint | null>;
-  /** 根据会话ID查找检查点 */
-  findBySessionId(sessionId: string): Promise<TAORCheckpoint[] | null>;
-  /** 删除检查点 */
-  delete(id: string): Promise<boolean>;
-  /** 清理过期检查点 */
-  cleanup(expireTime: number): Promise<number>;
 }
 
 /**

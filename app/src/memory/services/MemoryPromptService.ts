@@ -5,7 +5,12 @@
 
 import { Memory } from '../types/Memory';
 import { MemoryType } from '../types/MemoryType';
-import { MemoryManager } from '../MemoryManager';
+
+/** MemoryManager 最小接口（避免循环依赖） */
+interface MemoryManager {
+  getMemoryStats(): Promise<import('../types/Memory').MemoryStats>;
+  getAllMemories(): Promise<Memory[]>;
+}
 
 /**
  * 记忆提示类型

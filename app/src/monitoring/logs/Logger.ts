@@ -1,15 +1,9 @@
 import { appendFileSync } from 'node:fs';
 import { logRedact } from './redact/LogRedact.js';
-import { appendLogEntry, type StructuredLogEntry, type LogSource } from './LogMemory.js';
+import { appendLogEntry } from './LogMemory.js';
+import { LogLevel, type StructuredLogEntry, type LogSource } from './types.js';
 
-export enum LogLevel {
-  DEBUG = 'debug',
-  INFO = 'info',
-  WARN = 'warn',
-  WARNING = 'warning',
-  ERROR = 'error',
-  FATAL = 'fatal',
-}
+export { LogLevel, StructuredLogEntry, LogSource } from './types.js';
 
 const LOG_LEVEL_PRIORITY: Record<string, number> = {
   [LogLevel.DEBUG]: 0,

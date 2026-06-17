@@ -234,14 +234,14 @@ export type {
 } from './ContextCompressor';
 import {
   StrategySelector,
+} from './StrategySelector';
+import {
   TaskComplexity,
   ContextSize,
-} from './StrategySelector';
-import type {
-  TaskFeature,
-  StrategyRule,
-  StrategySelection,
-} from './StrategySelector';
+  type TaskFeature,
+  type StrategyRule,
+  type StrategySelection,
+} from './types';
 import { ToolCallBatch } from './ToolCallBatch';
 import type {
   ToolCallItem,

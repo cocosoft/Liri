@@ -4,6 +4,9 @@
 
 import { CompletionItem } from './Completion.js';
 import { Diagnostic } from './Diagnostic.js';
+import { Position, Range, Location, ServerStatus } from './LSPTypes.js';
+
+export { Position, Range, Location, ServerStatus } from './LSPTypes.js';
 
 export interface LSPTool {
   /**
@@ -60,36 +63,4 @@ export interface LSPTool {
   restartServer(): Promise<void>;
 }
 
-/**
- * 位置信息
- */
-export interface Position {
-  line: number;
-  character: number;
-}
 
-/**
- * 范围信息
- */
-export interface Range {
-  start: Position;
-  end: Position;
-}
-
-/**
- * 位置信息
- */
-export interface Location {
-  uri: string;
-  range: Range;
-}
-
-/**
- * 服务器状态
- */
-export enum ServerStatus {
-  STOPPED = 'stopped',
-  STARTING = 'starting',
-  RUNNING = 'running',
-  ERROR = 'error',
-}

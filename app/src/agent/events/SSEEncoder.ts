@@ -3,7 +3,7 @@
  * 对标 AgentScope event → SSE 帧编码
  * 将 InternalEventBus 事件转换为 Server-Sent Events 标准格式
  */
-import type { AgentEvent } from './index';
+import type { AgentEvent } from './types';
 import { AgentEventType } from './types';
 
 export interface SSEFrame {

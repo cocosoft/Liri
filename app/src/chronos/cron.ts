@@ -309,6 +309,17 @@ function formatLocalTime(minute: number, hour: number): string {
 }
 
 /**
+ * 计算下次运行时间
+ */
+export function nextCronRunMs(cron: string, fromMs: number): number | null {
+  const normalized = normalizeSchedule(cron) ?? cron;
+  const fields = parseCronExpression(normalized);
+  if (!fields) return null;
+  const next = computeNextCronRun(fields, new Date(fromMs));
+  return next ? next.getTime() : null;
+}
+
+/**
  * Convert cron expression to human-readable format
  * @param cron cron expression
  * @param utc use UTC timezone

@@ -3,7 +3,6 @@
  * 提供通用工具命令处理
  */
 
-import { CLIHandler } from './cliHandler.js';
 import { configManager } from '@modules/config';
 
 export interface UtilHandlerOptions {

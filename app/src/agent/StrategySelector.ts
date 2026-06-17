@@ -3,106 +3,17 @@
  * 基于任务特征矩阵自动匹配最佳 Agent 策略
  */
 
-import type { AgentRoute, RouteMatch } from './AgentRouter';
+import type { AgentRoute, RouteMatch } from './types';
+import {
+  TaskComplexity,
+  ContextSize,
+  type TaskFeature,
+  type StrategyRule,
+  type StrategySelection,
+} from './types';
 import { Logger } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger();
-
-/**
- * 任务复杂度枚举
- */
-export enum TaskComplexity {
-  /** 简单任务（如单文件编辑、简短问答） */
-  SIMPLE = 'simple',
-
-  /** 中等任务（如小型重构、文档编写） */
-  MODERATE = 'moderate',
-
-  /** 复杂任务（如大型重构、跨模块分析） */
-  COMPLEX = 'complex',
-}
-
-/**
- * 上下文量枚举
- */
-export enum ContextSize {
-  /** 少量上下文（< 10K tokens） */
-  SMALL = 'small',
-
-  /** 中等上下文（10K - 50K tokens） */
-  MEDIUM = 'medium',
-
-  /** 大量上下文（> 50K tokens） */
-  LARGE = 'large',
-}
-
-/**
- * 任务特征矩阵
- * 描述一个任务的量化特征，用于策略匹配
- */
-export interface TaskFeature {
-  /** 任务类型 */
-  taskType: RouteMatch['taskType'];
-
-  /** 任务复杂度 */
-  complexity: TaskComplexity;
-
-  /** 上下文量 */
-  contextSize: ContextSize;
-
-  /** 所需工具列表（可选，为空时不作为筛选条件） */
-  requiredTools?: string[];
-}
-
-/**
- * 策略匹配规则
- * 定义某类 TaskFeature 应匹配的 AgentRoute 配置偏好
- */
-export interface StrategyRule {
-  /** 任务类型匹配（可选，为空时不限制） */
-  taskTypes?: RouteMatch['taskType'][];
-
-  /** 复杂度匹配（可选，为空时不限制） */
-  complexities?: TaskComplexity[];
-
-  /** 上下文量匹配（可选，为空时不限制） */
-  contextSizes?: ContextSize[];
-
-  /** 所需工具匹配（可选，为空时不限制） */
-  requiredTools?: string[];
-
-  /** 匹配优先级（数值越大优先级越高） */
-  priority: number;
-
-  /** 目标 Agent 配置覆盖 */
-  target: {
-    /** Agent ID（可选，不指定则只应用配置覆盖） */
-    agentId?: string;
-
-    /** 模型偏好（可选） */
-    model?: string;
-
-    /** 最大轮次（可选） */
-    maxTurns?: number;
-
-    /** 是否沙箱化（可选） */
-    isSandboxed?: boolean;
-  };
-}
-
-/**
- * 策略选择结果
- */
-export interface StrategySelection {
-  /** 匹配到的路由 */
-  route: AgentRoute | null;
-
-  /** 匹配到的规则（如果有） */
-  matchedRule?: StrategyRule;
-
-  /** 匹配置信度（0-1） */
-  confidence: number;
-}
 
 /**
  * 策略选择器

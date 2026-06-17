@@ -1,30 +1,13 @@
 /**
  * Agent 路由器
  * 按工作区/任务类型路由到不同 Agent 配置
- * 对齐 OpenClaw routing/session-key.ts
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StrategySelector } from './StrategySelector';
-import type { TaskFeature } from './StrategySelector';
+import type { TaskFeature, AgentRoute, RouteMatch } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-export interface AgentRoute {
-  agentId: string;
-  workspaceDir: string;
-  model: string;
-  provider: string;
-  maxTurns: number;
-  tools: string[];
-  isDefault: boolean;
-  isSandboxed: boolean;
-}
-
-export interface RouteMatch {
-  workspaceDir: string;
-  taskType: 'code' | 'chat' | 'refactor' | 'review' | 'test' | 'general';
-}
 
 export interface RouteRules {
   patterns: Array<{

@@ -3,21 +3,9 @@
  * 用于日志查询接口，存储最近的日志条目
  */
 
-import { LogLevel } from './Logger.js';
+import { LogLevel, type LogSource, type StructuredLogEntry } from './types.js';
 
-export type LogSource = 'logger' | 'structured' | 'otel' | 'llm';
-
-export interface StructuredLogEntry {
-  timestamp: string;
-  level: LogLevel;
-  module: string;
-  message: string;
-  traceId?: string;
-  spanId?: string;
-  data?: Record<string, unknown>;
-  error?: { name: string; message: string; stack?: string };
-  source: LogSource;
-}
+export type { LogSource, StructuredLogEntry };
 
 /** 内存日志存储，最多保留 1000 条 */
 export const MODULE_LOG_MEMORY: StructuredLogEntry[] = [];

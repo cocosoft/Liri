@@ -18,7 +18,7 @@ import type {
   TTSVoice,
   TTSSpeakOptions,
   TTSSpeakResult,
-} from './ttsProvider';
+} from './ttsTypes';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

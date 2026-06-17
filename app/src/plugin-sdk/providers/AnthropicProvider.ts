@@ -6,7 +6,7 @@
 import {
   createProviderPlugin,
   type ProviderPlugin,
-} from '../../plugin-sdk/index.js';
+} from '../categories.js';
 
 /**
  * Anthropic 配置

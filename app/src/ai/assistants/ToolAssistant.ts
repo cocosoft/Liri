@@ -4,7 +4,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { Tool, ToolInfo } from '@modules/tools/types/Tool';
-import aiService from '../index';
+import { aiService } from '../services/aiService';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';
 
 const logger = new Logger({ level: LogLevel.INFO });

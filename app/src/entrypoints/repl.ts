@@ -44,7 +44,7 @@ import { getConfig, configManager } from '../config/index.js';
 import { modelRouter } from '../ai/modelRouter.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
-import { isOfflineMode } from '../main.js';
+import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '../channels/bootstrap/ChannelBootstrapper.js';
 

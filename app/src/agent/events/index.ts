@@ -30,41 +30,18 @@
  *   此模块将在未来版本中移除。
  */
 
-export { AgentEventType } from './types';
+import type {
+  EventPriority,
+  AgentEvent,
+  EventSubscription,
+  EventHandler,
+  EventStats,
+} from './types';
+import { AgentEventType } from './types';
+
+export { AgentEventType, type EventPriority, type AgentEvent, type EventSubscription, type EventHandler, type EventStats } from './types';
 export { SSEEncoder } from './SSEEncoder';
 export type { SSEFrame } from './SSEEncoder';
-
-export type EventPriority = 'low' | 'normal' | 'high';
-
-export interface AgentEvent {
-  id: string;
-  type: string;
-  source: string;
-  target?: string;
-  data?: unknown;
-  priority: EventPriority;
-  timestamp: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface EventSubscription {
-  id: string;
-  type: string | '*';
-  handler: EventHandler;
-  priority: EventPriority;
-  once: boolean;
-}
-
-export interface EventHandler {
-  (event: AgentEvent): Promise<void> | void;
-}
-
-export interface EventStats {
-  totalEmitted: number;
-  totalHandled: number;
-  activeSubscriptions: number;
-  eventsByType: Record<string, number>;
-}
 
 export class InternalEventBus {
   private subscriptions: Map<string, EventSubscription[]> = new Map();

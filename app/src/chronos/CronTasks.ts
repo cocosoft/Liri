@@ -305,16 +305,10 @@ export async function listAllCronTasks(dir?: string): Promise<ScheduledTask[]> {
 }
 
 /**
- * 计算下次运行时间
+ * 计算下次运行时间（已迁移到 cron.ts）
  */
-export function nextCronRunMs(cron: string, fromMs: number): number | null {
-  const { computeNextCronRun } = require('./cron');
-  const normalized = normalizeSchedule(cron) ?? cron;
-  const fields = parseCronExpression(normalized);
-  if (!fields) return null;
-  const next = computeNextCronRun(fields, new Date(fromMs));
-  return next ? next.getTime() : null;
-}
+import { nextCronRunMs } from './cron';
+export { nextCronRunMs };
 
 /**
  * 查找错过的任务

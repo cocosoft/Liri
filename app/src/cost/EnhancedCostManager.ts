@@ -12,12 +12,10 @@ import type {
   CostPeriod,
 } from './types.js';
 
-import {
-  CostTracker,
-  CostReporter,
-  CostMonitor,
-  PricingManager,
-} from './index.js';
+import { CostTracker } from './CostTracker.js';
+import { CostReporter } from './CostReporter.js';
+import { CostMonitor } from './CostMonitor.js';
+import { PricingManager } from './PricingManager.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

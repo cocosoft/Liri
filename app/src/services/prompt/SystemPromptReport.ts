@@ -1,5 +1,5 @@
 import type { SystemPromptSection } from '@modules/constants/systemPromptSections';
-import type { PromptMode } from './PromptAssembler';
+import type { PromptMode } from './types';
 
 export interface SectionReportEntry {
   name: string;

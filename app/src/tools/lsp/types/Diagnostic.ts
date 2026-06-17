@@ -2,7 +2,7 @@
  * LSP诊断类型定义
  */
 
-import { Position, Range, Location } from './LSPTool.js';
+import { Position, Range, Location } from './LSPTypes.js';
 
 /**
  * 诊断信息

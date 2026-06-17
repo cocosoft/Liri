@@ -2,7 +2,7 @@ import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveDbPath } from '@modules/core/paths';
 import { TaskPriority } from './TaskPriority';
-import type { Task, TaskResult } from './TaskQueue';
+import type { Task, TaskResult } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

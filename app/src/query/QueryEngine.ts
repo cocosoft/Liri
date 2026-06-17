@@ -7,11 +7,20 @@ import type { Message } from '../chat/types/message.js';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import type { ChatSession } from '../chat/types/session.js';
-import { ChatManagerImpl } from '../chat/ChatManager.js';
 import {
   PostSamplingHookManager,
   createPostSamplingHookManager,
 } from '../hooks/managers/PostSamplingHookManager.js';
+
+/**
+ * QueryEngine 所需的 ChatManager 最小接口
+ * 避免 ChatManager ↔ QueryEngine 循环依赖
+ */
+interface IChatManagerForQuery {
+  sendMessage(content: string, options?: Record<string, unknown>): Promise<Message>;
+  executeTool(toolCall: ToolCall): Promise<ToolResult>;
+  getSessions(): ChatSession[];
+}
 import type {
   PostSamplingHookContext,
   PostSamplingHook,
@@ -282,7 +291,7 @@ export class QueryEngine {
   /**
    * 聊天管理器
    */
-  private chatManager: ChatManagerImpl;
+  private chatManager: IChatManagerForQuery;
 
   /**
    * 采样后置Hook管理器
@@ -359,7 +368,7 @@ export class QueryEngine {
    * @param chatManager 聊天管理器
    * @param config 查询引擎配置
    */
-  constructor(chatManager: ChatManagerImpl, config: QueryEngineConfig = {}) {
+  constructor(chatManager: IChatManagerForQuery, config: QueryEngineConfig = {}) {
     this.chatManager = chatManager;
     this.postSamplingHookManager = createPostSamplingHookManager({
       enableLogging: false,
@@ -1669,7 +1678,7 @@ export class QueryEngine {
  * @returns QueryEngine实例
  */
 export function createQueryEngine(
-  chatManager: ChatManagerImpl,
+  chatManager: IChatManagerForQuery,
   config?: QueryEngineConfig
 ): QueryEngine {
   return new QueryEngine(chatManager, config);

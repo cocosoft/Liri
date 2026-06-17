@@ -23,8 +23,6 @@
  * 提供全局配置和项目级配置的完整类型支持
  */
 
-import { configManager } from './ConfigManager.js';
-
 /**
  * 项目配置接口
  */
@@ -571,17 +569,17 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       provider: 'deepseek',
       model: '',
       deepseek: {
-        apiKey: configManager.env('DEEPSEEK_API_KEY') || '',
-        baseUrl: configManager.env('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com',
+        apiKey: process.env['DEEPSEEK_API_KEY'] || '',
+        baseUrl: process.env['DEEPSEEK_BASE_URL'] || 'https://api.deepseek.com',
         model: '',
       },
       anthropic: {
-        apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
+        apiKey: process.env['ANTHROPIC_API_KEY'] || '',
         baseUrl: 'https://api.anthropic.com',
         model: '',
       },
       openai: {
-        apiKey: configManager.env('OPENAI_API_KEY') || '',
+        apiKey: process.env['OPENAI_API_KEY'] || '',
         baseUrl: 'https://api.openai.com/v1',
         model: '',
       },

@@ -120,9 +120,9 @@ export type { QueryDependencies } from './deps.js';
 export {
   TAORLoop,
   createTAORLoop,
-  TAORPhase,
   MemoryCheckpointStorage,
 } from './TAORLoop.js';
+export { TAORPhase } from './types.js';
 export { FileCheckpointStorage } from './FileCheckpointStorage.js';
 export {
   ParallelToolExecutor,
@@ -144,9 +144,11 @@ export type {
   TAORLoopResult,
   TAORPhaseInfo,
   TAORPhaseCallback,
+} from './TAORLoop.js';
+export type {
   TAORCheckpoint,
   CheckpointStorage,
-} from './TAORLoop.js';
+} from './types.js';
 export {
   QueryLogStore,
   getQueryLogStore,

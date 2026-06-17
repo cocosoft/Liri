@@ -3,33 +3,12 @@ import { getMonitoringService } from '../monitoring/MonitoringService';
 import type { QueueBackend, QueuedTaskEntry } from './QueueBackend';
 import { InMemoryQueueBackend } from './QueueBackend';
 import { TaskPriority } from './TaskPriority';
+import type { Task, TaskResult } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 export { TaskPriority };
-
-export interface Task<T = unknown> {
-  id: string;
-  name: string;
-  priority: TaskPriority;
-  execute: (
-    signal: AbortSignal,
-    onProgress: (pct: number) => void
-  ) => Promise<T>;
-  timeout?: number;
-  retryCount?: number;
-  maxRetries?: number;
-}
-
-export interface TaskResult<T = unknown> {
-  taskId: string;
-  success: boolean;
-  data?: T;
-  error?: string;
-  startedAt: number;
-  completedAt: number;
-  duration: number;
-}
+export type { Task, TaskResult };
 
 export class TaskQueue {
   private backend: QueueBackend;

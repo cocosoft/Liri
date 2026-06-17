@@ -6,12 +6,10 @@
 
 import type { LSPClient, LSPServerConfig, LSPConnection } from './types.js';
 
-import {
-  createLSPServerManager,
-  type LSPServerManager,
-  LSPClient as BaseLSPClient,
-  LSPServerInstance as BaseLSPServerInstance,
-} from './index.js';
+import type { LSPServerManager } from './LSPServerManager.js';
+import { createLSPServerManager } from './LSPServerManager.js';
+import { LSPClient as BaseLSPClient } from './LSPClient.js';
+import type { LSPServerInstance } from './LSPServerInstance.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface EnhancedLSPManagerConfig {

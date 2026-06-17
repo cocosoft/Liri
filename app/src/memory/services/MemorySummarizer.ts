@@ -1,6 +1,16 @@
-import { MemoryManagerImpl } from '../MemoryManager';
+import type { Memory } from '../types/Memory';
 import type { MemoryQueryResult } from '@modules/services/prompt/MemoryPromptProvider';
 import type { SessionContext } from '../types/SessionContext';
+
+/** MemoryManagerImpl 最小接口（避免循环依赖） */
+interface MemoryManagerImpl {
+  getAllMemories(): Promise<Memory[]>;
+  recentSummaryCache: {
+    memories: Memory[];
+    summaries: string[];
+    totalCount: number;
+  } | null;
+}
 
 /**
  * 记忆摘要服务

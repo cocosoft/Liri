@@ -6,7 +6,17 @@
 
 import { Memory } from '../types/Memory';
 import { MemoryType } from '../types/MemoryType';
-import { MemoryManager } from '../MemoryManager';
+
+/** MemoryManager 最小接口（避免循环依赖） */
+interface MemoryManager {
+  getAllMemories(): Promise<Memory[]>;
+  updateMemory(id: string, updates: Partial<Memory>): Promise<Memory>;
+  createMemory(
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Memory>;
+  deleteMemory(id: string): Promise<void>;
+  getMemory(id: string): Promise<Memory | null>;
+}
 import * as fs from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';

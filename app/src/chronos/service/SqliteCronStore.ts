@@ -2,7 +2,7 @@ import { join } from 'path';
 import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveDbPath } from '@modules/core/paths';
-import { nextCronRunMs } from '../CronTasks';
+import { nextCronRunMs } from '../cron';
 import type { ScheduledTask } from '../types';
 
 const logger = new Logger({ level: LogLevel.INFO });

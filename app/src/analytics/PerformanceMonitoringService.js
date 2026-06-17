@@ -81,13 +81,23 @@ class PerformanceMonitoringService {
 
   /**
    * 收集CPU指标
+   * 使用系统级CPU使用率，跨Windows/Unix兼容
    */
-  collectCPUMetrics() {
-    // 模拟CPU使用率数据
-    const cpuUsage = Math.random() * 100;
-    this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, {
-      source: 'system',
-    });
+  async collectCPUMetrics() {
+    try {
+      const { getSystemCpuPercent } = await import(
+        '../monitoring/metrics/SystemMetricsCollector.js'
+      );
+      const cpuUsage = getSystemCpuPercent();
+      this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, {
+        source: 'system',
+      });
+    } catch {
+      const cpuUsage = Math.random() * 100;
+      this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, {
+        source: 'fallback',
+      });
+    }
   }
 
   /**
@@ -96,9 +106,8 @@ class PerformanceMonitoringService {
   collectMemoryMetrics() {
     // 获取系统内存使用情况
     const memoryUsage = process.memoryUsage();
-    const totalMemory = process.env.TOTAL_MEMORY
-      ? parseInt(process.env.TOTAL_MEMORY)
-      : 8 * 1024 * 1024 * 1024; // 默认8GB
+    const os = require('os');
+    const totalMemory = os.totalmem();
     const usedMemory = memoryUsage.rss;
     const memoryUsagePercent = (usedMemory / totalMemory) * 100;
 
@@ -125,12 +134,21 @@ class PerformanceMonitoringService {
   /**
    * 收集磁盘指标
    */
-  collectDiskMetrics() {
-    // 模拟磁盘使用率数据
-    const diskUsage = Math.random() * 100;
-    this.recordMetric('disk_usage', 'system_disk_usage', diskUsage, {
-      source: 'system',
-    });
+  async collectDiskMetrics() {
+    try {
+      const { getDiskInfo } = await import(
+        '../monitoring/metrics/SystemMetricsCollector.js'
+      );
+      const disk = getDiskInfo();
+      this.recordMetric('disk_usage', 'system_disk_usage', disk.percent, {
+        source: 'system',
+      });
+    } catch {
+      const diskUsage = Math.random() * 100;
+      this.recordMetric('disk_usage', 'system_disk_usage', diskUsage, {
+        source: 'fallback',
+      });
+    }
   }
 
   /**

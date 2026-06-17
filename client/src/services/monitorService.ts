@@ -44,6 +44,10 @@ export interface MetricsData {
   errorRate: MetricPoint[];
   cpu: MetricPoint[];
   memory: MetricPoint[];
+  /** 应用级（Node.js 进程）CPU 使用率历史 */
+  appCpu: MetricPoint[];
+  /** 应用级（Node.js 进程）内存使用量历史（MB） */
+  appMemory: MetricPoint[];
 }
 
 export interface MonitorSummary {

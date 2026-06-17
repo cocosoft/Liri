@@ -104,12 +104,24 @@ class Database {
   }
 
   /**
+   * 展开参数：兼容 sqlite3 npm 包的两种传参方式
+   * 1. db.run(sql, param1, param2, ..., callback) — 独立参数
+   * 2. db.run(sql, [param1, param2, ...], callback) — 数组参数
+   */
+  private resolveParams(args: unknown[]): unknown[] {
+    if (args.length === 1 && Array.isArray(args[0])) {
+      return args[0];
+    }
+    return args;
+  }
+
+  /**
    * 执行 SQL（无返回结果集），兼容 sqlite3 回调式 API
    */
   run(sql: string, ...args: unknown[]): this {
     const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null) => void : undefined;
     try {
-      this._db.run(sql, ...args);
+      this._db.run(sql, ...this.resolveParams(args));
       callback?.(null);
     } catch (e) {
       callback?.(e as Error);
@@ -123,7 +135,7 @@ class Database {
   get(sql: string, ...args: unknown[]): this {
     const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null, row?: Record<string, unknown>) => void : undefined;
     try {
-      const row = this._db.prepare(sql).get(...args);
+      const row = this._db.prepare(sql).get(...this.resolveParams(args));
       callback?.(null, row ?? undefined);
     } catch (e) {
       callback?.(e as Error);
@@ -137,7 +149,7 @@ class Database {
   all(sql: string, ...args: unknown[]): this {
     const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null, rows?: Record<string, unknown>[]) => void : undefined;
     try {
-      const rows = this._db.prepare(sql).all(...args);
+      const rows = this._db.prepare(sql).all(...this.resolveParams(args));
       callback?.(null, rows);
     } catch (e) {
       callback?.(e as Error);
@@ -151,7 +163,7 @@ class Database {
   each(sql: string, ...args: unknown[]): this {
     const callback = typeof args[args.length - 1] === 'function' ? args.pop() as (err: Error | null, row?: Record<string, unknown>) => void : undefined;
     try {
-      const rows = this._db.prepare(sql).all(...args);
+      const rows = this._db.prepare(sql).all(...this.resolveParams(args));
       for (const row of rows) {
         callback?.(null, row);
       }

@@ -77,10 +77,10 @@ interface DiscordState {
   sequence: number | null;
 }
 
-/** 消息去重（基于 messageId，5 秒窗口） */
+/** 消息去重（基于 messageId，60 秒窗口，与路由层 content dedup 对齐） */
 class DiscordDedup {
   private cache = new Map<string, number>();
-  private readonly ttlMs = 5000;
+  private readonly ttlMs = 60000;
 
   claim(key: string): boolean {
     const now = Date.now();

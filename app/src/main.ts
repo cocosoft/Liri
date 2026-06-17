@@ -43,6 +43,7 @@ import {
   writeFileSync,
   readFileSync,
   rmSync,
+  unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -52,7 +53,9 @@ import {
   resolveOnboardedFlagPath,
   resolveOutputDir,
   resolveDownloadsDir,
+  resolvePyappHome,
   ensureDataDirectories,
+  validatePathConsistency,
 } from '@modules/core/paths';
 import { modelRouter } from '@modules/ai/modelRouter';
 import { configManager } from './config/index.js';
@@ -328,6 +331,71 @@ function setupWindowsSecurity(): void {
   }
 }
 
+/** 锁文件路径 */
+function getLockFilePath(): string {
+  return join(resolveDataDir(), '.liri.lock');
+}
+
+/**
+ * 单实例锁检查（PID 文件锁）
+ *
+ * 在进程启动时检查是否存在锁文件，若存在且对应进程存活则退出，
+ * 防止多实例导致 QQ/Telegram 等通道双回复或数据竞争。
+ * 进程正常退出时自动清理锁文件。
+ */
+function checkSingletonInstance(): void {
+  const lockFile = getLockFilePath();
+
+  // 确保数据目录存在
+  const dataDir = resolveDataDir();
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+  }
+
+  // 检查锁文件
+  if (existsSync(lockFile)) {
+    try {
+      const pid = parseInt(readFileSync(lockFile, 'utf-8').trim(), 10);
+      if (!isNaN(pid)) {
+        // 检查对应进程是否存活（不发送信号，仅探测）
+        try {
+          process.kill(pid, 0);
+          logger.warning(`检测到已有实例在运行 (PID: ${pid})，当前实例将退出`);
+          console.error(`[FATAL] Liri 已在运行 (PID: ${pid})，请勿重复启动`);
+          process.exit(1);
+        } catch {
+          // 进程不存在，锁文件过期，继续启动
+          logger.info(`检测到过期锁文件 (PID: ${pid}，进程已不存在)，将覆盖`);
+        }
+      }
+    } catch {
+      // 锁文件内容异常，忽略并覆盖
+      logger.warning('锁文件内容异常，将覆盖');
+    }
+  }
+
+  // 写入当前 PID
+  writeFileSync(lockFile, String(process.pid), 'utf-8');
+
+  // 注册进程退出清理
+  const cleanup = () => {
+    try {
+      if (existsSync(lockFile)) {
+        const currentPid = parseInt(readFileSync(lockFile, 'utf-8').trim(), 10);
+        if (currentPid === process.pid) {
+          unlinkSync(lockFile);
+        }
+      }
+    } catch {
+      // 清理失败不阻塞退出
+    }
+  };
+
+  process.on('exit', cleanup);
+  process.on('SIGINT', () => { cleanup(); process.exit(0); });
+  process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+}
+
 /**
  * 启动后异步展示精简版健康报告
  * 不阻塞 REPL 启动，仅作为信息提示
@@ -388,36 +456,35 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   // 启动后异步展示健康报告（延迟执行，不阻塞 REPL 启动）
   displayStartupHealthReport();
 
+  // REPL 启动前，初始化通道持久化并后台连接
+  try {
+    const { setupChannelsFromConfig, lazyConnectChannels } = await import('./channels/setupChannels');
+    const { channelRegistry } = await import('./channels/registry/ChannelRegistry');
+    
+    await channelRegistry.initPersistence();
+    logger.info('main.ts 通道持久化初始化完成');
+
+    // 启用主动同步：ChannelPluginRegistry 状态变更 → 实时反映到 ChannelRegistry
+    channelRegistry.setupActiveSync();
+
+    // 从 DB 恢复已保存的通道配置（注册到内存）
+    await setupChannelsFromConfig();
+    logger.info('通道配置已从 DB 恢复');
+
+    // 后台连接已启用的通道（不阻塞 REPL 启动）
+    lazyConnectChannels().catch((err) => {
+      logger.error('延迟通道连接异常', { error: String(err) });
+    });
+  } catch (err) {
+    logger.error('通道初始化失败', { error: String(err) });
+  }
+
   const { launchRepl } = await import('./entrypoints/repl');
   await launchRepl({
     httpPort,
     useLegacyRepl,
     preStartedHttp: httpService ?? undefined,
     trustLevel: trustLevelArg,
-  });
-
-  // REPL 完全启动后，初始化通道持久化并后台连接，不阻塞用户交互
-  import('./channels/setupChannels').then(({ setupChannelsFromConfig, lazyConnectChannels }) => {
-    import('./channels/registry/ChannelRegistry').then(({ channelRegistry }) => {
-      channelRegistry.initPersistence().then(() => {
-        // 启用主动同步：ChannelPluginRegistry 状态变更 → 实时反映到 ChannelRegistry
-        channelRegistry.setupActiveSync();
-
-        // 从 DB 恢复已保存的通道配置（注册到内存）
-        setupChannelsFromConfig().then(() => {
-          logger.info('通道配置已从 DB 恢复');
-        }).catch((err) => {
-          logger.error('从 DB 恢复通道配置失败', { error: String(err) });
-        });
-
-        // 后台连接已启用的通道
-        lazyConnectChannels().catch((err) => {
-          logger.error('延迟通道连接异常', { error: String(err) });
-        });
-      }).catch((err) => {
-        logger.error('通道持久化初始化失败', { error: String(err) });
-      });
-    });
   });
 }
 
@@ -534,7 +601,15 @@ async function launchTest(_options: LaunchOptions): Promise<void> {
  *   T2: 模式分发 + 后台延迟加载
  */
 export async function launch(options: LaunchOptions): Promise<void> {
+  // 统一数据根目录：确保 LIRI_HOME 已设置，所有下游模块使用一致路径
+  if (!process.env.LIRI_HOME) {
+    process.env.LIRI_HOME = resolvePyappHome();
+  }
+  validatePathConsistency({ warn: (msg) => logger.warning(msg) });
   setupWindowsSecurity();
+
+  // 单实例锁检查（PID 文件锁），防止多实例启动导致通道双回复
+  checkSingletonInstance();
 
   // 全局未捕获异常兜底（handleError 标准化处理）
   // 在模块系统初始化之前注册，确保早期启动阶段的错误也能被捕获

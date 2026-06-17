@@ -83,7 +83,13 @@ async function handleRoute(req: Request, pathname: string): Promise<Response> {
 
   // SSE 事件流
   if (pathname === '/v1/events') {
-    return handleEvents();
+    if (req.method === 'GET') {
+      return handleEvents();
+    }
+    // HEAD 用于心跳保活，返回 200 即可
+    if (req.method === 'HEAD') {
+      return Promise.resolve(new Response(null, { status: 200 }));
+    }
   }
 
   // 系统配置
@@ -189,21 +195,20 @@ function handleGetCurrentSession(): Promise<Response> {
  * { uptime, cpuPercent, memoryPercent, memoryUsedMB, memoryTotalMB, ... }
  */
 function handleMonitorSummary(): Promise<Response> {
-  const memUsage = process.memoryUsage();
-  const rssMB = Math.round(memUsage.rss / 1024 / 1024);
   const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
   const freeMemMB = Math.round(os.freemem() / 1024 / 1024);
+  const usedMemMB = totalMemMB - freeMemMB;
   const uptime = Math.floor(process.uptime());
-  const loadAvg = (os.loadavg?.() as number[]) || [0, 0, 0];
+  const loadAvg = (os.loadavg?.()) as number[] || [0, 0, 0];
   const cpuCores = os.cpus()?.length || 0;
-  const memoryPercent = totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
-  const cpuPercent = Math.min(Math.round(loadAvg[0] / (cpuCores || 1) * 50 + 5), 100);
+  const memoryPercent = totalMemMB > 0 ? Math.round((usedMemMB / totalMemMB) * 100) : 0;
+  const cpuPercent = cpuCores > 0 ? Math.min(Math.round((loadAvg[0] / cpuCores) * 100), 100) : 0;
 
   return Promise.resolve(jsonResponse({
     uptime,
     cpuPercent,
     memoryPercent,
-    memoryUsedMB: rssMB,
+    memoryUsedMB: usedMemMB,
     memoryTotalMB: totalMemMB,
     diskTotalGB: 0,
     diskUsedGB: 0,

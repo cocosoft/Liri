@@ -53,6 +53,15 @@ interface ChannelStore {
   installedPlugins: string[];
   /** 插件安装中 */
   isInstallingPlugin: boolean;
+  /** 微信 weixin-cli 状态 */
+  wechatCliStatus: {
+    state: string;
+    running: boolean;
+    qrBase64: string | null;
+    qrRaw: string | null;
+    lastError: string | null;
+    uptimeSec: number | null;
+  } | null;
 
   /** 加载渠道列表 */
   loadChannels: () => Promise<void>;
@@ -86,6 +95,8 @@ interface ChannelStore {
   isChannelPluginInstalled: (channelType: string) => boolean;
   /** 安装渠道插件 */
   installChannelPlugin: (channelType: string) => Promise<void>;
+  /** 获取微信 weixin-cli 状态 */
+  fetchWechatCliStatus: () => Promise<void>;
 
   /** 筛选后的渠道列表 */
   getFilteredChannels: () => Channel[];
@@ -162,6 +173,7 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
   confirmDeleteId: null,
   installedPlugins: [],
   isInstallingPlugin: false,
+  wechatCliStatus: null,
 
   // ── 数据加载 ──
 
@@ -295,11 +307,9 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
 
   isChannelPluginInstalled: (channelType) => {
     /** 渠道→插件包名映射 */
+    /** 需要外部 npm 插件包的渠道映射（其余渠道使用 Node.js 内置 API） */
     const CHANNEL_PLUGIN_MAP: Record<string, string[]> = {
-      qq: ["@openclaw-china/qqbot"],
-      feishu: ["@openclaw-china/feishu-china", "@openclaw/feishu"],
-      dingtalk: ["@openclaw-china/dingtalk"],
-      wecom: ["@openclaw-china/wecom", "@openclaw-china/wecom-app"],
+      wechat: ["@tencent-weixin/openclaw-weixin-cli"],
     };
 
     const required = CHANNEL_PLUGIN_MAP[channelType];
@@ -309,11 +319,9 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
   },
 
   installChannelPlugin: async (channelType) => {
+    /** 需要外部 npm 插件包的渠道映射（其余渠道使用 Node.js 内置 API） */
     const CHANNEL_PLUGIN_MAP: Record<string, string[]> = {
-      qq: ["@openclaw-china/qqbot"],
-      feishu: ["@openclaw-china/feishu-china", "@openclaw/feishu"],
-      dingtalk: ["@openclaw-china/dingtalk"],
-      wecom: ["@openclaw-china/wecom", "@openclaw-china/wecom-app"],
+      wechat: ["@tencent-weixin/openclaw-weixin-cli"],
     };
 
     const packages = CHANNEL_PLUGIN_MAP[channelType];
@@ -345,6 +353,19 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       set({ error: String(e) });
     } finally {
       set({ isInstallingPlugin: false });
+    }
+  },
+
+  // ── 微信 weixin-cli 状态 ──
+
+  fetchWechatCliStatus: async () => {
+    try {
+      const result = await channelService.getWechatCliStatus();
+      if (result.success) {
+        set({ wechatCliStatus: result.data });
+      }
+    } catch {
+      // 服务可能暂未支持，静默失败
     }
   },
 

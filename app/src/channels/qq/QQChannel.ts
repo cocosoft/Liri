@@ -171,6 +171,15 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /** 跨事件去重窗口(毫秒) */
   private readonly crossEventDedupWindowMs = 10_000;
 
+  /** 内容级去重缓存（纯内容哈希，不依赖 senderId）
+   *  QQ 对同一条群 @消息可能同时发送 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE，
+   *  两者 author.id 不同（guild user ID vs open ID），导致 isCrossEventDuplicate 不生效。
+   *  此缓存仅基于消息内容本身做去重，窗口 60s，覆盖 LLM 响应时间。 */
+  private readonly contentDedupCache = new Map<string, number>();
+
+  /** 内容级去重窗口（毫秒） */
+  private readonly contentDedupWindowMs = 60000;
+
   constructor() {
     super();
 
@@ -211,26 +220,16 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   protected validateConfig(config: Record<string, unknown>): string[] {
     const errors: string[] = [];
-    const appId =
-      (config['appId'] as string) || (process.env['QQ_APP_ID'] as string) || '';
-    const clientSecret =
-      (config['clientSecret'] as string) ||
-      (config['secret'] as string) ||
-      (process.env['QQ_APP_SECRET'] as string) ||
-      '';
+    const appId = (config['appId'] as string) || '';
+    const clientSecret = (config['clientSecret'] as string) || (config['secret'] as string) || '';
     if (!appId) errors.push('缺少 appId (QQ Bot AppID)');
     if (!clientSecret) errors.push('缺少 clientSecret (QQ Bot AppSecret)');
     return errors;
   }
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
-    this.appId =
-      (config['appId'] as string) || (process.env['QQ_APP_ID'] as string) || '';
-    this.secret =
-      (config['clientSecret'] as string) ||
-      (config['secret'] as string) ||
-      (process.env['QQ_APP_SECRET'] as string) ||
-      '';
+    this.appId = (config['appId'] as string) || '';
+    this.secret = (config['clientSecret'] as string) || (config['secret'] as string) || '';
 
     if (!this.appId || !this.secret)
       throw new AppError(
@@ -247,18 +246,19 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.gatewayUrl = (config['wsHost'] as string) || 'api.sgroup.qq.com';
 
     // 读取默认发送目标
-    this.homeChannelId =
-      (config['homeChannelId'] as string) ||
-      (process.env['QQ_HOME_CHANNEL_ID'] as string) ||
-      '';
+    this.homeChannelId = (config['homeChannelId'] as string) || '';
 
-    // 在后台异步启动入站 WebSocket 长连接监听，不阻塞连接完成
-    // 出站消息发送依赖 HTTP API（只需 Access Token），无需等待 WebSocket 就绪
-    this.inbound.start({}).catch((error) => {
-      this.logger.error('QQ Bot WebSocket 后台连接失败', {
+    // 启动入站 WebSocket 长连接监听，等待实际连接建立
+    // connectWebSocket() 在 onopen 时 resolve，确保 _state.connected 准确
+    try {
+      await this.inbound.start({});
+      this.logger.info('QQ Bot WebSocket 入站监听已启动');
+    } catch (error) {
+      this.logger.error('QQ Bot WebSocket 连接失败', {
         error: String(error),
       });
-    });
+      throw error;
+    }
 
     // 启动 Token 后台刷新（对标 OpenClaw TokenManager.startBackgroundRefresh）
     this.startTokenBackgroundRefresh();
@@ -434,7 +434,17 @@ class QQChannelPlugin extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    if (!this.appId) return { success: false, error: '未连接' };
+    if (!this.appId) {
+      this.logger.error('[TRACE] QQ sendTextMessage 失败: appId 为空', { target });
+      return { success: false, error: '未连接' };
+    }
+
+    this.logger.info('[TRACE] QQ sendTextMessage 开始', {
+      target,
+      contentLength: content.length,
+      contentPreview: content.slice(0, 80),
+    });
+
     try {
       const token = await this.getAccessToken();
       const body = {
@@ -442,6 +452,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
         content: content.slice(0, QQ_META.maxMessageLength),
       };
       const url = this.getMessageApiUrl(target);
+
+      this.logger.info('[TRACE] QQ sendTextMessage 发送 HTTP 请求', {
+        url,
+        target,
+        bodyKeys: Object.keys(body),
+      });
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -453,12 +469,23 @@ class QQChannelPlugin extends BaseChannelPlugin {
       });
       const data = (await resp.json()) as Record<string, unknown>;
       const ok = resp.ok;
+
+      this.logger.info('[TRACE] QQ sendTextMessage HTTP 响应', {
+        status: resp.status,
+        ok,
+        messageId: data['id'],
+        error: ok ? undefined : data['message'],
+      });
       return {
         success: ok,
         error: ok ? undefined : (data['message'] as string),
         messageId: data['id'] as string,
       };
     } catch (err) {
+      this.logger.error('[TRACE] QQ sendTextMessage 异常', {
+        target,
+        error: (err as Error).message,
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -745,6 +772,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private connectWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
+      let resolved = false;
+
       try {
         const wsUrl = this.gatewayUrl.startsWith('ws')
           ? this.gatewayUrl
@@ -753,7 +782,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
         this.ws = new WebSocket(wsUrl);
 
         const connectTimeout = setTimeout(() => {
-          reject(new Error('QQ Bot WebSocket 连接超时'));
+          if (!resolved) {
+            resolved = true;
+            reject(new Error('QQ Bot WebSocket 连接超时'));
+          }
         }, 15000);
 
         this.ws.onopen = () => {
@@ -762,6 +794,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
           this.consecutiveSessionFailures = 0;
           this.lastConnectTime = Date.now();
           this.logger.info('QQ Bot WebSocket 已连接');
+
+          // 连接成功即 resolve Promise，后续事件由 onmessage 处理
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
         };
 
         this.ws.onmessage = (event: MessageEvent) => {
@@ -769,6 +807,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
             const payload = JSON.parse(
               event.data as string
             ) as QQGatewayPayload;
+            // TRACE: 记录所有收到的网关消息
+            this.logger.info('[TRACE] QQ WS 收到网关消息', {
+              op: payload.op,
+              t: payload.t,
+              s: payload.s,
+            });
             this.handleGatewayPayload(payload).catch((error) => {
               this.logger.error('QQ Bot 网关消息处理异常', {
                 error: String(error),
@@ -785,7 +829,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
         this.ws.onerror = (event: Event) => {
           clearTimeout(connectTimeout);
           this.logger.error('QQ Bot WebSocket 错误', { event });
-          reject(new Error('QQ Bot WebSocket 连接错误'));
+
+          if (!resolved) {
+            resolved = true;
+            reject(new Error('QQ Bot WebSocket 连接错误'));
+          }
         };
 
         this.ws.onclose = (event: CloseEvent) => {
@@ -795,10 +843,20 @@ class QQChannelPlugin extends BaseChannelPlugin {
             code: event.code,
             reason: event.reason,
           });
+
+          // 如果连接尚未 resolve（在 onopen 之前就关闭了），则 reject
+          if (!resolved) {
+            resolved = true;
+            reject(new Error(`QQ Bot WebSocket 连接关闭 (code=${event.code})`));
+          }
+
           this.handleDisconnect();
         };
       } catch (error) {
-        reject(error);
+        if (!resolved) {
+          resolved = true;
+          reject(error);
+        }
       }
     });
   }
@@ -871,8 +929,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     // 有有效会话则尝试恢复，否则重新鉴权
     if (this.sessionId) {
+      this.logger.info('[TRACE] QQ 尝试恢复会话 (RESUME)');
       await this.resumeSession();
     } else {
+      this.logger.info('[TRACE] QQ 发送鉴权请求 (IDENTIFY)');
       await this.identify();
     }
   }
@@ -881,7 +941,13 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 发送鉴权请求
    */
   private async identify(): Promise<void> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.logger.warning('[TRACE] QQ identify 跳过: WS 未就绪', {
+        wsExists: !!this.ws,
+        readyState: this.ws?.readyState,
+      });
+      return;
+    }
 
     const token = await this.getAccessToken();
 
@@ -907,6 +973,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
       this.lastSeq = payload.s;
     }
 
+    // TRACE: 记录分发事件类型
+    this.logger.info(`[TRACE] QQ WS 分发事件: ${payload.t}`, {
+      eventType: payload.t,
+      hasData: !!payload.d,
+    });
+
     switch (payload.t) {
       case QQEventType.READY:
         this.handleReady(payload.d as QQReadyPayload);
@@ -919,25 +991,28 @@ class QQChannelPlugin extends BaseChannelPlugin {
         this.quickDisconnectCount = 0;
         break;
 
-      case QQEventType.AT_MESSAGE_CREATE:
-        this.handleAtMessageCreate(payload.d as QQAtMessageCreatePayload);
-        break;
+      // BYPASS: 仅供 C2C 私聊使用，旁路群聊/频道事件避免双回复
+      // case QQEventType.AT_MESSAGE_CREATE:
+      //   this.handleAtMessageCreate(payload.d as QQAtMessageCreatePayload);
+      //   break;
 
       case QQEventType.C2C_MESSAGE_CREATE:
         this.handleC2cMessageCreate(payload.d as QQC2cMessageCreatePayload);
         break;
 
-      case QQEventType.GROUP_AT_MESSAGE_CREATE:
-        this.handleGroupAtMessageCreate(
-          payload.d as QQGroupAtMessageCreatePayload
-        );
-        break;
+      // BYPASS: 仅使用 C2C 私聊，不处理群消息
+      // case QQEventType.GROUP_AT_MESSAGE_CREATE:
+      //   this.handleGroupAtMessageCreate(
+      //     payload.d as QQGroupAtMessageCreatePayload
+      //   );
+      //   break;
 
-      case QQEventType.DIRECT_MESSAGE_CREATE:
-        this.handleDirectMessageCreate(
-          payload.d as QQDirectMessageCreatePayload
-        );
-        break;
+      // BYPASS: 仅使用 C2C 私聊，不处理频道私信
+      // case QQEventType.DIRECT_MESSAGE_CREATE:
+      //   this.handleDirectMessageCreate(
+      //     payload.d as QQDirectMessageCreatePayload
+      //   );
+      //   break;
 
       default:
         this.logger.debug('QQ Bot 未处理的事件类型', { t: payload.t });
@@ -1004,18 +1079,64 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
+   * 内容级去重检查（纯内容哈希，不依赖 senderId）
+   *
+   * QQ 开放平台对同一条群 @消息可能同时推送 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE，
+   * 两者 author.id 分属不同 ID 体系（guild user ID vs open ID），导致 isCrossEventDuplicate()
+   * 的 "${senderId}:${content}" 哈希 Key 不同、无法命中。
+   *
+   * 此方法仅基于内容本身做去重，作为跨事件去重的兜底层。
+   * 窗口 60s，覆盖 LLM 响应时间，确保同一消息的两个事件不会触发两次 AI 调用。
+   */
+  private isContentDuplicate(content: string): boolean {
+    const now = Date.now();
+    const lastTime = this.contentDedupCache.get(content);
+    if (lastTime && now - lastTime < this.contentDedupWindowMs) {
+      this.logger.info('QQ Bot 内容级去重命中', { content: content.slice(0, 50) });
+      return true;
+    }
+    this.contentDedupCache.set(content, now);
+    if (this.contentDedupCache.size > 1000) {
+      for (const [key, time] of this.contentDedupCache) {
+        if (now - time > this.contentDedupWindowMs) {
+          this.contentDedupCache.delete(key);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * 处理 AT_MESSAGE_CREATE 事件（频道内 @机器人 的消息）
    */
   private handleAtMessageCreate(data: QQAtMessageCreatePayload): void {
-    if (this.isDuplicate(data.id)) return;
+    if (this.isDuplicate(data.id)) {
+      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      return;
+    }
 
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
 
-    // 跨事件去重:防止 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE 重复
-    if (
-      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
-    )
+    // 跨事件去重
+    if (this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)) {
+      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 跨事件去重已跳过', { messageId: data.id });
       return;
+    }
+
+    // 内容级去重兜底（纯内容哈希，不依赖 senderId）
+    if (this.isContentDuplicate(cleanContent || data.content)) {
+      this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 内容级去重已跳过', { messageId: data.id });
+      return;
+    }
+
+    this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 开始处理', {
+      messageId: data.id,
+      senderId: data.author.id,
+      senderName: data.author.username,
+      content: cleanContent.slice(0, 100),
+      guildId: data.guild_id,
+      channelId: data.channel_id,
+    });
 
     const message: MessageContext = {
       channelId: 'qq',
@@ -1043,7 +1164,17 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * conversationId 格式: "c2c:{openid}"，用于后续出站路由到 /v2/users/{openid}/messages
    */
   private handleC2cMessageCreate(data: QQC2cMessageCreatePayload): void {
-    if (this.isDuplicate(data.id)) return;
+    if (this.isDuplicate(data.id)) {
+      this.logger.info('[TRACE] QQ C2C_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      return;
+    }
+
+    this.logger.info('[TRACE] QQ C2C_MESSAGE_CREATE 开始处理', {
+      messageId: data.id,
+      senderId: data.author.id,
+      content: data.content.slice(0, 100),
+      isDirectMessage: true,
+    });
 
     const message: MessageContext = {
       channelId: 'qq',
@@ -1072,15 +1203,31 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private handleGroupAtMessageCreate(
     data: QQGroupAtMessageCreatePayload
   ): void {
-    if (this.isDuplicate(data.id)) return;
+    if (this.isDuplicate(data.id)) {
+      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      return;
+    }
 
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
 
-    // 跨事件去重:防止 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE 重复
-    if (
-      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
-    )
+    // 跨事件去重
+    if (this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)) {
+      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 跨事件去重已跳过', { messageId: data.id });
       return;
+    }
+
+    // 内容级去重兜底（纯内容哈希，不依赖 senderId）
+    if (this.isContentDuplicate(cleanContent || data.content)) {
+      this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 内容级去重已跳过', { messageId: data.id });
+      return;
+    }
+
+    this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 开始处理', {
+      messageId: data.id,
+      senderId: data.author.id,
+      groupOpenid: data.group_openid,
+      content: cleanContent.slice(0, 100),
+    });
 
     const message: MessageContext = {
       channelId: 'qq',
@@ -1107,7 +1254,17 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 处理 DIRECT_MESSAGE_CREATE 事件（频道私信）
    */
   private handleDirectMessageCreate(data: QQDirectMessageCreatePayload): void {
-    if (this.isDuplicate(data.id)) return;
+    if (this.isDuplicate(data.id)) {
+      this.logger.info('[TRACE] QQ DIRECT_MESSAGE_CREATE 重复消息已跳过', { messageId: data.id });
+      return;
+    }
+
+    this.logger.info('[TRACE] QQ DIRECT_MESSAGE_CREATE 开始处理', {
+      messageId: data.id,
+      senderId: data.author.id,
+      guildId: data.guild_id,
+      content: data.content.slice(0, 100),
+    });
 
     const message: MessageContext = {
       channelId: 'qq',
@@ -1255,6 +1412,16 @@ class QQChannelPlugin extends BaseChannelPlugin {
             shouldReconnect: true,
             clearSession: true,
             refreshToken: true,
+            fatal: false,
+          };
+        }
+        // 1006 (异常关闭) / 1001 (离开) / 1005 (无状态码) 等：会话可能已失效，清理后重连
+        if (code === 1006 || code === 1001 || code === 1005) {
+          this.logger.info(`QQ Bot 连接异常关闭 (${code})，清理会话后重连`);
+          return {
+            shouldReconnect: true,
+            clearSession: true,
+            refreshToken: false,
             fatal: false,
           };
         }

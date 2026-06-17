@@ -23,7 +23,7 @@
  * 第三方技能适配器 — 统一导出
  */
 
-export { ThirdPartySkillAdapter } from './ThirdPartySkillAdapter.js';
+export type { ThirdPartySkillAdapter } from './ThirdPartySkillAdapter.js';
 export type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter.js';
 export {
   ThirdPartyAdapterRegistry,

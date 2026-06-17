@@ -4,6 +4,19 @@ import { handleError } from '@modules/error/handleError';
 import type { GatewayChannel } from './types';
 import { ChannelStatus } from './types';
 
+/** 全局单例 */
+let _healthMonitor: HealthMonitor | null = null;
+
+/**
+ * 获取全局 HealthMonitor 单例
+ */
+export function getHealthMonitor(config?: HealthConfig): HealthMonitor {
+  if (!_healthMonitor) {
+    _healthMonitor = new HealthMonitor(config);
+  }
+  return _healthMonitor;
+}
+
 const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:health' });
 
 export interface HealthConfig {
@@ -202,6 +215,30 @@ export class HealthMonitor extends EventEmitter {
       unhealthyCount: results.filter((r) => !r.healthy).length,
       statuses: results,
     };
+
+    // 将健康检查结果写入日志系统，持久化到内存日志
+    if (report.unhealthyCount > 0) {
+      logger.warn(`健康检查完成: ${report.totalChannels} 通道, ${report.healthyCount} 健康, ${report.unhealthyCount} 异常`, {
+        healthReport: {
+          totalChannels: report.totalChannels,
+          healthyCount: report.healthyCount,
+          unhealthyCount: report.unhealthyCount,
+          unhealthyChannels: results.filter((r) => !r.healthy).map((r) => ({
+            channelName: r.channelName,
+            message: r.message,
+            failedPings: r.failedPings,
+          })),
+        },
+      });
+    } else {
+      logger.info(`健康检查完成: ${report.totalChannels} 通道全部健康`, {
+        healthReport: {
+          totalChannels: report.totalChannels,
+          healthyCount: report.healthyCount,
+          unhealthyCount: report.unhealthyCount,
+        },
+      });
+    }
 
     this.emit(HealthEvent.CHECK_COMPLETE, report);
     return report;

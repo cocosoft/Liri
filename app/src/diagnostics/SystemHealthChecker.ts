@@ -6,12 +6,13 @@
 import { EventEmitter } from 'events';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { freemem, totalmem, cpus, loadavg, platform, arch, homedir } from 'os';
+import { freemem, totalmem, cpus, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
 import { configManager } from '@modules/config';
+import { getSystemCpuPercent } from '@modules/monitoring/metrics/SystemMetricsCollector';
 
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
@@ -128,9 +129,7 @@ export class SystemHealthChecker extends EventEmitter {
    * 检查CPU使用率
    */
   private async checkCpuUsage(): Promise<HealthCheckItem> {
-    const loadAvg = loadavg();
-    const cpuCount = cpus().length;
-    const usage = (loadAvg[0] / cpuCount) * 100;
+    const usage = getSystemCpuPercent();
 
     let status: HealthStatus = 'healthy';
     let message = `CPU使用率正常: ${usage.toFixed(2)}%`;
@@ -386,14 +385,14 @@ export class SystemHealthChecker extends EventEmitter {
     }
 
     if (!existsSync(join(pyappDir, 'SOUL.md'))) {
-      issues.push('~/.pyapp/SOUL.md 不存在');
+      issues.push(`${join(pyappDir, 'SOUL.md')} 不存在`);
       suggestions.push(
         'SOUL.md 会在首次启动时自动创建，手动创建可自定义 AI 人格'
       );
     }
 
     if (!existsSync(join(pyappDir, 'USER.md'))) {
-      issues.push('~/.pyapp/USER.md 不存在');
+      issues.push(`${join(pyappDir, 'USER.md')} 不存在`);
       suggestions.push(
         'USER.md 会在首次启动时自动创建，手动创建可自定义用户身份'
       );
@@ -480,7 +479,7 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async getResourceUsage(): Promise<ResourceUsage> {
     const cpuInfo = cpus();
-    const loadAvg = loadavg();
+    const sysCpu = getSystemCpuPercent();
     const total = totalmem();
     const free = freemem();
 
@@ -495,8 +494,8 @@ export class SystemHealthChecker extends EventEmitter {
 
     return {
       cpu: {
-        usage: (loadAvg[0] / cpuInfo.length) * 100,
-        loadAverage: loadAvg,
+        usage: sysCpu,
+        loadAverage: [], // 跨平台兼容：Windows 不支持 loadavg
         cores: cpuInfo.length,
       },
       memory: {

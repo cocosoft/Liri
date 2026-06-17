@@ -45,6 +45,17 @@ const MAX_MESSAGE_SIZE = 1 * 1024 * 1024;
 /** 消息去重 TTL（毫秒） */
 const DEDUP_TTL_MS = 3000;
 
+/** 内容级去重缓存：`channelId:content` → 时间戳
+ *
+ * QQ 等通道可能对同一条消息发送两个不同事件类型（如 AT_MESSAGE_CREATE + GROUP_AT_MESSAGE_CREATE），
+ * 两者的 messageId 和 senderId 均不同，导致 messageId 级和 senderId+content 级去重均失效。
+ * 此缓存仅基于 `channelId + 消息内容` 做短窗口去重，作为全局兜底。
+ */
+const contentDedupCache = new Map<string, number>();
+
+/** 内容级去重窗口（毫秒）—— 60s，覆盖 LLM 响应时间，确保同一条消息的重复事件不会触发两次 AI 调用 */
+const CONTENT_DEDUP_WINDOW_MS = 60000;
+
 /** 路由结果 */
 export interface RouteResult {
   valid: boolean;
@@ -144,6 +155,15 @@ export async function routeChannelMessage(
 ): Promise<RouteResult> {
   const { coreAPI, onOutbound, channelName = 'unknown', enableTracing = false } = options;
 
+  logger.info('[TRACE] routeChannelMessage 入口', {
+    channelName,
+    messageId: message.messageId,
+    senderId: message.senderId,
+    conversationId: message.conversationId,
+    contentLength: message.content?.length || 0,
+    hasOnOutbound: !!onOutbound,
+  });
+
   // [0] 端到端追踪开始
   let traceSpanContext: SessionSpanContext | null = null;
   if (enableTracing) {
@@ -175,11 +195,36 @@ export async function routeChannelMessage(
     };
   }
 
-  // ② 去重检查
+  // ② 去重检查（messageId 级）
   const claimResult = claimMessage(message.messageId);
   if (claimResult === 'duplicate') {
     logger.info(`重复消息已跳过: ${message.messageId}`, { channelName });
     return { valid: true, response: 'duplicate_skipped' };
+  }
+
+  // ②-② 内容级去重检查（兜底：不同 messageId 但内容相同的重复事件）
+  if (message.content) {
+    const contentKey = `${message.channelId || channelName}:${message.content}`;
+    const now = Date.now();
+    const lastContentTime = contentDedupCache.get(contentKey);
+    if (lastContentTime && now - lastContentTime < CONTENT_DEDUP_WINDOW_MS) {
+      logger.info(`内容级去重命中: ${channelName}`, {
+        contentKey: contentKey.slice(0, 100),
+        ageMs: now - lastContentTime,
+      });
+      // 也释放 messageId 级别的锁
+      releaseProcessing(message.messageId);
+      return { valid: true, response: 'duplicate_skipped' };
+    }
+    contentDedupCache.set(contentKey, now);
+    // 定期清理过期条目
+    if (contentDedupCache.size > 1000) {
+      for (const [key, time] of contentDedupCache) {
+        if (now - time > CONTENT_DEDUP_WINDOW_MS) {
+          contentDedupCache.delete(key);
+        }
+      }
+    }
   }
 
   try {
@@ -216,6 +261,12 @@ export async function routeChannelMessage(
     }
 
     // ④ 会话创建/复用 → ⑤ CoreAPI.chat()
+    logger.info('[TRACE] routeChannelMessage 调用 CoreAPI.chat 开始', {
+      messageId: message.messageId,
+      sessionId: message.conversationId ?? message.senderId,
+      contentLength: message.content.length,
+    });
+
     const response = await coreAPI.chat({
       content: message.content,
       sessionId: message.conversationId ?? message.senderId,
@@ -228,10 +279,29 @@ export async function routeChannelMessage(
       },
     });
 
+    logger.info('[TRACE] routeChannelMessage CoreAPI.chat 返回', {
+      messageId: message.messageId,
+      hasContent: !!response.content,
+      responseLength: response.content?.length || 0,
+    });
+
     // ⑥ 出站回调 + 追踪完成
     if (response.content && onOutbound) {
+      logger.info('[TRACE] routeChannelMessage 调用 onOutbound 回调', {
+        messageId: message.messageId,
+        target: message.conversationId ?? message.senderId,
+      });
+
       const target = message.conversationId ?? message.senderId;
+      logger.info('[TRACE] routeChannelMessage onOutbound 开始执行', {
+        messageId: message.messageId,
+        target,
+      });
       await onOutbound(response.content, target);
+      logger.info('[TRACE] routeChannelMessage onOutbound 执行完成', {
+        messageId: message.messageId,
+        target,
+      });
     }
 
     if (enableTracing && traceSpanContext?.isSampled) {

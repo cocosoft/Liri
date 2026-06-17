@@ -11,6 +11,7 @@ import type { Channel, UpdateChannelRequest } from "../../types";
 import { getPlatformFields, type PlatformFieldDef } from "./platformFields";
 import { maskSecretValue, normalizeSecretInput } from "../../utils/secretMask";
 import PluginInstallCard from "./PluginInstallCard";
+import WechatQrCard from "./WechatQrCard";
 import { useChannelStore } from "../../stores/channelStore";
 
 // ─── 类型标签 ──────────────────────────────────────────
@@ -65,11 +66,8 @@ const TYPE_COLORS: Record<string, string> = {
 // ─── 渠道→插件包映射 ──────────────────────────────────
 
 /** 需要插件检测的渠道映射 */
+/** 需要外部 npm 插件包的渠道映射（其余渠道使用 Node.js 内置 API） */
 const CHANNEL_PLUGIN_MAP: Record<string, string[]> = {
-  qq: ["@openclaw-china/qqbot"],
-  feishu: ["@openclaw-china/feishu-china", "@openclaw/feishu"],
-  dingtalk: ["@openclaw-china/dingtalk"],
-  wecom: ["@openclaw-china/wecom", "@openclaw-china/wecom-app"],
   wechat: ["@tencent-weixin/openclaw-weixin-cli"],
 };
 
@@ -289,7 +287,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
             />
           </div>
 
-          {/* 插件检测 — QQ/飞书/钉钉/企业微信 需要安装对应插件 */}
+          {/* 插件检测 — QQ/飞书/钉钉/企业微信/微信 需要安装对应插件 */}
           {pluginRequired && !isChannelPluginInstalled(channel.type) && (
             <PluginInstallCard
               channelLabel={TYPE_LABELS[channel.type] || channel.type}
@@ -297,6 +295,11 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
               isInstalling={isInstallingPlugin}
               onInstall={() => installChannelPlugin(channel.type)}
             />
+          )}
+
+          {/* 微信扫码登录二维码 */}
+          {channel.type === "wechat" && (
+            <WechatQrCard />
           )}
 
           {/* 认证配置 */}

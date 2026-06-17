@@ -1058,7 +1058,7 @@ export class ChatManagerImpl implements ChatManager {
       // 先获取或创建会话，以便将历史消息传入命令上下文
       const cmdSession = options?.sessionId
         ? this._getLocalSession(options.sessionId) ||
-          this.createSession({ title: 'New Session' })
+          this.createSession({ title: 'New Session', id: options.sessionId })
         : this._getLocalSession(this._currentSessionId) ||
           this.createSession({ title: 'New Session' });
 
@@ -1092,7 +1092,7 @@ export class ChatManagerImpl implements ChatManager {
       // 添加到会话
       const session = options?.sessionId
         ? this._getLocalSession(options.sessionId) ||
-          this.createSession({ title: 'New Session' })
+          this.createSession({ title: 'New Session', id: options.sessionId })
         : this._getLocalSession(this._currentSessionId) ||
           this.createSession({ title: 'New Session' });
 
@@ -1106,7 +1106,7 @@ export class ChatManagerImpl implements ChatManager {
     // 获取或创建会话
     const session = options?.sessionId
       ? this._getLocalSession(options.sessionId) ||
-        this.createSession({ title: 'New Session' })
+        this.createSession({ title: 'New Session', id: options.sessionId })
       : this._getLocalSession(this._currentSessionId) ||
         this.createSession({ title: 'New Session' });
 
@@ -2159,7 +2159,7 @@ export class ChatManagerImpl implements ChatManager {
     // 获取或创建会话
     const session = options?.sessionId
       ? this._getLocalSession(options.sessionId) ||
-        this.createSession({ title: 'New Session' })
+        this.createSession({ title: 'New Session', id: options.sessionId })
       : this._getLocalSession(this._currentSessionId) ||
         this.createSession({ title: 'New Session' });
 
@@ -3126,9 +3126,10 @@ export class ChatManagerImpl implements ChatManager {
   createSession(params: CreateSessionParams): ChatSession {
     const now = new Date();
     const sessionId =
+      params.id ||
       'session_' +
-      Date.now().toString(36) +
-      Math.random().toString(36).substr(2);
+        Date.now().toString(36) +
+        Math.random().toString(36).substr(2);
     const session: ChatSession = {
       id: sessionId,
       title: params.title,

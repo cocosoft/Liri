@@ -67,4 +67,21 @@ export const channelService = {
       { package: packageName },
     );
   },
+
+  /** 获取 weixin-cli 状态（含二维码扫码信息） */
+  getWechatCliStatus: async (): Promise<{
+    success: boolean;
+    data: {
+      state: string;
+      installed: boolean;
+      running: boolean;
+      qrBase64: string | null;
+      qrRaw: string | null;
+      lastError: string | null;
+      pid: number | null;
+      uptimeSec: number | null;
+    };
+  }> => {
+    return http.get("/v1/wechat/cli-status");
+  },
 };

@@ -35,8 +35,9 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import type { IChannelPlugin } from '@modules/channels/types';
 
-import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail } from './handlers/monitoring-handlers';
+import { handleMonitorSummary, handleMonitorMetrics, handleMonitorAlerts, handleAcknowledgeAlert, handleMonitorLogs, handleExportLogs, handleMonitorSessions, handleMonitorSessionDetail, handleSessionsSummary, handleOTelMetrics, handleInfrastructureStatus } from './handlers/monitoring-handlers';
 import { handleHealthReport, handleAnalyticsDashboard, handleCostSummary, handleCostRecords, handleCostRange, setAnalyticsDependencies } from './handlers/analytics-handlers';
+import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
 import { handleChatCompletions, handleQuestionAnswer } from './handlers/chat-handlers';
 import { handleFileRegistryList, handleFileRegistryDetail, handleFileRegistrySearch, handleFileRegistryStats, handleFileRegistryDelete, handleFileHealth } from './handlers/files-handlers';
 import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
@@ -131,6 +132,7 @@ export class LocalHTTPService {
       getCostRecordRepository(),
       PerformanceMonitorService,
     );
+    setupInfrastructureDiagnostics();
     this.apiSecret = configManager.env('LIRI_API_SECRET') || '';
   }
 
@@ -458,8 +460,16 @@ export class LocalHTTPService {
     });
 
     // ---- SSE Event Bus ----
-    if (req.method === 'GET' && url === '/v1/events') {
-      return this.handleEvents(req, res);
+    if (url === '/v1/events') {
+      if (req.method === 'GET') {
+        return this.handleEvents(req, res);
+      }
+      // HEAD 用于心跳保活，返回 200 即可
+      if (req.method === 'HEAD') {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.end();
+        return;
+      }
     }
 
     if (req.method === 'POST' && url === '/v1/chat/completions') {
@@ -1121,6 +1131,11 @@ export class LocalHTTPService {
       return this.handleInstallChannelPlugin(req, res);
     }
 
+    // ---- WeChat CLI Status ----
+    if (req.method === 'GET' && url === '/v1/wechat/cli-status') {
+      return this.handleWechatCliStatus(req, res);
+    }
+
     // ---- Config ----
     if (req.method === 'GET' && url === '/favicon.ico') {
       return this.handleFavicon(req, res);
@@ -1306,6 +1321,15 @@ export class LocalHTTPService {
     }
     if (req.method === 'GET' && url === '/v1/health/report') {
       return this.handleHealthReport(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/monitor/sessions/summary') {
+      return this.handleSessionsSummary(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/monitor/otel/metrics') {
+      return this.handleOTelMetrics(req, res);
+    }
+    if (req.method === 'GET' && url === '/v1/infrastructure/status') {
+      return this.handleInfrastructureStatus(req, res);
     }
 
     // ---- Analytics ----
@@ -1615,6 +1639,27 @@ export class LocalHTTPService {
     sessionId: string,
   ): Promise<void> {
     return handleMonitorSessionDetail(this._handlerCtx, req, res, { "$1": sessionId });
+  }
+
+  private async handleSessionsSummary(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    return handleSessionsSummary(this._handlerCtx, req, res);
+  }
+
+  private async handleOTelMetrics(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    return handleOTelMetrics(this._handlerCtx, req, res);
+  }
+
+  private async handleInfrastructureStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    return handleInfrastructureStatus(this._handlerCtx, req, res);
   }
 
   // ========== Health / Analytics / Cost Handlers (extracted to handlers/analytics-handlers.ts) ==========
@@ -6977,11 +7022,17 @@ export class LocalHTTPService {
 
       // 更新配置
       const channelAfterDyn = channelRegistry.get(channelId)!;
-      const updated = channelRegistry.updateConfig(channelId, {
+      channelRegistry.updateConfig(channelId, {
         name: name,
         enabled: enabled,
         options: config as Record<string, unknown> | undefined,
       });
+
+      // 同步写入统一凭据存储（使 ChannelSecretStore 查询可用）
+      if (config && typeof config === 'object' && Object.keys(config).length > 0) {
+        const { ChannelSecretStore } = await import('@modules/channels/secrets/ChannelSecretStore');
+        ChannelSecretStore.getInstance().set(channelId, config as Record<string, unknown>);
+      }
 
       // 如果 enabled 有变化，执行连接/断开
       if (enabled !== undefined) {
@@ -7325,6 +7376,28 @@ export class LocalHTTPService {
           })
         );
       }
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  // ========== WeChat CLI Status Handler ==========
+
+  /**
+   * 获取 weixin-cli 当前状态（含二维码扫码信息）
+   * 用于前端显示扫码登录界面
+   */
+  private async handleWechatCliStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { WeixinCliManager } =
+        await import('@modules/channels/wechat/cli-manager');
+      const status = WeixinCliManager.getInstance().getStatus();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: status }));
     } catch (err) {
       this.sendError(res, err);
     }

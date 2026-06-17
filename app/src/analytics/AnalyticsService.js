@@ -19,6 +19,10 @@ class AnalyticsService extends EventEmitter {
     this.maxEvents = 10000;
     this.maxSessions = 1000;
     this.sessionTimeout = 30 * 60 * 1000; // 30分钟
+
+    // 工具调用独立累计器（不受事件队列清空影响）
+    this.toolCallCounts = new Map(); // toolName -> count
+    this.totalToolCalls = 0;
   }
 
   /**
@@ -59,9 +63,27 @@ class AnalyticsService extends EventEmitter {
       this.events.shift();
     }
 
+    // 独立累计工具调用计数（不受队列清空影响）
+    if (['tool_call', 'tool_execute', 'tool_result'].includes(type)) {
+      const toolName = (metadata?.tool_name || name || 'unknown');
+      this.toolCallCounts.set(toolName, (this.toolCallCounts.get(toolName) || 0) + 1);
+      this.totalToolCalls++;
+    }
+
     this.emit('eventTracked', event);
 
     return eventId;
+  }
+
+  /**
+   * logEvent — 简化事件记录接口
+   * 兼容 types.ts 中 IAnalyticsService 接口定义
+   * @param eventName 事件名称，同时作为 type 存储
+   * @param metadata 事件元数据
+   * @returns 事件ID
+   */
+  logEvent(eventName, metadata = {}) {
+    return this.trackEvent(eventName, eventName, metadata);
   }
 
   /**
@@ -236,6 +258,21 @@ class AnalyticsService extends EventEmitter {
       activeSessions: sessions.length,
       eventCounts,
       averageSessionDuration,
+    };
+  }
+
+  /**
+   * 获取工具调用累计统计（独立于事件队列，不受清空影响）
+   * @returns {{ totalCalls: number, uniqueTools: number, toolCounts: Array<{ name: string, count: number }> }}
+   */
+  getToolCallStats() {
+    const topTools = Array.from(this.toolCallCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 10);
+    return {
+      totalCalls: this.totalToolCalls,
+      uniqueTools: this.toolCallCounts.size,
+      topTools,
     };
   }
 

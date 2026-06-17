@@ -1,4 +1,5 @@
 import { PerformanceOptimizer } from './PerformanceOptimizer.js';
+import { getProcessCpuPercent } from '../monitoring/metrics/SystemMetricsCollector.js';
 
 export interface EnhancedPerformanceMetrics {
   timestamp: Date;
@@ -146,18 +147,15 @@ export class EnhancedPerformanceManager {
   collectMetrics(): EnhancedPerformanceMetrics {
     const cpu = process.cpuUsage();
     const mem = process.memoryUsage();
-    const uptime = process.uptime();
-
-    const totalCPU = cpu.user + cpu.system;
-    const cpuUsagePercent = (totalCPU / (uptime * 1000000)) * 100;
+    const cpuUsagePercent = getProcessCpuPercent();
 
     const metrics: EnhancedPerformanceMetrics = {
       timestamp: new Date(),
       cpu: {
         user: cpu.user,
         system: cpu.system,
-        idle: 100 - cpuUsagePercent,
-        usagePercentage: Math.min(100, cpuUsagePercent),
+        idle: Math.max(0, 100 - cpuUsagePercent),
+        usagePercentage: Math.min(100, Math.round(cpuUsagePercent * 10) / 10),
       },
       memory: {
         heapUsed: mem.heapUsed,

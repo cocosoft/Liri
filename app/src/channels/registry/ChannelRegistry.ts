@@ -57,6 +57,7 @@ export interface ChannelInterface {
 
 /**
  * 将 IChannelPlugin 适配为 ChannelInterface
+ * connect 时自动从 ChannelSecretStore 注入已存储的凭据
  */
 export function adaptPluginToInterface(
   plugin: IChannelPlugin
@@ -73,7 +74,11 @@ export function adaptPluginToInterface(
         .homeChannelId;
     },
     connect: async () => {
-      await plugin.lifecycle.connect({});
+      // 从统一凭据存储获取该通道的所有已保存配置（DB 优先，.env 兜底）
+      const { ChannelSecretStore } = await import('../secrets/ChannelSecretStore');
+      const store = ChannelSecretStore.getInstance();
+      const credentials = store.get(plugin.id);
+      await plugin.lifecycle.connect(credentials);
       return plugin.lifecycle.getStatus().connected;
     },
     disconnect: async () => {
@@ -321,37 +326,72 @@ export class ChannelRegistry extends EventEmitter {
     });
   }
 
-  /** 持久化单条配置（UPSERT） */
-  private persistConfig(config: ChannelConfig): void {
-    if (!this.db || !this.persistenceReady) return;
-    const { type, name, enabled, options } = config;
-    const optionsJson = JSON.stringify(options || {});
+  /** 持久化单条配置（UPSERT）— 返回 true 表示写入成功，false 表示写入失败 */
+  private persistConfig(config: ChannelConfig): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      if (!this.db || !this.persistenceReady) {
+        resolve(false);
+        return;
+      }
+      const { type, name, enabled, options } = config;
+      const optionsJson = JSON.stringify(options || {});
 
-    this.db.run(
-      `INSERT INTO channel_configs (id, name, type, enabled, options, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         name = excluded.name,
-         type = excluded.type,
-         enabled = excluded.enabled,
-         options = excluded.options,
-         updated_at = excluded.updated_at`,
-      [type, name, type, enabled ? 1 : 0, optionsJson, Date.now()]
-    );
+      this.db!.run(
+        `INSERT INTO channel_configs (id, name, type, enabled, options, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           type = excluded.type,
+           enabled = excluded.enabled,
+           options = excluded.options,
+           updated_at = excluded.updated_at`,
+        [type, name, type, enabled ? 1 : 0, optionsJson, Date.now()],
+        (err: Error | null) => {
+          if (err) {
+            logger.error(`持久化通道配置失败: ${type}`, { error: err.message, config });
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        }
+      );
+    });
   }
 
-  /** 从 DB 删除单条配置 */
-  private deletePersistedConfig(id: string): void {
-    if (!this.db || !this.persistenceReady) return;
-    this.db.run('DELETE FROM channel_configs WHERE id = ?', [id]);
+  /** 从 DB 删除单条配置 — 返回 true 表示删除成功 */
+  private deletePersistedConfig(id: string): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      if (!this.db || !this.persistenceReady) {
+        resolve(false);
+        return;
+      }
+      this.db!.run(
+        'DELETE FROM channel_configs WHERE id = ?',
+        [id],
+        (err: Error | null) => {
+          if (err) {
+            logger.error(`删除持久化通道配置失败: ${id}`, { error: err.message });
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        }
+      );
+    });
   }
 
-  /** 同步当前的全部内存配置到 DB */
-  private syncAllToDb(): void {
-    if (!this.db || !this.persistenceReady) return;
+  /** 同步当前的全部内存配置到 DB — 返回成功写入的数量 */
+  private async syncAllToDb(): Promise<number> {
+    if (!this.db || !this.persistenceReady) return 0;
+    let successCount = 0;
     for (const config of this.configs.values()) {
-      this.persistConfig(config);
+      const ok = await this.persistConfig(config);
+      if (ok) successCount++;
     }
+    if (successCount < this.configs.size) {
+      logger.warning(`同步配置到 DB 不完全: ${successCount}/${this.configs.size}`);
+    }
+    return successCount;
   }
 
   /** 从 ChannelPluginRegistry 同步已有插件到本地缓存 */
@@ -367,6 +407,7 @@ export class ChannelRegistry extends EventEmitter {
 
   /**
    * 注册通道（支持 ChannelInterface 和 IChannelPlugin）
+   * 内存更新始终成功；DB 持久化失败时记录警告但不阻止通道运行
    */
   register(channel: ChannelInterface | IChannelPlugin): void {
     let adapted: ChannelInterface;
@@ -389,7 +430,13 @@ export class ChannelRegistry extends EventEmitter {
       options: {},
     };
     this.configs.set(adapted.name, config);
-    this.persistConfig(config);
+
+    // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
+    this.persistConfig(config).then((ok) => {
+      if (!ok) {
+        logger.warning(`注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`);
+      }
+    });
 
     // 仅首次注册时发出事件，避免双重注册路径（ChannelManager + ChannelPluginRegistry 同步）产生重复事件
     if (!isDuplicate) {
@@ -408,7 +455,14 @@ export class ChannelRegistry extends EventEmitter {
       channel.disconnect();
       this.channels.delete(name);
       this.configs.delete(name);
-      this.deletePersistedConfig(name);
+
+      // 异步删除持久化配置（不阻塞调用者，失败时自动记录错误日志）
+      this.deletePersistedConfig(name).then((deleted) => {
+        if (!deleted) {
+          logger.warning(`注销通道 ${name}: 内存已更新但 DB 删除失败`);
+        }
+      });
+
       this.emit('channel:unregistered', { name });
       channelEventBus.publish(ChannelEvents.CHANNEL_UNREGISTERED, { name });
 
@@ -460,6 +514,7 @@ export class ChannelRegistry extends EventEmitter {
   /**
    * 更新通道配置（合并模式）
    * 支持更新 name / enabled / options
+   * 内存更新始终成功；DB 持久化失败时记录警告但不阻止调用方继续
    */
   updateConfig(
     name: string,
@@ -481,7 +536,14 @@ export class ChannelRegistry extends EventEmitter {
     if (changes.options !== undefined) {
       config.options = { ...config.options, ...changes.options };
     }
-    this.persistConfig(config);
+
+    // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
+    this.persistConfig(config).then((ok) => {
+      if (!ok) {
+        logger.warning(`更新通道配置 ${name}: 内存已更新但 DB 持久化失败`);
+      }
+    });
+
     return true;
   }
 

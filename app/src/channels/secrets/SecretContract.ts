@@ -103,16 +103,22 @@ export class SecretContract {
   }
 
   /**
-   * 解析配置，从环境变量填充缺失值并应用默认值
+   * 解析配置，从持久化存储和环境变量填充缺失值并应用默认值
    *
-   * 优先级：传入值 > 环境变量 > 默认值
+   * 优先级：传入值 > fromStore（持久化存储） > 环境变量 > 默认值
+   *
+   * @param raw 传入的配置值（通常来自请求体）
+   * @param fromStore 来自持久化存储的配置（如 ChannelSecretStore 的 DB 数据）
    */
-  resolve(raw: Record<string, unknown>): Record<string, unknown> {
+  resolve(
+    raw: Record<string, unknown>,
+    fromStore?: Record<string, unknown>
+  ): Record<string, unknown> {
     const resolved: Record<string, unknown> = {};
 
     for (const spec of this.specs) {
       const value = raw[spec.key];
-      const resolvedVal = this.resolveValue(spec, value);
+      const resolvedVal = this.resolveValue(spec, value, fromStore);
 
       if (
         resolvedVal !== undefined &&
@@ -203,12 +209,32 @@ export class SecretContract {
     return this.specs.filter((s) => s.sensitive).map((s) => s.key);
   }
 
-  /** 解析单个值：传入值 → 环境变量 → 默认值 */
-  private resolveValue(spec: SecretSpec, value: unknown): unknown {
+  /**
+   * 解析单个值：传入值 → fromStore（持久化存储） → 环境变量 → 默认值
+   *
+   * @param spec 密钥规格
+   * @param value 传入值
+   * @param fromStore 来自持久化存储的配置值（可选）
+   */
+  private resolveValue(
+    spec: SecretSpec,
+    value: unknown,
+    fromStore?: Record<string, unknown>
+  ): unknown {
+    // 1. 传入值优先
     if (value !== undefined && value !== null && value !== '') {
       return this.coerceType(spec, value);
     }
 
+    // 2. 来自持久化存储（ChannelSecretStore DB 数据）
+    if (fromStore && spec.key in fromStore) {
+      const storeVal = fromStore[spec.key];
+      if (storeVal !== undefined && storeVal !== null && storeVal !== '') {
+        return this.coerceType(spec, storeVal);
+      }
+    }
+
+    // 3. 环境变量（向后兼容）
     if (spec.envVar) {
       const envVal = process.env[spec.envVar];
       if (envVal !== undefined && envVal !== '') {
@@ -216,6 +242,7 @@ export class SecretContract {
       }
     }
 
+    // 4. 默认值
     return spec.defaultValue;
   }
 

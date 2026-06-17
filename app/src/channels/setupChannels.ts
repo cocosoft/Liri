@@ -428,6 +428,12 @@ export async function lazyConnectChannels(): Promise<void> {
 
       if (plugin.inbound) {
         plugin.inbound.setMessageHandler(async (message: MessageContext) => {
+          logger.info('[TRACE] setupChannels messageHandler 被调用', {
+            channelName: channel.name,
+            messageId: message.messageId,
+            senderId: message.senderId,
+            hasCoreAPI: !!getCoreAPI(),
+          });
           // 终端回显：显示来源通道、发送者、消息内容
           const senderDisplay =
             message.senderName || message.senderId || 'unknown';
@@ -442,13 +448,53 @@ export async function lazyConnectChannels(): Promise<void> {
             channelName: channel.name,
             enableTracing: true,
             onOutbound: async (content, target) => {
+              logger.info('[TRACE] setupChannels onOutbound 回调被调用', {
+                channelName: channel.name,
+                target,
+                contentLength: content.length,
+                hasOutbound: !!plugin.outbound,
+              });
+
               // 终端回显：显示AI回复
               console.log(`\n── [${channel.name.toUpperCase()}] Liri ──`);
               console.log(content);
               console.log(''); // 空行分隔
 
               if (plugin.outbound) {
-                await plugin.outbound.sendText(target, content);
+                try {
+                  logger.info('[TRACE] setupChannels 调用 plugin.outbound.sendText', {
+                    channelName: channel.name,
+                    target,
+                  });
+                  const sendResult = await plugin.outbound.sendText(
+                    target,
+                    content
+                  );
+                  logger.info('[TRACE] setupChannels sendText 返回', {
+                    channelName: channel.name,
+                    success: sendResult.success,
+                    error: sendResult.error,
+                    messageId: sendResult.messageId,
+                  });
+                  if (!sendResult.success) {
+                    logger.warning(
+                      `通道 ${channel.name} 消息发送失败`,
+                      {
+                        target,
+                        error: sendResult.error,
+                        messageId: sendResult.messageId,
+                      }
+                    );
+                  }
+                } catch (sendError) {
+                  logger.error(
+                    `通道 ${channel.name} 消息发送异常`,
+                    {
+                      target,
+                      error: String(sendError),
+                    }
+                  );
+                }
               }
             },
           });

@@ -13,9 +13,9 @@
  * 不应在 config/ 或其他地方自行定义路径常量。
  */
 
-import { homedir } from 'os';
 import { basename, join, resolve } from 'path';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
+import * as os from 'os';
 
 // ─── 环境变量键名 ─────────────────────────────
 
@@ -46,11 +46,14 @@ export function getUserDataDirOverride(): string | null {
 
 /**
  * 获取用户数据目录（第三层）
- * 优先级：
- * 1. 用户设置中配置的数据目录
- * 2. LIRI_HOME 环境变量
- * 3. 默认：用户主目录下的 .pyapp（优先）
- * 4. 回退：项目安装目录下的 app/data/pyapp（仅当用户目录不可写时，便携模式）
+ *
+ * 优先级（单一确定性来源）：
+ * 1. 用户设置中配置的数据目录（setUserDataDirOverride）
+ * 2. LIRI_HOME 环境变量（由入口文件在启动时设置）
+ * 3. 默认：项目根目录下的 app/data/pyapp（所有数据统一在项目目录下）
+ *
+ * 注意：不再有回退链！入口文件（main.ts / pyapp.ts）应负责在启动时设置
+ * LIRI_HOME 环境变量，本函数仅读取已有决定。
  */
 export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   // 1. 优先使用运行时设置的目录
@@ -58,27 +61,14 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
     return resolve(userDataDirOverride);
   }
 
-  // 2. 环境变量覆盖
+  // 2. 环境变量（由入口文件在启动时设置）
   const override = env[ENV_LIRI_HOME]?.trim();
   if (override) {
     return resolve(override);
   }
 
-  // 3. 优先使用用户主目录下的 .pyapp
-  const userHomeDir = join(homedir(), '.pyapp');
-  try {
-    if (!existsSync(userHomeDir)) {
-      mkdirSync(userHomeDir, { recursive: true });
-    }
-    const testFile = join(userHomeDir, '.write_test');
-    const fs = require('fs');
-    fs.writeFileSync(testFile, '');
-    fs.unlinkSync(testFile);
-    return userHomeDir;
-  } catch {
-    // 用户目录不可写，回退到项目数据目录下的 pyapp（便携模式兜底）
-    return join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
-  }
+  // 3. 默认值：项目根目录下的 app/data/pyapp
+  return join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
 }
 
 /**
@@ -607,3 +597,54 @@ export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
 export const CONFIGS_DIR = resolveConfigDir();
 export const PROJECT_CONFIG_PATH = resolveProjectConfigPath();
 export const PROJECT_SETTINGS_PATH = resolveProjectSettingsPath();
+
+// ─── 路径一致性验证 ────────────────────────
+
+/**
+ * 运行时路径一致性验证。
+ * 在模块初始化阶段调用，检查关键路径是否与期望一致，避免硬编码路径导致的数据分散。
+ *
+ * 当前检查项：
+ * - LIRI_HOME 环境变量是否已设置（未被意外覆盖）
+ * - resolvePyappHome() 是否与 LIRI_HOME 一致
+ * - SOUL.md 和 USER.md 是否位于正确位置
+ *
+ * 仅打印 warning 不抛异常——路径错误不应阻塞启动。
+ */
+export function validatePathConsistency(
+  logger?: { warn: (msg: string) => void }
+): void {
+  const log = logger ?? { warn: (msg: string) => console.warn('[路径验证]', msg) };
+
+  // 1. LIRI_HOME 必须已设置
+  const liriHome = process.env['LIRI_HOME']?.trim();
+  if (!liriHome) {
+    log.warn('环境变量 LIRI_HOME 未设置，路径解析将回退到默认值');
+    return;
+  }
+
+  // 2. resolvePyappHome() 应与 LIRI_HOME 一致
+  const resolvedHome = resolvePyappHome();
+  if (resolvedHome !== resolve(liriHome)) {
+    log.warn(
+      `resolvePyappHome() 返回 "${resolvedHome}" 与 LIRI_HOME="${liriHome}" 不一致。` +
+      '可能出现数据分散，请检查 setUserDataDirOverride() 调用栈'
+    );
+  }
+
+  // 3. SOUL.md / USER.md 应在 LIRI_HOME 根目录
+  const soulExpected = join(resolve(liriHome), 'SOUL.md');
+  const userExpected = join(resolve(liriHome), 'USER.md');
+  if (SOUL_PATH !== soulExpected) {
+    log.warn(
+      `SOUL_PATH="${SOUL_PATH}" 与预期路径 "${soulExpected}" 不一致。` +
+      'SOUL.md 应位于 LIRI_HOME 根目录（第三层）'
+    );
+  }
+  if (USER_PROFILE_PATH !== userExpected) {
+    log.warn(
+      `USER_PROFILE_PATH="${USER_PROFILE_PATH}" 与预期路径 "${userExpected}" 不一致。` +
+      'USER.md 应位于 LIRI_HOME 根目录（第三层）'
+    );
+  }
+}

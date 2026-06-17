@@ -38,7 +38,7 @@ export { FileSkillLoader } from './loaders/sources/FileSkillLoader.js';
 export type { FileSkillLoaderConfig } from './loaders/sources/FileSkillLoader.js';
 
 // 第三方适配器体系
-export { ThirdPartySkillAdapter } from './loaders/adapter/ThirdPartySkillAdapter.js';
+export type { ThirdPartySkillAdapter } from './loaders/adapter/ThirdPartySkillAdapter.js';
 export type { ThirdPartySkillSearchResult } from './loaders/adapter/ThirdPartySkillAdapter.js';
 export {
   ThirdPartyAdapterRegistry,

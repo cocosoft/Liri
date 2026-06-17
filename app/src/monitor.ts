@@ -6,6 +6,7 @@
 import { Logger, LogLevel } from './monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 import { getMonitoringService } from './monitoring/index.js';
+import { getProcessCpuPercent } from './monitoring/metrics/SystemMetricsCollector.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -23,7 +24,7 @@ function monitor() {
       `   - 内存使用: ${(status.memory.heapUsed / 1024 / 1024).toFixed(2)} MB / ${(status.memory.heapTotal / 1024 / 1024).toFixed(2)} MB`
     );
     console.log(
-      `   - CPU 使用: ${((status.cpu.user + status.cpu.system) / 1000).toFixed(2)}%`
+      `   - CPU 使用: ${getProcessCpuPercent().toFixed(2)}%`
     );
     console.log(`   - 环境: ${status.process.env}`);
 

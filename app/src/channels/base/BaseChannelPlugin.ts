@@ -212,7 +212,22 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       const finalContent = this._modelHint
         ? `${content}\n[模型: ${this._modelHint}]`
         : content;
+
+      this.logger.info(`[TRACE] ${this.id} outbound.sendText 被调用`, {
+        target,
+        contentLength: finalContent.length,
+        hasModelHint: !!this._modelHint,
+      });
+
       const result = await this.sendTextMessage(target, finalContent);
+
+      this.logger.info(`[TRACE] ${this.id} outbound.sendText 完成`, {
+        target,
+        success: result.success,
+        error: result.error,
+        messageId: result.messageId,
+        latencyMs: Date.now() - start,
+      });
       result.latencyMs = Date.now() - start;
       this._state = { ...this._state, lastMessageAt: Date.now() };
       return result;
@@ -308,9 +323,25 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
     message: MessageContext
   ): Promise<void> {
     this._state = { ...this._state, lastMessageAt: Date.now() };
+
+    this.logger.info(`[TRACE] ${this.id} 入站消息到达 handleIncomingMessage`, {
+      id: this.id,
+      messageId: message.messageId,
+      senderId: message.senderId,
+      conversationId: message.conversationId,
+      hasHandler: !!this._messageHandler,
+      contentPrefix: typeof message.content === 'string' ? message.content.slice(0, 50) : '',
+    });
+
     if (this._messageHandler) {
+      this.logger.info(`[TRACE] ${this.id} 调用 messageHandler 开始`, {
+        messageId: message.messageId,
+      });
       try {
         await this._messageHandler(message);
+        this.logger.info(`[TRACE] ${this.id} messageHandler 执行完成`, {
+          messageId: message.messageId,
+        });
       } catch (error) {
         await handleError(error, {
           module: 'channels:base',
@@ -318,6 +349,11 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
           context: { id: this.id, messageId: message.messageId },
         });
       }
+    } else {
+      this.logger.warning(
+        `${this.id} 通道收到消息但 messageHandler 未注册，消息将被丢弃`,
+        { id: this.id, messageId: message.messageId, senderId: message.senderId }
+      );
     }
   }
 

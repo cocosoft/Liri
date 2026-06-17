@@ -12,6 +12,9 @@ declare class AnalyticsService {
   maxSessions: number;
   sessionTimeout: number;
 
+  toolCallCounts: Map<string, number>;
+  totalToolCalls: number;
+
   constructor();
 
   trackEvent(
@@ -43,6 +46,11 @@ declare class AnalyticsService {
     activeSessions: number;
     eventCounts: Record<string, number>;
     averageSessionDuration: number;
+  };
+  getToolCallStats(): {
+    totalCalls: number;
+    uniqueTools: number;
+    topTools: Array<{ name: string; count: number }>;
   };
   exportData(format?: string): unknown;
   clearData(): void;

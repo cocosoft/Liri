@@ -957,6 +957,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       blockBuilder.freezeAll();
       const finalBlocks = blockBuilder.getBlocks();
 
+      // 清除批处理状态，防止 pending 的 flushSet 用旧的 streaming blocks 覆盖最终状态
+      // 这是工具执行完成后无法收缩的根因：rAF flushSet 在最终 set() 之后执行，
+      // 用 isStreaming=true 的旧 blocks 覆盖了已冻结的 finalBlocks
+      if (latestMessages) {
+        latestMessages = null;
+      }
+      batchPending = false;
+
       const finalMessages = get().messages;
       const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
       if (finalMsgIdx !== -1) {

@@ -35,6 +35,7 @@ const logger = new Logger({ level: LogLevel.INFO });
 let analyticsService: {
   getEvents(): unknown[];
   getStats(): { totalEvents: number; totalSessions: number; activeSessions: number };
+  getToolCallStats(): { totalCalls: number; uniqueTools: number; topTools: Array<{ name: string; count: number }> };
 } | null = null;
 
 let costTracker: {
@@ -183,10 +184,16 @@ export async function handleAnalyticsDashboard(
     const events = analyticsService!.getEvents();
     const stats = analyticsService!.getStats();
 
-    const toolEvents = events.filter((e: any) => e.type === 'tool_call');
-    const errorEvents = events.filter((e: any) => e.type === 'error');
+    const toolEvents = events.filter((e: any) =>
+      ['tool_call', 'tool_execute', 'tool_result'].includes(e.type)
+    );
+    const errorEvents = events.filter((e: any) =>
+      ['error', 'api_error'].includes(e.type)
+    );
     const perfEvents = events.filter((e: any) => e.type === 'performance');
-    const llmEvents = events.filter((e: any) => e.type === 'llm_request');
+    const llmEvents = events.filter((e: any) =>
+      ['llm_request', 'api_call', 'api_retry', 'query_start', 'query_complete'].includes(e.type)
+    );
 
     // 工具调用统计
     const toolCounts = new Map<string, number>();
@@ -228,19 +235,50 @@ export async function handleAnalyticsDashboard(
       }
     }
 
-    // Token 用量
+    // Token 用量（来自 costTracker，即使 events 为空也有数据）
     const modelUsage = costTracker!.getModelUsage();
-    let totalInputTokens = 0, totalOutputTokens = 0, totalCostUSD = 0;
+    let totalInputTokens = 0, totalOutputTokens = 0, totalCostUSD = 0, totalRequests = 0;
     for (const usage of Object.values(modelUsage)) {
       totalInputTokens += usage.inputTokens;
       totalOutputTokens += usage.outputTokens;
       totalCostUSD += usage.costUSD;
+      totalRequests += usage.requestCount || 0;
     }
+
+    // 当 costTracker 无数据时，从 costRepository DB 查询回退
+    if (totalRequests === 0 && costRepository) {
+      try {
+        await ensureCostRepository();
+        const todayStart = getStartOfToday();
+        const dbResult = await costRepository.getAggregatedCosts({ startTime: todayStart });
+        if (dbResult.totalRequests > 0) {
+          totalInputTokens = dbResult.totalInputTokens;
+          totalOutputTokens = dbResult.totalOutputTokens;
+          totalCostUSD = dbResult.totalCostUSD;
+          totalRequests = dbResult.totalRequests;
+          logger.info('分析面板 Token/成本数据从 costRepository DB 回退', { totalRequests, totalCostUSD });
+        }
+      } catch (err) {
+        logger.warning('分析面板 costRepository DB 回退失败', { error: String(err) });
+      }
+    }
+
+    // 使用独立累计器作为工具调用数据的回退（不受事件队列清空影响）
+    const toolCallStats = analyticsService!.getToolCallStats();
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
-      tokens: { totalInputTokens, totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens, totalLLMRequests: llmEvents.length },
-      tools: { totalToolCalls: toolEvents.length, uniqueToolsUsed: toolCounts.size, topTools },
+      tokens: {
+        totalInputTokens,
+        totalOutputTokens,
+        totalTokens: totalInputTokens + totalOutputTokens,
+        totalLLMRequests: llmEvents.length > 0 ? llmEvents.length : totalRequests,
+      },
+      tools: {
+        totalToolCalls: toolEvents.length > 0 ? toolEvents.length : toolCallStats.totalCalls,
+        uniqueToolsUsed: toolEvents.length > 0 ? toolCounts.size : toolCallStats.uniqueTools,
+        topTools: toolEvents.length > 0 ? topTools : toolCallStats.topTools,
+      },
       errors: {
         totalErrors: errorEvents.length,
         errorRate: events.length > 0 ? Math.round((errorEvents.length / events.length) * 10000) / 100 : 0,

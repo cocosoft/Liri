@@ -36,6 +36,7 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'warn',
       'no-debugger': 'error',
+      'module-registry/no-direct-module-import': 'warn',
       'no-restricted-imports': ['warn', {
         paths: [
           {
@@ -54,6 +55,11 @@ export default [
             name: '@modules/utils/monitoring.js',
             message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
           },
+          {
+            name: '@modules/core/paths',
+            importNames: ['resolveSoulDir'],
+            message: '[路径规范] resolveSoulDir() 指向 data/soul/（第二层），SOUL.md 应使用 resolveSoulPath()，USER.md 应使用 resolveUserProfilePath()',
+          },
         ],
         patterns: [
           {
@@ -62,7 +68,17 @@ export default [
           },
         ],
       }],
-      'module-registry/no-direct-module-import': 'warn',
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: 'TemplateLiteral[quasis.0.value.raw="~/.pyapp"]',
+          message: '[路径规范] 禁止硬编码 ~/.pyapp 路径，请使用 resolvePyappHome() 或 LIRI_HOME 环境变量',
+        },
+        {
+          selector: 'Literal[value="~/.pyapp"]',
+          message: '[路径规范] 禁止硬编码 ~/.pyapp 路径，请使用 resolvePyappHome() 或 LIRI_HOME 环境变量',
+        },
+      ],
       'custom-rules/no-top-level-side-effects': 'off',
       'custom-rules/no-top-level-dynamic-import': 'off',
       'custom-rules/no-process-env-top-level': 'off',

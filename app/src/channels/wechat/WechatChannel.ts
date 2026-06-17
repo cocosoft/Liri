@@ -22,6 +22,7 @@ import type {
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { WeixinCliManager, type CliStatus } from './cli-manager';
 
 const WECHAT_META: ChannelMeta = {
   id: 'wechat',
@@ -104,11 +105,22 @@ class WechatChannelPlugin extends BaseChannelPlugin {
       (process.env['WECHAT_BOT_HTTP_URL'] as string) ||
       'http://localhost:7600';
 
+    // 自动检测并启动 weixin-cli（默认插件管理）
+    const cliManager = WeixinCliManager.getInstance();
+    const cliReady = await cliManager.ensureReady();
+    if (!cliReady) {
+      this.logger.warn(
+        `weixin-cli 自动启动失败 (${cliManager.getStatus().lastError})，将尝试直接连接...`
+      );
+    } else {
+      this.logger.info('weixin-cli 已自动启动');
+    }
+
     // 检测 weixin-cli 服务是否可达
     const alive = await this.checkBotAlive();
     if (!alive) {
       this.logger.warn(
-        `weixin-cli 服务未就绪 (${this.botHttpUrl})，等待手动扫码启动...`
+        `weixin-cli 服务未就绪 (${this.botHttpUrl})，请扫码登录...`
       );
     } else {
       this.logger.info('weixin-cli 服务已就绪');
@@ -123,7 +135,17 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   protected override async onDisconnect(): Promise<void> {
     this.stopPolling();
     this.processedIds.clear();
+
+    // 停止 weixin-cli 进程
+    const cliManager = WeixinCliManager.getInstance();
+    await cliManager.stop();
+
     this.logger.info('个人微信通道已断开');
+  }
+
+  /** 获取 weixin-cli 状态（供 API 端点查询） */
+  static getCliStatus(): CliStatus {
+    return WeixinCliManager.getInstance().getStatus();
   }
 
   // ─── 出站：发送文本 ────────────────────────────────────

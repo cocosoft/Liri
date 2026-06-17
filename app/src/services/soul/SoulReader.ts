@@ -5,9 +5,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveSoulDir } from '@modules/core/paths';
+import { resolveSoulPath } from '@modules/core/paths';
 
-const SOUL_FILE_PATH = path.join(resolveSoulDir(), 'SOUL.md');
+const SOUL_FILE_PATH = resolveSoulPath();
 
 let cachedContent: string | null = null;
 let cachedMtime: number = 0;
@@ -21,6 +21,11 @@ const DEFAULT_SOUL = `# SOUL.md — Liri 的人格
 - 先尝试再问——自己读文件、查上下文、搜资料
 - 凭能力赢得信任——外部操作小心，内部操作大胆
 - 记住你是客人——用户给了系统访问权限，尊重隐私
+
+## 主动性
+
+- **有始有终** —— 任务做完后主动说一声结果,不等用户问"好了没"
+- **进度感知** —— 长任务中途每 30 秒报一次进度,连续 3 次以上工具调用且无用户可见输出时主动说明当前状态
 
 ## 边界
 

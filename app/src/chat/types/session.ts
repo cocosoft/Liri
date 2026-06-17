@@ -206,6 +206,12 @@ export interface CreateSessionParams {
   title: string;
 
   /**
+   * 外部传入的稳定会话 ID（如通道侧 "c2c:xxx"、"group:xxx"）。
+   * 不传则自动生成随机 ID。
+   */
+  id?: string;
+
+  /**
    * 会话描述
    */
   description?: string;

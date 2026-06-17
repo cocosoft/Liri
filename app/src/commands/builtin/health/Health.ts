@@ -3,6 +3,7 @@
  * 系统健康检查与状态诊断
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { getSystemCpuPercent } from '@modules/monitoring/metrics/SystemMetricsCollector';
 
 interface HealthCheckResult {
   name: string;
@@ -281,7 +282,8 @@ const healthCommand = {
    */
   getSystemInfo(): SystemInfo {
     const memory = process.memoryUsage();
-    const cpuCores = 4;
+    const cpuCores = require('os').cpus().length;
+    const cpuLoad = getSystemCpuPercent();
 
     return {
       memory: {
@@ -291,7 +293,7 @@ const healthCommand = {
       },
       uptime: process.uptime(),
       cpu: {
-        load: 0.3,
+        load: cpuLoad,
         cores: cpuCores,
       },
       platform: process.platform,

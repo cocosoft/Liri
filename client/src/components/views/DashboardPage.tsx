@@ -7,6 +7,9 @@ import {
   type AnalyticsDashboardData,
   type MonitorSummary,
 } from "../../services/monitorService";
+import { costService, type CostSummary } from "../../services/costService";
+import { infrastructureHealthService, type InfrastructureStatus } from "../../services/infrastructureHealthService";
+import { SystemHealthStatus } from "../common/SystemHealthStatus";
 import type { Alert, SystemHealth } from "../../types";
 import { SkeletonCard } from "../common/Skeleton";
 import { SPECIES_MAP } from "../Buddy/buddySprites";
@@ -115,7 +118,7 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [showMonitor, setShowMonitor] = useState(false);
+  const [showMonitor, setShowMonitor] = useState(true);
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
@@ -123,8 +126,12 @@ function DashboardPage() {
     null,
   );
   const [summary, setSummary] = useState<MonitorSummary | null>(null);
+  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [infrastructure, setInfrastructure] =
+    useState<InfrastructureStatus | null>(null);
   const [timeRange, setTimeRange] = useState(3600000);
   const [filterLevel, setFilterLevel] = useState<string>("all");
+  const [showAlerts, setShowAlerts] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -159,24 +166,30 @@ function DashboardPage() {
           healthData,
           analyticsData,
           summaryData,
+          infraData,
+          costData,
         ] = await Promise.all([
           monitorService.getMetrics(timeRange),
           monitorService.getAlerts(),
           monitorService.getSystemHealth(),
           monitorService.getAnalyticsDashboard(),
           monitorService.getSummary(),
+          infrastructureHealthService.getStatus(),
+          costService.getCostSummary(),
         ]);
         setMetrics(metricsData);
         setAlerts(alertsData);
         setSystemHealth(healthData);
         setAnalytics(analyticsData);
         setSummary(summaryData);
+        setInfrastructure(infraData);
+        setCostSummary(costData);
       } catch {
         // 静默失败
       }
     };
     fetchMonitorData();
-    const interval = setInterval(fetchMonitorData, 30000);
+    const interval = setInterval(fetchMonitorData, 10000);
     return () => clearInterval(interval);
   }, [showMonitor, timeRange]);
 
@@ -316,8 +329,64 @@ function DashboardPage() {
               </div>
             </div>
 
+            {/* 今日概览：成本与用量 */}
+            {costSummary && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>💰</span> 今日概览
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard
+                    label="今日成本"
+                    value={`$${costSummary.todayCost.toFixed(4)}`}
+                    icon="💵"
+                    trend={
+                      costSummary.todayCost > 0
+                        ? "up"
+                        : "stable"
+                    }
+                  />
+                  <StatCard
+                    label="本周成本"
+                    value={`$${costSummary.weeklyCost.toFixed(4)}`}
+                    icon="📊"
+                    trend={
+                      costSummary.weeklyCost > 0
+                        ? "up"
+                        : "stable"
+                    }
+                  />
+                  <StatCard
+                    label="本月成本"
+                    value={`$${costSummary.monthlyCost.toFixed(4)}`}
+                    icon="📈"
+                    trend={
+                      costSummary.monthlyCost > 0
+                        ? "up"
+                        : "stable"
+                    }
+                  />
+                  <StatCard
+                    label="总 Tokens"
+                    value={costSummary.totalTokens.toLocaleString()}
+                    icon="🪙"
+                    trend={
+                      costSummary.totalTokens > 0
+                        ? "up"
+                        : "stable"
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
             {showMonitor && (
               <div className="space-y-6">
+                {/* 基础设施健康状态（聚合） */}
+                {infrastructure && (
+                  <SystemHealthStatus status={infrastructure} isDark={isDark} />
+                )}
+
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -346,6 +415,9 @@ function DashboardPage() {
                     valueFormatter={(v) => `${v.toFixed(1)}%`}
                     color="#3B82F6"
                     isDark={isDark}
+                    secondaryData={metrics?.appCpu ?? []}
+                    secondaryColor="#8B5CF6"
+                    secondaryLabel="应用"
                   />
                   <MetricsChart
                     title="内存使用 (MB)"
@@ -353,6 +425,9 @@ function DashboardPage() {
                     valueFormatter={(v) => `${v.toFixed(0)} MB`}
                     color="#10B981"
                     isDark={isDark}
+                    secondaryData={metrics?.appMemory ?? []}
+                    secondaryColor="#F59E0B"
+                    secondaryLabel="应用"
                   />
                 </div>
 
@@ -478,6 +553,147 @@ function DashboardPage() {
                   />
                 </div>
 
+                {/* 成本趋势（每日明细柱状图） */}
+                {costSummary && costSummary.dailyBreakdown.length > 0 && (
+                  <div
+                    className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                  >
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                        📈 成本趋势（本周）
+                      </h2>
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-end gap-2 h-32">
+                        {costSummary.dailyBreakdown.map((day, idx) => {
+                          const maxCost = Math.max(...costSummary.dailyBreakdown.map((d) => d.cost), 0.0001);
+                          const barHeight = (day.cost / maxCost) * 100;
+                          return (
+                            <div
+                              key={idx}
+                              className="flex-1 flex flex-col items-center gap-1"
+                              title={`${day.date} - $${day.cost.toFixed(4)} (${day.tokens.toLocaleString()} tokens)`}
+                            >
+                              <div className="flex-1 w-full flex items-end justify-center">
+                                <div
+                                  className="w-full max-w-[32px] bg-blue-500 dark:bg-blue-400 rounded-t transition-all hover:bg-blue-600 dark:hover:bg-blue-300"
+                                  style={{ height: `${Math.max(barHeight, 2)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {day.date.slice(5)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 模型分布 Top Providers */}
+                {costSummary && costSummary.topProviders.length > 0 && (
+                  <div
+                    className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                  >
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                        🏢 模型分布
+                      </h2>
+                    </div>
+                    <div className="p-4">
+                      <div className="space-y-2">
+                        {costSummary.topProviders.map((provider) => (
+                          <div key={provider.provider} className="flex items-center gap-3">
+                            <span className="text-sm text-gray-700 dark:text-gray-300 w-24 truncate" title={provider.provider}>
+                              {provider.provider}
+                            </span>
+                            <div className="flex-1 h-5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${provider.percentage}%`,
+                                  background: provider.percentage > 50
+                                    ? '#3B82F6'
+                                    : provider.percentage > 20
+                                      ? '#10B981'
+                                      : '#8B5CF6',
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-12 text-right">
+                              {provider.percentage}%
+                            </span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 w-20 text-right">
+                              ${provider.cost.toFixed(4)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 缓存效益面板 */}
+                {costSummary && (costSummary.totalCacheReadTokens > 0 || costSummary.totalCacheCreationTokens > 0) && (
+                  <div
+                    className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                  >
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                        ⚡ 缓存效益
+                      </h2>
+                    </div>
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className={`p-3 rounded-lg border text-center ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">缓存读取</p>
+                          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                            {costSummary.totalCacheReadTokens.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">tokens</p>
+                        </div>
+                        <div className={`p-3 rounded-lg border text-center ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">缓存创建</p>
+                          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                            {costSummary.totalCacheCreationTokens.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">tokens</p>
+                        </div>
+                        <div className={`p-3 rounded-lg border text-center ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">缓存命中率</p>
+                          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                            {costSummary.totalCacheReadTokens + costSummary.totalCacheCreationTokens > 0
+                              ? `${((costSummary.totalCacheReadTokens / (costSummary.totalCacheReadTokens + costSummary.totalCacheCreationTokens)) * 100).toFixed(1)}%`
+                              : '0%'}
+                          </p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">read / total</p>
+                        </div>
+                      </div>
+                      {costSummary.totalCacheCreationTokens > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-3 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-emerald-400"
+                                style={{
+                                  width: `${Math.min((costSummary.totalCacheReadTokens / (costSummary.totalCacheCreationTokens || 1)) * 100, 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {costSummary.totalCacheReadTokens.toLocaleString()} / {costSummary.totalCacheCreationTokens.toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 text-right">
+                            读取 / 创建 比率
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div
                   className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                 >
@@ -490,7 +706,14 @@ function DashboardPage() {
                   </div>
                   <div className="p-4">
                     {analytics ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <>
+                        {analytics.tokens.totalTokens === 0 &&
+                          analytics.tools.totalToolCalls === 0 && (
+                            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-700 dark:text-yellow-300">
+                              ⏳ 分析数据收集中，请等待指标采集完成后刷新
+                            </div>
+                          )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div
                           className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                         >
@@ -745,6 +968,7 @@ function DashboardPage() {
                           </p>
                         </div>
                       </div>
+                    </>
                     ) : (
                       <div
                         className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}
@@ -827,155 +1051,108 @@ function DashboardPage() {
                 <div
                   className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                 >
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div
+                    className="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none"
+                    onClick={() => setShowAlerts((v) => !v)}
+                  >
                     <div className="flex items-center justify-between">
-                      <h2
-                        className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                      >
-                        🔴 告警列表
-                      </h2>
-                      <select
-                        value={filterLevel}
-                        onChange={(e) => setFilterLevel(e.target.value)}
-                        className={`px-3 py-1.5 text-sm rounded-lg border ${
-                          isDark
-                            ? "bg-gray-700 border-gray-600 text-gray-300"
-                            : "bg-white border-gray-300 text-gray-700"
-                        } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      >
-                        <option value="all">全部未确认</option>
-                        <option value="critical">严重</option>
-                        <option value="error">错误</option>
-                        <option value="warn">警告</option>
-                        <option value="info">信息</option>
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <span className={`transition-transform ${showAlerts ? '' : '-rotate-90'}`}>
+                          ▼
+                        </span>
+                        <h2
+                          className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                        >
+                          🔴 告警列表
+                        </h2>
+                        {filteredAlerts.length > 0 && (
+                          <span className="px-1.5 py-0.5 text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
+                            {filteredAlerts.length}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={filterLevel}
+                          onChange={(e) => setFilterLevel(e.target.value)}
+                          className={`px-3 py-1.5 text-sm rounded-lg border ${
+                            isDark
+                              ? "bg-gray-700 border-gray-600 text-gray-300"
+                              : "bg-white border-gray-300 text-gray-700"
+                          } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        >
+                          <option value="all">全部未确认</option>
+                          <option value="critical">严重</option>
+                          <option value="error">错误</option>
+                          <option value="warn">警告</option>
+                          <option value="info">信息</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredAlerts.length === 0 ? (
-                      <div
-                        className={`p-8 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                      >
-                        暂无未确认的告警
-                      </div>
-                    ) : (
-                      filteredAlerts.map((alert) => (
+                  {showAlerts && (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredAlerts.length === 0 ? (
                         <div
-                          key={alert.id}
-                          className="p-4 flex items-center justify-between"
+                          className={`p-8 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}
                         >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
-                                alert.level === "critical"
-                                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                  : alert.level === "error"
-                                    ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                                    : alert.level === "warn"
-                                      ? "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400"
-                                      : "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                              }`}
-                            >
-                              {alert.level.toUpperCase()}
-                            </span>
-                            <span
-                              className={
-                                isDark ? "text-gray-300" : "text-gray-700"
-                              }
-                            >
-                              {alert.message}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                            >
-                              {new Date(alert.timestamp).toLocaleString(
-                                "zh-CN",
-                              )}
-                            </span>
-                            <button
-                              onClick={() => handleAcknowledge(alert.id)}
-                              className={`px-3 py-1 text-sm rounded-lg border ${
-                                isDark
-                                  ? "border-gray-600 text-gray-400 hover:bg-gray-700"
-                                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                              }`}
-                            >
-                              确认
-                            </button>
-                          </div>
+                          暂无未确认的告警
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-                >
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2
-                      className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                    >
-                      🏥 系统健康报告
-                    </h2>
-                  </div>
-                  <div className="p-4">
-                    {systemHealth ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {systemHealth.components.map((component) => (
+                      ) : (
+                        filteredAlerts.map((alert) => (
                           <div
-                            key={component.name}
-                            className={`p-3 rounded-lg border ${
-                              component.status === "ok"
-                                ? isDark
-                                  ? "bg-green-900/20 border-green-800"
-                                  : "bg-green-50 border-green-200"
-                                : component.status === "warning"
-                                  ? isDark
-                                    ? "bg-yellow-900/20 border-yellow-800"
-                                    : "bg-yellow-50 border-yellow-200"
-                                  : isDark
-                                    ? "bg-red-900/20 border-red-800"
-                                    : "bg-red-50 border-red-200"
-                            }`}
+                            key={alert.id}
+                            className="p-4 flex items-center justify-between"
                           >
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-3">
                               <span
-                                className={`w-2 h-2 rounded-full ${
-                                  component.status === "ok"
-                                    ? "bg-green-500"
-                                    : component.status === "warning"
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500"
+                                className={`px-2 py-1 rounded text-xs font-medium ${
+                                  alert.level === "critical"
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    : alert.level === "error"
+                                      ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                                      : alert.level === "warn"
+                                        ? "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400"
+                                        : "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                                 }`}
-                              />
-                              <span
-                                className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
                               >
-                                {component.name}
+                                {alert.level.toUpperCase()}
+                              </span>
+                              <span
+                                className={
+                                  isDark ? "text-gray-300" : "text-gray-700"
+                                }
+                              >
+                                {alert.message}
                               </span>
                             </div>
-                            {component.message && (
-                              <p
-                                className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
                               >
-                                {component.message}
-                              </p>
-                            )}
+                                {new Date(alert.timestamp).toLocaleString(
+                                  "zh-CN",
+                                )}
+                              </span>
+                              <button
+                                onClick={() => handleAcknowledge(alert.id)}
+                                className={`px-3 py-1 text-sm rounded-lg border ${
+                                  isDark
+                                    ? "border-gray-600 text-gray-400 hover:bg-gray-700"
+                                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                                }`}
+                              >
+                                确认
+                              </button>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div
-                        className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                      >
-                        加载中...
-                      </div>
-                    )}
-                  </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
+
+
               </div>
             )}
           </div>

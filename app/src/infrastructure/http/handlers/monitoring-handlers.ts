@@ -29,107 +29,77 @@ import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 import { getMonitoringService } from '@modules/monitoring/MonitoringService';
+import {
+  getSystemCpuPercentAsync,
+  getDiskInfoAsync,
+} from '@modules/monitoring/metrics/SystemMetricsCollector';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-// ── CPU 计算器 ────────────────────────────────────────────────────
+// ── 指标数据环形缓冲区 ────────────────────────────────────────────
+
+interface MetricPoint { timestamp: number; value: number; }
+
+const MAX_BUFFER_POINTS = 360;
+// 系统级指标
+let cpuHistory: MetricPoint[] = [];
+let memoryHistory: MetricPoint[] = [];
+// 应用级指标（当前进程）
+let appCpuHistory: MetricPoint[] = [];
+let appMemoryHistory: MetricPoint[] = [];
+
+// 进程 CPU 采样辅助（用于计算 CPU 使用率增量）
+let prevCpuUsage: { user: number; system: number } | null = null;
+let prevCpuSampleTime: number = 0;
 
 /**
- * 基于 process.cpuUsage 差值计算 CPU 使用率的状态存储
+ * 计算当前进程的 CPU 使用率（%）
+ * 基于 process.cpuUsage() 的增量除以时间间隔
  */
-const cpuState = {
-  prevUsage: null as NodeJS.CpuUsage | null,
-  prevTime: 0,
-};
-
-/**
- * 计算当前 CPU 使用率（0~100 的百分比）
- */
-export function calcCpuPercent(): number {
-  const currentCpu = process.cpuUsage();
-  const currentTime = Date.now();
-
-  if (!cpuState.prevUsage || cpuState.prevTime === 0) {
-    cpuState.prevUsage = currentCpu;
-    cpuState.prevTime = currentTime;
+function sampleProcessCpuPercent(): number {
+  const now = Date.now();
+  const currentUsage = process.cpuUsage();
+  if (!prevCpuUsage) {
+    // 首次采样，只记录基准值
+    prevCpuUsage = currentUsage;
+    prevCpuSampleTime = now;
     return 0;
   }
-
-  const userDiff = currentCpu.user - cpuState.prevUsage.user;
-  const sysDiff = currentCpu.system - cpuState.prevUsage.system;
-  const cpuDiff = userDiff + sysDiff;
-  const timeDiff = currentTime - cpuState.prevTime;
-
-  cpuState.prevUsage = currentCpu;
-  cpuState.prevTime = currentTime;
-
-  if (timeDiff <= 0 || cpuDiff < 0) return 0;
-
-  const cpuCount = os.cpus().length;
-  const percent = (cpuDiff * 100) / (timeDiff * 1000 * cpuCount);
+  const deltaUser = currentUsage.user - prevCpuUsage.user;
+  const deltaSystem = currentUsage.system - prevCpuUsage.system;
+  const deltaTotalUs = deltaUser + deltaSystem; // 微秒
+  const elapsedMs = now - prevCpuSampleTime;
+  prevCpuUsage = currentUsage;
+  prevCpuSampleTime = now;
+  if (elapsedMs <= 0) return 0;
+  // CPU% = (总CPU微秒 / (毫秒 * 1000)) * 100 = 微秒 / (毫秒 * 10)
+  const percent = deltaTotalUs / (elapsedMs * 10);
   return Math.min(Math.round(percent * 10) / 10, 100);
 }
 
-// ── 磁盘信息收集 ──────────────────────────────────────────────────
+/**
+ * 采样当前进程的内存使用量（MB）
+ */
+function sampleProcessMemoryMB(): number {
+  return Math.round((process.memoryUsage().rss / 1024 / 1024) * 100) / 100;
+}
 
 /**
- * 收集磁盘总容量和可用空间
+ * 向环形缓冲区添加一个数据点
  */
-function collectDiskInfo(): { totalGB: number; freeGB: number; usedGB: number; percent: number } {
-  let totalGB = 0;
-  let freeGB = 0;
-  try {
-    if (process.platform === 'win32') {
-      const { execSync } = require('child_process');
-      const output = execSync(
-        'wmic logicaldisk where DriveType=3 get Size,FreeSpace',
-        { encoding: 'utf8', timeout: 3000 },
-      );
-      const lines = output.trim().split('\n').slice(1);
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 2) {
-          const size = parseFloat(parts[0]);
-          const free = parseFloat(parts[1]);
-          if (!isNaN(size) && !isNaN(free)) {
-            totalGB += size;
-            freeGB += free;
-          }
-        }
-      }
-    } else {
-      const { execSync } = require('child_process');
-      const output = execSync('df -k --total 2>/dev/null || df -k', {
-        encoding: 'utf8',
-        timeout: 3000,
-      });
-      const lines = output.trim().split('\n').slice(1);
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 4 && parts[0] !== 'total') {
-          const total = parseFloat(parts[1]) * 1024;
-          const available = parseFloat(parts[3]) * 1024;
-          if (!isNaN(total) && !isNaN(available)) {
-            totalGB += total;
-            freeGB += available;
-          }
-        }
-      }
-    }
-  } catch {
-    // 磁盘信息不可用时静默处理
+function pushMetric(buffer: MetricPoint[], point: MetricPoint): void {
+  buffer.push(point);
+  if (buffer.length > MAX_BUFFER_POINTS) {
+    buffer.shift();
   }
+}
 
-  const usedGB = totalGB - freeGB;
-  const percent = totalGB > 0 ? Math.round((usedGB / totalGB) * 100) : 0;
-  const gb = 1024 * 1024 * 1024;
-
-  return {
-    totalGB: Math.round((totalGB / gb) * 100) / 100,
-    freeGB: Math.round((freeGB / gb) * 100) / 100,
-    usedGB: Math.round((usedGB / gb) * 100) / 100,
-    percent,
-  };
+/**
+ * 从缓冲区中筛选指定时间范围内的数据点
+ */
+function filterMetric(buffer: MetricPoint[], range: number): MetricPoint[] {
+  const cutoff = Date.now() - range;
+  return buffer.filter(p => p.timestamp >= cutoff);
 }
 
 // ── 处理器 ────────────────────────────────────────────────────────
@@ -146,11 +116,12 @@ export async function handleMonitorSummary(
     const service = getMonitoringService();
     const status = service.getSystemStatus();
 
-    const cpuPercent = calcCpuPercent();
-    const rssMB = Math.round(status.memory.rss / 1024 / 1024);
+    const cpuPercent = await getSystemCpuPercentAsync();
+    const freeMemMB = Math.round(os.freemem() / 1024 / 1024);
     const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
-    const memoryPercent = totalMemMB > 0 ? Math.round((rssMB / totalMemMB) * 100) : 0;
-    const disk = collectDiskInfo();
+    const usedMemMB = totalMemMB - freeMemMB;
+    const memoryPercent = totalMemMB > 0 ? Math.round((usedMemMB / totalMemMB) * 100) : 0;
+    const disk = await getDiskInfoAsync();
     const loadAverage = status.loadAverage.length > 0
       ? status.loadAverage.map((l) => Math.round(l * 100) / 100)
       : [];
@@ -160,7 +131,7 @@ export async function handleMonitorSummary(
       uptime: Math.floor(status.uptime),
       cpuPercent,
       memoryPercent,
-      memoryUsedMB: rssMB,
+      memoryUsedMB: usedMemMB,
       memoryTotalMB: totalMemMB,
       diskTotalGB: disk.totalGB,
       diskUsedGB: disk.usedGB,
@@ -184,6 +155,7 @@ export async function handleMonitorSummary(
 
 /**
  * GET /v1/monitor/metrics — 监控指标
+ * 返回系统级与应用级（当前进程）CPU/内存双线数据
  */
 export async function handleMonitorMetrics(
   _ctx: HandlerCtx,
@@ -191,18 +163,37 @@ export async function handleMonitorMetrics(
   res: http.ServerResponse,
 ): Promise<void> {
   try {
-    const service = getMonitoringService();
-    const status = service.getSystemStatus();
     const now = Date.now();
+
+    // 系统级采样
+    const sysCpu = await getSystemCpuPercentAsync();
+    const sysMem = Math.round(((os.totalmem() - os.freemem()) / 1024 / 1024) * 100) / 100;
+
+    // 应用级（进程级）采样
+    const appCpu = sampleProcessCpuPercent();
+    const appMem = sampleProcessMemoryMB();
+
+    // 追加到各自的环形缓冲区
+    pushMetric(cpuHistory, { timestamp: now, value: sysCpu });
+    pushMetric(memoryHistory, { timestamp: now, value: sysMem });
+    pushMetric(appCpuHistory, { timestamp: now, value: appCpu });
+    pushMetric(appMemoryHistory, { timestamp: now, value: appMem });
+
+    const range = 3600000; // 默认返回最近 1 小时数据
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       requests: [], responseTime: [], errorRate: [],
-      cpu: [{ timestamp: now, value: calcCpuPercent() }],
-      memory: [{ timestamp: now, value: Math.round((status.memory.rss / 1024 / 1024) * 100) / 100 }],
+      cpu: filterMetric(cpuHistory, range),            // 系统 CPU
+      memory: filterMetric(memoryHistory, range),       // 系统内存
+      appCpu: filterMetric(appCpuHistory, range),       // 应用 CPU
+      appMemory: filterMetric(appMemoryHistory, range), // 应用内存
     }));
   } catch {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ requests: [], responseTime: [], errorRate: [], cpu: [], memory: [] }));
+    res.end(JSON.stringify({
+      requests: [], responseTime: [], errorRate: [],
+      cpu: [], memory: [], appCpu: [], appMemory: [],
+    }));
   }
 }
 
@@ -430,5 +421,157 @@ export async function handleMonitorSessionDetail(
     logger.error('获取会话详情失败', { error: String(error) });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取会话详情失败' }));
+  }
+}
+
+/**
+ * GET /v1/monitor/sessions/summary — LLM 会话全局汇总
+ */
+export async function handleSessionsSummary(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+    const summary = getLLMTracker().getGlobalSummary();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(summary));
+  } catch (error) {
+    logger.error('获取会话汇总失败', { error: String(error) });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '获取会话汇总失败' }));
+  }
+}
+
+/**
+ * GET /v1/monitor/otel/metrics — OTel 指标快照
+ */
+export async function handleOTelMetrics(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    const { getOTelMetrics } = await import('@modules/monitoring/otel/OTelMetrics');
+    const oTelMetrics = getOTelMetrics();
+
+    // OTel Metrics 是 Push 模型，无法直接查询值。
+    // 通过读取内部缓存快照获取关键指标。
+    const snapshot: Record<string, unknown> = {};
+    const proto = Object.getPrototypeOf(oTelMetrics);
+
+    // 提取计数器缓存
+    if (oTelMetrics && typeof oTelMetrics === 'object') {
+      const descriptors = Object.getOwnPropertyDescriptors(oTelMetrics);
+      for (const [key, desc] of Object.entries(descriptors)) {
+        if (desc.value && typeof desc.value === 'object') {
+          const val = desc.value as Record<string, unknown>;
+          // 暴露 MeterProvider 配置状态
+          if (key === 'enabled' || key === 'config') {
+            snapshot[key] = val;
+          }
+        }
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      enabled: (oTelMetrics as any)?.enabled ?? false,
+      serviceName: (oTelMetrics as any)?.config?.serviceName,
+      snapshot,
+    }));
+  } catch (error) {
+    logger.error('获取 OTel 指标失败', { error: String(error) });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '获取 OTel 指标失败' }));
+  }
+}
+
+/**
+ * GET /v1/infrastructure/status — 基础设施聚合状态
+ *
+ * 聚合 SystemHealthChecker + infraHealthChecker(Provider/EventLoop) + 通道健康
+ */
+export async function handleInfrastructureStatus(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  try {
+    const { infraHealthChecker, eventLoopMonitor } = await import(
+      '@modules/diagnostics/infrastructure-diagnostics'
+    );
+    const { getLLMTracker } = await import('@modules/monitoring/llm/getLLMTracker');
+    const { getOTelMetrics } = await import('@modules/monitoring/otel/OTelMetrics');
+    const { getHealthMonitor } = await import('@modules/core/gateway/HealthMonitor');
+
+    const [healthResult, llmSummary] = await Promise.allSettled([
+      infraHealthChecker.runAllChecks(),
+      Promise.resolve(getLLMTracker().getGlobalSummary()),
+    ]);
+
+    // 系统健康检查（独立于 HealthChecker）
+    let sysHealth = null;
+    try {
+      const { systemHealthChecker } = await import('@modules/diagnostics/SystemHealthChecker');
+      sysHealth = await systemHealthChecker.performFullCheck();
+    } catch {
+      sysHealth = null;
+    }
+
+    // 通道健康状态
+    let channelStatuses: unknown[] = [];
+    try {
+      const healthMonitor = getHealthMonitor();
+      channelStatuses = healthMonitor.getAllHealthStatuses();
+    } catch {
+      channelStatuses = [];
+    }
+
+    // OTel 启用状态
+    let otelEnabled = false;
+    try {
+      otelEnabled = (getOTelMetrics() as any)?.enabled ?? false;
+    } catch {
+      // 默认 false
+    }
+
+    const checks = healthResult.status === 'fulfilled' ? healthResult.value : null;
+    const llm = llmSummary.status === 'fulfilled' ? llmSummary.value : null;
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      timestamp: Date.now(),
+      health: checks ? {
+        overall: checks.overall,
+        summary: checks.summary,
+        checks: checks.checks.map((c) => ({
+          name: c.name,
+          status: c.status,
+          latency: c.latency,
+          error: c.error,
+        })),
+      } : null,
+      system: sysHealth ? {
+        overallStatus: sysHealth.overallStatus,
+        resourceUsage: sysHealth.resourceUsage,
+        recommendations: sysHealth.recommendations,
+      } : null,
+      channels: channelStatuses,
+      llm: llm ? {
+        totalSessions: llm.totalSessions,
+        totalRequests: llm.totalRequests,
+        totalInputTokens: llm.totalInputTokens,
+        totalOutputTokens: llm.totalOutputTokens,
+        totalCostUsd: llm.totalCostUsd,
+      } : null,
+      otel: { enabled: otelEnabled },
+      eventLoop: { monitoring: true },
+    }));
+  } catch (error) {
+    logger.error('获取基础设施状态失败', { error: String(error) });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '获取基础设施状态失败' }));
   }
 }

@@ -5,9 +5,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveSoulDir } from '@modules/core/paths';
+import { resolveUserProfilePath } from '@modules/core/paths';
 
-const USER_FILE_PATH = path.join(resolveSoulDir(), 'USER.md');
+const USER_FILE_PATH = resolveUserProfilePath();
 
 let cachedContent: string | null = null;
 let cachedMtime: number = 0;

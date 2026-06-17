@@ -23,7 +23,7 @@ import { readdir, stat, mkdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error/types';
 import { resolveInboundDir } from '@modules/core/paths';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';

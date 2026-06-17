@@ -16,7 +16,7 @@ import { readdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error/types';
 import { resolveInboundBaseDir } from '@modules/core/paths';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';

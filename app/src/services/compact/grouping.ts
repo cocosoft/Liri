@@ -6,8 +6,7 @@
  * 在下一个assistant轮次之前被解析，因此配对有效性由assistant-id边界保证。
  */
 
-import type { Message } from '@modules/chat/types/message';
-import { MessageRole } from '@modules/chat/types/message';
+import type { Message, MessageRole } from '@modules/chat/types';
 
 /**
  * 按API轮次边界分组消息

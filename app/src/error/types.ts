@@ -239,6 +239,9 @@ export class ConfigParseError extends AppError {
   }
 }
 
+// 便捷错误处理函数
+export { handleError } from './handleError';
+
 /**
  * Shell错误类
  */

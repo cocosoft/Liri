@@ -4480,7 +4480,8 @@ export class LocalHTTPService {
           id: ch.name,
           name: ch.name,
           type: ch.type,
-          enabled: ch.enabled,
+          // 优先使用 DB 持久化的 enabled 状态，而非 ChannelInterface 的硬编码值
+          enabled: cfg?.enabled ?? ch.enabled,
           connected: (ch as any).connected ?? false,
           config: cfg?.options || {},
         });
@@ -4574,8 +4575,21 @@ export class LocalHTTPService {
           return;
         }
       }
+      // 先持久化 enabled 状态（确保重启后恢复）
+      channelRegistry.updateConfig(channelId, { enabled });
+
       if (enabled) {
-        await channelRegistry.connect(channelId);
+        const connectSuccess = await channelRegistry.connect(channelId);
+        if (!connectSuccess) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            id: channelId,
+            enabled: false,
+            error: { message: `通道 ${channelId} 连接失败，请检查配置是否正确` },
+          }));
+          return;
+        }
       } else {
         await channelRegistry.disconnect(channelId);
       }

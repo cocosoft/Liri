@@ -423,20 +423,25 @@ export class ChannelRegistry extends EventEmitter {
     const isDuplicate = existing && existing.type === adapted.type;
 
     this.channels.set(adapted.name, adapted);
-    const config: ChannelConfig = {
-      name: adapted.name,
-      type: adapted.type,
-      enabled: adapted.enabled,
-      options: {},
-    };
-    this.configs.set(adapted.name, config);
 
-    // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
-    this.persistConfig(config).then((ok) => {
-      if (!ok) {
-        logger.warning(`注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`);
-      }
-    });
+    // 检查是否已有持久化的配置（从 DB 加载），有则保留，避免覆盖用户已保存的凭据
+    const existingConfig = this.configs.get(adapted.name);
+    if (!existingConfig) {
+      const config: ChannelConfig = {
+        name: adapted.name,
+        type: adapted.type,
+        enabled: adapted.enabled,
+        options: {},
+      };
+      this.configs.set(adapted.name, config);
+
+      // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
+      this.persistConfig(config).then((ok) => {
+        if (!ok) {
+          logger.warning(`注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`);
+        }
+      });
+    }
 
     // 仅首次注册时发出事件，避免双重注册路径（ChannelManager + ChannelPluginRegistry 同步）产生重复事件
     if (!isDuplicate) {

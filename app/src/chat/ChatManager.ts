@@ -2396,7 +2396,7 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // 通知会话状态变化为空闲状态
-    this.getSessionMachine(session.id).complete('工具执行完成');
+    this.getSessionMachine(session.id).finish('工具执行完成');
 
     options?.onComplete?.(assistantMessage);
     return assistantMessage;

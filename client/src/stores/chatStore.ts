@@ -193,6 +193,8 @@ interface ChatStore {
   previewFile: FilePreview | null;
   /** 当前会话中生成的文件列表 */
   sessionFiles: FilePreview[];
+  /** 是否正在上传文件 */
+  isUploading: boolean;
   /** 中止控制器：用于取消正在进行的流式请求 */
   abortController: AbortController | null;
   addMessage: (message: Message) => void;
@@ -675,6 +677,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   replyMessage: null,
   previewFile: null,
   sessionFiles: [],
+  isUploading: false,
   abortController: null,
 
   addMessage: (message: Message) => {

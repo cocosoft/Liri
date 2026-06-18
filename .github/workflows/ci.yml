@@ -64,7 +64,7 @@ jobs:
     - name: Run linter
       run: bun run lint
 
-    - name: Console usage gate (baseline: 2009)
+    - name: "Console usage gate (baseline: 2009)"
       run: |
         COUNT=$(grep -rn "console\.\(log\|warn\|error\|info\|debug\|trace\)(" \
           --include="*.ts" --include="*.tsx" \

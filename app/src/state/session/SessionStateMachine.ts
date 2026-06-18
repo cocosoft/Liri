@@ -72,6 +72,16 @@ export class SessionStateMachine extends StateMachine<SessionState> {
   }
 
   /**
+   * 结束本轮处理回到空闲：RUNNING → IDLE
+   *
+   * 与 complete() 不同，finish 不结束会话生命周期，而是将状态重置回 IDLE，
+   * 允许下一轮 start()。适用于单个会话中多轮"开始处理→处理完成"的循环。
+   */
+  finish(reason?: string): boolean {
+    return this.transition(SessionState.IDLE, reason);
+  }
+
+  /**
    * 错误：RUNNING/REQUIRES_ACTION → ERROR
    *
    * 将 Error.message 作为 reason、Error.stack 和 Error.name 作为 metadata 传入，

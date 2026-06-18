@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Text, AlternateScreen, useApp } from '../../ink';
 import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
-import { StatusBar } from './StatusBar';
+import { StatusFloatingBar } from './StatusFloatingBar';
 import { Header } from './Header';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import {
@@ -683,7 +683,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
     [chatManager]
   );
 
-  const conversationHeight = Math.max(6, terminalHeight - 6);
+  const conversationHeight = Math.max(6, terminalHeight - 9);
+// 9 = header(1) + floatingBar(~3) + questions(~2~4) + input(~2)
 
   useEffect(() => {
     const handler = () => {
@@ -736,13 +737,12 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               </Text>
             </Box>
           )}
-          <StatusBar
+          {/* 浮动状态面板 */}
+          <StatusFloatingBar
             streamStats={streamStats}
             streamState={streamState}
             submitCount={submitCount}
             modelName={modelName}
-            routingMode={routingMode}
-            routerTier={routerTier}
           />
           <InputArea
             onSubmit={currentQuestion ? handleQuestionAnswer : handleSubmit}

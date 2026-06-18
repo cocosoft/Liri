@@ -65,6 +65,7 @@ export const SESSION_TRANSITIONS: TransitionRules<SessionState> = {
     SessionState.ABORTED,
   ],
   [SessionState.RUNNING]:         [
+    SessionState.IDLE,
     SessionState.REQUIRES_ACTION,
     SessionState.PAUSED,
     SessionState.ERROR,

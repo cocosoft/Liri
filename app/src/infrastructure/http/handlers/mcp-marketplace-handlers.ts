@@ -24,8 +24,10 @@ export async function handleMCPMarketplaceSearch(
     const query = parsedUrl.searchParams.get('query') || '';
     const category = parsedUrl.searchParams.get('category') || undefined;
     const registry =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (parsedUrl.searchParams.get('registry') as any) || undefined;
     const sourceRegistry =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (parsedUrl.searchParams.get('sourceRegistry') as any) || undefined;
 
     const { mcpSystem } = await import('@modules/services/mcp');

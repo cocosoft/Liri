@@ -6,6 +6,8 @@
  *   1. 语音会话状态管理（setState / onStateChange / currentState）
  *   2. 类型安全的事件通道（voice:client / voice:server / voice:error）
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 import { EventBusImpl } from '@modules/core/events/EventBus';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {

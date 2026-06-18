@@ -189,7 +189,7 @@ export function createLoggingMiddleware<T>(
  * StoreManager类
  */
 export class StoreManager {
-  private stores: Map<string, Store<any>> = new Map();
+  private stores: Map<string, Store<unknown>> = new Map();
 
   createStore<T>(key: string, initialState: T): Store<T> {
     if (this.stores.has(key)) {

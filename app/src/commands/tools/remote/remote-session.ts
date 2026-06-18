@@ -12,7 +12,9 @@ import {
 } from '@modules/remote/RemoteSessionManager.js';
 import { SSHConfig } from '@modules/remote/SSHConnection.js';
 import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'RemoteSession' });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**

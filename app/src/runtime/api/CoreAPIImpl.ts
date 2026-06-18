@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
+
 /**
  * CoreAPI 实现
  * 串联现有的 ChatManager、ToolManager、Coordinator、ConverterEngine 等服务

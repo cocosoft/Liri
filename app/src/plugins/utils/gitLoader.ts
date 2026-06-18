@@ -8,7 +8,9 @@ import { execSync } from 'child_process';
 import { promisify } from 'util';
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'GitLoader' });
 
 const execFileAsync = promisify(execFile);
 

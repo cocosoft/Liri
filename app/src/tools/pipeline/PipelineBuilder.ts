@@ -17,7 +17,7 @@ import {
   type PipelineConfig,
   MiddlewareGroup,
 } from './types';
-import { preExecutionCheck } from '@modules/security/securityUtils';
+import { preExecutionCheck } from '@modules/security';
 
 // ── 中间件注册表 ─────────────────────────────────────────────────────
 

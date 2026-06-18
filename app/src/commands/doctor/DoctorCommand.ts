@@ -10,8 +10,8 @@ import type {
   CommandResult,
 } from '@modules/commands/types';
 import { getLogger } from '@modules/monitoring/logs/Logger';
-import { runSecurityAudit } from '@modules/security/audit';
-import type { SecurityAuditReport } from '@modules/security/audit';
+import { runSecurityAudit } from '@modules/security';
+import type { SecurityAuditReport } from '@modules/security';
 
 const logger = getLogger('DoctorCommand');
 

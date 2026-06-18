@@ -5,6 +5,8 @@
  * 处理 Client→Server 事件路由、状态管理、会话摘要
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
+
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { VoiceEventBus } from './VoiceEventBus';

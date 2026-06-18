@@ -3,6 +3,8 @@
  * 提供纯内置 YAML 解析 + 文件加载 + 校验能力
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
+
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { Logger } from '../monitoring/logs/Logger.js';

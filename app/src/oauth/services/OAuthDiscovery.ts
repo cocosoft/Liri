@@ -4,7 +4,9 @@
  * 参考CC源码的多环境配置模式
  */
 
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'OAuthDiscovery' });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { TTLCache } from '@modules/utils/cache';
 

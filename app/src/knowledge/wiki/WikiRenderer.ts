@@ -28,9 +28,7 @@
  */
 
 import type { Edge } from '@modules/knowledge/graph/KnowledgeGraph';
-import type {
-  EntitySchema,
-} from '@modules/knowledge/schema/SchemaLoader';
+import type { EntitySchema } from '@modules/knowledge/schema/SchemaLoader';
 
 /**
  * 待渲染实体输入

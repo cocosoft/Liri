@@ -64,6 +64,23 @@ jobs:
     - name: Run linter
       run: bun run lint
 
+    - name: Console usage gate (baseline: 2009)
+      run: |
+        COUNT=$(grep -rn "console\.\(log\|warn\|error\|info\|debug\|trace\)(" \
+          --include="*.ts" --include="*.tsx" \
+          src/ \
+          | grep -v "node_modules" \
+          | grep -v "\.test\." \
+          | grep -v "/tests/" \
+          | wc -l)
+        echo "Console calls: $COUNT (baseline: 2009)"
+        if [ "$COUNT" -gt 2009 ]; then
+          echo "FAIL: Console calls ($COUNT) exceed baseline (2009)"
+          echo "Please migrate new console calls to Logger or justify the exemption."
+          exit 1
+        fi
+        echo "PASS: Console calls within baseline"
+
     - name: Run tests (without coverage)
       run: bun test tests/
 

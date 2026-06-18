@@ -93,6 +93,7 @@ export async function handleGetCheckpoint(
     const allCheckpoints = await chatManager.listCheckpoints('');
     let checkpoint = allCheckpoints.find((cp) => cp.id === cpId);
     if (!checkpoint) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cp = await (chatManager as any).getCheckpoint?.(cpId);
       if (cp) checkpoint = cp;
     }

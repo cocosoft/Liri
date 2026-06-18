@@ -4,12 +4,14 @@
 
 import type { CommandContext } from '@modules/commands/types';
 import { completeSecuritySystem } from '@modules/security';
-import { createSecurityScanner } from '@modules/security/scanners/SecurityScanner.js';
-import { inputValidator } from '@modules/security/validators/InputValidator.js';
 import type {
   SecurityAnalysisResult,
   SecurityPattern,
-} from '@modules/security/types';
+} from '@modules/security';
+// eslint-disable-next-line no-restricted-imports
+import { createSecurityScanner } from '@modules/security/scanners/SecurityScanner.js';
+// eslint-disable-next-line no-restricted-imports
+import { inputValidator } from '@modules/security/validators/InputValidator.js';
 
 const securityCommand = {
   async execute(args: string, context: CommandContext) {

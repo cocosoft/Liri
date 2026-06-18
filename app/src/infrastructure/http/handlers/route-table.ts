@@ -73,7 +73,12 @@ export async function dispatchRoute(
   res: http.ServerResponse,
   url: string,
   self: Record<string, Function>,
-  broadcastEvent: (event: string, data: any) => void,
+  broadcastEvent: (
+    event: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any
+  ) => void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handlerCtx: any
 ): Promise<boolean> {
   const method = req.method || 'GET';

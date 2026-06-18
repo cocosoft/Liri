@@ -123,7 +123,8 @@ export async function handleGetDreamLogs(
       await import('@modules/buddy/dreamLogStore');
 
     const result = typeFilter
-      ? getDreamLogsByType(typeFilter as any, limit, offset)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getDreamLogsByType(typeFilter as any, limit, offset)
       : getDreamLogs(limit, offset);
 
     const stats = getDreamStats();

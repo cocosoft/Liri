@@ -34,6 +34,7 @@ export async function handleListKnowledge(
     const result = [];
 
     for (let i = 0; i < docs.length; i++) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const doc: any = docs[i];
       const docPath = doc.relativePath || '';
       const baseName = docPath.split(/[/\\]/)[0];
@@ -109,6 +110,7 @@ export async function handleSearchKnowledge(
       await import('@modules/docs/FileDocsProvider');
     const router = new KnowledgeRouter(knowledgeDocsProvider);
     const routes = await router.search(query, { maxResults: 20 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = routes.map((route: any) => ({
       id: `knowledge-${route.docPath}`,
       title: route.title,

@@ -31,9 +31,7 @@
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { chunkDirectory } from './chunker';
 import type { ChunkOptions } from './chunker';
-import {
-  globalEmbeddingManager,
-} from '@modules/ai/embedding/EmbeddingManager';
+import { globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry } from './store';
 import { resolveDataSubDir } from '@modules/core/paths';

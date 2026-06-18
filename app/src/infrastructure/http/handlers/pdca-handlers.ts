@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
+
 import type http from 'node:http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 

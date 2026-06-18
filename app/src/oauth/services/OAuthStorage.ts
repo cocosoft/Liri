@@ -4,9 +4,11 @@
  */
 
 import { join } from 'path';
-import { logger } from '@modules/utils/log.js';
-import { CryptoUtils } from '@modules/security/services/CryptoUtils.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+import { CryptoUtils } from '@modules/security';
 import { resolveOAuthDir, ensureDir } from '@modules/core/paths';
+
+const logger = new Logger({ module: 'OAuthStorage' });
 import { configManager } from '@modules/config';
 
 /**

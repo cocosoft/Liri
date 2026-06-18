@@ -7,6 +7,8 @@
  * 此位置具有误导性，后续应考虑迁移至 modules/ 下的合适位置。
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
+
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';

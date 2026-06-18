@@ -20,6 +20,7 @@
 // SOFTWARE.
 
 import type http from 'node:http';
+import type { Dirent } from 'node:fs';
 import path from 'node:path';
 import type { HandlerCtx } from './handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
@@ -95,7 +96,7 @@ export async function handleFileList(
     }
 
     const names = readdirSync(absPath, { withFileTypes: true });
-    const entries = names.map((dirent: any) => {
+    const entries = names.map((dirent: Dirent) => {
       const fullPath = require('node:path').join(absPath, dirent.name);
       let size: number | undefined;
       let modifiedAt: number | undefined;
@@ -517,7 +518,7 @@ export async function handleFileRegistryList(
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
-    const query: Record<string, any> = {};
+    const query: Record<string, unknown> = {};
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const pageSize = parseInt(url.searchParams.get('pageSize') || '20', 10);
     const source = url.searchParams.get('source');

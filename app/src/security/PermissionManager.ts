@@ -3,7 +3,9 @@
  * 管理用户权限，控制工具和功能的访�?
  */
 
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'PermissionManager' });
 
 /**
  * 权限类型

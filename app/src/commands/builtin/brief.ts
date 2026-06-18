@@ -9,7 +9,9 @@ import type {
   CommandContext,
   CommandResult,
 } from '@modules/commands/types';
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'BriefCommand' });
 
 let isBriefOnly = false;
 

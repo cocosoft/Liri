@@ -3,7 +3,9 @@
  * 负责应用的错误恢复和容错机制
  */
 
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'ErrorHandler' });
 import { toError, isAbortError, errorMessage } from '@modules/error/utils';
 
 /**

@@ -2,6 +2,8 @@
  * commands-handlers.ts — 命令与技能 HTTP 处理器（从 LocalHTTPService 提取）
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
+
 import type http from 'node:http';
 import { sendError, readRequestBody } from './handler-utils';
 

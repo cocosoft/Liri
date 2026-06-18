@@ -78,7 +78,8 @@ export async function handleSTTTranscribe(
 
     const providers = STTRegistry.getAllProviders();
     const activeProvider = providerId
-      ? providers.find((p: any) => p.id === providerId)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        providers.find((p: any) => p.id === providerId)
       : STTRegistry.getDefaultProvider();
 
     // 构建详细状态信息

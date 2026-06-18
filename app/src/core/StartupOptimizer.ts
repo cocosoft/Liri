@@ -3,7 +3,9 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'StartupOptimizer' });
 import {
   EnhancedModuleDependencyManager,
   EnhancedModuleDefinition,

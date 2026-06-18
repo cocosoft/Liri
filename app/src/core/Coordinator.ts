@@ -5,7 +5,9 @@
 
 import { randomUUID } from 'crypto';
 import { lazySingleton } from '../utils/common';
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'Coordinator' });
 
 export interface CoordinatorTask {
   id: string;

@@ -21,6 +21,7 @@ import { ToolUtils } from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 import { BashSecurityAnalyzer } from '@modules/security';
+// eslint-disable-next-line no-restricted-imports
 import {
   parseForSecurity,
   isDangerousCommand,

@@ -5,7 +5,9 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { logger } from '@modules/utils/log.js';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ module: 'ProjectSettings' });
 import { deepMerge } from '@modules/utils/common.js';
 import { resolveProjectSettingsPath } from '@modules/core/paths';
 

@@ -1451,7 +1451,7 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          id: sessionId,
+          id: _sessionId,
           startedAt: Date.now() - 60000,
           endedAt: Date.now(),
           duration: 60000,
@@ -2380,7 +2380,7 @@ export class LocalHTTPService {
 
         files.push({
           fileName: file,
-          ext: extname(file).toLowerCase(),
+          ext: path.extname(file).toLowerCase(),
           size: fileStat.size,
           modifiedAt: fileStat.mtimeMs,
           createdAt: fileStat.birthtimeMs || fileStat.ctimeMs,
@@ -3082,6 +3082,7 @@ export class LocalHTTPService {
         silent,
         deliver,
         model,
+        provider,
       } = rawBody;
       const cronExpr = (expression || rawBody.cron || '').trim();
       const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();

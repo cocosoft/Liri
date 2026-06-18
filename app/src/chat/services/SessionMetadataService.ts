@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import type { RequiresActionDetails } from './SessionStateService.js';
+import type { RequiresActionDetails } from '../../state/session/types.js';
 import { performanceOptimizationService } from './PerformanceOptimizationService.js';
 
 /**

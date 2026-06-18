@@ -14,7 +14,7 @@ export enum SessionType {
 /**
  * 会话状态枚举
  *
- * @deprecated 使用 {@link DataSessionStatus} — 从 `@modules/core/data-models` 导入
+ * @deprecated 使用 {@link SessionState} — 从 `@modules/state/session` 导入
  */
 export enum SessionStatus {
   ACTIVE = 'active',

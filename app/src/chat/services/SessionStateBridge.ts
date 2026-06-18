@@ -1,22 +1,30 @@
 /**
  * SessionState 生命周期事件桥接适配器
- * 将 SessionLifecycleEventBus 的事件映射到 SessionStateService 的状态变化
+ * 将 SessionLifecycleEventBus 的事件映射到 SessionStateMachine 的状态变化
  */
 
 import type { SessionLifecycleEventBus } from '@modules/session/lifecycle/SessionLifecycleEventBus';
 import type { SessionLifecycleEvent } from '@modules/session/lifecycle/SessionLifecycleEvent';
 import type { Subscription } from '@modules/session/lifecycle/SessionLifecycleEventBus';
-import { SessionStateService } from './SessionStateService.js';
+import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 
 export class SessionStateBridge {
   private eventBus: SessionLifecycleEventBus;
-  private stateService: SessionStateService;
+  private sessionMachines: Map<string, SessionStateMachine> = new Map();
   private subscriptions: Subscription[] = [];
   private connected = false;
 
   constructor(eventBus: SessionLifecycleEventBus) {
     this.eventBus = eventBus;
-    this.stateService = SessionStateService.getInstance();
+  }
+
+  private getSessionMachine(sessionId: string): SessionStateMachine {
+    let machine = this.sessionMachines.get(sessionId);
+    if (!machine) {
+      machine = new SessionStateMachine(sessionId);
+      this.sessionMachines.set(sessionId, machine);
+    }
+    return machine;
   }
 
   connect(): void {
@@ -24,49 +32,36 @@ export class SessionStateBridge {
 
     this.subscriptions.push(
       this.eventBus.on('session:activated', (event: SessionLifecycleEvent) => {
-        this.stateService.notifySessionStateChanged('running', {
-          tool_name: 'session',
-          action_description: `会话已激活: ${event.sessionId}`,
-          tool_use_id: event.sessionId,
-          request_id: event.sessionId,
-          input: event.metadata,
-        });
+        this.getSessionMachine(event.sessionId).start(`会话已激活: ${event.sessionId}`);
       })
     );
 
     this.subscriptions.push(
-      this.eventBus.on('session:paused', () => {
-        this.stateService.notifySessionStateChanged('idle');
+      this.eventBus.on('session:paused', (event: SessionLifecycleEvent) => {
+        this.getSessionMachine(event.sessionId).pause('会话已暂停');
       })
     );
 
     this.subscriptions.push(
       this.eventBus.on('session:resumed', (event: SessionLifecycleEvent) => {
-        this.stateService.notifySessionStateChanged('running', {
-          tool_name: 'session',
-          action_description: `会话已恢复: ${event.sessionId}`,
-          tool_use_id: event.sessionId,
-          request_id: event.sessionId,
-          input: event.metadata,
-        });
+        this.getSessionMachine(event.sessionId).resume(`会话已恢复: ${event.sessionId}`);
       })
     );
 
     this.subscriptions.push(
-      this.eventBus.on('session:archived', () => {
-        this.stateService.notifySessionStateChanged('idle');
+      this.eventBus.on('session:archived', (event: SessionLifecycleEvent) => {
+        const machine = this.getSessionMachine(event.sessionId);
+        try {
+          machine.complete('会话归档前完成');
+        } catch {
+          // 忽略非 RUNNING 状态下 complete 失败的异常
+        }
       })
     );
 
     this.subscriptions.push(
       this.eventBus.on('session:error', (event: SessionLifecycleEvent) => {
-        this.stateService.notifySessionStateChanged('requires_action', {
-          tool_name: 'session_error',
-          action_description: event.reason ?? '会话发生错误',
-          tool_use_id: event.sessionId,
-          request_id: event.sessionId,
-          input: event.metadata,
-        });
+        this.getSessionMachine(event.sessionId).error(new Error(event.reason ?? '会话发生错误'));
       })
     );
 
@@ -78,6 +73,7 @@ export class SessionStateBridge {
       sub.unsubscribe();
     }
     this.subscriptions = [];
+    this.sessionMachines.clear();
     this.connected = false;
   }
 

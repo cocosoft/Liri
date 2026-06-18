@@ -5,10 +5,8 @@
  */
 
 import { EventEmitter } from 'events';
-import type {
-  SessionStateType,
-  RequiresActionDetails,
-} from './SessionStateService.js';
+import { SessionState } from '../../state/session/types.js';
+import type { RequiresActionDetails } from '../../state/session/types.js';
 import type {
   PermissionMode,
   SessionExternalMetadata,
@@ -88,7 +86,7 @@ export class EventNotificationService extends EventEmitter {
    * 发送会话状态变化事件
    */
   emitSessionStateChanged(
-    state: SessionStateType,
+    state: SessionState,
     details?: RequiresActionDetails
   ): void {
     if (!this.enabled) return;

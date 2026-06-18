@@ -50,7 +50,7 @@ import {
   StreamService,
   createStreamService,
 } from './services/StreamService.js';
-import { sessionStateService } from './services/SessionStateService.js';
+import { SessionStateMachine } from '../state/session/SessionStateMachine.js';
 import { sessionMetadataService } from './services/SessionMetadataService.js';
 import { eventNotificationService } from './services/EventNotificationService.js';
 import { messageProcessingService } from './services/MessageProcessingService.js';
@@ -234,6 +234,23 @@ export class ChatManagerImpl implements ChatManager {
    * 令牌追踪器
    */
   private tokenTracker: SessionTokenTracker | null = null;
+
+  /**
+   * 会话状态机映射
+   */
+  private sessionMachines: Map<string, SessionStateMachine> = new Map();
+
+  /**
+   * 获取或创建会话状态机
+   */
+  private getSessionMachine(sessionId: string): SessionStateMachine {
+    let machine = this.sessionMachines.get(sessionId);
+    if (!machine) {
+      machine = new SessionStateMachine(sessionId);
+      this.sessionMachines.set(sessionId, machine);
+    }
+    return machine;
+  }
 
   /**
    * 构造函数
@@ -745,7 +762,7 @@ export class ChatManagerImpl implements ChatManager {
     this._addAndPersistMessage(session.id, userMessage);
 
     // 通知会话状态变化为运行状态
-    sessionStateService.notifySessionStateChanged('running');
+    this.getSessionMachine(session.id).start('sendMessage');
 
     // 准备消息列表
     const messages = session.messages;
@@ -1338,7 +1355,7 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // 通知会话状态变化为空闲状态
-    sessionStateService.notifySessionStateChanged('idle');
+    this.getSessionMachine(session.id).complete('sendMessage完成');
 
     return assistantMessage;
   }
@@ -1821,7 +1838,7 @@ export class ChatManagerImpl implements ChatManager {
     this._addAndPersistMessage(session.id, userMessage);
 
     // 通知会话状态变化为运行状态
-    sessionStateService.notifySessionStateChanged('running');
+    this.getSessionMachine(session.id).start('processUserInput');
 
     // 准备消息列表（用于API调用）
     const messages = session.messages;
@@ -2379,7 +2396,7 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // 通知会话状态变化为空闲状态
-    sessionStateService.notifySessionStateChanged('idle');
+    this.getSessionMachine(session.id).complete('工具执行完成');
 
     options?.onComplete?.(assistantMessage);
     return assistantMessage;
@@ -3180,14 +3197,6 @@ export class ChatManagerImpl implements ChatManager {
    */
   getSubAgentManager(): unknown {
     return this.subAgentManager;
-  }
-
-  /**
-   * 获取会话状态服务
-   * @returns 会话状态服务
-   */
-  getSessionStateService(): typeof sessionStateService {
-    return sessionStateService;
   }
 
   /**

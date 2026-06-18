@@ -27,7 +27,6 @@ import type {
   ChatStreamChunk,
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
-import { sessionStateService } from './services/SessionStateService.js';
 import { sessionMetadataService } from './services/SessionMetadataService.js';
 import { eventNotificationService } from './services/EventNotificationService.js';
 import { messageProcessingService } from './services/MessageProcessingService.js';
@@ -246,12 +245,6 @@ export interface ChatManager {
    * @returns 子Agent管理器
    */
   getSubAgentManager(): unknown;
-
-  /**
-   * 获取会话状态服务
-   * @returns 会话状态服务
-   */
-  getSessionStateService(): typeof sessionStateService;
 
   /**
    * 获取会话元数据服务

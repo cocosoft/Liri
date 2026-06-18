@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { resolveDataSubDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
+import { logger } from '../utils/log.js';
 
 /**
  * 内存快照配置

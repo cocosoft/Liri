@@ -5,7 +5,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { PermissionMode } from '../permission/PermissionMode';
-import type { RequiresActionDetails } from './ChatSessionStateManager.js';
+import type { RequiresActionDetails } from '../state/session/types.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

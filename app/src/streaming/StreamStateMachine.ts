@@ -2,39 +2,41 @@
  * StreamStateMachine - 流状态机
  *
  * 管理流生命周期：IDLE → STREAMING → PAUSED → STREAMING → ... → COMPLETED / ERROR / CANCELLED
- * 提供状态转换验证、监听器通知和转换历史记录。
+ *
+ * 继承自 StateMachine<StreamState> 泛型引擎，提供完整的状态转换校验、
+ * 监听器通知和转换历史记录能力。
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { StreamState, type StreamStateTransition } from './types';
-
-const logger = new Logger();
+import { StateMachine } from '../state/engine/StateMachine';
+import type { TransitionRules, TransitionRecord } from '../state/engine/types';
+import { StreamState } from './types';
 
 /**
  * 状态转换规则表
- * 定义哪些转换是合法的
+ * 定义哪些转换是合法的，使用 TransitionRules<StreamState> 格式
  */
-const VALID_TRANSITIONS: Record<StreamState, Set<StreamState>> = {
-  [StreamState.IDLE]: new Set([StreamState.STREAMING]),
-  [StreamState.STREAMING]: new Set([
+const STREAM_TRANSITIONS: TransitionRules<StreamState> = {
+  [StreamState.IDLE]: [StreamState.STREAMING],
+  [StreamState.STREAMING]: [
     StreamState.PAUSED,
     StreamState.COMPLETED,
     StreamState.ERROR,
     StreamState.CANCELLED,
-  ]),
-  [StreamState.PAUSED]: new Set([
+  ],
+  [StreamState.PAUSED]: [
     StreamState.STREAMING,
     StreamState.CANCELLED,
     StreamState.COMPLETED,
-  ]),
-  [StreamState.COMPLETED]: new Set([StreamState.IDLE]),
-  [StreamState.ERROR]: new Set([StreamState.IDLE, StreamState.STREAMING]),
-  [StreamState.CANCELLED]: new Set([StreamState.IDLE]),
+  ],
+  [StreamState.COMPLETED]: [StreamState.IDLE],
+  [StreamState.ERROR]: [StreamState.IDLE, StreamState.STREAMING],
+  [StreamState.CANCELLED]: [StreamState.IDLE],
 };
 
 /**
  * 状态转换历史记录条目
+ *
+ * @deprecated 使用 {@link TransitionRecord} — 从 `@modules/state/engine` 导入
  */
 export interface StateTransitionRecord {
   from: StreamState;
@@ -45,6 +47,8 @@ export interface StateTransitionRecord {
 
 /**
  * 状态变更监听器
+ *
+ * @deprecated 使用 {@link import('@modules/state/engine').StateChangeListener} — 从 `@modules/state/engine` 导入
  */
 export type StateChangeListener = (
   from: StreamState,
@@ -52,101 +56,28 @@ export type StateChangeListener = (
   reason?: string
 ) => void;
 
-export class StreamStateMachine {
-  private currentState: StreamState = StreamState.IDLE;
-  private history: StateTransitionRecord[] = [];
-  private listeners: Set<StateChangeListener> = new Set();
-  private streamId: string;
-
+export class StreamStateMachine extends StateMachine<StreamState> {
   /**
-   * @param streamId - 关联的流 ID，用于日志标识
+   * @param streamId - 关联的流 ID，用于日志标识和上下文追踪
    */
   constructor(streamId: string = 'unknown') {
-    this.streamId = streamId;
-  }
-
-  /**
-   * 获取当前状态
-   */
-  getState(): StreamState {
-    return this.currentState;
+    super({
+      initialState: StreamState.IDLE,
+      rules: STREAM_TRANSITIONS,
+      isTerminal: (state) =>
+        state === StreamState.COMPLETED ||
+        state === StreamState.ERROR ||
+        state === StreamState.CANCELLED,
+      isActive: (state) => state === StreamState.STREAMING,
+      contextId: streamId,
+    });
   }
 
   /**
    * 获取流 ID
    */
   getStreamId(): string {
-    return this.streamId;
-  }
-
-  /**
-   * 获取转换历史（不可变快照）
-   */
-  getHistory(): readonly StateTransitionRecord[] {
-    return [...this.history];
-  }
-
-  /**
-   * 获取当前状态是否处于活跃（可接收数据）状态
-   */
-  isActive(): boolean {
-    return this.currentState === StreamState.STREAMING;
-  }
-
-  /**
-   * 获取当前状态是否处于终止状态
-   */
-  isTerminal(): boolean {
-    return (
-      this.currentState === StreamState.COMPLETED ||
-      this.currentState === StreamState.ERROR ||
-      this.currentState === StreamState.CANCELLED
-    );
-  }
-
-  /**
-   * 尝试执行状态转换
-   *
-   * @param to - 目标状态
-   * @param reason - 转换原因（可选）
-   * @returns 转换是否成功
-   */
-  transition(to: StreamState, reason?: string): boolean {
-    const from = this.currentState;
-
-    if (from === to) {
-      logger.debug(`状态未变: ${from}`, { streamId: this.streamId });
-      return true;
-    }
-
-    const allowed = VALID_TRANSITIONS[from];
-    if (!allowed || !allowed.has(to)) {
-      throw new AppError(
-        `非法状态转换: ${from} → ${to}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000',
-        { streamId: this.streamId, from, to }
-      );
-    }
-
-    this.currentState = to;
-
-    const record: StateTransitionRecord = {
-      from,
-      to,
-      reason,
-      timestamp: Date.now(),
-    };
-    this.history.push(record);
-
-    logger.debug(`状态转换: ${from} → ${to}`, {
-      streamId: this.streamId,
-      reason,
-    });
-
-    this.notifyListeners(from, to, reason);
-    return true;
+    return this.getContextId();
   }
 
   /**
@@ -192,7 +123,7 @@ export class StreamStateMachine {
   }
 
   /**
-   * 重置到 IDLE 状态
+   * 重置到 IDLE 状态并清空历史记录
    */
   reset(reason?: string): boolean {
     const result = this.transition(StreamState.IDLE, reason);
@@ -203,60 +134,31 @@ export class StreamStateMachine {
   }
 
   /**
-   * 检查指定转换是否合法
-   */
-  canTransition(to: StreamState): boolean {
-    const allowed = VALID_TRANSITIONS[this.currentState];
-    return allowed ? allowed.has(to) : false;
-  }
-
-  /**
    * 注册状态变更监听器
    *
+   * @deprecated 使用 {@link onStateChange} — 功能相同，命名更一致
    * @returns 取消监听的函数
    */
   addListener(listener: StateChangeListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+    return this.onStateChange(listener);
   }
 
   /**
    * 移除状态变更监听器
+   *
+   * @deprecated 使用 {@link offStateChange} — 功能相同，命名更一致
    */
   removeListener(listener: StateChangeListener): void {
-    this.listeners.delete(listener);
-  }
-
-  /**
-   * 通知所有监听器
-   */
-  private notifyListeners(
-    from: StreamState,
-    to: StreamState,
-    reason?: string
-  ): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(from, to, reason);
-      } catch (err) {
-        logger.error('状态变更监听器抛出异常', {
-          error: err as Error,
-          streamId: this.streamId,
-          from,
-          to,
-        });
-      }
-    }
+    this.offStateChange(listener);
   }
 
   /**
    * 获取从开始到现在的总耗时（ms）
    */
   getElapsedMs(): number {
-    if (this.history.length === 0) return 0;
-    const first = this.history[0];
+    const records = this.getHistory();
+    if (records.length === 0) return 0;
+    const first = records[0];
     return Date.now() - first.timestamp;
   }
 }

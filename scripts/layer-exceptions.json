@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Liri 分层例外清单。例外按衰减规则自动过期，过期后 lint:arch 将重新报告对应违规",
+  "lastUpdated": "2026-06-18",
+
+  "decayRules": {
+    "batchExpiryDays": 60,
+    "newExpiryDays": 30,
+    "maxPerModule": 30,
+    "warningDaysBeforeExpiry": 7
+  },
+
+  "bulkExceptions": [
+    {
+      "id": "BULK-001",
+      "ruleId": "R00-001",
+      "pattern": "domain -> infrastructure",
+      "description": "历史遗留：domain 层（agent/ai/chat/commands/services/...）直接依赖 infrastructure 层（core/config/runtime/cache/...）",
+      "rationale": "当前架构未严格分层，domain 层大量耦合 infrastructure 实现。需通过 Phase 2-3 逐步重构解耦",
+      "estimatedCount": 429,
+      "createdAt": "2026-06-18",
+      "expiresAt": "2026-08-17",
+      "owner": "@arch-lead"
+    }
+  ],
+
+  "perModuleExceptions": [],
+
+  "outdatedHistory": []
+}

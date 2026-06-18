@@ -965,6 +965,12 @@ export async function main(): Promise<void> {
     args.push('--legacy-repl');
   }
 
+  // 灰度回退：检测 --use-legacy-module-system 标志
+  // 传此标志则 AppCore 使用旧版 ModuleDependencyManager 替代统一 ModuleRegistry
+  if (args.includes('--use-legacy-module-system')) {
+    process.env.LIRI_USE_LEGACY_MODULE_SYSTEM = '1';
+  }
+
   await launch({ mode, args });
 }
 

@@ -5,68 +5,33 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger } from '@modules/monitoring/logs/Logger';
-
-const logger = new Logger({ module: 'AppCore' });
 import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
 import { TerminalUIIntegration } from '@modules/ui/TerminalUIIntegration.js';
 import {
   ModuleDependencyManager,
-  ModuleDefinition,
+  type ModuleDefinition,
 } from './ModuleDependencyManager.js';
-import { PluginEcosystem, EcosystemConfig } from './PluginEcosystem.js';
+import { PluginEcosystem } from './PluginEcosystem.js';
 import { pluginSystem } from '@modules/plugins/index.js';
 import type { PluginSystem } from '@modules/plugins/index.js';
-import { PluginSDK, Plugin, PluginSDKConfig } from './PluginSDK.js';
+import { PluginSDK, type Plugin, type PluginSDKConfig } from './PluginSDK.js';
 import { StartupProfiler } from '@modules/utils/startupProfiler.js';
 import {
   StartupPreloader,
   initializeAndStartPreloading,
 } from './performance/StartupPreloader.js';
 import { LazyModuleLoader } from './utils/LazyModuleLoader.js';
-import { execSync } from 'child_process';
-import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
-import { join, resolve, dirname } from 'path';
-import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
-import { configManager } from '@modules/config';
+import type { AppCoreConfig, AppCoreStartupOptions } from './AppCoreConfig';
+import {
+  setupGitWorktree,
+  loadSessionPersistence,
+  saveTerminalState,
+  restoreTerminalState,
+  showStartupReport,
+} from './AppCoreStartupHelper';
+import { initializeOTelSystem } from './AppCoreOTelHelper';
 
-/**
- * Git 工作树创建选项
- */
-export interface WorktreeOptions {
-  enabled: boolean;
-  name?: string;
-  prNumber?: number;
-  tmuxEnabled?: boolean;
-}
-
-/**
- * 会话持久化加载选项
- */
-export interface SessionStartupOptions {
-  enabled: boolean;
-  sessionId?: string;
-  storageDir?: string;
-}
-
-/**
- * 启动流程增强选项
- */
-export interface AppCoreStartupOptions {
-  worktree?: WorktreeOptions;
-  session?: SessionStartupOptions;
-  terminalBackup?: boolean;
-}
-
-/**
- * 应用配置
- */
-export interface AppCoreConfig {
-  name: string;
-  version: string;
-  debug?: boolean;
-  ecosystem?: EcosystemConfig;
-  startup?: AppCoreStartupOptions;
-}
+const logger = new Logger({ module: 'AppCore' });
 
 /**
  * 应用核心
@@ -87,14 +52,26 @@ export class AppCore {
   private readonly lazyPluginSDK: LazyModuleLoader<PluginSDK>;
   private readonly lazyTerminalUI: LazyModuleLoader<TerminalUIIntegration>;
 
+  /**
+   * 是否使用旧版模块系统
+   * 私有 getter，每次判断时读取最新配置
+   */
+  private get useLegacyModuleSystem(): boolean {
+    return this.config.useLegacyModuleSystem === true;
+  }
+
   constructor(config: AppCoreConfig) {
     this.config = {
       debug: false,
+      // 如果环境变量设置了旧版标志，自动启用
+      useLegacyModuleSystem:
+        process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1',
       ...config,
     };
 
     this.profiler = new StartupProfiler();
 
+    // 旧版模块系统才需要 ModuleDependencyManager
     this.lazyModuleManager = new LazyModuleLoader(
       () => new ModuleDependencyManager()
     );
@@ -109,6 +86,16 @@ export class AppCore {
 
     this.lazyPluginSDK = new LazyModuleLoader(async () => {
       const ecosystem = await this.lazyEcosystem.get();
+
+      // 非旧版模式下 PluginSDK 不需要 ModuleDependencyManager
+      if (!this.useLegacyModuleSystem) {
+        const sdkConfig: PluginSDKConfig = {
+          ecosystem,
+          moduleManager: undefined as any,
+        };
+        return new PluginSDK(sdkConfig);
+      }
+
       const moduleManager = await this.lazyModuleManager.get();
       const sdkConfig: PluginSDKConfig = {
         ecosystem,
@@ -171,13 +158,13 @@ export class AppCore {
       // T0: 启动流程增强
       // T0.1: 终端状态备份
       if (this.config.startup?.terminalBackup) {
-        await this.saveTerminalState();
+        this.terminalBackupPath = await saveTerminalState();
         this.profiler.checkpoint('terminal_backup_done');
       }
 
       // T0.2: Session 持久化加载
       if (this.config.startup?.session?.enabled) {
-        await this.loadSessionPersistence();
+        this.sessionFactory = await loadSessionPersistence(this.config);
         this.profiler.checkpoint('session_loaded');
       }
 
@@ -185,27 +172,40 @@ export class AppCore {
       const preloader = initializeAndStartPreloading();
       this.profiler.checkpoint('preload_started');
 
-      // 并行加载独立核心子系统（ModuleManager、Ecosystem、TerminalUI 互无依赖）
-      await Promise.all([
-        this.lazyModuleManager.get(),
-        this.lazyEcosystem.get(),
-        this.lazyTerminalUI.get(),
-      ]);
-      this.profiler.checkpoint('core_subsystems_loaded');
+      if (this.useLegacyModuleSystem) {
+        // 旧版路径：并行加载独立核心子系统（ModuleManager、Ecosystem、TerminalUI 互无依赖）
+        await Promise.all([
+          this.lazyModuleManager.get(),
+          this.lazyEcosystem.get(),
+          this.lazyTerminalUI.get(),
+        ]);
+        this.profiler.checkpoint('core_subsystems_loaded');
 
-      // PluginSDK 依赖 ModuleManager + Ecosystem，在前两者加载完成后初始化
-      await this.lazyPluginSDK.get();
-      this.profiler.checkpoint('plugin_sdk_loaded');
+        // PluginSDK 依赖 ModuleManager + Ecosystem，在前两者加载完成后初始化
+        await this.lazyPluginSDK.get();
+        this.profiler.checkpoint('plugin_sdk_loaded');
 
-      await this.initializeCoreModules();
-      this.profiler.checkpoint('core_modules_initialized');
+        await this.initializeCoreModules();
+        this.profiler.checkpoint('core_modules_initialized');
+      } else {
+        // 统一路径：Ecosystem 和 TerminalUI 仍然需要，ModuleManager 由 ModuleRegistry 管理
+        await Promise.all([
+          this.lazyEcosystem.get(),
+          this.lazyTerminalUI.get(),
+        ]);
+        this.profiler.checkpoint('core_subsystems_loaded');
+
+        // PluginSDK 在非旧版模式下不需要 ModuleDependencyManager
+        await this.lazyPluginSDK.get();
+        this.profiler.checkpoint('plugin_sdk_loaded');
+      }
 
       // 初始化成本跟踪系统
       await this.initializeCostTrackingSystem();
       this.profiler.checkpoint('cost_tracking_initialized');
 
       // 初始化 OpenTelemetry 观测系统（依赖核心模块完成）
-      await this.initializeOTelSystem();
+      await initializeOTelSystem();
       this.profiler.checkpoint('otel_initialized');
 
       // 等待预加载完成
@@ -218,7 +218,7 @@ export class AppCore {
 
       // T0.3: Git 工作树创建
       if (this.config.startup?.worktree?.enabled) {
-        await this.setupGitWorktree();
+        this.worktreePath = await setupGitWorktree(this.config);
         this.profiler.checkpoint('worktree_created');
       }
 
@@ -233,7 +233,13 @@ export class AppCore {
       this.initialized = true;
 
       // 显示性能报告
-      this.showStartupReport();
+      showStartupReport(
+        this.config,
+        this.profiler,
+        this.useLegacyModuleSystem,
+        this.useLegacyModuleSystem ? this.moduleManager : undefined,
+        this.ecosystem
+      );
 
       TerminalComponents.printSuccess(`${this.config.name} 初始化完成`);
       logger.info(
@@ -246,7 +252,7 @@ export class AppCore {
   }
 
   /**
-   * 初始化核心模块
+   * 初始化核心模块（旧版 ModuleDependencyManager 路径）
    */
   private async initializeCoreModules(): Promise<void> {
     // 注册核心模块
@@ -255,6 +261,7 @@ export class AppCore {
         name: 'logger',
         version: '1.0.0',
         description: '日志系统',
+        dependencies: [],
         priority: 100,
         init: async () => {
           logger.info('Logger module initialized');
@@ -317,83 +324,6 @@ export class AppCore {
   }
 
   /**
-   * 初始化 OpenTelemetry 观测系统
-   * 注册全局 MeterProvider/TracerProvider，创建 OTel 实例并连接桥接组件
-   */
-  private async initializeOTelSystem(): Promise<void> {
-    try {
-      const { initializeTelemetry } =
-        await import('@modules/monitoring/instrumentation.js');
-
-      await initializeTelemetry();
-      logger.info('OTel 遥测初始化完成');
-
-      // 主动创建 OTel 指标实例（注册到全局 MeterProvider）
-      const { getOTelMetrics, getOTelTracing } =
-        await import('@modules/monitoring/otel/index.js');
-
-      const otelMetrics = getOTelMetrics();
-      const otelTracing = getOTelTracing();
-
-      // 创建并启动 MetricsBridge（MetricsService → OTelMetrics）
-      const { getMetricsService, createMetricsBridge } =
-        await import('@modules/monitoring/index.js');
-
-      const metricsService = getMetricsService();
-      const metricsBridge = createMetricsBridge(metricsService, otelMetrics);
-      metricsBridge.start();
-
-      // 创建 TraceBridge 供追踪使用
-      const { createTraceBridge } =
-        await import('@modules/monitoring/otel/index.js');
-
-      const traceBridge = createTraceBridge(otelTracing);
-
-      // 初始化会话追踪
-      const { getSessionTracing } =
-        await import('@modules/monitoring/tracing/SessionTracing.js');
-
-      getSessionTracing();
-
-      logger.info('OTel 桥接组件初始化完成');
-
-      // 初始化集中日志配置（LogConfigManager 注册到 Logger）
-      const { logConfigManager } =
-        await import('@modules/monitoring/logs/config/LogConfig.js');
-      const { setGlobalConfigProvider, setGlobalBufferConfig } =
-        await import('@modules/monitoring/logs/Logger.js');
-      const cfg = logConfigManager.get();
-      setGlobalConfigProvider(() => {
-        return {
-          level: cfg.level,
-          logFile: cfg.targets.find((t) => t.type === 'file')?.path,
-          fileOutput: cfg.targets.some((t) => t.type === 'file'),
-          format: cfg.format === 'pretty' ? 'text' : cfg.format,
-          colorize: cfg.colorize,
-          otelTraceEnabled: cfg.otelTraceEnabled,
-        };
-      });
-      setGlobalBufferConfig(cfg.maxBufferSize, cfg.flushInterval);
-      logger.info('集中日志配置已注册');
-
-      // 创建 OTel 日志适配器（将 OTel Span 上下文注入日志）
-      const { createOTelLoggerAdapter } =
-        await import('@modules/monitoring/otel/OTelLoggerAdapter.js');
-      createOTelLoggerAdapter(otelTracing, {
-        module: 'app',
-        traceEnabled: true,
-        jsonOutput: true,
-      });
-      logger.info('OTel 日志适配器已创建');
-    } catch (error) {
-      logger.error(
-        'OTel 系统初始化失败',
-        error instanceof Error ? error : new Error(String(error))
-      );
-    }
-  }
-
-  /**
    * 初始化插件系统
    * 启动 PluginSystem（懒加载核心），并绑定到 PluginEcosystem（展示层）
    */
@@ -419,193 +349,7 @@ export class AppCore {
     logger.info('Terminal UI initialized');
   }
 
-  /**
-   * 创建 Git 工作树（可选）
-   */
-  private async setupGitWorktree(): Promise<void> {
-    const opts = this.config.startup?.worktree;
-    if (!opts?.enabled) return;
-
-    try {
-      const cwd = process.cwd();
-      const gitRoot = this.findGitRoot(cwd);
-      if (!gitRoot) {
-        logger.warn('Not in a git repository, skipping worktree creation');
-        return;
-      }
-
-      const slug = opts.prNumber ? `pr-${opts.prNumber}` : (opts.name ?? 'dev');
-
-      const worktreeBranch = `worktree/${slug}`;
-      const worktreePath = resolve(gitRoot, '..', 'worktrees', slug);
-
-      if (existsSync(worktreePath)) {
-        logger.info(`Worktree already exists at ${worktreePath}`);
-        this.worktreePath = worktreePath;
-        return;
-      }
-
-      logger.info(
-        `Creating git worktree: ${worktreeBranch} at ${worktreePath}`
-      );
-
-      execSync(`git worktree add --detach "${worktreePath}"`, {
-        cwd: gitRoot,
-        stdio: 'pipe',
-        encoding: 'utf-8',
-      });
-
-      execSync(`git checkout -b "${worktreeBranch}"`, {
-        cwd: worktreePath,
-        stdio: 'pipe',
-        encoding: 'utf-8',
-      });
-
-      process.chdir(worktreePath);
-      this.worktreePath = worktreePath;
-
-      logger.info(`Git worktree created and switched to ${worktreePath}`);
-    } catch (error) {
-      logger.warn('Failed to create git worktree', { error: String(error) });
-    }
-  }
-
-  /**
-   * 加载 Session 持久化
-   */
-  private async loadSessionPersistence(): Promise<void> {
-    const opts = this.config.startup?.session;
-    if (!opts?.enabled) return;
-
-    try {
-      const { SessionFactory } = await import('../session/SessionFactory.js');
-      const { UnifiedStorageAdapter } =
-        await import('../session/storage/UnifiedStorageAdapter.js');
-      const { FileSystemUnifiedStorage } =
-        await import('../session/storage/FileSystemUnifiedStorage.js');
-      const { StorageType } =
-        await import('../session/storage/UnifiedStorage.js');
-
-      const storageDir = opts.storageDir ?? resolveSessionsDir();
-      const unifiedStorage = new FileSystemUnifiedStorage({
-        type: StorageType.FILESYSTEM,
-        basePath: storageDir,
-      });
-      await unifiedStorage.initialize();
-      const storage = new UnifiedStorageAdapter(unifiedStorage);
-      this.sessionFactory = new SessionFactory(storage);
-
-      if (opts.sessionId) {
-        const session = await this.sessionFactory.loadSession(opts.sessionId);
-        if (session) {
-          logger.info(`Session loaded: ${opts.sessionId}`);
-          TerminalComponents.printInfo(`恢复会话: ${opts.sessionId}`);
-        } else {
-          logger.info(`Session not found: ${opts.sessionId}, creating new`);
-          const newSession = await this.sessionFactory.createSession({
-            title: `Startup ${new Date().toISOString()}`,
-          });
-          logger.info(`New session created: ${newSession.id}`);
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to load session persistence', {
-        error: String(error),
-      });
-    }
-  }
-
-  /**
-   * 保存终端状态备份
-   */
-  private async saveTerminalState(): Promise<void> {
-    try {
-      const backupDir = resolveDataDir();
-      if (!existsSync(backupDir)) {
-        const { mkdirSync } = await import('fs');
-        mkdirSync(backupDir, { recursive: true });
-      }
-
-      const backupPath = join(backupDir, 'terminal_state.json');
-
-      const terminalState = {
-        cwd: process.cwd(),
-        env: {
-          TERM: configManager.env('TERM'),
-          SHELL: configManager.env('SHELL'),
-          LANG: configManager.env('LANG'),
-        },
-        timestamp: new Date().toISOString(),
-      };
-
-      writeFileSync(
-        backupPath,
-        JSON.stringify(terminalState, null, 2),
-        'utf-8'
-      );
-      this.terminalBackupPath = backupPath;
-      logger.info(`Terminal state saved to ${backupPath}`);
-    } catch (error) {
-      logger.warn('Failed to save terminal state', { error: String(error) });
-    }
-  }
-
-  /**
-   * 恢复终端状态
-   */
-  private async restoreTerminalState(): Promise<void> {
-    if (!this.terminalBackupPath || !existsSync(this.terminalBackupPath))
-      return;
-
-    try {
-      const data = readFileSync(this.terminalBackupPath, 'utf-8');
-      const terminalState = JSON.parse(data);
-
-      logger.info('Terminal state restored from backup');
-      unlinkSync(this.terminalBackupPath);
-      this.terminalBackupPath = null;
-    } catch (error) {
-      logger.warn('Failed to restore terminal state', { error: String(error) });
-    }
-  }
-
-  /**
-   * 查找 Git 仓库根目录
-   */
-  private findGitRoot(startPath: string): string | null {
-    try {
-      const output = execSync('git rev-parse --show-toplevel', {
-        cwd: startPath,
-        stdio: 'pipe',
-        encoding: 'utf-8',
-      });
-      return output.trim();
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * 显示启动报告
-   */
-  private showStartupReport(): void {
-    this.profiler.stop();
-    const report = this.profiler.generateReport();
-
-    TerminalComponents.printHeader('启动报告');
-
-    const stats: [string, string][] = [
-      ['应用名称', this.config.name],
-      ['版本', this.config.version],
-      ['官网', 'https://openliri.com'],
-      ['启动时间', `${report.totalDuration.toFixed(2)}ms`],
-      ['模块数量', this.moduleManager.getModules().length.toString()],
-      ['插件数量', this.ecosystem.getAllPlugins().length.toString()],
-      ['技能数量', this.ecosystem.getAllSkills().length.toString()],
-    ];
-
-    TerminalComponents.printKeyValue(stats);
-  }
+  // ==================== 插件 Facade 方法 ====================
 
   /**
    * 注册插件
@@ -639,19 +383,38 @@ export class AppCore {
     return this.pluginSDK.executeSkill(pluginId, skillId, args);
   }
 
+  // ==================== 弃用方法（旧版模块系统） ====================
+
   /**
    * 注册模块
+   * @deprecated 使用 ModuleRegistry 替代。旧版模块系统（ModuleDependencyManager）的接口。
+   *   在非旧版模式下调用此方法将产生警告并忽略。
    */
   registerModule(module: ModuleDefinition): void {
+    if (!this.useLegacyModuleSystem) {
+      logger.warn('registerModule() 已被弃用，请使用 ModuleRegistry 替代');
+      return;
+    }
     this.moduleManager.registerModule(module);
   }
 
   /**
    * 获取模块管理器
+   * @deprecated 使用 ModuleRegistry 替代。旧版模块系统（ModuleDependencyManager）的接口。
+   *   在非旧版模式下调用此方法将抛出错误。
    */
   getModuleManager(): ModuleDependencyManager {
+    if (!this.useLegacyModuleSystem) {
+      throw new AppError(
+        'getModuleManager() 已被弃用。非旧版模式下请使用 ModuleRegistry 替代。',
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH
+      );
+    }
     return this.moduleManager;
   }
+
+  // ==================== 访问器 ====================
 
   /**
    * 获取插件系统
@@ -688,88 +451,28 @@ export class AppCore {
    */
   showSystemStatus(): void {
     TerminalComponents.clearScreen();
-    TerminalComponents.printHeader('系统状态');
+    TerminalComponents.printHeader(`${this.config.name} 系统状态`);
 
-    const status: [string, string][] = [
-      ['应用名称', this.config.name],
-      ['版本', this.config.version],
-      ['运行状态', this.initialized ? '已初始化' : '未初始化'],
-      ['模块数', this.moduleManager.getModules().length.toString()],
-      ['插件数', this.ecosystem.getAllPlugins().length.toString()],
-      ['技能数', this.ecosystem.getAllSkills().length.toString()],
+    const stats: [string, string][] = [
+      ['应用名称', `${this.config.name} v${this.config.version}`],
+      ['初始化状态', this.initialized ? '已完成' : '未初始化'],
+      ['模块数量', this.useLegacyModuleSystem
+        ? this.moduleManager.getModules().length.toString()
+        : '由 ModuleRegistry 管理'],
+      ['插件数量', this.ecosystem.getAllPlugins().length.toString()],
+      ['技能数量', this.ecosystem.getAllSkills().length.toString()],
     ];
 
-    TerminalComponents.printKeyValue(status);
-
-    TerminalComponents.printDivider();
-    this.moduleManager.showModuleOverview();
-
-    TerminalComponents.printDivider();
-    this.ecosystem.showPluginList();
-
-    TerminalComponents.printDivider();
-    this.ecosystem.showSkillList();
-  }
-
-  /**
-   * 显示帮助信息
-   */
-  showHelp(): void {
-    TerminalComponents.printHeader('帮助信息');
-
-    const commands = [
-      { cmd: 'status', desc: '显示系统状态' },
-      { cmd: 'plugins', desc: '显示插件列表' },
-      { cmd: 'skills', desc: '显示技能列表' },
-      { cmd: 'modules', desc: '显示模块列表' },
-      { cmd: 'marketplace', desc: '显示插件市场' },
-      { cmd: 'help', desc: '显示此帮助信息' },
-    ];
-
-    TerminalComponents.printList(
-      commands.map((c) => `${c.cmd} - ${c.desc}`),
-      { bullet: '►' }
-    );
-  }
-
-  /**
-   * 关闭应用
-   */
-  async shutdown(): Promise<void> {
-    TerminalComponents.printInfo('正在关闭应用...');
-
-    // 停用所有插件
-    for (const plugin of this.pluginSDK.getPlugins()) {
-      await this.pluginSDK.deactivatePlugin(plugin.id);
-    }
-
-    // 终端状态恢复
-    if (this.terminalBackupPath) {
-      await this.restoreTerminalState();
-    }
-
-    this.initialized = false;
-    TerminalComponents.printSuccess('应用已关闭');
-  }
-
-  /**
-   * 检查是否已初始化
-   */
-  isInitialized(): boolean {
-    return this.initialized;
-  }
-
-  /**
-   * 获取配置
-   */
-  getConfig(): AppCoreConfig {
-    return { ...this.config };
+    TerminalComponents.printKeyValue(stats);
   }
 }
 
 /**
- * 创建应用核心
+ * 创建 AppCore 实例（便捷工厂函数）
  */
 export function createAppCore(config: AppCoreConfig): AppCore {
-  return AppCore.getInstance(config);
+  return new AppCore(config);
 }
+
+// 向后兼容：保持从 core/index.ts 的导入路径不变
+export type { AppCoreConfig } from './AppCoreConfig';

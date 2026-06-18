@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { join, resolve, relative } from 'node:path';
+import { join, resolve, relative, dirname } from 'node:path';
 
 // ============ 类型定义 ============
 
@@ -54,6 +54,9 @@ class ArchitectureLinter {
     private violations: RuleViolation[] = [];
     private srcPath: string;
     private allFiles: string[] = [];
+    private moduleToLayer: Map<string, string> = new Map();
+    private allowedDeps: Record<string, string[]> = {};
+    private layerOrder: string[] = [];
 
     constructor(srcPath: string) {
         this.srcPath = srcPath;
@@ -364,6 +367,152 @@ class ArchitectureLinter {
         }
     }
 
+    // ============ R00 分层合规 ============
+
+    private layerExceptions: Set<string> = new Set();
+
+    /** 加载分层例外清单 */
+    async loadLayerExceptions(): Promise<void> {
+        const exPath = resolve(process.cwd(), 'scripts', 'layer-exceptions.json');
+        if (!existsSync(exPath)) return;
+
+        const data = JSON.parse(readFileSync(exPath, 'utf-8'));
+
+        // 加载批量例外
+        const bulk = data.bulkExceptions || [];
+        for (const ex of bulk) {
+            // 检查是否已过期
+            if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
+            this.layerExceptions.add(`${ex.ruleId}:${ex.pattern}`);
+        }
+
+        // 加载按模块例外
+        const perModule = data.perModuleExceptions || [];
+        for (const ex of perModule) {
+            if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
+            this.layerExceptions.add(`${ex.ruleId}:${ex.sourceModule}:${ex.targetModule}`);
+        }
+
+        console.log(`已加载 ${this.layerExceptions.size} 条有效分层例外`);
+    }
+
+    /** 判断跨层依赖是否已被豁免 */
+    isException(ruleId: string, srcModule: string, tgtModule: string): boolean {
+        const srcLayer = this.moduleToLayer.get(srcModule) || '';
+        const tgtLayer = this.moduleToLayer.get(tgtModule) || '';
+
+        // 检查按模块精确例外
+        if (this.layerExceptions.has(`${ruleId}:${srcModule}:${tgtModule}`)) return true;
+
+        // 检查批量例外（按 layer 模式匹配）
+        const pattern = `${srcLayer} -> ${tgtLayer}`;
+        if (this.layerExceptions.has(`${ruleId}:${pattern}`)) return true;
+
+        return false;
+    }
+
+    /** 加载分层映射配置 */
+    async loadLayerMapping(): Promise<void> {
+        const mappingPath = resolve(process.cwd(), 'scripts', 'modules-to-layers.json');
+        if (!existsSync(mappingPath)) {
+            console.warn('⚠ 警告: scripts/modules-to-layers.json 不存在，跳过分层检查');
+            return;
+        }
+        const data = JSON.parse(readFileSync(mappingPath, 'utf-8'));
+        for (const [mod, info] of Object.entries(data.modules) as [string, any][]) {
+            this.moduleToLayer.set(mod, info.layer);
+        }
+        this.allowedDeps = data.allowedDependencies;
+        this.layerOrder = data.layerOrder;
+        console.log(`已加载 ${this.moduleToLayer.size} 个模块的分层映射`);
+    }
+
+    /** 从文件路径解析所属模块名 */
+    resolveModuleName(filePath: string): string {
+        const rel = relative(this.srcPath, filePath).replace(/\\/g, '/');
+        const parts = rel.split('/');
+        if (parts.length === 0) return '__root__';
+        const first = parts[0];
+        // 根目录文件（如 main.ts, index.ts）以文件名作为模块名
+        if (first.includes('.ts') || first.includes('.tsx')) return first;
+        return first;
+    }
+
+    /** 解析 import 语句，提取跨模块依赖 */
+    parseModuleImports(filePath: string): Set<string> {
+        const content = readFileSync(filePath, 'utf-8');
+        const imports = new Set<string>();
+
+        // 匹配 @modules/xxx 形式
+        const moduleRegex = /from\s+['"]@modules\/([^'"/]+)/g;
+        let match: RegExpExecArray | null;
+        while ((match = moduleRegex.exec(content)) !== null) {
+            imports.add(match[1]);
+        }
+
+        // 匹配相对路径 import，解析目标模块
+        const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
+        while ((match = relImportRegex.exec(content)) !== null) {
+            const relPath = match[1];
+            // 移除尾部文件名只取目录，保证 resolve 到目录
+            const resolved = resolve(dirname(filePath), relPath);
+            // 只解析 src 内的相对引用
+            if (resolved.startsWith(this.srcPath)) {
+                const targetModule = this.resolveModuleName(resolved);
+                imports.add(targetModule);
+            }
+        }
+
+        return imports;
+    }
+
+    /** R00-001: 检查分层合规 */
+    async checkLayerCompliance(): Promise<void> {
+        await this.loadLayerMapping();
+        if (this.moduleToLayer.size === 0) return;
+
+        await this.loadLayerExceptions();
+
+        console.log('\n运行分层合规检查 (R00-001)...');
+        let checked = 0;
+        let violationCount = 0;
+        let exemptedCount = 0;
+
+        for (const file of this.allFiles) {
+            const srcModule = this.resolveModuleName(file);
+            const srcLayer = this.moduleToLayer.get(srcModule);
+            if (!srcLayer) continue;
+
+            const allowedLayers = this.allowedDeps[srcLayer] || [];
+            const targetModules = this.parseModuleImports(file);
+
+            for (const tgtModule of targetModules) {
+                if (tgtModule === srcModule) continue;
+                const tgtLayer = this.moduleToLayer.get(tgtModule);
+                if (!tgtLayer) continue;
+                if (allowedLayers.includes(tgtLayer)) continue;
+
+                // 检查是否被例外豁免
+                if (this.isException('R00-001', srcModule, tgtModule)) {
+                    exemptedCount++;
+                    continue;
+                }
+
+                // 真正的跨层违规
+                this.violations.push({
+                    ruleId: 'R00-001',
+                    severity: 'warning',
+                    file: relative(process.cwd(), file),
+                    message: `分层违规: ${srcModule} (${srcLayer}) → ${tgtModule} (${tgtLayer})`,
+                    suggestion: `[${srcLayer}] 允许依赖: ${allowedLayers.join(', ')}，但当前依赖了 [${tgtLayer}] 的 ${tgtModule}`,
+                });
+                violationCount++;
+            }
+            checked++;
+        }
+        console.log(`分层检查完成: 检查 ${checked} 个文件 | 违规 ${violationCount} | 已豁免 ${exemptedCount}`);
+    }
+
     /** 运行所有检查 */
     async runAll(): Promise<RuleViolation[]> {
         await this.loadFiles();
@@ -379,6 +528,9 @@ class ArchitectureLinter {
             this.checkSelfBuiltInfrastructure(),
             this.checkFileSize(),
         ]);
+
+        // 分层合规检查（需按顺序在 loadFiles 之后执行）
+        await this.checkLayerCompliance();
 
         return this.violations;
     }

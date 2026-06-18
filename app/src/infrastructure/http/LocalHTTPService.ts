@@ -71,8 +71,205 @@ import {
   handleFileRegistryDelete,
   handleFileHealth,
 } from './handlers/files-handlers';
+import {
+  handleFileUpload as hFileUpload,
+  handleConvertFile as hConvertFile,
+  handleDetectFileType as hDetectFileType,
+  handleSendFileToAI as hSendFileToAI,
+} from './handlers/file-upload-handlers';
+import {
+  handleListSessions,
+  handleCreateSession,
+  handleGetSession,
+  handleGetSessionMessages,
+  handleUpdateMessageBlocks,
+  handleDeleteSession,
+  handleClearAllSessions,
+  handleGetCurrentSession,
+  handleSwitchSession,
+  handleRenameSession,
+  handleGenerateTitle,
+} from './handlers/session-handlers';
+import {
+  handleListPlans,
+  handleCreatePlan,
+  handleGetPlan,
+  handleExecutePlan,
+  handleAbortPlan,
+  handleListFlows,
+  handleGetFlow,
+} from './handlers/plan-flow-handlers';
+import {
+  handlePdcaStart,
+  handlePdcaStatus,
+  handlePdcaAudit,
+  handlePdcaReviewStep,
+  handlePdcaDecideStep,
+  handlePdcaList,
+  handlePdcaConfirm,
+} from './handlers/pdca-handlers';
+import {
+  handleKanbanList,
+  handleKanbanCreate,
+  handleKanbanUpdate,
+  handleKanbanDelete,
+  handleKanbanMove,
+} from './handlers/kanban-handlers';
+import {
+  handleListTools,
+  handleExecuteTool,
+} from './handlers/tools-handlers';
+import {
+  handleListAgentTasks,
+  handleExecuteAgentTask,
+  handleGetAgentProgress,
+} from './handlers/agent1-handlers';
+import {
+  handleCancelAgentTask,
+  handleGetAgentTaskState,
+  handleGetAgentTaskAudit,
+  handleGetAgentTaskLogs,
+  handleGetAgentTaskOutput,
+  handleRecoverAgentTask,
+  handleAgentTaskChat,
+} from './handlers/agent2-handlers';
+import {
+  handleCreateCheckpoint,
+  handleListCheckpoints,
+  handleGetCheckpoint,
+  handleRollbackCheckpoint,
+  handleDeleteCheckpoint,
+} from './handlers/checkpoint-handlers';
+import {
+  handleListMemories,
+  handleSearchMemories,
+  handleGetMemory,
+  handleCreateMemory,
+  handleCreateMemoryFromFile,
+  handleUpdateMemory,
+  handleDeleteMemory,
+  handleDeleteAllMemories,
+  handleGetMemorySummary,
+  handleGetMemoryWeights,
+  handleGetSyncStatus,
+  handleSyncMemories,
+  handleConsolidateMemories,
+  handleFileOpen,
+  handleFileRead,
+  handleFilePaths,
+  handleFileResolvePath,
+  handleFilePreview,
+} from './handlers/memory-handlers';
+import {
+  handleBuildSemanticIndex,
+  handleSearchSemantic,
+  handleGetSemanticIndexStatus,
+  handleClearSemanticIndex,
+} from './handlers/semantic-index-handlers';
+import {
+  handleListWorkspaces,
+} from './handlers/workspaces-handlers';
+import {
+  handleListKnowledge,
+  handleSearchKnowledge,
+  handleCreateKnowledge,
+  handleUpdateKnowledge,
+  handleDeleteKnowledge,
+  handleListKnowledgeBases,
+  handleCreateKnowledgeBase,
+  handleUpdateKnowledgeBase,
+  handleDeleteKnowledgeBase,
+  handleSaveFromChat,
+  handleKnowledgeUpload,
+  handleKnowledgeCompile,
+  handleGetRawFiles,
+  handleExportToNotebook,
+  handleImportFromFile,
+  handleUpdateKnowledgeDoc,
+  handleBatchDeleteKnowledge,
+  handleBatchTagKnowledge,
+} from './handlers/knowledge-handlers';
+import {
+  handleGetBuddy,
+  handleBuddyInteract,
+  handleGetBuddyStats,
+  handleGetDreamLogs,
+} from './handlers/buddy-handlers';
+import {
+  handleListConfig,
+  handleGetConfig,
+  handleSetConfig,
+  handleDeleteConfig,
+  handleRouterGetConfig,
+  handleRouterUpdateConfig,
+} from './handlers/config-handlers';
+import {
+  handleListCommands,
+  handleExecuteCommand,
+  handleSetDataDirectory,
+  handleListSkills,
+  handleListSystemSkills,
+  handleSystemSkillContent,
+  handleSearchSkills,
+  handleRecommendedSkills,
+  handleSkillCategories,
+  handleSkillSources,
+  handleAddSkillSource,
+  handleRemoveSkillSource,
+  handleGetSkillDetail,
+  handleInstallSkill,
+  handleUninstallSkill,
+  handleUpdateSkill,
+  handleToggleSkill,
+} from './handlers/commands-handlers';
+import {
+  handleCreateSkill,
+  handleUpdateSkillById,
+  handleDeleteSkill,
+  handleEnableSkill,
+  handleDisableSkill,
+} from './handlers/skill-handlers';
+import {
+  handleMCPMarketplaceSearch,
+  handleMCPMarketplaceRegistries,
+  handleMCPMarketplaceCategories,
+  handleMCPMarketplaceServerDetail,
+  handleMCPInstalledServers,
+  handleMCPInstallServer,
+  handleMCPUninstallServer,
+  handleMCPToggleServer,
+  handleMCPVerifyServer,
+  handleMCPListTools,
+  handleMCPToggleTool,
+} from './handlers/mcp-marketplace-handlers';
+import {
+  handleListChannelPlugins,
+  handleInstallChannelPlugin,
+} from './handlers/channel-plugin-handlers';
+import {
+  handleListApiKeys,
+  handleCreateApiKey,
+  handleDeleteApiKey,
+} from './handlers/apikey-handlers';
+import {
+  handleFileUpload,
+  handleConvertFile,
+  handleDetectFileType,
+  handleSendFileToAI,
+} from './handlers/files-handlers';
+import { handleEvents } from './handlers/config-handlers';
 import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
 import { dispatchRoute } from './handlers/route-table';
+import {
+  verifyRequestAuth,
+  seedKnowledgeBaseIfEmpty,
+  startCompileScheduler,
+  tryDynamicRegister,
+  copyDirectory,
+  CHANNEL_TABLE,
+  getChannelEntry,
+} from './LocalHTTPServiceHelpers';
+import { broadcastEvent, stopSSE } from './LocalHTTPServiceSSE';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
@@ -128,194 +325,25 @@ export class LocalHTTPService {
 
   /**
    * 校验请求是否携带有效的共享密钥
-   * 仅当环境变量 LIRI_API_SECRET 设置了值时，才启用校验
-   * /health 端点为免校验白名单，用于前端健康检查
+   * 委托给 LocalHTTPServiceHelpers.verifyRequestAuth
    */
   private verifyRequestAuth(req: http.IncomingMessage): boolean {
-    if (!this.apiSecret) return true;
-    const url = req.url?.split('?')[0] || '';
-    if (req.method === 'GET' && url === '/health') return true;
-    const authHeader = req.headers['authorization'] || '';
-    const token = authHeader.replace('Bearer ', '');
-    return token === this.apiSecret;
+    return verifyRequestAuth(req, this.apiSecret);
   }
 
   /**
-   * 种子知识库：若用户知识库目录为空，从源码或内建默认文档初始化
+   * 种子知识库：委托给 LocalHTTPServiceHelpers.seedKnowledgeBaseIfEmpty
    */
   private async seedKnowledgeBaseIfEmpty(): Promise<void> {
-    const fs = await import('node:fs/promises');
-    const path = await import('node:path');
-    const { resolvePyappHome } = await import('@modules/core/paths');
-
-    const userKnowledgeDir = path.join(resolvePyappHome(), 'knowledge');
-
-    // 若用户目录已存在 .md 文件，说明已初始化，跳过
-    try {
-      const userFiles = await fs.readdir(userKnowledgeDir);
-      if (userFiles.some((f: string) => f.endsWith('.md'))) {
-        return;
-      }
-    } catch {
-      // 目录不存在，继续初始化
-    }
-
-    await fs.mkdir(userKnowledgeDir, { recursive: true });
-
-    // 拷贝源：1) 项目源码路径（开发环境）
-    try {
-      const { resolveKnowledgeBaseDir } = await import('@modules/core/paths');
-      const sourceDir = resolveKnowledgeBaseDir();
-      const sourceFiles = await fs.readdir(sourceDir);
-      const mdFiles = sourceFiles.filter((f: string) => f.endsWith('.md'));
-      if (mdFiles.length > 0) {
-        for (const file of mdFiles) {
-          const content = await fs.readFile(
-            path.join(sourceDir, file),
-            'utf-8'
-          );
-          await fs.writeFile(
-            path.join(userKnowledgeDir, file),
-            content,
-            'utf-8'
-          );
-        }
-        logger.info(
-          `知识库种子完成：从 ${sourceDir} 复制了 ${mdFiles.length} 个文件`
-        );
-        return;
-      }
-    } catch {
-      // 源码目录不可用，继续兜底
-    }
-
-    // 拷贝源：2) 内建默认文档（兜底，适用于打包生产环境）
-    await this.writeDefaultKnowledgeDocs(userKnowledgeDir, fs, path);
-  }
-
-  /**
-   * 写入内建默认知识库文档（无任何外部源时的最终兜底）
-   */
-  private async writeDefaultKnowledgeDocs(
-    dir: string,
-    fs: typeof import('node:fs/promises'),
-    path: typeof import('node:path')
-  ): Promise<void> {
-    const docs: Array<{ fileName: string; content: string }> = [
-      {
-        fileName: 'index.md',
-        content: [
-          '# 用户知识库',
-          '',
-          '欢迎使用你的个人知识库！你可以在此保存笔记、代码片段和学习资料。',
-          '',
-          '## 快速开始',
-          '',
-          '使用右侧表单创建你的第一篇知识文档。',
-          '',
-          '## 文档管理',
-          '',
-          '- **创建**：填入标题和内容，点击"创建"',
-          '- **编辑**：点击文档标题进入编辑模式',
-          '- **搜索**：使用搜索框快速查找内容',
-          '- **删除**：移除不再需要的文档',
-          '',
-          '## 支持格式',
-          '',
-          '你的知识文档支持完整的 Markdown 语法：',
-          '- 标题、列表、表格',
-          '- **加粗**、*斜体*、~~删除线~~',
-          '- `代码块` 和语法高亮',
-          '- [链接](#) 和图片',
-          '',
-        ].join('\n'),
-      },
-      {
-        fileName: '示例文档.md',
-        content: [
-          '# 示例文档',
-          '',
-          '> 创建于 2026-05-22',
-          '',
-          '这是一个示例知识库文档，用于演示知识库功能。',
-          '',
-          '## 功能',
-          '',
-          '- 支持 Markdown 格式',
-          '- 支持代码块',
-          '- 支持列表',
-          '- 支持链接',
-          '',
-          '## 代码示例',
-          '',
-          '```typescript',
-          '// 示例 TypeScript 代码',
-          'function greet(name: string): string {',
-          '  return `Hello, ${name}!`;',
-          '}',
-          '',
-          "console.log(greet('World'));",
-          '```',
-          '',
-          '## 列表',
-          '',
-          '- 第一项',
-          '- 第二项',
-          '- 第三项',
-          '',
-          '## 链接',
-          '',
-          '[查看项目文档](/docs)',
-          '',
-        ].join('\n'),
-      },
-    ];
-
-    for (const doc of docs) {
-      const filePath = path.join(dir, doc.fileName);
-      try {
-        await fs.writeFile(filePath, doc.content, 'utf-8');
-        logger.info(`已写入默认知识文档：${filePath}`);
-      } catch (err) {
-        logger.warning(`写入默认知识文档失败：${filePath}`, {
-          error: String(err),
-        });
-      }
-    }
+    return seedKnowledgeBaseIfEmpty();
   }
 
   /**
    * 启动编译调度器
-   * 仅在 AI 服务已配置默认模型时才启用 runOnStart，避免无模型时大量编译失败
+   * 委托给 LocalHTTPServiceHelpers.startCompileScheduler
    */
   private async startCompileScheduler(): Promise<void> {
-    try {
-      const { aiService } = await import('@modules/ai/services/aiService');
-      const defaultModel = aiService.getDefaultModel();
-      if (!defaultModel) {
-        logger.warning(
-          '知识库编译调度器跳过首次编译：未配置默认模型，调度器仍按周期运行'
-        );
-      }
-
-      const { runKnowledgeCompile } =
-        await import('@modules/knowledge/KnowledgeCompiler');
-      const { KnowledgeCompileScheduler } =
-        await import('@modules/knowledge/KnowledgeCompileScheduler');
-      this.compileScheduler = new KnowledgeCompileScheduler(
-        (force?: boolean) =>
-          runKnowledgeCompile(aiService, {
-            force,
-            model: defaultModel || undefined,
-          }),
-        { runOnStart: !!defaultModel }
-      );
-      this.compileScheduler.start();
-    } catch (err) {
-      logger.warning('知识库编译调度器初始化失败（非关键错误）', {
-        error: String(err),
-      });
-    }
+    this.compileScheduler = await startCompileScheduler();
   }
 
   /**
@@ -378,6 +406,7 @@ export class LocalHTTPService {
       this.compileScheduler.stop();
       this.compileScheduler = null;
     }
+    stopSSE();
     return new Promise((resolve, reject) => {
       if (!this.server) {
         logger.info('LocalHTTPService 未启动，无需停止');
@@ -631,361 +660,126 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      const sessions = await coreAPI.listSessions();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(sessions));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleListSessions(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理创建会话请求
-   */
   private async handleCreateSession(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { title } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const session = await coreAPI.createSession({ title });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(session));
-      this.broadcastEvent('session:created', { id: session?.id });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleCreateSession(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理获取会话详情请求
-   */
   private async handleGetSession(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      const session = await coreAPI.getSession(sessionId);
-      if (!session) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Session not found', type: 'not_found' },
-          })
-        );
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(session));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetSession(this._handlerCtx, req, res, sessionId);
   }
 
-  /**
-   * 处理获取会话消息列表请求
-   */
   private async handleGetSessionMessages(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      const messages = await coreAPI.getSessionMessages(sessionId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(messages));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetSessionMessages(this._handlerCtx, req, res, sessionId);
   }
 
-  /**
-   * 处理更新消息 blocks 请求
-   */
   private async handleUpdateMessageBlocks(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string,
     messageId: string
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const data = JSON.parse(body);
-      const blocks = data.blocks || [];
-
-      const coreAPI = getCoreAPI();
-      await coreAPI.updateMessageBlocks(sessionId, messageId, blocks);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleUpdateMessageBlocks(this._handlerCtx, req, res, sessionId, messageId);
   }
 
-  /**
-   * 处理删除会话请求
-   */
   private async handleDeleteSession(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      await coreAPI.deleteSession(sessionId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-      this.broadcastEvent('session:deleted', { id: sessionId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleDeleteSession(this._handlerCtx, req, res, sessionId);
   }
 
-  /**
-   * 处理清除所有会话请求
-   */
   private async handleClearAllSessions(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      await coreAPI.clearAllSessions();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-      this.broadcastEvent('session:cleared', {});
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleClearAllSessions(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理获取当前会话请求
-   */
   private async handleGetCurrentSession(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      const session = await coreAPI.getCurrentSession();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(session));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetCurrentSession(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理切换会话请求
-   */
   private async handleSwitchSession(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      await coreAPI.switchSession(sessionId);
-      const session = await coreAPI.getSession(sessionId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(session ?? { success: true }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSwitchSession(this._handlerCtx, req, res, sessionId);
   }
 
-  /**
-   * 处理重命名会话请求
-   */
   private async handleRenameSession(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { title } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      await coreAPI.renameSession(sessionId, title);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-      this.broadcastEvent('session:renamed', { id: sessionId, title });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleRenameSession(this._handlerCtx, req, res, sessionId);
   }
 
-  /**
-   * 处理生成会话标题请求
-   */
   private async handleGenerateTitle(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessionId: string
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { userMessage, assistantResponse } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const title = await coreAPI.generateSessionTitle(
-        sessionId,
-        userMessage,
-        assistantResponse
-      );
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, title }));
-      if (title) {
-        await coreAPI.renameSession(sessionId, title);
-        this.broadcastEvent('session:renamed', { id: sessionId, title });
-      }
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGenerateTitle(this._handlerCtx, req, res, sessionId);
   }
 
-  // ========== Tools Handlers ==========
+  // ========== Tools Handlers (extracted to handlers/tools-handlers.ts) ==========
 
-  /**
-   * 处理列出工具请求
-   */
   private async handleListTools(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      const tools = await coreAPI.listTools();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tools));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleListTools(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理执行工具请求
-   */
   private async handleExecuteTool(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     toolName: string
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { sessionId, arguments: args } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const result = await coreAPI.executeTool(sessionId, {
-        id: `toolcall-${Date.now()}`,
-        name: toolName,
-        arguments: args || {},
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleExecuteTool(this._handlerCtx, req, res, toolName);
   }
 
-  // ========== Agent Handlers ==========
+  // ========== Agent Handlers (extracted to handlers/agent1-handlers.ts) ==========
 
-  /**
-   * 处理列出 Agent 任务请求
-   */
   private async handleListAgentTasks(
     _req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { SqliteTaskStore } =
-        await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      const taskStates = await store.loadTaskStates();
-
-      const tasks = taskStates.map((state) => ({
-        id: state.id,
-        name: state.description || state.id,
-        status: state.status,
-        priority: (state.metadata?.priority as string) || 'medium',
-        progress:
-          state.status === 'completed'
-            ? 100
-            : state.status === 'running'
-              ? 50
-              : 0,
-        result:
-          state.status === 'completed'
-            ? state.outputFile || undefined
-            : undefined,
-        error: state.error,
-        created_at: state.startTime,
-        type: state.type,
-        tokenUsed: state.tokenCount,
-        description: state.description,
-        metadata: state.metadata,
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tasks));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleListAgentTasks(this._handlerCtx, _req, res);
   }
 
-  /**
-   * 处理执行 Agent 任务请求
-   */
   private async handleExecuteAgentTask(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const params = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const result = await coreAPI.executeAgentTask({
-        description: params.name || params.description || '',
-        prompt: params.prompt,
-        subagentType: params.type,
-        model: params.model,
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-      this.broadcastEvent('agent:task', { taskId: result?.agentId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleExecuteAgentTask(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理获取 Agent 进度请求
-   */
   private async handleGetAgentProgress(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     agentId: string
   ): Promise<void> {
-    try {
-      const coreAPI = getCoreAPI();
-      const progress = await coreAPI.getAgentProgress(agentId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify(
-          progress || { agentId, state: 'unknown', progress: 0, message: '' }
-        )
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetAgentProgress(this._handlerCtx, req, res, agentId);
   }
 
   // ========== Files Handlers ==========
@@ -998,141 +792,28 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { filename, data } = JSON.parse(body);
-      if (!filename || !data) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'filename and data are required' },
-          })
-        );
-        return;
-      }
-      const buffer = Buffer.from(data, 'base64');
-      const safeName = path.basename(filename);
-      // 使用 AttachmentManager 保存到用户附件目录（第三层：~/.pyapp/attachments/）
-      const attachment = attachmentManager.saveAttachment(
-        safeName,
-        buffer,
-        'file',
-        'application/octet-stream',
-        AttachmentSource.SESSION
-      );
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ path: attachment.path, size: buffer.length }));
-      this.broadcastEvent('file:uploaded', {
-        path: attachment.path,
-        size: buffer.length,
-        filename: safeName,
-        attachmentId: attachment.id,
-      });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleFileUpload(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理文件格式转换请求
-   */
   private async handleConvertFile(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { filePath, outputFormat, options } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const result = await coreAPI.convertFile({
-        filePath,
-        outputFormat,
-        options,
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleConvertFile(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理文件类型检测请求
-   */
   private async handleDetectFileType(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { filePath } = JSON.parse(body);
-      const coreAPI = getCoreAPI();
-      const result = await coreAPI.detectFileType(filePath);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleDetectFileType(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理发送文件给AI分析请求
-   * POST /v1/files/send-to-ai
-   * 读取文件内容，将其作为用户消息发送给AI
-   */
   private async handleSendFileToAI(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { filePath } = JSON.parse(body);
-
-      if (!filePath) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
-        return;
-      }
-
-      // 沙箱权限检查
-      if (
-        !this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)
-      ) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Access denied: file path not in whitelist' },
-          })
-        );
-        return;
-      }
-
-      const { readFile } = await import('node:fs/promises');
-      const { existsSync } = await import('node:fs');
-      const { basename } = await import('node:path');
-
-      if (!existsSync(filePath)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'File not found' } }));
-        return;
-      }
-
-      const content = await readFile(filePath, 'utf-8');
-      const fileName = basename(filePath);
-
-      // 将文件内容作为消息发送给AI
-      const chatManager = createChatManager();
-
-      const message = `请分析以下文件内容（文件名: ${fileName}）:\n\n${content}`;
-      await chatManager.sendMessage(message);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({ success: true, fileName, size: content.length })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSendFileToAI(this._handlerCtx, req, res);
   }
 
   // ========== File Registry Handlers ==========
@@ -1207,1679 +888,191 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { buildEntries } =
-        await import('@modules/commands/builtin/workspace/WorkspaceStorage');
-      const entries = await buildEntries();
-
-      const workspaces = entries.map((entry) => ({
-        id: entry.meta.id,
-        name: entry.name,
-        description: entry.meta.description,
-        createdAt: new Date(entry.meta.createdAt).getTime(),
-        updatedAt: new Date(entry.meta.updatedAt).getTime(),
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(workspaces));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  // ========== Voice Handlers ==========
-
-  /**
-   * 处理 STT 语音转录请求 POST /v1/voice/transcribe
-   * 接收 base64 编码的音频数据，通过 STTRegistry 选择可用提供者执行转录
-   */
-  private async handleSTTTranscribe(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { audioData, providerId, language, keyterms } = JSON.parse(body);
-
-      if (!audioData) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'audioData 是必需的（base64 编码的音频数据）' },
-          })
-        );
-        return;
-      }
-
-      const audioBuffer = Buffer.from(audioData, 'base64');
-
-      if (audioBuffer.length === 0) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: '音频数据为空' } }));
-        return;
-      }
-
-      const { STTRegistry } =
-        await import('../../services/voice/services/sttRegistry');
-
-      // 自动注册 STT 提供者（如尚未注册）
-      if (STTRegistry.getAllProviders().length === 0) {
-        const { LocalSTTProvider } =
-          await import('../../services/voice/services/localSTTProvider');
-        STTRegistry.register(new LocalSTTProvider());
-
-        const openAIApiKey = configManager.env('OPENAI_API_KEY');
-        if (openAIApiKey) {
-          const { CloudSTTProvider } =
-            await import('../../services/voice/services/cloudSTTProvider');
-          STTRegistry.register(new CloudSTTProvider({ apiKey: openAIApiKey }));
-        }
-      }
-
-      const startTime = Date.now();
-
-      // providerId 是 STTRegistry.transcribe 的第三个独立参数
-      const result = await STTRegistry.transcribe(
-        audioBuffer,
-        {
-          language: language,
-          keyterms: keyterms
-            ? Array.isArray(keyterms)
-              ? keyterms
-              : [keyterms]
-            : undefined,
-        },
-        providerId || undefined
-      );
-
-      const elapsed = Date.now() - startTime;
-
-      const providers = STTRegistry.getAllProviders();
-      const activeProvider = providerId
-        ? providers.find((p: any) => p.id === providerId)
-        : STTRegistry.getDefaultProvider();
-
-      // 构建详细状态信息
-      const status: string[] = [];
-      if (!result.text) {
-        status.push('识别文本为空');
-        if (activeProvider) {
-          status.push(
-            `提供者 "${activeProvider.name} (${activeProvider.id})" 不可用`
-          );
-          if (activeProvider.id === 'local') {
-            status.push(
-              '本地 STT 需要 Python 3.8+ 和 faster-whisper: pip install faster-whisper'
-            );
-          } else if (activeProvider.id === 'cloud') {
-            status.push('云端 STT 需要配置 OpenAI API 密钥');
-          } else if (activeProvider.id === 'stream') {
-            status.push('流式 STT 需要配置 WebSocket 端点');
-          }
-        } else {
-          status.push('没有已注册且可用的 STT 提供者');
-          status.push(
-            '请安装 faster-whisper（pip install faster-whisper）或配置云端/流式 STT 提供者'
-          );
-        }
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          text: result.text,
-          confidence: result.confidence,
-          isFinal: result.isFinal,
-          duration: result.duration,
-          language: result.language,
-          timing: {
-            elapsed,
-            unit: 'ms',
-          },
-          provider: activeProvider
-            ? {
-                id: activeProvider.id,
-                name: activeProvider.name,
-                type: activeProvider.type,
-                available: activeProvider.isAvailable(),
-              }
-            : null,
-          status: status.length > 0 ? status.join('；') : undefined,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleListWorkspaces(this._handlerCtx, req, res);
   }
 
   /**
-   * 处理获取语音设置请求 GET /v1/voice/settings
-   */
-  private async handleGetVoiceSettings(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { createVoiceService } = await import('@modules/services/voice');
-      const voiceService = createVoiceService();
-      const config = voiceService.getConfig();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          config: {
-            provider: 'default',
-            inputDeviceId: undefined,
-            outputDeviceId: undefined,
-            wakeWordEnabled: false,
-            wakeWord: '你好',
-            autoPlayTTS: true,
-            voiceId: 'zh-CN-XiaoxiaoNeural',
-            inputLanguage: config.language || 'zh-CN',
-            outputLanguage: config.language || 'zh-CN',
-          },
-          wakeWords: [],
-          hotkeys: {},
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理更新语音设置请求 PUT /v1/voice/settings
-   */
-  private async handleUpdateVoiceSettings(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const settings = JSON.parse(body);
-
-      const { createVoiceService } = await import('@modules/services/voice');
-      const voiceService = createVoiceService();
-      voiceService.updateConfig({
-        language:
-          settings.config?.inputLanguage || settings.config?.outputLanguage,
-      });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, config: settings.config }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理开始语音会话请求 POST /v1/voice/session/start
-   */
-  private async handleStartVoiceSession(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const sessionId = `voice-${Date.now()}-${randomUUID()}`;
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: sessionId,
-          startedAt: Date.now(),
-          endedAt: null,
-          duration: null,
-          transcript: '',
-          responseAudioUrl: null,
-          status: 'active',
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理结束语音会话请求 POST /v1/voice/session/:id/end
-   */
-  private async handleEndVoiceSession(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    _sessionId: string
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: _sessionId,
-          startedAt: Date.now() - 60000,
-          endedAt: Date.now(),
-          duration: 60000,
-          transcript: '',
-          responseAudioUrl: null,
-          status: 'completed',
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理列出语音会话请求 GET /v1/voice/sessions
-   */
-  private async handleListVoiceSessions(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          sessions: [],
-          total: 0,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理获取语音会话详情请求 GET /v1/voice/session/:id
-   */
-  private async handleGetVoiceSession(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    sessionId: string
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: sessionId,
-          startedAt: Date.now() - 60000,
-          endedAt: null,
-          duration: null,
-          transcript: '',
-          responseAudioUrl: null,
-          status: 'active',
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理上传音频请求 POST /v1/voice/upload
-   */
-  private async handleVoiceUpload(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          transcript: '',
-          audioUrl: null,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理获取音频流请求 GET /v1/voice/stream/:id
-   */
-  private async handleVoiceStream(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    _sessionId: string
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Audio streaming not implemented' }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理TTS语音合成请求 POST /v1/voice/tts
-   */
-  private async handleTTSSynthesize(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { text, voiceId } = JSON.parse(body);
-
-      const { TTSRegistry, EdgeTTSProvider } =
-        await import('@modules/services/voice/services/ttsProvider');
-
-      if (TTSRegistry.getProviderNames().length === 0) {
-        TTSRegistry.register(new EdgeTTSProvider(), true);
-      }
-
-      const result = await TTSRegistry.speak({
-        text,
-        voice: voiceId || 'zh-CN-XiaoxiaoNeural',
-      });
-
-      if (result.success && result.audioData) {
-        const audioBase64 = result.audioData.toString('base64');
-        const audioUrl = `data:audio/mp3;base64,${audioBase64}`;
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ audioUrl }));
-      } else {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: result.error || 'TTS synthesis failed',
-          })
-        );
-      }
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理列出语音提供商请求 GET /v1/voice/providers
-   */
-  private async handleListVoiceProviders(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(['gemini', 'openai', 'webapi']));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理列出语音列表请求 GET /v1/voice/voices
-   */
-  private async handleListVoices(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { TTSRegistry, EdgeTTSProvider } =
-        await import('@modules/services/voice/services/ttsProvider');
-
-      if (TTSRegistry.getProviderNames().length === 0) {
-        TTSRegistry.register(new EdgeTTSProvider(), true);
-      }
-
-      const ttsProvider = TTSRegistry.getProvider();
-      const voices = ttsProvider ? ttsProvider.getVoices() : [];
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(voices));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理测试唤醒词请求 POST /v1/voice/wakeword/:id/test
-   */
-  private async handleTestWakeWord(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    _wakeWordId: string
-  ): Promise<void> {
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ detected: false }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  // ========== Knowledge Handlers ==========
-
-  /**
-   * 处理列出知识条目请求
-   * 支持 ?base=<name> 过滤，返回真实文件元数据
+   * 处理列出知识条目请求（委派到 knowledge-handlers）
    */
   private async handleListKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { stat } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-
-      const parsedUrl = new URL(req.url || '', 'http://localhost');
-      const baseFilter = parsedUrl.searchParams.get('base');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const knowledgeRoot = registry.getKnowledgeRoot();
-
-      const docs = await knowledgeDocsProvider.buildIndex();
-      const result = [];
-
-      for (let i = 0; i < docs.length; i++) {
-        const doc: any = docs[i];
-        const docPath = doc.relativePath || '';
-        const baseName = docPath.split(/[/\\]/)[0];
-
-        if (baseFilter && baseName !== baseFilter) continue;
-
-        let size = 0;
-        let updatedAt = 0;
-        let source = 'manual';
-
-        const fullPath = join(knowledgeRoot, docPath);
-        try {
-          const fileStat = await stat(fullPath);
-          size = fileStat.size;
-          updatedAt = fileStat.mtimeMs;
-        } catch {
-          // 文件可能已被移动，使用默认值
-        }
-
-        const content = doc.content || '';
-        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-        if (fmMatch) {
-          const fmLines = fmMatch[1].split('\n');
-          for (const line of fmLines) {
-            if (line.startsWith('source:')) {
-              const val = line.split(':')[1]?.trim().replace(/"/g, '') || '';
-              if (val) source = val;
-            }
-          }
-        }
-
-        result.push({
-          id: docPath,
-          title: doc.title || '',
-          content: content.slice(0, 500) || '',
-          category: doc.category || '根目录',
-          tags: [],
-          docPath,
-          size,
-          updated_at: updatedAt,
-          created_at: 0,
-          source,
-          base: baseName,
-        });
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleListKnowledge(req, res);
   }
 
   /**
-   * 处理搜索知识请求
-   * 使用 HybridKnowledgeRouter 进行混合搜索
+   * 处理搜索知识条目请求（委派到 knowledge-handlers）
    */
   private async handleSearchKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { query } = JSON.parse(body);
-      if (!query) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify([]));
-        return;
-      }
-      const { KnowledgeRouter } =
-        await import('@modules/knowledge/KnowledgeRouter');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-      const router = new KnowledgeRouter(knowledgeDocsProvider);
-      const routes = await router.search(query, { maxResults: 20 });
-      const result = routes.map((route: any) => ({
-        id: `knowledge-${route.docPath}`,
-        title: route.title,
-        content: route.snippet || '',
-        category: route.category || '根目录',
-        score: route.score,
-        matchType: route.matchType,
-        docPath: route.docPath,
-      }));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSearchKnowledge(req, res);
   }
 
   /**
-   * 处理创建知识条目请求
-   * 将新知识写入用户知识库目录（~/.pyapp/knowledge/）
+   * 处理创建知识条目请求（委派到 knowledge-handlers）
    */
   private async handleCreateKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { title, content, category } = JSON.parse(body);
-      if (!title) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'title is required' } }));
-        return;
-      }
-      const { resolvePyappHome } = await import('@modules/core/paths');
-      const { writeFile, mkdir } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const userKnowledgeDir = join(resolvePyappHome(), 'knowledge');
-      const targetDir = category
-        ? join(userKnowledgeDir, category)
-        : userKnowledgeDir;
-      await mkdir(targetDir, { recursive: true });
-      const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
-      const filePath = join(targetDir, fileName);
-      const fileContent = content
-        ? `# ${title}\n\n${content}\n`
-        : `# ${title}\n\n`;
-      await writeFile(filePath, fileContent, 'utf-8');
-      const newId = `knowledge-${Date.now()}`;
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: newId,
-          title,
-          content: content || '',
-          category: category || '根目录',
-          docPath: filePath,
-          created_at: Date.now(),
-          updated_at: Date.now(),
-        })
-      );
-      this.broadcastEvent('knowledge:created', { id: newId, title });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleCreateKnowledge(req, res);
   }
 
   /**
-   * 处理更新知识条目请求
-   * knowledgeId 为 docPath（相对路径），从知识库根目录查找文件
+   * 处理更新知识条目请求（委派到 knowledge-handlers）
    */
   private async handleUpdateKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     knowledgeId: string
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { title, content } = JSON.parse(body);
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { writeFile } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const filePath = join(registry.getKnowledgeRoot(), knowledgeId);
-
-      let fileContent: string;
-      if (title && content) {
-        fileContent = `---\ntitle: "${title}"\nupdated_at: ${Date.now()}\n---\n\n${content}\n`;
-      } else if (content) {
-        fileContent = content;
-      } else {
-        fileContent = `# ${title}\n\n`;
-      }
-
-      await writeFile(filePath, fileContent, 'utf-8');
-      knowledgeDocsProvider.clearCache();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: knowledgeId,
-          title: title || '',
-          content: content || '',
-          updated_at: Date.now(),
-        })
-      );
-      this.broadcastEvent('knowledge:updated', { id: knowledgeId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleUpdateKnowledge(req, res, knowledgeId);
   }
 
   /**
-   * 处理删除知识条目请求
-   * knowledgeId 为 docPath（相对路径），从知识库根目录删除文件
+   * 处理删除知识条目请求（委派到 knowledge-handlers）
    */
   private async handleDeleteKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     knowledgeId: string
   ): Promise<void> {
-    try {
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { unlink } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { existsSync } = await import('node:fs');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const filePath = join(registry.getKnowledgeRoot(), knowledgeId);
-
-      if (existsSync(filePath)) {
-        await unlink(filePath);
-        knowledgeDocsProvider.clearCache();
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-      this.broadcastEvent('knowledge:deleted', { id: knowledgeId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleDeleteKnowledge(req, res, knowledgeId);
   }
 
   /**
-   * 处理列出知识库请求 GET /v1/knowledge/bases
+   * 处理列出知识库请求（委派到 knowledge-handlers）
    */
   private async handleListKnowledgeBases(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const bases = await registry.listBases();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(bases));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleListKnowledgeBases(req, res);
   }
 
   /**
-   * 处理创建知识库请求 POST /v1/knowledge/bases
+   * 处理创建知识库请求（委派到 knowledge-handlers）
    */
   private async handleCreateKnowledgeBase(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { name, label, icon } = JSON.parse(body);
-
-      if (!name || !label) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'name and label are required' } })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const base = await registry.createBase(name, label, icon);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(base));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('已存在')) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message } }));
-        return;
-      }
-      this.sendError(res, err);
-    }
+    return handleCreateKnowledgeBase(req, res);
   }
 
   /**
-   * 处理更新知识库请求 PUT /v1/knowledge/bases/:name
+   * 处理更新知识库请求（委派到 knowledge-handlers）
    */
   private async handleUpdateKnowledgeBase(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     baseName: string
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { label, enabled, icon } = JSON.parse(body);
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const base = await registry.updateBase(baseName, {
-        label,
-        enabled,
-        icon,
-      });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(base));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('不存在')) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message } }));
-        return;
-      }
-      this.sendError(res, err);
-    }
+    return handleUpdateKnowledgeBase(req, res, baseName);
   }
 
   /**
-   * 处理删除知识库请求 DELETE /v1/knowledge/bases/:name
+   * 处理删除知识库请求（委派到 knowledge-handlers）
    */
   private async handleDeleteKnowledgeBase(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     baseName: string
   ): Promise<void> {
-    try {
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const registry = getDefaultKnowledgeBaseRegistry();
-      await registry.deleteBase(baseName);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('不存在')) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message } }));
-        return;
-      }
-      this.sendError(res, err);
-    }
+    return handleDeleteKnowledgeBase(req, res, baseName);
   }
 
   /**
-   * 处理聊天保存到知识库请求 POST /v1/knowledge/save-from-chat
+   * 处理从聊天保存知识请求（委派到 knowledge-handlers）
    */
   private async handleSaveFromChat(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { base, title, content, sessionId } = JSON.parse(body);
-
-      if (!title || !content) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'title and content are required' },
-          })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { writeFile, mkdir } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const baseName = base || 'default';
-      const baseDir = join(registry.getKnowledgeRoot(), baseName);
-
-      await mkdir(baseDir, { recursive: true });
-
-      const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
-      const filePath = join(baseDir, fileName);
-
-      const now = new Date().toISOString();
-      const frontmatter = [
-        '---',
-        `title: "${title.replace(/"/g, '\\"')}"`,
-        `source: "chat-save"`,
-        sessionId ? `savedFrom: "${sessionId}"` : '',
-        `savedAt: "${now}"`,
-        '---',
-        '',
-      ]
-        .filter(Boolean)
-        .join('\n');
-
-      const fileContent = `${frontmatter}${content}\n`;
-      await writeFile(filePath, fileContent, 'utf-8');
-      knowledgeDocsProvider.clearCache();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          docPath: join(baseName, fileName),
-          title,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleSaveFromChat(req, res);
   }
 
-  // ========== Knowledge Upload & Compile Handlers ==========
-
   /**
-   * 处理知识库文件上传请求 POST /v1/knowledge/upload
-   *
-   * 请求体: { baseName, filename, data (base64), tags?, category? }
-   * 处理逻辑:
-   *   - .md 文件直接写入目标知识库目录，补充 YAML frontmatter
-   *   - 可转换的二进制文件（.docx/.xlsx/.pdf 等）使用 ConverterEngine 提取文本，
-   *     保存原始文件 + 提取的 Markdown，并写入 knowledge/raw/ 供编译器消费
-   *   - 其他文本类非 .md 文件写入 raw/ 子目录，以触发后续 LLM 编译
+   * 处理知识上传请求（委派到 knowledge-handlers）
    */
   private async handleKnowledgeUpload(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { baseName, filename, data, tags, category } = JSON.parse(body);
-
-      if (!baseName || !filename || !data) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'baseName, filename and data are required' },
-          })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { writeFile, mkdir } = await import('node:fs/promises');
-      const { join, extname, basename } = await import('node:path');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const knowledgeRoot = registry.getKnowledgeRoot();
-
-      const safeName = filename.replace(/[\\/:*?"<>|]/g, '_');
-      const ext = extname(filename).toLowerCase();
-
-      const baseDir = join(knowledgeRoot, baseName);
-      const now = new Date().toISOString();
-      const tagList = Array.isArray(tags) ? tags : [];
-
-      /**
-       * 需要 ConverterEngine 转换的二进制文件扩展名
-       */
-      const BINARY_EXTENSIONS = new Set([
-        '.docx',
-        '.xlsx',
-        '.xls',
-        '.pptx',
-        '.pdf',
-        '.epub',
-        '.ipynb',
-        '.zip',
-        '.msg',
-        '.rss',
-        '.atom',
-      ]);
-
-      let docRelativePath: string;
-      const rawBuffer = Buffer.from(data, 'base64');
-
-      if (ext === '.md') {
-        docRelativePath = join(baseName, safeName);
-        const fullPath = join(knowledgeRoot, docRelativePath);
-
-        await mkdir(baseDir, { recursive: true });
-
-        const rawContent = rawBuffer.toString('utf-8');
-        const frontmatter = [
-          '---',
-          `title: "${safeName.replace(/\.md$/i, '')}"`,
-          `source: "upload"`,
-          `uploadedAt: "${now}"`,
-          category ? `category: "${category}"` : '',
-          tagList.length > 0
-            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
-            : '',
-          '---',
-          '',
-        ]
-          .filter(Boolean)
-          .join('\n');
-
-        const fileContent = rawContent.startsWith('---')
-          ? rawContent
-          : `${frontmatter}${rawContent}\n`;
-
-        await writeFile(fullPath, fileContent, 'utf-8');
-      } else if (BINARY_EXTENSIONS.has(ext)) {
-        const nameStem = basename(safeName, ext);
-        const rawDir = join(baseDir, 'raw');
-        await mkdir(rawDir, { recursive: true });
-
-        // 1. 保存原始二进制文件到 {baseDir}/raw/original_*
-        const originalRawName = `original_${safeName}`;
-        await writeFile(join(rawDir, originalRawName), rawBuffer);
-
-        // 2. 使用 ConverterEngine 提取文本
-        const { getConverterEngine } =
-          await import('@modules/tools/converter/engine/ConverterEngine');
-        const engine = getConverterEngine();
-        const fileInfo = engine
-          .getDetector()
-          .detect(filename, rawBuffer.length);
-        const result = await engine.convertContent(fileInfo, rawBuffer);
-        const extractedContent = result.markdown;
-
-        // 3. 保存提取的 Markdown 到 {baseDir}/raw/{stem}.md（伴侣文件）
-        const companionName = `${nameStem}.md`;
-        await writeFile(join(rawDir, companionName), extractedContent, 'utf-8');
-
-        // 4. 同时写入 knowledge/raw/ 顶层目录供编译器消费
-        const topRawDir = join(knowledgeRoot, 'raw');
-        await mkdir(topRawDir, { recursive: true });
-        const compilerFileName = `${baseName}_${nameStem}.txt`;
-        await writeFile(
-          join(topRawDir, compilerFileName),
-          extractedContent,
-          'utf-8'
-        );
-
-        // 5. 写 companion meta.json，记录原始文件路径
-        const metaPath = join(topRawDir, `${compilerFileName}.meta.json`);
-        await writeFile(
-          metaPath,
-          JSON.stringify({
-            originalFile: `${baseName}/raw/${originalRawName}`,
-            originalFormat: ext,
-            source: 'upload-extracted',
-            uploadedAt: now,
-            category: category || null,
-          }),
-          'utf-8'
-        );
-
-        // 6. 创建知识文档，frontmatter 包含 originalFile 追溯信息
-        docRelativePath = join(baseName, `${nameStem}.md`);
-        const fullPath = join(knowledgeRoot, docRelativePath);
-        const docContent = [
-          '---',
-          `title: "${nameStem}"`,
-          `source: "upload-extracted"`,
-          `uploadedAt: "${now}"`,
-          category ? `category: "${category}"` : '',
-          tagList.length > 0
-            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
-            : '',
-          `originalFile: "${baseName}/raw/${originalRawName}"`,
-          `originalFormat: "${ext}"`,
-          '---',
-          '',
-          extractedContent,
-        ]
-          .filter(Boolean)
-          .join('\n');
-        await writeFile(fullPath, docContent, 'utf-8');
-      } else {
-        // 其他文本类非 .md 文件（.txt/.json/.csv/.yaml 等）
-        const rawContent = rawBuffer.toString('utf-8');
-        const rawDir = join(baseDir, 'raw');
-        await mkdir(rawDir, { recursive: true });
-
-        const rawRelativePath = join(baseName, 'raw', safeName);
-        const fullRawPath = join(knowledgeRoot, rawRelativePath);
-        await writeFile(fullRawPath, rawContent, 'utf-8');
-
-        // 也写入 knowledge/raw/ 顶层，供编译器消费
-        const topRawDir = join(knowledgeRoot, 'raw');
-        await mkdir(topRawDir, { recursive: true });
-        const compilerFileName = `${baseName}_${safeName}.txt`;
-        await writeFile(join(topRawDir, compilerFileName), rawContent, 'utf-8');
-
-        docRelativePath = join(baseName, `${safeName}.md`);
-        const fullPath = join(knowledgeRoot, docRelativePath);
-
-        const frontmatter = [
-          '---',
-          `title: "${safeName}"`,
-          `source: "upload"`,
-          `uploadedAt: "${now}"`,
-          category ? `category: "${category}"` : '',
-          tagList.length > 0
-            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
-            : '',
-          `originalFormat: "${ext}"`,
-          `needsCompile: true`,
-          '---',
-          '',
-          `> 此文件来自 ${ext} 格式上传，尚未经过 LLM 编译。请触发「编译 raw」操作以生成结构化文档。`,
-          '',
-          '```',
-          rawContent.slice(0, 1000),
-          rawContent.length > 1000 ? '\n...（内容已截断）' : '',
-          '```',
-          '',
-        ].join('\n');
-
-        await writeFile(fullPath, frontmatter, 'utf-8');
-      }
-
-      knowledgeDocsProvider.clearCache();
-
-      if (ext !== '.md' && this.compileScheduler) {
-        this.compileScheduler.notifyFileChanged();
-      }
-
-      const size = rawBuffer.length;
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          docPath: docRelativePath,
-          title: safeName.replace(/\.\w+$/, ''),
-          size,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleKnowledgeUpload(req, res);
   }
 
   /**
-   * 处理知识库编译请求 POST /v1/knowledge/compile
-   *
-   * 触发 KnowledgeCompiler 对 raw/ 目录中的原始文件进行 LLM 编译
+   * 处理知识编译请求（委派到 knowledge-handlers）
    */
   private async handleKnowledgeCompile(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { force } = JSON.parse(body);
-
-      const { aiService } = await import('@modules/ai/services/aiService');
-      const { runKnowledgeCompile } =
-        await import('@modules/knowledge/KnowledgeCompiler');
-
-      const result = await runKnowledgeCompile(aiService, { force: !!force });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleKnowledgeCompile(req, res);
   }
 
   /**
-   * 获取待编译的 raw 文件列表 GET /v1/knowledge/raw-files
-   *
-   * 返回 raw/ 目录中所有未编译文件的详细信息（文件名、大小、修改时间、元数据）
+   * 处理获取原始文件列表请求（委派到 knowledge-handlers）
    */
   private async handleGetRawFiles(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { readdir, stat } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { readFileSync, existsSync } = await import('node:fs');
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const rawDir = join(registry.getKnowledgeRoot(), 'raw');
-
-      if (!existsSync(rawDir)) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ files: [], totalCount: 0 }));
-        return;
-      }
-
-      const entries = await readdir(rawDir);
-      const metaFiles = entries.filter((f) => f.endsWith('.meta.json'));
-      const dataFiles = entries.filter((f) => !f.endsWith('.meta.json'));
-
-      const files = [];
-      for (const file of dataFiles) {
-        const filePath = join(rawDir, file);
-        const fileStat = await stat(filePath);
-        const metaFile = `${file}.meta.json`;
-        let meta = null;
-
-        if (metaFiles.includes(metaFile)) {
-          try {
-            const metaContent = readFileSync(join(rawDir, metaFile), 'utf-8');
-            meta = JSON.parse(metaContent);
-          } catch {
-            // 元数据文件损坏，忽略
-          }
-        }
-
-        files.push({
-          fileName: file,
-          ext: path.extname(file).toLowerCase(),
-          size: fileStat.size,
-          modifiedAt: fileStat.mtimeMs,
-          createdAt: fileStat.birthtimeMs || fileStat.ctimeMs,
-          category: meta?.category || null,
-          source: meta?.source || null,
-        });
-      }
-
-      files.sort((a, b) => b.modifiedAt - a.modifiedAt);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          files,
-          totalCount: files.length,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetRawFiles(req, res);
   }
 
   /**
-   * 导出知识文档到 Notebook 兼容格式
-   * POST /v1/knowledge/export-to-notebook
-   *
-   * 将知识文档内容导出为 .md 文件，存放在 ~/.pyapp/output/notebooks/ 目录
+   * 处理导出到笔记本请求（委派到 knowledge-handlers）
    */
   private async handleExportToNotebook(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { docPath, title } = JSON.parse(body);
-
-      if (!docPath) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'docPath is required' } }));
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { resolveOutputDir } = await import('@modules/core/paths');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const sourcePath = join(registry.getKnowledgeRoot(), docPath);
-
-      const content = await readFile(sourcePath, 'utf-8');
-
-      const notebooksDir = join(resolveOutputDir(), 'notebooks');
-      await mkdir(notebooksDir, { recursive: true });
-
-      const safeName = (title || docPath.replace(/\.md$/i, '')).replace(
-        /[\\/:*?"<>|]/g,
-        '_'
-      );
-      const exportPath = join(notebooksDir, `${safeName}_${Date.now()}.md`);
-
-      await writeFile(exportPath, content, 'utf-8');
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          exportPath,
-          fileName: `${safeName}_${Date.now()}.md`,
-          size: content.length,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleExportToNotebook(req, res);
   }
 
   /**
-   * 从外部文件导入知识文档
-   * POST /v1/knowledge/import-from-file
-   *
-   * 读取指定路径的 .md 文件，将其内容导入到知识库
+   * 处理从文件导入请求（委派到 knowledge-handlers）
    */
   private async handleImportFromFile(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { filePath, baseName, tags } = JSON.parse(body);
-
-      if (!filePath) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'filePath is required' } }));
-        return;
-      }
-
-      // 沙箱权限检查
-      if (
-        !this.checkFilePathPermission(filePath, SandboxPermission.READ_FILE)
-      ) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Access denied: file path not in whitelist' },
-          })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-      const { join, basename, extname } = await import('node:path');
-      const { existsSync } = await import('node:fs');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      if (!existsSync(filePath)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: `File not found: ${filePath}` } })
-        );
-        return;
-      }
-
-      const originalName = basename(filePath);
-      const ext = extname(originalName).toLowerCase();
-
-      /**
-       * 需要 ConverterEngine 转换的二进制文件扩展名
-       */
-      const BINARY_EXTENSIONS = new Set([
-        '.docx',
-        '.xlsx',
-        '.xls',
-        '.pptx',
-        '.pdf',
-        '.epub',
-        '.ipynb',
-        '.zip',
-        '.msg',
-        '.rss',
-        '.atom',
-      ]);
-
-      let rawContent: string;
-
-      if (BINARY_EXTENSIONS.has(ext)) {
-        const { getConverterEngine } =
-          await import('@modules/tools/converter/engine/ConverterEngine');
-        const engine = getConverterEngine();
-        const result = await engine.convertFile(filePath);
-        rawContent = result.markdown;
-      } else {
-        rawContent = await readFile(filePath, 'utf-8');
-      }
-
-      const targetBase = baseName || 'default';
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const knowledgeRoot = registry.getKnowledgeRoot();
-      const baseDir = join(knowledgeRoot, targetBase);
-
-      await mkdir(baseDir, { recursive: true });
-
-      const docPath = join(targetBase, originalName);
-      const fullPath = join(knowledgeRoot, docPath);
-
-      const tagList = Array.isArray(tags) ? tags : [];
-      const now = new Date().toISOString();
-
-      if (!rawContent.startsWith('---')) {
-        const frontmatter = [
-          '---',
-          `title: "${originalName.replace(/\.md$/i, '')}"`,
-          `source: "import"`,
-          `importedAt: "${now}"`,
-          tagList.length > 0
-            ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
-            : '',
-          BINARY_EXTENSIONS.has(ext) ? `originalFormat: "${ext}"` : '',
-          BINARY_EXTENSIONS.has(ext) ? `originalFile: "${filePath}"` : '',
-          '---',
-          '',
-        ]
-          .filter(Boolean)
-          .join('\n');
-        await writeFile(fullPath, `${frontmatter}${rawContent}\n`, 'utf-8');
-      } else {
-        await writeFile(fullPath, rawContent, 'utf-8');
-      }
-
-      knowledgeDocsProvider.clearCache();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          docPath,
-          title: originalName.replace(/\.\w+$/, ''),
-          size: rawContent.length,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleImportFromFile(req, res);
   }
 
   /**
-   * 处理知识库文档内容更新请求 PUT /v1/knowledge/docs
-   *
-   * 请求体: { docPath, content, title? }
-   * 处理逻辑:
-   *   1. 读取原文件，解析 frontmatter
-   *   2. 保留或更新 frontmatter
-   *   3. 将新内容写入文件
-   *   4. 重建 DigestService 缓存
+   * 处理更新知识文档请求（委派到 knowledge-handlers）
    */
   private async handleUpdateKnowledgeDoc(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { docPath, content, title, tags, category } = JSON.parse(body);
-
-      if (!docPath || !content) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'docPath and content are required' },
-          })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { getDefaultDigestService } =
-        await import('@modules/knowledge/KnowledgeDigestService');
-      const { readFile, writeFile } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { existsSync } = await import('node:fs');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const filePath = join(registry.getKnowledgeRoot(), docPath);
-
-      let frontmatterLines: string[] = [];
-
-      if (existsSync(filePath)) {
-        const existingContent = await readFile(filePath, 'utf-8');
-        const lines = existingContent.split('\n');
-
-        if (lines[0]?.trim() === '---') {
-          const endIdx = lines.indexOf('---', 1);
-          if (endIdx !== -1) {
-            const fmLines = lines.slice(1, endIdx);
-
-            const hasTags = Array.isArray(tags);
-            const hasCategory = category !== undefined;
-
-            for (const line of fmLines) {
-              if (title && line.startsWith('title:')) {
-                const escapedTitle = title.replace(/"/g, '\\"');
-                frontmatterLines.push(`title: "${escapedTitle}"`);
-              } else if (hasTags && line.startsWith('tags:')) {
-                continue;
-              } else if (hasCategory && line.startsWith('category:')) {
-                continue;
-              } else {
-                frontmatterLines.push(line);
-              }
-            }
-
-            if (hasTags) {
-              const tagStr = tags.map((t: string) => `"${t}"`).join(', ');
-              frontmatterLines.push(`tags: [${tagStr}]`);
-            }
-            if (hasCategory) {
-              frontmatterLines.push(`category: "${category}"`);
-            }
-
-            const restLines = lines.slice(endIdx + 1);
-            const bodyContent = content || restLines.join('\n').trim();
-            const newContent = [
-              '---',
-              ...frontmatterLines,
-              '---',
-              '',
-              bodyContent,
-              '',
-            ].join('\n');
-
-            await writeFile(filePath, newContent, 'utf-8');
-            knowledgeDocsProvider.clearCache();
-
-            try {
-              const digestService = getDefaultDigestService();
-              await digestService.buildDigest();
-            } catch {
-              // 摘要重建失败不影响主流程
-            }
-
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(
-              JSON.stringify({
-                docPath,
-                updatedAt: new Date().toISOString(),
-              })
-            );
-            this.broadcastEvent('knowledge:updated', { id: docPath });
-            return;
-          }
-        }
-      }
-
-      const newContent = [
-        '---',
-        title
-          ? `title: "${title.replace(/"/g, '\\"')}"`
-          : 'title: "未命名文档"',
-        `updatedAt: "${new Date().toISOString()}"`,
-        '---',
-        '',
-        content,
-        '',
-      ].join('\n');
-
-      await writeFile(filePath, newContent, 'utf-8');
-      knowledgeDocsProvider.clearCache();
-
-      try {
-        const digestService = getDefaultDigestService();
-        await digestService.buildDigest();
-      } catch {
-        // 摘要重建失败不影响主流程
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          docPath,
-          updatedAt: new Date().toISOString(),
-        })
-      );
-      this.broadcastEvent('knowledge:updated', { id: docPath });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleUpdateKnowledgeDoc(req, res);
   }
 
   /**
-   * 处理批量删除知识文档请求 POST /v1/knowledge/batch-delete
-   *
-   * 请求体: { ids: string[] }
-   * 批量删除指定的知识库文档文件
+   * 处理批量删除知识条目请求（委派到 knowledge-handlers）
    */
   private async handleBatchDeleteKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { ids } = JSON.parse(body);
-
-      if (!Array.isArray(ids) || ids.length === 0) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'ids array is required' } })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { unlink } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { existsSync } = await import('node:fs');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const knowledgeRoot = registry.getKnowledgeRoot();
-
-      let deleted = 0;
-      for (const id of ids) {
-        const filePath = join(knowledgeRoot, id);
-        if (existsSync(filePath)) {
-          await unlink(filePath);
-          deleted++;
-        }
-      }
-
-      knowledgeDocsProvider.clearCache();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ deleted }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleBatchDeleteKnowledge(req, res);
   }
 
   /**
-   * 处理批量添加标签请求 POST /v1/knowledge/batch-tag
-   *
-   * 请求体: { ids: string[], tags: string[] }
-   * 为多个知识文档批量添加标签
+   * 处理批量标记知识条目请求（委派到 knowledge-handlers）
    */
   private async handleBatchTagKnowledge(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { ids, tags } = JSON.parse(body);
-
-      if (!Array.isArray(ids) || ids.length === 0) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'ids array is required' } })
-        );
-        return;
-      }
-
-      if (!Array.isArray(tags) || tags.length === 0) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'tags array is required' } })
-        );
-        return;
-      }
-
-      const { getDefaultKnowledgeBaseRegistry } =
-        await import('@modules/knowledge/KnowledgeBaseRegistry');
-      const { readFile, writeFile } = await import('node:fs/promises');
-      const { join } = await import('node:path');
-      const { existsSync } = await import('node:fs');
-      const { knowledgeDocsProvider } =
-        await import('@modules/docs/FileDocsProvider');
-
-      const registry = getDefaultKnowledgeBaseRegistry();
-      const knowledgeRoot = registry.getKnowledgeRoot();
-
-      let updated = 0;
-      for (const id of ids) {
-        const filePath = join(knowledgeRoot, id);
-        if (!existsSync(filePath)) continue;
-
-        const content = await readFile(filePath, 'utf-8');
-        const lines = content.split('\n');
-
-        if (lines[0]?.trim() !== '---') continue;
-
-        const endIdx = lines.indexOf('---', 1);
-        if (endIdx === -1) continue;
-
-        const fmLines = lines.slice(1, endIdx);
-
-        const existingTagLine = fmLines.find((l) => l.startsWith('tags:'));
-        const existingTags: string[] = [];
-
-        if (existingTagLine) {
-          const tagMatch = existingTagLine.match(/\[([^\]]*)\]/);
-          if (tagMatch) {
-            const rawTags = tagMatch[1]
-              .split(',')
-              .map((t) => t.trim().replace(/"/g, ''));
-            existingTags.push(...rawTags.filter(Boolean));
-          }
-        }
-
-        const mergedTags = [...new Set([...existingTags, ...tags])];
-        const tagStr = mergedTags.map((t) => `"${t}"`).join(', ');
-
-        const newFmLines = existingTagLine
-          ? fmLines.map((l) =>
-              l.startsWith('tags:') ? `tags: [${tagStr}]` : l
-            )
-          : [...fmLines, `tags: [${tagStr}]`];
-
-        const newContent = [
-          '---',
-          ...newFmLines,
-          '---',
-          ...lines.slice(endIdx + 1),
-        ].join('\n');
-
-        await writeFile(filePath, newContent, 'utf-8');
-        updated++;
-      }
-
-      knowledgeDocsProvider.clearCache();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ updated }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleBatchTagKnowledge(req, res);
   }
 
   // ========== Buddy Handlers ==========
@@ -2891,668 +1084,28 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { getCompanion } = await import('@modules/buddy');
-      const companion = getCompanion();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(companion || null));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(null));
-    }
+    return handleGetBuddy(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理 Buddy 交互请求
-   */
   private async handleBuddyInteract(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { action } = JSON.parse(body);
-      const { InteractionManager, getCompanion } =
-        await import('@modules/buddy');
-      const companion = getCompanion();
-      if (!companion) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: '暂无 Buddy', statChanges: {} }));
-        return;
-      }
-      const manager = new InteractionManager();
-      const result = await manager.execute(companion, action);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-      this.broadcastEvent('buddy:interacted', {
-        action,
-        result: result.response,
-      });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleBuddyInteract(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理获取 Buddy 统计数据请求
-   */
   private async handleGetBuddyStats(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const { getDreamStats } = await import('@modules/buddy/dreamLogStore');
-      const dreamStats = getDreamStats();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          interactions: 0,
-          dreamsCompleted: dreamStats.totalCompleted,
-          totalXp: 0,
-        })
-      );
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({ interactions: 0, dreamsCompleted: 0, totalXp: 0 })
-      );
-    }
+    return handleGetBuddyStats(this._handlerCtx, req, res);
   }
 
-  /**
-   * 处理获取梦境日志请求
-   */
   private async handleGetDreamLogs(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    try {
-      const urlObj = new URL(
-        req.url || '',
-        `http://${req.headers.host || 'localhost'}`
-      );
-      const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
-      const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
-      const typeFilter = urlObj.searchParams.get('type') || '';
-
-      const { getDreamLogs, getDreamLogsByType, getDreamStats } =
-        await import('@modules/buddy/dreamLogStore');
-
-      const result = typeFilter
-        ? getDreamLogsByType(typeFilter as any, limit, offset)
-        : getDreamLogs(limit, offset);
-
-      const stats = getDreamStats();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...result, stats }));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          logs: [],
-          total: 0,
-          stats: {
-            totalCompleted: 0,
-            totalFailed: 0,
-            totalSessions: 0,
-            totalInsights: 0,
-            lastDreamAt: null,
-          },
-        })
-      );
-    }
-  }
-
-  // ========== Cron Handlers ==========
-
-  /** 将 CronJob 转为前端 CronTask 格式 */
-  private jobToCronTask(job: any): any {
-    const ms = (iso: string | undefined) =>
-      iso ? new Date(iso).getTime() : undefined;
-    return {
-      id: job.id,
-      name: job.name,
-      expression: job.schedule?.expr ?? '',
-      description: job.prompt ?? job.name,
-      prompt: job.prompt || '',
-      enabled: job.enabled ?? true,
-      scheduleMode: job.schedule?.kind ?? 'cron',
-      scheduleDisplay: job.schedule?.display ?? job.scheduleDisplay,
-      silent: job.silent ?? false,
-      lastRun: ms(job.lastRunAt),
-      nextRun: ms(job.nextRunAt),
-      lastDurationMs: undefined,
-      lastStatus: job.lastStatus ?? undefined,
-      lastError: job.lastError ?? undefined,
-      consecutiveErrors: job.consecutiveErrors ?? 0,
-      model: job.model,
-      provider: job.provider,
-      status:
-        job.state === 'running'
-          ? ('running' as const)
-          : job.state === 'failed'
-            ? ('error' as const)
-            : job.enabled !== false
-              ? ('idle' as const)
-              : ('idle' as const),
-    };
-  }
-
-  /**
-   * 处理列出定时任务请求
-   */
-  private async handleListCron(
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const store = new CronJobStore(resolveDbPath());
-      await store.init();
-      const jobs = await store.loadJobs();
-      const result = jobs.map((j) => this.jobToCronTask(j));
-      await store.close();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理创建定时任务请求
-   */
-  private async handleCreateCron(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const rawBody: Record<string, any> = JSON.parse(body);
-      const {
-        name,
-        expression,
-        description,
-        prompt: bodyPrompt,
-        enabled,
-        scheduleMode,
-        silent,
-        deliver,
-        model,
-        provider,
-      } = rawBody;
-      const cronExpr = (expression || rawBody.cron || '').trim();
-      const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();
-      const jobPrompt = (bodyPrompt || description || jobName).trim();
-
-      if (!cronExpr && !jobName) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'name or expression is required' },
-          })
-        );
-        return;
-      }
-
-      const { parseSchedule } = await import('@modules/chronos/cron');
-      const { computeNextCronRun } =
-        await import('@modules/tasks/cron/CronParser');
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-
-      const parsed: any = parseSchedule(cronExpr) || {
-        kind: 'cron',
-        expr: cronExpr,
-        display: cronExpr,
-      };
-
-      // 根据 scheduleMode 覆盖调度解析
-      if (scheduleMode === 'every') {
-        parsed.kind = 'interval';
-        parsed.minutes = parseInt(rawBody.everyValue, 10) || 30;
-        parsed.expr = undefined;
-      } else if (scheduleMode === 'at') {
-        parsed.kind = 'cron';
-        parsed.expr = `${rawBody.atMinute || '00'} ${rawBody.atHour || '14'} * * *`;
-      }
-
-      const job: any = {
-        id: `cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: jobName,
-        prompt: jobPrompt,
-        schedule: parsed,
-        repeat: { times: null, completed: 0 },
-        enabled: enabled !== false,
-        state: 'scheduled',
-        createdAt: new Date().toISOString(),
-        silent: silent ?? false,
-        deliver: deliver ?? 'local',
-        model: model ?? undefined,
-        provider: provider ?? undefined,
-        scheduleDisplay: parsed.display || cronExpr,
-      };
-
-      // 计算首次运行时间
-      const nowMs = Date.now();
-      if (parsed.kind === 'interval') {
-        const mins = parsed.minutes || 30;
-        job.nextRunAt = new Date(nowMs + mins * 60 * 1000).toISOString();
-      } else if (parsed.kind === 'cron' && parsed.expr) {
-        const next = computeNextCronRun(parsed.expr, nowMs);
-        if (next) job.nextRunAt = next;
-      }
-
-      const store = new CronJobStore(resolveDbPath());
-      await store.init();
-      await store.upsertJob(job);
-      await store.close();
-
-      // 唤醒全局调度器，使新作业立即被检查
-      try {
-        const { wakeGlobalCronScheduler } =
-          await import('@modules/tasks/cron/GlobalCronScheduler');
-        wakeGlobalCronScheduler();
-      } catch {
-        // 调度器未启动，忽略
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.jobToCronTask(job)));
-      this.broadcastEvent('cron:created', { id: job.id });
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理获取定时任务详情请求
-   */
-  private async handleGetCron(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cronId: string
-  ): Promise<void> {
-    try {
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const store = new CronJobStore(resolveDbPath());
-      await store.init();
-      const job = await store.getJob(cronId);
-      await store.close();
-      if (!job) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.jobToCronTask(job)));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理更新定时任务请求
-   */
-  private async handleUpdateCron(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cronId: string
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const updates = JSON.parse(body);
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const store = new CronJobStore(resolveDbPath());
-      await store.init();
-
-      const existing = await store.getJob(cronId);
-      if (!existing) {
-        await store.close();
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
-        return;
-      }
-
-      // Apply allowed updates
-      if (updates.name !== undefined) existing.name = updates.name;
-      if (updates.description !== undefined)
-        existing.prompt = updates.description;
-      if (updates.enabled !== undefined) existing.enabled = updates.enabled;
-      if (updates.silent !== undefined) existing.silent = updates.silent;
-      if (updates.expression !== undefined && existing.schedule) {
-        existing.schedule.expr = updates.expression;
-      }
-      if (updates.lastFiredAt !== undefined) {
-        existing.lastRunAt = new Date(updates.lastFiredAt).toISOString();
-      }
-
-      await store.upsertJob(existing);
-      await store.close();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(this.jobToCronTask(existing)));
-      this.broadcastEvent('cron:updated', { id: cronId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理删除定时任务请求
-   */
-  private async handleDeleteCron(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cronId: string
-  ): Promise<void> {
-    try {
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const store = new CronJobStore(resolveDbPath());
-      await store.init();
-      await store.deleteJob(cronId);
-      await store.close();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
-      this.broadcastEvent('cron:deleted', { id: cronId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理立即执行定时任务请求
-   */
-  private async handleRunCron(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    cronId: string
-  ): Promise<void> {
-    try {
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const store = new CronJobStore(resolveDbPath());
-      await store.init();
-
-      const job = await store.getJob(cronId);
-      if (!job) {
-        await store.close();
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
-        return;
-      }
-
-      // 将 nextRunAt 设为 now 并保存，下次 tick 会执行
-      job.nextRunAt = new Date().toISOString();
-      job.state = 'scheduled';
-      await store.upsertJob(job);
-      await store.close();
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({ success: true, message: `Task ${cronId} triggered` })
-      );
-      this.broadcastEvent('cron:run', { id: cronId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理 cron 调度器状态查询
-   * GET /v1/cron/status
-   */
-  private async handleCronStatus(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { isGlobalCronSchedulerStarted, getGlobalCronScheduler } =
-        await import('@modules/tasks/cron/GlobalCronScheduler');
-      const started = isGlobalCronSchedulerStarted();
-      const scheduler = getGlobalCronScheduler();
-
-      if (started && scheduler) {
-        const status = scheduler.getStatus();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(status));
-      } else {
-        // 调度器未启动，回退到静态查询
-        const { CronJobStore } =
-          await import('@modules/tasks/cron/CronJobStore');
-        const { resolveDbPath } = await import('@modules/core/paths');
-        const store = new CronJobStore(resolveDbPath());
-        await store.init();
-        const stats = await store.getStats();
-        const enabledJobs = await store.listEnabledJobs();
-        let activeJobs = 0;
-        for (const job of enabledJobs) {
-          if (job.state === 'running') activeJobs++;
-        }
-        await store.close();
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            running: false,
-            lastTickAt: undefined,
-            activeJobs,
-            totalJobs: stats.total,
-            uptimeMs: process.uptime() * 1000,
-          })
-        );
-      }
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理 cron 运行日志查询
-   * GET /v1/cron/runs?jobId=&limit=&offset=&status=
-   */
-  private async handleCronRuns(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    url: string
-  ): Promise<void> {
-    try {
-      const urlObj = new URL(url, `http://${req.headers.host || 'localhost'}`);
-      const jobId = urlObj.searchParams.get('jobId') || undefined;
-      const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
-      const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
-      const status = (urlObj.searchParams.get('status') || undefined) as
-        | 'ok'
-        | 'failed'
-        | undefined;
-
-      const { CronRunLog } = await import('@modules/tasks/cron/CronRunLog');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const runLog = new CronRunLog(resolveDbPath());
-      await runLog.init();
-
-      const page = await runLog.queryPage({ jobId, limit, offset, status });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(page));
-
-      await runLog.close();
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  // ========== Channels Handlers ==========
-
-  /**
-   * 处理列出通道请求
-   */
-  private async handleListChannels(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { channelRegistry } =
-        await import('@modules/channels/registry/ChannelRegistry');
-      const { ALL_CHANNEL_DEFS } =
-        await import('@modules/channels/setupChannels');
-
-      // 已注册通道 → map
-      const registeredMap = new Map<string, any>();
-      for (const ch of channelRegistry.getAll()) {
-        const cfg = channelRegistry.getConfig(ch.name);
-        registeredMap.set(ch.name, {
-          id: ch.name,
-          name: ch.name,
-          type: ch.type,
-          // 优先使用 DB 持久化的 enabled 状态，而非 ChannelInterface 的硬编码值
-          enabled: cfg?.enabled ?? ch.enabled,
-          connected: (ch as any).connected ?? false,
-          config: cfg?.options || {},
-        });
-      }
-
-      // 合并：全部候选 + 已注册数据
-      const result = ALL_CHANNEL_DEFS.map((def) => {
-        const registered = registeredMap.get(def.type);
-        if (registered) {
-          // 已注册的保留实际数据，但名使用定义中的显示名
-          return { ...registered, name: def.name, registered: true };
-        }
-        // 未注册的显示为已知但未配置
-        return {
-          id: def.type,
-          name: def.name,
-          type: def.type,
-          enabled: false,
-          connected: false,
-          registered: false,
-          config: {},
-        };
-      });
-
-      // 追加注册了但不在候选表中的通道（如有）
-      for (const [name, reg] of registeredMap) {
-        if (!ALL_CHANNEL_DEFS.some((d) => d.type === name)) {
-          result.push(reg);
-        }
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理获取通道详情请求
-   */
-  private async handleGetChannel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    channelId: string
-  ): Promise<void> {
-    try {
-      const { channelRegistry } =
-        await import('@modules/channels/registry/ChannelRegistry');
-      const channel = channelRegistry.get(channelId);
-      if (!channel) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: channel.name,
-          name: channel.name,
-          type: channel.type,
-          enabled: channel.enabled,
-          connected: channel.connected,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理切换通道启用状态请求
-   */
-  private async handleToggleChannel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    channelId: string
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { enabled } = JSON.parse(body);
-      const { channelRegistry } =
-        await import('@modules/channels/registry/ChannelRegistry');
-      const channel = channelRegistry.get(channelId);
-      if (!channel) {
-        // 尝试动态注册（可能 registry 状态已丢失）
-        const dynRegistered = await this.tryDynamicRegister(channelId);
-        if (!dynRegistered) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
-          return;
-        }
-      }
-      // 先持久化 enabled 状态（确保重启后恢复）
-      channelRegistry.updateConfig(channelId, { enabled });
-
-      if (enabled) {
-        const connectSuccess = await channelRegistry.connect(channelId);
-        if (!connectSuccess) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(
-            JSON.stringify({
-              success: false,
-              id: channelId,
-              enabled: false,
-              error: {
-                message: `通道 ${channelId} 连接失败，请检查配置是否正确`,
-              },
-            })
-          );
-          return;
-        }
-      } else {
-        await channelRegistry.disconnect(channelId);
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, id: channelId, enabled }));
-      this.broadcastEvent('channel:toggled', { id: channelId, enabled });
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理删除通道请求
-   */
-  private async handleDeleteChannel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    channelId: string
-  ): Promise<void> {
-    try {
-      const { channelRegistry } =
-        await import('@modules/channels/registry/ChannelRegistry');
-      const result = channelRegistry.unregister(channelId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: result }));
-      this.broadcastEvent('channel:deleted', { id: channelId });
-    } catch (err) {
-      this.sendError(res, err);
-    }
+    return handleGetDreamLogs(this._handlerCtx, req, res);
   }
 
   // ========== Config Handlers ==========
@@ -3713,136 +1266,53 @@ export class LocalHTTPService {
     }
   }
 
-  private clients = new Set<http.ServerResponse>();
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-  // ========== SSE Event Bus ==========
+  // ========== SSE Event Bus (extracted to LocalHTTPServiceSSE.ts) ==========
 
   /**
-   * 处理 SSE 事件订阅
+   * 处理 SSE 事件订阅 — 委托给 LocalHTTPServiceSSE.handleEvents
    */
   private async handleEvents(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    });
-
-    this.clients.add(res);
-
-    if (!this.heartbeatTimer) {
-      this.heartbeatTimer = setInterval(() => {
-        const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
-        for (const client of this.clients) {
-          client.write(`event: heartbeat\ndata: ${payload}\n\n`);
-        }
-      }, 15000);
-    }
-
-    req.on('close', () => {
-      this.clients.delete(res);
-      if (this.clients.size === 0 && this.heartbeatTimer) {
-        clearInterval(this.heartbeatTimer);
-        this.heartbeatTimer = null;
-      }
-    });
+    return handleEvents(this._handlerCtx, req, res);
   }
 
   /**
-   * 广播事件到所有 SSE 客户端
+   * 广播事件到所有 SSE 客户端 — 委托给 LocalHTTPServiceSSE.broadcastEvent
    */
   private broadcastEvent(event: string, data: Record<string, unknown>): void {
-    const payload = JSON.stringify({ ...data, ts: Date.now() });
-    for (const client of this.clients) {
-      client.write(`event: ${event}\ndata: ${payload}\n\n`);
-    }
+    return broadcastEvent(event, data);
   }
 
   // ========== Error Helper ==========
 
   /**
-   * 发送错误响应
+   * 发送错误响应 — 委托给 handler-utils
    */
   private sendError(
     res: http.ServerResponse,
     err: unknown,
     status = 500
   ): void {
-    const message = err instanceof Error ? err.message : String(err);
-    logger.error('API 错误', { error: message });
-    res.writeHead(status, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: { message, type: 'api_error' } }));
+    return this._handlerCtx.sendError(res, err, status);
   }
 
   /**
-   * 检查文件路径是否在允许的白名单范围内
-   * 验证文件操作是否符合沙箱安全规则
-   * @param filePath 要检查的文件路径
-   * @param permission 需要的权限类型
-   * @returns 是否允许操作
+   * 检查文件路径是否在允许的白名单范围内 — 委托给 handler-utils
    */
   private checkFilePathPermission(
     filePath: string,
     permission: SandboxPermission
   ): boolean {
-    // 定义允许的目录白名单
-    const allowedDirs = [
-      resolveOutputDir(),
-      resolveDownloadsDir(),
-      resolveAttachmentsDir(),
-      resolvePyappHome(),
-    ];
-
-    // 检查路径是否在白名单范围内
-    const normalizedPath = path.resolve(filePath);
-    const isAllowed = allowedDirs.some((dir) => {
-      const normalizedDir = path.resolve(dir);
-      return normalizedPath.startsWith(normalizedDir);
-    });
-
-    if (!isAllowed) {
-      logger.warn(`文件路径不在白名单范围内: ${filePath}`, {
-        module: 'LocalHTTPService',
-        context: { permission, allowedDirs },
-      });
-      return false;
-    }
-
-    // 检查工作空间权限（如果存在活动工作空间）
-    const activeWorkspace = globalWorkspaceManager.get('default');
-    if (activeWorkspace && !activeWorkspace.hasPermission(permission)) {
-      logger.warn(`工作空间缺少必要权限: ${permission}`, {
-        module: 'LocalHTTPService',
-        context: { workspaceId: 'default' },
-      });
-      return false;
-    }
-
-    return true;
+    return this._handlerCtx.checkFilePathPermission(filePath, permission);
   }
 
   /**
-   * 读取请求体
+   * 读取请求体 — 委托给 handler-utils
    */
   private readRequestBody(req: http.IncomingMessage): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-
-      req.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
-
-      req.on('end', () => {
-        resolve(Buffer.concat(chunks).toString('utf-8'));
-      });
-
-      req.on('error', (err) => {
-        reject(err);
-      });
-    });
+    return this._handlerCtx.readRequestBody(req);
   }
 
   /**
@@ -6615,206 +4085,6 @@ export class LocalHTTPService {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, data: status }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  // ========== Auth Handlers ==========
-
-  private users: Map<string, { username: string; password: string }> =
-    new Map();
-  private tokens: Map<string, { username: string; permissions: string[] }> =
-    new Map();
-
-  private async handleAuthLogin(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { username, password } = JSON.parse(body);
-
-      if (!username || !password) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'username and password are required' },
-          })
-        );
-        return;
-      }
-
-      const user = this.users.get(username);
-      if (!user || user.password !== password) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Invalid username or password' },
-          })
-        );
-        return;
-      }
-
-      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.tokens.set(token, {
-        username,
-        permissions: ['read', 'write'],
-      });
-
-      const now = Date.now();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          token,
-          user: {
-            id: `user_${now}`,
-            username,
-            email: '',
-            role: 'user',
-            trustLevel: 2,
-            created_at: now,
-          },
-          expires_at: now + 86400000,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  private async handleAuthRegister(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const { username, password } = JSON.parse(body);
-
-      if (!username || !password) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'username and password are required' },
-          })
-        );
-        return;
-      }
-
-      if (this.users.has(username)) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'Username already exists' },
-          })
-        );
-        return;
-      }
-
-      this.users.set(username, { username, password });
-      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.tokens.set(token, {
-        username,
-        permissions: ['read', 'write'],
-      });
-
-      const now = Date.now();
-      res.writeHead(201, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          token,
-          user: {
-            id: `user_${now}`,
-            username,
-            email: '',
-            role: 'user',
-            trustLevel: 2,
-            created_at: now,
-          },
-          expires_at: now + 86400000,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  private async handleAuthLogout(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
-
-      if (token) {
-        this.tokens.delete(token);
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({}));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  private async handleAuthMe(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
-
-      const session = this.tokens.get(token);
-      if (!session) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
-        return;
-      }
-
-      const now = Date.now();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          id: `user_${now}`,
-          username: session.username,
-          email: '',
-          role: 'user',
-          trustLevel: 2,
-          created_at: now,
-          permissions: session.permissions,
-        })
-      );
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  private async handleAuthPermissions(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
-
-      const session = this.tokens.get(token);
-      if (!session) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
-        return;
-      }
-
-      const permissionList = session.permissions.map((p: string) => ({
-        scope: p === 'read' ? 'read' : p === 'write' ? 'write' : 'admin',
-        description:
-          p === 'read' ? '读取权限' : p === 'write' ? '写入权限' : '管理权限',
-        level: p as 'none' | 'read' | 'write' | 'admin',
-      }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(permissionList));
     } catch (err) {
       this.sendError(res, err);
     }

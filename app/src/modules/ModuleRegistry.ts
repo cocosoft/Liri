@@ -9,7 +9,6 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   getDIContainer,
   type DIContainer,
-  type ServiceDescriptor,
 } from '@modules/core/DIContainer';
 import {
   ModuleCategory,
@@ -42,35 +41,37 @@ export class ModuleRegistry {
 
   /**
    * 绑定 DI 容器
-   * 将所有已注册模块同步到容器中，后续注册的模块也会自动注册到容器
+   * 将所有已注册模块同步到容器中，后续注册的模块也会自动注册到容器。
+   * 同时设置回退解析器，使 DIContainer 可通过 ModuleRegistry 查找模块实例。
    */
   public useContainer(diContainer: DIContainer): void {
     this.container = diContainer;
+
+    // 双向桥接：DIContainer → ModuleRegistry
+    // 当 DIContainer.resolve() 找不到服务时，回退到 ModuleRegistry 查找模块实例
+    diContainer.setResolveFallback((name: string) => {
+      const module = this.modules.get(name);
+      return module?.instance;
+    });
+
+    // 将已有模块同步到 DI 容器
     for (const module of this.modules.values()) {
       this.registerWithContainer(module);
     }
   }
 
   /**
-   * 将模块注册到 DI 容器
+   * 将模块实例注册到 DI 容器
+   * 仅注册有实际实例（module.instance）的模块，避免污染 DI 容器。
+   * 无实例的纯元数据模块通过 resolveFallback 回退查找。
    */
   private registerWithContainer(module: ModuleDefinition): void {
-    if (!this.container) return;
-
-    const descriptor: ServiceDescriptor = {
-      id: module.id,
-      factory: () => {
-        if (module.instance) return module.instance;
-        return module;
-      },
-      scope: 'singleton',
-      dependencies: module.dependencies,
-    };
+    if (!this.container || !module.instance) return;
 
     try {
-      this.container.registerDescriptor(descriptor);
+      this.container.registerInstance(module.id, module.instance);
     } catch (e) {
-      logger.warn('模块已注册到 DI 容器，跳过重复注册', {
+      logger.warn('模块实例注册到 DI 容器失败，跳过', {
         moduleId: module.id,
         error: e instanceof Error ? e.message : String(e),
       });

@@ -35,7 +35,13 @@ export type {
  */
 export interface PluginSDKConfig {
   ecosystem: PluginEcosystem;
-  moduleManager: ModuleDependencyManager;
+
+  /**
+   * 模块依赖管理器（可选）
+   * 旧版模块系统提供 ModuleDependencyManager 实例；
+   * 统一后的模块系统使用 ModuleRegistry，此字段可为 undefined
+   */
+  moduleManager?: ModuleDependencyManager;
   configPath?: string;
 }
 
@@ -44,7 +50,7 @@ export interface PluginSDKConfig {
  */
 export class PluginSDK {
   private ecosystem: PluginEcosystem;
-  private moduleManager: ModuleDependencyManager;
+  private moduleManager?: ModuleDependencyManager;
   private plugins: Map<string, Plugin> = new Map();
   private contexts: Map<string, PluginContext> = new Map();
   private configPath: string;
@@ -117,7 +123,10 @@ export class PluginSDK {
       },
     };
 
-    this.moduleManager.registerModule(moduleDef);
+    // 非旧版模式下 ModuleDependencyManager 不存在，注册由 ModuleRegistry 统一处理
+    if (this.moduleManager) {
+      this.moduleManager.registerModule(moduleDef);
+    }
 
     // 存储插件
     this.plugins.set(plugin.id, plugin);
@@ -247,7 +256,9 @@ export class PluginSDK {
     }
 
     this.ecosystem.unregisterPlugin(pluginId);
-    this.moduleManager.unregisterModule(pluginId);
+    if (this.moduleManager) {
+      this.moduleManager.unregisterModule(pluginId);
+    }
     this.contexts.delete(pluginId);
     this.plugins.delete(pluginId);
 

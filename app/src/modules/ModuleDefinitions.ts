@@ -753,6 +753,52 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     dependencies: ['core'],
     optionalDependencies: ['error'],
   },
+
+  // ==================== AppCore 核心模块（从 AppCore.initializeCoreModules 合并） ====================
+
+  logger: {
+    id: 'logger',
+    name: 'logger',
+    displayName: '日志系统',
+    version: '1.0.0',
+    category: ModuleCategory.CORE,
+    description: '日志系统，提供日志记录、级别过滤和输出管理',
+    dependencies: ['core'],
+    optionalDependencies: [],
+  },
+
+  terminal: {
+    id: 'terminal',
+    name: 'terminal',
+    displayName: '终端UI系统',
+    version: '1.0.0',
+    category: ModuleCategory.UI,
+    description: '终端UI系统，提供终端界面组件和交互管理',
+    dependencies: ['core', 'logger'],
+    optionalDependencies: [],
+  },
+
+  ecosystem: {
+    id: 'ecosystem',
+    name: 'ecosystem',
+    displayName: '插件生态系统',
+    version: '1.0.0',
+    category: ModuleCategory.CORE,
+    description: '插件生态系统，管理插件的注册、发现和生命周期',
+    dependencies: ['core', 'logger'],
+    optionalDependencies: [],
+  },
+
+  sdk: {
+    id: 'sdk',
+    name: 'sdk',
+    displayName: '插件SDK',
+    version: '1.0.0',
+    category: ModuleCategory.CORE,
+    description: '插件SDK，为第三方插件开发者提供开发工具和接口',
+    dependencies: ['core', 'ecosystem'],
+    optionalDependencies: [],
+  },
 };
 
 /**

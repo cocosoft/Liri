@@ -11,6 +11,9 @@ import type {
   HookDependency,
 } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('HookRegistry');
 
 /**
  * Hook注册项接口
@@ -95,7 +98,7 @@ export class HookRegistry {
     // 按优先级排序
     this.sortHooksByPriority(event);
 
-    console.log(`✅ Hook registered: ${hookId}`);
+    logger.info('Hook 已注册', { hookId });
   }
 
   /**
@@ -135,7 +138,7 @@ export class HookRegistry {
     this.hookIndex.delete(hookId);
     this.executionHistory.delete(hookId);
 
-    console.log(`✅ Hook unregistered: ${hookId}`);
+    logger.info('Hook 已取消注册', { hookId });
     return true;
   }
 
@@ -173,7 +176,7 @@ export class HookRegistry {
     }
 
     registration.enabled = enabled;
-    console.log(`✅ Hook ${enabled ? 'enabled' : 'disabled'}: ${hookId}`);
+    logger.info('Hook 状态已切换', { hookId, enabled });
     return true;
   }
 
@@ -191,7 +194,7 @@ export class HookRegistry {
     // 重新排序
     this.sortHooksByPriority(registration.definition.event);
 
-    console.log(`✅ Hook priority set: ${hookId} -> ${priority}`);
+    logger.info('Hook 优先级已设置', { hookId, priority });
     return true;
   }
 
@@ -272,7 +275,7 @@ export class HookRegistry {
     this.hooks.clear();
     this.hookIndex.clear();
     this.executionHistory.clear();
-    console.log('✅ All hooks cleared');
+    logger.info('所有 hooks 已清除');
   }
 
   /**
@@ -288,7 +291,7 @@ export class HookRegistry {
     }
 
     this.hooks.delete(event);
-    console.log(`✅ Hooks cleared for event: ${event}`);
+    logger.info('指定事件 hooks 已清除', { event });
   }
 
   /**
@@ -359,7 +362,7 @@ export const globalHookRegistry = new HookRegistry();
  * 默认Hook注册函数
  */
 export function registerDefaultHooks(): void {
-  console.log('🔧 Registering default hooks...');
+  logger.info('正在注册默认 hooks...');
 
   // 注册核心Hook类型
   registerCoreHooks(globalHookRegistry);
@@ -370,7 +373,7 @@ export function registerDefaultHooks(): void {
   // 注册会话Hook
   registerSessionHooks(globalHookRegistry);
 
-  console.log('✅ Default hooks registered');
+  logger.info('默认 hooks 已注册');
 }
 
 /**

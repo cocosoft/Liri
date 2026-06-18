@@ -5,10 +5,10 @@
 
 import * as fs from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { resolveLogsDir } from '@modules/core/paths';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('HookDiagnosticService');
 
 /**
  * 钩子诊断日志级别

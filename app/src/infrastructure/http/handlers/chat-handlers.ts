@@ -66,23 +66,6 @@ interface ChatCompletionResponse {
   pending_interaction?: unknown;
 }
 
-interface StreamChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    delta: Record<string, unknown>;
-    finish_reason: string | null;
-  }>;
-  __pyapp_type?: string;
-  __pyapp_tool_status?: string;
-  __pyapp_question?: unknown;
-  __pyapp_todo?: unknown;
-  usage?: Record<string, unknown>;
-}
-
 // ── 公共导出 ──────────────────────────────────────────────────────
 
 /**

@@ -562,17 +562,10 @@ export class AlertRuleService extends EventEmitter {
    * 发送控制台通知
    */
   private sendConsoleNotification(alert: AlertInstance): void {
-    const color =
-      alert.level === 'critical'
-        ? '\x1b[31m'
-        : alert.level === 'error'
-          ? '\x1b[35m'
-          : alert.level === 'warning'
-            ? '\x1b[33m'
-            : '\x1b[36m';
-    const reset = '\x1b[0m';
-
-    console.log(`${color}[ALERT]${reset} ${alert.ruleName}: ${alert.message}`);
+    logger.info('告警触发', {
+      ruleName: alert.ruleName,
+      message: alert.message,
+    });
   }
 
   /**

@@ -891,9 +891,10 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    console.log(
-      `[DIAG] ChatManager.sendMessage -> 准备调用 activeClient.sendMessage, constructor=${(activeClient as any)?.constructor?.name}, providerId=${activeClient?.getProviderId()}`
-    );
+    logger.debug('准备调用 activeClient.sendMessage', {
+      constructor: (activeClient as any)?.constructor?.name,
+      providerId: activeClient?.getProviderId(),
+    });
 
     const response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],

@@ -74,7 +74,7 @@ export class PerformanceAnalyzer {
 
   constructor(metricsService?: MetricsService, logger?: Logger) {
     this.metricsService = metricsService || getMetricsService();
-    this.logger = logger || getLogger();
+    this.logger = logger || getLogger('PerformanceAnalyzer');
     this.activeOperations = new Map();
     this.completedOperations = [];
     this.slowOperationThreshold = 1000;

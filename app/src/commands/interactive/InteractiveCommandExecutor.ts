@@ -7,6 +7,9 @@
 import readline from 'readline';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 import { getEnhancedCommandHistory } from '@modules/commands/history/EnhancedCommandHistory.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('InteractiveCommandExecutor');
 
 /**
  * 交互式命令执行器选项
@@ -150,7 +153,7 @@ export class InteractiveCommandExecutor {
         }
       }
     } catch (error) {
-      console.error('命令执行错误:', error);
+      logger.error('命令执行错误', error);
 
       // 记录失败的命令
       const parts = line.split(' ');

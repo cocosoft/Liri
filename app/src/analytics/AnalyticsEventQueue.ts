@@ -4,6 +4,9 @@
  */
 
 import type { AnalyticsSink } from './types';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('AnalyticsEventQueue');
 
 type EventMetadata = Record<string, boolean | number | string | undefined>;
 
@@ -115,7 +118,7 @@ export class AnalyticsEventQueue {
           this.sink.logEvent(event.eventName, event.metadata);
         }
       } catch (error) {
-        console.error('Error processing analytics event:', error);
+        logger.error('Error processing analytics event:', error);
       }
     }
 

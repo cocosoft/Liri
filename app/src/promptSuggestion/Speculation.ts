@@ -35,7 +35,7 @@ function getOverlayPath(id: string): string {
 function safeRemoveOverlay(overlayPath: string): void {
   try {
     if (configManager.env('DEBUG_SPECULATION') === 'true') {
-      console.log(`[Speculation] Would remove overlay: ${overlayPath}`);
+      logger.debug('准备移除叠加层', { overlayPath });
     }
   } catch (error) {
     if (configManager.env('DEBUG_SPECULATION') === 'true') {
@@ -92,7 +92,7 @@ export async function startSpeculation(
 ): Promise<SpeculationResult | null> {
   if (currentState.status === 'active') {
     if (configManager.env('DEBUG_SPECULATION') === 'true') {
-      console.log('[Speculation] Already active, skipping');
+      logger.debug('已有活跃推测，跳过');
     }
     return null;
   }
@@ -114,7 +114,7 @@ export async function startSpeculation(
   }
 
   if (configManager.env('DEBUG_SPECULATION') === 'true') {
-    console.log('[Speculation] Started', { id, suggestion, overlayPath });
+    logger.info('推测已开始', { id, suggestion, overlayPath });
   }
 
   const result: SpeculationResult = {
@@ -136,7 +136,7 @@ export function abortSpeculation(): void {
   }
 
   if (configManager.env('DEBUG_SPECULATION') === 'true') {
-    console.log('[Speculation] Aborted', { id: currentState.id });
+    logger.info('推测已中止', { id: currentState.id });
   }
 
   setSpeculationState({ status: 'aborted' });
@@ -152,7 +152,7 @@ export async function acceptSpeculation(): Promise<boolean> {
   }
 
   if (configManager.env('DEBUG_SPECULATION') === 'true') {
-    console.log('[Speculation] Accepted', { id: currentState.id });
+    logger.info('推测已接受', { id: currentState.id });
   }
 
   setSpeculationState({ status: 'accepted' });

@@ -23,7 +23,6 @@ export async function handleListKnowledge(
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { stat } = await import('node:fs/promises');
     const { join } = await import('node:path');
-    const { resolvePyappHome } = await import('@modules/core/paths');
 
     const parsedUrl = new URL(req.url || '', 'http://localhost');
     const baseFilter = parsedUrl.searchParams.get('base');
@@ -786,7 +785,7 @@ export async function handleExportToNotebook(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-    const { join, extname } = await import('node:path');
+    const { join } = await import('node:path');
     const { resolveOutputDir } = await import('@modules/core/paths');
 
     const registry = getDefaultKnowledgeBaseRegistry();

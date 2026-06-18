@@ -7,9 +7,9 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('useTypeahead');
 
 /**
  * 补全项类型

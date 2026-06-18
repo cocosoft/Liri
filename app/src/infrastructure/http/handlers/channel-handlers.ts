@@ -554,7 +554,7 @@ export async function handleApplyChannelConfig(
 async function tryDynamicRegister(
   channelType: string,
   config?: Record<string, unknown>,
-  broadcastEvent?: (event: string, data: Record<string, unknown>) => void
+  _broadcastEvent?: (event: string, data: Record<string, unknown>) => void
 ): Promise<boolean> {
   const entry = getChannelEntry(channelType);
   if (!entry) return false;

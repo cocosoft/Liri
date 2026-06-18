@@ -4,6 +4,9 @@
  */
 
 import { AsyncLocalStorage } from 'async_hooks';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('OpenTelemetryService');
 
 /**
  * 追踪上下文
@@ -238,7 +241,7 @@ export class AnalyticsSystem {
       span.attributes.duration = duration;
 
       // 打印span信息
-      console.log('Span completed:', {
+      logger.debug('Span 完成', {
         spanId: span.spanId,
         traceId: span.traceId,
         parentSpanId: span.parentSpanId,

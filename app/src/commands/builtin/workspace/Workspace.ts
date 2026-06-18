@@ -3,11 +3,11 @@
  * 管理工作空间：创建、列出、切换、重命名、删除、查看详情
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import * as Registry from './WorkspaceRegistry';
 import * as Storage from './WorkspaceStorage';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('Workspace');
 
 /**
  * 格式化日期为中文短格式

@@ -7,9 +7,9 @@
 import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 import { diagnosticManager } from './DiagnosticManager';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('AsyncHookRegistry');
 
 /**
  * 异步钩子输出

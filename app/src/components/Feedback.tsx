@@ -4,6 +4,9 @@
  */
 
 import React, { useState } from 'react';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('Feedback');
 
 export interface FeedbackProps {
   onSubmit?: (feedback: FeedbackData) => Promise<void>;
@@ -59,7 +62,7 @@ export const Feedback: React.FC<FeedbackProps> = ({
         setType('general');
       }, 2000);
     } catch (error) {
-      console.error('Failed to submit feedback:', error);
+      logger.error('提交反馈失败', { error: String(error) });
     } finally {
       setSubmitting(false);
     }

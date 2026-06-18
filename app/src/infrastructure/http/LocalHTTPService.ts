@@ -10,11 +10,9 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
-import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import {
@@ -24,7 +22,6 @@ import {
 import { costTracker } from '@modules/cost/CostTracker';
 import { CostReportEndpoint } from '@modules/cost/CostReportEndpoint';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
-import { getMonitoringService } from '@modules/monitoring/MonitoringService';
 import { analyticsService } from '@modules/analytics/AnalyticsService';
 import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitorService';
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
@@ -36,10 +33,6 @@ import {
   resolvePyappHome,
 } from '@modules/core/paths';
 import { configManager } from '@modules/config';
-import type {
-  ChatRequest,
-  ChatStreamChunk,
-} from '@modules/runtime/api/CoreAPI';
 import type { IChannelPlugin } from '@modules/channels/types';
 
 import {
@@ -86,66 +79,6 @@ const logger = new Logger({ level: LogLevel.INFO });
 export interface LocalHTTPConfig {
   host: string;
   port: number;
-}
-
-/**
- * OpenAI 兼容聊天完成请求
- */
-interface ChatCompletionRequest {
-  model?: string;
-  messages: Array<{ role: string; content: string }>;
-  max_tokens?: number;
-  temperature?: number;
-  top_p?: number;
-  stream?: boolean;
-  stop?: string | string[];
-  presence_penalty?: number;
-  frequency_penalty?: number;
-  user?: string;
-  session_id?: string;
-}
-
-/**
- * OpenAI 兼容消息格式
- */
-interface Message {
-  role: string;
-  content: string;
-}
-
-/**
- * OpenAI 兼容聊天完成响应
- */
-interface ChatCompletionResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    message: Message;
-    finish_reason: string;
-  }>;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
-/**
- * OpenAI 兼容流式数据块
- */
-interface StreamChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    delta: Partial<Message>;
-    finish_reason: string | null;
-  }>;
 }
 
 /**
@@ -1510,7 +1443,7 @@ export class LocalHTTPService {
   private async handleEndVoiceSession(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    sessionId: string
+    _sessionId: string
   ): Promise<void> {
     try {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1602,7 +1535,7 @@ export class LocalHTTPService {
   private async handleVoiceStream(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    sessionId: string
+    _sessionId: string
   ): Promise<void> {
     try {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1677,9 +1610,6 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const urlObj = new URL(req.url || '', `http://localhost`);
-      const provider = urlObj.searchParams.get('provider') || 'edge';
-
       const { TTSRegistry, EdgeTTSProvider } =
         await import('@modules/services/voice/services/ttsProvider');
 
@@ -1703,7 +1633,7 @@ export class LocalHTTPService {
   private async handleTestWakeWord(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    wakeWordId: string
+    _wakeWordId: string
   ): Promise<void> {
     try {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1730,7 +1660,6 @@ export class LocalHTTPService {
         await import('@modules/knowledge/KnowledgeBaseRegistry');
       const { stat } = await import('node:fs/promises');
       const { join } = await import('node:path');
-      const { resolvePyappHome } = await import('@modules/core/paths');
 
       const parsedUrl = new URL(req.url || '', 'http://localhost');
       const baseFilter = parsedUrl.searchParams.get('base');
@@ -2413,7 +2342,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { readdir, stat } = await import('node:fs/promises');
-      const { join, extname } = await import('node:path');
+      const { join } = await import('node:path');
       const { readFileSync, existsSync } = await import('node:fs');
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -2495,7 +2424,7 @@ export class LocalHTTPService {
       const { getDefaultKnowledgeBaseRegistry } =
         await import('@modules/knowledge/KnowledgeBaseRegistry');
       const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-      const { join, extname } = await import('node:path');
+      const { join } = await import('node:path');
       const { resolveOutputDir } = await import('@modules/core/paths');
 
       const registry = getDefaultKnowledgeBaseRegistry();
@@ -3150,10 +3079,7 @@ export class LocalHTTPService {
         scheduleMode,
         silent,
         deliver,
-        deliverTo,
         model,
-        provider,
-        agentId,
       } = rawBody;
       const cronExpr = (expression || rawBody.cron || '').trim();
       const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();
@@ -4244,7 +4170,7 @@ export class LocalHTTPService {
     destDir: string,
     fs: any,
     path: any,
-    oldDir: string
+    _oldDir: string
   ): void {
     try {
       // 清理目标目录中除 .migrating 令牌外的所有文件和子目录
@@ -4419,7 +4345,7 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
-      const { readFile, stat } = await import('fs/promises');
+      const { readFile } = await import('fs/promises');
       const { existsSync } = await import('fs');
       const { resolveProjectRoot, resolvePyappHome } =
         await import('@modules/core/paths');

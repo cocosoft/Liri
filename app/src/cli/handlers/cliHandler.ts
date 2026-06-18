@@ -5,6 +5,7 @@
  */
 
 import chalk from 'chalk';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { t } from '@modules/system/i18n/extended';
 import { AuthHandler, createAuthHandler } from './authHandler';
@@ -17,6 +18,8 @@ import { ConfigHandler, createConfigHandler } from './configHandler';
 import { SessionHandler, createSessionHandler } from './sessionHandler';
 import { DiagnoseHandler, createDiagnoseHandler } from './diagnoseHandler';
 import { CommandAliasRegistry } from './CommandAliasRegistry';
+
+const logger = getLogger('cliHandler');
 
 export interface CLIHandlerOptions {
   verbose?: boolean;
@@ -150,6 +153,7 @@ export class CLIHandler {
 
     const commandInfo = this.commands[command];
     if (!commandInfo) {
+      logger.warn('未知命令', { command });
       console.error(chalk.red('✗'), t('command.unknown', { cmd: command }));
       await this.showHelp();
       return false;
@@ -159,6 +163,10 @@ export class CLIHandler {
       await this.routeCommand(commandInfo, command, args);
       return true;
     } catch (error) {
+      logger.error(
+        '命令路由错误',
+        error instanceof Error ? error : new Error(String(error))
+      );
       console.error(
         chalk.red('✗'),
         t('error.internal', { detail: String(error) })

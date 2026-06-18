@@ -5,14 +5,14 @@
 
 import chalk from 'chalk';
 import { t } from '@modules/system/i18n/extended';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import {
   CliConfigManager,
   createCliConfigManager,
   ConfigOptions,
 } from '@modules/cli/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('configHandler');
 
 export interface ConfigHandlerOptions {
   verbose?: boolean;

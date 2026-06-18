@@ -4,11 +4,11 @@
  */
 
 import chalk from 'chalk';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('pluginHandler');
 
 export interface PluginHandlerOptions {
   verbose?: boolean;

@@ -9,6 +9,8 @@ export {
   getLogger,
   createLogger,
   setGlobalConfigProvider,
+  setGlobalBufferConfig,
+  flush,
 } from './Logger.js';
 export type { LoggerConfig } from './Logger.js';
 

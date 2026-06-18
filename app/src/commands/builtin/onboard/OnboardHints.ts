@@ -4,9 +4,9 @@
  * 提示状态通过配置系统持久化，每个提示只展示一次。
  */
 import { getConfigValue, setConfigValue } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('OnboardHints');
 
 const HINT_PREFIX = 'onboarding.seen';
 

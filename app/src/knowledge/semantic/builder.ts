@@ -30,13 +30,12 @@
 
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { chunkDirectory } from './chunker';
-import type { CodeChunk, ChunkOptions } from './chunker';
+import type { ChunkOptions } from './chunker';
 import {
-  EmbeddingManager,
   globalEmbeddingManager,
 } from '@modules/ai/embedding/EmbeddingManager';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
-import type { IndexEntry, IndexMeta } from './store';
+import type { IndexEntry } from './store';
 import { resolveDataSubDir } from '@modules/core/paths';
 
 const logger = new Logger();

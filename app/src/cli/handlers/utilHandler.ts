@@ -4,6 +4,9 @@
  */
 
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('utilHandler');
 
 export interface UtilHandlerOptions {
   verbose?: boolean;

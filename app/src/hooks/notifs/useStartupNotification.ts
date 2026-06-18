@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
-
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { appStateStore } from '../../system/state/AppStateStore';
 import type { Notification } from '../../system/state/AppState';
+
+const logger = getLogger('useStartupNotification');
 
 type Result = Notification | Notification[] | null;
 
@@ -35,7 +37,7 @@ export function useStartupNotification(
         }
       })
       .catch((err) => {
-        console.error('[useStartupNotification]', err);
+        logger.error('[useStartupNotification]', { error: String(err) });
       });
   }, []);
 }

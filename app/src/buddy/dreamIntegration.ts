@@ -18,6 +18,9 @@ import {
   createAchievementNotification,
   createLevelUpNotification,
 } from './notifications';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('BuddyDream');
 import { ifNotificationsEnabled } from './conditional';
 import { getCompanion } from './companion';
 import type { Companion } from './types';
@@ -298,19 +301,20 @@ function handleDreamEvent(event: DreamEvent): void {
       });
     }
 
-    console.log(`[BuddyDream] ${event.type}: ${fullMessage}`);
+    logger.info('梦境事件', { type: event.type, message: fullMessage });
     if (event.insightsGenerated >= 10) {
-      console.log(
-        `[BuddyDream] large dream — ${event.insightsGenerated} insights, ${stats.totalCompleted} total dreams`
-      );
+      logger.info('大型梦境', {
+        insights: event.insightsGenerated,
+        totalDreams: stats.totalCompleted,
+      });
     }
   } else if (event.type === 'dream:failed') {
     ifNotificationsEnabled(() => {
       createInfoNotification('🌙 梦境消息', baseMessage);
     });
-    console.log(`[BuddyDream] ${event.type}: ${baseMessage}`);
+    logger.info('梦境事件', { type: event.type, message: baseMessage });
   } else {
-    console.log(`[BuddyDream] ${event.type}: ${baseMessage}`);
+    logger.info('梦境事件', { type: event.type, message: baseMessage });
   }
 }
 
@@ -363,9 +367,7 @@ export function initBuddyDreamIntegration(bus?: EventBus): void {
     handleDreamEvent(de);
   });
 
-  console.log(
-    '[BuddyDream] integration initialized via standard EventBus events'
-  );
+  logger.info('梦境集成已初始化');
 }
 
 /**
@@ -391,12 +393,10 @@ export function initBuddyTaskGrowthIntegration(): void {
 
     growthTracker.recordTaskCompletion(source, exp);
 
-    console.log(
-      `[BuddyGrowth] task ${payload.taskId} completed: +${exp} exp (${source})`
-    );
+    logger.info('任务完成', { taskId: payload.taskId, exp, source });
   });
 
-  console.log('[BuddyGrowth] task-driven growth integration initialized');
+  logger.info('成长联动已初始化');
 }
 
 /**
@@ -443,8 +443,8 @@ export function initBuddyCronFeedbackIntegration(): void {
       createInfoNotification('⏰ 定时任务', message);
     });
 
-    console.log(`[BuddyCron] ${message}`);
+    logger.info('定时任务反馈', { message });
   });
 
-  console.log('[BuddyCron] cron feedback integration initialized');
+  logger.info('定时任务反馈集成已初始化');
 }

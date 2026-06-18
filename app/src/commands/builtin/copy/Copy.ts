@@ -5,10 +5,10 @@
  */
 
 import type { CommandContext } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import clipboardy from 'clipboardy';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('Copy');
 
 interface CopyOptions {
   maxLines?: number;

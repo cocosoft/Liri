@@ -8,7 +8,7 @@ import type {
   CommandContext,
   CommandResult,
 } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { execSync } from 'node:child_process';
 import {
   existsSync,
@@ -21,7 +21,7 @@ import {
 import { join, basename } from 'node:path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core/paths';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('BackupCommand');
 
 interface BackupManifest {
   timestamp: string;

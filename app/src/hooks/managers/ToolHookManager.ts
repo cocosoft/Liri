@@ -13,9 +13,9 @@ import {
   createToolHookCancelledResult,
 } from '../types/ToolHooks';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('ToolHookManager');
 
 /**
  * 工具Hook管理器

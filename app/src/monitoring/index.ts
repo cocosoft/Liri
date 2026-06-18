@@ -55,6 +55,8 @@ export {
   getLogger,
   createLogger,
   setGlobalConfigProvider,
+  setGlobalBufferConfig,
+  flush,
 } from './logs/Logger.js';
 
 export type { LoggerConfig } from './logs/Logger.js';

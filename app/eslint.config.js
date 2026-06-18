@@ -31,10 +31,14 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
-      'no-console': 'warn',
+      'no-console': 'error',
       'no-debugger': 'error',
       'module-registry/no-direct-module-import': 'warn',
       'no-restricted-imports': ['warn', {
@@ -103,17 +107,17 @@ export default [
     }
   },
   {
+    // 终端 UI 和 CLI 输出文件：精确豁免（仅保留真正需要终端输出的文件）
     files: [
-      'src/cli/**/*.ts',
-      'src/entrypoints/**',
+      // UI 组件
       'src/ui/**/*.ts',
-    ],
-    rules: {
-      'no-console': 'off'
-    }
-  },
-  {
-    files: [
+      'src/ui/**/*.tsx',
+      // CLI 入口
+      'src/cli/**/*.ts',
+      'src/entrypoints/cli.tsx',
+      'src/entrypoints/repl.ts',
+      'src/entrypoints/api-handler.ts',
+      // CLI 子命令
       'src/chronos/cli/**/*.ts',
       'src/hooks/cli/**/*.ts',
       'src/skills/cli/**/*.ts',
@@ -121,6 +125,12 @@ export default [
       'src/bridge/cli/**/*.ts',
       'src/memory/cli/**/*.ts',
       'src/mcp/cli/**/*.ts',
+      // 应用命令
+      'src/commands/**/*.ts',
+      // 文档工具
+      'src/docs/**/*.ts',
+      // 脚本工具
+      'src/scripts/**/*.ts',
     ],
     rules: {
       'no-console': 'off'
@@ -132,58 +142,50 @@ export default [
       'src/monitoring/exporters/ConsoleExporter.ts',
       'src/services/api/logging.ts',
       'src/utils/log.ts',
-      'src/utils/logger.ts',
       'src/utils/debug.ts',
       'src/utils/monitoring.ts',
       'src/utils/startupProfiler.ts',
-      'src/utils/logging/LogSink.ts',
+      'src/error/safeLog.ts',
     ],
     rules: {
       'no-console': 'off'
     }
   },
   {
+    // 模块测试文件：允许 console 输出
     files: [
       'src/agent/AgentModuleTest.ts',
       'src/chat/ChatModuleTest.ts',
       'src/config/ConfigModuleTest.ts',
-      'src/error/ErrorModuleTest.ts',
     ],
     rules: {
       'no-console': 'off'
     }
   },
   {
+    // 独立终端 UI 文件：与 CLI 目录分离的终端输出文件
     files: [
-      'src/wizard/**/*.ts',
-      'src/security/**/*.ts',
-      'src/hooks/**/*.ts',
-      'src/channels/**/*.ts',
-      'src/chronos/**/*.ts',
-      'src/error/**/*.ts',
-      'src/tools/adapters/**/*.ts',
-      'src/tools/ModuleMigrationTool.ts',
-      'src/components/**/*.ts',
-      'src/components/**/*.tsx',
-      'src/commands/builtin/**/*.ts',
-      'src/commands/prompt/**/*.ts',
-      'src/commands/progress/**/*.ts',
-      'src/agent/events/**/*.ts',
-      'src/chat/services/**/*.ts',
-      'src/query/**/*.ts',
-      'src/promptSuggestion/**/*.ts',
-      'src/ink/**/*.tsx',
-      'src/buddy/**/*.tsx',
-      'src/performance/**/*.ts',
-      'src/monitoring/**/*.ts',
-      'src/analytics/**',
-      'src/ai/telemetry/**/*.ts',
-      'src/context/**',
-      'src/monitor.ts',
+      'src/main.ts',
       'src/healthcheck.ts',
+      'src/monitor.ts',
+      'src/performance/**/*.ts',
+      'src/security/audit/**/*.ts',
+      'src/channels/setupChannels.ts',
+      'src/channels/wechat/cli-manager.ts',
+      'src/channels/DeliveryRouter.ts',
+      'src/infrastructure/http/**/*.ts',
+      'src/oauth/flows/**/*.ts',
+      'src/tools/DependencyGraphScanner.ts',
+      'src/monitoring/performance/PerformanceAnalyzer.ts',
+      'src/monitoring/MonitoringService.ts',
+      'src/buddy/useBuddyNotification.tsx',
+      'src/query/queryProfiler.ts',
+      'src/query/SlowQueryDetector.ts',
+      'src/core/paths.ts',
       'src/utils/errorHintManager.ts',
     ],
     rules: {
+      'no-console': 'off'
     }
   },
   {
@@ -197,7 +199,7 @@ export default [
     },
     rules: {
       'prettier/prettier': 'error',
-      'no-console': 'warn',
+      'no-console': 'error',
       'no-debugger': 'error'
     }
   },

@@ -5,6 +5,9 @@
  */
 import { RedactConfigManager } from './RedactConfig';
 import { RuntimeRedactEngine } from './RuntimeRedactEngine';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('RedactMiddleware');
 
 /**
  * 脱敏中间件类
@@ -42,9 +45,10 @@ export class RedactMiddleware {
     const result = this.engine.redactText(message);
 
     if (RedactConfigManager.isDryRun() && result.redacted) {
-      console.warn(
-        `[REDACT-DRYRUN] 检测到 ${result.matches.length} 个敏感模式匹配: ${result.matches.join(', ')}`
-      );
+      logger.warn('脱敏试运行：检测到敏感模式', {
+        matchCount: result.matches.length,
+        patterns: result.matches.join(', '),
+      });
     }
 
     return result.output;
@@ -70,16 +74,16 @@ export class RedactMiddleware {
       if (!context) {
         const textResult = this.engine.redactText(message);
         if (textResult.redacted) {
-          console.warn(
-            `[REDACT-DRYRUN] 日志消息: ${textResult.matches.length} 个敏感匹配`
-          );
+          logger.warn('脱敏试运行：日志消息', {
+            matchCount: textResult.matches.length,
+          });
         }
       } else {
         const objResult = this.engine.redactObject(context);
         if (objResult.redacted) {
-          console.warn(
-            `[REDACT-DRYRUN] 上下文对象: ${objResult.redactedKeys.length} 个敏感字段`
-          );
+          logger.warn('脱敏试运行：上下文对象', {
+            redactedKeys: objResult.redactedKeys.length,
+          });
         }
       }
     }
@@ -100,9 +104,9 @@ export class RedactMiddleware {
     const result = this.engine.redactObject(obj);
 
     if (RedactConfigManager.isDryRun() && result.redacted) {
-      console.warn(
-        `[REDACT-DRYRUN] 对象脱敏: ${result.redactedKeys.length} 个字段被标记`
-      );
+      logger.warn('脱敏试运行：对象脱敏', {
+        redactedKeys: result.redactedKeys.length,
+      });
     }
 
     return result.output;
@@ -121,7 +125,7 @@ export class RedactMiddleware {
     const result = this.engine.redactJson(jsonStr);
 
     if (RedactConfigManager.isDryRun() && result.redacted) {
-      console.warn(`[REDACT-DRYRUN] JSON: ${result.matches.length} 个敏感匹配`);
+      logger.warn('脱敏试运行：JSON', { matchCount: result.matches.length });
     }
 
     return result.output;
@@ -152,9 +156,10 @@ export class RedactMiddleware {
         redactedBody = bodyResult.output;
 
         if (RedactConfigManager.isDryRun()) {
-          console.warn(
-            `[REDACT-DRYRUN] API ${direction}: ${bodyResult.redactedKeys.length} 个敏感字段`
-          );
+          logger.warn('脱敏试运行：API', {
+            direction,
+            redactedKeys: bodyResult.redactedKeys.length,
+          });
         }
       }
     }

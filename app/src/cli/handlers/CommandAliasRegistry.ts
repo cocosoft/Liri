@@ -15,9 +15,9 @@
  *   diag health → diagnose health
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('CommandAliasRegistry');
 
 /**
  * 命令别名条目

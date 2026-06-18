@@ -3,6 +3,10 @@
  * 对标 OpenClaw 的投递系统
  */
 
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('DeliveryManager');
+
 /**
  * 投递方式
  */
@@ -96,7 +100,7 @@ export class DeliveryManager {
 
     switch (plan.method) {
       case 'console':
-        console.log(`[投递:${plan.id}] ${content}`);
+        logger.info('投递', { planId: plan.id, content });
         return {
           success: true,
           planId: plan.id,

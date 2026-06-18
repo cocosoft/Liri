@@ -2,6 +2,8 @@
  * 包括pre-compression、post-compression、session-start等核心Hook
  */
 
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
 import type {
   HookDefinition,
   HookContext,
@@ -12,6 +14,8 @@ import type {
   PermissionHookResult,
 } from '../types';
 
+const logger = getLogger('CoreHooks');
+
 export class CoreHooksRegistry {
   private hooks: Map<string, HookDefinition> = new Map();
 
@@ -19,7 +23,7 @@ export class CoreHooksRegistry {
    * 注册所有核心Hook
    */
   registerAllCoreHooks(): void {
-    console.log('🔧 Registering core hooks...');
+    logger.info('正在注册核心 hooks...');
 
     // 系统Hook
     this.registerSystemHooks();
@@ -54,7 +58,7 @@ export class CoreHooksRegistry {
     // 错误Hook
     this.registerErrorHooks();
 
-    console.log(`✅ Core hooks registered: ${this.hooks.size}`);
+    logger.info('核心 hooks 已注册', { count: this.hooks.size });
   }
 
   /**
@@ -85,7 +89,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'highest',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('🚀 System startup hook executed');
+        logger.info('系统启动 hook 已执行');
 
         // 执行系统初始化任务
         await this.performSystemInitialization(context);
@@ -106,7 +110,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'highest',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('🛑 System shutdown hook executed');
+        logger.info('系统关闭 hook 已执行');
 
         // 执行系统清理任务
         await this.performSystemCleanup(context);
@@ -132,7 +136,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('📦 Pre-compression hook executed');
+        logger.info('压缩前 hook 已执行');
 
         const ctx = context as CompressionHookContext;
         const { preCompressionContent, compressionConfig } = ctx;
@@ -166,7 +170,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('✅ Post-compression hook executed');
+        logger.info('压缩后 hook 已执行');
 
         const ctx = context as CompressionHookContext;
         const {
@@ -211,7 +215,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('💬 Session start hook executed');
+        logger.info('会话开始 hook 已执行');
 
         const { sessionId, userId } = context;
 
@@ -237,7 +241,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('🔚 Session end hook executed');
+        logger.info('会话结束 hook 已执行');
 
         const { sessionId } = context;
 
@@ -268,7 +272,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('💾 Memory pre-save hook executed');
+        logger.info('内存保存前 hook 已执行');
 
         // 验证内存数据
         const validationResult = this.validateMemoryData(context.data);
@@ -297,7 +301,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('✅ Memory post-save hook executed');
+        logger.info('内存保存后 hook 已执行');
 
         // 更新内存索引
         await this.updateMemoryIndex(context.data);
@@ -325,7 +329,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('🎯 Skill pre-execute hook executed');
+        logger.info('技能执行前 hook 已执行');
 
         const { skillName, data } = context;
 
@@ -358,7 +362,7 @@ export class CoreHooksRegistry {
       enabled: true,
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
-        console.log('✅ Skill post-execute hook executed');
+        logger.info('技能执行后 hook 已执行');
 
         const { skillName, data } = context;
 
@@ -394,7 +398,7 @@ export class CoreHooksRegistry {
   ): Promise<void> {
     // 模拟系统初始化任务
     await new Promise((resolve) => setTimeout(resolve, 100));
-    console.log('🔧 System initialization completed');
+    logger.info('系统初始化完成');
   }
 
   /**
@@ -403,7 +407,7 @@ export class CoreHooksRegistry {
   private async performSystemCleanup(context: HookContext): Promise<void> {
     // 模拟系统清理任务
     await new Promise((resolve) => setTimeout(resolve, 100));
-    console.log('🧹 System cleanup completed');
+    logger.info('系统清理完成');
   }
 
   /**
@@ -486,7 +490,7 @@ export class CoreHooksRegistry {
     userId?: string
   ): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log(`💬 Session state initialized: ${sessionId}`);
+    logger.info('会话状态已初始化', { sessionId });
   }
 
   /**
@@ -502,7 +506,7 @@ export class CoreHooksRegistry {
    */
   private async saveSessionData(sessionId?: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log(`💾 Session data saved: ${sessionId}`);
+    logger.info('会话数据已保存', { sessionId });
   }
 
   /**
@@ -510,7 +514,7 @@ export class CoreHooksRegistry {
    */
   private async cleanupSessionResources(sessionId?: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log(`🧹 Session resources cleaned up: ${sessionId}`);
+    logger.info('会话资源已清理', { sessionId });
   }
 
   /**
@@ -553,7 +557,7 @@ export class CoreHooksRegistry {
    */
   private async updateMemoryIndex(data: unknown): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log('🔍 Memory index updated');
+    logger.info('内存索引已更新');
   }
 
   /**
@@ -561,7 +565,7 @@ export class CoreHooksRegistry {
    */
   private async triggerMemorySync(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log('🔄 Memory sync triggered');
+    logger.info('内存同步已触发');
   }
 
   /**
@@ -606,7 +610,7 @@ export class CoreHooksRegistry {
     data: unknown
   ): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log(`📊 Skill usage recorded: ${skillName}`);
+    logger.info('技能使用已记录', { skillName });
   }
 
   /**
@@ -614,7 +618,7 @@ export class CoreHooksRegistry {
    */
   private async updateSkillStatistics(skillName: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log(`📈 Skill statistics updated: ${skillName}`);
+    logger.info('技能统计已更新', { skillName });
   }
 
   // 其他辅助方法...

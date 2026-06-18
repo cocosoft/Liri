@@ -41,6 +41,9 @@ import { getToolGuideSystem } from '../docs/ToolGuide';
 import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
+import { flush, getLogger } from '../monitoring/logs/Logger';
+
+const logger = getLogger('cli');
 import { getThemeManager } from '@modules/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';
 import { createRemoteIO } from './remoteIO';
@@ -1077,14 +1080,17 @@ program
 // 注册退出处理器
 process.on('exit', () => {
   exitHandler.exit(0);
+  flush().catch(() => {});
 });
 
 process.on('SIGINT', () => {
   exitHandler.exit(0, 'Received SIGINT, exiting...');
+  flush().finally(() => process.exit(0));
 });
 
 process.on('SIGTERM', () => {
   exitHandler.exit(0, 'Received SIGTERM, exiting...');
+  flush().finally(() => process.exit(0));
 });
 
 if (process.argv.length === 2) {

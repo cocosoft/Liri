@@ -3,8 +3,6 @@
  */
 
 import type http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
 import { sendError, readRequestBody } from './handler-utils';
 
 /**
@@ -294,7 +292,7 @@ function rollbackMigration(
   destDir: string,
   fs: any,
   path: any,
-  oldDir: string
+  _oldDir: string
 ): void {
   try {
     // 清理目标目录中除 .migrating 令牌外的所有文件和子目录
@@ -469,7 +467,7 @@ export async function handleSystemSkillContent(
   skillId: string
 ): Promise<void> {
   try {
-    const { readFile, stat } = await import('fs/promises');
+    const { readFile } = await import('fs/promises');
     const { existsSync } = await import('fs');
     const { resolveProjectRoot, resolvePyappHome } =
       await import('@modules/core/paths');

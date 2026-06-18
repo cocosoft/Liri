@@ -14,6 +14,9 @@ import { dirname, join } from 'path';
 import { resolveChronosDir } from '@modules/core/paths';
 import type { SchedulerLock } from './types';
 import { handleError } from '@modules/error/handleError';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('CronTasksLock');
 
 const LOCK_FILE_NAME = 'scheduler.lock';
 
@@ -138,7 +141,7 @@ export async function tryAcquireSchedulerLock(opts?: {
   };
 
   if (await tryCreateExclusiveLock(lock, dir)) {
-    console.log(`[Chronos] acquired scheduler lock (PID ${process.pid})`);
+    logger.info('获取调度锁', { pid: process.pid });
     return true;
   }
 
@@ -152,14 +155,12 @@ export async function tryAcquireSchedulerLock(opts?: {
   }
 
   if (existing && isProcessRunning(existing.pid)) {
-    console.log(`[Chronos] scheduler lock held by PID ${existing.pid}`);
+    logger.info('调度锁已被占用', { pid: existing.pid });
     return false;
   }
 
   if (existing) {
-    console.log(
-      `[Chronos] recovering stale scheduler lock from PID ${existing.pid}`
-    );
+    logger.info('恢复过期调度锁', { pid: existing.pid });
   }
 
   await removeLockFile(dir);
@@ -188,7 +189,7 @@ export async function releaseSchedulerLock(opts?: {
 
   try {
     await removeLockFile(dir);
-    console.log('[Chronos] released scheduler lock');
+    logger.info('释放调度锁');
   } catch (err) {
     void handleError(err, {
       module: 'chronos:CronTasksLock.ts',

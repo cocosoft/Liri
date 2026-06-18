@@ -25,7 +25,6 @@ import type { HandlerCtx } from './handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
-import { readRequestBody } from './handler-utils';
 import {
   attachmentManager,
   AttachmentSource,
@@ -474,7 +473,7 @@ export async function handleSendFileToAI(
 async function registerUploadToFileRegistry(
   fileName: string,
   buffer: Buffer,
-  savedPath: string
+  _savedPath: string
 ): Promise<void> {
   try {
     const { FileRegistry } =

@@ -4,9 +4,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('useVoice');
 
 /**
  * 语音状态

@@ -3,6 +3,10 @@
  * 占位符实现
  */
 
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('NativeInstaller');
+
 export async function cleanupOldVersions(): Promise<void> {
-  console.log('[Chronos] Old versions cleanup placeholder');
+  logger.info('旧版本清理（占位符）');
 }

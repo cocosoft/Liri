@@ -4,6 +4,9 @@
  * 一次启动应用，测试多个命令
  */
 import { executeOnce } from '../entrypoints/repl.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('batch-test');
 
 const commands = [
   // 已修改的命令 - 详细测试
@@ -39,6 +42,7 @@ for (const { cmd, args, label } of commands) {
     results.push({ label, success: true, output: '(已执行)' });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
+    logger.error('测试执行失败', { error: errMsg });
     console.error(`错误: ${errMsg}`);
     results.push({ label, success: false, error: errMsg, output: '' });
   }

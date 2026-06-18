@@ -10,12 +10,12 @@ import type {
 } from '@modules/commands/types';
 import { feature } from '@modules/core';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
 import { LazyCommand } from './LazyCommand.js';
 import { resolveProjectRoot } from '@modules/core/paths';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('CommandLoader');
 
 // 获取项目根目录（通过统一路径解析）
 const projectRoot = resolveProjectRoot();

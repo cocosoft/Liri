@@ -15,10 +15,10 @@ import {
   REMOTE_SAFE_COMMANDS,
   BRIDGE_SAFE_COMMANDS,
 } from '@modules/commands/constants/CommandConstants.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('CommandManager');
 
 /**
  * 命令管理器类

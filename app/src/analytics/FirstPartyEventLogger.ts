@@ -1,5 +1,8 @@
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('FirstPartyEventLogger');
 
 export type FirstPartyEventSchema = {
   eventId: string;
@@ -119,13 +122,13 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.warn(`[1PEvent] HTTP ${response.status}`);
+        logger.warn('1PEvent HTTP 请求失败', { status: response.status });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        console.warn('[1PEvent] Flush timeout');
+        logger.warn('[1PEvent] Flush 超时');
       } else {
-        console.error('[1PEvent] Flush error:', error);
+        logger.error('[1PEvent] Flush error:', error);
       }
     }
   }

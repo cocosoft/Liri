@@ -7,6 +7,9 @@ import { mkdir, readFile, stat, unlink, utimes, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { resolveMemoryDir, resolveSessionsDir } from '@modules/core/paths';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('ConsolidationLock');
 
 const LOCK_FILE = '.consolidate-lock';
 const HOLDER_STALE_MS = 60 * 60 * 1000;
@@ -63,9 +66,10 @@ export async function tryAcquireConsolidationLock(): Promise<number | null> {
 
   if (mtimeMs !== undefined && Date.now() - mtimeMs < HOLDER_STALE_MS) {
     if (holderPid !== undefined && isProcessRunning(holderPid)) {
-      console.log(
-        `[autoDream] lock held by live PID ${holderPid} (mtime ${Math.round((Date.now() - mtimeMs) / 1000)}s ago)`
-      );
+      logger.info('整合锁被活动进程持有', {
+        pid: holderPid,
+        mtimeSec: Math.round((Date.now() - mtimeMs) / 1000),
+      });
       return null;
     }
   }
@@ -97,9 +101,9 @@ export async function rollbackConsolidationLock(
     const t = priorMtime / 1000;
     await utimes(path, t, t);
   } catch (e: unknown) {
-    console.log(
-      `[autoDream] rollback failed: ${(e as Error).message} - next trigger delayed to minHours`
-    );
+    logger.warn('整合锁回滚失败', {
+      error: (e as Error).message,
+    });
   }
 }
 
@@ -137,8 +141,6 @@ export async function recordConsolidation(): Promise<void> {
     await mkdir(getAutoMemPath(), { recursive: true });
     await writeFile(lockPath(), String(process.pid));
   } catch (e: unknown) {
-    console.log(
-      `[autoDream] recordConsolidation write failed: ${(e as Error).message}`
-    );
+    logger.warn('记录整合时间写入失败', { error: (e as Error).message });
   }
 }

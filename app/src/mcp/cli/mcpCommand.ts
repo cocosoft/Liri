@@ -8,6 +8,9 @@ import { configManager } from '@modules/config';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('mcpCommand');
 
 /**
  * 创建MCP CLI命令

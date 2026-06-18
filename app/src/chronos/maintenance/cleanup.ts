@@ -7,6 +7,9 @@ import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('ChronosCleanup');
 
 const CLEANUP_LOCK_FILE = '.chronos-cleanup.lock';
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -42,9 +45,7 @@ async function tryAcquireCleanupLock(): Promise<boolean> {
     await writeFile(lockPath, String(process.pid));
     return true;
   } catch (e) {
-    console.log(
-      `[Chronos] Failed to acquire cleanup lock: ${(e as Error).message}`
-    );
+    logger.warn('获取清理锁失败', { error: (e as Error).message });
     return false;
   }
 }
@@ -52,7 +53,7 @@ async function tryAcquireCleanupLock(): Promise<boolean> {
 export async function cleanupOldMessageFilesInBackground(): Promise<void> {
   const acquired = await tryAcquireCleanupLock();
   if (!acquired) {
-    console.log('[Chronos] Cleanup lock held by another process, skipping');
+    logger.info('清理锁被其他进程持有，跳过');
     return;
   }
 
@@ -84,19 +85,17 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
     }
 
     if (cleaned > 0) {
-      console.log(`[Chronos] Cleaned up ${cleaned} old session files`);
+      logger.info(`清理了 ${cleaned} 个旧会话文件`);
     }
   } catch (e) {
-    console.log(`[Chronos] Error during cleanup: ${(e as Error).message}`);
+    logger.warn('清理过程出错', { error: (e as Error).message });
   }
 }
 
 export async function cleanupOldVersionsThrottled(): Promise<void> {
   const acquired = await tryAcquireCleanupLock();
   if (!acquired) {
-    console.log(
-      '[Chronos] Version cleanup lock held by another process, skipping'
-    );
+    logger.info('版本清理锁被其他进程持有，跳过');
     return;
   }
 
@@ -104,11 +103,11 @@ export async function cleanupOldVersionsThrottled(): Promise<void> {
 }
 
 export async function cleanupNpmCacheForAnthropicPackages(): Promise<void> {
-  console.log('[Chronos] NPM cache cleanup not yet implemented');
+  logger.info('NPM 缓存清理尚未实现');
 }
 
 export async function cleanupOldVersions(): Promise<void> {
-  console.log('[Chronos] Old versions cleanup not yet implemented');
+  logger.info('旧版本清理尚未实现');
 }
 
 export async function cleanupStaleLocks(): Promise<void> {
@@ -119,7 +118,7 @@ export async function cleanupStaleLocks(): Promise<void> {
       const age = Date.now() - s.mtimeMs;
       if (age > CLEANUP_INTERVAL_MS * 2) {
         await rm(lockPath, { force: true });
-        console.log('[Chronos] Removed stale cleanup lock');
+        logger.info('已移除过期的清理锁');
       }
     }
   } catch {

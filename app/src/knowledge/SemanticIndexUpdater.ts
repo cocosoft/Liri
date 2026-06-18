@@ -27,7 +27,7 @@
  */
 
 import { readFile, stat } from 'fs/promises';
-import { join, relative, resolve } from 'path';
+import { relative, resolve } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';

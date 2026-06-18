@@ -4,6 +4,9 @@
 
 import type { PromptVariant, SuggestionSource } from './types';
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('PromptSuggestionAnalytics');
 
 export interface SuggestionEvent {
   type: 'suppressed' | 'shown' | 'accepted' | 'ignored';
@@ -58,11 +61,7 @@ export function logSuggestionSuppressed(
     (analyticsData.suppressReasons[reason] || 0) + 1;
 
   if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-    console.log(`[PromptSuggestion] Suppressed: ${reason}`, {
-      suggestion,
-      promptId,
-      source,
-    });
+    logger.debug('建议被抑制', { reason, suggestion, promptId, source });
   }
 }
 
@@ -86,10 +85,7 @@ export function logSuggestionShown(
   analyticsData.totalSuggestions++;
 
   if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-    console.log(`[PromptSuggestion] Shown: ${suggestion}`, {
-      promptId,
-      source,
-    });
+    logger.debug('建议已显示', { suggestion, promptId, source });
   }
 }
 
@@ -120,7 +116,8 @@ export function logSuggestionAccepted(
   }
 
   if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-    console.log(`[PromptSuggestion] Accepted: ${suggestion}`, {
+    logger.debug('建议已接受', {
+      suggestion,
       userInput,
       promptId,
       acceptMethod,
@@ -147,10 +144,7 @@ export function logSuggestionIgnored(
   analyticsData.suggestionIgnored++;
 
   if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-    console.log(`[PromptSuggestion] Ignored: ${suggestion}`, {
-      promptId,
-      timeToIgnoreMs,
-    });
+    logger.debug('建议已忽略', { suggestion, promptId, source });
   }
 }
 

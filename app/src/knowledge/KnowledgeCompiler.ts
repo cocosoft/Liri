@@ -22,7 +22,7 @@ import type { AIService, AIMessage } from '@modules/ai/models/types';
 import { AIMessageRole } from '@modules/ai/models/types';
 import { resolvePyappHome } from '@modules/core/paths';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
-import { FileSource, type StoreZone } from '@modules/services/file/types';
+import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';

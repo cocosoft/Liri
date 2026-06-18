@@ -319,7 +319,7 @@ export async function handleVoiceUpload(
 export async function handleVoiceStream(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  sessionId: string
+  _sessionId: string
 ): Promise<void> {
   try {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -394,9 +394,6 @@ export async function handleListVoices(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const urlObj = new URL(req.url || '', `http://localhost`);
-    const provider = urlObj.searchParams.get('provider') || 'edge';
-
     const { TTSRegistry, EdgeTTSProvider } =
       await import('@modules/services/voice/services/ttsProvider');
 
@@ -420,7 +417,7 @@ export async function handleListVoices(
 export async function handleTestWakeWord(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  wakeWordId: string
+  _wakeWordId: string
 ): Promise<void> {
   try {
     res.writeHead(200, { 'Content-Type': 'application/json' });

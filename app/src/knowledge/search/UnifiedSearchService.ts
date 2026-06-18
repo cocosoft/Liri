@@ -32,7 +32,6 @@
 
 import type {
   KnowledgeRoute,
-  KnowledgeRouterOptions,
 } from '@modules/docs/knowledge-types';
 import { KnowledgeRouter } from '@modules/knowledge/KnowledgeRouter';
 

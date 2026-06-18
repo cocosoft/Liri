@@ -62,7 +62,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 import { modelRouter } from '@modules/ai/modelRouter';
 import { SmartRouter } from '@modules/ai/router/SmartRouter';
-import type { RouterConfig, RouteDecision } from '@modules/ai/router/types';
+import type { RouteDecision } from '@modules/ai/router/types';
 import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
 import { getToolManager } from '@modules/tools/ToolManager';
@@ -919,7 +919,7 @@ export class CoreAPIImpl implements CoreAPI {
           await this.renameSession(sessionId, title);
           logger.info('Auto-generated session title', { sessionId, title });
         }
-      } catch (error) {
+      } catch (_error) {
         logger.debug('Auto title generation skipped', { sessionId });
       }
     });

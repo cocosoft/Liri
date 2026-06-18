@@ -214,7 +214,7 @@ export class MemorySnapshotService {
     const heapTotal = (snapshot.memory.heapTotal / 1024 / 1024).toFixed(2);
     const rss = (snapshot.memory.rss / 1024 / 1024).toFixed(2);
 
-    console.info(
+    logger.info(
       `[MEMORY SNAPSHOT] ${snapshot.reason || 'manual'} - Heap: ${heapUsed}MB / ${heapTotal}MB, RSS: ${rss}MB`
     );
   }

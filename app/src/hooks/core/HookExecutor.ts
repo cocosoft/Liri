@@ -9,6 +9,9 @@ import type {
   HookExecutorConfig,
   HookExecutionStats,
 } from '../types';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('HookExecutor');
 
 export class HookExecutor {
   private config: HookExecutorConfig;
@@ -285,7 +288,8 @@ export class HookExecutor {
 
     // 诊断日志
     if (this.config.enableDiagnosticLogging) {
-      console.log(`🔧 Hook executed: ${hookId}`, {
+      logger.info('Hook 已执行', {
+        hookId,
         success: result.success,
         durationMs,
         error: result.error,

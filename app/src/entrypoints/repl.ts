@@ -32,7 +32,7 @@ import type { ChatManager } from '../chat/ChatManager.js';
 import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
 import { providerRegistry } from '../ai/providers/ProviderRegistry.js';
 import { getToolManager } from '../tools/ToolManager.js';
-import { Logger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '../monitoring/logs/Logger.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';
@@ -48,9 +48,7 @@ import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '../channels/bootstrap/ChannelBootstrapper.js';
 
-const logger = new Logger({
-  level: 'info' as unknown as import('../monitoring/logs/Logger').LogLevel,
-});
+const logger = getLogger('repl');
 
 /**
  * REPL配置接口
@@ -952,6 +950,7 @@ export async function executeOnce(
         else if (result.data) console.log(JSON.stringify(result.data, null, 2));
         else console.log(JSON.stringify(result));
       } else {
+        logger.warn('命令执行失败', { error: result.error });
         console.error(chalk.red(result.error || '命令执行失败'));
       }
     } else {
@@ -978,6 +977,10 @@ export async function executeOnce(
       }
     }
   } catch (error) {
+    logger.error(
+      'REPL 执行错误',
+      error instanceof Error ? error : new Error(String(error))
+    );
     console.error(
       chalk.red('错误:'),
       error instanceof Error ? error.message : String(error)
@@ -1034,6 +1037,7 @@ export async function executeFromPipe(): Promise<void> {
             console.log('\n' + JSON.stringify(result.data, null, 2));
           }
         } else {
+          logger.warn('命令执行失败（交互模式）', { error: result.error });
           console.error(chalk.red(result.error || '命令执行失败'));
           if (result.error?.includes('Command not found')) {
             console.log(chalk.cyan('提示: 使用 /help 查看可用命令'));
@@ -1059,6 +1063,10 @@ export async function executeFromPipe(): Promise<void> {
       }
     }
   } catch (error) {
+    logger.error(
+      'REPL 执行错误',
+      error instanceof Error ? error : new Error(String(error))
+    );
     console.error(
       chalk.red('错误:'),
       error instanceof Error ? error.message : String(error)

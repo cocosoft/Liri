@@ -28,7 +28,7 @@ import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core/paths';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import {
   providerManager,
   type ProviderType,
@@ -48,10 +48,7 @@ import {
   formatEnvProviderName,
 } from '@modules/ai/providers/detectUnifiedProviders.js';
 
-const logger = new Logger({
-  level: LogLevel.WARNING,
-  module: 'commands:provider',
-});
+const logger = getLogger('provider');
 
 const VALID_PROVIDER_TYPES: ProviderType[] = [
   'openai',

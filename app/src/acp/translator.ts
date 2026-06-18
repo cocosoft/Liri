@@ -4,8 +4,6 @@ import type {
   AcpRuntimeEnsureInput,
   AcpRuntimeTurnInput,
   AcpRuntimeEvent,
-  AcpRuntimeSessionMode,
-  AcpRuntimePromptMode,
 } from './runtime/types.js';
 
 export class AcpGatewayAgent {

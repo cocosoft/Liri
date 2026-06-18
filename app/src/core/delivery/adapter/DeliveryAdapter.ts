@@ -37,7 +37,7 @@ export class ConsoleAdapter implements DeliveryAdapter {
       subject: message.subject,
     });
 
-    console.log(`[投递] ${output}`);
+    logger.info('投递', { output });
 
     return {
       success: true,

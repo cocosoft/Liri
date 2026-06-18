@@ -3,6 +3,10 @@
  * 用于追踪Chronos系统的事件和状态
  */
 
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('ChronosMonitor');
+
 export enum ChronosEventType {
   TASK_CREATED = 'task_created',
   TASK_DELETED = 'task_deleted',
@@ -44,7 +48,7 @@ export function logEvent(event: ChronosEvent): void {
 
   const level = getEventLevel(event.type);
   const message = formatEventMessage(event);
-  console.log(`[Chronos ${level}] ${message}`);
+  logger.info('Chronos 事件', { level, message });
 }
 
 function getEventLevel(type: ChronosEventType): string {

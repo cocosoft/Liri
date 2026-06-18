@@ -6,7 +6,6 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { configManager } from '@modules/config';
-import { getOauthConfig } from './oauthConfig.js';
 import { oauthService } from '@modules/oauth';
 import type {
   OAuthTokens as OAuthTokensType,
@@ -89,7 +88,7 @@ export class DefaultAuthManager implements AuthManager {
       automaticUrl: string;
       manualUrl: string;
     }) => Promise<void>,
-    options: OAuthServiceOptions = {}
+    _options: OAuthServiceOptions = {}
   ): Promise<OAuthTokensType> {
     // 使用统一的OAuth服务
     const tokens = await oauthService.authorize('core', {

@@ -5,6 +5,9 @@
 import { getPromptSuggestionDatabase } from './database/PromptSuggestionDatabase';
 import type { SuggestionSource } from './types';
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('PromptSuggestionConfig');
 
 interface EnvUtils {
   isEnvDefinedFalsy: (value: string | undefined) => boolean;
@@ -44,10 +47,10 @@ function getAnalytics(): Analytics {
     analytics = {
       logEvent: (eventName: string, metadata: AnalyticsEvent) => {
         if (process.env.DEBUG_PROMPT_SUGGESTION === 'true') {
-          console.log(
-            `[PromptSuggestion Analytics] ${eventName}:`,
-            JSON.stringify(metadata)
-          );
+          logger.debug('分析事件', {
+            eventName,
+            metadata: JSON.stringify(metadata),
+          });
         }
       },
     };

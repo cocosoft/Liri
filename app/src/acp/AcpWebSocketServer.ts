@@ -238,7 +238,6 @@ export class AcpWebSocketServer {
    */
   private async handleClientMessages(client: AcpWsClient): Promise<void> {
     const runtime = this.gateway.getRuntime();
-    const sessionStore = this.gateway.getSessionStore();
 
     let currentHandle: AcpRuntimeHandle | null = null;
 

@@ -180,7 +180,7 @@ export function startBackgroundHousekeeping(): void {
   }, BALANCE_REFRESH_INTERVAL_MS);
   balanceInterval.unref();
 
-  console.log('[Chronos] Background housekeeping started');
+  logger.info('后台维护已启动');
 }
 
 export function stopBackgroundHousekeeping(): void {
@@ -192,7 +192,7 @@ export function stopBackgroundHousekeeping(): void {
     logger.info('[Chronos] 梦境引擎已停止');
   }
 
-  console.log('[Chronos] Background housekeeping stopped');
+  logger.info('后台维护已停止');
 }
 
 export function isBackgroundHousekeepingRunning(): boolean {

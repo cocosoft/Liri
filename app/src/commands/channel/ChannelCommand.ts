@@ -8,11 +8,11 @@ import type {
   CommandContext,
   CommandResult,
 } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { channelRegistry } from '@modules/channels';
 import type { ChannelInterface } from '@modules/channels';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('ChannelCommand');
 
 const channelCmd: Command = {
   type: 'local',

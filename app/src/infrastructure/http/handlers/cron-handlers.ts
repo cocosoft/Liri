@@ -99,10 +99,8 @@ export async function handleCreateCron(
       scheduleMode,
       silent,
       deliver,
-      deliverTo,
       model,
       provider,
-      agentId,
     } = rawBody;
     const cronExpr = (expression || rawBody.cron || '').trim();
     const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();

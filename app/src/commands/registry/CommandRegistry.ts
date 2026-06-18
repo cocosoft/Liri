@@ -3,9 +3,9 @@
  * 管理已注册的命令
  */
 import type { Command } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('CommandRegistry');
 
 /**
  * 命令注册表类

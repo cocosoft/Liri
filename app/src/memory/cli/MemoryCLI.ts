@@ -2,6 +2,9 @@ import { Command } from 'commander';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { MemoryType } from '../types/MemoryType';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('MemoryCLI');
 
 /**
  * 记忆模块命令行工具

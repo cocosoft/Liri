@@ -15,6 +15,9 @@ import {
   getMemoryOptimizationSuggestions,
 } from './MemoryOptimizer';
 import { profileCheckpoint, profileReport } from '../utils/startupProfiler';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('test-performance');
 
 /**
  * 性能测试配置
@@ -326,6 +329,10 @@ async function runPerformanceTest() {
 // 运行测试
 if (require.main === module) {
   runPerformanceTest().catch((error) => {
+    logger.error(
+      '性能测试失败',
+      error instanceof Error ? error : new Error(String(error))
+    );
     console.error('性能测试失败:', error);
     process.exit(1);
   });

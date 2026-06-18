@@ -6,9 +6,9 @@
 import { Command as CommanderCommand, Option } from 'commander';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('CommandParser');
 
 /**
  * 命令解析器类

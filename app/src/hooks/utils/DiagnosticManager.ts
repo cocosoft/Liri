@@ -7,9 +7,9 @@ import { EventEmitter } from 'events';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('DiagnosticManager');
 
 /**
  * 诊断事件类型

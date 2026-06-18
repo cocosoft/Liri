@@ -12,6 +12,9 @@ import { BundledSkillLoader } from '../loaders/sources/BundledSkillLoader';
 import { PluginSkillLoader } from '../loaders/sources/PluginSkillLoader';
 import { MCPSkillLoader } from '../loaders/sources/MCPSkillLoader';
 import { resolveUserSkillsDir, resolveDataDir } from '../../core/paths';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('skills');
 
 // 颜色输出
 const chalk = {

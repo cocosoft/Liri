@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import { t } from '@modules/system/i18n/extended';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import {
   SessionGateway,
   createSessionGateway,
@@ -14,7 +14,7 @@ import type { UnifiedSession } from '@modules/session/types/Session';
 import type { UnifiedMessage } from '@modules/session/types/Message';
 import type { Transcript } from '@modules/session/types/Transcript';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('sessionHandler');
 
 export interface SessionHandlerOptions {
   verbose?: boolean;

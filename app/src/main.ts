@@ -27,7 +27,12 @@ import {
   profilePhaseEnd,
   getPhaseSummary,
 } from './utils/startupProfiler';
-import { Logger, setGlobalConfigProvider } from './monitoring/logs/Logger';
+import {
+  getLogger,
+  flush,
+  setGlobalConfigProvider,
+  setGlobalBufferConfig,
+} from './monitoring/logs/Logger';
 import { LogConfigManager } from './monitoring/logs/config/LogConfig';
 import {
   startMdmPrefetch,
@@ -61,7 +66,7 @@ import { modelRouter } from '@modules/ai/modelRouter';
 import { configManager } from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
 
-const logger = new Logger({ level: 'info' as any });
+const logger = getLogger('main');
 
 /** 最大首次引导重试次数 */
 const MAX_ONBOARD_RETRIES = 3;
@@ -359,7 +364,6 @@ function checkSingletonInstance(): void {
         try {
           process.kill(pid, 0);
           logger.warning(`检测到已有实例在运行 (PID: ${pid})，当前实例将退出`);
-          console.error(`[FATAL] Liri 已在运行 (PID: ${pid})，请勿重复启动`);
           process.exit(1);
         } catch {
           // 进程不存在，锁文件过期，继续启动
@@ -389,14 +393,18 @@ function checkSingletonInstance(): void {
     }
   };
 
-  process.on('exit', cleanup);
+  process.on('exit', () => {
+    cleanup();
+    // 同步 exit 事件不支持 async，fire-and-forget flush
+    flush().catch(() => {});
+  });
   process.on('SIGINT', () => {
     cleanup();
-    process.exit(0);
+    flush().finally(() => process.exit(0));
   });
   process.on('SIGTERM', () => {
     cleanup();
-    process.exit(0);
+    flush().finally(() => process.exit(0));
   });
 }
 
@@ -640,7 +648,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       }
       fatalExiting = true;
 
-      console.error('[FATAL] uncaughtException:', error.message);
+      logger.error('uncaughtException', error);
 
       // 动态 import handleError（模块系统可能尚未初始化，使用动态导入降低依赖风险）
       import('./error/handleError.js')
@@ -652,7 +660,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
         )
         .catch(() => {
           // handleError 导入失败时，至少记录到 stderr
-          console.error('[FATAL] handleError 不可用:', String(error));
+          logger.error('handleError 不可用', { error: String(error) });
         })
         .finally(() => {
           process.exit(1); // 不可恢复，退出
@@ -660,7 +668,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     });
 
     process.on('unhandledRejection', (reason: unknown) => {
-      console.error('[FATAL] unhandledRejection:', String(reason));
+      logger.error('unhandledRejection', { reason: String(reason) });
 
       import('./error/handleError.js')
         .then(({ handleError }) =>
@@ -670,7 +678,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
           })
         )
         .catch(() => {
-          console.error('[FATAL] handleError 不可用:', String(reason));
+          logger.error('handleError 不可用（unhandledRejection）', {
+            reason: String(reason),
+          });
         });
       // 不退出进程，unhandledRejection 可能是非致命的
     });
@@ -685,8 +695,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
       logFile: fileTarget?.path,
       level: logCfg.level,
       format: logCfg.format as 'text' | 'json',
+      colorize: logCfg.colorize,
+      otelTraceEnabled: logCfg.otelTraceEnabled,
     };
   });
+
+  // 注册全局缓冲区配置，与 LogConfig 中的 maxBufferSize/flushInterval 对齐
+  setGlobalBufferConfig(
+    LogConfigManager.getInstance().get().maxBufferSize,
+    LogConfigManager.getInstance().get().flushInterval
+  );
 
   profileCheckpoint('launch_start');
   profilePhaseStart('launch_total');

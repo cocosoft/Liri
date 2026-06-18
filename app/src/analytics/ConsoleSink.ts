@@ -4,6 +4,9 @@
  */
 
 import type { AnalyticsSink } from './types';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('ConsoleSink');
 
 type EventMetadata = Record<string, boolean | number | string | undefined>;
 
@@ -40,7 +43,7 @@ export class ConsoleSink implements AnalyticsSink {
 
     const logEntry = this.formatLogEntry(eventName, metadata);
 
-    console.log(logEntry);
+    logger.info('分析事件', { eventName, logEntry });
   }
 
   async logEventAsync(

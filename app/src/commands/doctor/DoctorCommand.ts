@@ -9,11 +9,11 @@ import type {
   CommandContext,
   CommandResult,
 } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { runSecurityAudit } from '@modules/security/audit';
 import type { SecurityAuditReport } from '@modules/security/audit';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('DoctorCommand');
 
 interface DoctorReport {
   environment: {

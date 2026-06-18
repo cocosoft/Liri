@@ -38,6 +38,9 @@ import type {
   EventStats,
 } from './types';
 import { AgentEventType } from './types';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('agent-events');
 
 export {
   AgentEventType,
@@ -163,7 +166,7 @@ export class InternalEventBus {
           toRemove.push(sub.id);
         }
       } catch (error) {
-        console.error(`Event handler error for ${type}:`, error);
+        logger.error('Event handler error', { type, error: String(error) });
       }
     }
 

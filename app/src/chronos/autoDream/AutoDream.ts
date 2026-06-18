@@ -18,6 +18,9 @@ import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('AutoDream');
 import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
@@ -233,25 +236,24 @@ export async function initAutoDream(): Promise<void> {
     try {
       lastAt = await readLastConsolidatedAt();
     } catch (e: unknown) {
-      console.log(
-        `[autoDream] readLastConsolidatedAt failed: ${(e as Error).message}`
-      );
+      logger.warn('读取上次整合时间失败', { error: (e as Error).message });
       return;
     }
 
     const hoursSince = (Date.now() - lastAt) / 3_600_000;
     if (!force && hoursSince < cfg.minHours) {
-      console.log(
-        `[autoDream] skip — only ${hoursSince.toFixed(1)}h since last consolidation, need ${cfg.minHours}h`
-      );
+      logger.info('跳过自动整合（时间不足）', {
+        hoursSince: hoursSince.toFixed(1),
+        minHours: cfg.minHours,
+      });
       return;
     }
 
     const sinceScanMs = Date.now() - lastSessionScanAt;
     if (!force && sinceScanMs < SESSION_SCAN_INTERVAL_MS) {
-      console.log(
-        `[autoDream] scan throttle — time-gate passed but last scan was ${Math.round(sinceScanMs / 1000)}s ago`
-      );
+      logger.info('扫描节流', {
+        sinceScanSec: Math.round(sinceScanMs / 1000),
+      });
       return;
     }
     lastSessionScanAt = Date.now();
@@ -260,9 +262,7 @@ export async function initAutoDream(): Promise<void> {
     try {
       sessionIds = await listSessionsTouchedSince(lastAt);
     } catch (e: unknown) {
-      console.log(
-        `[autoDream] listSessionsTouchedSince failed: ${(e as Error).message}`
-      );
+      logger.warn('列出会话失败', { error: (e as Error).message });
       return;
     }
 
@@ -272,9 +272,10 @@ export async function initAutoDream(): Promise<void> {
     }
 
     if (!force && sessionIds.length < cfg.minSessions) {
-      console.log(
-        `[autoDream] skip — ${sessionIds.length} sessions since last consolidation, need ${cfg.minSessions}`
-      );
+      logger.info('跳过自动整合（会话数不足）', {
+        sessionCount: sessionIds.length,
+        minSessions: cfg.minSessions,
+      });
       return;
     }
 
@@ -282,14 +283,15 @@ export async function initAutoDream(): Promise<void> {
     try {
       priorMtime = await tryAcquireConsolidationLock();
     } catch (e: unknown) {
-      console.log(`[autoDream] lock acquire failed: ${(e as Error).message}`);
+      logger.warn('获取锁失败', { error: (e as Error).message });
       return;
     }
     if (priorMtime === null) return;
 
-    console.log(
-      `[autoDream] firing — ${hoursSince.toFixed(1)}h since last, ${sessionIds.length} sessions to review`
-    );
+    logger.info('开始自动整合', {
+      hoursSince: hoursSince.toFixed(1),
+      sessionCount: sessionIds.length,
+    });
 
     const memoryRoot =
       configManager.env('AUTO_MEM_PATH') ||
@@ -361,9 +363,11 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
 
     if (result.success) {
       completeDreamTask(taskId, setAppState);
-      console.log(
-        `[autoDream] completed — consolidated ${result.insightsGenerated} insights, touched ${result.filesTouched.length} files in ${result.duration}ms`
-      );
+      logger.info('自动整合完成', {
+        insightsGenerated: result.insightsGenerated,
+        filesTouched: result.filesTouched.length,
+        durationMs: result.duration,
+      });
 
       try {
         await recordConsolidation();
@@ -374,9 +378,9 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
       try {
         await runKnowledgeRain();
       } catch (e) {
-        console.log(
-          `[autoDream] knowledgeRain failed: ${e instanceof Error ? e.message : String(e)}`
-        );
+        logger.warn('知识雨执行失败', {
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
 
       emitDreamEvent({
@@ -395,7 +399,7 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
         });
       }
     } else {
-      console.log(`[autoDream] consolidation failed: ${result.error}`);
+      logger.error('自动整合失败', { error: result.error });
       failDreamTask(taskId, setAppState, result.error);
       await rollbackConsolidationLock(priorMtime);
 
@@ -421,7 +425,7 @@ export function abortAutoDream(): void {
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
-    console.log('[autoDream] aborted');
+    logger.info('自动整合已中止');
   }
 }
 
@@ -466,9 +470,7 @@ export async function runKnowledgeRain(): Promise<void> {
 
   if (compileCandidates.length === 0) return;
 
-  console.log(
-    `[knowledgeRain] 发现 ${compileCandidates.length} 个待编译的原始文件`
-  );
+  logger.info('发现待编译原始文件', { count: compileCandidates.length });
 
   const { aiService } = await import('@modules/ai/services/aiService');
   const { runKnowledgeCompile } =
@@ -477,9 +479,10 @@ export async function runKnowledgeRain(): Promise<void> {
   const result = await runKnowledgeCompile(aiService, { force: false });
 
   if (result.compiled > 0) {
-    console.log(
-      `[knowledgeRain] 编译完成: ${result.compiled} 个编译, ${result.skipped} 个跳过`
-    );
+    logger.info('知识雨编译完成', {
+      compiled: result.compiled,
+      skipped: result.skipped,
+    });
   }
 }
 

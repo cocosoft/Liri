@@ -8,6 +8,9 @@ import type {
   PostSamplingHookResult,
   PostSamplingHookConfig,
 } from '../types/PostSampling';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('PostSamplingHookManager');
 
 /**
  * 内部Hook项
@@ -283,7 +286,7 @@ export class PostSamplingHookManager {
    */
   private log(message: string): void {
     if (this.enableLogging) {
-      console.log(`[PostSamplingHookManager] ${message}`);
+      logger.info(message);
     }
   }
 }

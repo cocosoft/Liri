@@ -4,6 +4,9 @@
 
 import { isEnvTruthy } from './envUtils.js';
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('debug');
 
 /**
  * 检查是否启用了调试模式
@@ -33,6 +36,7 @@ export function logForDebugging(
   switch (level) {
     case 'error':
       console.error(logMessage);
+      logger.error(message, { debug: true });
       break;
     case 'warn':
       console.warn(logMessage);

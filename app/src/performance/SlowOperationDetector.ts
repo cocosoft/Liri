@@ -200,7 +200,7 @@ export class SlowOperationDetector {
         });
         break;
       case 'info':
-        console.info(message, {
+        logger.info(message, {
           operation: record.operation,
           duration: record.duration,
           threshold: record.threshold,

@@ -5,7 +5,7 @@
 
 import { getLogger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-const logger = getLogger();
+const logger = getLogger('safeLog');
 import {
   AppError,
   TelemetrySafeError,

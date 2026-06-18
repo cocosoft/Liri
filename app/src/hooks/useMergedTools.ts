@@ -6,9 +6,9 @@
  * - 插件工具（Plugin Tools）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('useMergedTools');
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getToolRegistry, type Tool } from '@modules/tools';

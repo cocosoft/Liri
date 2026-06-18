@@ -27,14 +27,10 @@
  *   - WikiRenderer：结构化数据 → 带 frontmatter 的 wiki（模板驱动）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { Edge } from '@modules/knowledge/graph/KnowledgeGraph';
 import type {
   EntitySchema,
-  FieldDef,
 } from '@modules/knowledge/schema/SchemaLoader';
-
-const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 待渲染实体输入

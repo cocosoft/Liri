@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import * as readline from 'readline';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { oauthService } from '@modules/oauth/services/OAuthService';
@@ -15,7 +15,7 @@ import { AuthorizationCodeFlow } from '@modules/oauth/flows/AuthorizationCodeFlo
 import type { OAuthConfig } from '@modules/oauth/types';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('authHandler');
 
 export interface AuthHandlerOptions {
   verbose?: boolean;

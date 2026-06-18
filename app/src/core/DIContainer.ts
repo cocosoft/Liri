@@ -25,9 +25,9 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('DIContainer');
 
 // ==================== 类型定义 ====================
 
@@ -187,7 +187,10 @@ export class ContainerScope {
       try {
         callback(id, instance);
       } catch (error) {
-        console.error(`onInstanceCreated 回调执行失败: ${id}`, error);
+        logger.error('onInstanceCreated 回调执行失败', {
+          id,
+          error: String(error),
+        });
       }
     }
   }

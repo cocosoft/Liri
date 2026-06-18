@@ -57,7 +57,6 @@ export class ACPPermissionHandler {
   }
 
   approve(key: string, approver?: string): ACPPermissionResponse {
-    const cached = this.approvedCache.get(key);
     const expiresAt = Date.now() + this.cacheTTLMs;
     this.approvedCache.set(key, {
       decision: ACPPermissionDecision.ALLOW,

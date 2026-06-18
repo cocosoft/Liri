@@ -1,4 +1,7 @@
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('DatadogMetricsClient');
 
 export interface DatadogConfig {
   apiKey: string;
@@ -140,7 +143,7 @@ export class DatadogMetricsClient {
     try {
       await this.postToDatadog('/api/v1/check_run', [serviceCheck]);
     } catch (error) {
-      console.error('[Datadog] Service check failed:', error);
+      logger.error('[Datadog] Service check failed:', error);
     }
   }
 
@@ -210,15 +213,13 @@ export class DatadogMetricsClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.warn(
-          `[Datadog] HTTP ${response.status}: ${await response.text().catch(() => '')}`
-        );
+        logger.warn('Datadog HTTP 请求失败', { status: response.status });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        console.warn('[Datadog] Request timeout');
+        logger.warn('Datadog 请求超时');
       } else {
-        console.error('[Datadog] Post error:', error);
+        logger.error('[Datadog] Post error:', error);
       }
     }
   }

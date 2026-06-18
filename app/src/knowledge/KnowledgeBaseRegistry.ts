@@ -6,7 +6,7 @@
  * 支持自动扫描目录发现未注册的知识库。
  */
 
-import { join, basename } from 'path';
+import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

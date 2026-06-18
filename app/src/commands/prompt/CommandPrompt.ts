@@ -7,6 +7,9 @@
 import readline from 'readline';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 import { commandHistoryManager } from '@modules/commands/history/CommandHistoryManager.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('CommandPrompt');
 
 /**
  * 命令提示器选项
@@ -124,7 +127,7 @@ export class CommandPrompt {
         console.log(JSON.stringify(result.data, null, 2));
       }
     } catch (error) {
-      console.error('命令执行错误:', error);
+      logger.error('命令执行错误', error);
       // 记录失败的命令
       const parts = line.split(' ');
       const commandName = parts[0];

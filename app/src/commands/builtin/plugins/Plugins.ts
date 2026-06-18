@@ -3,10 +3,10 @@
  * 插件管理和状态查看
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { NpmDistributor } from '@modules/plugins/distribution/NpmDistributor';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('Plugins');
 
 interface PluginInfo {
   name: string;

@@ -2,9 +2,9 @@ import { EventEmitter } from 'events';
 import { join, resolve, dirname } from 'path';
 import { resolveProjectRoot, resolveSecurityDir } from '@modules/core/paths';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('SecurityManager');
 
 /**
  * 安全验证结果

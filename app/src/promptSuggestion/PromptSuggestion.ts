@@ -3,6 +3,9 @@
  */
 
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('PromptSuggestion');
 import {
   SUGGESTION_PROMPT,
   SUGGESTION_PROMPTS,
@@ -61,11 +64,7 @@ function getAnalytics(): Analytics {
     analytics = {
       logSuggestionSuppressed: (reason, suggestion, promptId, source) => {
         if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-          console.log(`[PromptSuggestion] Suppressed: ${reason}`, {
-            suggestion,
-            promptId,
-            source,
-          });
+          logger.debug('建议被抑制', { reason, suggestion, promptId, source });
         }
       },
       logSuggestionOutcome: (
@@ -76,7 +75,7 @@ function getAnalytics(): Analytics {
         generationRequestId
       ) => {
         if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-          console.log(`[PromptSuggestion] Outcome`, {
+          logger.debug('建议结果', {
             suggestion,
             userInput,
             emittedAt,

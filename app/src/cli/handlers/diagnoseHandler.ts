@@ -5,12 +5,12 @@
 
 import chalk from 'chalk';
 import * as os from 'os';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session/SessionGateway';
 import { SlowQueryDetector } from '@modules/query/SlowQueryDetector';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('diagnoseHandler');
 
 export interface DiagnoseHandlerOptions {
   verbose?: boolean;

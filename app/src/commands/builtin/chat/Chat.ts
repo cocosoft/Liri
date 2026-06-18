@@ -4,7 +4,7 @@
  * 集成成本跟踪和多供应商模型支持
  */
 import type { CommandContext } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { modelManager } from '@modules/ai/models/ModelManager.js';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
 import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
@@ -25,7 +25,7 @@ import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
 import { modelRouter } from '@modules/ai/modelRouter.js';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('Chat');
 
 interface ChatResult {
   type: 'text';

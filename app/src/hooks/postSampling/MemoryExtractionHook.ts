@@ -11,9 +11,9 @@ import {
   extractMemories,
   type MemoryType,
 } from '@modules/services/extractMemories';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('MemoryExtractionHook');
 
 /**
  * 记忆提取选项

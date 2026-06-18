@@ -3,12 +3,9 @@
  * 用于显示监控数据和性能报告
  */
 
-import { Logger, LogLevel } from './monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 import { getMonitoringService } from './monitoring/index.js';
 import { getProcessCpuPercent } from './monitoring/metrics/SystemMetricsCollector.js';
-
-const logger = new Logger({ level: LogLevel.INFO });
 
 function monitor() {
   console.log('=== Liri 监控面板 ===');

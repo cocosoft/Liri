@@ -16,6 +16,7 @@ import {
   getLogMemoryCount,
   type StructuredLogEntry,
 } from './LogMemory.js';
+import { logRedact } from './redact/LogRedact.js';
 
 export interface StructuredLoggerConfig extends LoggerConfig {
   module: string;
@@ -83,46 +84,17 @@ export class StructuredLogger extends Logger {
       source: 'structured',
     };
 
+    // 统一写入内存一次（通过 writeToOutputs 复用父类输出管线，避免重复）
+    appendLogEntry(entry);
+
     if (this.jsonOutput) {
       const jsonLine = JSON.stringify(entry);
-      switch (level) {
-        case LogLevel.DEBUG:
-          this.debug(jsonLine);
-          break;
-        case LogLevel.INFO:
-          this.info(jsonLine);
-          break;
-        case LogLevel.WARNING:
-          this.warning(jsonLine);
-          break;
-        case LogLevel.ERROR:
-          this.error(jsonLine);
-          break;
-        case LogLevel.FATAL:
-          this.error(jsonLine);
-          break;
-      }
+      const sanitized = logRedact.redact(jsonLine);
+      this.writeToOutputs(sanitized, level);
     } else {
-      switch (level) {
-        case LogLevel.DEBUG:
-          this.debug(message);
-          break;
-        case LogLevel.INFO:
-          this.info(message);
-          break;
-        case LogLevel.WARNING:
-          this.warning(message);
-          break;
-        case LogLevel.ERROR:
-          this.error(message);
-          break;
-        case LogLevel.FATAL:
-          this.error(message);
-          break;
-      }
+      const sanitized = logRedact.redact(message);
+      this.writeToOutputs(sanitized, level);
     }
-
-    appendLogEntry(entry);
   }
 
   static queryLogs(filter?: {

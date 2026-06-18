@@ -9,6 +9,9 @@ import {
   AnalyticsSeverity,
   getCategoryForEvent,
 } from './AnalyticsSchema';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('AnalyticsPersistenceService');
 
 export interface StorageConfig {
   baseDir: string;
@@ -70,7 +73,7 @@ export class AnalyticsPersistenceService {
       await appendFile(this.currentFile, line, { encoding: 'utf-8' });
       this.currentFileSize += line.length;
     } catch (error) {
-      console.error('[AnalyticsPersistence] Failed to persist event:', error);
+      logger.error('[AnalyticsPersistence] Failed to persist event:', error);
     }
   }
 

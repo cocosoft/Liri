@@ -33,6 +33,9 @@
 import { resolve, dirname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import * as os from 'os';
+import { getLogger } from './monitoring/logs/Logger';
+
+const bootLogger = getLogger('pyapp');
 
 /**
  * 确定项目根目录
@@ -95,7 +98,7 @@ const projectRoot = sanitizePath(determineProjectRoot());
 
 // 确保目录存在再继续
 if (!existsSync(projectRoot)) {
-  console.error(`[FATAL] Project root does not exist: ${projectRoot}`);
+  bootLogger.fatal('Project root does not exist', { projectRoot });
   process.exit(1);
 }
 
@@ -112,7 +115,9 @@ try {
   process.chdir(projectRoot);
 } catch (e) {
   if (process.env['LIRI_DEBUG']) {
-    console.error(`[BOOT] chdir failed, trying fallback strategies`);
+    bootLogger.error('chdir failed, trying fallback strategies', {
+      error: String(e),
+    });
   }
 }
 
@@ -154,9 +159,7 @@ try {
     ): any {
       if (isRootPath(path)) {
         if (process.env['LIRI_DEBUG']) {
-          console.error(
-            `[BOOT] BLOCKED mkdirSync("${path}") — using fallback dir`
-          );
+          bootLogger.error('BLOCKED mkdirSync', { path: String(path) });
         }
         return origMkdirSync(join(projectRoot, 'app', 'data'), options);
       }
@@ -171,7 +174,7 @@ try {
     ): any {
       if (isRootPath(path)) {
         if (process.env['LIRI_DEBUG']) {
-          console.error(`[BOOT] BLOCKED mkdir("${path}") — using fallback dir`);
+          bootLogger.error('BLOCKED mkdir', { path: String(path) });
         }
         if (typeof options === 'function') {
           return origMkdir(join(projectRoot, 'app', 'data'), options);
@@ -182,7 +185,9 @@ try {
     };
   } catch (e) {
     if (process.env['LIRI_DEBUG']) {
-      console.error(`[BOOT] fs interception failed (non-critical): ${e}`);
+      bootLogger.error('fs interception failed (non-critical)', {
+        error: String(e),
+      });
     }
   }
 }
@@ -203,7 +208,7 @@ const PROJECT_DIRS = ['app'];
       if (!fs.existsSync(projectPath)) {
         fs.mkdirSync(projectPath, { recursive: true });
       }
-    } catch (e) {
+    } catch (_e) {
       // 静默忽略
     }
   }
@@ -299,12 +304,11 @@ try {
       msg.includes('EPERM') &&
       (msg.includes("mkdir '\\'") || msg.includes('mkdir'))
     ) {
-      console.error('[BOOT] Caught EPERM mkdir error, attempting recovery...');
+      bootLogger.error('Caught EPERM mkdir error, attempting recovery...');
       if (error instanceof Error && error.stack) {
-        console.error(
-          '[BOOT] Stack:',
-          error.stack.split('\n').slice(0, 5).join('\n')
-        );
+        bootLogger.error('Stack', {
+          stack: error.stack.split('\n').slice(0, 5).join('\n'),
+        });
       }
       // 不要退出，也不处理（该错误已在 main.ts 中被 catch）
     }
@@ -312,10 +316,12 @@ try {
 }
 
 if (process.env['LIRI_DEBUG']) {
-  console.error(
-    `[BOOT] projectRoot=${projectRoot}, cwd=${process.cwd()}, argv0=${process.argv[0]}`
-  );
-  console.error(`[BOOT] INIT_CWD=${process.env['INIT_CWD'] || '(unset)'}`);
+  bootLogger.error('BOOT context', {
+    projectRoot,
+    cwd: process.cwd(),
+    argv0: process.argv[0],
+    initCwd: process.env['INIT_CWD'] || '(unset)',
+  });
 }
 
 // ── 策略 7: 模块解析重定向（bun build --compile 外部依赖兜底） ──
@@ -349,7 +355,9 @@ try {
   };
 } catch (e) {
   if (process.env['LIRI_DEBUG']) {
-    console.error(`[BOOT] Module._resolveFilename hook failed: ${e}`);
+    bootLogger.error('Module._resolveFilename hook failed', {
+      error: String(e),
+    });
   }
 }
 

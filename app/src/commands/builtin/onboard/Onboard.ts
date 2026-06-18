@@ -10,7 +10,7 @@
  * - Step 5（可选）: 消息通道配置
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@modules/core/paths';
@@ -28,7 +28,7 @@ import {
   getHintStats,
 } from './OnboardHints';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('Onboard');
 
 /**
  * AI 提供商信息

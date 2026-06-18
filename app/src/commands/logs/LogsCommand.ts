@@ -9,10 +9,10 @@ import type {
   CommandContext,
   CommandResult,
 } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('LogsCommand');
 
 const logsCmd: Command = {
   type: 'local',

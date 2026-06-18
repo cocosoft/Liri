@@ -11,6 +11,7 @@
 
 import { EventBusImpl } from '@modules/core/events/EventBus';
 import type { EventSubscription } from '@modules/core/events/EventBus';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import type {
   SessionLifecycleEvent,
   SessionEventType,
@@ -25,6 +26,8 @@ export interface Subscription {
   handler: EventHandler;
   unsubscribe: () => void;
 }
+
+const logger = getLogger('SessionLifecycleEventBus');
 
 export class SessionLifecycleEventBus extends EventBusImpl {
   /** 通配符处理器（'*' 监听所有事件），EventBusImpl 原生不支持通配符 */
@@ -143,11 +146,15 @@ export class SessionLifecycleEventBus extends EventBusImpl {
       const result = handler(event);
       if (result instanceof Promise) {
         result.catch((err) => {
-          console.error(`Session lifecycle event handler error: ${err}`);
+          logger.error('Session lifecycle event handler error', {
+            error: String(err),
+          });
         });
       }
     } catch (err) {
-      console.error(`Session lifecycle event handler error: ${err}`);
+      logger.error('Session lifecycle event handler error', {
+        error: String(err),
+      });
     }
   }
 }

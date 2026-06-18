@@ -5,6 +5,9 @@
  */
 
 import type { AnalyticsEvent, SessionAnalytics } from './types.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('DataCollector');
 
 export class DataCollector {
   private events: AnalyticsEvent[] = [];
@@ -167,8 +170,9 @@ export class DataCollector {
   private flushBuffer(): void {
     if (this.eventBuffer.length > 0) {
       this.events.push(...this.eventBuffer);
+      const count = this.eventBuffer.length;
       this.eventBuffer = [];
-      console.log(`已刷新 ${this.eventBuffer.length} 个事件到主存储`);
+      logger.info(`${count} 个事件已刷新到主存储`);
     }
   }
 
@@ -199,7 +203,7 @@ export class DataCollector {
         this.events.push(...parsedData.events);
       }
     } catch (error) {
-      console.error('导入数据失败:', error);
+      logger.error('导入数据失败:', error);
     }
   }
 }

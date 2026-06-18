@@ -4,6 +4,9 @@
  */
 
 import chalk from 'chalk';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('exit');
 
 export interface ExitHandlerOptions {
   confirmBeforeExit?: boolean;

@@ -1,12 +1,15 @@
 #!/usr/bin/env bun
 import { runSecurityAudit } from '../security/audit/index.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const isCi = process.argv.includes("--ci");
+const logger = getLogger('security-scan');
+
+const isCi = process.argv.includes('--ci');
 
 // CI 模式下的阈值配置
 const THRESHOLDS = {
-  HIGH: 0,     // HIGH 风险超过 0 个即失败
-  MEDIUM: 10,  // MEDIUM 风险超过 10 个即失败
+  HIGH: 0, // HIGH 风险超过 0 个即失败
+  MEDIUM: 10, // MEDIUM 风险超过 10 个即失败
 };
 
 async function main() {
@@ -44,21 +47,17 @@ async function main() {
   }
 
   console.log(
-    `\n⚠️ 共发现 ${total} 个问题 (HIGH:${high} MEDIUM:${medium} LOW:${low})`,
+    `\n⚠️ 共发现 ${total} 个问题 (HIGH:${high} MEDIUM:${medium} LOW:${low})`
   );
 
   // CI 模式下检查阈值
   if (isCi) {
     const failures: string[] = [];
     if (high > THRESHOLDS.HIGH) {
-      failures.push(
-        `HIGH 风险 ${high} 个超过阈值 ${THRESHOLDS.HIGH}`,
-      );
+      failures.push(`HIGH 风险 ${high} 个超过阈值 ${THRESHOLDS.HIGH}`);
     }
     if (medium > THRESHOLDS.MEDIUM) {
-      failures.push(
-        `MEDIUM 风险 ${medium} 个超过阈值 ${THRESHOLDS.MEDIUM}`,
-      );
+      failures.push(`MEDIUM 风险 ${medium} 个超过阈值 ${THRESHOLDS.MEDIUM}`);
     }
     if (failures.length > 0) {
       console.log('\n❌ CI 安全扫描未通过:');
@@ -75,6 +74,10 @@ async function main() {
 }
 
 main().catch((error) => {
+  logger.error(
+    '安全扫描失败',
+    error instanceof Error ? error : new Error(String(error))
+  );
   console.error('安全扫描失败:', error);
   process.exit(1);
 });

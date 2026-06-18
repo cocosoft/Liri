@@ -125,31 +125,6 @@ export class LogConfigManager {
       this.config.targets.splice(index, 1);
     }
   }
-
-  /**
-   * CSR 结构化日志
-   */
-  structuredLog(
-    level: LogLevel,
-    message: string,
-    context?: Record<string, unknown>
-  ): string {
-    const entry: Record<string, unknown> = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-    };
-
-    if (context) {
-      Object.assign(entry, context);
-    }
-
-    if (this.config.includePid) {
-      entry.pid = process.pid;
-    }
-
-    return JSON.stringify(entry);
-  }
 }
 
 export const logConfigManager = LogConfigManager.getInstance();

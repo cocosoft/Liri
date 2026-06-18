@@ -28,7 +28,7 @@
  */
 
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
-import { join, relative, basename, dirname } from 'path';
+import { join, basename, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core/paths';

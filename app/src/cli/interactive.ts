@@ -7,6 +7,9 @@ import readline from 'readline';
 import { commandHistory } from './history';
 import { commandCompleter } from './completion';
 import chalk from 'chalk';
+import { getLogger } from '../monitoring/logs/Logger';
+
+const logger = getLogger('cli-interactive');
 
 export interface InteractiveOptions {
   prompt?: string;
@@ -85,6 +88,10 @@ export class InteractiveShell {
         console.log('Type "help" for available commands');
       }
     } catch (error) {
+      logger.error(
+        '交互式命令执行错误',
+        error instanceof Error ? error : new Error(String(error))
+      );
       console.error(chalk.red(`Error: ${(error as Error).message}`));
     }
 

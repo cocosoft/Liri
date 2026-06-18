@@ -8,6 +8,9 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('plugify');
 
 const TEMPLATES_DIR = path.join(
   import.meta.dirname,
@@ -50,9 +53,9 @@ function generatePluginCode(moduleName: string, description: string): string {
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('plugify');
 
 /**
  * ${PluginClass} 元数据
@@ -272,6 +275,7 @@ function main(): void {
   const args = process.argv.slice(2);
 
   if (args.length < 1) {
+    logger.error('用法错误：缺少模块名参数');
     console.error('用法: bun run src/scripts/plugify.ts <模块名> [描述]');
     console.error(
       '示例: bun run src/scripts/plugify.ts canvas "画布工具模块插件"'
@@ -288,6 +292,7 @@ function main(): void {
 
   // 检查是否已存在
   if (fs.existsSync(pluginPath)) {
+    logger.error('插件文件已存在', { pluginPath });
     console.error(`错误: ${pluginPath} 已存在`);
     process.exit(1);
   }

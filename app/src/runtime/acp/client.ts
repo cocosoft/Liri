@@ -234,7 +234,7 @@ export class AcpTransportClient extends EventEmitter {
     };
   }
 
-  private async doSend(message: AcpMessage): Promise<void> {
+  private async doSend(_message: AcpMessage): Promise<void> {
     this.metrics.totalMessagesSent++;
   }
 

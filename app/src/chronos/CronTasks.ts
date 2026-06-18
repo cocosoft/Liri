@@ -89,16 +89,15 @@ export async function readCronTasksFile(
         typeof t.prompt !== 'string' ||
         typeof t.createdAt !== 'number'
       ) {
-        console.log(
-          `[CronTasks] skipping malformed task: ${JSON.stringify(t)}`
-        );
+        logger.warn('跳过格式异常的任务', { task: JSON.stringify(t) });
         continue;
       }
 
       if (!isValidCronExpression(t.cron)) {
-        console.log(
-          `[CronTasks] skipping task ${t.id} with invalid cron '${t.cron}'`
-        );
+        logger.warn('跳过 cron 表达式无效的任务', {
+          taskId: t.id,
+          cron: t.cron,
+        });
         continue;
       }
 

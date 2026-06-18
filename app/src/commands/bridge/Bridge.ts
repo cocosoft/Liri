@@ -14,9 +14,9 @@ import {
 } from '@modules/bridge/BridgeMain.js';
 import { createDummySpawner } from '@modules/bridge/sessions/MultiSessionManager.js';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('Bridge');
 
 const BRIDGE_CONFIG_PATH = './settings.json';
 

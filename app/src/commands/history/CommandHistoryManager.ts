@@ -6,9 +6,9 @@
 import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('CommandHistoryManager');
 
 /**
  * 命令历史记录项

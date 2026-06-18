@@ -11,6 +11,9 @@ import {
   removeCronTasks,
 } from '@modules/chronos/CronTasks';
 import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('ChronosCLI');
 
 /**
  * 注册Chronos CLI命令

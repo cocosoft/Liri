@@ -3,6 +3,10 @@
  * 参考CC源码 services/toolUseSummary/toolUseSummaryGenerator.ts 实现
  */
 
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('ToolUseSummaryGenerator');
+
 export interface ToolInfo {
   name: string;
   input: unknown;
@@ -92,7 +96,7 @@ export async function generateToolUseSummary({
     return mockSummary;
   } catch (error) {
     // 日志记录但不抛出错误 - 摘要是非关键功能
-    console.debug('[ToolUseSummaryGenerator] Generation failed:', error);
+    logger.debug('摘要生成失败', { error: String(error) });
     return null;
   }
 }

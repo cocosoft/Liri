@@ -6,9 +6,9 @@
 
 import { feature, FeatureFlag } from '@modules/core';
 import type { Command, CommandLoader } from '@modules/commands/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('FeatureCommandLoader');
 
 export interface FeatureCommandConfig {
   featureFlag: FeatureFlag;

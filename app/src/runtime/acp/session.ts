@@ -6,14 +6,6 @@ import {
   AcpAgentInfo,
 } from './types.js';
 
-interface SessionEventMap {
-  'session:created': [session: AcpSessionInfo];
-  'session:ended': [sessionId: string];
-  'session:timeout': [sessionId: string];
-  message: [message: AcpMessage, session: AcpSessionInfo];
-  error: [error: Error];
-}
-
 let _sessionIdCounter = 0;
 function nextSessionId(): string {
   _sessionIdCounter++;

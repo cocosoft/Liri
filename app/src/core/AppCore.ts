@@ -358,17 +358,20 @@ export class AppCore {
       // 初始化集中日志配置（LogConfigManager 注册到 Logger）
       const { logConfigManager } =
         await import('@modules/monitoring/logs/config/LogConfig.js');
-      const { setGlobalConfigProvider } =
+      const { setGlobalConfigProvider, setGlobalBufferConfig } =
         await import('@modules/monitoring/logs/Logger.js');
+      const cfg = logConfigManager.get();
       setGlobalConfigProvider(() => {
-        const cfg = logConfigManager.get();
         return {
           level: cfg.level,
           logFile: cfg.targets.find((t) => t.type === 'file')?.path,
           fileOutput: cfg.targets.some((t) => t.type === 'file'),
           format: cfg.format === 'pretty' ? 'text' : cfg.format,
+          colorize: cfg.colorize,
+          otelTraceEnabled: cfg.otelTraceEnabled,
         };
       });
+      setGlobalBufferConfig(cfg.maxBufferSize, cfg.flushInterval);
       logger.info('集中日志配置已注册');
 
       // 创建 OTel 日志适配器（将 OTel Span 上下文注入日志）

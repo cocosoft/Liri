@@ -5,6 +5,9 @@
  * 与 ApiLoggingService 互补 — 后者保存记录做统计，此模块负责实时分发。
  */
 import type { ApiLogEntry } from './ApiLogging';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('api-logging');
 
 /**
  * 日志处理器回调
@@ -160,12 +163,12 @@ export function consoleLogHandler(entry: ApiLogEntry): void {
   const error = entry.error ? ` — ${entry.error}` : '';
 
   if (entry.error) {
-    console.error(
-      `${prefix} ${entry.method} ${entry.path}${status}${duration}${error}`
-    );
+    const msg = `${prefix} ${entry.method} ${entry.path}${status}${duration}${error}`;
+    logger.error(msg, { entry });
   } else {
-    console.log(
-      `${prefix} ${entry.method} ${entry.path}${status}${duration}${error}`
+    logger.info(
+      `${prefix} ${entry.method} ${entry.path}${status}${duration}${error}`,
+      { entry }
     );
   }
 }

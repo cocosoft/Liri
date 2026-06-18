@@ -5,10 +5,9 @@
  */
 import {
   type PerformancePhase,
-  type PerformanceCheckResult,
   type SLORreport,
 } from '../core/performance/SprintPerformanceChecker';
-import { STARTUP_PHASES, type StartupPhase } from './StartupChainProfiler';
+import { STARTUP_PHASES } from './StartupChainProfiler';
 
 /** 启动报告条目 */
 export interface StartupReportEntry {

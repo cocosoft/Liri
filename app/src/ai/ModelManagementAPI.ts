@@ -27,7 +27,7 @@
  */
 
 import type http from 'node:http';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import {
   readSoulMd,
   writeSoulMd,
@@ -39,7 +39,7 @@ import {
   ensureDefaultUserMd,
 } from '@modules/services/soul/UserReader';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('ModelManagementAPI');
 
 /** 解析请求 body */
 async function parseBody(req: http.IncomingMessage): Promise<unknown> {
@@ -771,7 +771,7 @@ async function handleBulkImportModels(
 
     sendJson(res, { data: { imported } }, 201);
   } catch (err) {
-    console.error(`[bulk-import] 批量导入失败:`, err);
+    logger.error('批量导入失败', { error: String(err) });
     sendError(res, `批量导入失败: ${(err as Error).message}`, 500);
   }
 }

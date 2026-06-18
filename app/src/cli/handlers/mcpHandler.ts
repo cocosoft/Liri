@@ -5,11 +5,11 @@
 
 import chalk from 'chalk';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('mcpHandler');
 
 export interface MCPHandlerOptions {
   verbose?: boolean;

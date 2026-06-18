@@ -532,7 +532,6 @@ export async function handleOTelMetrics(
     // OTel Metrics 是 Push 模型，无法直接查询值。
     // 通过读取内部缓存快照获取关键指标。
     const snapshot: Record<string, unknown> = {};
-    const proto = Object.getPrototypeOf(oTelMetrics);
 
     // 提取计数器缓存
     if (oTelMetrics && typeof oTelMetrics === 'object') {
@@ -574,7 +573,7 @@ export async function handleInfrastructureStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { infraHealthChecker, eventLoopMonitor } =
+    const { infraHealthChecker } =
       await import('@modules/diagnostics/infrastructure-diagnostics');
     const { getLLMTracker } =
       await import('@modules/monitoring/llm/getLLMTracker');

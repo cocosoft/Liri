@@ -8,6 +8,9 @@ import type {
   EventMetrics,
   SessionAnalytics,
 } from './types.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('AnalyticsManager');
 
 export class AnalyticsManager {
   private events: AnalyticsEvent[] = [];
@@ -123,7 +126,7 @@ export class AnalyticsManager {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     // 这里可以添加异步事件处理逻辑
-    console.log(`处理异步事件: ${event.eventName}`);
+    logger.debug('处理异步事件', { eventName: event.eventName });
   }
 
   /**

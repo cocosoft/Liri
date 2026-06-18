@@ -9,6 +9,9 @@ import { CronRunLog } from './CronRunLog';
 import { CronAlertService } from './CronAlertService';
 import type { CronJob, CronJobResult } from './types';
 import type { SchedulerCallbacks } from './CronScheduler';
+import { getLogger } from '@modules/monitoring/logs/Logger';
+
+const logger = getLogger('GlobalCronScheduler');
 
 let instance: CronScheduler | null = null;
 let store: CronJobStore | null = null;
@@ -53,10 +56,11 @@ export async function ensureGlobalCronSchedulerStarted(
 
   // 简单日志告警
   const alertService = new CronAlertService((job, reason, count) => {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[CronAlert] ${job.name} ${reason} | consecutiveErrors=${count}`
-    );
+    logger.warn('Cron 告警', {
+      jobName: job.name,
+      reason,
+      consecutiveErrors: count,
+    });
   });
 
   instance = new CronScheduler(

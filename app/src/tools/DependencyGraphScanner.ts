@@ -19,10 +19,10 @@ import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
 } from '@modules/modules/ModuleDefinitions';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { resolveCacheDir } from '@modules/core/paths';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = getLogger('DependencyGraphScanner');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -13,6 +13,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { TTLCache } from '@modules/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import path from 'node:path';
 import { resolveDataDir } from '@modules/core/paths';
@@ -135,21 +136,12 @@ async function verifyBotFrameworkJwt(
  * 消息去重（基于 activityId + conversationId 组合，5 秒窗口）
  */
 class MSTeamsDedup {
-  private cache = new Map<string, number>();
-  private readonly ttlMs = 5000;
+  private cache = new TTLCache<number>(10000, 5000);
 
   claim(key: string): boolean {
-    const now = Date.now();
-    this.evict(now);
     if (this.cache.has(key)) return false;
-    this.cache.set(key, now + this.ttlMs);
+    this.cache.set(key, Date.now());
     return true;
-  }
-
-  private evict(now: number): void {
-    for (const [k, expires] of this.cache) {
-      if (expires < now) this.cache.delete(k);
-    }
   }
 
   clear(): void {

@@ -204,6 +204,7 @@ export class MemorySnapshotService {
       fs.writeFileSync(filePath, JSON.stringify(snapshotData, null, 2));
     } catch (error) {
       // 忽略错误
+      console.error('写入内存快照失败:', error);
     }
   }
 

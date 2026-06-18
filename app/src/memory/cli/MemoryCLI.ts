@@ -1,3 +1,5 @@
+import { join } from 'path';
+import { resolveDataDir } from '@modules/core/paths';
 import { Command } from 'commander';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { MemoryType } from '../types/MemoryType';

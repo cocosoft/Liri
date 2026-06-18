@@ -20,6 +20,11 @@ export enum MemoryType {
   FEEDBACK = 'feedback',
   PROJECT = 'project',
   REFERENCE = 'reference',
+  USER_FACT = 'user_fact',
+  USER_PREFERENCE = 'user_preference',
+  PROJECT_KNOWLEDGE = 'project_knowledge',
+  CODE_PATTERN = 'code_pattern',
+  DECISION = 'decision',
 }
 
 /**

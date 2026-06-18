@@ -6,7 +6,7 @@
 import { join, basename } from 'path';
 import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import type { MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
+import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
@@ -190,8 +190,8 @@ export class MemdirMemoryScanner {
             filename: relativePath,
             filePath,
             mtimeMs: stats.mtimeMs,
-            description: frontmatter.description || null,
-            type: frontmatter.type,
+            description: (frontmatter.description as string) || null,
+            type: frontmatter.type as string | undefined,
           };
         })
       );

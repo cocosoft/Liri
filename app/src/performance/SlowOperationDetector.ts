@@ -234,6 +234,7 @@ export class SlowOperationDetector {
       );
     } catch (error) {
       // 忽略错误
+      console.error('写入慢操作日志失败:', error);
     }
   }
 

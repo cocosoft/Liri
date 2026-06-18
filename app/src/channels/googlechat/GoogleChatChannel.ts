@@ -13,6 +13,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { TTLCache } from '@modules/utils/cache';
 
 const GOOGLE_CHAT_API_BASE = 'https://chat.googleapis.com/v1';
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -125,21 +126,12 @@ async function getGoogleChatAccessToken(
  * 消息去重（基于 sender + space + text 组合，5 秒窗口）
  */
 class GoogleChatDedup {
-  private cache = new Map<string, number>();
-  private readonly ttlMs = 5000;
+  private cache = new TTLCache<number>(10000, 5000);
 
   claim(key: string): boolean {
-    const now = Date.now();
-    this.evict(now);
     if (this.cache.has(key)) return false;
-    this.cache.set(key, now + this.ttlMs);
+    this.cache.set(key, Date.now());
     return true;
-  }
-
-  private evict(now: number): void {
-    for (const [k, expires] of this.cache) {
-      if (expires < now) this.cache.delete(k);
-    }
   }
 
   clear(): void {

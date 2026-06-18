@@ -69,8 +69,7 @@ function optimizeStartupEnv(): void {
  */
 async function dumpSystemPrompt(): Promise<void> {
   const contextModule: Record<string, unknown> =
-    // @ts-expect-error - context.js 没有类型声明文件
-    await import('../context/context.js');
+    await import('../context/context');
   const getSystemContext = contextModule.getSystemContext as () => Promise<
     Record<string, unknown>
   >;

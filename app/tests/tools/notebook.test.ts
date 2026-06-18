@@ -195,7 +195,7 @@ describe('NotebookManager', () => {
     if (existsSync(testDir)) {
       try {
         rmSync(testDir, { recursive: true, force: true });
-      } catch {}
+      } catch {} /* 清理临时目录, 忽略错误 */
     }
   });
 

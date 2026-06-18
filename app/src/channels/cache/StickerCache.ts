@@ -1,7 +1,9 @@
 /**
- * StickerCache 贴纸 LRU 缓存
- * 对标 Hermes 的贴纸缓存机制
+ * StickerCache 贴纸缓存
+ * 基于 TTLCache 实现，支持容量控制和统计
  */
+
+import { TTLCache } from '@modules/utils/cache';
 
 /**
  * 贴纸元数据
@@ -27,38 +29,28 @@ export interface StickerMeta {
   accessCount: number;
 }
 
-/**
- * LRU 贴纸缓存节点
- */
-interface CacheNode {
-  key: string;
+/** TTLCache 内部存储值类型 */
+interface StickerCacheValue {
   meta: StickerMeta;
   data: Buffer | null;
-  prev: CacheNode | null;
-  next: CacheNode | null;
 }
 
 /**
- * StickerCache - 基于 LRU 的贴纸缓存
+ * StickerCache - 基于 TTLCache 的贴纸缓存
  */
 export class StickerCache {
+  private cache: TTLCache<StickerCacheValue>;
   private capacity: number;
-  private cache: Map<string, CacheNode>;
-  private head: CacheNode | null;
-  private tail: CacheNode | null;
-  private hits: number;
-  private misses: number;
+  private hits = 0;
+  private misses = 0;
+  private cachedKeys: string[] = [];
 
   /**
    * @param capacity 最大缓存条目数（默认 200）
    */
   constructor(capacity: number = 200) {
     this.capacity = capacity;
-    this.cache = new Map();
-    this.head = null;
-    this.tail = null;
-    this.hits = 0;
-    this.misses = 0;
+    this.cache = new TTLCache<StickerCacheValue>(capacity, 86400000);
   }
 
   /**
@@ -67,18 +59,17 @@ export class StickerCache {
    * @returns 贴纸元数据与数据缓冲区，未命中返回 null
    */
   get(key: string): { meta: StickerMeta; data: Buffer | null } | null {
-    const node = this.cache.get(key);
+    const value = this.cache.get(key);
 
-    if (!node) {
+    if (!value) {
       this.misses++;
       return null;
     }
 
     this.hits++;
-    node.meta.accessCount++;
-    this.moveToHead(node);
+    value.meta.accessCount++;
 
-    return { meta: node.meta, data: node.data };
+    return { meta: value.meta, data: value.data };
   }
 
   /**
@@ -88,33 +79,14 @@ export class StickerCache {
    * @param data 贴纸二进制数据
    */
   set(key: string, meta: StickerMeta, data: Buffer | null = null): void {
-    const existing = this.cache.get(key);
-
-    if (existing) {
-      existing.meta = {
-        ...meta,
-        cachedAt: Date.now(),
-        accessCount: existing.meta.accessCount,
-      };
-      existing.data = data;
-      this.moveToHead(existing);
-      return;
-    }
-
-    if (this.cache.size >= this.capacity) {
-      this.evictTail();
-    }
-
-    const node: CacheNode = {
-      key,
+    this.cache.set(key, {
       meta: { ...meta, cachedAt: Date.now(), accessCount: 0 },
       data,
-      prev: null,
-      next: null,
-    };
+    });
 
-    this.cache.set(key, node);
-    this.addToHead(node);
+    if (!this.cachedKeys.includes(key)) {
+      this.cachedKeys.push(key);
+    }
   }
 
   /**
@@ -128,14 +100,13 @@ export class StickerCache {
    * 删除指定缓存
    */
   delete(key: string): boolean {
-    const node = this.cache.get(key);
+    const result = this.cache.delete(key);
 
-    if (!node) return false;
+    if (result) {
+      this.cachedKeys = this.cachedKeys.filter((k) => k !== key);
+    }
 
-    this.removeNode(node);
-    this.cache.delete(key);
-
-    return true;
+    return result;
   }
 
   /**
@@ -143,8 +114,7 @@ export class StickerCache {
    */
   clear(): void {
     this.cache.clear();
-    this.head = null;
-    this.tail = null;
+    this.cachedKeys = [];
     this.hits = 0;
     this.misses = 0;
   }
@@ -160,9 +130,10 @@ export class StickerCache {
     hitRate: number;
   } {
     const total = this.hits + this.misses;
+    const stats = this.cache.getStats();
 
     return {
-      size: this.cache.size,
+      size: stats.size,
       capacity: this.capacity,
       hits: this.hits,
       misses: this.misses,
@@ -174,53 +145,6 @@ export class StickerCache {
    * 获取所有缓存的贴纸键列表
    */
   keys(): string[] {
-    return Array.from(this.cache.keys());
-  }
-
-  private addToHead(node: CacheNode): void {
-    node.prev = null;
-    node.next = this.head;
-
-    if (this.head) {
-      this.head.prev = node;
-    }
-
-    this.head = node;
-
-    if (!this.tail) {
-      this.tail = node;
-    }
-  }
-
-  private removeNode(node: CacheNode): void {
-    if (node.prev) {
-      node.prev.next = node.next;
-    } else {
-      this.head = node.next;
-    }
-
-    if (node.next) {
-      node.next.prev = node.prev;
-    } else {
-      this.tail = node.prev;
-    }
-
-    node.prev = null;
-    node.next = null;
-  }
-
-  private moveToHead(node: CacheNode): void {
-    if (node === this.head) return;
-
-    this.removeNode(node);
-    this.addToHead(node);
-  }
-
-  private evictTail(): void {
-    if (!this.tail) return;
-
-    const key = this.tail.key;
-    this.removeNode(this.tail);
-    this.cache.delete(key);
+    return this.cachedKeys.filter((k) => this.cache.has(k));
   }
 }

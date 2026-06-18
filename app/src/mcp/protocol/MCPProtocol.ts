@@ -18,7 +18,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 export class MCPProtocolError extends AppError {
   constructor(
     message: string,
-    public code: string,
+    public override code: string,
     public data?: unknown
   ) {
     super(message, ErrorCategory.OPERATION, ErrorSeverity.MEDIUM, code);

@@ -1,5 +1,6 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
+import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -561,84 +562,39 @@ export interface CacheOptions {
 
 /**
  * 内存缓存
+ * 基于标准 TTLCache 实现，委托 TTL/过期管理给标准实现。
  */
 export class MemoryCache<T> {
-  private cache: Map<string, CacheItem<T>> = new Map();
-  private maxSize: number;
-  private maxAge: number;
-  private cleanupInterval: number;
-  private sizeCalculator: (value: T) => number;
-  private currentSize: number = 0;
-  private cleanupTimer: NodeJS.Timeout | null = null;
+  /** 标准缓存实例，接管 TTL/过期/逐出管理 */
+  private cache: TTLCache<T>;
+  /** 默认过期时间（毫秒） */
+  private defaultMaxAge: number;
 
   constructor(options: CacheOptions = {}) {
-    this.maxSize = options.maxSize ?? 1024 * 1024 * 1024; // 1GB
-    this.maxAge = options.maxAge ?? 3600000; // 1 hour
-    this.cleanupInterval = options.cleanupInterval ?? 60000; // 1 minute
-    this.sizeCalculator =
-      options.sizeCalculator ?? ((value) => JSON.stringify(value).length);
-
-    this.startCleanup();
+    const maxSize = options.maxSize ?? 1024 * 1024 * 1024;
+    this.defaultMaxAge = options.maxAge ?? 3600000;
+    this.cache = new TTLCache<T>(maxSize, this.defaultMaxAge);
   }
 
   /**
    * 设置缓存项
    */
   set(key: string, value: T, maxAge?: number): void {
-    const size = this.sizeCalculator(value);
-    const now = Date.now();
-    const expiry = now + (maxAge ?? this.maxAge);
-
-    // 移除旧项
-    if (this.cache.has(key)) {
-      const oldItem = this.cache.get(key)!;
-      this.currentSize -= oldItem.size || 0;
-    }
-
-    // 检查大小
-    while (this.currentSize + size > this.maxSize) {
-      this.evictOldest();
-    }
-
-    this.cache.set(key, {
-      value,
-      expiry,
-      createdAt: now,
-      accessedAt: now,
-      size,
-    });
-
-    this.currentSize += size;
+    this.cache.set(key, value, maxAge);
   }
 
   /**
    * 获取缓存项
    */
   get(key: string): T | undefined {
-    const item = this.cache.get(key);
-    if (!item) return undefined;
-
-    // 检查是否过期
-    if (Date.now() > item.expiry) {
-      this.remove(key);
-      return undefined;
-    }
-
-    // 更新访问时间
-    item.accessedAt = Date.now();
-    this.cache.set(key, item);
-
-    return item.value;
+    const val = this.cache.get(key);
+    return val ?? undefined;
   }
 
   /**
    * 移除缓存项
    */
   remove(key: string): boolean {
-    const item = this.cache.get(key);
-    if (item) {
-      this.currentSize -= item.size || 0;
-    }
     return this.cache.delete(key);
   }
 
@@ -647,97 +603,41 @@ export class MemoryCache<T> {
    */
   clear(): void {
     this.cache.clear();
-    this.currentSize = 0;
   }
 
   /**
    * 检查缓存项是否存在
    */
   has(key: string): boolean {
-    const item = this.cache.get(key);
-    if (!item) return false;
-
-    // 检查是否过期
-    if (Date.now() > item.expiry) {
-      this.remove(key);
-      return false;
-    }
-
-    return true;
+    return this.cache.has(key);
   }
 
   /**
-   * 获取缓存大小
+   * 获取缓存项数量
    */
   size(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 
   /**
-   * 获取缓存占用大小
+   * 获取缓存占用大小（近似值，基于标准缓存估算）
    */
   getCurrentSize(): number {
-    return this.currentSize;
+    return this.cache.size() * 1024;
   }
 
   /**
-   * 驱逐最旧的缓存项
-   */
-  private evictOldest(): void {
-    if (this.cache.size === 0) return;
-
-    let oldestKey = '';
-    let oldestTime = Infinity;
-
-    for (const [key, item] of this.cache.entries()) {
-      if (item.accessedAt < oldestTime) {
-        oldestKey = key;
-        oldestTime = item.accessedAt;
-      }
-    }
-
-    if (oldestKey) {
-      this.remove(oldestKey);
-    }
-  }
-
-  /**
-   * 清理过期项
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    for (const [key, item] of this.cache.entries()) {
-      if (now > item.expiry) {
-        this.remove(key);
-      }
-    }
-  }
-
-  /**
-   * 开始自动清理
-   */
-  private startCleanup(): void {
-    this.cleanupTimer = setInterval(() => {
-      this.cleanup();
-    }, this.cleanupInterval);
-  }
-
-  /**
-   * 停止自动清理
+   * 停止自动清理（标准 TTLCache 无定时器，空操作）
    */
   stopCleanup(): void {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-      this.cleanupTimer = null;
-    }
+    // TTLCache 在访问时惰性清理，无需停止定时器
   }
 
   /**
    * 销毁缓存
    */
   destroy(): void {
-    this.stopCleanup();
-    this.clear();
+    this.cache.clear();
   }
 }
 

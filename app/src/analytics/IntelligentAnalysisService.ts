@@ -3,18 +3,20 @@
  * 实现高级数据分析和智能洞察
  */
 
-import { analyticsService } from './AnalyticsService.js';
-import { performanceMonitoringService } from './PerformanceMonitoringService.js';
+import { analyticsService } from './AnalyticsService';
+import { performanceMonitoringService } from './PerformanceMonitoringService';
 
 /**
  * 智能分析服务类
  */
 class IntelligentAnalysisService {
+  private insights: any[] = [];
+  private maxInsights = 1000;
+  private analysisInterval = 60000;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  static instance: IntelligentAnalysisService;
+
   constructor() {
-    this.insights = [];
-    this.maxInsights = 1000;
-    this.analysisInterval = 60000; // 1分钟
-    this.intervalId = null;
     this.initialize();
   }
 
@@ -33,7 +35,7 @@ class IntelligentAnalysisService {
    */
   initialize() {
     // 注册事件监听器
-    analyticsService.on('eventTracked', (event) => {
+    analyticsService.on('eventTracked', (event: any) => {
       this.analyzeEvent(event);
     });
 
@@ -81,7 +83,7 @@ class IntelligentAnalysisService {
    * 分析事件
    * @param event 事件记录
    */
-  analyzeEvent(event) {
+  analyzeEvent(event: any) {
     // 分析错误事件
     if (event.type === 'error') {
       this.analyzeErrorEvent(event);
@@ -97,7 +99,7 @@ class IntelligentAnalysisService {
    * 分析会话
    * @param session 会话信息
    */
-  analyzeSession(session) {
+  analyzeSession(session: any) {
     // 分析会话持续时间
     if (session.totalDuration > 3600000) {
       // 超过1小时
@@ -126,7 +128,7 @@ class IntelligentAnalysisService {
    * 分析错误事件
    * @param event 错误事件
    */
-  analyzeErrorEvent(event) {
+  analyzeErrorEvent(event: any) {
     this.generateInsight('error_trend', {
       title: '错误事件',
       description: `发生错误: ${event.name}`,
@@ -140,7 +142,7 @@ class IntelligentAnalysisService {
    * 分析性能事件
    * @param event 性能事件
    */
-  analyzePerformanceEvent(event) {
+  analyzePerformanceEvent(event: any) {
     const duration = event.metadata.duration_ms;
     if (duration && duration > 1000) {
       this.generateInsight('performance_issue', {
@@ -181,7 +183,7 @@ class IntelligentAnalysisService {
 
     // 分析平均会话持续时间
     const totalDuration = sessions.reduce(
-      (sum, session) => sum + session.totalDuration,
+      (sum: number, session: any) => sum + session.totalDuration,
       0
     );
     const averageDuration = totalDuration / sessions.length;
@@ -229,7 +231,7 @@ class IntelligentAnalysisService {
    * @param type 洞察类型
    * @param insightData 洞察数据
    */
-  generateInsight(type, insightData) {
+  generateInsight(type: string, insightData: any) {
     const insight = {
       id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
@@ -256,7 +258,7 @@ class IntelligentAnalysisService {
    * @param options 查询选项
    * @returns 洞察列表
    */
-  getInsights(options = {}) {
+  getInsights(options: Record<string, any> = {}) {
     let result = [...this.insights];
 
     if (options.type) {
@@ -279,7 +281,7 @@ class IntelligentAnalysisService {
       result = result.filter((insight) => insight.timestamp <= options.endTime);
     }
 
-    result.sort((a, b) => b.timestamp - a.timestamp);
+    result.sort((a: any, b: any) => b.timestamp - a.timestamp);
 
     if (options.limit) {
       result = result.slice(0, options.limit);

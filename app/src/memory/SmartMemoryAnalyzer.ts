@@ -3,7 +3,8 @@
  * 提供深度记忆分析、模式识别和知识图谱构建功能
  */
 
-import type { Memory, MemoryMetadata, MemoryQuery } from './types/Memory.js';
+import type { Memory } from './types/Memory.js';
+import type { MemoryMetadata } from './types/MemoryMetadata.js';
 
 export interface MemoryPattern {
   patternId: string;
@@ -212,7 +213,7 @@ export class SmartMemoryAnalyzer {
     if (memories.length < 5) return false;
 
     // 按时间排序
-    const sortedMemories = [...memories].sort((a, b) => a.created - b.created);
+    const sortedMemories = [...memories].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
     // 检查复杂度是否随时间增加
     let complexityIncrease = 0;
@@ -271,7 +272,7 @@ export class SmartMemoryAnalyzer {
     };
 
     memories.forEach((memory) => {
-      const dayOfWeek = new Date(memory.created).getDay();
+      const dayOfWeek = new Date(memory.createdAt).getDay();
       counts[dayOfWeek]++;
     });
 
@@ -450,7 +451,7 @@ export class SmartMemoryAnalyzer {
   private generateTrendInsight(memories: Memory[]): MemoryInsight | null {
     if (memories.length < 5) return null;
 
-    const sortedMemories = [...memories].sort((a, b) => a.created - b.created);
+    const sortedMemories = [...memories].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const complexityTrend = this.analyzeComplexityTrend(sortedMemories);
 
     if (complexityTrend.direction !== 'stable') {
@@ -614,7 +615,7 @@ export class SmartMemoryAnalyzer {
     let similarity = 0;
     let comparisonCount = 0;
 
-    const fields = ['type', 'category', 'tags', 'priority'] as const;
+    const fields = ['type', 'tags', 'priority'] as const;
 
     fields.forEach((field) => {
       if (metadata1[field] && metadata2[field]) {
@@ -666,8 +667,8 @@ export class SmartMemoryAnalyzer {
    * 提取记忆标签
    */
   private extractMemoryLabel(memory: Memory): string {
-    if (memory.metadata?.title) {
-      return memory.metadata.title;
+    if (memory.metadata?.name) {
+      return memory.metadata.name;
     }
 
     if (memory.content) {

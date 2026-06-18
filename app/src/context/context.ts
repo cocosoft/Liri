@@ -10,7 +10,7 @@
 export async function getSystemContext() {
   try {
     // 系统信息
-    const systemInfo = {
+    const systemInfo: Record<string, any> = {
       platform: process.platform,
       arch: process.arch,
       nodeVersion: process.version,
@@ -40,6 +40,7 @@ export async function getSystemContext() {
       };
     } catch (error) {
       // Git信息获取失败，忽略
+      console.error('获取Git信息失败:', error);
     }
 
     return systemInfo;

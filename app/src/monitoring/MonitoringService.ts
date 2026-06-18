@@ -295,6 +295,7 @@ export class MonitoringService {
           this.addMetric('system.load.15m', loadAvg[2]);
         } catch (error) {
           // 忽略错误
+          console.error('获取系统负载失败:', error);
         }
       }
 
@@ -452,6 +453,7 @@ export class MonitoringService {
       }
     } catch (error) {
       // 忽略错误
+      console.error('执行失败:', error);
     }
 
     return {

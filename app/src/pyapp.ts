@@ -212,6 +212,7 @@ const PROJECT_DIRS = ['app'];
       }
     } catch (_e) {
       // 静默忽略
+      console.error('创建项目目录失败:', _e);
     }
   }
 }

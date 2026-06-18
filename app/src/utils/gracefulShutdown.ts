@@ -3,14 +3,14 @@
  * 处理应用的优雅关闭流程
  */
 
-let shutdownHandlers = [];
+let shutdownHandlers: any[] = [];
 let isShuttingDown = false;
 
 /**
  * 注册关闭处理函数
  * @param {Function} handler - 关闭处理函数
  */
-export function registerShutdownHandler(handler) {
+export function registerShutdownHandler(handler: any) {
   shutdownHandlers.push(handler);
 }
 

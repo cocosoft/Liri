@@ -52,9 +52,11 @@ export const InstallType = {
  * 诊断服务类
  */
 class DiagnosticsService {
+  private results: any[] = [];
+  private installType = InstallType.UNKNOWN;
+  static instance: DiagnosticsService;
+
   constructor() {
-    this.results = [];
-    this.installType = InstallType.UNKNOWN;
   }
 
   /**
@@ -95,7 +97,7 @@ class DiagnosticsService {
    * @param category 诊断类别
    * @returns 诊断结果列表
    */
-  async runDiagnosticsByCategory(category) {
+  async runDiagnosticsByCategory(category: string) {
     this.results = [];
 
     switch (category) {
@@ -659,7 +661,7 @@ class DiagnosticsService {
    * 添加诊断结果
    * @param result 诊断结果
    */
-  addResult(result) {
+  addResult(result: Record<string, any>) {
     this.results.push({
       id: randomUUID(),
       timestamp: Date.now(),
@@ -672,8 +674,8 @@ class DiagnosticsService {
    * @returns 诊断摘要
    */
   getSummary() {
-    const byLevel = {};
-    const byCategory = {};
+    const byLevel: Record<string, any> = {};
+    const byCategory: Record<string, any> = {};
 
     for (const result of this.results) {
       byLevel[result.level] = (byLevel[result.level] || 0) + 1;

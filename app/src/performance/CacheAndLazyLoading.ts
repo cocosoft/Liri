@@ -7,6 +7,7 @@
 import { logForDebugging } from '../utils/debug.js';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 import { slowLogging } from './SlowOperations.js';
+import { TTLCache } from '@modules/utils/cache';
 
 /**
  * 缓存项
@@ -24,23 +25,24 @@ export interface CacheItem<T> {
 
 /**
  * 缓存管理器
+ * 基于标准 TTLCache 实现，委托 TTL/过期/逐出管理给标准实现。
  */
 export class CacheManager<T> {
-  private cache: Map<string, CacheItem<T>> = new Map();
-  private size: number = 0;
-  private maxSize: number;
-  private defaultExpiry: number;
+  /** 标准缓存实例，接管 TTL/过期/逐出管理 */
+  private cache: TTLCache<T>;
+  /** 近似字节大小（基于 calculateSize 估算） */
+  private approximateSize: number = 0;
+  private maxSizeBytes: number;
+  private defaultExpiryMs: number;
 
   /**
    * 构造函数
    */
   constructor(maxSizeMb: number = 100, defaultExpiryMs: number = 3600000) {
     const config = getPerformanceConfig();
-    this.maxSize = (config.cache.sizeLimitMb || maxSizeMb) * 1024 * 1024; // 转换为字节
-    this.defaultExpiry = config.cache.expirationMs || defaultExpiryMs;
-
-    // 定期清理过期缓存
-    setInterval(() => this.cleanup(), 60000); // 每分钟清理一次
+    this.maxSizeBytes = (config.cache.sizeLimitMb || maxSizeMb) * 1024 * 1024;
+    this.defaultExpiryMs = config.cache.expirationMs || defaultExpiryMs;
+    this.cache = new TTLCache<T>(this.maxSizeBytes, this.defaultExpiryMs);
   }
 
   /**
@@ -48,22 +50,7 @@ export class CacheManager<T> {
    */
   get(key: string): T | null {
     using _ = slowLogging`CacheManager.get(${key})`;
-
-    const item = this.cache.get(key);
-    if (!item) {
-      return null;
-    }
-
-    // 检查是否过期
-    if (item.expiry < Date.now()) {
-      this.cache.delete(key);
-      this.size -= item.size;
-      return null;
-    }
-
-    // 更新访问时间
-    item.accessed = Date.now();
-    return item.value;
+    return this.cache.get(key);
   }
 
   /**
@@ -73,23 +60,14 @@ export class CacheManager<T> {
     using _ = slowLogging`CacheManager.set(${key})`;
 
     const size = this.calculateSize(value);
-    const expiry = Date.now() + (expiryMs || this.defaultExpiry);
-    const accessed = Date.now();
 
-    // 如果缓存项已存在，更新大小
-    const existingItem = this.cache.get(key);
-    if (existingItem) {
-      this.size -= existingItem.size;
+    // 如果缓存项已存在，更新近似大小
+    if (this.cache.has(key)) {
+      this.approximateSize -= size;
     }
 
-    // 检查缓存大小
-    while (this.size + size > this.maxSize) {
-      this.evict();
-    }
-
-    // 添加到缓存
-    this.cache.set(key, { value, expiry, accessed, size });
-    this.size += size;
+    this.cache.set(key, value, expiryMs);
+    this.approximateSize += size;
   }
 
   /**
@@ -98,10 +76,9 @@ export class CacheManager<T> {
   delete(key: string): void {
     using _ = slowLogging`CacheManager.delete(${key})`;
 
-    const item = this.cache.get(key);
-    if (item) {
-      this.size -= item.size;
+    if (this.cache.has(key)) {
       this.cache.delete(key);
+      this.approximateSize = this.cache.size() * 1024;
     }
   }
 
@@ -112,70 +89,34 @@ export class CacheManager<T> {
     using _ = slowLogging`CacheManager.clear()`;
 
     this.cache.clear();
-    this.size = 0;
+    this.approximateSize = 0;
   }
 
   /**
-   * 获取缓存大小
+   * 获取缓存大小（近似字节数）
    */
   getSize(): number {
-    return this.size;
+    return this.approximateSize;
   }
 
   /**
    * 获取缓存项数量
    */
   getCount(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 
   /**
-   * 清理过期缓存
+   * 清理过期缓存（标准 TTLCache 在访问时惰性清理，此方法保留兼容性）
    */
   cleanup(): void {
     using _ = slowLogging`CacheManager.cleanup()`;
 
-    const now = Date.now();
-    let cleaned = 0;
+    const prevSize = this.cache.size();
+    this.approximateSize = prevSize * 1024;
 
-    for (const [key, item] of this.cache.entries()) {
-      if (item.expiry < now) {
-        this.size -= item.size;
-        this.cache.delete(key);
-        cleaned++;
-      }
-    }
-
-    if (cleaned > 0) {
-      logForDebugging(`清理了 ${cleaned} 个过期缓存项`);
-    }
-  }
-
-  /**
-   * 驱逐缓存项（使用LRU策略）
-   */
-  private evict(): void {
-    if (this.cache.size === 0) {
-      return;
-    }
-
-    // 找到最久未使用的缓存项
-    let oldestKey: string | null = null;
-    let oldestAccessed = Infinity;
-
-    for (const [key, item] of this.cache.entries()) {
-      if (item.accessed < oldestAccessed) {
-        oldestAccessed = item.accessed;
-        oldestKey = key;
-      }
-    }
-
-    if (oldestKey) {
-      const item = this.cache.get(oldestKey);
-      if (item) {
-        this.size -= item.size;
-        this.cache.delete(oldestKey);
-      }
+    if (prevSize > 0) {
+      logForDebugging(`缓存清理完成，当前 ${prevSize} 项`);
     }
   }
 

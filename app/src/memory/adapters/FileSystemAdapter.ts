@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import { promises as fs, Stats } from 'fs';
 import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
@@ -226,7 +226,7 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
    * @param filePath 文件路径
    * @returns 文件信息
    */
-  async getFileInfo(filePath: string): Promise<fs.Stats | null> {
+  async getFileInfo(filePath: string): Promise<Stats | null> {
     try {
       return await fs.stat(filePath);
     } catch (error) {

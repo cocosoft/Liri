@@ -104,8 +104,6 @@ export interface TeamMemorySyncConfig {
 /**
  * 默认配置
  */
-import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
 
 const DEFAULT_CONFIG: TeamMemorySyncConfig = {
   serverUrl: '',
@@ -473,7 +471,7 @@ export class TeamMemorySyncService {
       const validation = this.secretScanner.validate(content);
       if (!validation.valid) {
         throw new AppError(
-          validation.message,
+          validation.message ?? 'Secret scan failed',
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           '1000'

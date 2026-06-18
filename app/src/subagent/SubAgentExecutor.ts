@@ -2,7 +2,7 @@
  * 子agent执行器
  */
 import { SubAgent, SubAgentTask, SubAgentResult } from './types/SubAgent';
-import { ToolResult } from '../tools/types/ToolResult';
+import { ToolResult, ToolExecutionStatus } from '../tools/types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -57,7 +57,7 @@ export class SubAgentExecutor {
       return {
         id: `result_${Date.now()}`,
         taskId: task.id,
-        status: 'failure',
+        status: ToolExecutionStatus.FAILURE,
         content: '',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -88,10 +88,9 @@ export class SubAgentExecutor {
       // 这里可以实现工具执行逻辑
       // 目前返回一个模拟的工具执行结果
       return {
-        id: `tool_result_${Date.now()}`,
-        status: 'success',
+        status: ToolExecutionStatus.SUCCESS,
         output: `Tool ${toolCall.toolName} executed successfully`,
-        error: null,
+        error: undefined,
         result: {},
         executionTime: 100,
         toolName: toolCall.toolName,
@@ -104,11 +103,10 @@ export class SubAgentExecutor {
       this.handleError(subAgent, error as Error);
 
       return {
-        id: `tool_result_${Date.now()}`,
-        status: 'failure',
+        status: ToolExecutionStatus.FAILURE,
         output: '',
         error: error instanceof Error ? error.message : 'Unknown error',
-        result: null,
+        result: undefined,
         executionTime: 0,
         toolName: toolCall.toolName,
         executionId: `exec_${Date.now()}`,

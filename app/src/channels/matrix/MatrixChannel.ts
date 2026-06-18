@@ -10,6 +10,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { handleError } from '@modules/error/handleError';
+import { TTLCache } from '@modules/utils/cache';
 
 const MATRIX_META: ChannelMeta = {
   id: 'matrix',
@@ -39,21 +40,12 @@ const MATRIX_CAPABILITIES: ChannelCapabilities = {
  * 消息去重（基于 eventId，5 秒窗口）
  */
 class MatrixDedup {
-  private cache = new Map<string, number>();
-  private readonly ttlMs = 5000;
+  private cache = new TTLCache<number>(10000, 5000);
 
   claim(key: string): boolean {
-    const now = Date.now();
-    this.evict(now);
     if (this.cache.has(key)) return false;
-    this.cache.set(key, now + this.ttlMs);
+    this.cache.set(key, Date.now());
     return true;
-  }
-
-  private evict(now: number): void {
-    for (const [k, expires] of this.cache) {
-      if (expires < now) this.cache.delete(k);
-    }
   }
 
   clear(): void {

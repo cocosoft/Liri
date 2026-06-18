@@ -8,16 +8,9 @@ import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolvePyappHome } from '@modules/core/paths';
-import type {
-  MemoryFile,
-  MemoryType,
-  MemoryLayer,
-  MemdirService,
-} from './MemdirService';
-import type {
-  MemdirMemoryScanner,
-  RelevantMemoryResult,
-} from './MemoryScanner';
+import { type MemoryFile, MemoryType, MemoryLayer, MemdirService } from './MemdirService';
+import { MemdirMemoryScanner } from './MemoryScanner';
+import type { RelevantMemoryResult } from './MemoryScanner';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -405,6 +398,10 @@ Add your memory content here...
    */
   private countByType(memoryFiles: MemoryFile[]): Record<MemoryType, number> {
     const counts: Record<MemoryType, number> = {
+      [MemoryType.USER]: 0,
+      [MemoryType.FEEDBACK]: 0,
+      [MemoryType.PROJECT]: 0,
+      [MemoryType.REFERENCE]: 0,
       [MemoryType.USER_FACT]: 0,
       [MemoryType.USER_PREFERENCE]: 0,
       [MemoryType.PROJECT_KNOWLEDGE]: 0,

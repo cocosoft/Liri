@@ -17,6 +17,7 @@ import type {
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { handleError } from '@modules/error/handleError';
+import { TTLCache } from '@modules/utils/cache';
 
 interface DirectoryEntry {
   id: string;
@@ -79,21 +80,12 @@ interface DiscordState {
 
 /** 消息去重（基于 messageId，60 秒窗口，与路由层 content dedup 对齐） */
 class DiscordDedup {
-  private cache = new Map<string, number>();
-  private readonly ttlMs = 60000;
+  private cache = new TTLCache<number>(10000, 60000);
 
   claim(key: string): boolean {
-    const now = Date.now();
-    this.evict(now);
     if (this.cache.has(key)) return false;
-    this.cache.set(key, now + this.ttlMs);
+    this.cache.set(key, Date.now());
     return true;
-  }
-
-  private evict(now: number): void {
-    for (const [k, expires] of this.cache) {
-      if (expires < now) this.cache.delete(k);
-    }
   }
 
   clear(): void {

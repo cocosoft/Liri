@@ -4,7 +4,7 @@ import {
   WHEN_TO_ACCESS_SECTION,
   TRUSTING_RECALL_SECTION,
 } from './memoryTypes.js';
-import { DIR_EXISTS_GUIDANCE } from './MemoryPromptService.js';
+import { DIR_EXISTS_GUIDANCE } from './MemoryPromptBuilder.js';
 
 /**
  * Team memory types section for memory prompts.

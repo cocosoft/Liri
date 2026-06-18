@@ -5,6 +5,7 @@
  */
 
 import type { Message } from '../types/message.js';
+import { MessageRole, MessageType } from '../types/message.js';
 
 export interface AwaySummaryConfig {
   /** 离开多少分钟后生成摘要（默认5分钟） */
@@ -68,7 +69,7 @@ export function getRecentMessagesForSummary(
  * 离开摘要服务类
  */
 export class AwaySummaryService {
-  private config: AwaySummaryConfig;
+  public config: AwaySummaryConfig;
   private lastActiveTime: number;
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
   private isBlurred: boolean = false;
@@ -185,11 +186,12 @@ export class AwaySummaryService {
   createAwaySummaryMessage(summary: string): Message {
     return {
       id: `away_summary_${Date.now()}`,
-      role: 'system',
+      role: MessageRole.SYSTEM,
       content: summary,
-      type: 'normal',
+      type: MessageType.NORMAL,
       subtype: 'away_summary',
-      timestamp: Date.now(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
       isMeta: false,
       isCompactSummary: false,
     };

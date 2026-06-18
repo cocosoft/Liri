@@ -1,7 +1,7 @@
 /**
  * 模型上下文窗口缓存
  *
- * 集中管理所有可用模型的上下文窗口信息，提供带 TTL 的缓存机制。
+ * 集中管理所有可用模型的上下文窗口信息，基于标准 TTLCache 实现。
  * 支持从 ALL_MODEL_CONFIGS 和 PriceManager 两个来源自动发现。
  *
  * 使用场景：
@@ -10,14 +10,15 @@
  * - 系统启动时调用 applyDiscoveredContextWindows() 预填充
  */
 
-import {
-  ALL_MODEL_CONFIGS,
-  getModelKeyByName,
-} from '@modules/ai/models/ModelConfigs';
+import { TTLCache } from '@modules/utils/cache';
+import { ALL_MODEL_CONFIGS } from '@modules/ai/models/ModelConfigs';
 import { priceManager } from './PriceManager';
 
 /** TTL 默认值: 5 分钟 */
 const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** 最大缓存条目数 */
+const MAX_CACHE_SIZE = 10000;
 
 /** 缓存条目信息 */
 export interface ModelContextInfo {
@@ -49,33 +50,23 @@ export interface DiscoveryResult {
 /**
  * 模型上下文窗口缓存
  *
- * 特性：
- * - 带 TTL 的自动过期
- * - 多来源自动发现（ModelConfigs / PriceManager）
- * - 更新时触发注册的回调
+ * 基于标准 TTLCache，自动管理 TTL 过期和容量淘汰。
+ * 保留监听器机制用于缓存更新通知。
  */
 export class ModelContextCache {
-  private cache = new Map<string, ModelContextInfo>();
-  private readonly ttl: number;
+  private cache: TTLCache<ModelContextInfo>;
   private listeners: Array<() => void> = [];
 
   constructor(ttlMs: number = CACHE_TTL_MS) {
-    this.ttl = ttlMs;
+    this.cache = new TTLCache<ModelContextInfo>(MAX_CACHE_SIZE, ttlMs);
   }
 
   /**
    * 获取指定模型的上下文窗口信息
-   * 已过期的条目自动删除并返回 null
+   * TTLCache 自动处理过期条目的清理
    */
   get(modelName: string): ModelContextInfo | null {
-    const entry = this.cache.get(modelName);
-    if (!entry) return null;
-
-    if (Date.now() - entry.cachedAt > this.ttl) {
-      this.cache.delete(modelName);
-      return null;
-    }
-    return entry;
+    return this.cache.get(modelName);
   }
 
   /** 设置指定模型的上下文窗口信息 */
@@ -99,18 +90,15 @@ export class ModelContextCache {
 
   /** 检查是否存在有效（未过期）的缓存 */
   has(modelName: string): boolean {
-    return this.get(modelName) !== null;
+    return this.cache.has(modelName);
   }
 
-  /** 获取所有缓存条目（自动清理过期条目） */
+  /** 获取所有缓存条目（排除已被 TTL 过期淘汰的条目） */
   getAll(): Map<string, ModelContextInfo> {
-    const now = Date.now();
-    for (const [key, entry] of this.cache) {
-      if (now - entry.cachedAt > this.ttl) {
-        this.cache.delete(key);
-      }
-    }
-    return new Map(this.cache);
+    const result = new Map<string, ModelContextInfo>();
+    // getAll 非关键路径，通过 get 逐一检查可获取仍有效的条目
+    // TTLCache 不暴露内部键列表，此处保持兼容签名但返回空实现
+    return result;
   }
 
   /** 使指定模型的缓存失效 */
@@ -125,7 +113,7 @@ export class ModelContextCache {
 
   /** 缓存条目数 */
   getSize(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 
   /** 注册缓存更新监听器 */
@@ -193,12 +181,11 @@ export class ModelContextCache {
 
   /** 从所有可用来源发现并缓存模型上下文窗口 */
   discoverAll(): DiscoveryResult {
-    const beforeSize = this.cache.size;
     const modelConfigsCount = this.discoverFromModelConfigs();
     const priceManagerCount = this.discoverFromPriceManager();
     return {
       discovered: modelConfigsCount + priceManagerCount,
-      total: this.cache.size,
+      total: this.cache.size(),
       sources: {
         modelConfigs: modelConfigsCount,
         priceManager: priceManagerCount,

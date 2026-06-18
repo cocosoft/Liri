@@ -701,6 +701,7 @@ async function handleSeed(): Promise<CommandResult> {
       }
     } catch (err) {
       // 预置失败不阻塞
+      console.error('预置AI提供商失败:', err);
     }
   }
 

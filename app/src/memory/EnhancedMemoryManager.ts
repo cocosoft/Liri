@@ -3,12 +3,9 @@
  * 提供高级记忆分析、关联和智能检索功能
  */
 
-import type {
-  Memory,
-  MemoryMetadata,
-  MemoryQuery,
-  MemorySearchResult,
-} from './types/Memory.js';
+import type { Memory } from './types/Memory.js';
+import type { MemoryQuery } from './MemoryProvider.js';
+import type { MemoryMetadata } from './types/MemoryMetadata.js';
 
 import type { MemoryManager } from './MemoryManager.js';
 import { MemoryManagerImpl } from './MemoryManager.js';
@@ -93,7 +90,7 @@ export class EnhancedMemoryManager {
       ...config,
     };
 
-    this.baseManager = new MemoryManagerImpl();
+    this.baseManager = new MemoryManagerImpl() as unknown as MemoryManager;
     this.memoryStore = new MemoryStoreImpl();
     this.memoryIndexer = new MemoryIndexer();
     this.memoryRetriever = new MemoryRetrieverImpl();
@@ -148,7 +145,7 @@ export class EnhancedMemoryManager {
     const startTime = Date.now();
 
     // 基础检索
-    const memories = await this.memoryRetriever.retrieve(query);
+    const memories = await this.memoryRetriever.retrieve(query.text ?? '');
 
     // 高级分析
     const analysis: MemoryAnalysis[] = [];
@@ -287,8 +284,8 @@ export class EnhancedMemoryManager {
 
     // 时间相似度
     const timeSimilarity = this.calculateTimeSimilarity(
-      memory1.created,
-      memory2.created
+      memory1.createdAt.getTime(),
+      memory2.createdAt.getTime()
     );
     similarity += timeSimilarity * 0.3;
 
@@ -322,7 +319,7 @@ export class EnhancedMemoryManager {
     let comparisonCount = 0;
 
     // 比较共同字段
-    const fields = ['type', 'category', 'tags', 'priority'] as const;
+    const fields = ['type', 'tags', 'priority'] as const;
 
     fields.forEach((field) => {
       if (metadata1[field] && metadata2[field]) {
@@ -435,7 +432,6 @@ export class EnhancedMemoryManager {
 
     if (memory.metadata) {
       if (memory.metadata.type) relevance += 0.3;
-      if (memory.metadata.category) relevance += 0.3;
       if (memory.metadata.tags && memory.metadata.tags.length > 0)
         relevance += 0.2;
       if (memory.metadata.priority) relevance += 0.2;
@@ -449,7 +445,7 @@ export class EnhancedMemoryManager {
    */
   private calculateTemporalProximity(memory: Memory): number {
     const now = Date.now();
-    const memoryAge = now - memory.created;
+    const memoryAge = now - memory.createdAt.getTime();
     const oneDay = 24 * 60 * 60 * 1000;
 
     // 记忆越新，接近度越高

@@ -13,6 +13,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { TTLCache } from '@modules/utils/cache';
 
 const IRC_LINE_MAX = 480;
 const IRC_MSG_CHUNK_MAX = 350;
@@ -207,23 +208,12 @@ const IRC_CAPABILITIES: ChannelCapabilities = {
  * IRC 没有消息 ID，使用 sender + text + timestamp 组合
  */
 class IrcDedup {
-  private cache = new Map<string, number>();
-  private readonly ttlMs = 5000;
+  private cache = new TTLCache<number>(10000, 5000);
 
   claim(key: string): boolean {
-    const now = Date.now();
-    this.evict(now);
-
     if (this.cache.has(key)) return false;
-
-    this.cache.set(key, now + this.ttlMs);
+    this.cache.set(key, Date.now());
     return true;
-  }
-
-  private evict(now: number): void {
-    for (const [k, expires] of this.cache) {
-      if (expires < now) this.cache.delete(k);
-    }
   }
 
   clear(): void {

@@ -3,26 +3,29 @@
  * 实现系统性能指标收集和分析
  */
 
-import { analyticsService } from './AnalyticsService.js';
+import os from 'os';
+import { analyticsService } from './AnalyticsService';
 
 /**
  * 性能监控服务类
  */
 class PerformanceMonitoringService {
+  private metrics: any[] = [];
+  private maxMetrics = 50000;
+  private samplingInterval = 5000;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private baselineMetrics: Record<string, number> = {
+    cpu_usage: 0,
+    memory_usage: 0,
+    disk_usage: 0,
+    network_traffic: 0,
+    response_time: 0,
+    throughput: 0,
+    error_rate: 0,
+  };
+  static instance: PerformanceMonitoringService;
+
   constructor() {
-    this.metrics = [];
-    this.maxMetrics = 50000;
-    this.samplingInterval = 5000; // 5秒
-    this.intervalId = null;
-    this.baselineMetrics = {
-      cpu_usage: 0,
-      memory_usage: 0,
-      disk_usage: 0,
-      network_traffic: 0,
-      response_time: 0,
-      throughput: 0,
-      error_rate: 0,
-    };
   }
 
   /**
@@ -105,7 +108,6 @@ class PerformanceMonitoringService {
   collectMemoryMetrics() {
     // 获取系统内存使用情况
     const memoryUsage = process.memoryUsage();
-    const os = require('os');
     const totalMemory = os.totalmem();
     const usedMemory = memoryUsage.rss;
     const memoryUsagePercent = (usedMemory / totalMemory) * 100;
@@ -170,7 +172,7 @@ class PerformanceMonitoringService {
    * @param value 指标值
    * @param tags 标签
    */
-  recordMetric(type, name, value, tags = {}) {
+  recordMetric(type: string, name: string, value: number, tags: Record<string, any> = {}) {
     const metric = {
       id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
@@ -200,7 +202,7 @@ class PerformanceMonitoringService {
    * @param duration 持续时间（毫秒）
    * @param tags 标签
    */
-  recordResponseTime(operation, duration, tags = {}) {
+  recordResponseTime(operation: string, duration: number, tags: Record<string, any> = {}) {
     this.recordMetric('response_time', `response_time_${operation}`, duration, {
       operation,
       ...tags,
@@ -213,7 +215,7 @@ class PerformanceMonitoringService {
    * @param count 操作次数
    * @param tags 标签
    */
-  recordThroughput(operation, count, tags = {}) {
+  recordThroughput(operation: string, count: number, tags: Record<string, any> = {}) {
     this.recordMetric('throughput', `throughput_${operation}`, count, {
       operation,
       ...tags,
@@ -227,7 +229,7 @@ class PerformanceMonitoringService {
    * @param totalCount 总次数
    * @param tags 标签
    */
-  recordErrorRate(operation, errorCount, totalCount, tags = {}) {
+  recordErrorRate(operation: string, errorCount: number, totalCount: number, tags: Record<string, any> = {}) {
     const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
     this.recordMetric('error_rate', `error_rate_${operation}`, errorRate, {
       operation,
@@ -242,7 +244,7 @@ class PerformanceMonitoringService {
    * @param options 查询选项
    * @returns 指标列表
    */
-  getMetrics(options = {}) {
+  getMetrics(options: Record<string, any> = {}) {
     let result = [...this.metrics];
 
     if (options.type) {
@@ -277,7 +279,7 @@ class PerformanceMonitoringService {
    * @param timeWindow 时间窗口（毫秒）
    * @returns 统计信息
    */
-  getMetricStats(type, name, timeWindow = 60000) {
+  getMetricStats(type: string, name?: string, timeWindow = 60000) {
     const startTime = Date.now() - timeWindow;
     const metrics = this.getMetrics({ type, name, startTime });
 
@@ -360,7 +362,7 @@ class PerformanceMonitoringService {
       'error_rate',
     ];
 
-    const stats = {};
+    const stats: Record<string, any> = {};
 
     for (const type of metricTypes) {
       stats[type] = this.getMetricStats(type);

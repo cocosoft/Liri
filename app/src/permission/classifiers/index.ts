@@ -34,11 +34,7 @@ export type {
   BashClassifierConfig,
 } from './BashClassifier.js';
 
-export {
-  AutoModeClassifier,
-  AutoModeStateManager,
-  autoModeStateManager,
-} from './AutoModeClassifier.js';
+export { AutoModeClassifier } from './AutoModeClassifier.js';
 export type {
   ClassifierDecision,
   IAutoModeClassifier,

@@ -517,6 +517,7 @@ export async function launchRepl(
       });
     } catch (error) {
       // 忽略错误
+      console.error('加载命令失败:', error);
     }
     return commands;
   }

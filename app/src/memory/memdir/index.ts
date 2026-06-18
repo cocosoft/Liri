@@ -22,31 +22,15 @@
  * 文件化记忆系统（Memdir）导出文件
  */
 
-export {
-  MemdirService,
-  type MemoryFile,
-  type MemoryType,
-  type MemoryLayer,
-  type MemdirConfig,
-  type EntrypointTruncation,
-} from './MemdirService';
-export { MemdirMemoryScanner } from './MemoryScanner';
-export type {
-  MemoryScanResult,
-  RelevantMemoryResult,
-  MemoryAgingConfig,
-} from './MemoryScanner';
-export {
-  MemoryCommands,
-  type MemoryCommandOptions,
-  type MemoryCommandResult,
-  type AutoMemoryConfig,
-} from './MemoryCommands';
-export {
-  MemoryIntegrationService,
-  type IntegratedMemory,
-  type MemoryIntegrationConfig,
-} from './MemoryIntegrationService';
+import { MemdirService, type MemoryFile, type MemoryType, type MemoryLayer, type MemdirConfig, type EntrypointTruncation } from './MemdirService';
+import { MemdirMemoryScanner, type MemoryScanResult, type RelevantMemoryResult, type MemoryAgingConfig } from './MemoryScanner';
+import { MemoryCommands, type MemoryCommandOptions, type MemoryCommandResult, type AutoMemoryConfig } from './MemoryCommands';
+import { MemoryIntegrationService, type IntegratedMemory, type MemoryIntegrationConfig } from './MemoryIntegrationService';
+
+export { MemdirService, MemoryFile, MemoryType, MemoryLayer, MemdirConfig, EntrypointTruncation };
+export { MemdirMemoryScanner, MemoryScanResult, RelevantMemoryResult, MemoryAgingConfig };
+export { MemoryCommands, MemoryCommandOptions, MemoryCommandResult, AutoMemoryConfig };
+export { MemoryIntegrationService, IntegratedMemory, MemoryIntegrationConfig };
 
 /**
  * 创建默认的记忆集成服务实例

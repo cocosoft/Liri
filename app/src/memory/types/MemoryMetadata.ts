@@ -6,7 +6,8 @@ export type MemoryAccessLevel =
   | 'team'
   | 'project'
   | 'private'
-  | 'protected';
+  | 'protected'
+  | 'admin';
 
 /**
  * 记忆元数据

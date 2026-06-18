@@ -7,9 +7,8 @@ import type { Memory, MemoryStats } from '../types/Memory';
 import type {
   MemoryFile,
   MemdirService,
-  MemoryType,
-  MemoryLayer,
 } from './MemdirService';
+import { MemoryType, MemoryLayer } from './MemdirService';
 import type {
   MemdirMemoryScanner,
   RelevantMemoryResult,
@@ -333,7 +332,7 @@ export class MemoryIntegrationService {
         ...fileMemories.map((file) => ({
           id: `file_${file.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
           content: file.content,
-          source: 'file',
+          source: 'file' as const,
           filePath: file.path,
           type: file.type,
           layer: file.layer,
@@ -350,7 +349,7 @@ export class MemoryIntegrationService {
         ...dbMemories.map((memory) => ({
           id: memory.id,
           content: memory.content,
-          source: 'database',
+          source: 'database' as const,
           type: MemoryType.USER_FACT, // 简化实现
           layer: MemoryLayer.AUTOMEM, // 简化实现
           createdAt: memory.createdAt,
@@ -411,6 +410,10 @@ export class MemoryIntegrationService {
     const allMemories = await this.getAllMemories();
 
     const byType: Record<MemoryType, number> = {
+      [MemoryType.USER]: 0,
+      [MemoryType.FEEDBACK]: 0,
+      [MemoryType.PROJECT]: 0,
+      [MemoryType.REFERENCE]: 0,
       [MemoryType.USER_FACT]: 0,
       [MemoryType.USER_PREFERENCE]: 0,
       [MemoryType.PROJECT_KNOWLEDGE]: 0,

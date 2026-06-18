@@ -2,6 +2,7 @@
  * 分类器管理器
  * 从 AutoModeClassifier.ts 拆分而来，降低文件体积
  */
+import { TTLCache } from '@modules/utils/cache';
 import { AutoModeClassifier } from './AutoModeClassifier';
 import type {
   IAutoModeClassifier,
@@ -19,9 +20,9 @@ export class ClassifierManager {
   private classifier: IAutoModeClassifier | null = null;
 
   /**
-   * 分类器缓存
+   * 分类器缓存（基于标准 TTLCache，自动管理 TTL 过期）
    */
-  private cache = new Map<string, ClassifierDecision>();
+  private cache: TTLCache<ClassifierDecision>;
 
   /**
    * 分类器配置
@@ -31,6 +32,10 @@ export class ClassifierManager {
     cacheEnabled: true,
     cacheTTL: 60000, // 1分钟
   };
+
+  constructor() {
+    this.cache = new TTLCache<ClassifierDecision>(1000, this.config.cacheTTL);
+  }
 
   /**
    * 注册分类器
@@ -70,14 +75,11 @@ export class ClassifierManager {
       };
     }
 
-    // 检查缓存
+    // 检查缓存（TTLCache 自动处理 TTL 过期）
     const cacheKey = this.getCacheKey(toolName, input);
-    if (this.config.cacheEnabled && this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey)!;
-      // 简单的TTL检查
-      if (Date.now() - (cached.durationMs || 0) < this.config.cacheTTL) {
-        return cached;
-      }
+    if (this.config.cacheEnabled) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) return cached;
     }
 
     // 使用分类器

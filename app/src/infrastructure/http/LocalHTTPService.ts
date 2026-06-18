@@ -3049,7 +3049,7 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {}
+      } catch {} /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ taskId, error: 'Not available' }));
@@ -3074,7 +3074,7 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {}
+      } catch {} /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not available' }));
@@ -3102,7 +3102,7 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {}
+      } catch {} /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not available' }));
@@ -3126,7 +3126,7 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         list = m.getAllOrchestrators().map((o: any) => o.getStatus());
-      } catch {}
+      } catch {} /* 可选模块, 加载失败时降级 */
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(list));
     } catch (err) {
@@ -3144,7 +3144,7 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {}
+      } catch {} /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));

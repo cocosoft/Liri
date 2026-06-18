@@ -268,7 +268,7 @@ export class MemoryWatcher {
             timestamp: Date.now(),
             oldFilePath: join(
               this.config.memoryDir,
-              this.findFileByMtime(knownMtime)
+              this.findFileByMtime(knownMtime) ?? ''
             ),
           });
         } else {

@@ -2,7 +2,7 @@
  * env命令 - 环境变量管理
  */
 
-const { Command } = require('../../types/command');
+import { Command } from '../../types/command';
 
 /**
  * env命令实现
@@ -14,7 +14,7 @@ const env = {
   progressMessage: 'Managing environment variables',
   contentLength: 0,
   source: 'builtin',
-  async getPromptForCommand(args) {
+  async getPromptForCommand(args: string[]) {
     const prompt = `
       You are an environment variable manager. Follow these steps:
 
@@ -35,4 +35,4 @@ const env = {
   },
 };
 
-module.exports = env;
+export default env;

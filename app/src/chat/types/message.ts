@@ -526,6 +526,21 @@ export interface Message {
    * 工具调用摘要列表
    */
   toolUseSummaries?: ToolUseSummary[];
+
+  /**
+   * 是否为元消息（用于辅助标记，不计入正常消息流）
+   */
+  isMeta?: boolean;
+
+  /**
+   * 是否为压缩摘要消息
+   */
+  isCompactSummary?: boolean;
+
+  /**
+   * 消息子类型（用于扩展消息分类，如 'away_summary'、'compact_boundary' 等）
+   */
+  subtype?: string;
 }
 
 /**

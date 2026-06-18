@@ -11,6 +11,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import { TTLCache } from '@modules/utils/cache';
 
 const LINE_API_BASE = 'https://api.line.me/v2/bot';
 
@@ -56,21 +57,12 @@ function verifyLineSignature(
  * 消息去重（基于 messageId，5 秒窗口）
  */
 class LineDedup {
-  private cache = new Map<string, number>();
-  private readonly ttlMs = 5000;
+  private cache = new TTLCache<number>(10000, 5000);
 
   claim(key: string): boolean {
-    const now = Date.now();
-    this.evict(now);
     if (this.cache.has(key)) return false;
-    this.cache.set(key, now + this.ttlMs);
+    this.cache.set(key, Date.now());
     return true;
-  }
-
-  private evict(now: number): void {
-    for (const [k, expires] of this.cache) {
-      if (expires < now) this.cache.delete(k);
-    }
   }
 
   clear(): void {
@@ -82,8 +74,7 @@ class LineDedup {
  * 用户档案缓存（5 分钟 TTL）
  */
 class UserProfileCache {
-  private cache = new Map<string, { name: string; expiresAt: number }>();
-  private readonly ttlMs = 5 * 60 * 1000;
+  private cache = new TTLCache<string>(10000, 5 * 60 * 1000);
   private channelAccessToken = '';
 
   setChannelAccessToken(token: string): void {
@@ -92,9 +83,8 @@ class UserProfileCache {
 
   async get(userId: string): Promise<string> {
     const cached = this.cache.get(userId);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.name;
-    }
+    if (cached) return cached;
+
     try {
       const resp = await fetch(`${LINE_API_BASE}/profile/${userId}`, {
         headers: { Authorization: `Bearer ${this.channelAccessToken}` },
@@ -102,7 +92,7 @@ class UserProfileCache {
       if (resp.ok) {
         const data = (await resp.json()) as Record<string, unknown>;
         const name = (data['displayName'] as string) || userId;
-        this.cache.set(userId, { name, expiresAt: Date.now() + this.ttlMs });
+        this.cache.set(userId, name);
         return name;
       }
     } catch {

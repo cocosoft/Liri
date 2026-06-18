@@ -5,15 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-
-/**
- * 缓存项
- */
-interface CacheItem<T> {
-  value: T;
-  timestamp: number;
-  ttl: number;
-}
+import { TTLCache } from '@modules/utils/cache';
 
 /**
  * 性能指标
@@ -36,10 +28,12 @@ interface BatchTask<T> {
 
 /**
  * 性能优化服务类
+ * 使用标准 TTLCache 作为底层缓存，委托 TTL/过期管理给标准实现。
  */
 export class PerformanceOptimizationService extends EventEmitter {
   private static instance: PerformanceOptimizationService;
-  private cache: Map<string, CacheItem<unknown>> = new Map();
+  /** 标准缓存实例，接管 TTL/过期管理 */
+  private cache: TTLCache<unknown> = new TTLCache();
   private metrics: PerformanceMetrics = {
     cacheHits: 0,
     cacheMisses: 0,
@@ -75,21 +69,15 @@ export class PerformanceOptimizationService extends EventEmitter {
    * @returns 缓存值或null
    */
   get<T>(key: string): T | null {
-    const item = this.cache.get(key);
+    const value = this.cache.get(key) as T | null;
 
-    if (!item) {
-      this.metrics.cacheMisses++;
-      return null;
-    }
-
-    if (Date.now() - item.timestamp > item.ttl) {
-      this.cache.delete(key);
+    if (value === null) {
       this.metrics.cacheMisses++;
       return null;
     }
 
     this.metrics.cacheHits++;
-    return item.value as T;
+    return value;
   }
 
   /**
@@ -99,12 +87,7 @@ export class PerformanceOptimizationService extends EventEmitter {
    * @param ttl 过期时间（毫秒）
    */
   set<T>(key: string, value: T, ttl: number = 60000): void {
-    const item: CacheItem<T> = {
-      value,
-      timestamp: Date.now(),
-      ttl,
-    };
-    this.cache.set(key, item as CacheItem<unknown>);
+    this.cache.set(key, value, ttl);
   }
 
   /**
@@ -127,7 +110,7 @@ export class PerformanceOptimizationService extends EventEmitter {
    * @returns 缓存大小
    */
   getCacheSize(): number {
-    return this.cache.size;
+    return this.cache.size();
   }
 
   /**
@@ -136,7 +119,7 @@ export class PerformanceOptimizationService extends EventEmitter {
    */
   startMeasure(): string {
     const id = `measure_${Date.now()}_${Math.random()}`;
-    this.cache.set(id, Date.now() as unknown as CacheItem<unknown>);
+    this.cache.set(id, Date.now());
     return id;
   }
 
@@ -317,6 +300,7 @@ export class PerformanceOptimizationService extends EventEmitter {
 
   /**
    * 启动缓存清理
+   * 标准 TTLCache 在访问时惰性清理，定时器仅用于发出清理事件。
    */
   private startCacheCleanup(): void {
     setInterval(() => {
@@ -326,24 +310,10 @@ export class PerformanceOptimizationService extends EventEmitter {
 
   /**
    * 清理过期缓存
+   * 委托给标准 TTLCache 处理，仅发出清理事件保持兼容。
    */
   private cleanupExpiredCache(): void {
-    const now = Date.now();
-    const keysToDelete: string[] = [];
-
-    for (const [key, item] of this.cache.entries()) {
-      if (now - item.timestamp > item.ttl) {
-        keysToDelete.push(key);
-      }
-    }
-
-    for (const key of keysToDelete) {
-      this.cache.delete(key);
-    }
-
-    if (keysToDelete.length > 0) {
-      this.emit('cacheCleanup', { count: keysToDelete.length });
-    }
+    this.emit('cacheCleanup', { count: 0 });
   }
 
   /**
@@ -360,7 +330,7 @@ export class PerformanceOptimizationService extends EventEmitter {
       totalRequests > 0 ? this.metrics.cacheHits / totalRequests : 0;
 
     return {
-      size: this.cache.size,
+      size: this.cache.size(),
       hitRate,
       totalRequests,
     };

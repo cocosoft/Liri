@@ -8,7 +8,7 @@ import {
   MAX_ENTRYPOINT_LINES,
   MAX_ENTRYPOINT_BYTES,
   truncateEntrypointContent,
-} from './MemoryPromptService.js';
+} from './MemoryPromptBuilder.js';
 
 /**
  * Ensure a memory directory exists. Idempotent — called from loadMemoryPrompt

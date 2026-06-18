@@ -136,7 +136,7 @@ function generateMockSummary(tools: ToolInfo[]): string {
   let target = '';
   if (tool.input && typeof tool.input === 'object') {
     const inputObj = tool.input as Record<string, unknown>;
-    target = inputObj['file'] || inputObj['path'] || inputObj['query'] || '';
+    target = (inputObj['file'] || inputObj['path'] || inputObj['query'] || '') as string;
     if (typeof target === 'string') {
       // 只保留文件名或简短描述
       target = target.split('/').pop() || target;

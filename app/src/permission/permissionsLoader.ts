@@ -54,6 +54,7 @@ export function loadPermissionsFromSettings(
     }
   } catch (e) {
     // 设置文件读取失败时使用默认值，不影响系统启动
+    console.error('读取权限设置文件失败:', e);
   }
 
   return context;

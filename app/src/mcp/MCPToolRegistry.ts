@@ -26,5 +26,5 @@
 export {
   MCPToolRegistry,
   mcpToolRegistry,
-} from '../../services/mcp/MCPToolRegistry.js';
-export type { MCPToolInfo } from '../../services/mcp/MCPToolRegistry.js';
+} from '../services/mcp/MCPToolRegistry.js';
+export type { MCPToolInfo } from '../services/mcp/MCPToolRegistry.js';

@@ -23,14 +23,14 @@
  * 管理和查看技能
  */
 import { join } from 'path';
-import type { Command, CommandContext } from '@modules/commands/types';
+import type { Command, CommandContext } from '@modules/commands';
 import { SkillRegistry } from '@modules/skills/SkillRegistry.js';
 import { SkillSource } from '@modules/skills/types';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader.js';
 import { PluginSkillLoader } from '@modules/skills/loaders/sources/PluginSkillLoader.js';
 import { MCPSkillLoader } from '@modules/skills/loaders/sources/MCPSkillLoader.js';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader.js';
-import { resolveUserSkillsDir, resolveDataDir } from '@modules/core/paths';
+import { resolveUserSkillsDir, resolveDataDir } from '@modules/core';
 
 /** 加载所有技能到注册表 */
 async function loadAllSkills(): Promise<SkillRegistry> {

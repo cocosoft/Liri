@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Vertex AI Provider — Google Vertex AI API 适配
  *
  * 复用 GeminiTransport 处理消息转换和响应归一化，
@@ -15,8 +15,8 @@ import type {
 } from '../models/types';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';

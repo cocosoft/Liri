@@ -3,11 +3,11 @@
  * 与LLM进行对话
  * 集成成本跟踪和多供应商模型支持
  */
-import type { CommandContext } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { modelManager } from '@modules/ai/models/ModelManager.js';
-import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
-import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
+import type { CommandContext } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
+import { modelManager } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
+import { ToolAwareClient } from '@modules/ai';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getConfig, configManager } from '@modules/config/index.js';
 import { ToolRegistry } from '@modules/tools/index.js';
@@ -22,8 +22,8 @@ import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
 import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
-import { modelRouter } from '@modules/ai/modelRouter.js';
-import { handleError } from '@modules/error/handleError';
+import { modelRouter } from '@modules/ai';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('Chat');
 

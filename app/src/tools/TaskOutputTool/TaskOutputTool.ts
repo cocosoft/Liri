@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 任务输出工具
  * 获取运行中或已完成任务的输出
  * 参考CC源码 cc_code/backend/tools/TaskOutputTool/TaskOutputTool.tsx 实现
@@ -17,7 +17,7 @@ import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
 import type { BaseTask } from '@modules/tasks/BaseTask';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 任务输出数据类型

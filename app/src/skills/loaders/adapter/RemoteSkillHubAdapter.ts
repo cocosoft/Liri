@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RemoteSkillHubAdapter
  * 配置驱动的远程技能市场适配器
  *
@@ -14,7 +14,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';

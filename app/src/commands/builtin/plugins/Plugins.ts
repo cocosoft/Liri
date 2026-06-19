@@ -2,8 +2,8 @@
  * Plugins命令实现
  * 插件管理和状态查看
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import { NpmDistributor } from '@modules/plugins/distribution/NpmDistributor';
 
 const logger = getLogger('Plugins');

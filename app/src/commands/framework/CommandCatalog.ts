@@ -2,7 +2,7 @@
  * CommandCatalog 命令目录
  * 增强的命令发现与分类系统，提供命令的层次化组织和多维索引
  */
-import type { Command, CommandType } from '@modules/commands/types';
+import type { Command, CommandType } from '@modules/commands';
 
 /**
  * 命令分类

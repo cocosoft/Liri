@@ -1,5 +1,5 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { isProgressReportingAvailable, type Progress } from './terminal.js';
 import { BEL } from './termio/ansi.js';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 计划模式工具
  * 参考CC源码 cc_code/backend/utils/planModeV2.ts 实现
  * 提供计划生成、管理和执行功能
@@ -16,7 +16,7 @@ import type {
 import type { Tool } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 计划工具输入类型

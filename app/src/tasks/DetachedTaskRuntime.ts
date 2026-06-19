@@ -1,7 +1,7 @@
-import { fork } from 'node:child_process';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { fork } from 'node:child_process';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { join } from 'node:path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

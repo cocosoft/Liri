@@ -22,7 +22,7 @@
  * tag命令 - Git标签管理
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * tag命令实现

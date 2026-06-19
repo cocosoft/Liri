@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 企业微信通道插件
  * 厂商: 腾讯, 协议: 企业微信服务端 API
  * 特色: access_token 自动管理、消息推送(应用消息)、Markdown 支持
@@ -14,8 +14,8 @@ import type {
   IChannelPairingAdapter,
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 
 const WECOM_META: ChannelMeta = {
   id: 'wecom',

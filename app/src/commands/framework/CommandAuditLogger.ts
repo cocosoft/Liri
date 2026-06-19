@@ -2,7 +2,7 @@
  * CommandAuditLogger 命令审计日志
  * 记录命令执行的完整审计信息，支持安全审计和问题追踪
  */
-import type { CommandResult } from '@modules/commands/types';
+import type { CommandResult } from '@modules/commands';
 
 /**
  * 审计事件类型

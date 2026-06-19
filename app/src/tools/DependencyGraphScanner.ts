@@ -1,4 +1,4 @@
-/**
+﻿/**
  * O-01 阶段一：依赖图扫描工具
  *
  * 扫描 app/src/ 下所有 .ts 文件的 import 语句，
@@ -19,8 +19,8 @@ import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
 } from '@modules/modules/ModuleDefinitions';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { resolveCacheDir } from '@modules/core/paths';
+import { getLogger } from '@modules/monitoring';
+import { resolveCacheDir } from '@modules/core';
 
 const logger = getLogger('DependencyGraphScanner');
 

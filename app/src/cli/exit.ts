@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 退出处理模块
  * 处理CLI退出流程
  */
 
 import chalk from 'chalk';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('exit');
 

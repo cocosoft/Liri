@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 统一会话网关
  * 整合所有Session相关模块，提供统一入口
  */
@@ -6,8 +6,8 @@
 import { randomUUID } from 'crypto';
 import path from 'node:path';
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveSessionsDir, resolveDataDir } from '@modules/core';
 import {
   createTranscriptManager,
   TranscriptManager,

@@ -1,5 +1,5 @@
-import { ParallelExecutor } from './ParallelExecutor';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { ParallelExecutor } from './ParallelExecutor';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 interface ToolDescriptor {
   execute(

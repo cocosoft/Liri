@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+﻿#!/usr/bin/env bun
 /**
  * plugify 脚手架
  * 自动将模块包装为标准插件，生成 Plugin 包装器和契约测试
@@ -8,7 +8,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('plugify');
 
@@ -53,7 +53,7 @@ function generatePluginCode(moduleName: string, description: string): string {
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('plugify');
 

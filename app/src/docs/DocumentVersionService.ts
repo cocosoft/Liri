@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 文档版本管理服务
  * 提供文档版本控制、历史记录和回滚功能
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveDataSubDir } from '@modules/core';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';

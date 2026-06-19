@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件化记忆系统（Memdir）实现
  * 支持分层记忆模型、记忆文件扫描、相关记忆检索
  */
@@ -6,9 +6,9 @@
 import { join } from 'path';
 import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AWS 认证工具
  *
  * 管理 AWS 凭证的获取、缓存和验证。
@@ -9,7 +9,7 @@ import { promisify } from 'util';
 import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const execAsync = promisify(exec);
 

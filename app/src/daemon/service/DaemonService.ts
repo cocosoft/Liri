@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DaemonService 跨平台守护进程服务管理
  * 支持 systemd (Linux)、launchd (macOS)、schtasks (Windows) 三平台
  */
@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { CronScheduler } from '@modules/chronos/types';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core';
 
 /**
  * 平台类型

@@ -22,7 +22,7 @@
  * theme命令 - 主题管理
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * theme命令实现

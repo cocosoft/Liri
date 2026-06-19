@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 插件契约系统
  * 定义每个插件分类的接口契约，插件必须满足对应契约才能激活
  * 对齐 OpenClaw plugins/contracts/ 设计
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   PLUGIN_CATEGORIES,
   validatePluginInterfaces,

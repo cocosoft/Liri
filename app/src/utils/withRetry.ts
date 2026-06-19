@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 请求重试机制
  * 为API调用提供自动重试能力，支持指数退避
  *
@@ -14,8 +14,8 @@
  * - bridge/api/BridgeApi.ts — Bridge API 内部重试
  * */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 远程Agent通信协议实现
  */
@@ -10,7 +10,7 @@ import {
   RemoteAgentTask,
   RemoteExecutionResult,
 } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const DEFAULT_OPTIONS: ProtocolOptions = {
   timeout: 30000,

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 会话制品管理器
  * 管理会话期间生成的代码文件、patch、diff等
  * 对齐 OpenClaw config/sessions/artifacts.ts
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   existsSync,
   writeFileSync,
@@ -42,7 +42,7 @@ export interface ArtifactConfig {
   maxTotalSize: number;
 }
 
-import { resolveArtifactsDir } from '@modules/core/paths';
+import { resolveArtifactsDir } from '@modules/core';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 

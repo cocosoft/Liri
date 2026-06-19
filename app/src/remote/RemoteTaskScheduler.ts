@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * 远程任务调度服务
  * 提供在远程服务器上调度和管理任务的功能
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

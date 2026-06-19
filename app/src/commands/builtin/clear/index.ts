@@ -22,7 +22,7 @@
  * 清空命令
  * 清空终端
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * 清空命令

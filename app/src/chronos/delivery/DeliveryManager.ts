@@ -1,9 +1,9 @@
-/**
+﻿/**
  * DeliveryManager 投递管理
  * 对标 OpenClaw 的投递系统
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('DeliveryManager');
 

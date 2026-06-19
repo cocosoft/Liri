@@ -2,12 +2,12 @@ import type {
   AIProvider,
   ChatOptions,
   ThinkingProviderChunk,
-} from '@modules/ai/providers';
-import type { ChatMessage, ChatResponse } from '@modules/ai/models/types';
+} from '@modules/ai';
+import type { ChatMessage, ChatResponse } from '@modules/ai';
 import type {
   IToolExecutor,
   ToolRegistry,
-} from '@modules/ai/interfaces/ToolExecutor';
+} from '@modules/ai';
 
 export class ToolAwareClient {
   private provider: AIProvider;

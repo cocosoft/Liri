@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615275@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,7 +28,7 @@
  */
 
 import type { RouterConfig, RouteDecision } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

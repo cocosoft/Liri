@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 目录监控器
  * 实现文件系统监控和热加载
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

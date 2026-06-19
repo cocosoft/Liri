@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { TTLCache } from '@modules/utils/cache';
 

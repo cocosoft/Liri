@@ -1,5 +1,5 @@
-import { AppError } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+﻿import { AppError } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import type {
   ConversionResult,
   ConversionContext,

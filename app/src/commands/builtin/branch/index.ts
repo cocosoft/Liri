@@ -22,7 +22,7 @@
 /**
  * Branch命令导出
  */
-import type { Command, CommandImplementation } from '@modules/commands/types';
+import type { Command, CommandImplementation } from '@modules/commands';
 
 /**
  * Branch命令定义

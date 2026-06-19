@@ -1,7 +1,7 @@
-import { promises as fs } from 'fs';
+﻿import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
 const logger = new Logger({ level: LogLevel.INFO });

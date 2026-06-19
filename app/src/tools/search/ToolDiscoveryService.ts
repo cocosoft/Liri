@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具发现服务
  * 动态发现和加载延迟工具
  * */
@@ -10,7 +10,7 @@ import {
   DEFAULT_TOOL_SEARCH_CONFIG,
 } from './ToolSearchConfig';
 import { createToolRegistry } from '../ToolRegistry.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

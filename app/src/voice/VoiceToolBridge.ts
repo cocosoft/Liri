@@ -1,10 +1,10 @@
-/**
+﻿/**
  * VoiceToolBridge
  * 实时语音流中的工具调用 ↔ Agent 工具系统桥接
  * 采用异步模式：beginAsyncToolCall → Agent 执行 → finishAsyncToolCall + sendToolResult
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { VoiceToolCallEvent, VoiceToolDeclaration } from './types';
 
 /** 活跃工具调用记录 */

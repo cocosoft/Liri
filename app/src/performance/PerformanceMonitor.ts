@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 性能监控面板
  *
  * 提供轻量级的性能数据查询接口：
@@ -19,7 +19,7 @@ import {
   deferredLoader,
   DeferredLoadState,
 } from '@modules/modules/LazyModuleStrategy';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

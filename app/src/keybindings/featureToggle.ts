@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * 特性开关绑定
  * 动态启用或禁用特定的按键绑定
  */
 import type { KeybindingContextName, ParsedBinding } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import React from 'react';
 
 const logger = new Logger({ level: LogLevel.INFO });

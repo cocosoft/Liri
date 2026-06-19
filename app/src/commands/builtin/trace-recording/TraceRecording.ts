@@ -11,8 +11,8 @@ import {
   mkdirSync,
 } from 'fs';
 import { join, resolve } from 'path';
-import { resolveOutputDir } from '@modules/core/paths';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { resolveOutputDir } from '@modules/core';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 获取 AITracePlugin 实例

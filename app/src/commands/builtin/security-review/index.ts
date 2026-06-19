@@ -26,7 +26,7 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
+} from '@modules/commands';
 
 /**
  * security-review 命令定义

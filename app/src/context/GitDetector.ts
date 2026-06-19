@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * Git状态检测器（参考CC源码 context.ts getGitStatus）
  * 提供memoize缓存的Git状态查询，MAX_STATUS_CHARS=2000限制
@@ -6,7 +6,7 @@
 import { execFileNoThrow } from './execUtils';
 import * as path from 'path';
 import * as fs from 'fs';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const MAX_STATUS_CHARS = 2000;
 

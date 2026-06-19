@@ -4,7 +4,7 @@
  * 对标 CC 源码 reference/cc_code/tools/NotebookEditTool.ts
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { feature } from '@modules/core/featureFlags.js';
 import { notebookManager } from '@modules/tools/notebook/NotebookManager.js';

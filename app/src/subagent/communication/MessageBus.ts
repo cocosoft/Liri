@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 消息总线
  */
 import { Message } from '../SubAgentCommunicator';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

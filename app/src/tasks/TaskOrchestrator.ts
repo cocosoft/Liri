@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TaskOrchestrator - 任务计划编排器
  *
  * 职责：
@@ -22,7 +22,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { taskRegistry } from './TaskRegistry';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@modules/core';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';

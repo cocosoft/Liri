@@ -22,7 +22,7 @@
  * 重启命令
  * 重启应用
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * restart 命令定义

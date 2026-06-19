@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,10 +35,10 @@
 
 import { Database } from 'sqlite3';
 import { randomUUID } from 'node:crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/core/paths';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDbPath } from '@modules/core';
+import { SimpleMutex } from '@modules/core';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
 
 const logger = new Logger({ level: LogLevel.INFO });

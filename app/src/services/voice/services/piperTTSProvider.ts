@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PiperTTSProvider
  * Piper 本地离线 TTS 提供者
  *
@@ -24,8 +24,8 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { randomUUID } from 'crypto';
 import { existsSync, unlinkSync, readFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   TTSProvider,
   TTSVoice,

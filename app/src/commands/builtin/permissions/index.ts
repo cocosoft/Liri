@@ -22,7 +22,7 @@
  * Permissions命令模块入口
  * 支持快速权限操作、权限模式切换、会话规则管理与细粒度权限控制
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const permissionsCommand: Command = {
   type: 'local',

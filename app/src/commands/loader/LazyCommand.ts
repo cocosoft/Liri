@@ -1,5 +1,5 @@
 //
-import type { Command, CommandImplementation } from '@modules/commands/types';
+import type { Command, CommandImplementation } from '@modules/commands';
 
 /**
  * 懒加载命令包装器

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * DM Policy 引擎
  * pairing / allowlist / open 三档安全策略
  * 对齐 OpenClaw channels/dm-policy-shared.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   DmPolicy,
   MessageContext,

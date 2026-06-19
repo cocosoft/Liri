@@ -1,4 +1,4 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * /theme 命令 - 主题管理

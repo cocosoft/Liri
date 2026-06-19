@@ -27,7 +27,7 @@ import type {
   CommandContext,
   CommandType,
   CommandResult,
-} from '@modules/commands/types';
+} from '@modules/commands';
 import { createChatManager } from '@modules/chat/ChatManager.js';
 
 class SessionCommand implements Command {

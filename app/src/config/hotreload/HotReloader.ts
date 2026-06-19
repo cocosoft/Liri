@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, watchFile, unwatchFile, Stats } from 'fs';
+﻿import { existsSync, readFileSync, watchFile, unwatchFile, Stats } from 'fs';
 import { extname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';
 

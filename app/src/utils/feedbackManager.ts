@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 用户反馈模块
  * 实现用户反馈收集、处理和管理功能
  */
@@ -13,7 +13,7 @@ import {
 } from 'fs';
 import { logger } from '../utils/log.js';
 import { sanitizeInput } from '@modules/security';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 
 export interface FeedbackEntry {
   id: string;

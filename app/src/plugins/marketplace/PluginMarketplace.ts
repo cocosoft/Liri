@@ -1,11 +1,11 @@
-/**
+﻿/**
  * PluginMarketplace 插件市场
  * 提供插件市场的浏览、搜索、安装功能
  * 支持多版本、本地缓存、远程同步和更新检查
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 /**
  * 市场插件信息

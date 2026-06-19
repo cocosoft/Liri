@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OAuth核心类型定义
  */
 
@@ -58,7 +58,7 @@ export interface OAuthAuthResult {
   scopes: string[];
 }
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * OAuth错误类型

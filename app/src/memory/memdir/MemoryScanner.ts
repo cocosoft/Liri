@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记忆扫描器实现
  * 支持记忆文件扫描、记忆头信息扫描、相关记忆检索、记忆老化管理
  */
@@ -8,9 +8,9 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

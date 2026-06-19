@@ -9,8 +9,8 @@
  */
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import type { CommandContext } from '@modules/commands/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import type { CommandContext } from '@modules/commands';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const execAsync = promisify(exec);
 

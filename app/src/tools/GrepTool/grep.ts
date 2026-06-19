@@ -1,9 +1,9 @@
-/**
+﻿/**
  * GrepTool - 代码搜索工具
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 export type GrepOutputMode = 'content' | 'files_with_matches' | 'count';
 

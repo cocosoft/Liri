@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,9 +43,9 @@
 
 import { configManager } from '@modules/config/ConfigManager';
 import type { ModelConfig } from '@modules/config/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
-import type { APIProvider } from '@modules/ai/models/ModelConfigs';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { ModelRegistry } from '@modules/ai';
+import type { APIProvider } from '@modules/ai';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

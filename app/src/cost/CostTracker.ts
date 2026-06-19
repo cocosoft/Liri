@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 成本跟踪器
  * 用于跟踪和计算模型使用的成本，参考CC源码的实现
@@ -16,8 +16,8 @@ import {
 import type { CostRecordRepository } from './CostRecordRepository.js';
 import { getOTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
 import type { OTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
-import type { CostRecordedEvent } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core';
+import type { CostRecordedEvent } from '@modules/core';
 
 /**
  * 模型使用信息

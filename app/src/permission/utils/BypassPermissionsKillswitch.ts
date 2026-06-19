@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 绕过权限紧急开关
  * 紧急情况下完全绕过权限检查
  * 参考CC源码 cc_code/backend/utils/permissions/bypassPermissionsKillswitch.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

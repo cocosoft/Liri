@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PrioritySessionLock — 优先级写入锁
  *
  * 在 SessionLock（文件级互斥）之上增加优先级队列：
@@ -13,7 +13,7 @@
  * - 优雅退出时释放所有锁
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { SessionLock } from '../SessionLock';
 import type { LockOptions, LockAcquireResult } from '../SessionLock';
 

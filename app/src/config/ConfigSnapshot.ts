@@ -1,4 +1,4 @@
-import {
+﻿import {
   writeFileSync,
   readFileSync,
   existsSync,
@@ -7,7 +7,7 @@ import {
   readdirSync,
 } from 'fs';
 import { join } from 'path';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { redactConfig } from './ConfigRedactor';
 
 const logger = new Logger();

@@ -2,7 +2,7 @@
  * CommandStateManager 命令状态管理器
  * 管理命令的执行状态、运行时上下文和持久化
  */
-import type { CommandResult } from '@modules/commands/types';
+import type { CommandResult } from '@modules/commands';
 
 /**
  * 命令执行阶段

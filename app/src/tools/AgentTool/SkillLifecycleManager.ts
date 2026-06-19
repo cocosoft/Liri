@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SkillLifecycleManager — 技能生命周期管理器
  *
  * 对标 Hermes curator.py 的自动状态转换逻辑。
@@ -11,10 +11,10 @@
  *   3. Pinned 技能跳过所有自动转换
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

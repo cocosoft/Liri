@@ -1,8 +1,8 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolvePyappHome } from '@modules/core';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import type {
   ScopedMcpServerConfig,

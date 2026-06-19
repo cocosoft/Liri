@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DaemonDiagnostics 守护进程诊断工具
  * 对标 CC 的 --daemon-diagnostics 机制
  */
@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { DiskSpaceMonitor } from '../../core/delivery/monitor/DiskSpaceMonitor';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**

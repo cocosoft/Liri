@@ -1,4 +1,4 @@
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
 import { TaskStatus } from '@modules/tasks/types.js';
 import { NoteTask } from '@modules/tasks/NoteTask.js';

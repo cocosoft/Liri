@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   IChannelPlugin,
   ChannelId,
   ChannelMeta,
@@ -22,9 +22,9 @@ import type {
   RegisterFileInput,
   RegisterFileResult,
 } from '@modules/services/file/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { MultiAccountManager } from '@modules/channels/accounts';
 import type { ResolvedAccount } from '@modules/channels/accounts';
 

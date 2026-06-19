@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+﻿import crypto from 'node:crypto';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
@@ -12,12 +12,12 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import path from 'node:path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 
 const MICROSOFT_LOGIN_BASE = 'https://login.microsoftonline.com';
 const BOT_FRAMEWORK_BASE = 'https://smba.trafficmanager.net/amer';

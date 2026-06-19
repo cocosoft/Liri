@@ -2,7 +2,7 @@
  * Uninstall命令实现
  * 卸载插件、技能、工具等组件
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 interface UninstallTarget {
   type: 'plugin' | 'skill' | 'tool' | 'theme' | 'agent';

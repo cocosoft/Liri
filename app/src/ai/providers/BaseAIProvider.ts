@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,8 +45,8 @@ import type {
   ThinkingProviderChunk,
 } from './AIProvider';
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { modelRouter, type TaskType } from '../modelRouter';
 import { ModelRegistry } from '../models/ModelRegistry';
 import type { APIProvider } from '../models/ModelConfigs';

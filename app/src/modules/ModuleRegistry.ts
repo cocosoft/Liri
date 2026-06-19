@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 模块注册表
  * 统一管理所有模块的注册、查找和依赖解析
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   ModuleCategory,
   type ModuleDefinition,
@@ -287,7 +287,7 @@ export class ModuleRegistry {
    * 使用方式（main.ts 入口处）：
    *
    *   import { moduleRegistry } from './modules/ModuleRegistry';
-   *   import { getDIContainer } from '@modules/core/DIContainer';
+   *   import { getDIContainer } from '@modules/core';
    *   await moduleRegistry.bootstrap(getDIContainer(), { mode: 'repl' });
    *
    * 为避免循环依赖，容器实例通过参数传入而非顶层导入获取。

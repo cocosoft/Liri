@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import type { TaskDependency } from './types';
 import { TaskStatus } from './types';
 import type { TaskRegistry } from './TaskRegistry';

@@ -1,7 +1,7 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { InstalledMCPServer, MCPLocalStoreData } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * MonitoringPlugin
  * 将 monitoring 模块包装为标准 Plugin，通过 PluginAPI 注册监控命令
  */
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   MonitoringService,
   getMonitoringService,

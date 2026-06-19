@@ -1,7 +1,7 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 export interface TrustedDevice {
   deviceId: string;

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -9,7 +9,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 const MATRIX_META: ChannelMeta = {

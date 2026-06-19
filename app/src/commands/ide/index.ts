@@ -22,7 +22,7 @@
  * IDE 命令模块入口
  * 检测系统上已安装的 IDE，支持在当前 IDE 中打开项目目录
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const ideCommand: Command = {
   type: 'local',

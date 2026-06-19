@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * Hook配置管理
  * 负责Hook配置的加载、解析和验证
@@ -10,7 +10,7 @@ import {
   HookEventMetadata,
   MatcherMetadata,
 } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * Hook配置管理器

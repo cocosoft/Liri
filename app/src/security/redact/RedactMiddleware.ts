@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 日志脱敏中间件
  * 对标 Hermes agent/redact.py 的预处理管道
  * 在日志输出前自动执行脱敏，适用于 Logger 和 Gateway 日志输出点
  */
 import { RedactConfigManager } from './RedactConfig';
 import { RuntimeRedactEngine } from './RuntimeRedactEngine';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('RedactMiddleware');
 

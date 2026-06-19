@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Agent 遥测
  * 每轮记录 turnCount/tokens/toolCalls/duration
  * 对齐 OpenClaw agents/harness/v2.ts diagnostic-events
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

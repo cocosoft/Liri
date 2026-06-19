@@ -1,6 +1,6 @@
-import { join } from 'path';
+﻿import { join } from 'path';
 import { getFsImplementation } from '@modules/utils/fsOperations.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {

@@ -1,7 +1,7 @@
-import { appendFile, mkdir, readFile } from 'fs/promises';
+﻿import { appendFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { configManager } from '@modules/config';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@modules/core';
 import type { AnalyticsEvent } from './types';
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import {
@@ -9,7 +9,7 @@ import {
   AnalyticsSeverity,
   getCategoryForEvent,
 } from './AnalyticsSchema';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('AnalyticsPersistenceService');
 

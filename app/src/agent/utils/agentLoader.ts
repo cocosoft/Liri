@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Agent加载器
  * 负责从不同来源加载Agent定义
  */
@@ -13,8 +13,8 @@ import {
 import type { HooksSettings } from '@modules/types/hooks.js';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger();
 
@@ -200,7 +200,7 @@ export async function loadUserAgents(): Promise<AgentDefinition[]> {
   return loadAgentsFromDir(userAgentsDir);
 }
 
-import { resolveDataSubDir, resolvePyappHome } from '@modules/core/paths';
+import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 
 /**
  * 加载项目级Agent

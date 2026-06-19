@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 包括pre-compression、post-compression、session-start等核心Hook
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 import type {
   HookDefinition,

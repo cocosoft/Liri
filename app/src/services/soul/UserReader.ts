@@ -1,11 +1,11 @@
-/**
+﻿/**
  * USER.md 读取器
  * 从 ~/.pyapp/USER.md 读取用户身份定义
  * 对标 OpenClaw USER.md 工作区文件
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveUserProfilePath } from '@modules/core/paths';
+import { resolveUserProfilePath } from '@modules/core';
 
 const USER_FILE_PATH = resolveUserProfilePath();
 

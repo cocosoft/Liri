@@ -1,11 +1,11 @@
-/**
+﻿/**
  * ConsolePlatform — 控制台平台适配器
  *
  * 将消息输出到 stdio，用于 CLI/REPL 模式。
  * 是最简平台实现，作为其他平台适配器的参考。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   PlatformAdapter,
   PlatformConfig,

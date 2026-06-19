@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LongRunningTaskOrchestrator — PDCA 长程任务编排器
  *
  * 四阶段闭环：
@@ -12,7 +12,7 @@
  *   AgentIsolation（隔离）、toolsets（角色权限）
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { taskOrchestrator } from './TaskOrchestrator';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';

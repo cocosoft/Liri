@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 内存快照服务
  * 用于在应用启动和运行过程中捕获内存使用情况
  */
 
 import path from 'path';
 import fs from 'fs';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
 import { logger } from '../utils/log.js';
 

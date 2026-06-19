@@ -22,7 +22,7 @@
  * 添加工作目录命令
  * 将指定目录添加到工作区
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * add-dir 命令定义

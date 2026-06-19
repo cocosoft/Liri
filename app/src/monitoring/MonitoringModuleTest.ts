@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+﻿import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { IncidentManager } from './incidents/IncidentManager';
 import type { Incident } from './incidents/IncidentManager';
 import { DashboardDataProvider } from './dashboard/DashboardDataProvider';
 import { HealthChecker } from './health/HealthChecker';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 describe('IncidentManager', () => {
   let manager: IncidentManager;

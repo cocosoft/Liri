@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DynamicRegistrationService (DRS) 动态注册服务
  * 通道插件的自动发现、动态注册与生命周期管理
  *
@@ -10,7 +10,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import type { IChannelPlugin } from '../types/IChannel';

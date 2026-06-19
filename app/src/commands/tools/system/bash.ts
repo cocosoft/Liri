@@ -3,7 +3,7 @@
  * 对标CC源码实现，支持超时、工作目录、环境变量等高级参数
  */
 
-import type { Command, CommandImplementation } from '@modules/commands/types';
+import type { Command, CommandImplementation } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 主题管理器
  * 提供浅色和深色主题支持，以及自定义主题功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import chalk from 'chalk';
 
 const logger = new Logger({ level: LogLevel.INFO });

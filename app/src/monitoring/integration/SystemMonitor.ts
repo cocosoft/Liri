@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 系统监控集成
  * 提供系统级监控功能
@@ -7,7 +7,7 @@
 import os from 'os';
 import type { NetworkInterfaceInfo } from 'os';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 
 /**
  * 系统信息

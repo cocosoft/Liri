@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 环境变量管理工具
  * 提供环境变量的处理和管理功能
  * 参考CC源码: cc_code/backend/utils/subprocessEnv.ts
  */
 
 import { platform } from 'os';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 
 /**
  * 环境变量选项

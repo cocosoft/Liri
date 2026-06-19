@@ -3,7 +3,7 @@
  * 列出和管理后台任务（BackgroundTask）
  * 对标 CC BackgroundTasksDialog 实现
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import type {
   BackgroundTaskInfo,
   BackgroundTaskStatus,

@@ -22,7 +22,7 @@
  * Slack App安装命令
  * 安装Slack集成应用
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * install-slack-app 命令定义

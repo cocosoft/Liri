@@ -4,7 +4,7 @@
  * 支持三种调度语法：cron 表达式 / every 30m / at 14:00 / @daily
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
 import type {
   CronJob,
@@ -16,7 +16,7 @@ import {
   scheduleToCron,
   scheduleToDisplayText,
 } from '@modules/chronos/cron';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath } from '@modules/core';
 import { configManager } from '@modules/config';
 
 const CRON_DATA_DIR = configManager.env('CRON_DATA_DIR') || '';

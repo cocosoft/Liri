@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具包管理器
  * 管理多个工具组的注册和按需激活
  * 对标 AgentScope Toolkit (_toolkit.py)
@@ -6,7 +6,7 @@
 
 import { BaseTool } from './BaseTool';
 import { ToolGroup } from './ToolGroup';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const TOOLKIT_MODULE = 'Toolkit';
 

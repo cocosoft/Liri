@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 轻量级状态管理
  * 提供简单的状态管理，支持订阅/取消订阅、中间件、选择器等功能
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

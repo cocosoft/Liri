@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 配对白名单存储
  * 持久化已批准的用户配对关系
  * 对齐 OpenClaw device-auth store
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -23,7 +23,7 @@ interface PendingPairing {
   expiresAt: number;
 }
 
-import { resolvePairingsDir } from '@modules/core/paths';
+import { resolvePairingsDir } from '@modules/core';
 
 export class PairingStore {
   private storeDir: string;

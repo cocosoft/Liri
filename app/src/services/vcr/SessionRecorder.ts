@@ -1,8 +1,8 @@
-import { createHash, randomUUID } from 'crypto';
+﻿import { createHash, randomUUID } from 'crypto';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
-import { resolveDataSubDir } from '@modules/core/paths';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataSubDir } from '@modules/core';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 export interface RecordedMessage {

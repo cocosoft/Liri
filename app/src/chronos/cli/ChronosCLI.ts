@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Chronos CLI命令
  * 定时任务管理命令行工具
  */
@@ -11,7 +11,7 @@ import {
   removeCronTasks,
 } from '@modules/chronos/CronTasks';
 import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ChronosCLI');
 

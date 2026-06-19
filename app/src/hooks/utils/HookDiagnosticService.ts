@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 钩子诊断日志服务
  * 提供详细的钩子执行日志记录功能
  */
 
 import * as fs from 'fs';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { resolveLogsDir } from '@modules/core/paths';
+import { getLogger } from '@modules/monitoring';
+import { resolveLogsDir } from '@modules/core';
 
 const logger = getLogger('HookDiagnosticService');
 

@@ -1,0 +1,156 @@
+$ PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-architecture.ts
+宸叉壂鎻?4074 涓?TypeScript 鏂囦欢
+
+杩愯鏋舵瀯鍚堣妫€鏌?..
+
+
+[Console 鍩虹嚎] 褰撳墠 2041 娆¤皟鐢紙鍩虹嚎: 2045锛屼笂闄? 2250锛?  璋冪敤鏈€澶氱殑鏂囦欢:
+    src\commands\builtin\onboard\Onboard.ts: 231 娆?    src\cli\index.ts: 210 娆?    src\plugins\cli\market.ts: 120 娆?    src\cli\handlers\sessionHandler.ts: 79 娆?    src\cli\handlers\diagnoseHandler.ts: 72 娆?
+[Barrel 鏂囦欢] 鍙戠幇 0 涓?barrel 鏂囦欢锛堜粎 re-export锛?
+[Message 妯″瀷] 3 涓枃浠惰嚜瀹?Message 绫诲瀷锛堣鑼冩潵婧? chat/types/message.ts锛?
+[Config/Env] 0 澶?process.env 鐩存帴璁块棶锛? 涓枃浠讹級
+
+[R01-005 鍋ュ悍妫€鏌 7 澶勮嚜寤哄仴搴锋鏌?
+[R02-003 Session 妯″瀷] 2 涓枃浠惰嚜瀹?SessionId/SessionID 绫诲瀷
+
+[R03-002 妯″潡鍑哄彛鍗曚竴] 2362 澶勫瓙鐩綍 import 杩濊
+
+[R03-004 娑堟伅璺敱] 0 澶勭洿鎺?CoreAPI.chat() 璋冪敤
+宸插姞杞?65 涓ā鍧楃殑鍒嗗眰鏄犲皠
+宸插姞杞?5 鏉℃湁鏁堝垎灞備緥澶?
+杩愯鍒嗗眰鍚堣妫€鏌?(R00-001)...
+鍒嗗眰妫€鏌ュ畬鎴? 妫€鏌?3863 涓枃浠?| 杩濊 239 | 宸茶眮鍏?0
+
+========== 鏋舵瀯鍚堣妫€鏌ョ粨鏋?==========
+閿欒: 6  璀﹀憡: 1322  鎬昏: 1328
+========================================
+
+鈿狅笍 [R01-001] 1 鏉¤繚瑙?
+  - src\core\events\UiEventBus.ts
+    鍙兘瀛樺湪鑷缓浜嬩欢鍒嗗彂锛圡ap<string, Handler> 妯″紡锛?    寤鸿: 鏇挎崲涓?core/events/EventBus.ts 鐨?EventBusImpl
+
+鈿狅笍 [R01-002] 8 鏉¤繚瑙?
+  - src\chat\services\SecurityService.ts
+    閿欒绫?SecurityError 宸插湪 error/types.ts 涓畾涔夛紝绂佹閲嶅瀹氫箟
+    寤鸿: 鍒犻櫎姝ゅ畾涔夛紝鏀逛负浠?@modules/error/types 瀵煎叆 SecurityError
+  - src\core\spi\ErrorTypes.ts
+    AppError 鐩存帴 extends Error锛屽簲缁ф壙 AppError
+    寤鸿: 鏀逛负 extends AppError锛堜粠 @modules/error/types 瀵煎叆锛?  - src\error\api\ApiError.ts
+    閿欒绫?APIError 宸插湪 error/types.ts 涓畾涔夛紝绂佹閲嶅瀹氫箟
+    寤鸿: 鍒犻櫎姝ゅ畾涔夛紝鏀逛负浠?@modules/error/types 瀵煎叆 APIError
+  - src\plugins\utils\dependencyResolver.ts
+    閿欒绫?PluginError 宸插湪 error/types.ts 涓畾涔夛紝绂佹閲嶅瀹氫箟
+    寤鸿: 鍒犻櫎姝ゅ畾涔夛紝鏀逛负浠?@modules/error/types 瀵煎叆 PluginError
+  - src\query\ToolErrorCollector.ts
+    閿欒绫?ToolError 宸插湪 error/types.ts 涓畾涔夛紝绂佹閲嶅瀹氫箟
+    寤鸿: 鍒犻櫎姝ゅ畾涔夛紝鏀逛负浠?@modules/error/types 瀵煎叆 ToolError
+  ... 鍙婂叾浠?3 鏉?
+鈿狅笍 [R01-003] 1 鏉¤繚瑙?
+  - src\infrastructure\http\handlers\channel-handlers.ts
+    鍙兘鍖呭惈鑷缓閲嶈瘯閫昏緫
+    寤鸿: 璇蜂娇鐢?utils/withRetry.ts 鐨?withRetry()锛堟爣鍑嗛噸璇曞疄鐜帮級
+
+鈿狅笍 [R02-002] 756 鏉¤繚瑙?
+  - acp\control-plane\manager.ts (class), runtime\acp\session.ts (class)
+    瀵煎嚭 "AcpSessionManager" (class) 鍦?2 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - acp\conversation-id.ts (function), system\state\types.ts (function)
+    瀵煎嚭 "generateSessionId" (function) 鍦?2 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - acp\normalize-text.ts (function), common\utils.ts (function)
+    瀵煎嚭 "isBlank" (function) 鍦?2 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - acp\types.ts (type), system\state\types.ts (type), types\ids.ts (type)
+    瀵煎嚭 "SessionId" (type) 鍦?3 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - agent\AgentCleanup.ts (interface), monitoring\archival\DataArchivalStrategy.ts (interface), monitoring\backup\BackupManager.ts (interface), services\file\FileCleanupService.ts (interface), tasks\types.ts (interface)
+    瀵煎嚭 "CleanupResult" (interface) 鍦?5 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  ... 鍙婂叾浠?751 鏉?
+鈿狅笍 [R03-001] 21 鏉¤繚瑙?
+  - src\acp\control-plane\runtime-cache.ts
+    鍙兘鍖呭惈鑷缓 Cache
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - src\agent\managers\AgentConfigManager.ts
+    鍙兘鍖呭惈鑷缓 ConfigManager
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - src\ai\health\ModelHealthCheck.ts
+    鍙兘鍖呭惈鑷缓 HealthChecker
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - src\ai\localAgent\LocalAgentCache.ts
+    鍙兘鍖呭惈鑷缓 Cache
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - src\ai\prompts\PromptCacheManager.ts
+    鍙兘鍖呭惈鑷缓 Cache
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  ... 鍙婂叾浠?16 鏉?
+鈿狅笍 [R04-001] 298 鏉¤繚瑙?
+  - src\agent\agent.ts
+    鏂囦欢 679 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - src\agent\chains\AgentChain.ts
+    鏂囦欢 532 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - src\agent\memory\AdvancedMemorySystem.ts
+    鏂囦欢 540 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - src\agent\template-market\AgentTemplateMarket.ts
+    鏂囦欢 661 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - src\agent\tool-catalog\index.ts
+    鏂囦欢 611 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  ... 鍙婂叾浠?293 鏉?
+鈿狅笍 [R05-011] 1 鏉¤繚瑙?
+  - core/types.ts
+    瀛樺湪 3 涓枃浠惰嚜琛屽畾涔変簡 Message 绫诲瀷锛屾湭浣跨敤 chat/types/message.ts 鐨勮鑼冨畾涔?    寤鸿: 璇风粺涓€寮曠敤 chat/types/message.ts 鐨?Message 绫诲瀷
+  鍙楀奖鍝嶆枃浠?
+    - core/types.ts (Message)
+    - types/index.ts (Message)
+    - types/message.ts (Message)
+
+鈿狅笍 [R01-005] 1 鏉¤繚瑙?
+  - src\core\flows\doctor-health.ts
+    妫€娴嬪埌 7 澶勮嚜寤哄仴搴锋鏌ワ紙搴旂粺涓€閫氳繃 HealthChecker 娉ㄥ唽锛?    寤鸿: 璇峰皢鎵€鏈夊仴搴锋鏌ラ€昏緫缁熶竴鍒?monitoring/health/HealthChecker.ts 娉ㄥ唽
+  - src\core\flows\doctor-health.ts:124
+  - src\core\flows\doctor-health.ts:152
+  - src\core\flows\doctor-health.ts:159
+  - src\core\flows\doctor-health.ts:170
+  - src\daemon\HealthServer.ts:93
+  - src\entrypoints\api-handler.ts:120
+  - src\infrastructure\http\handlers\route-table.ts:1299
+
+鈿狅笍 [R02-003] 1 鏉¤繚瑙?
+  - system/state/types.ts
+    瀛樺湪 2 涓枃浠惰嚜琛屽畾涔変簡 SessionId/SessionID 绫诲瀷锛屾湭浣跨敤 acp/types.ts 鐨勮鑼冨畾涔?    寤鸿: 璇风粺涓€寮曠敤 acp/types.ts 鐨?SessionId锛坆randed type锛?  鍙楀奖鍝嶆枃浠?
+    - system/state/types.ts (type)
+    - types/ids.ts (type)
+
+鈿狅笍 [R03-002] 1 鏉¤繚瑙?
+  - acp/AcpWebSocketServer.ts
+    瀛樺湪 2362 澶勪粠妯″潡瀛愮洰褰曠洿鎺?import 鐨勮涓猴紙搴旈€氳繃妯″潡 index.ts 鍑哄彛瀵煎叆锛?    寤鸿: 璇锋敼涓轰粠妯″潡 index.ts 鍑哄彛瀵煎叆
+  绀轰緥 (top 5):
+    - acp/AcpWebSocketServer.ts 鈫?@modules/monitoring/logs
+    - acp/AcpWsClient.ts 鈫?@modules/monitoring/logs
+    - acp/control-plane/runtime-cache.ts 鈫?@modules/utils/cache
+    - acp/runtime/errors.ts 鈫?@modules/error/types
+    - agent/agent.ts 鈫?@modules/error/types
+    ... 鍙婂叾浠?2357 澶?
+鈿狅笍 [R00-001] 239 鏉¤繚瑙?
+  - src\acp\AcpWebSocketServer.ts
+    鍒嗗眰杩濊: acp (core) 鈫?monitoring (infra)
+    寤鸿: [core] 鍏佽渚濊禆: core锛屼絾褰撳墠渚濊禆浜?[infra] 鐨?monitoring
+  - src\acp\AcpWsClient.ts
+    鍒嗗眰杩濊: acp (core) 鈫?monitoring (infra)
+    寤鸿: [core] 鍏佽渚濊禆: core锛屼絾褰撳墠渚濊禆浜?[infra] 鐨?monitoring
+  - src\acp\control-plane\runtime-cache.ts
+    鍒嗗眰杩濊: acp (core) 鈫?utils (infra)
+    寤鸿: [core] 鍏佽渚濊禆: core锛屼絾褰撳墠渚濊禆浜?[infra] 鐨?utils
+  - src\acp\runtime\errors.ts
+    鍒嗗眰杩濊: acp (core) 鈫?error (infra)
+    寤鸿: [core] 鍏佽渚濊禆: core锛屼絾褰撳墠渚濊禆浜?[infra] 鐨?error
+  - src\buddy\CompanionSprite.tsx
+    鍒嗗眰杩濊: buddy (app) 鈫?components (ui)
+    寤鸿: [app] 鍏佽渚濊禆: app, service, infra, core锛屼絾褰撳墠渚濊禆浜?[ui] 鐨?components
+  ... 鍙婂叾浠?234 鏉?
+========================================
+瑙勫垯瀹氫箟: .trae/rules/architecture-compliance.md
+========================================
+
+error: script "lint:arch" exited with code 1
+瀛樺湪 ERROR 绾у埆杩濊锛岃淇鍚庨噸鏂版彁浜ゃ€?

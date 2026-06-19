@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EnterpriseAuditService — 企业版审计服务
  *
  * 提供全量审计日志的记录、查询、导出和自动清理。
@@ -8,8 +8,8 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveLogsDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveLogsDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

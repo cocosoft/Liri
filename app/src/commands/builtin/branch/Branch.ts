@@ -7,7 +7,7 @@ import type {
   CommandImplementation,
   CommandResult,
   CommandContext,
-} from '@modules/commands/types';
+} from '@modules/commands';
 
 /**
  * Branch命令实现类

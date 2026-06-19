@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 插件目录管理
  * 负责管理插件的目录结构和路径
  */
 
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**

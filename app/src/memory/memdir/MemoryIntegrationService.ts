@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记忆系统集成服务
  * 将文件化记忆系统（Memdir）与现有数据库记忆系统集成
  */
@@ -18,8 +18,8 @@ import type {
   MemoryCommandOptions,
   MemoryCommandResult,
 } from './MemoryCommands';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

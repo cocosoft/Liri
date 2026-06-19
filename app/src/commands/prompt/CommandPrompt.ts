@@ -5,9 +5,9 @@
  */
 
 import readline from 'readline';
-import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
-import { commandHistoryManager } from '@modules/commands/history/CommandHistoryManager.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getCommandManager } from '@modules/commands';
+import { commandHistoryManager } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CommandPrompt');
 

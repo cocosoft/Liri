@@ -1,8 +1,8 @@
-import { EventEmitter } from 'events';
+﻿import { EventEmitter } from 'events';
 import { join, resolve, dirname } from 'path';
-import { resolveProjectRoot, resolveSecurityDir } from '@modules/core/paths';
+import { resolveProjectRoot, resolveSecurityDir } from '@modules/core';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('SecurityManager');
 

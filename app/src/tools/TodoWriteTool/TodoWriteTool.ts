@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TodoWriteTool - 待办事项管理工具
  *
  * 提供任务清单管理功能
@@ -8,13 +8,13 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolCallProgress } from '../types/Tool';
-import { feature } from '@modules/core/featureFlags';
+import { feature } from '@modules/core';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath, ensureDir } from '@modules/core/paths';
+import { resolveDbPath, ensureDir } from '@modules/core';
 import { dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { SimpleMutex } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

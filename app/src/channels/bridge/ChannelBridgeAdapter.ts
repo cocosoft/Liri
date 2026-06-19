@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,7 +35,7 @@
  * - 销毁时机：ChannelManager 完全退役后移除
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { routeChannelMessage } from '../routing/messageRouter';
 import { handleError } from '../../error/handleError';

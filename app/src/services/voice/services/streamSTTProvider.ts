@@ -1,4 +1,4 @@
-/**
+﻿/**
  * StreamSTTProvider
  * 流式 STT 提供者
  * 通过 WebSocket 实现实时流式语音转文字
@@ -14,8 +14,8 @@
  * ```
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTProviderType,

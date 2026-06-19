@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 增强的MCP配置管理
  * 支持多种配置来源和验证
  */
@@ -9,9 +9,9 @@ import {
   resolvePyappHome,
   resolveDataDir,
   resolveProjectRoot,
-} from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+} from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

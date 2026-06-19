@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AutoDream分布式锁模块
  * 防止多进程同时执行内存整合
  */
@@ -6,8 +6,8 @@
 import { mkdir, readFile, stat, unlink, utimes, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { resolveMemoryDir, resolveSessionsDir } from '@modules/core/paths';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { resolveMemoryDir, resolveSessionsDir } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ConsolidationLock');
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -13,7 +13,7 @@
  *   if (!result.valid) { console.warn(result.warning); }
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 支持Hook的注册、匹配、优先级管理和依赖解析
  */
 
@@ -10,8 +10,8 @@ import type {
   HookPriority,
   HookDependency,
 } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('HookRegistry');
 

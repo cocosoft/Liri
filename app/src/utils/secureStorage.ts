@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 安全存储工具
  *
  * 提供加密文件存储能力，基于 security/Crypto.ts 的加密实现。
@@ -8,7 +8,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { randomBytes } from 'crypto';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import {
   encrypt,
   decrypt,

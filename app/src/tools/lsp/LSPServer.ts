@@ -1,10 +1,10 @@
-/**
+﻿/**
  * LSP服务器管理
  */
 
 import { spawn } from 'child_process';
 import { ServerStatus } from './types/index.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * LSP服务器配置

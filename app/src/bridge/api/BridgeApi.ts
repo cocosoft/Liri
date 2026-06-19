@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bridge API实现
  * 负责与远程服务器的通信
  */
@@ -11,7 +11,7 @@ import {
   PermissionResponseEvent,
 } from '../types';
 import { debugBody, extractErrorDetail } from '../utils/debugUtils';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 指数退避配置

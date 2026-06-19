@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 优雅关闭管理器
  * 30 秒超时，完成进行中任务后关闭
  * 对齐 OpenClaw gateway graceful shutdown
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,12 +33,12 @@
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import type { AIService, AIMessage } from '@modules/ai/models/types';
-import { AIMessageRole } from '@modules/ai/models/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import type { AIService, AIMessage } from '@modules/ai';
+import { AIMessageRole } from '@modules/ai';
 import { getQueryLogStore } from '@modules/query/QueryLogStore';
-import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core/paths';
+import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
 import { IndexManager } from './IndexManager';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 

@@ -1,10 +1,10 @@
-#!/usr/bin/env bun
+﻿#!/usr/bin/env bun
 /**
  * 批量命令测试脚本
  * 一次启动应用，测试多个命令
  */
 import { executeOnce } from '../entrypoints/repl.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('batch-test');
 

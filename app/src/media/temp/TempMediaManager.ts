@@ -1,11 +1,11 @@
-/**
+﻿/**
  * TempMediaManager 媒体临时文件管理
  * 对标 CC 的临时文件管理
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 export interface TempFileConfig {
   baseDir: string;

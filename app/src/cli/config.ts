@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CLI配置管理模块
  * 支持配置文件解析、验证和管理
  *
@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   loadUserSettings,
   saveUserSettings,

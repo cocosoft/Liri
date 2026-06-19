@@ -21,7 +21,7 @@
 /**
  * Plugins命令模块入口
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const pluginsCommand: Command = {
   type: 'local',

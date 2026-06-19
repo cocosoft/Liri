@@ -1,11 +1,11 @@
-/**
+﻿/**
  * MCP客户端管理
  * 负责服务器连接、工具获取、错误处理等
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import type {
@@ -15,7 +15,7 @@ import type {
   SerializedTool,
 } from './types';
 import type { McpCommand } from './commandManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;

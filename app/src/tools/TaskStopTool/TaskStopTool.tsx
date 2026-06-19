@@ -1,9 +1,9 @@
-/**
+﻿/**
  * TaskStopTool - 停止运行中的后台任务
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import { z } from 'zod';
 import { Text, Box } from 'ink';
 import type { Tool } from '../types/index.js';

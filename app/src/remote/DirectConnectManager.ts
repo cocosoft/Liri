@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 直接连接管理器
  * 负责处理cc://协议直接连接
  */
 
 import { logger } from '../utils/log.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 /**

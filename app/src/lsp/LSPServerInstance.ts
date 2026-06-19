@@ -1,9 +1,9 @@
-//
+﻿//
 import { pathToFileURL } from 'url';
 import * as path from 'path';
 
 import type { LspServerState, ScopedLspServerConfig } from './types.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const LSP_ERROR_CONTENT_MODIFIED = -32801;
 const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;

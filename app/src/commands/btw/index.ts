@@ -22,7 +22,7 @@
  * btw命令 - 旁注功能
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * btw命令实现

@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 更新安装管理器
  * 处理更新包的校验、备份和安装
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { join } from 'path';
 import { accessSync, constants, copyFileSync, unlinkSync } from 'fs';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

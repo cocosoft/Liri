@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PYAppStateStore - 集中式状态管理增强接口
  * 在 AppStateStore 基础上提供：
  * 1. 选择性键路径订阅 (on/off)
@@ -8,7 +8,7 @@
  */
 
 import type { AppState, AppStateStore } from './AppState';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 工具处理器
  * 提供通用工具命令处理
  */
 
 import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('utilHandler');
 

@@ -1,12 +1,12 @@
-/**
+﻿/**
  * ChannelPluginRegistry — 通道插件注册表
  * 管理所有 ChannelPlugin 的注册、查找和生命周期
  * 支持按 ID/类型/能力查询
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { ChannelPlugin } from './ChannelPlugin';
 import { ChannelStatus } from './types';
 

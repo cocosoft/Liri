@@ -1,8 +1,8 @@
-import { readFile, readdir } from 'fs/promises';
+﻿import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@modules/core';
 import type { RecordedSession, RecordedMessage } from './SessionRecorder';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export type ReactionOptions = {
   speedMultiplier?: number;

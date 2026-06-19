@@ -1,10 +1,10 @@
-import type { Context } from './types/Context';
+﻿import type { Context } from './types/Context';
 import type { ValidationResult } from './types/ValidationResult';
 import {
   createValidResult,
   createInvalidResult,
 } from './types/ValidationResult';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface IContextInjector {
   inject(context: Context, target: unknown): Promise<void>;

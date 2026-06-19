@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件历史追踪
  *
  * 追踪文件变更历史，创建快照和备份。
@@ -8,7 +8,7 @@ import { stat, readFile, mkdir, copyFile, unlink } from 'fs/promises';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname, relative, isAbsolute, resolve } from 'path';
 import { createHash, randomUUID } from 'crypto';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 /**
  * 文件历史备份信息

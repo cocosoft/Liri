@@ -1,10 +1,10 @@
-/**
+﻿/**
  * YOLO分类器
  * AI自动审批安全操作的分类器
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });

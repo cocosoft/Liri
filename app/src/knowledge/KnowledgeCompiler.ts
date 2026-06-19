@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LLM 知识编译管道 (KnowledgeCompiler)
  * Many-to-many 编译范型 — 对标 Karpathy LLM Wiki 方法论
  *
@@ -16,16 +16,16 @@
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import type { AIService, AIMessage } from '@modules/ai/models/types';
-import { AIMessageRole } from '@modules/ai/models/types';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import type { AIService, AIMessage } from '@modules/ai';
+import { AIMessageRole } from '@modules/ai';
+import { resolvePyappHome } from '@modules/core';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
-import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
+import { providerRegistry } from '@modules/ai';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 命令历史记录管理
  */
 
 import fs from 'fs/promises';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

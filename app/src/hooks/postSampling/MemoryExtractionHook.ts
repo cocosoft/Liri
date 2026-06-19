@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记忆提取Hook
  * 在LLM采样后提取有价值的记忆
  */
@@ -11,7 +11,7 @@ import {
   extractMemories,
   type MemoryType,
 } from '@modules/services/extractMemories';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('MemoryExtractionHook');
 

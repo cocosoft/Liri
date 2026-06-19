@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Skills CLI 命令
  * 基于 SkillRegistry 的统一命令行管理接口
  */
@@ -12,7 +12,7 @@ import { BundledSkillLoader } from '../loaders/sources/BundledSkillLoader';
 import { PluginSkillLoader } from '../loaders/sources/PluginSkillLoader';
 import { MCPSkillLoader } from '../loaders/sources/MCPSkillLoader';
 import { resolveUserSkillsDir, resolveDataDir } from '../../core/paths';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills');
 

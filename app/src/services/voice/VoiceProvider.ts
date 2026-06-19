@@ -1,7 +1,7 @@
-/**
+﻿/**
  * 由 VOICE_MODE feature flag 控制加载
  */
-import { FEATURE_FLAGS } from '@modules/core/featureFlags';
+import { FEATURE_FLAGS } from '@modules/core';
 const feature = (name: keyof typeof FEATURE_FLAGS) =>
   FEATURE_FLAGS[name] ?? false;
 

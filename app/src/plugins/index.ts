@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,8 +40,8 @@ import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
 import { RegistrationStub } from './stub/RegistrationStub';
 import { ClawHubAdapter } from '@modules/skills/loaders/adapter/clawhub/ClawHubAdapter';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   PluginState,
   PluginType,
@@ -55,7 +55,7 @@ import {
 } from './types/PluginTypes';
 import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
 import type { Plugin, SkillContext } from '@modules/plugin-sdk';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

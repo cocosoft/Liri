@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cron创建工具 - 接入新 CronJobStore
  * AI 可通过此工具在聊天中创建定时任务
  */
@@ -6,7 +6,7 @@
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const MAX_JOBS = 50;
 

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * ImageProcessor 图片处理工具
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import fs from 'node:fs';
 import path from 'node:path';
 import { imageFormatDetector } from './ImageFormatDetector';

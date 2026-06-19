@@ -1,6 +1,6 @@
-import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
+﻿import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('FirstPartyEventLogger');
 

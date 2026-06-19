@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ChannelManager — 统一通道生命周期管理（遗留版）
  * 管理所有 GatewayChannel 的注册、启停、消息路由和健康监控
  *
@@ -8,8 +8,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import type { CoreAPI } from '../../runtime/api/CoreAPI';
 import type {
   GatewayChannel,

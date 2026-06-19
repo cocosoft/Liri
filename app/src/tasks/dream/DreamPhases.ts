@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { ForkedDreamExecutor } from './ForkedDreamExecutor';
 import type { ForkedDreamResult } from './ForkedDreamExecutor';
 

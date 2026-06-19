@@ -5,8 +5,8 @@
  */
 
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
-import type { AIService, AIMessage } from '@modules/ai/models/types';
-import { AIMessageRole, AIModelType } from '@modules/ai/models/types';
+import type { AIService, AIMessage } from '@modules/ai';
+import { AIMessageRole, AIModelType } from '@modules/ai';
 import { groupMessagesByApiRound, getMessageTextContent } from './grouping';
 import { getCompactPrompt, getCompactUserSummaryMessage } from './prompt';
 import { roughTokenCountEstimationForMessages } from './utils';

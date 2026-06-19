@@ -1,11 +1,11 @@
-/**
+﻿/**
  * ImageTool
  * 通用图片编辑工具
  * 支持 resize / crop / convert / filter 等编辑操作
  * 复用现有 media/image/ImageProcessor.ts 能力
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';

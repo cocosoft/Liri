@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CommandTTSProvider
  * 自定义命令 TTS 提供者
  * 使用系统自带的命令行工具合成语音
@@ -12,7 +12,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { unlinkSync, writeFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getPlatform } from '@modules/utils/platform';
 import type {
   TTSProvider,

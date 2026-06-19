@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Cron删除工具 - 接入新 CronJobStore
  */
 
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class CronDeleteTool {
   static create(): Tool {

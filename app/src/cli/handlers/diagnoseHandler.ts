@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 诊断处理器
  * 处理 diagnose 命令组，提供网络、健康、调试诊断功能
  */
 
 import chalk from 'chalk';
 import * as os from 'os';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session/SessionGateway';
 import { SlowQueryDetector } from '@modules/query/SlowQueryDetector';

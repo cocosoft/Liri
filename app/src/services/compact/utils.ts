@@ -4,7 +4,7 @@
  * 当原生库不可用时自动降级为启发式估算
  */
 
-import { modelManager } from '@modules/ai/models/ModelManager.js';
+import { modelManager } from '@modules/ai';
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
   null;

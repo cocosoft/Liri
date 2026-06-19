@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ClipboardTool
  * 剪贴板读写工具
  * 跨平台支持：Windows(macOS/Linux 使用 pbpaste/pbcopy/xclip)
@@ -6,7 +6,7 @@
 
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';

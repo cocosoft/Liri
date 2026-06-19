@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI模型管理服务
  * 实现模型别名、上下文窗口管理和模型显示优化
  * 模型数据统一委托给 ModelManager（ModelConfigs 为唯一数据源）
@@ -19,7 +19,7 @@ import {
   supports1MContext as aliasSupports1MContext,
 } from './models/ModelAliases.js';
 import { modelManager } from './models/ModelManager.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 export const MODEL_ALIASES = ['best', 'pro', 'flash', 'fast'] as const;

@@ -12,7 +12,7 @@ import { APIError as BaseAPIError, ErrorSeverity } from '../types';
  * Anthropic SDK APIError 的轻量替代。
  * APISceneClassifier 依赖的字段：status、message、headers
  */
-export class APIError extends BaseAPIError {
+export class APIErrorWithHeaders extends BaseAPIError {
   headers: Record<string, string | undefined> | undefined;
 
   constructor(
@@ -29,7 +29,7 @@ export class APIError extends BaseAPIError {
 /**
  * Anthropic SDK APIConnectionError 的轻量替代。
  */
-export class APIConnectionError extends APIError {
+export class APIConnectionError extends APIErrorWithHeaders {
   constructor(message: string) {
     super(message);
     this.name = 'APIConnectionError';

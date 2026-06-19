@@ -22,7 +22,7 @@
  * Modules命令
  * 模块系统管理：查看模块列表、运行依赖验证
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const modulesCommand: Command = {
   type: 'action',

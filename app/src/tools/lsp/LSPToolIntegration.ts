@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LSP与Tool系统集成模块
  * 实现LSP工具与核心Tool系统的深度集成
  */
@@ -13,7 +13,7 @@ import {
   validateCompletionItem,
   validateDiagnostic,
 } from '@modules/lsp';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * LSP工具集成类

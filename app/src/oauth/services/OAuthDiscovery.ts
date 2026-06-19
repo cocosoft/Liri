@@ -1,13 +1,13 @@
-/**
+﻿/**
  * OAuth Discovery服务
  * 实现RFC 8414 OAuth 2.0授权服务器元数据发现
  * 参考CC源码的多环境配置模式
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'OAuthDiscovery' });
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 /**

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CrashRecoveryManager — 会话崩溃恢复管理器
  *
  * 在应用启动时检测上次异常中断的会话（Status=RUNNING/ACTIVE），
@@ -11,7 +11,7 @@
  * - OpenClaw main-session-restart-recovery.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { SessionStatus } from '../types/Session';
 import type { UnifiedSession } from '../types/Session';
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';

@@ -22,7 +22,7 @@
  * 上下文管理命令
  * 管理当前会话的上下文
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * context 命令定义

@@ -1,4 +1,4 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * Unicode Sanitization for Hidden Character Attack Mitigation

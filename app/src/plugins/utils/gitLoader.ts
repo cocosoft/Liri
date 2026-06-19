@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Git仓库加载工具
  * 支持分支/标签指定、浅克隆等功能
  * 参考CC源码 cc_code/backend/utils/plugins/pluginLoader.ts 实现
@@ -8,7 +8,7 @@ import { execSync } from 'child_process';
 import { promisify } from 'util';
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'GitLoader' });
 

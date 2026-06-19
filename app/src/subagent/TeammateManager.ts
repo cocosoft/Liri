@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Teammate管理器
  * 管理多个teammate的生命周期
  * */
@@ -13,8 +13,8 @@ import {
   MessageHandler,
 } from './backends/TeammateBackend';
 import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

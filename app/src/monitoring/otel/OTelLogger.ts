@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * OpenTelemetry 日志记录器
  */
@@ -6,7 +6,7 @@
 import { diag, DiagLogLevel } from '@opentelemetry/api';
 import type { DiagLogger } from '@opentelemetry/api';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 import { configManager } from '@modules/config';
 
 /**

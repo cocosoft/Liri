@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * Hook设置工具
  * 负责Hook配置的读写和管理
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import { IndividualHookConfig, HookEvent } from '../types';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 

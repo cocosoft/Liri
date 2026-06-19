@@ -1,7 +1,7 @@
-import { promises as fs, Stats } from 'fs';
+﻿import { promises as fs, Stats } from 'fs';
 import { join, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

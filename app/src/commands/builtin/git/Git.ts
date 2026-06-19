@@ -12,8 +12,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { readFile } from 'fs/promises';
 import { join, resolve, dirname } from 'path';
-import type { CommandContext } from '@modules/commands/types';
-import { handleError } from '@modules/error/handleError';
+import type { CommandContext } from '@modules/commands';
+import { handleError } from '@modules/error';
 
 const execAsync = promisify(exec);
 

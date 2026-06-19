@@ -1,11 +1,11 @@
-/**
+﻿/**
  * ImageSvgTool
  * 通过 LLM 生成 SVG 矢量图
  * 适用于图标、流程图、图表、UI 元素等场景
  * 比调用 DALL-E 等图片 API 更经济（仅消耗文本 token）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import aiService from '../../ai/index';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 系统健康检查服务
  * 提供系统资源检测和健康状态评估功能
  */
@@ -10,9 +10,9 @@ import { freemem, totalmem, cpus, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { configManager } from '@modules/config';
-import { getSystemCpuPercent } from '@modules/monitoring/metrics/SystemMetricsCollector';
+import { getSystemCpuPercent } from '@modules/monitoring';
 
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);

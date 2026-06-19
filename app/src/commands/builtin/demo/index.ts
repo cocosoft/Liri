@@ -22,7 +22,7 @@
  * Demo 命令模块入口
  * 离线模式下展示模拟对话预览
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const demoCommand: Command = {
   type: 'local',

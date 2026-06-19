@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DAG 任务编排执行器
  *
  * 对标 Hermes agent_loop.py 的多任务并行编排模式：
@@ -11,9 +11,9 @@
  * 子任务间的依赖关系，执行器自动并行执行独立子任务。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

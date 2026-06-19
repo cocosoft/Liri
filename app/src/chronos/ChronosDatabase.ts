@@ -1,4 +1,4 @@
-import { join } from 'path';
+﻿import { join } from 'path';
 import { Database } from 'sqlite3';
 import type {
   ScheduledTask,
@@ -6,9 +6,9 @@ import type {
   SystemConfig,
   TaskStatus,
 } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/core/paths';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDbPath } from '@modules/core';
+import { SimpleMutex } from '@modules/core';
 
 /**
  * Chronos数据库存储实现

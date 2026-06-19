@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具过滤器管理器
  *
  * 实现三层过滤机制：
@@ -7,7 +7,7 @@
  * 3. MCP 合并 - 合并 MCP 工具
  */
 
-import type { FeatureFlag } from '@modules/core/featureFlags';
+import type { FeatureFlag } from '@modules/core';
 import { Tool, ToolInfo } from './types/Tool';
 import { ToolRegistry } from './ToolRegistry';
 

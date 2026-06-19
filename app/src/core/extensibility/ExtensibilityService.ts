@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +25,7 @@
  * 整合 ModuleManager、ConfigManager、EventBus，提供统一的可扩展性入口。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { PluginType, ModuleType, ModuleState, EventType } from './types.js';
 import type { Config } from './types.js';
 import { ModuleManager, createModuleManager } from './ModuleManager.js';

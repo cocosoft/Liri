@@ -8,10 +8,10 @@ import type {
   CommandContext,
   CommandType,
   CommandResult,
-} from '@modules/commands/types';
+} from '@modules/commands';
 import type { CompactArtifact } from '@modules/services/compact/CompactService';
 import { DefaultContextEngine } from '@modules/query/context/DefaultContextEngine';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const contextEngine = new DefaultContextEngine();
 

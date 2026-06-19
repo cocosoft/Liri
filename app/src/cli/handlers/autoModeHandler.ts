@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 自动模式处理器
  * 处理CLI中的自动模式相关命令
  */
 
 import chalk from 'chalk';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 
 const logger = getLogger('autoModeHandler');
 

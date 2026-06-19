@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 超时控制器
  * 实现命令执行超时控制
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 超时错误

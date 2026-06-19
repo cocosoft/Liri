@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 文件文档提供器
  * 从 docs/ 文件夹加载 Markdown 文档内容，供帮助系统和文档搜索使用
  */
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative, basename, dirname } from 'node:path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 export interface FileDocEntry {
   relativePath: string;

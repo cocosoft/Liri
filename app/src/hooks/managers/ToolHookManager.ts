@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具Hook管理器
  * 负责工具Hook的注册、管理和执行
  */
@@ -13,7 +13,7 @@ import {
   createToolHookCancelledResult,
 } from '../types/ToolHooks';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ToolHookManager');
 

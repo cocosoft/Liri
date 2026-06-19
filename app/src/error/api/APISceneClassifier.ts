@@ -6,10 +6,11 @@
  * 将 API 错误分类为具体场景，支持用户消息生成、重试决策和动作提示。
  */
 
+import { APIError } from '@modules/error';
 import {
   APIConnectionError,
   APIConnectionTimeoutError,
-  APIError,
+  APIErrorWithHeaders,
 } from './ApiError';
 import { extractConnectionErrorDetails } from './errorUtils';
 import { configManager } from '@modules/config';

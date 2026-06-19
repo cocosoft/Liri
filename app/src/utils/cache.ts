@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 缓存模块
  * 提供多级缓存系统，包括内存缓存、带过期的内存缓存和持久化缓存
  */
 
 import { jsonStringify } from './json.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { ICache, CacheStats } from '@modules/cache/types';
 
 const logger = new Logger({ level: LogLevel.INFO });

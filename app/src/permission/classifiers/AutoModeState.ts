@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 自动模式状态管理
  * 管理自动模式的进入/退出条件、电路断开机制
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

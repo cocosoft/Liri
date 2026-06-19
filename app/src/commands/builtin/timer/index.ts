@@ -22,7 +22,7 @@
  * 计时器命令
  * 管理计时器
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * timer 命令定义

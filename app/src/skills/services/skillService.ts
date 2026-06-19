@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 技能服务 — SkillRegistry 的轻量封装
  *
  * 提供对外兼容接口（SkillDefinition），内部委托 SkillRegistry 管理存储。
@@ -9,7 +9,7 @@ import { constants as fsConstants } from 'fs';
 import { mkdir, open, readdir, readFile, stat } from 'fs/promises';
 import { dirname, isAbsolute, join, normalize, sep as pathSep } from 'path';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({});
 
@@ -20,7 +20,7 @@ import type {
   SkillServiceConfig,
 } from '../types';
 import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { SkillRegistry } from '../SkillRegistry';
 import { SkillSource, SkillLoadMethod } from '../types';
 import type { Skill } from '../types';

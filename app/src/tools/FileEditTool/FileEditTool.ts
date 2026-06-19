@@ -1,9 +1,9 @@
-/**
+﻿/**
  * FileEditTool - 文件编辑工具（SearchReplace模式）
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@modules/core';
 import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {
@@ -107,7 +107,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 function normalizeQuotes(str: string): string {
   return str.replace(/\u2018|\u2019/g, "'").replace(/\u201c|\u201d/g, '"');

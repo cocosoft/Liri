@@ -21,7 +21,7 @@
 /**
  * fast命令 - 快速模式聊�? */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * fast命令实现

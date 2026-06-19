@@ -7,8 +7,8 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+} from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import { execSync } from 'node:child_process';
 import {
   existsSync,
@@ -19,7 +19,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
-import { resolveProjectRoot, resolveDataDir } from '@modules/core/paths';
+import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 
 const logger = getLogger('BackupCommand');
 

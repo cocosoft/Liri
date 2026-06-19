@@ -1,0 +1,8 @@
+refactor: 架构合规治理 Phase 1b — 消除重复类型定义 + @modules/ 子路径导入收敛
+
+1. 重复类型消除: AppError/PluginError/APIError/SecurityError/ValidationError/ToolError
+   统一归并到 @modules/error，消除跨模块重复定义
+2. @modules/ 子路径导入收敛: @modules/ai(103处)、@modules/error(83处)、
+   @modules/utils(9处) 全部改为从模块根出口 index.ts 导入
+3. 完善模块出口: ai/index.ts 补充 ModelRegistry、modelManager、APIProvider、
+   AIModelManager、MODEL_ALIASES、detectUnifiedProviders、fetchModels 等缺失导出

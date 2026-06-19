@@ -9,9 +9,9 @@
  * 与系统诊断框架（网络/配置/安全/性能）。
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { DoctorCheck, runDoctorChecks } from './DoctorCheck.js';
-import { detectUnifiedProviders } from '@modules/ai/providers/detectUnifiedProviders.js';
+import { detectUnifiedProviders } from '@modules/ai';
 
 /**
  * 判断是否有任何 API 密钥已配置（通过环境变量）

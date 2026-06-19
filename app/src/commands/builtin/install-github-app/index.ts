@@ -22,7 +22,7 @@
  * GitHub App安装命令
  * 安装GitHub集成应用
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * install-github-app 命令定义

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Notebook工具实现
  */
 
@@ -15,7 +15,7 @@ import { notebookManager } from './NotebookManager.js';
 import { CodeCellImpl, MarkdownCellImpl } from './types/Cell.js';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import { REPLSession } from '../repl/types/index.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * Notebook工具实现

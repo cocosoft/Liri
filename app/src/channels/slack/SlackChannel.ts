@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SlackChannel Slack 通道
  * 参考 OpenClaw 的 Slack 实现
  */
@@ -13,7 +13,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const SLACK_META: ChannelMeta = {
   id: 'slack',

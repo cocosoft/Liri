@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 模块初始化器
  * 统一管理模块的注册、初始化和生命周期
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import { type ModuleDefinition, getRegistry } from './moduleTypes';
 import {
   MODULE_DEFINITIONS,
@@ -24,7 +24,7 @@ import {
   profilePhaseStart,
   profilePhaseEnd,
 } from '../performance/StartupProfiler';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

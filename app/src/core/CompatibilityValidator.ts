@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 兼容性验证器
  * 验证重构后的Core模块与现有系统的兼容性
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { EnhancedModuleDependencyManager } from './EnhancedModuleDependencyManager.js';
 import { StartupOptimizer } from './StartupOptimizer.js';
 import { RemoteConfigManager } from './RemoteConfigManager.js';

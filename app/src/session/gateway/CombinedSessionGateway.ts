@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CombinedSessionGateway — 跨 Agent 会话聚合网关
  *
  * 聚合多个 SessionGateway 实例，每个实例代表一個 Agent/Scope。
@@ -13,7 +13,7 @@
  * - 按 updatedAt 最新胜出
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { SessionGateway } from '../SessionGateway';
 import type { SessionGatewayConfig } from '../SessionGateway';
 import { SessionType } from '../types/Session';

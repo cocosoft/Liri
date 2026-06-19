@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -22,9 +22,9 @@ import { execFile } from 'child_process';
 import { readdir, stat, mkdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolveInboundDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolveInboundDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 路径验证增强
  * 提供细粒度路径权限控制
  */
 
 import { homedir } from 'os';
 import { isAbsolute, resolve, dirname } from 'path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import {
   PathValidationRule,
   ValidationResult,

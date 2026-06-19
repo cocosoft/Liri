@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AppCore 启动增强工具函数
  * 从 AppCore.ts 拆分，保障核心类不超过 500 行。
  *
@@ -8,13 +8,13 @@
  * - 终端状态备份/恢复
  * - 启动报告展示
  */
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
 import { StartupProfiler } from '@modules/utils/startupProfiler.js';
 import { execSync } from 'child_process';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, resolve } from 'path';
-import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
+import { resolveSessionsDir, resolveDataDir } from '@modules/core';
 import { configManager } from '@modules/config';
 import type { AppCoreConfig } from './AppCoreConfig';
 import type { ModuleDependencyManager } from './ModuleDependencyManager.js';

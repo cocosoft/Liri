@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * MCP工具桥接器
  * 将MCP服务器的工具注册到主ToolManager中
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { getToolManager } from '@modules/tools/ToolManager';

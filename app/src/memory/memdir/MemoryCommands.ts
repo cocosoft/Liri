@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记忆命令系统实现
  * 支持 /memory 命令、记忆文件选择器、自动记忆更新
  */
@@ -6,8 +6,8 @@
 import { join } from 'path';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 import { type MemoryFile, MemoryType, MemoryLayer, MemdirService } from './MemdirService';
 import { MemdirMemoryScanner } from './MemoryScanner';
 import type { RelevantMemoryResult } from './MemoryScanner';

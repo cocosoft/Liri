@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';
@@ -17,7 +17,7 @@ import type {
 } from './qos/SessionPriority';
 import { BudgetTracker } from './budget/BudgetTracker';
 import { BudgetEnforcer } from './budget/BudgetEnforcer';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import type {
   SessionTokenBudgetConfig,
   BudgetDecision,

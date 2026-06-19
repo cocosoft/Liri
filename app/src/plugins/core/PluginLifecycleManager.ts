@@ -1,16 +1,16 @@
-/**
+﻿/**
  * 负责管理插件的完整生命周期和状态转换
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   PluginState,
   LoadedPlugin,
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

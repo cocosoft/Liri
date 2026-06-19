@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,12 +35,12 @@
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
 import {
   EmbeddingManager,
   globalEmbeddingManager,
-} from '@modules/ai/embedding/EmbeddingManager';
+} from '@modules/ai';
 import { IndexManager } from './IndexManager';
 
 const logger = new Logger({ level: LogLevel.INFO });

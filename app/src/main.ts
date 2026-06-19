@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+﻿#!/usr/bin/env bun
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
@@ -61,8 +61,8 @@ import {
   resolvePyappHome,
   ensureDataDirectories,
   validatePathConsistency,
-} from '@modules/core/paths';
-import { modelRouter } from '@modules/ai/modelRouter';
+} from '@modules/core';
+import { modelRouter } from '@modules/ai';
 import { configManager } from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
 

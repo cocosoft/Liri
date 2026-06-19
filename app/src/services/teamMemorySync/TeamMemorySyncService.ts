@@ -1,5 +1,5 @@
-import type { Memory } from '@modules/memory/types/Memory';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import type { Memory } from '@modules/memory/types/Memory';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

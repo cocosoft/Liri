@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MCP传输层工厂（统一实现）
  * 负责创建不同类型的传输层实例
  */
@@ -8,7 +8,7 @@ import { HTTPTransport } from './transports/HTTPTransport';
 import { StdioTransport } from './transports/StdioTransport';
 import { WebSocketTransport } from './transports/WebSocketTransport';
 import { SSETransport } from './transports/SSETransport';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MCPServerConfig } from './types';
 import type { McpTlsConfig } from './transports/McpTlsManager';
 

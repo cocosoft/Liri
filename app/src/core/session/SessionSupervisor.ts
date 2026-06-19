@@ -1,9 +1,9 @@
-/**
+﻿/**
  * SessionSupervisor 会话监管器
  * 负责会话生命周期管理：健康检查、空闲检测、自动回收
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { ResetPolicyDecider } from '@modules/session/policy/ResetPolicyDecider';
 import type { ResetPolicy } from '@modules/session/policy/ResetPolicy';
 

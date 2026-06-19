@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * 启动预加载服务
  * 参考CC源码的并行预加载机制，在应用启动时并行执行所有预加载任务
  * 以减少整体启动时间
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'StartupPreloader' });
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VoiceEventBus 实现
  * 事件分发与状态管理，支持 Client→Server 和 Server→Client 双向事件
  *
@@ -8,8 +8,8 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-import { EventBusImpl } from '@modules/core/events/EventBus';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { EventBusImpl } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   VoiceClientEvent,
   VoiceServerEvent,

@@ -24,7 +24,7 @@
  * 管理 AI 供应商（API Provider）
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const providerCommand: Command = {
   type: 'local',

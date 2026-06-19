@@ -7,7 +7,7 @@ import {
 import type { SensitiveError, SensitiveDataConfig } from '@modules/security';
 
 export const SecurityErrorType = SensitiveErrorType;
-export type SecurityError = SensitiveError;
+export type SecurityErrorAlias = SensitiveError;
 export type SecurityConfig = SensitiveDataConfig;
 
 export class SecurityService extends EventEmitter {

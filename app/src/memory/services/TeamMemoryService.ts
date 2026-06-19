@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 团队记忆服务
  * 负责团队记忆的同步和管理
  * 支持项目级、团队级和用户级记忆路径
@@ -19,10 +19,10 @@ interface MemoryManager {
 }
 import * as fs from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDataDir } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import matter from 'gray-matter';
 
 const logger = new Logger({ level: LogLevel.INFO });

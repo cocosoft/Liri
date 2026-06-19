@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * 慢操作检测服务
  * 用于检测和记录执行时间超过阈值的操作
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveLogsDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveLogsDir } from '@modules/core';
 import { configManager } from '@modules/config';
 import path from 'path';
 import fs from 'fs';

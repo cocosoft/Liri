@@ -1,10 +1,10 @@
-/**
+﻿/**
  * PluginDiscovery 插件自动发现系统
  * 自动扫描和发现本地已安装的插件资源
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveProjectRoot, resolvePyappHome } from '@modules/core/paths';
+import { resolveProjectRoot, resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**

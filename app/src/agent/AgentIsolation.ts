@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Agent 执行隔离
  *
  * 每个 Agent 实例拥有独立的 AbortController 和工作目录，
@@ -6,7 +6,7 @@
  */
 
 import { mkdirSync, existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
 
 export interface AgentIsolation {

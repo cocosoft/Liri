@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 采样后置Hook管理器
  */
 
@@ -8,7 +8,7 @@ import type {
   PostSamplingHookResult,
   PostSamplingHookConfig,
 } from '../types/PostSampling';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('PostSamplingHookManager');
 

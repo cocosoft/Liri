@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { parseCronExpression, computeNextCronRun } from '../cron';
 import { listAllCronTasks } from '../CronTasks';
 import type { ScheduledTask } from '../types';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 模拟 Bridge API 客户端
  * 提供本地模拟的 API 实现，无需网络通信即可让整个 Bridge 系统运行
  */
@@ -11,7 +11,7 @@ import type {
   WorkSecret,
   PollConfig,
 } from '../types/index.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 模拟 API 客户端选项

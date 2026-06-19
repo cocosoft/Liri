@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 主题提供者组件
  * 提供主题上下文和主题管理功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import React, {
   createContext,
   useContext,

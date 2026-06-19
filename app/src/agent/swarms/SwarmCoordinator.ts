@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 群组协调器
  * 负责任务分配和结果汇总
  */
@@ -10,7 +10,7 @@ import {
   SwarmExecutionOptions,
 } from './types';
 import { AgentSwarmManager } from './AgentSwarmManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class SwarmCoordinator {
   private swarmManager: AgentSwarmManager;

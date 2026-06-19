@@ -22,7 +22,7 @@
  * AI代理模型类型定义
  */
 
-import { AIModelType } from '@modules/ai/models/types';
+import { AIModelType } from '@modules/ai';
 import type { HooksSettings } from '@modules/types/hooks.js';
 import type { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 

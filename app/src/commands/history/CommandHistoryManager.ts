@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 命令历史记录管理器
  * 负责存储和管理命令历史
  */
 
 import fs from 'fs';
 import path from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CommandHistoryManager');
 

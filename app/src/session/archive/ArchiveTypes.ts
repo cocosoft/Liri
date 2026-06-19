@@ -1,5 +1,5 @@
-import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+﻿import { join } from 'path';
+import { resolveDataDir } from '@modules/core';
 
 export type ArchiveTrigger = 'manual' | 'auto_idle' | 'auto_size' | 'auto_age';
 

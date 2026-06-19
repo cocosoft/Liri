@@ -21,7 +21,7 @@
 /**
  * Diff命令导出
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * Diff命令定义

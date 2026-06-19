@@ -9,8 +9,8 @@
 import {
   ALL_MODEL_CONFIGS,
   getModelKeyByName,
-} from '@modules/ai/models/ModelConfigs';
-import type { ModelKey } from '@modules/ai/models/ModelConfigs';
+} from '@modules/ai';
+import type { ModelKey } from '@modules/ai';
 import { modelContextCache } from '../core/tokenBudget/ModelContextCache';
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =

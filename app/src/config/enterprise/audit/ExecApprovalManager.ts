@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ExecApprovalManager — 工具执行审批管理器
  *
  * 职责：桥接权限系统的 "ASK" 决策与企业版 ApprovalWorkflow。
@@ -18,9 +18,9 @@
 
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

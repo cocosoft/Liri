@@ -1,6 +1,6 @@
-import { configManager } from '@modules/config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+﻿import { configManager } from '@modules/config';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import React, { PureComponent, type ReactNode } from 'react';
 import { logForDebugging, logError } from '../../../utils/debug.js';
 import { isEnvTruthy } from '../../../utils/envUtils.js';

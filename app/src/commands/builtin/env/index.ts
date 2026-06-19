@@ -22,7 +22,7 @@
  * Env 命令模块入口
  * 显示环境变量与系统信息
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const envCommand: Command = {
   type: 'local',

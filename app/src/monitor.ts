@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 监控脚本
  * 用于显示监控数据和性能报告
  */
 
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 import { getMonitoringService } from './monitoring/index.js';
 import { getProcessCpuPercent } from './monitoring/metrics/SystemMetricsCollector.js';
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 全局 CronScheduler 单例
  * 保证整个进程只有一份调度器实例，HTTP handler 和守护进程共享
  */
@@ -9,7 +9,7 @@ import { CronRunLog } from './CronRunLog';
 import { CronAlertService } from './CronAlertService';
 import type { CronJob, CronJobResult } from './types';
 import type { SchedulerCallbacks } from './CronScheduler';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('GlobalCronScheduler');
 

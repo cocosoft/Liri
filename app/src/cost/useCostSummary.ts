@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 成本摘要Hook
  * * 在进程退出时输出成本摘要
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {

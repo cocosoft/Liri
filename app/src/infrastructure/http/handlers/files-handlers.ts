@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,7 @@ import {
   attachmentManager,
   AttachmentSource,
 } from '@modules/components/attachments';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {

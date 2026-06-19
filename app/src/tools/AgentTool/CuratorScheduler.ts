@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CuratorScheduler — 后台技能维护编排器
  *
  * 对标 Hermes agent/curator.py 的空闲触发调度模式。
@@ -12,10 +12,10 @@
  *   4. Fork 后台代理进行技能质量审查
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

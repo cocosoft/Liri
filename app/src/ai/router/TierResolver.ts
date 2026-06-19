@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,9 +27,9 @@
  * 否则通过 ProviderRegistry 的模型前缀匹配自动推导。
  */
 
-import { ProviderRegistry } from '@modules/ai/providers/ProviderRegistry.js';
+import { ProviderRegistry } from '@modules/ai';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

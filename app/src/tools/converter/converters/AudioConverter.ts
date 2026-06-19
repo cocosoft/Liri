@@ -1,8 +1,8 @@
-import { BaseConverter } from '../engine/BaseConverter';
+﻿import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
-import { AppError } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 
 let _depError: Error | null = null;
 let _ffprobe: any = null;

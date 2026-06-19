@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具列表合并Hook
  * * 合并来源：
  * - 内置工具（Built-in Tools）
@@ -6,7 +6,7 @@
  * - 插件工具（Plugin Tools）
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('useMergedTools');
 

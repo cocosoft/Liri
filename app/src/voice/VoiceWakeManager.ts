@@ -1,15 +1,15 @@
-/**
+﻿/**
  * VoiceWakeManager
  * 实时语音唤醒管理
  * 基于 OpenClaw voicewake.ts 设计思路
  * 负责唤醒词配置持久化、唤醒词检测、触发路由
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { join } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

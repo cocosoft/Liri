@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 权限钩子服务
  * 负责管理和执行权限请求钩子
  */
@@ -10,8 +10,8 @@ import {
   RegisteredPermissionHook,
   PermissionHookMetadata,
 } from './types/PermissionHook';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

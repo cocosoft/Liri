@@ -22,7 +22,7 @@
  * 聊天模型类型定义
  */
 
-import { AIMessage, AIModelType } from '@modules/ai/models/types';
+import { AIMessage, AIModelType } from '@modules/ai';
 import { ChatSession } from '../types/session';
 
 /**

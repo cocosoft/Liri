@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 远程会话管理器
  * 负责管理远程会话的连接、消息发送和接收
  */
@@ -9,7 +9,7 @@ import {
   DirectConnectManager,
   parseCCProtocolUrl,
 } from './DirectConnectManager.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 远程会话配置

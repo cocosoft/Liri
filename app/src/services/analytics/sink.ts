@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 分析事件路由
  *
  * 将分析事件路由到不同的后端（日志文件、控制台、HTTP端点）。
@@ -8,7 +8,7 @@
 import { isAnalyticsDisabled } from './config';
 import { attachAnalyticsSink } from './index';
 import type { AnalyticsSink } from './index';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

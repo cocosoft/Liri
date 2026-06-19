@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EnhancedToolSystem - 增强工具系统
  *
  * 整合EnhancedQueryEngine、EnhancedMessage、EnhancedError、EnhancedPerformance、EnhancedExtensibility等功能
@@ -8,7 +8,7 @@ import { ChatManagerImpl } from '../chat/ChatManager.js';
 import { QueryEngine, type QueryEngineConfig } from '../query/QueryEngine.js';
 import { MessageServiceImpl } from '../chat/services/MessageService.js';
 import { ErrorHandler } from '../core/utils/ErrorHandler.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {

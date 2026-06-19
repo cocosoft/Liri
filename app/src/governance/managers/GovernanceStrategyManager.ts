@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 治理策略管理服务
  * 提供治理策略的定义、管理和应用功能
  * 参考CC源码: cc_code/backend/utils/sandbox/sandbox-adapter.ts
@@ -7,8 +7,8 @@
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveGovernanceDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveGovernanceDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

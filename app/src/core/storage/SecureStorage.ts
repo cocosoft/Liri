@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events';
+﻿import { EventEmitter } from 'events';
 import {
   createCipheriv,
   createDecipheriv,
@@ -10,11 +10,11 @@ import {
 import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'SecureStorage' });
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**

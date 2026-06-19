@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OpenAITTSProvider
  * OpenAI TTS 提供者
  * 通过 OpenAI TTS API 合成语音，支持多种语音和格式
@@ -10,7 +10,7 @@ import { createWriteStream, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   TTSProvider,
   TTSVoice,

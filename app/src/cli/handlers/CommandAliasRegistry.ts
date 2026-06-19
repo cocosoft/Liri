@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CommandAliasRegistry — 命令别名注册表
  *
  * 对标 OpenClaw manifest-command-aliases.ts 的别名机制：
@@ -15,7 +15,7 @@
  *   diag health → diagnose health
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CommandAliasRegistry');
 

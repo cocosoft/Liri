@@ -1,10 +1,10 @@
-/**
+﻿/**
  * OpenAIRealtimeAdapter
  * OpenAI Realtime API WebSocket 适配器
  * 实现 VoiceProviderAdapter 接口，对接 OpenAI Realtime API
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   VoiceSessionConfigEvent,
   VoiceServerEvent,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记忆文件观察器
  * 监听记忆目录中的文件变化，自动检测新增、修改、删除的记忆文件
  * 参考CC源码 cc_code/backend/memdir/memoryScan.ts 实现
@@ -7,11 +7,11 @@
 import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 记忆文件变化类型

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HookChain — 三段式 Hook 执行链
  *
  * 统一 before / after / onError 三段式 Hook 机制。
@@ -14,7 +14,7 @@
  * ```
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * Hook 上下文

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 聊天历史
  */
 
 import { ChatMessage, ChatHistoryOptions } from '../models/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from 'fs';
+﻿import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome } from '@modules/core/paths';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolvePyappHome } from '@modules/core';
 
 export type ConfigFormat = 'json' | 'yaml' | 'env';
 

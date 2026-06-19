@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 会话追踪系统
  */
 
@@ -11,7 +11,7 @@ import {
 } from '@opentelemetry/api';
 import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 
 /**
  * Span类型

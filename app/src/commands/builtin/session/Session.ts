@@ -1,5 +1,5 @@
 import { createChatManager } from '@modules/chat/ChatManager.js';
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 const call = async (
   args: string,
   _context?: CommandContext

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 团队创建工具
  * 用于创建多Agent swarm团队
  * 参考CC源码 cc_code/backend/tools/TeamCreateTool/TeamCreateTool.ts 实现
@@ -11,7 +11,7 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**

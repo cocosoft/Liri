@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Channel-Bridge 集成适配器
  *
  * 核心使命：将 Channel 消息系统与 Bridge 分布式任务系统连接起来。
@@ -11,15 +11,15 @@
  * 这是一个"1+1>2"的增值层 — Bridge 和 Channel 各自完整独立，此模块仅提供桥接编排。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId, MessageContext } from '@modules/channels/types';
 import type {
   Coordinator,
   CoordinatorTask,
   CoordinatorConfig,
-} from '@modules/core/Coordinator';
+} from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:bridge' });
 

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Prompt Suggestion配置和启用检查模块
  */
 
 import { getPromptSuggestionDatabase } from './database/PromptSuggestionDatabase';
 import type { SuggestionSource } from './types';
 import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('PromptSuggestionConfig');
 

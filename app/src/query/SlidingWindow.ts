@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SlidingWindow — 滑动窗口消息裁剪
  *
  * 对标 CC_Code QueryEngine.ts 的滑动窗口模式：
@@ -10,8 +10,8 @@
  * 避免因 Token 溢出导致的请求拒决。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type { ChatMessage } from '@modules/ai/models/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import type { ChatMessage } from '@modules/ai';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

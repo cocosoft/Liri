@@ -1,15 +1,15 @@
-/**
+﻿/**
  * TAOR (Think-Act-Observe-Repeat) 循环核心
  */
 
-import type { ToolCall, ToolResult } from '@modules/core/types';
-import type { AIProvider } from '@modules/ai/providers';
-import type { ChatOptions } from '@modules/ai/providers';
+import type { ToolCall, ToolResult } from '@modules/core';
+import type { AIProvider } from '@modules/ai';
+import type { ChatOptions } from '@modules/ai';
 import type {
   ChatMessage,
   ToolDefinition,
   ParsedToolCall,
-} from '@modules/ai/models/types';
+} from '@modules/ai';
 
 interface TAORLoopConfig {
   systemPrompt?: string;

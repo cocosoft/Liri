@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 负责插件的发现、加载、验证和生命周期管理
  */
 
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
-import { resolveProjectRoot } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveProjectRoot } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   PluginState,
   PluginType,

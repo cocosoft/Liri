@@ -1,12 +1,12 @@
-/**
+﻿/**
  * ConfigIO 配置读写管理
  * 提供文件锁、原子写入等 I/O 安全机制
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

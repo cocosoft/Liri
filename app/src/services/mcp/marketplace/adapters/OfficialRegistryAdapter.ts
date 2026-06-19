@@ -1,6 +1,6 @@
-import * as http from 'http';
+﻿import * as http from 'http';
 import * as https from 'https';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   getOfficialServers,
   getOfficialServersByCategory,

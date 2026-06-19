@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 分类器集成
  * 负责集成分类器进行权限决策，判断工具使用是否安全
  */
@@ -10,8 +10,8 @@ import {
   createAskDecision,
 } from '../types/PermissionDecision';
 import { PermissionContext } from '../types/PermissionContext';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

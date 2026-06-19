@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LocalSTTProvider
  * 本地 STT 提供者
  * 通过 spawn Python faster-whisper 进程实现本地语音转文字
@@ -19,8 +19,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { writeFileSync, unlinkSync } from 'fs';
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {

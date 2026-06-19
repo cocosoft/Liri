@@ -1,12 +1,12 @@
-import type { Memory } from '../types/Memory';
+﻿import type { Memory } from '../types/Memory';
 import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs/promises';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { globalEmbeddingManager } from '@modules/ai';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
-import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
+import { resolveDataDir, resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

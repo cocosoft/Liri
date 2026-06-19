@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 策略设置管理（企业托管）
  * 管理企业级托管配置，支持 managed-settings.json 和 drop-in 目录
  * 策略设置优先级最高，且不可被用户/项目设置覆盖
@@ -6,8 +6,8 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/core';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'PolicySettings' });
 import { deepMerge } from '@modules/utils/common.js';

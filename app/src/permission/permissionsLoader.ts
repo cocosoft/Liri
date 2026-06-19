@@ -1,6 +1,6 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveDataDir } from '@modules/core/paths';
+import { resolvePyappHome, resolveDataDir } from '@modules/core';
 import { PermissionRuleSource } from './types/PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';

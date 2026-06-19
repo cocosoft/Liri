@@ -22,7 +22,7 @@
  * color命令 - 颜色配置
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * color命令实现

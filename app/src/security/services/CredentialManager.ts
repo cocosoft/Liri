@@ -1,12 +1,12 @@
-/**
+﻿/**
  * CredentialManager 凭据管理系统 (Crestodian)
  * P1 优先级 — 对标 OpenClaw 的凭据助手
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { resolvePyappHome } from '@modules/core/paths';
-import { handleError } from '@modules/error/handleError';
+import { resolvePyappHome } from '@modules/core';
+import { handleError } from '@modules/error';
 
 /**
  * 凭据类型

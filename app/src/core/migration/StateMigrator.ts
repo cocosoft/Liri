@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 状态迁移工具
  * 用于将现有模块状态迁移到新的AppState中
  */
@@ -8,7 +8,7 @@ import {
   getGlobalStore,
   initializeGlobalStore,
 } from '@modules/state/AppStateStore.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

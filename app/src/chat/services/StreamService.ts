@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 流服务
  * 负责处理流式响应、解析流数据、累积流数据
  */
 import type { StreamChunk, ChatResponse, Message } from '../types/message';
 import { createAssistantMessage } from '../types/message';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 流服务接口

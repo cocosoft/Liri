@@ -22,7 +22,7 @@
  * 标签命令
  * 管理会话标签
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * tag 命令定义

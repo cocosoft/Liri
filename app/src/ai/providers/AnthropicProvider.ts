@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Anthropic (Claude) 提供商
  * 使用 Messages API + fetch，取代 @anthropic-ai/sdk
  */
@@ -10,8 +10,8 @@ import type {
   ThinkingProviderChunk,
 } from './AIProvider';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';

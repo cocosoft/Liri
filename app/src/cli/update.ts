@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 自动更新模块
  * 处理CLI自动更新检查和执行
  */
 
 import chalk from 'chalk';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('update');
 

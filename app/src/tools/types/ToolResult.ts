@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 工具执行结果类型
  * 参考CC_CODE的ToolResult设计，适应backend现有架构
  */
-import type { Message } from '@modules/core/types';
+import type { Message } from '@modules/core';
 
 export enum ToolExecutionStatus {
   SUCCESS = 'success',

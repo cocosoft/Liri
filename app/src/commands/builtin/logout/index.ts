@@ -22,7 +22,7 @@
  * 登出命令
  * 登出账户
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * logout 命令定义

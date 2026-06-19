@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 监控数据归档策略
  * 将内存中的监控数据定期持久化到磁盘，支持压缩和保留策略
  * 归档目录: app/data/monitoring/archives/（第二层，不跟踪）
@@ -17,8 +17,8 @@ import { join, resolve, basename } from 'path';
 import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { StructuredLogger } from '../logs/StructuredLogger';
 import type { StructuredLogEntry } from '../logs/LogMemory';
 import { getMetricsService } from '../metrics/MetricsService';

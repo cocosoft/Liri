@@ -1,10 +1,10 @@
-import { BaseConverter } from '../engine/BaseConverter';
+﻿import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
-import { AppError } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

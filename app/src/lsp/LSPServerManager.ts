@@ -1,11 +1,11 @@
-import { pathToFileURL } from 'url';
+﻿import { pathToFileURL } from 'url';
 
 import type { ScopedLspServerConfig, Diagnostic } from './types.js';
 import {
   createLSPServerInstance,
   type LSPServerInstance,
 } from './LSPServerInstance.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export type LSPServerManager = {
   initialize(configs: ScopedLspServerConfig[]): Promise<void>;

@@ -6,7 +6,7 @@
  * 与 CC 差异: 精简为仅作任务运行器，配置管理归 /subagent
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
 import { taskRegistry } from '@modules/tasks/TaskRegistry.js';

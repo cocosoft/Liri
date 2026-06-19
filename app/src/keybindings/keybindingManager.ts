@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * 按键绑定管理器
  * 管理所有快捷键的注册、解绑和执行
  */
 
 import { renderTemplate, KeybindingTemplate } from './template';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface KeybindingAction {
   id: string;

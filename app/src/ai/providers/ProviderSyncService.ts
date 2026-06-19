@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,7 +41,7 @@ import { VertexAIProvider } from './VertexAIProvider';
 import { AzureOpenAIProvider } from './AzureOpenAIProvider';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord, ProviderType } from './ProviderManager';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+﻿import crypto from 'node:crypto';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
@@ -12,7 +12,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 const GOOGLE_CHAT_API_BASE = 'https://chat.googleapis.com/v1';

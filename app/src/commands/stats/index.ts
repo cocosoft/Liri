@@ -28,8 +28,8 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
+} from '@modules/commands';
+import { getCommandManager } from '@modules/commands';
 
 /**
  * 统计数据类型

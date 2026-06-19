@@ -22,7 +22,7 @@
  * 重命名会话命令
  * 重命名当前会话
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * rename 命令定义

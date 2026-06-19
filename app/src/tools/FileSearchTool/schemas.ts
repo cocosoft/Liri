@@ -1,11 +1,11 @@
-/**
+﻿/**
  * FileSearchTool 输入输出模式定义
  *
  * 文件搜索工具，基于 Glob 模式匹配文件路径，
  * 返回匹配文件的标准化绝对路径列表。
  */
 import { z } from 'zod';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * FileSearchTool 输入模式

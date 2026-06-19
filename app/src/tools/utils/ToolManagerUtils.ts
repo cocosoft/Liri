@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具管理工具
  * 提供函数式的工具管理方法
  */
@@ -6,7 +6,7 @@ import type { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

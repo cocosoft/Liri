@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 自动更新模块
  * 检查和提示CLI应用更新
  */
 
 import chalk from 'chalk';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { UpdateChannel } from '../constants/product';
 import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
 import { UpdateDownloader } from './updater/UpdateDownloader';

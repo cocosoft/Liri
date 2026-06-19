@@ -1,10 +1,10 @@
-/**
+﻿/**
  * LogTail 日志实时追踪
  * 对标 CC 的日志追踪功能
  */
 import fs from 'node:fs';
 import { EventEmitter } from 'node:events';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 /**
  * 追踪选项

@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * MCP引导处理器
  * 负责处理MCP服务器的引导（elicitation）流程
  * 在服务器连接时自动引导用户完成配置
  * */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import type { ScopedMcpServerConfig } from './types';

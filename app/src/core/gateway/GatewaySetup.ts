@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GatewaySetup — 通道自动配置工厂
  * 根据应用配置自动创建和注册 Telegram/WebSocket 通道
  *
@@ -7,8 +7,8 @@
  *   当 GATEWAY_LEGACY_DISABLED=true 时，此模块不会被调用。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { cliConfigManager } from '../../cli/config';
 import { configManager } from '@modules/config';
 import { getChannelManager } from './ChannelManagerFactory';

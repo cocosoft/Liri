@@ -1,14 +1,14 @@
-/**
+﻿/**
  * OAuth Token管理器
  * 参考CC源码的Token管理实现，提供完整的Token生命周期管理
  * 包括：Token缓存、自动刷新、过期缓冲、重试机制
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'TokenManager' });
 import { OAuthStorage, createOAuthStorage } from './OAuthStorage.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 缓存的Token接口

@@ -23,7 +23,7 @@
  * 列出和管理后台任务
  * 对标 CC BackgroundTasksDialog 实现
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const tasksCommand: Command = {
   type: 'local',

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Analytics Console Sink
  * 将事件输出到控制台
  */
 
 import type { AnalyticsSink } from './types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ConsoleSink');
 

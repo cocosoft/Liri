@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 价格管理器
  * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
-import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
+import { ModelRegistry } from '@modules/ai';
 
 export interface CostCalculationResult {
   cost: number;

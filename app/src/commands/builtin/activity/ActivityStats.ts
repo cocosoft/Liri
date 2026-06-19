@@ -6,10 +6,10 @@
  * CC 中以 Stats React 组件展示使用统计，Liri 使用纯文本 CLI 输出。
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { promises as fs } from 'fs';
 import { join, extname } from 'path';
-import { getCommandManager as getCmdMgr } from '@modules/commands/manager/CommandManager.js';
+import { getCommandManager as getCmdMgr } from '@modules/commands';
 
 /**
  * 语言扩展名映射

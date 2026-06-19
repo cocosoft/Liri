@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 配置管理器
  * 提供配置加载、保存、缓存和监控功能
  */
@@ -28,8 +28,8 @@ import {
 } from './types.js';
 import { ConfigValidator } from './ConfigValidator.js';
 import { ConfigMigration } from './ConfigMigration.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
 import { ConfigRecovery } from './ConfigRecovery';
 import { redactConfig } from './ConfigRedactor';
@@ -46,7 +46,7 @@ import {
   resolveUserConfigPath,
   resolvePyappHome,
   ensureDir,
-} from '@modules/core/paths';
+} from '@modules/core';
 import {
   setRuntimeConfigSnapshot,
   clearRuntimeConfigSnapshot,

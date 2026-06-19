@@ -1,7 +1,7 @@
-/**
+﻿/**
  * 推送通知工具（条件编译：KAIROS/PROACTIVE）
  */
-import { FEATURE_FLAGS } from '@modules/core/featureFlags';
+import { FEATURE_FLAGS } from '@modules/core';
 const feature = (name: keyof typeof FEATURE_FLAGS) =>
   FEATURE_FLAGS[name] ?? false;
 

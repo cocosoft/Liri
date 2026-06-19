@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 插件能力分类接口
  * 按能力类型区分插件注册入口，而非按来源
  * 来源通过 PluginSource 元数据标注
  */
 
-import type { Logger } from '@modules/monitoring/logs/Logger';
+import type { Logger } from '@modules/monitoring';
 
 /**
  * 第三方市场类型（仅用于标注，不影响分类）

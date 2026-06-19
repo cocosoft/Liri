@@ -22,7 +22,7 @@
  * Debug 命令模块入口
  * 显示调试信息、系统状态和进程信息
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const debugCommand: Command = {
   type: 'local',

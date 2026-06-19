@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 子agent工厂
  */
 import {
@@ -15,7 +15,7 @@ import { InProcessSubAgent } from './types/InProcessSubAgent';
 import { ProcessSubAgent } from './types/ProcessSubAgent';
 import { TmuxSubAgent } from './types/TmuxSubAgent';
 import { ITermSubAgent } from './types/ITermSubAgent';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 子agent工厂

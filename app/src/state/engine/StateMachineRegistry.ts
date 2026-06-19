@@ -1,4 +1,4 @@
-/**
+﻿/**
  * StateMachineRegistry — 状态机实例注册中心
  *
  * 统一管理应用中长生命周期状态机实例的创建、查找、销毁。
@@ -14,7 +14,7 @@
  * 这是一个已知的权衡：保持泛型签名可以在调用方减少断言代码。
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import type { StateMachine } from './StateMachine';
 
 const logger = new Logger();

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 告警规则服务
  * 提供多条件告警、告警抑制、告警路由功能
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({
   level: LogLevel.INFO,

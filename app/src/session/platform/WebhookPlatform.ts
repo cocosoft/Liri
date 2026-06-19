@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WebhookPlatform — Webhook 平台适配器
  *
  * 通过 HTTP Webhook 发送/接收消息，用于外部服务集成。
@@ -8,7 +8,7 @@
  * - 消息队列与批量发送
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   PlatformAdapter,
   PlatformConfig,

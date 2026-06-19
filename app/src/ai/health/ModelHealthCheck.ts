@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 模型健康检查模块
  * 周期检查模型可用性，支持多个 Provider
  * 对齐 OpenClaw agents/auth-health.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

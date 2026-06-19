@@ -1,4 +1,4 @@
-import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
+﻿import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
   parseSkillFrontmatter,
@@ -8,7 +8,7 @@ import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins/managers/PluginManager';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 const pluginManager = PluginManager.getInstance();

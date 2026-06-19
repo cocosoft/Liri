@@ -2,7 +2,7 @@
  * Demo 命令实现
  * 离线模式下展示模拟对话预览，让新用户体验 Liri 的对话能力
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 const DEMO_CONVERSATION = `
 ╔══════════════════════════════════════════════════════╗

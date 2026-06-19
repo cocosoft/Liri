@@ -25,6 +25,7 @@
  */
 
 export * from '@modules/system/state';
+export * from './paths';
 export * from './events/EventBus';
 export * from './events/UiEvents';
 export { UiEventBus, uiEventBus } from './events/UiEventBus';

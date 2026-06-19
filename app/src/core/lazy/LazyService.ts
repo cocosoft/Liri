@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 延迟加载服务
  * 参考CC源码的延迟加载模式（如defer_loading工具、懒加载模块等）
  * 提供按需加载、缓存、状态追踪等功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'LazyService' });
 

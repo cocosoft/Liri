@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 工具助手
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import { aiService } from '../services/aiService';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';

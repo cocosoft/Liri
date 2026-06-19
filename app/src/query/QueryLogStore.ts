@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 查询日志存储
  * 基于 SQLite 的查询日志持久化，记录每次 API 调用、工具调用和完整查询的执行信息
  */
@@ -6,10 +6,10 @@
 import { join } from 'path';
 import { Database } from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/core/paths';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { Logger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDbPath } from '@modules/core';
+import { SimpleMutex } from '@modules/core';
 import type {
   QueryLogEntry,
   QueryLogFilter,

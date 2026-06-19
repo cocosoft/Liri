@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 团队助手工具
  * 提供团队文件管理、路径权限等功能
  * 参考CC源码 cc_code/backend/utils/swarm/teamHelpers.ts 实现
@@ -6,8 +6,8 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

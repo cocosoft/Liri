@@ -24,29 +24,29 @@
  * 管理 AI 供应商（API Provider）
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import {
   providerManager,
   type ProviderType,
-} from '@modules/ai/providers/ProviderManager.js';
+} from '@modules/ai';
 import {
   testEndpoints,
   formatSpeedResults,
-} from '@modules/ai/providers/SpeedTestService.js';
-import { fetchModels } from '@modules/ai/providers/ModelFetcher.js';
+} from '@modules/ai';
+import { fetchModels } from '@modules/ai';
 import {
   registerProviderFromDB,
   unregisterProviderFromRegistry,
   ProviderSyncService,
-} from '@modules/ai/providers/ProviderSyncService.js';
+} from '@modules/ai';
 import {
   detectUnifiedProviders,
   formatEnvProviderName,
-} from '@modules/ai/providers/detectUnifiedProviders.js';
+} from '@modules/ai';
 
 const logger = getLogger('provider');
 

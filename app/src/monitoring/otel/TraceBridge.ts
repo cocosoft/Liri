@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 追踪桥接器
  * 将应用层自定义追踪数据映射到 OTel 标准追踪的桥接层
  */
 
 import { SpanStatusCode, Span } from '@opentelemetry/api';
 import { OTelTracing } from './OTelTracing.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 
 export interface TraceEvent {
   name: string;

@@ -12,7 +12,7 @@ import {
   uptime,
   loadavg,
 } from 'node:os';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 解析标志参数

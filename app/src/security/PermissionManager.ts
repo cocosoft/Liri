@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 权限管理�?
  * 管理用户权限，控制工具和功能的访�?
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'PermissionManager' });
 

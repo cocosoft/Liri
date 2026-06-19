@@ -22,7 +22,7 @@
  * 终端设置命令
  * 管理终端配置
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * terminalSetup 命令定义

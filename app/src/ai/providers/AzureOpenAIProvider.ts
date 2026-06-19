@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Azure OpenAI 提供商
  * 扩展 OpenAI 兼容 API，覆盖 Azure 端点
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type {

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * SessionTranscript 会话转录管理
  * 对标 CC 的会话转录能力
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolvePyappHome } from '@modules/core/paths';
-import { handleError } from '@modules/error/handleError';
+import { resolvePyappHome } from '@modules/core';
+import { handleError } from '@modules/error';
 
 /**
  * 转录配置

@@ -4,14 +4,14 @@
  *
  * 结构化收集工具执行过程中的错误信息，支持按轮次查询和汇总统计。
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 结构化工具错误（对标 Hermes ToolError）
  */
-export interface ToolError {
+export interface ToolErrorRecord {
   /** 发生错误的轮次 */
   turn: number;
   /** 工具名称 */
@@ -49,13 +49,13 @@ export interface ToolErrorSummary {
  * 在每个 Agent 循环中收集和查询工具执行错误
  */
 export class ToolErrorCollector {
-  private errors: ToolError[] = [];
+  private errors: ToolErrorRecord[] = [];
 
   /**
    * 记录一个工具错误
    * @param error 错误信息
    */
-  record(error: ToolError): void {
+  record(error: ToolErrorRecord): void {
     this.errors.push(error);
 
     logger.debug('Tool error recorded', {
@@ -139,7 +139,7 @@ export class ToolErrorCollector {
    * @param turnsUsed 使用的轮次数
    */
   toAgentResult(turnsUsed: number): {
-    toolErrors: ToolError[];
+    toolErrors: ToolErrorRecord[];
     errorSummary: ToolErrorSummary;
   } {
     return {

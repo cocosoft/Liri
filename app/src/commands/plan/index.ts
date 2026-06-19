@@ -22,7 +22,7 @@
  * plan命令 - 计划生成
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * plan命令实现

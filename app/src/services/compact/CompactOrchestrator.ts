@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 统一压缩编排器
  * 集成 autoCompact / reactiveCompact / microcompact 三种策略
  * 所有压缩操作记录原始 Token 数和压缩后 Token 数
@@ -10,7 +10,7 @@ import { shouldAutoCompact, CompactCircuitBreaker } from './autoCompact';
 import { ReactiveCompactService } from './reactiveCompact';
 import { evaluateTimeBasedTrigger } from './microCompact';
 import { roughTokenCountEstimationForMessages } from './utils';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

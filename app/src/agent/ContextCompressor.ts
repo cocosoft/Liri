@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 上下文压缩器
  * 基于 AI 的智能上下文压缩，支持触发比例和保留比例精细控制
  */
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import type { AIModelType } from '@modules/ai';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

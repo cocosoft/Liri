@@ -3,7 +3,7 @@
  * 提供插件配置管理功能
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { PluginRegistry } from '@modules/plugins/core/PluginRegistry.js';
 import {
   readPluginConfig,

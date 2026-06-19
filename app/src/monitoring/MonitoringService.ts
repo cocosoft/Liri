@@ -1,16 +1,16 @@
-/**
+﻿/**
  * 监控服务
  * 提供性能指标收集、日志监控和健康检查功能
  */
 
 import fs from 'fs';
 import path from 'path';
-import { resolveLogsDir } from '@modules/core/paths';
+import { resolveLogsDir } from '@modules/core';
 import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { configManager } from '@modules/config';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   AlertPresetLoader,
   createAlertPresetLoader,

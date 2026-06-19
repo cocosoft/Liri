@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Bedrock AI 提供商（AWS Bedrock）
  * 对标 Hermes Bedrock provider
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 import type {
   ChatMessage,

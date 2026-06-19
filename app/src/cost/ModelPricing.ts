@@ -6,8 +6,8 @@
  * ModelConfigs.ts 和 ModelRegistry，此文件仅保留工具函数。
  */
 
-import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
-import { getModelConfigById } from '@modules/ai/models/ModelConfigs';
+import { ModelRegistry } from '@modules/ai';
+import { getModelConfigById } from '@modules/ai';
 
 export interface ModelPricing {
   inputPricePerMillion: number;

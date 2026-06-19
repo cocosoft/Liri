@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Telegram 通道插件
  * 厂商: Telegram, 协议: Bot API HTTP + Webhook
  * 特色: 原生 MarkdownV2 + Inline Keyboard + 文件发送
@@ -18,7 +18,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',

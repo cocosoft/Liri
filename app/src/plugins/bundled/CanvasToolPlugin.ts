@@ -1,11 +1,11 @@
-/**
+﻿/**
  * CanvasToolPlugin
  * 将 CanvasTool 包装为标准 Plugin，通过 PluginAPI 注册画布工具
  */
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { CanvasTool } from '../../tools/CanvasTool/CanvasTool.js';
 
 const logger = new Logger({ level: LogLevel.INFO });

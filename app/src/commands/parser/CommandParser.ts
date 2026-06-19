@@ -4,9 +4,9 @@
  * 使用Commander.js实现命令解析和子命令系统
  */
 import { Command as CommanderCommand, Option } from 'commander';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getCommandManager } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CommandParser');
 

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 规则管理器
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 import {
   PermissionRule,
   PermissionBehavior,
@@ -14,8 +14,8 @@ import {
   isRuleMatch,
   isToolNameMatch,
 } from './types/PermissionRule';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

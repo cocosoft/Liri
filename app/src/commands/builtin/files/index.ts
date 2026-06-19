@@ -22,7 +22,7 @@
  * 文件管理命令
  * 管理工作目录中的文件
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * files 命令定义

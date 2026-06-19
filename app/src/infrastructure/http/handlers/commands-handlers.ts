@@ -16,7 +16,7 @@ export async function handleListCommands(
 ): Promise<void> {
   try {
     const { getCommandManager } =
-      await import('@modules/commands/manager/CommandManager.js');
+      await import('@modules/commands');
     const commandManager = getCommandManager();
     const commands = await commandManager.getAllCommands();
     const result = commands.map((cmd: any) => ({

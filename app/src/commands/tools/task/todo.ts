@@ -6,7 +6,7 @@
  * 本命令层提供人性化的 CRUD 接口，同时保持与 CC 工具的兼容。
  */
 
-import type { Command, CommandResult } from '@modules/commands/types';
+import type { Command, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /** 有效的 todo 状态 */

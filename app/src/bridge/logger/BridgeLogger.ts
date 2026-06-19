@@ -1,5 +1,5 @@
-import chalk from 'chalk';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import chalk from 'chalk';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   BridgeConfig,
   BridgeLogger,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * QQ Bot 通道插件
  * 厂商: 腾讯, 协议: QQ 开放平台 WebSocket 长连接
  * 特色: 支持出站 HTTP API 消息发送 + 入站 WebSocket 消息接收
@@ -18,8 +18,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 
 const QQ_META: ChannelMeta = {
   id: 'qq',

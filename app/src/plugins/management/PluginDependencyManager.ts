@@ -1,15 +1,15 @@
-/**
+﻿/**
  * 负责插件的依赖解析、版本管理、冲突检测等
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   PluginDependency,
   PluginDependencyResolution,
   PluginMetadata,
 } from '../types/PluginTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

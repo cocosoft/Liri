@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 飞书通道插件
  * 厂商: 字节跳动, SDK: @larksuiteoapi/node-sdk
  *
@@ -23,8 +23,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { claimMessage, finalizeMessage } from '../dedup/index.js';
 
 const FEISHU_META: ChannelMeta = {

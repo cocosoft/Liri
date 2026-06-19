@@ -8,7 +8,7 @@
  */
 
 import { configManager } from '@modules/config/ConfigManager.js';
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 import voiceService from '@modules/services/voice';
 
 /**

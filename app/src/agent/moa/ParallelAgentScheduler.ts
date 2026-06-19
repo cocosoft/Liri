@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 并行 Agent 调度器
  * 同时调度多个 Agent 执行，收集结果，支持超时控制和并发限制
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger();
 

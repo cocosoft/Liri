@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 慢查询检测器
  * 检测执行时间超过阈值的查询，输出 WARN 日志并生成报告
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { getQueryLogStore } from './QueryLogStore';
 import type { QueryLogStore } from './QueryLogStore';
 import type { QueryLogEntry, QueryLogStats } from './QueryLogTypes';

@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * SSH密钥管理器
  * 负责SSH密钥的生成、管理、存储和生命周期管理
@@ -11,7 +11,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const execPromise = promisify(exec);
 

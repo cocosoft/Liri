@@ -1,9 +1,9 @@
-/**
+﻿/**
  * HTTP → WebSocket 升级工具
  * 使用 Node.js 内置 http + crypto + net 模块实现 RFC 6455
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';

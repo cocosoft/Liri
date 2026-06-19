@@ -8,9 +8,9 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import { join } from 'path';
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 
 /**
  * 包信息缓存

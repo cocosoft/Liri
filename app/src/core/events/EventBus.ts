@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 事件系统
  * 基于发布-订阅模式的事件驱动通信机制
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

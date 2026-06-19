@@ -4,7 +4,7 @@
  * 支持丰富的搜索选项，包含短标志、上下文行、分页等
  */
 
-import type { Command, CommandImplementation } from '@modules/commands/types';
+import type { Command, CommandImplementation } from '@modules/commands';
 import { grep, type GrepOutputMode } from '@modules/tools/GrepTool/grep.js';
 
 /**

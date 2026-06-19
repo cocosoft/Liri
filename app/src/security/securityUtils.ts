@@ -1,5 +1,5 @@
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { Logger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 const logger = new Logger();

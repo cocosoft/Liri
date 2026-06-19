@@ -1,11 +1,11 @@
-/**
+﻿/**
  * PluginInstallManager 插件安装管理器
  * 处理插件的安装、更新、卸载流程，支持多源安装和依赖处理
  */
 import path from 'node:path';
 import fs from 'node:fs';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveProjectRoot } from '@modules/core';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';

@@ -13,8 +13,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import {
@@ -33,7 +33,7 @@ import {
   resolveDownloadsDir,
   resolveAttachmentsDir,
   resolvePyappHome,
-} from '@modules/core/paths';
+} from '@modules/core';
 import { configManager } from '@modules/config';
 import type { IChannelPlugin } from '@modules/channels/types';
 import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp/marketplace/types';
@@ -1362,7 +1362,7 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { getCommandManager } =
-        await import('@modules/commands/manager/CommandManager.js');
+        await import('@modules/commands');
       const commandManager = getCommandManager();
       const commands = await commandManager.getAllCommands();
       const result = commands.map((cmd: any) => ({

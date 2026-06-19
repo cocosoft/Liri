@@ -1,10 +1,10 @@
-import { join } from 'path';
+﻿import { join } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { Memory } from '../types/Memory';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolvePyappHome } from '@modules/core';
 
 export interface KnowledgeBaseEntry {
   title: string;

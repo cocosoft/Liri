@@ -1,6 +1,6 @@
-import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDbPath } from '@modules/core/paths';
+﻿import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveDbPath } from '@modules/core';
 import { TaskPriority } from './TaskPriority';
 import type { Task, TaskResult } from './types';
 

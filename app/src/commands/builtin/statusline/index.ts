@@ -22,7 +22,7 @@
  * 状态栏命令
  * 配置状态栏显示
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * statusline 命令定义

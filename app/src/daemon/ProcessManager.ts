@@ -1,11 +1,11 @@
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { getMonitoringService } from '@modules/monitoring/MonitoringService';
+﻿import { Logger } from '@modules/monitoring';
+import { getMonitoringService } from '@modules/monitoring';
 import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 import type { IPCService } from './IPCService';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core';
 
 const logger = new Logger({ level: 'info' as any });
 

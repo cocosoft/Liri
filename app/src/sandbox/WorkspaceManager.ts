@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工作空间管理器
  * 统一管理各种 Workspace 实例的创建和生命周期
  * 对标 AgentScope WorkspaceManager
@@ -14,7 +14,7 @@ import {
   SandboxPermission,
 } from './SandboxTypes';
 import type { SSHSandboxConfig } from './SSHSandbox';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const WORKSPACE_MODULE = 'WorkspaceManager';
 

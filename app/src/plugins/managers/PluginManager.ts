@@ -1,11 +1,11 @@
-/**
+﻿/**
  * PluginManager - 插件管理器
  * 代理到 PluginSystem 的单例，消除双轨实现
  * 使用 DI 模式避免循环依赖（plugins/index.ts ↔ managers/PluginManager）
  */
 
 import type { LoadedPlugin } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 插件系统单例引用（DI 方式注入，避免循环依赖）

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 归档定时任务调度
  * 将 DataArchivalStrategy 集成到调度系统中
  * 支持两种方式：
@@ -19,7 +19,7 @@ import {
   updateCronTask,
 } from '../../chronos/CronTasks.js';
 import { Logger, LogLevel } from '../logs/Logger.js';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 
 const logger = new Logger({

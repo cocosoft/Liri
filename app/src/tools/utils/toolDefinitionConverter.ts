@@ -4,7 +4,7 @@
  */
 
 import type { ToolSchema } from '../types/ToolDef';
-import type { ToolDefinition } from '@modules/ai/models/types';
+import type { ToolDefinition } from '@modules/ai';
 
 /**
  * 将单个 ToolSchema 转换为 LLM ToolDefinition

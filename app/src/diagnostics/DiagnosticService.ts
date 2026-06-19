@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 诊断系统
  * 实现安装类型检测、多安装实例检测和配置问题检测
  */
@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import { execSync } from 'child_process';
 import { realpath } from 'fs/promises';
 import { configManager } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

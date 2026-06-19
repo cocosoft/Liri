@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ChannelRegistry 通道注册中心
  *
  * 统一通道注册代理，以 ChannelPluginRegistry（core/gateway/）为唯一单源，
@@ -15,13 +15,13 @@
 
 import { EventEmitter } from 'node:events';
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath } from '@modules/core';
 import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';
 import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
 import { ChannelStatus } from '../../core/gateway/types';
 import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({
   level: LogLevel.INFO,

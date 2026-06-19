@@ -2,7 +2,7 @@
  * Tasks命令实现
  * 任务管理与跟踪
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 interface TaskItem {
   id: string;

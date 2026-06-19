@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Agent子系统增强
  * 子代理类型、后台运行、进度追踪、摘要、群组执行
  */
@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { AgentSwarmManager, SwarmTask, SwarmResult } from './swarms';
 import { feature } from '../core/featureFlags';
 import { configManager } from '@modules/config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export type SubagentType =
   | 'general-purpose'

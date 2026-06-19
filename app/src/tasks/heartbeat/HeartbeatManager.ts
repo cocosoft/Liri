@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   HeartbeatRecord,
   HeartbeatTimeoutEvent,

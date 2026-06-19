@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PCMAudioPlayer
  * PCM 音频流式播放引擎
  *
@@ -16,7 +16,7 @@ import { writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getPlatform } from '@modules/utils/platform';
 import type { AudioDevice } from './audioDeviceManager';
 

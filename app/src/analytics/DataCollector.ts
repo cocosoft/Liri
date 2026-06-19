@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * 数据收集器
  * 实现高级数据收集和预处理功能
  */
 
 import type { AnalyticsEvent, SessionAnalytics } from './types.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('DataCollector');
 

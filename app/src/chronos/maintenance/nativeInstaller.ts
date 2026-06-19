@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Native Installer模块
  * 占位符实现
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('NativeInstaller');
 

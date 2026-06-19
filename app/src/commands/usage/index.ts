@@ -22,7 +22,7 @@
  * usage命令 - 使用情况分析
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * usage命令实现

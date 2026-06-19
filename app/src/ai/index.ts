@@ -40,6 +40,18 @@ export type {
 } from './models/types';
 export { AIModelType, AIMessageRole } from './models/types';
 export type { AIMessage, AIResponse, AIClient } from './models/types';
+export { ModelRegistry } from './models/ModelRegistry';
+export { ModelManager, modelManager } from './models/ModelManager';
+export type { APIProvider, ModelKey } from './models/ModelConfigs';
+export {
+  ALL_MODEL_CONFIGS,
+  getModelConfigById,
+} from './models/ModelConfigs';
+
+export { AIModelManager, getAIModelManager } from './AIModelManager';
+
+export { MODEL_ALIASES } from './models/ModelAliases';
+export type { ModelAlias } from './models/ModelAliases';
 
 // providers/ — 统一供应商管理
 export type {
@@ -47,6 +59,7 @@ export type {
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
+  ThinkingProviderChunk,
 } from './providers/AIProvider';
 export {
   ProviderRegistry,
@@ -261,6 +274,16 @@ export type { BalanceResult, BalanceData } from './providers/BalanceChecker';
 export { ModelFetcher } from './providers/ModelFetcher';
 export type { FetchedModel } from './providers/ModelFetcher';
 
+export { ModelFetcher } from './providers/ModelFetcher';
+export type { FetchedModel, FetchModelsOptions, FetchModelsResult } from './providers/ModelFetcher';
+export { fetchModels } from './providers/ModelFetcher';
+
+export {
+  detectUnifiedProviders,
+  formatEnvProviderName,
+} from './providers/detectUnifiedProviders';
+export type { UnifiedProviderConfig } from './providers/detectUnifiedProviders';
+
 export { SpeedTestService } from './providers/SpeedTestService';
 export type { EndpointLatency } from './providers/SpeedTestService';
 
@@ -299,6 +322,7 @@ export type {
 
 export { UsageTracker } from './UsageTracker';
 export type { TrackUsageParams } from './UsageTracker';
+export { trackUsage } from './UsageTracker';
 
 export {
   PriorityBasedFailover,

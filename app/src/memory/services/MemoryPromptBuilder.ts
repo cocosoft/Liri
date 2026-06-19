@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 记忆提示构建器
  * 构建AI系统提示，指导模型如何使用持久化文件记忆系统
  * 参考CC源码的memdir/memdir.ts实现
  */
 
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import {
   MEMORY_FRONTMATTER_EXAMPLE,

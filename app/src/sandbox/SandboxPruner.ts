@@ -1,10 +1,10 @@
-/**
+﻿/**
  * SandboxPruner 沙箱回收器
  * 定期清理过期/闲置的沙箱实例，释放系统资源
  * 对标 OpenClaw agents/sandbox/pruner.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

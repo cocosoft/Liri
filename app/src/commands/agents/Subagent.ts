@@ -5,9 +5,9 @@
 import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
 /**
  * Agent 源类型

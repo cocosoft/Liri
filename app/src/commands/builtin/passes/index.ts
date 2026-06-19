@@ -22,7 +22,7 @@
  * Pass管理命令
  * 管理订阅Pass和功能权限
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * passes 命令定义

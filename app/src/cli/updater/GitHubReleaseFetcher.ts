@@ -1,9 +1,9 @@
-/**
+﻿/**
  * GitHub Release 信息获取器
  * 从 GitHub Releases API 获取最新版本信息
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   getGitHubReleasesUrl,
   type UpdateChannel,

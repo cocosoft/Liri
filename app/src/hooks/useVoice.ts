@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 语音输入Hook
  * * 支持语音识别和语音合成功能
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 /** 浏览器语音识别 API 类型声明 */
 declare class SpeechRecognition {

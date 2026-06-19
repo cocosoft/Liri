@@ -1,10 +1,10 @@
-import type {
+﻿import type {
   RemoteSetting,
   RemoteSettingsPayload,
   RemoteSettingsClientConfig,
 } from './types';
 import { DEFAULT_REMOTE_SETTINGS_CONFIG } from './types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

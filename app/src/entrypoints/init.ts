@@ -25,7 +25,7 @@
  */
 
 import { configManager, enableConfigs } from '@modules/config';
-import { initializeCommands } from '@modules/commands/index.js';
+import { initializeCommands } from '@modules/commands';
 import { getExtensibilityService } from '@modules/core/extensibility/index.js';
 import {
   profileCheckpoint,
@@ -36,8 +36,8 @@ import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '@modules/monitoring/index.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome, ensureDataDirectories } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome, ensureDataDirectories } from '@modules/core';
 import { getStartupChainProfiler } from '@modules/bootstrap/StartupChainProfiler.js';
 import {
   loadStartupConfig,

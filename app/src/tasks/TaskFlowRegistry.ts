@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TaskFlowRegistry - 流程图级别编排器
  *
  * 职责：
@@ -14,7 +14,7 @@
  *   适用场景：复杂流程图执行
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { TaskFlowStatus } from './types';
 import type { TaskFlowRecord, TaskFlowSyncMode } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';

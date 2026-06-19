@@ -22,7 +22,7 @@
  * 洞察分析命令
  * 提供智能分析和建议
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * insights 命令定义

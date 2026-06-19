@@ -1,5 +1,5 @@
-import type { Context } from './types/Context';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import type { Context } from './types/Context';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export enum LifecycleState {
   PENDING = 'pending',

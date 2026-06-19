@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ShellExecutor —— 命令执行管线统一模块
  *
  * 将分散在 PowerShellTool、BashTool、ToolExecutor 中的
@@ -11,7 +11,7 @@
  *   - 错误归一化：拆分 stdout/stderr，去除 cmd.exe 本地化前缀污染
  */
 import { exec } from 'child_process';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 // ─── 类型定义 ───────────────────────────────────────────────
 

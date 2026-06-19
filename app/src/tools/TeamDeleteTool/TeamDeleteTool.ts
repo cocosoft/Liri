@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 团队删除工具
  * 用于解散swarm团队并清理
  * 参考CC源码 cc_code/backend/tools/TeamDeleteTool/TeamDeleteTool.ts 实现
@@ -11,8 +11,8 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
-import { resolveDataSubDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveDataSubDir } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

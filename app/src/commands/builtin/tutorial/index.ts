@@ -22,7 +22,7 @@
  * 教程命令
  * 管理教程学习
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * tutorial 命令定义

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WebSearch 工具
  *
  * 提供网络搜索功能
@@ -17,7 +17,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

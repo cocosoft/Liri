@@ -1,11 +1,11 @@
-/**
+﻿/**
  * NPM 插件分发器
  * 从 npm registry 安装/更新/卸载插件
  * 对齐 OpenClaw 插件分发机制
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveProjectRoot } from '@modules/core';
 import { execSync } from 'node:child_process';
 import {
   existsSync,
@@ -15,7 +15,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

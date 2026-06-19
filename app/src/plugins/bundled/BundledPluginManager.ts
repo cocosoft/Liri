@@ -1,10 +1,10 @@
-/**
+﻿/**
  * BundledPluginManager 内置插件管理器
  * 对标 CC 的 bundled 插件管理
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 /**
  * 内置插件

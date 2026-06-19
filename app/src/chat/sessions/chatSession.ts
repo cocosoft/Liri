@@ -11,7 +11,7 @@ import {
 } from '../models/types';
 import { ChatHistory } from '../history/chatHistory';
 import aiService from '@modules/ai';
-import { AIMessageRole } from '@modules/ai/models/types';
+import { AIMessageRole } from '@modules/ai';
 
 /**
  * 聊天会话类

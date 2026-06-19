@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 语音服务
  * 提供语音输入和输出功能
  *
@@ -12,8 +12,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getPlatform } from '@modules/utils/platform';
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { isEnvTruthy } from '@modules/utils/envUtils';
 import { configManager } from '@modules/config';
 

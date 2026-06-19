@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MCP连接管理器（适配层）
  *
  * 将 MCPConnectionManager 改为适配层，内部委托 MCPServerManager 执行核心操作。
@@ -11,8 +11,8 @@
  * - 所有查询操作改为委托 getMCPServerManager()
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -27,7 +27,7 @@ import type {
   SerializedTool,
 } from './types';
 import type { McpCommand } from './commandManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getMCPServerManager } from './MCPServerManager';
 
 // 重连常量

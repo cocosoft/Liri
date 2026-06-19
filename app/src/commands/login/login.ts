@@ -5,7 +5,7 @@
  * 参考CC源码 cc_code/backend/commands/login/login.tsx 实现
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { OAuthService } from '@modules/oauth';
 import { executePostLogin } from '@modules/system/auth/post-login.js';
 import { configManager } from '@modules/config';

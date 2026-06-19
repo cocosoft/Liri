@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 错误处理核心工具
  * 负责应用的错误恢复和容错机制
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'ErrorHandler' });
-import { toError, isAbortError, errorMessage } from '@modules/error/utils';
+import { toError, isAbortError, errorMessage } from '@modules/error';
 
 /**
  * 错误处理选项

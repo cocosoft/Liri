@@ -1,10 +1,10 @@
-/**
+﻿/**
  * VoiceGatewayBridge
  * 连接 GatewayServer 与 voice 子系统
  * 在 GatewayServer 的 /voice 端点上创建 VoiceSession
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { upgradeToVoiceConnection } from './upgrade';
 import { VoiceSession } from './VoiceSession';

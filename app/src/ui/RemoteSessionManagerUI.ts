@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 远程会话管理界面
  * 提供会话管理、状态显示和历史记录功能
  */
@@ -13,8 +13,8 @@ import {
   TerminalSession,
 } from '../ui/TerminalUIIntegration.js';
 import { RealtimeTerminalOutput } from '../ui/RealtimeTerminalOutput.js';
-import { resolveSessionsDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveSessionsDir } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

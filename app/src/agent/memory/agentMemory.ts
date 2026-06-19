@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 代理内存
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';

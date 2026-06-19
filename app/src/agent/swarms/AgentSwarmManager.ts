@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * Agent群组管理器
  * 负责群组的创建、管理和销毁
@@ -13,7 +13,7 @@ import {
   SwarmExecutionOptions,
   AgentStatus,
 } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const DEFAULT_CONFIG: SwarmConfig = {
   maxAgents: 10,

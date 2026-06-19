@@ -9,16 +9,16 @@
  * - Step 4: 身份与人格设置（SOUL.md / USER.md）
  * - Step 5（可选）: 消息通道配置
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
 import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
-import { detectUnifiedProviders } from '@modules/ai/providers/detectUnifiedProviders.js';
+import { detectUnifiedProviders } from '@modules/ai';
 import {
   OnboardHintKey,
   showHintIfNeeded,

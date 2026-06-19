@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,9 +29,9 @@
 
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
 import { join, basename, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core';
 import type { FieldDef } from '@modules/knowledge/schema/SchemaLoader';
 import { load } from 'js-yaml';
 

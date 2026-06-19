@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 治理闭环管理器
  * 统一管理工具治理的各个组件（权限、Hook、沙箱）
  */
@@ -32,7 +32,7 @@ import {
   GovernanceStrategyManager,
   governanceStrategyManager,
 } from './GovernanceStrategyManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 治理闭环管理器

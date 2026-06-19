@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 基于角色的工具策略
  * 按 owner/operator/guest 角色过滤可用的工具
  * owner: 全部工具可用
@@ -15,7 +15,7 @@ import type {
 } from './ToolPolicy';
 import { allowResult, denyResult } from './ToolPolicy';
 import { ToolClassifier, ToolCategory } from './ToolCatalog';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

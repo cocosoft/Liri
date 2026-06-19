@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 技能注入服务
  * 三级缓存 + 条件激活
  * 管理技能的加载、缓存、条件匹配和系统提示注入
@@ -9,7 +9,7 @@
 import { readFile, mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { Skill } from '../types';
 import { SkillSource, SkillLoadMethod } from '../types';
 import { SkillRegistry } from '../SkillRegistry';
@@ -17,7 +17,7 @@ import {
   SkillConditionMatcher,
   type ConditionContext,
 } from '../SkillConditionMatcher';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 指标桥接器
  * 将自建 MetricsService 的指标同步映射到 OTel 标准指标的桥接层
  */
 
 import { MetricsService } from '../metrics/MetricsService.js';
 import { OTelMetrics } from './OTelMetrics.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 
 export interface MetricsBridgeConfig {
   syncIntervalMs: number;

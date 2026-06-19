@@ -3,15 +3,15 @@
  * 设置 AI 模型
  * 使用 ModelManager 作为唯一数据源
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { modelManager } from '@modules/ai/models/ModelManager.js';
-import { MODEL_ALIASES } from '@modules/ai/models/ModelAliases.js';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { modelManager } from '@modules/ai';
+import { MODEL_ALIASES } from '@modules/ai';
 import {
   ALL_MODEL_CONFIGS,
   getModelKeyByName,
   type ModelKey,
-} from '@modules/ai/models/ModelConfigs.js';
-import { handleError } from '@modules/error/handleError';
+} from '@modules/ai';
+import { handleError } from '@modules/error';
 
 /**
  * 解析命令参数

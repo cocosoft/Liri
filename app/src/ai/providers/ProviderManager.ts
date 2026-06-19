@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,10 +26,10 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
-import { resolveDbPath } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveDbPath } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

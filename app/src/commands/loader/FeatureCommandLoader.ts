@@ -5,8 +5,8 @@
  */
 
 import { feature, FeatureFlag } from '@modules/core';
-import type { Command, CommandLoader } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { Command, CommandLoader } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('FeatureCommandLoader');
 

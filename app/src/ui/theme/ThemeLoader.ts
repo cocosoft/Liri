@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 主题加载器
  *
  * 从内置主题目录和用户主题目录加载主题配置。
@@ -16,13 +16,13 @@ import {
 } from 'fs';
 import { join, basename, extname, dirname } from 'path';
 import { fileURLToPath } from 'node:url';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   ThemeDefinition,
   ThemeMetadata,
   validateThemeDefinition,
 } from './ThemeSchema';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

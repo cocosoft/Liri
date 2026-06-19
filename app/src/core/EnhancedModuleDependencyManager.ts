@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 增强版模块依赖管理系统
  *
  * @deprecated 由 ModuleRegistry + DIContainer 替代。保留用于 --use-legacy-module-system 回退路径。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'EnhancedModuleDependencyManager' });
 

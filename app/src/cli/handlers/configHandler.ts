@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 配置处理器
  * 处理 config 命令组，提供配置的查看、修改、重置等操作
  */
 
 import chalk from 'chalk';
 import { t } from '@modules/system/i18n/extended';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import {
   CliConfigManager,
   createCliConfigManager,

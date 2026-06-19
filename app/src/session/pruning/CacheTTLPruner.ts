@@ -1,11 +1,11 @@
-import type { Session } from '../models/Session';
+﻿import type { Session } from '../models/Session';
 import type {
   PruningStrategy,
   PruningResult,
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

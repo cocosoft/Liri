@@ -8,8 +8,8 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+} from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import { runSecurityAudit } from '@modules/security';
 import type { SecurityAuditReport } from '@modules/security';
 

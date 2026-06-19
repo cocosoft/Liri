@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 存储优化服务
  * 实现文件系统存储和缓存机制，优化数据库访问
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   readFile,
   writeFile,
@@ -14,7 +14,7 @@ import {
 } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

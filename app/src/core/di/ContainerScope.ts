@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 容器作用域管理器
  * 管理 singleton/transient/request 三种作用域的服务实例生命周期
  */
@@ -11,7 +11,7 @@ import {
 } from './types';
 import { CycleDetector } from './CycleDetector';
 import { DisposeManager } from './DisposeManager';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('DIContainer');
 

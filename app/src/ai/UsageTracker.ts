@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,12 +26,12 @@
  * 让 /usagestats 命令和 /v1/usage API 有真实数据。
  *
  * 使用方式:
- *   import { trackUsage } from '@modules/ai/UsageTracker';
+ *   import { trackUsage } from '@modules/ai';
  *   const response = await provider.chat(messages, options);
  *   trackUsage(response, { model, providerId, latencyMs });
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelLoggerAdapter } from '@modules/monitoring/otel/OTelLoggerAdapter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });

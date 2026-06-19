@@ -1,4 +1,4 @@
-import { resolveDataDir } from '@modules/core/paths';
+﻿import { resolveDataDir } from '@modules/core';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 import {
@@ -33,12 +33,12 @@ import {
 import fsExtra from 'fs-extra';
 import { join } from 'path';
 import * as fs from 'fs';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

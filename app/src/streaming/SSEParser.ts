@@ -1,10 +1,10 @@
-/**
+﻿/**
  * SSE (Server-Sent Events) 解析器
  *
  * 解析服务器发送的事件流
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { StreamEvent } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });

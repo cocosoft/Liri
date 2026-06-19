@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,13 +28,13 @@
 import type http from 'node:http';
 import os from 'node:os';
 import type { HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
-import { getMonitoringService } from '@modules/monitoring/MonitoringService';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { StructuredLogger } from '@modules/monitoring';
+import { getMonitoringService } from '@modules/monitoring';
 import {
   getSystemCpuPercentAsync,
   getDiskInfoAsync,
-} from '@modules/monitoring/metrics/SystemMetricsCollector';
+} from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

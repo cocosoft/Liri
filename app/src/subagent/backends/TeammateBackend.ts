@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Teammate后端接口
  * 定义不同类型teammate的通用接口
  * */
@@ -8,7 +8,7 @@ import type {
   SubAgent,
   SubAgentConfig,
 } from '@modules/subagent/types/SubAgent';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface TeammateConfig {
   name: string;

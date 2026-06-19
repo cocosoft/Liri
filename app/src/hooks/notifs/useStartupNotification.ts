@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+﻿import { useEffect, useRef } from 'react';
+import { getLogger } from '@modules/monitoring';
 import { appStateStore } from '../../system/state/AppStateStore';
 import type { Notification } from '../../system/state/AppState';
 

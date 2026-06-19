@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,8 +25,8 @@
  * 不依赖 Daemon 心跳，低频轮询（每分钟一次）。
  */
 
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { globalEventBus, SystemEvents } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

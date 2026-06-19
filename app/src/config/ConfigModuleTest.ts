@@ -1,4 +1,4 @@
-//
+﻿//
 import {
   describe,
   it,
@@ -13,7 +13,7 @@ import { HotReloader } from './hotreload/HotReloader';
 import { VersionController } from './version/VersionController';
 import { writeFileSync, mkdirSync, existsSync, unlinkSync, rmSync } from 'fs';
 import { join } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const TEST_DIR = join(import.meta.dir, '.test_temp');
 const TEST_CONFIG_PATH = join(TEST_DIR, 'test_config.json');

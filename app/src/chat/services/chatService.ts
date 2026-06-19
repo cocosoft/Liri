@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 聊天服务
  */
@@ -11,7 +11,7 @@ import {
 import { ChatSession } from '../types/session';
 import { ChatSession as ChatSessionImpl } from '../sessions/chatSession';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import {
   readdirSync,
   writeFileSync,
@@ -19,9 +19,9 @@ import {
   existsSync,
   mkdirSync,
 } from 'fs';
-import { AIModelType } from '@modules/ai/models/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { AIModelType } from '@modules/ai';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

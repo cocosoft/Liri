@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Cron 作业持久化存储（SQLite）
  * 使用 SQLite 替代 JSON 文件提供更可靠的并发访问
  */
 
 import { Database } from 'sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   CronJob,
   CronJobState,

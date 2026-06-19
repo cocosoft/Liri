@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 资源限制管理器
  * 为每个插件提供 CPU、内存、并发数的独立限制
  * 基于纯 Node.js 实现，无第三方依赖
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

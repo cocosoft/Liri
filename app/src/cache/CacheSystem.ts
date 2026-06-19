@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 缓存系统
  * 提供持久化存储、版本管理和并发控制功能
  */
 
 import { join } from 'path';
 import { randomBytes } from 'crypto';
-import { resolveCacheDir } from '@modules/core/paths';
+import { resolveCacheDir } from '@modules/core';
 import {
   open,
   writeFile,

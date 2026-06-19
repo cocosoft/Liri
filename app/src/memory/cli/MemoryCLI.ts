@@ -1,10 +1,10 @@
-import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+﻿import { join } from 'path';
+import { resolveDataDir } from '@modules/core';
 import { Command } from 'commander';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { MemoryType } from '../types/MemoryType';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('MemoryCLI');
 

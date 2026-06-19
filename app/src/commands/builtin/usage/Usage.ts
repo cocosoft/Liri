@@ -6,8 +6,8 @@
  * CC 中以 Settings React 组件展示用量面板，Liri 使用 CLI 文本输出。
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getCommandManager as getCmdMgr } from '@modules/commands/manager/CommandManager.js';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getCommandManager as getCmdMgr } from '@modules/commands';
 
 /**
  * 使用情况统计命令

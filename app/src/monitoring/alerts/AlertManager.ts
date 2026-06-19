@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 告警管理器
  * 提供告警规则、通知和抑制功能
  */
 
 import { EventEmitter } from 'events';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 
 /**
  * 告警级别

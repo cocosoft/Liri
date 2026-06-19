@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 导出服务
  *
  * 支持三种格式：
@@ -9,7 +9,7 @@
  * 参考：claude-tap 的 export.py (Python 实现)
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { TraceRecord, ExportFormat } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 

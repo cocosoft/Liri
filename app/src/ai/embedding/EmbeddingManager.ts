@@ -13,8 +13,8 @@ import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import { LocalEmbeddingProvider } from './providers/LocalEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
 import { configManager } from '@modules/config';
-import { modelRouter } from '@modules/ai/modelRouter';
-import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
+import { modelRouter } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
 
 /**
  * 嵌入模型配置

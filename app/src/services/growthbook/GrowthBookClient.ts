@@ -1,4 +1,4 @@
-//
+﻿//
 import { GrowthBook } from '@growthbook/growthbook';
 import type {
   GrowthBookUserAttributes,
@@ -6,7 +6,7 @@ import type {
 } from './GrowthBookConfig';
 import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig';
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

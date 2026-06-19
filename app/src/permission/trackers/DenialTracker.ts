@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 拒绝跟踪器
  * 记录拒绝历史，用于分析拒绝模式和建议退出自动模式
  * 参考CC源码 cc_code/backend/utils/permissions/denialTracking.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

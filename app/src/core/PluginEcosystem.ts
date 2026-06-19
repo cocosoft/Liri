@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 插件和技能生态系统（薄代理层）
  *
  * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
@@ -27,8 +27,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   TerminalComponents,
   type TableColumn,

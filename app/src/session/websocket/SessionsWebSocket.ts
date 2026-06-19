@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Sessions WebSocket 实现
  * 对标CC源码的SessionsWebSocket.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

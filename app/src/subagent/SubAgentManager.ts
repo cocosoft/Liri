@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 子agent管理核心
  */
 import {
@@ -13,7 +13,7 @@ import {
   CustomSubAgentConfig,
 } from './types/SubAgent';
 import { SubAgentFactory } from './SubAgentFactory';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 子agent管理器

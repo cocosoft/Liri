@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MCP传输层基础类
  */
 
@@ -8,7 +8,7 @@ import {
   MCPClientState,
   MCPTransport as IMCPTransport,
 } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
 /**

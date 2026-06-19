@@ -22,7 +22,7 @@
  * Complete命令
  * 提供命令自动补全功能
  */
-import type { Command, CommandContext } from '@modules/commands/types';
+import type { Command, CommandContext } from '@modules/commands';
 import CompleteCommand from './Complete.js';
 
 const completeCommand: Command = {

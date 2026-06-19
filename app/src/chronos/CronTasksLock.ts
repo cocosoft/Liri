@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cron任务调度锁
  * 用于防止多实例同时执行任务
  */
@@ -11,10 +11,10 @@ import {
   mkdirSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { resolveChronosDir } from '@modules/core/paths';
+import { resolveChronosDir } from '@modules/core';
 import type { SchedulerLock } from './types';
-import { handleError } from '@modules/error/handleError';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CronTasksLock');
 

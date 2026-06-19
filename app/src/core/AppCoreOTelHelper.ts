@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OpenTelemetry 观测系统初始化
  * 从 AppCore.ts 提取，集中管理遥测初始化逻辑。
  *
@@ -10,7 +10,7 @@
  * - 创建 OTel 日志适配器
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'AppCore' });
 

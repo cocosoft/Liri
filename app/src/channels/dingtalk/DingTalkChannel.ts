@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 钉钉通道插件
  * 厂商: 阿里巴巴, SDK: dingtalk-robot-sender
  */
@@ -15,8 +15,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 
 const DINGTALK_META: ChannelMeta = {
   id: 'dingtalk',

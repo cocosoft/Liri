@@ -1,10 +1,10 @@
-/**
+﻿/**
  * AutoDream主逻辑模块
  * 自动内存整合的核心逻辑
  */
 
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
-import { resolveKnowledgeDir, resolvePyappHome } from '@modules/core/paths';
+import { resolveKnowledgeDir, resolvePyappHome } from '@modules/core';
 import { join } from 'path';
 import {
   readLastConsolidatedAt,
@@ -18,12 +18,12 @@ import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('AutoDream');
 import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
 

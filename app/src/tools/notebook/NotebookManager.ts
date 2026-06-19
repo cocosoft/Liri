@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Notebook管理
  */
 
@@ -13,9 +13,9 @@ import {
 import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

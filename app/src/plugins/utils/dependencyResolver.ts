@@ -41,7 +41,7 @@ export interface DemoteResult {
 /**
  * 插件错误类型
  */
-export interface PluginError {
+export interface PluginDependencyError {
   type: 'dependency-unsatisfied';
   source: string;
   plugin: string;
@@ -162,7 +162,7 @@ export function verifyAndDemote(
     enabledByName.set(n, (enabledByName.get(n) ?? 0) + 1);
   }
 
-  const errors: PluginError[] = [];
+  const errors: PluginDependencyError[] = [];
   let changed = true;
 
   while (changed) {

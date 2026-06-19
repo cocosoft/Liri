@@ -1,16 +1,16 @@
-/**
+﻿/**
  * DiscordChannel — Discord 通道适配器（企业版）
  * @deprecated 请使用 channels/discord/ 下的 IChannelPlugin 实现
  *             core/gateway/ 体系后续将统一收敛到 channels/ 体系
  * 使用 Discord Gateway + REST API 接收/发送消息
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { handleError } from '@modules/error';
 import * as https from 'https';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   GatewayChannel,
   InboundMessage,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * KnowledgeCompileScheduler - 定时编译调度器
  * 对标 cron 定时任务模式，实现知识库 raw/ 目录的自动检测与编译
  *
@@ -7,8 +7,8 @@
  *   2. 调用 KnowledgeCompiler 执行编译
  *   3. 提供手动触发和自动调度两种模式
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { CompileResult } from './KnowledgeCompiler';
 
 const logger = new Logger({ level: LogLevel.INFO });

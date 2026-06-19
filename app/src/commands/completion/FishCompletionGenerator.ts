@@ -3,8 +3,8 @@
  * 为所有注册的命令生成 Fish Shell 兼容的 complete 脚本
  */
 
-import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
-import type { Command } from '@modules/commands/types/index';
+import { commandRegistry } from '@modules/commands';
+import type { Command } from '@modules/commands';
 
 /**
  * Fish Shell 补全脚本生成器

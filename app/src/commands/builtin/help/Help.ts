@@ -3,8 +3,8 @@
  * 显示帮助信息，支持 search/topic 子命令
  * 对标 CC 源码 commands/help/help.tsx
  */
-import { commandRegistry } from '@modules/commands/registry/index.js';
-import type { Command } from '@modules/commands/types';
+import { commandRegistry } from '@modules/commands';
+import type { Command } from '@modules/commands';
 
 /**
  * 命令主题分类

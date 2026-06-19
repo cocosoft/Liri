@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * 从插件加载Agent定义
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { PluginAgentDefinition } from '@modules/services/agent/types';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SSHSandbox SSH 远程沙箱
  * 在远程 SSH 服务器上隔离执行命令
  * 对标 OpenClaw agents/sandbox/ssh.ts
@@ -8,7 +8,7 @@ import type {
   SandboxExecuteOptions,
   SandboxExecuteResult,
 } from './SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { spawn, type ChildProcess } from 'node:child_process';
 
 const logger = new Logger({ level: LogLevel.INFO });

@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 增强LSP管理器
  * 提供高级LSP功能、性能优化和智能诊断
@@ -10,7 +10,7 @@ import type { LSPServerManager } from './LSPServerManager.js';
 import { createLSPServerManager } from './LSPServerManager.js';
 import { LSPClient as BaseLSPClient } from './LSPClient.js';
 import type { LSPServerInstance } from './LSPServerInstance.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface EnhancedLSPManagerConfig {
   enableAdvancedFeatures: boolean;

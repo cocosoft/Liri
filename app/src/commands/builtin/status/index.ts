@@ -22,7 +22,7 @@
  * 状态命令
  * 显示系统状态信息，支持 system/agent/gateway/channels 子命令
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * 状态命令

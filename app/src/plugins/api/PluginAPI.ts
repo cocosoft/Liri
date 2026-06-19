@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 插件API实现
  * 提供插件使用的核心 API 接口，集成 KernelServiceRegistry
  * 支持基于插件 ID 的访问控制，插件只能通过 IPluginAPI 访问内核服务
@@ -6,8 +6,8 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve, normalize } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   KernelServiceRegistry,
   KernelServiceId,

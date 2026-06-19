@@ -2,7 +2,7 @@
  * Knowledge 命令实现
  * 用户知识库管理
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { knowledgeDocsProvider } from '@modules/docs/FileDocsProvider.js';
 import { getDefaultDocumentVersionService } from '@modules/docs/DocumentVersionService.js';
 import { getDefaultTemplateService } from '@modules/docs/TemplateService.js';

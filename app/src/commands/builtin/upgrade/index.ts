@@ -22,7 +22,7 @@
  * 升级命令
  * 管理应用升级和版本检查
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * upgrade 命令定义

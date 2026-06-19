@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 配置管理工具
  * 委托给 ConfigManager 实现的配置 API
  */
@@ -7,7 +7,7 @@ import { join } from 'path';
 import { configManager } from '../config/ConfigManager.js';
 import type { GlobalConfig } from '../config/types.js';
 import { profileCheckpoint } from './startupProfiler.js';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 export type AppConfig = GlobalConfig;
 

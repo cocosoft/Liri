@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具监控器
  * 负责工具执行的监控、统计和告警
  */
@@ -11,7 +11,7 @@ import {
   ToolEventType,
   ToolEventData,
 } from '../types/ToolTypes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

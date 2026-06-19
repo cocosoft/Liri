@@ -22,7 +22,7 @@
  * cost命令 - 成本分析
  */
 
-import { Command } from '@modules/commands/types';
+import { Command } from '@modules/commands';
 
 /**
  * cost命令实现

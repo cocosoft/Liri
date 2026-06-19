@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MusicGenerateTool
  * 对标OpenClaw music-generate 工具
  * AI音乐生成工具
@@ -6,7 +6,7 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@modules/core';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 export interface MusicGenerateParams {

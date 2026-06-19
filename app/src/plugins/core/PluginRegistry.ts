@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 负责插件的注册、注销、查询和依赖管理
  * 支持回退加载机制（§5 向后兼容性保障 — 措施3）
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   PluginRegistration,
   PluginState,
@@ -12,7 +12,7 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

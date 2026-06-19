@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 插件热加载管理器
  * 监听插件目录文件变更，自动触发插件的卸载→加载→激活流水线
  * 支持状态备份和回滚，重载失败时恢复旧状态
@@ -9,7 +9,7 @@
  * - 优雅卸载：依次执行 deactivate → saveContext → unload
  */
 
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import { configManager } from '@modules/config';
 import {
   watch,
@@ -20,7 +20,7 @@ import {
   readFileSync,
 } from 'fs';
 import { resolve, extname, basename, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { PluginState } from '../types/PluginTypes';
 import { PluginManager } from '../managers/PluginManager';
 const pluginManager = PluginManager.getInstance();

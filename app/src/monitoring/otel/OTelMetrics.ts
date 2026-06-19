@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * OpenTelemetry 指标系统
  */
@@ -22,7 +22,7 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
 
 /**

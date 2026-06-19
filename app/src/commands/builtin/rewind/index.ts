@@ -22,7 +22,7 @@
  * 回退会话命令
  * 回退会话到之前的状态
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * rewind 命令定义

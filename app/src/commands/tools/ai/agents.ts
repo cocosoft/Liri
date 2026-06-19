@@ -12,7 +12,7 @@
  *   help                    - 显示帮助
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
 

@@ -19,7 +19,7 @@
  *   /fetch <url> --timeout 10000      - 自定义超时
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /** 默认内容截断长度 */

@@ -1,6 +1,6 @@
-import { MemoryManagerImpl } from '../MemoryManager';
+﻿import { MemoryManagerImpl } from '../MemoryManager';
 import type { Memory } from '../types/Memory';
-import type { Message } from '@modules/core/types';
+import type { Message } from '@modules/core';
 
 /**
  * 记忆集成模块

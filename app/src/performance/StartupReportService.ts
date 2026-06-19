@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 启动报告服务
  * 用于生成详细的应用启动性能报告
  */
 
 import path from 'path';
 import fs from 'fs';
-import { resolveDataSubDir, resolveProjectRoot } from '@modules/core/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/core';
 
 /**
  * 启动报告配置

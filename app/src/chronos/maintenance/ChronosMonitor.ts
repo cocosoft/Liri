@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Chronos监控和日志模块
  * 用于追踪Chronos系统的事件和状态
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ChronosMonitor');
 

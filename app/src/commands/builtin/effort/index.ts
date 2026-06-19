@@ -22,7 +22,7 @@
  * Effort设置命令
  * 设置AI响应的详细程度
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * effort 命令定义

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * mcp-marketplace-handlers.ts — MCP Marketplace HTTP 处理器（从 LocalHTTPService 提取）
  */
 
 import type http from 'node:http';
 import { sendError, readRequestBody } from './handler-utils';
-import { handleError } from '@modules/error/handleError';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { handleError } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

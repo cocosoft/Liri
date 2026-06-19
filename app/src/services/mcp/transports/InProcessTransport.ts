@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 进程内传输
  * 支持同一进程内MCP通信，无需序列化
  */
 
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 进程内传输接口

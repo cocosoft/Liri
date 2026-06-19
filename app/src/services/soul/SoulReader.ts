@@ -1,11 +1,11 @@
-/**
+﻿/**
  * SOUL.md 读取器
  * 从 ~/.pyapp/SOUL.md 读取 AI 人格定义
  * 对标 OpenClaw SOUL.md 体系
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveSoulPath } from '@modules/core/paths';
+import { resolveSoulPath } from '@modules/core';
 
 const SOUL_FILE_PATH = resolveSoulPath();
 

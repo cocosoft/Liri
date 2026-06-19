@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 负责MCP协议的序列化、反序列化、验证和消息路由
  */
 
@@ -10,7 +10,7 @@ import type {
   MCPPromptDefinition,
 } from '../types/MCPTypes';
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * MCP协议错误

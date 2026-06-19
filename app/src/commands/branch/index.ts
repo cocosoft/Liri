@@ -23,7 +23,7 @@
  * 管理代码分支
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * Branch命令

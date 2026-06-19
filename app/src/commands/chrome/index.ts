@@ -23,7 +23,7 @@
  * 与浏览器集成
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * Chrome命令

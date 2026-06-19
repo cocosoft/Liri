@@ -7,15 +7,15 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
-import { commandLoaderRegistry } from '@modules/commands/loader/CommandLoader.js';
-import { getCommandParser } from '@modules/commands/parser/CommandParser.js';
+} from '@modules/commands';
+import { commandRegistry } from '@modules/commands';
+import { commandLoaderRegistry } from '@modules/commands';
+import { getCommandParser } from '@modules/commands';
 import {
   REMOTE_SAFE_COMMANDS,
   BRIDGE_SAFE_COMMANDS,
-} from '@modules/commands/constants/CommandConstants.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+} from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 const logger = getLogger('CommandManager');

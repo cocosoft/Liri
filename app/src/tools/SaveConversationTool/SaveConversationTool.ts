@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SaveConversationTool
  *
  * 当用户要求保存对话记录时，使用此工具总结整个对话并保存到文件
@@ -12,7 +12,7 @@ import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import chatService from '@modules/chat';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 
 export interface SaveConversationInput {
   sessionId?: string;

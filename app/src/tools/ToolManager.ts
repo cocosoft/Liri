@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 工具管理模块
  * 融合 CC 源码的 EventEmitter、事件系统、初始化、启/禁用能力
  */
 
 import { EventEmitter } from 'events';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Tool, type ToolResult } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';

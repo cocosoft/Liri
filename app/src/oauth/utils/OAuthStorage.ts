@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OAuth Token加密存储
  * 提供安全的Token持久化功能
  */
@@ -7,12 +7,12 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '@modules/infrastructure';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import type {
   StoredTokenData,
   ITokenStorage,
 } from '../types/OAuthStorageTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 const ALGORITHM = 'aes-256-gcm';

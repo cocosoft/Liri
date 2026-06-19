@@ -24,12 +24,12 @@
  * 查询供应商账户余额
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import {
   checkBalance,
   formatBalanceResult,
-} from '@modules/ai/providers/BalanceChecker.js';
-import { providerManager } from '@modules/ai/providers/ProviderManager.js';
+} from '@modules/ai';
+import { providerManager } from '@modules/ai';
 
 const balanceCommand = {
   async execute(

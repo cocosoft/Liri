@@ -1,10 +1,10 @@
-/**
+﻿/**
  * O-02: 健康检查 API
  * 暴露 HTTP Health Endpoint (:9090/health)，供 K8s 等外部监控系统探测
  */
 import http from 'node:http';
 import os from 'node:os';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

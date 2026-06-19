@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Notebook工具适配器
  */
 
@@ -15,7 +15,7 @@ import { ToolTag } from '../types/Tool.js';
 import { NotebookToolImpl } from '../notebook/NotebookToolImpl.js';
 import type { Notebook, CodeCell } from '../notebook/types/index.js';
 import { notebookManager } from '../notebook/NotebookManager.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('NotebookToolAdapter');
 

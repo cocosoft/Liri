@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 提供与MCP服务器的连接、工具调用、资源管理等核心功能
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {
   MCPClient,
   MCPRequest,

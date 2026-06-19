@@ -1,4 +1,4 @@
-import {
+﻿import {
   describe,
   it,
   expect,
@@ -28,7 +28,7 @@ import type {
 } from './security/CompleteSecuritySystem';
 import { ChatEcosystem } from './ecosystem/ChatEcosystem';
 import type { Extension } from './ecosystem/ChatEcosystem';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 describe('AdvancedStreamingProcessor', () => {
   let processor: AdvancedStreamingProcessor;

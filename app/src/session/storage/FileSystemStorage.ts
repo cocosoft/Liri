@@ -1,6 +1,6 @@
-import { promises as fs } from 'fs';
+﻿import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
 import { SessionMetadata } from '../models/SessionMetadata';
@@ -9,7 +9,7 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
-import { resolveSessionsDir } from '@modules/core/paths';
+import { resolveSessionsDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

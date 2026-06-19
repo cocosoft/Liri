@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * 认证管理器
  * 负责管理各种认证方式（API Key、OAuth、AWS、GCP等）
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 import { oauthService } from '@modules/oauth';
 import type {

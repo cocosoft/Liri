@@ -23,7 +23,7 @@
  * 任务管理与跟踪
  * 实现已迁移至 commands/tasks/ （使用真实 taskRegistry 数据源）
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const tasksCommand: Command = {
   type: 'local',

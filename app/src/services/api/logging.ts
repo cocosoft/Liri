@@ -1,11 +1,11 @@
-/**
+﻿/**
  * API 日志客户端
  *
  * 记录 API 请求/响应日志，支持处理器链和实时事件分发。
  * 与 ApiLoggingService 互补 — 后者保存记录做统计，此模块负责实时分发。
  */
 import type { ApiLogEntry } from './ApiLogging';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('api-logging');
 

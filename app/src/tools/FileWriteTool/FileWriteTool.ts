@@ -1,9 +1,9 @@
-/**
+﻿/**
  * FileWriteTool - 文件写入工具
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveOutputDir, resolveInboundDir } from '@modules/core/paths';
+import { resolveOutputDir, resolveInboundDir } from '@modules/core';
 import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {
@@ -68,7 +68,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 export class FileWriteTool extends BaseTool {

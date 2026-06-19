@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+﻿import { v4 as uuidv4 } from 'uuid';
 import { Session } from './models/Session';
 import { SessionMetadata } from './models/SessionMetadata';
 import { SessionState } from './models/SessionState';
@@ -8,7 +8,7 @@ import type {
   SessionListOptions,
 } from './SessionStorage';
 import { MemoryStorage } from './storage/MemoryStorage';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 会话工厂

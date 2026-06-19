@@ -4,7 +4,7 @@ import type {
   FlowConfigProvider,
   FlowOption,
 } from './types.js';
-import { modelManager } from '@modules/ai/models/ModelManager';
+import { modelManager } from '@modules/ai';
 
 export type ModelCatalogEntry = {
   id: string;

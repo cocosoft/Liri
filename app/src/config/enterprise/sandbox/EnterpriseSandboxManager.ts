@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EnterpriseSandboxManager — 企业版沙箱管理器
  *
  * 基于现有沙箱系统之上，提供企业级特性：
@@ -10,9 +10,9 @@
  */
 
 import { randomUUID } from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { ErrorCodes } from '@modules/error';
 import {
   EnterpriseAuditService,
   AuditEventType,

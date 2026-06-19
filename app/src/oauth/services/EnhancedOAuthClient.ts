@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 增强版OAuth客户端
  * 集成OAuthDiscovery实现自动元数据发现
  * 参考CC源码的多环境配置模式
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'EnhancedOAuthClient' });
 import {
@@ -12,7 +12,7 @@ import {
   type OAuthMetadata,
 } from '../services/OAuthDiscovery.js';
 import { TokenManager, type CachedToken } from '../services/TokenManager.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 增强版OAuth客户端配置

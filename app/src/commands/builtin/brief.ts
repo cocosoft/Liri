@@ -8,8 +8,8 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+} from '@modules/commands';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'BriefCommand' });
 

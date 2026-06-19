@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * MCP错误处理
  * 负责定义和处理MCP系统的错误
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -40,7 +40,7 @@ export enum MCPErrorType {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * MCP错误类

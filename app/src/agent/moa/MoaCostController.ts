@@ -1,9 +1,9 @@
-/**
+﻿/**
  * MoA 成本控制器
  * 控制最大 Agent 数、每 Agent 最大 Token、预算上限
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import type {
   ScheduledAgentTask,
   ScheduledTaskResult,

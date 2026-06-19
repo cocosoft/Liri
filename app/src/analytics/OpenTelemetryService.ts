@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 分析系统
  * 实现简单的事件追踪和性能监控
  */
 
 import { AsyncLocalStorage } from 'async_hooks';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('OpenTelemetryService');
 

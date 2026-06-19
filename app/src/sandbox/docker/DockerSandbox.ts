@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Docker 沙箱实现
  * 在 Docker 容器内隔离执行命令，实现 Sandbox 接口
  * 支持容器生命周期管理、资源限制、卷挂载
@@ -6,7 +6,7 @@
 
 import { execSync, exec } from 'node:child_process';
 import { promisify } from 'util';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {
   Sandbox,
   SandboxConfig,
@@ -15,7 +15,7 @@ import type {
   SandboxPermission,
   SandboxPlatform,
 } from '../SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { DockerImageManager } from './DockerImageManager';
 import { validateDockerNetworkConfig } from './DockerNetworkPolicy';
 import type {

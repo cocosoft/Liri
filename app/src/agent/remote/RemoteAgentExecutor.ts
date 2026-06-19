@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 远程Agent执行器
  */
@@ -12,7 +12,7 @@ import {
 } from './types';
 import { WebSocketProtocol, HttpProtocol } from './RemoteAgentProtocol';
 import { RemoteAgentProtocol, ProtocolType } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
   private protocol: RemoteAgentProtocol;

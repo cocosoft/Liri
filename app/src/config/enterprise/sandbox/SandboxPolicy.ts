@@ -1,11 +1,11 @@
-/**
+﻿/**
  * SandboxPolicy — 企业版沙箱策略
  *
  * 定义沙箱操作权限的細粒度策略规则。
  * 每条策略包含多个规则，规则按优先级排序。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 环境变量工具函数
  */
 
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**

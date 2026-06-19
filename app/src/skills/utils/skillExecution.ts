@@ -1,5 +1,5 @@
-import { Skill, SkillExecutionContext } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { Skill, SkillExecutionContext } from '../types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 执行技能

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API 错误类型定义
  *
  * 参考 CC源码 cc_code/backend/services/api/errors.ts
@@ -7,7 +7,7 @@
  * 继承 AppError 接入统一错误处理体系，使用 ErrorCategory.API 分类。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * API 错误类

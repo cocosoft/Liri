@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/commands/logout/logout.ts 实现
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { configManager } from '@modules/config';
 
 /**

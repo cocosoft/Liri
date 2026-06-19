@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EmailChannel 电子邮件通道
  * 对标 Hermes 的 Email 通道实现
  *
@@ -19,7 +19,7 @@ import type {
   SendResult,
   InteractiveCard,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { setEmailRuntime, clearEmailRuntime } from './runtime';
 
 /**

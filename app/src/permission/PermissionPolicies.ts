@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 权限策略限制
  * 实现危险命令检测、路径验证等权限策略
  */
 
 import { join, resolve, normalize } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
 

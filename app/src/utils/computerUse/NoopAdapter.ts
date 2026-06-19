@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ComputerUse 无操作适配器（默认回退）
  *
  * 在不支持的平台上返回明确的能力信息，
@@ -16,7 +16,7 @@ import type {
   AppInfo,
   DisplayGeometry,
 } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const NOOP_CAPABILITIES: ComputerUseCapabilities = {
   screenshot: false,

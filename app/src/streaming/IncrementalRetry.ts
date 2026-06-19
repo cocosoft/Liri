@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 增量重试机制
  *
  * 流中断后从断点续传，包含：
@@ -8,8 +8,8 @@
  * - 与 StreamStateMachine 集成
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { StreamState } from './types';
 import type { StreamStateMachine } from './StreamStateMachine';
 

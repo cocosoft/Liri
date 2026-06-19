@@ -22,7 +22,7 @@
  * Onboard命令模块入口
  * 应用入手指引和新手向导
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const onboardCommand: Command = {
   type: 'local',

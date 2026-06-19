@@ -18,7 +18,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { createChatManager } from '@modules/chat/ChatManager.js';
 
 function getChatManager(context: any) {

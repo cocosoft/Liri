@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CuratorReviewScope — Curator 审查范围扩展
  *
  * 扩展 CuratorScheduler 的审查范围，从技能扩展到：
@@ -11,8 +11,8 @@
 
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { resolvePyappHome } from '@modules/core';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

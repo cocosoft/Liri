@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Prompt Suggestion 事件追踪模块
  */
 
 import type { PromptVariant, SuggestionSource } from './types';
 import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('PromptSuggestionAnalytics');
 

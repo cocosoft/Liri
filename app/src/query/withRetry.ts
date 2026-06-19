@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 实现指数退避重试、529过载处理、瞬态错误检测
  * 支持可配置的重试条件和自定义重试判断
  *
@@ -12,7 +12,7 @@
  *   - withRetry / RetryConfig / DEFAULT_RETRY_CONFIG：本模块与 utils/withRetry 签名不同
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const INITIAL_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 60000;

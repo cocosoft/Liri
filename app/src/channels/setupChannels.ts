@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 通道自动注册集成函数
  * 将 channels/ 各平台实现自动注册到 ChannelRegistry
  * 优化：先检查环境变量配置，仅导入已启用的通道模块
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { channelBootstrapper } from './bootstrap/ChannelBootstrapper';
 import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
@@ -12,7 +12,7 @@ import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type { IChannelPlugin, MessageContext } from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
 

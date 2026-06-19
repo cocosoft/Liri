@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具工厂
  * 负责创建各种工具实例，支持基于功能标志的条件加载
  */
@@ -15,11 +15,11 @@ import { GlobTool } from './search/GlobTool';
 import { FileSearchTool } from './FileSearchTool/FileSearchTool'; //文件搜索工具（内部其实调用GlobTool）
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { CronListTool } from './ChronosTool/CronListTool';
 import { knowledgeRouter } from '../knowledge/KnowledgeRouter';
-import { resolveMemoryDir } from '@modules/core/paths';
+import { resolveMemoryDir } from '@modules/core';
 import { createKnowledgeSearchTool } from '../knowledge/tools/KnowledgeSearchTool';
 import { createKnowledgeWriteTool } from '../knowledge/tools/KnowledgeWriteTool';
 import { createKnowledgeDeleteTool } from '../knowledge/tools/KnowledgeDeleteTool';

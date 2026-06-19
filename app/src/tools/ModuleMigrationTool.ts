@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 模块迁移工具
  * 帮助将现有模块迁移到新的模块管理系统
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -324,7 +324,7 @@ export class ModuleMigrationTool {
 
 import { moduleRegistry } from '../modules/ModuleRegistry';
 import { MODULE_DEFINITIONS } from '../modules/ModuleDefinitions';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 迁移 ${moduleName} 模块到模块管理系统

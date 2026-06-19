@@ -1,4 +1,4 @@
-import { handleError } from '@modules/error/handleError';
+﻿import { handleError } from '@modules/error';
 /**
  * Compact Hooks（Pre/Post压缩钩子集成）
  */

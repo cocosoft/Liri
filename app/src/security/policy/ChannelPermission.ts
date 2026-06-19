@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 通道权限管理
  *
  * 安全域：策略
@@ -8,7 +8,7 @@
  * 对标 CC 源码 cc_code/backend/services/mcp/channelPermissions.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

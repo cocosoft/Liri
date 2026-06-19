@@ -1,12 +1,12 @@
-/**
+﻿/**
  * MCP服务器连接
  * 标准层连接管理，负责管理单个MCP服务器连接
  * 传输层和认证通过增强层组合使用 (via @modules/mcp/)
  */
 
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { MCPServerConfig, MCPToolDefinition, MCPServerStatus } from './types';
@@ -15,7 +15,7 @@ import { MCPTransport } from './transports/MCPTransport';
 import { mcpAuthManager } from './auth/MCPAuth';
 import { feature } from '@modules/featureflags';
 import type { MCPOAuthConfig } from './auth/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * MCP服务器连接

@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,9 +33,9 @@
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core/paths';
-import type { EventBus } from '@modules/core/events/EventBus';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
+import type { EventBus } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

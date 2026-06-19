@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,8 +45,8 @@
  */
 
 import type { AIProvider } from '../providers/AIProvider.js';
-import { ProviderRegistry } from '@modules/ai/providers/ProviderRegistry.js';
-import { ModelRouter } from '@modules/ai/modelRouter.js';
+import { ProviderRegistry } from '@modules/ai';
+import { ModelRouter } from '@modules/ai';
 import { JudgeService } from './JudgeService.js';
 import { TierResolver } from './TierResolver.js';
 import { SessionRouterStore } from './SessionRouterStore.js';
@@ -59,7 +59,7 @@ import { OrchEngine } from './OrchEngine.js';
 import type { OrchResult } from './OrchEngine.js';
 import { AdaptiveRouter } from './AdaptiveRouter.js';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

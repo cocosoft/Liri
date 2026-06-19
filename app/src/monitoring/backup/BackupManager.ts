@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 数据库备份管理器
  * 提供 SQLite 数据库的全量备份、恢复和自动清理功能
  * 备份目录: app/data/backups/（第二层，不跟踪）
@@ -6,8 +6,8 @@
  * 保留策略: 默认保留最近 7 个备份
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import {
   copyFileSync,
   existsSync,
@@ -18,7 +18,7 @@ import {
 } from 'fs';
 import { join, basename, dirname, resolve, extname } from 'path';
 
-import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
+import { resolveDataDir, resolveDbPath } from '@modules/core';
 
 const logger = new Logger({
   level: LogLevel.INFO,

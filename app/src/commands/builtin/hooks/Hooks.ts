@@ -3,7 +3,7 @@
  * 查看和管理已注册的钩子
  * 对标 CC 源码 cc_code/backend/commands/hooks/hooks.tsx
  */
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 
 /**
  * 展示用的钩子信息

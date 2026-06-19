@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -14,7 +14,7 @@
  *   const bySource = await svc.getStatsBySource();
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 import type { FileStats } from './types';

@@ -1,15 +1,15 @@
-/**
+﻿/**
  * 用户全局设置管理
  * 管理用户级别的全局配置，存储在 ~/.pyapp/settings.json
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'UserSettings' });
 import { deepMerge } from '@modules/utils/common.js';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 /**
  * 用户设置文件名

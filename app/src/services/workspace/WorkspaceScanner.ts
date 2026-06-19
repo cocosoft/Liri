@@ -1,6 +1,6 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
 
 const logger = new Logger({ level: LogLevel.INFO });

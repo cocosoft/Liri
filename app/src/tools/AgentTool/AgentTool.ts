@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AgentTool - 创建子代理执行任务
  *
  * 功能:
@@ -38,10 +38,10 @@ import {
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { modelRouter } from '@modules/ai/modelRouter';
+import { modelRouter } from '@modules/ai';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 /**
  * 工具管理器引用（DI 注入，避免循环依赖）

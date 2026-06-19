@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Analytics事件队列
  * 管理事件的队列和分发
  */
 
 import type { AnalyticsSink } from './types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('AnalyticsEventQueue');
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 增强快捷键管理器
  * 提供智能快捷键分析、使用统计、冲突检测、优化建议等高级功能
  */
@@ -8,7 +8,7 @@ import {
   ParsedBinding,
   KeybindingWarning,
 } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

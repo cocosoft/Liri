@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 模块定义文件
  * 统一定义所有模块的基本信息、依赖关系和生命周期
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
 /**

@@ -22,7 +22,7 @@
  * Health命令模块入口
  * 系统健康检查与状态诊断
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const healthCommand: Command = {
   type: 'local',

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 状态迁移管理器
  * 参考CC源码的状态管理模式，提供版本化的状态迁移机制
  * 包括：迁移注册、版本检查、迁移执行、回滚支持
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'StateMigrator' });
 

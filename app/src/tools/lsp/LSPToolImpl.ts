@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LSP工具实现
  */
 
@@ -11,7 +11,7 @@ import {
   ServerStatus,
 } from './types';
 import { LSPClient } from './LSPClient';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * LSP工具实现

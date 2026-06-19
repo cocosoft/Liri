@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 状态机专用错误类型
  *
  * 遵循架构规范（R01-002），所有自定义错误必须继承 AppError。
  * 定义 IllegalTransitionError（非法转移）和 InvalidSnapshotError（非法快照）两个专有错误。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 非法状态转换错误

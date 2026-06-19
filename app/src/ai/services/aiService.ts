@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI服务（已整合LLM模块）
  */
 
@@ -16,9 +16,9 @@ import {
 import type { AIService } from '../models/types';
 import { providerRegistry } from '../providers/ProviderRegistry';
 import type { AIProvider } from '../providers/AIProvider';
-import { AppError } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';

@@ -5,7 +5,7 @@
 
 import type { ChatMessage } from '../models/types.js';
 import type { AIProvider } from '../providers/AIProvider.js';
-import { OllamaProvider } from '@modules/ai/providers/OllamaProvider';
+import { OllamaProvider } from '@modules/ai';
 import type {
   Intent,
   RouteDecision,

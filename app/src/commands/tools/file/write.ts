@@ -4,7 +4,7 @@
  * 对标 CC FileWriteTool 完整实现
  * 先完整功能映射，再评估修剪
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 interface FileWriteResult {

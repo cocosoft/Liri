@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MCP CLI命令
  * 负责处理MCP相关的命令行操作
  */
@@ -8,7 +8,7 @@ import { configManager } from '@modules/config';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('mcpCommand');
 

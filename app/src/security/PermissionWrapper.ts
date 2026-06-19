@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 权限包装器
  * 对标 CC Code QueryEngine 中 wrappedCanUseTool 模式
  *
  * 包装权限检查函数，自动收集非 allow 行为的拒绝记录，
  * 用于审计追踪和 SDK 上报。
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

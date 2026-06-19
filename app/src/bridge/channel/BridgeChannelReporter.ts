@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bridge-Channel 结果上报器
  *
  * 职责：Bridge 任务执行完成时，通过 Channel 向用户推送结果。
@@ -8,7 +8,7 @@
  *   Bridge Worker 执行 → 结果聚合 → BridgeChannelReporter → Channel → 用户
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId } from '@modules/channels/types';
 

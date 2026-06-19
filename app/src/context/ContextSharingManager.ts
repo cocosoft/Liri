@@ -1,6 +1,6 @@
-import { contextIsolator } from './ContextIsolator';
+﻿import { contextIsolator } from './ContextIsolator';
 import type { Context } from './types/Context';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface SharedContextEntry {
   context: Context;

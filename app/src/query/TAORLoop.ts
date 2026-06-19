@@ -1,11 +1,11 @@
-/**
+﻿/**
  * TAOR (Think-Act-Observe-Repeat) 循环编排器
  * 在 QueryEngine 基础上提供完整的 TAOR 生命周期管理
  * 整合 TokenBudget、StopHooks、ToolCallPartitioner
  * 支持中断恢复（checkpoint/resume）机制
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { TokenBudgetManagerImpl, TokenBudgetStatus } from './TokenBudget.js';
 import type {
   TokenBudgetConfig,

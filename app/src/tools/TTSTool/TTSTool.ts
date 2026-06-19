@@ -1,8 +1,8 @@
-/**
+﻿/**
  * TTSTool 语音合成工具（Text-to-Speech）
  * 让 Agent 将文本转换为语音输出
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 

@@ -1,6 +1,6 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { execSync } from 'child_process';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 export interface PersistentTerminalSession {
   readonly sessionId: string;

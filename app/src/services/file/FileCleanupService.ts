@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -13,8 +13,8 @@
 
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 

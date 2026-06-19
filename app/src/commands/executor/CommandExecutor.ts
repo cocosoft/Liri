@@ -6,8 +6,8 @@ import type {
   CommandContext,
   CommandResult,
   ParsedCommand,
-} from '@modules/commands/types';
-import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
+} from '@modules/commands';
+import { getCommandManager } from '@modules/commands';
 
 /**
  * 命令中间件类型

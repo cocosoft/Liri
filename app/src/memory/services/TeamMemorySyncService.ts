@@ -1,17 +1,17 @@
-/**
+﻿/**
  * 团队记忆同步服务
  * 负责团队记忆的完整同步流程
  */
 
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { resolveDataDir } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import {
   MemorySecretScanner,
   defaultMemorySecretScanner,
 } from '../scanners/MemorySecretScanner';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

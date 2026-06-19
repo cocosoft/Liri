@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 增强权限规则引擎
  * 提供细粒度权限控制、动态规则评估、规则组合等高级功能
@@ -16,7 +16,7 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionMode } from './PermissionMode';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 规则条件类型

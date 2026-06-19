@@ -2,7 +2,7 @@
  * Docs命令实现
  * 文档查看与搜索
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { fileDocsProvider } from '@modules/docs/FileDocsProvider.js';
 import type { FileDocEntry } from '@modules/docs/FileDocsProvider.js';
 

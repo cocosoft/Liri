@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 知识库定时维护任务
  * 通过 Chronos 调度系统定期执行：
  * 1. 编译 raw/ 目录的原始文件为结构化 wiki 文档
  * 2. 更新知识库摘要缓存
  * 3. 执行健康检查（可选，默认仅在检查模式下执行）
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

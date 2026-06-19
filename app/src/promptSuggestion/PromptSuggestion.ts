@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Prompt Suggestion核心服务模块
  */
 
 import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('PromptSuggestion');
 import {

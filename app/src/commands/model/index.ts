@@ -24,8 +24,8 @@
  * 对标 CC 源码 cc_code/backend/commands/model/index.ts 实现
  * 使用 ModelManager 作为唯一数据源
  */
-import type { Command } from '@modules/commands/types';
-import { modelManager } from '@modules/ai/models/ModelManager.js';
+import type { Command } from '@modules/commands';
+import { modelManager } from '@modules/ai';
 
 const modelCommand: Command = {
   type: 'local',

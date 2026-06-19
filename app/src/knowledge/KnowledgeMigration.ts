@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 知识库迁移工具
  * 将旧路径 (app/docs/知识库/) 的知识迁移到新路径 (~/.pyapp/knowledge/)
  */
 import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

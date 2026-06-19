@@ -1,19 +1,19 @@
-/**
+﻿/**
  * Agent配置管理器
  * 实现基于文件系统的配置管理
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { CustomAgentDefinition, SettingSource } from './types';
 import { parseAgentsFromJson } from './parseAgent';
 import { getCwd } from '@modules/utils/cwd';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
-import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
+import { resolveDataDir, resolvePyappHome } from '@modules/core';
 
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 

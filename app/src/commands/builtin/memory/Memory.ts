@@ -6,10 +6,10 @@
 import { mkdir, writeFile, readdir, readFile, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import type { CommandContext } from '@modules/commands/types';
-import { resolvePyappHome } from '@modules/core/paths';
+import type { CommandContext } from '@modules/commands';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 /**
  * 获取记忆文件目录

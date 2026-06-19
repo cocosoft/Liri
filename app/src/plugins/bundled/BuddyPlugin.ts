@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 伙伴插件（试点模块插件化）
  * 将 buddy 模块包装为标准 Plugin，使用 IPluginAPI 访问内核服务
  */
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

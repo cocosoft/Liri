@@ -22,7 +22,7 @@
  * 思考回放播放命令
  * 回放 AI 思考过程动画（隐藏命令，由 thinkback 技能内部调用）
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * thinkback-play 命令定义

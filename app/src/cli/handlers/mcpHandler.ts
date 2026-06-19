@@ -1,13 +1,13 @@
-/**
+﻿/**
  * MCP处理器
  * 处理CLI中的MCP（Model Context Protocol）相关命令
  */
 
 import chalk from 'chalk';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 
 const logger = getLogger('mcpHandler');
 

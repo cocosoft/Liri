@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 告警预置规则加载器
  * 从 presets 目录加载 JSON 预置规则文件，校验后注册到 AlertRuleService
  */
@@ -12,8 +12,8 @@ import {
   AlertPresetLoaderConfig,
 } from './AlertSchema.js';
 import { alertRuleService } from '../AlertRuleService.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({

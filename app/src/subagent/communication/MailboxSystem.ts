@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 邮箱系统
  */
 import { Message } from '../SubAgentCommunicator';
@@ -10,8 +10,8 @@ import {
   existsSync,
   mkdirSync,
 } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

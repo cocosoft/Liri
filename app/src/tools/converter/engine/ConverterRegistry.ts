@@ -1,6 +1,6 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { Logger } from '@modules/monitoring/logs/Logger';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 import type { BaseConverter } from './BaseConverter';
 import type { ConversionResult, ConversionContext, FileInfo } from './types';
 import {

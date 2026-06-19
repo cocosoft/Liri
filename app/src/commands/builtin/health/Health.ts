@@ -2,8 +2,8 @@
  * Health命令实现
  * 系统健康检查与状态诊断
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getSystemCpuPercent } from '@modules/monitoring/metrics/SystemMetricsCollector';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getSystemCpuPercent } from '@modules/monitoring';
 
 interface HealthCheckResult {
   name: string;

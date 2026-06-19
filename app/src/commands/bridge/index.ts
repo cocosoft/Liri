@@ -22,7 +22,7 @@
  * Bridge 命令模块入口
  * 管理远程控制桥接连接
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const bridgeCommand: Command = {
   type: 'local',

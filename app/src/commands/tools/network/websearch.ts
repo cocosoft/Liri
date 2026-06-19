@@ -16,7 +16,7 @@
  *   /websearch <query> --block twitter    - 排除指定域名
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /** 搜索结果项 */

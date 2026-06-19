@@ -1,6 +1,6 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import tls from 'node:tls';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

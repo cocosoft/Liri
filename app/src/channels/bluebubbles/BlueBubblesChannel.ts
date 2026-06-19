@@ -1,4 +1,4 @@
-/**
+﻿/**
  * BlueBubbles 通道插件
  * 厂商: BlueBubbles (开源 iMessage 桥接)
  * 协议: BlueBubbles Server REST API
@@ -17,7 +17,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   getDefaultBlueBubblesConfig,
   validateBlueBubblesConfig,

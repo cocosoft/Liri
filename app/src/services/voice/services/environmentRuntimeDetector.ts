@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EnvironmentRuntimeDetector
  * 运行时环境检测器
  * 检测 SSH 会话、Docker 容器、WSL 等远程/受限环境
@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

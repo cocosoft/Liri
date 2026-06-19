@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @deprecated 请使用 TaskRegistry 替代。
  * TaskStorage 将在后续版本中移除。
  * 迁移路径：/task 命令已迁移至 TaskRegistry，不再使用 TaskTool 独立存储。
@@ -10,7 +10,7 @@
 
 import { randomUUID } from 'crypto';
 import type { Task, TaskStorage, TaskStatus } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * @deprecated 使用 TaskRegistry 替代

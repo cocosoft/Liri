@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 语音上下文（参考CC源码 cc_code/context/voice.tsx）
  * 管理语音输入/输出功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import {
   createContext,
   useContext,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LocalMainSessionTask - 主会话后台化任务
  * @deprecated 无实际进程实现，仅注释说明。配套 LocalAgentTask 已标记为 deprecated。
  * 该文件将在未来版本中删除。
@@ -17,7 +17,7 @@ import type { AgentDefinition, TaskState } from './types';
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { taskRegistry } from './TaskRegistry';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

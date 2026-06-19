@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Agent 结果分类器
  * 统一分类 Agent 执行结果
  * 对齐 OpenClaw agents/harness/result-classification.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

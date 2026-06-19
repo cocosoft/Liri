@@ -2,8 +2,8 @@
  * 工作区命令实现
  * 管理工作空间：创建、列出、切换、重命名、删除、查看详情
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import * as Registry from './WorkspaceRegistry';
 import * as Storage from './WorkspaceStorage';
 

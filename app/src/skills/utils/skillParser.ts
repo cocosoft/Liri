@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 支持完整的Frontmatter解析、参数替换、Shell执行等功能
  */
@@ -11,7 +11,7 @@ import { SkillSource, SkillLoadMethod } from '../types';
 import type { Skill } from '../types';
 // Re-export for downstream consumers
 export { SkillSource, SkillLoadMethod };
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface SkillFrontmatter {
   name?: string;

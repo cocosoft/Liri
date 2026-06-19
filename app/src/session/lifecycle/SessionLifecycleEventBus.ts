@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SessionLifecycleEventBus — 会话生命周期事件总线
  *
  * 继承自 EventBusImpl，添加类型安全的事件类型、通配符支持与事件历史。
@@ -9,9 +9,9 @@
  *   3. 事件历史记录
  */
 
-import { EventBusImpl } from '@modules/core/events/EventBus';
-import type { EventSubscription } from '@modules/core/events/EventBus';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { EventBusImpl } from '@modules/core';
+import type { EventSubscription } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 import type {
   SessionLifecycleEvent,
   SessionEventType,

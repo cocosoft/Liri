@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 跨机器 Agent 任务委托
  *
  * 完整闭环：用户 → Channel → Agent → 子任务 → Bridge 分发 → 远程执行 → 回传 → Agent 汇总 → Channel 回复
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   ChannelId,
   MessageContext,
@@ -12,7 +12,7 @@ import type {
 } from '@modules/channels/types';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import { ChannelBridgeAdapter } from './ChannelBridgeAdapter';
-import type { Coordinator, CoordinatorTask } from '@modules/core/Coordinator';
+import type { Coordinator, CoordinatorTask } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

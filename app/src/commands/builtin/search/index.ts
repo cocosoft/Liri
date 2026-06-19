@@ -22,7 +22,7 @@
  * 搜索命令
  * 在应用内搜索
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * search 命令定义

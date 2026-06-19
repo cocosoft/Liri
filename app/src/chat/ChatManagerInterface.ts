@@ -14,9 +14,9 @@ import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
 import type { SessionGateway } from '@modules/session/SessionGateway';
-import type { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
+import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
-import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
+import type { IToolExecutor } from '@modules/ai';
 import type { QueryEngine, QueryEngineConfig } from '../query/QueryEngine.js';
 import type {
   CompactServiceImpl,

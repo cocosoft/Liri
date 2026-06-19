@@ -1,7 +1,7 @@
 /**
  * /review 命令 - 代码审查
  */
-import type { CommandResult } from '@modules/commands/types';
+import type { CommandResult } from '@modules/commands';
 
 export interface ReviewResult {
   summary: string;

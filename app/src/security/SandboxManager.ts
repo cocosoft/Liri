@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 沙箱管理�?
  * 提供沙箱环境，限制代码执行的权限和资�?
  */
 
 import { logger } from '../utils/log.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 沙箱配置

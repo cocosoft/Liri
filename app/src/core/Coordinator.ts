@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 协调器模块
  * 支持多Agent协作，实现任务的并行处理和结果汇总
  */
 
 import { randomUUID } from 'crypto';
 import { lazySingleton } from '../utils/common';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'Coordinator' });
 

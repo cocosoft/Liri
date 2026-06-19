@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 认证工具
  *
  * 提供 API Key 和 OAuth Token 的管理能力。
@@ -8,7 +8,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 

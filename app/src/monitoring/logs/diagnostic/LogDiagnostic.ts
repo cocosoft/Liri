@@ -1,9 +1,9 @@
-/**
+﻿/**
  * LogDiagnostic 日志诊断
  * 对标 CC 的日志诊断能力
  */
 import fs from 'node:fs';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 /**
  * 诊断配置

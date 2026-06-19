@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 对话轨迹记录器
  * 对标 Hermes agent/trajectory.py
  * 以 JSONL 格式保存完整对话轨迹
@@ -7,8 +7,8 @@
 import { appendFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO });

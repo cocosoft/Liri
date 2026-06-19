@@ -1,4 +1,4 @@
-import { join } from 'path';
+﻿import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
@@ -8,8 +8,8 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/core/paths';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDbPath } from '@modules/core';
 
 /**
  * 数据库存储实现

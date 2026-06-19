@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+﻿import crypto from 'node:crypto';
 import http from 'node:http';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
@@ -12,7 +12,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { TTLCache } from '@modules/utils/cache';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 const LINE_API_BASE = 'https://api.line.me/v2/bot';
 

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 懒加载模块加载器
  * 支持并发安全访问、校验、重置，用于按需加载重量级模块
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 懒加载模块加载器

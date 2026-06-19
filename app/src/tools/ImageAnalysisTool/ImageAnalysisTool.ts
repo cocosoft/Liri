@@ -1,10 +1,10 @@
-/**
+﻿/**
  * ImageAnalysisTool
  * 图片分析工具
  * 支持基础视觉分析：元数据提取、色彩分析、内容检测、图片对比、AI视觉分析
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 

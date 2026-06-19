@@ -1,13 +1,13 @@
-/**
+﻿/**
  * Cron 作业 AI 执行器
  * 将 CronJob 的 prompt 发送给 AI 模型并返回结果
  */
 
 import type { CronJob, CronJobResult } from './types';
-import type { AIProvider, ChatOptions } from '@modules/ai/providers';
-import type { ChatMessage } from '@modules/ai/models/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { modelRouter } from '@modules/ai/modelRouter';
+import type { AIProvider, ChatOptions } from '@modules/ai';
+import type { ChatMessage } from '@modules/ai';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { modelRouter } from '@modules/ai';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

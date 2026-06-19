@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 自动补全Hook
  * * 支持：
  * - 命令补全
@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('useTypeahead');
 

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 洞察引擎
  * 对标 Hermes agent/insights.py（InsightsEngine）
  *
  * 从对话历史中自动提取关键信息和元数据，无需 LLM 调用。
  * 采用纯规则匹配模式，轻量级、可嵌入任何 Agent 循环。
  */
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('InsightsEngine');
 

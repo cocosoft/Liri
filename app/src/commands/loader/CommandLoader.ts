@@ -7,13 +7,13 @@ import type {
   CommandLoader,
   LoadResult,
   CommandLoadStatus,
-} from '@modules/commands/types';
+} from '@modules/commands';
 import { feature } from '@modules/core';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 import { LazyCommand } from './LazyCommand.js';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = getLogger('CommandLoader');
 

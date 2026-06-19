@@ -1,12 +1,12 @@
-//
+﻿//
 /**
  * CLI主处理器
  * 统一协调所有子处理器，提供命令路由功能
  */
 
 import chalk from 'chalk';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { t } from '@modules/system/i18n/extended';
 import { AuthHandler, createAuthHandler } from './authHandler';
 import { AgentHandler, createAgentHandler } from './agentHandler';

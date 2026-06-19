@@ -1,10 +1,10 @@
-import { promises as fs } from 'fs';
+﻿import { promises as fs } from 'fs';
 import { join } from 'path';
 import matter from 'gray-matter';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { isValidMemoryType } from '../types/MemoryType';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

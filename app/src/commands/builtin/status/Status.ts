@@ -3,7 +3,7 @@
  * 显示系统状态信息，支持 agent/gateway/channels 子命令
  * 对标 CC 源码 commands/builtin/status/status.tsx
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 格式化字节数为可读字符串

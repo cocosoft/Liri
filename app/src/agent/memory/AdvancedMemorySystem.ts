@@ -1,6 +1,6 @@
-import { AgentMemory, AgentMemoryScope } from '../models/types';
+﻿import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { AgentMemoryImpl, MemoryItem } from './agentMemory';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

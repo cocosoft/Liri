@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 会话处理器
  * 处理 session 命令组，提供会话的查看、检查和导出功能
  */
 
 import chalk from 'chalk';
 import { t } from '@modules/system/i18n/extended';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import {
   SessionGateway,
   createSessionGateway,

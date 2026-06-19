@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PlatformRouter — 多平台路由管理器
  *
  * 管理多个 PlatformAdapter 实例，提供统一路由：
@@ -7,7 +7,7 @@
  * - 平台健康状态监控
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   PlatformAdapter,
   PlatformConfig,

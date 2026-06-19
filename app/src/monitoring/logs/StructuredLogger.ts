@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 结构化日志系统
  * JSON 格式输出，含 traceId/spanId
  * 对齐 OpenClaw logging subsystem
@@ -8,7 +8,7 @@ import {
   Logger,
   LogLevel,
   type LoggerConfig,
-} from '@modules/monitoring/logs/Logger';
+} from '@modules/monitoring';
 import {
   MODULE_LOG_MEMORY,
   appendLogEntry,

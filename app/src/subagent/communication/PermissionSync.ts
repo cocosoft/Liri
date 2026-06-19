@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 权限同步
  */
 import { PermissionRequest, PermissionResponse } from '../SubAgentCommunicator';
 import { TTLCache } from '@modules/utils/cache';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,4 +1,4 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export enum PipelineStage {
   PRE_VALIDATE = 'pre_validate',

@@ -1,4 +1,4 @@
-import { Logger } from '@modules/monitoring/logs/Logger';
+﻿import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

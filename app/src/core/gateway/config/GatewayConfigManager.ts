@@ -1,4 +1,4 @@
-import { handleError } from '@modules/error/handleError';
+﻿import { handleError } from '@modules/error';
 /**
  * GatewayConfigManager 网关配置管理
  * 对标 CC 的网关配置管理能力

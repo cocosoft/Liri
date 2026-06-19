@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 细粒度权限管理器
  * 负责管理和检查细粒度权限
  */
@@ -19,8 +19,8 @@ import {
   OperationType,
 } from './Permission.js';
 import { createFilePermissionStorage } from './FilePermissionStorage.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { TTLCache } from '../utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });

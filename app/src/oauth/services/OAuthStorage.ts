@@ -1,12 +1,12 @@
-/**
+﻿/**
  * OAuth Token安全存储服务
  * 提供Token的加密存储和读取功能
  */
 
 import { join } from 'path';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { CryptoUtils } from '@modules/security';
-import { resolveOAuthDir, ensureDir } from '@modules/core/paths';
+import { resolveOAuthDir, ensureDir } from '@modules/core';
 
 const logger = new Logger({ module: 'OAuthStorage' });
 import { configManager } from '@modules/config';

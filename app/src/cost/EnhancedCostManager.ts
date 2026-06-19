@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 增强成本管理器
  * 提供高级成本分析、预测和优化建议功能
@@ -16,7 +16,7 @@ import { CostTracker } from './CostTracker.js';
 import { CostReporter } from './CostReporter.js';
 import { CostMonitor } from './CostMonitor.js';
 import { PricingManager } from './PricingManager.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

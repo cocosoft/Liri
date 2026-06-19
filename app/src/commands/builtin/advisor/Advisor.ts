@@ -2,7 +2,7 @@
  * Advisor命令
  * 提供代码建议和优化建议
  */
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 
 interface AnalysisResult {
   type: 'text';

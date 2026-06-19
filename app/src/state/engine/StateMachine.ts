@@ -1,4 +1,4 @@
-/**
+﻿/**
  * StateMachine — 泛型状态机引擎
  *
  * 提供状态转换校验、监听器通知、历史记录、快照序列化等核心能力。
@@ -7,7 +7,7 @@
  * @typeParam S 状态枚举的字面量联合类型（如 'idle' | 'running' | 'completed'）
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { IllegalTransitionError, InvalidSnapshotError } from '../errors';
 import type {
   TransitionRules,

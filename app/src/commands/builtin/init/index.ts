@@ -22,7 +22,7 @@
  * 项目初始化命令
  * 初始化一个新的项目目录
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * init 命令定义

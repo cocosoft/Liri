@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Cron 失败告警服务
  * 对标 openclaw src/cron/types.ts CronFailureAlert
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { CronJob } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });

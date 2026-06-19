@@ -27,6 +27,8 @@ export type {
   CommandContext,
   CommandResult,
   CommandLoader,
+  CommandType,
+  CommandImplementation,
 } from './types/index.js';
 
 export { commandRegistry } from './registry/index.js';
@@ -72,6 +74,21 @@ export type {
   HistoryTrend,
   IAdvancedCommandHistory,
 } from './history/index.js';
+export { commandHistoryManager } from './history/CommandHistoryManager.js';
+export { getEnhancedCommandHistory } from './history/EnhancedCommandHistory.js';
+
+export { commandCompletionManager } from './completion/CommandCompletionManager.js';
+
+export { CommandCatalog, commandCatalog } from './framework/index.js';
+
+export { getCommandParser } from './parser/index.js';
+
+export {
+  REMOTE_SAFE_COMMANDS,
+  BRIDGE_SAFE_COMMANDS,
+  COMMAND_TYPES,
+  COMMAND_SOURCES,
+} from './constants/CommandConstants.js';
 
 // 导出内置命令（不使用 export * 以避免与 export default 冲突）
 export { helpCommand } from './builtin/help/index.js';

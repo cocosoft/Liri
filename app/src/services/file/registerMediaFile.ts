@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -10,7 +10,7 @@
 
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { resolveMediaDir } from '@modules/core/paths';
+import { resolveMediaDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';

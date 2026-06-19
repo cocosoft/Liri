@@ -1,11 +1,11 @@
-/**
+﻿/**
  * FileReadTool - 文件读取工具
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getReadProtectionService } from '../../security/files/ReadProtectionService';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@modules/core';
 import type { FileOperationResult } from '../types/ToolResult';
 
 function resolveFilePath(filePath: string): string {

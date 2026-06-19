@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ApprovalWorkflow — 企业版审批工作流
  *
  * 支持多级审批、自动升级、SLA 监控、审批策略配置。
@@ -6,9 +6,9 @@
  */
 
 import { randomUUID } from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

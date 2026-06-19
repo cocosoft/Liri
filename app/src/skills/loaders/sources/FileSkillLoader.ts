@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件系统技能加载器
  * 从指定目录加载技能文件（.md / .ts / .js）
  * 合并 UserSkillLoader + ProjectSkillLoader 的共有逻辑
@@ -12,7 +12,7 @@ import {
 } from '@modules/skills/utils/skillParser';
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

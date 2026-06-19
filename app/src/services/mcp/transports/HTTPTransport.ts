@@ -1,11 +1,11 @@
-/**
+﻿/**
  * HTTP传输层
  * 基于HTTP POST的传输方式
  */
 
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
 interface HTTPTransportOptions {

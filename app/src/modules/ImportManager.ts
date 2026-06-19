@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 导入管理器
  * 统一管理模块导入，提供别名路径和批量导入功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import type { ModuleDefinition } from './moduleTypes';
 import { getRegistry } from './moduleTypes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

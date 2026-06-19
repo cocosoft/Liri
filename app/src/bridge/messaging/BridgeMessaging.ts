@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 桥接消息处理
  * 提供消息的格式化、解析和安全过滤功能
  */
 
 import type { Message } from '@modules/types/message.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 消息类型

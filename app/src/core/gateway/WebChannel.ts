@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WebChannel — WebSocket 通道适配器（遗留版）
  * 使用 Node.js 内置 http + crypto 模块实现 RFC 6455 WebSocket 服务器
  * 无需第三方依赖
@@ -18,7 +18,7 @@ import * as http from 'http';
 import * as net from 'net';
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   InboundMessage,
   OutboundMessage,
@@ -32,7 +32,7 @@ import type {
   ChannelCapabilities,
   PluginValidationResult,
 } from './ChannelPlugin';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
 
 const logger = new Logger({

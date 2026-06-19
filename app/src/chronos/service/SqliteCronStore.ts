@@ -1,7 +1,7 @@
-import { join } from 'path';
+﻿import { join } from 'path';
 import { Database } from 'sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveDbPath } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveDbPath } from '@modules/core';
 import { nextCronRunMs } from '../cron';
 import type { ScheduledTask } from '../types';
 

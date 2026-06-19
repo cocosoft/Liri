@@ -1,12 +1,12 @@
-//
+﻿//
 /**
  * 成本预测器
  * 提供多算法成本预测和风险评估功能
  */
 
 import type { CostData, CostCategory, CostPeriod } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

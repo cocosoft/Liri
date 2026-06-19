@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Chronos清理模块
  * 负责周期性清理任务
  */
@@ -6,8 +6,8 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { resolveDataDir } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ChronosCleanup');
 

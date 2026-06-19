@@ -22,7 +22,7 @@
  * 贴纸命令
  * 管理贴纸
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * stickers 命令定义

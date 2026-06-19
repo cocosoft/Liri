@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 持久化缓存服务
  * 支持磁盘持久化、版本管理和并发控制的缓存
  */
@@ -6,10 +6,10 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveCacheDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveCacheDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

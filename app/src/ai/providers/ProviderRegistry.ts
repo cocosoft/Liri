@@ -1,5 +1,5 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });

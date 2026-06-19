@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 上下文可见性审计模块
  * 检测 Agent 上下文中是否包含敏感信息
  * 对齐 OpenClaw security/context-visibility.ts
  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -22,7 +22,7 @@
  * 思考回放命令
  * 回放AI思考过程
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * thinkback 命令定义

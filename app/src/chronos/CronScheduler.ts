@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cron调度器核心
  *
  * @deprecated 此调度器为旧版 JSON 文件持久化实现，请使用 @modules/tasks/cron/CronScheduler（基于 SQLite 持久化）。
@@ -33,12 +33,12 @@ import {
   jitteredNextCronRunMs,
 } from './cronJitterConfig';
 import { cronToHuman } from './cron';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

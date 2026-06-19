@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+﻿import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * SleepTool 输入模式

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Moonshot AI 提供商（Kimi）
  * OpenAI 兼容 API
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';

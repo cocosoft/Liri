@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 插件配置管理
  * 负责加载和保存插件配置
@@ -7,7 +7,7 @@
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { PluginConfig, PluginRepository } from '../types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

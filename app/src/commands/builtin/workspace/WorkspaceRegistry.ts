@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工作空间注册表管理
  * 读写 ~/.pyapp/workspaces.json，维护所有工作空间的名称→路径映射
  */
@@ -6,7 +6,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { WorkspaceRegistry } from './types';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import os from 'os';
 
 /**

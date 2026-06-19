@@ -22,7 +22,7 @@
  * 移动端命令
  * 管理移动端连接
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * mobile 命令定义

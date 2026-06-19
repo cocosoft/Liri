@@ -22,7 +22,7 @@
  * 工作区命令
  * 管理工作区
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * workspace 命令定义

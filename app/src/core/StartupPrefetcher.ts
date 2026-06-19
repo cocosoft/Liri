@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 启动预读取模块
  * 在首屏渲染后启动后台预读取，减少用户等待时间
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'StartupPrefetcher' });
 import { profileCheckpoint } from '@modules/utils/startupProfiler.js';

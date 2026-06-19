@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工作树管理器
  * 负责为会话创建和管理独立的工作树
  */
@@ -6,7 +6,7 @@
 import { execSync } from 'child_process';
 import { join, resolve } from 'path';
 import { existsSync, rmSync } from 'fs';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 工作树信息

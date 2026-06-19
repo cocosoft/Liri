@@ -22,7 +22,7 @@
  * 输出风格命令
  * 管理输出格式和显示风格
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * output-style 命令定义

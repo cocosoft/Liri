@@ -1,7 +1,7 @@
 /**
  * 搜索命令实现
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 export default {
   /**

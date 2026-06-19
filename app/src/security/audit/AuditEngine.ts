@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 安全审计引擎
  * 统一编排所有审计维度，支持快速模式和深度模式
  */
@@ -15,8 +15,8 @@ import { auditPlugins } from './AuditPlugins';
 import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

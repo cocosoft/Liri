@@ -1,8 +1,8 @@
-import { BaseConverter } from '../engine/BaseConverter';
+﻿import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
-import { AppError } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 
 /**
  * 转换引擎引用（DI 注入，避免循环依赖）

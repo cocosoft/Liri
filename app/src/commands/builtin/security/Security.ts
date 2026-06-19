@@ -2,7 +2,7 @@
  * Security 命令 - 安全管理
  */
 
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 import { completeSecuritySystem } from '@modules/security';
 import type {
   SecurityAnalysisResult,

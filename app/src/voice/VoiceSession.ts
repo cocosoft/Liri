@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VoiceSession
  * 语音会话生命周期管理
  * 桥接 WebSocket 连接 ↔ Provider Adapter ↔ VoiceToolBridge
@@ -8,7 +8,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 
 import { randomUUID } from 'node:crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';
 import type {
@@ -29,8 +29,8 @@ import type { TranscriptManager } from '@modules/session/TranscriptManager';
 import { MessageType, MessageRole } from '@modules/session/types/Message';
 import type { UnifiedMessage } from '@modules/session/types/Message';
 import { MemoryManagerImpl } from '../memory/MemoryManager';
-import { getAlertManager } from '@modules/monitoring/alerts/AlertManager';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { getAlertManager } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring';
 
 /** 提供商标识到构造函数的映射 */
 const PROVIDER_ADAPTERS: Record<

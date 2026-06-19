@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Cron任务持久化管理
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
@@ -11,7 +11,7 @@ import {
   normalizeSchedule,
   isValidCronExpression,
 } from './cron';
-import { resolveChronosDir } from '@modules/core/paths';
+import { resolveChronosDir } from '@modules/core';
 import type { ScheduledTask } from './types';
 import type { SqliteCronStore } from './service/SqliteCronStore';
 

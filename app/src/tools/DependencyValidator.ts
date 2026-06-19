@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 模块依赖关系验证器
  * 验证模块间的依赖关系，检测循环依赖和缺失依赖
  */
@@ -6,7 +6,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { resolveProjectRoot, resolveDataSubDir } from '@modules/core/paths';
+import { resolveProjectRoot, resolveDataSubDir } from '@modules/core';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
@@ -18,7 +18,7 @@ import {
   getOnDemandModuleIds,
   ModuleLoadPriority,
 } from '../modules/LazyModuleStrategy';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

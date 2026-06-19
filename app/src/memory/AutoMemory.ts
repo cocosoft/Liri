@@ -1,6 +1,6 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
-import { resolveMemoryDir } from '@modules/core/paths';
+import { resolveMemoryDir } from '@modules/core';
 import { configManager } from '@modules/config';
 
 export function getAutoMemPath(): string {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 遥测工具
  *
  * 提供遥测数据收集和上报功能。
@@ -8,7 +8,7 @@ import { configManager } from '@modules/config';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 export type TelemetryLevel = 'off' | 'basic' | 'full';
 

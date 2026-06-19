@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 插件开发SDK
  *
  * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
@@ -8,8 +8,8 @@
  * PluginEcosystem 将在后续版本中移除。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 import { pluginSystem } from '@modules/plugins/index.js';
 import type { PluginState } from '@modules/plugins/types/PluginTypes';
 import type { SkillInfo } from '@modules/plugins/types/index.js';

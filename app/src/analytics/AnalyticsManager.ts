@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Analytics模块核心管理器
  * 实现数据收集、分析和报告功能
  */
@@ -8,7 +8,7 @@ import type {
   EventMetrics,
   SessionAnalytics,
 } from './types.js';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('AnalyticsManager');
 

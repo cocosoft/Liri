@@ -23,7 +23,7 @@
  * 编辑Liri记忆文件（旧版，请使用 builtin/memory）
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * Memory命令实现（旧版）

@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,7 +27,7 @@
 import {
   feature as coreFeature,
   type FeatureFlag,
-} from '@modules/core/featureFlags';
+} from '@modules/core';
 
 const featureCache: Partial<Record<string, boolean>> = {};
 

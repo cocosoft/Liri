@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Core模块重构功能测试
  * 验证重构后的模块依赖管理、并行加载和配置管理功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   EnhancedModuleDependencyManager,
   EnhancedModuleDefinition,

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 多 Agent 输出聚合器
  * 支持投票聚合、加权聚合、最佳选择三种模式
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import type { ScheduledTaskResult } from './ParallelAgentScheduler';
 
 const logger = new Logger();

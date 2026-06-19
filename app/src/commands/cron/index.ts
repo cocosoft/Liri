@@ -2,7 +2,7 @@
  * Cron命令模块入口
  * 定时作业管理与调度
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const cronCommand: Command = {
   type: 'local',

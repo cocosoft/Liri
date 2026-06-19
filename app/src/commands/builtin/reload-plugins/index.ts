@@ -22,7 +22,7 @@
  * 插件重载命令
  * 重新加载插件
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * reload-plugins 命令定义

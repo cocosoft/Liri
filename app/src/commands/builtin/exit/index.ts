@@ -22,8 +22,8 @@
  * 退出命令
  * 退出系统
  */
-import type { Command } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { Command } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('exit');
 

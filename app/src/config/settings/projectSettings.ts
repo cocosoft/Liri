@@ -1,15 +1,15 @@
-/**
+﻿/**
  * 项目级设置管理
  * 管理项目级别的共享配置，存储在 app/settings.json（通过 resolveProjectSettingsPath() 解析）
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'ProjectSettings' });
 import { deepMerge } from '@modules/utils/common.js';
-import { resolveProjectSettingsPath } from '@modules/core/paths';
+import { resolveProjectSettingsPath } from '@modules/core';
 
 /**
  * 获取项目设置文件路径

@@ -1,16 +1,16 @@
-/**
+﻿/**
  * ImageGenerateTool
  * 对标OpenClaw image-generate 工具
  * AI图片生成工具
  * Phase 2: 从 Mock 改为调用 AIProvider.generateImage()
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@modules/core';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 const logger = new Logger({ level: LogLevel.INFO });

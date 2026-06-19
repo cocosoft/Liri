@@ -2,7 +2,7 @@
  * Tokens 命令实现
  * 显示基于真实数据的 Token 使用统计
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 构建 Token 明细展示内容

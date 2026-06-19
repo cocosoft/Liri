@@ -21,7 +21,7 @@
 /**
  * Doctor命令模块入口
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * Doctor命令定义

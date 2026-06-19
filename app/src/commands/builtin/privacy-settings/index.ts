@@ -22,7 +22,7 @@
  * 隐私设置命令
  * 管理隐私相关设置
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * privacy-settings 命令定义

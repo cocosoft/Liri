@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bash 工具
  *
  * 提供安全的 Shell 命令执行功能
@@ -30,7 +30,7 @@ import {
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const execAsync = promisify(exec);
 

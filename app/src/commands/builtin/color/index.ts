@@ -22,7 +22,7 @@
  * 颜色设置命令
  * 管理界面颜色配置
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * color 命令定义

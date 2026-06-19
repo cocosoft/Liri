@@ -1,5 +1,5 @@
-import { execSync } from 'node:child_process';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { execSync } from 'node:child_process';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

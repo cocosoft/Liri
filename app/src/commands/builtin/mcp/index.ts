@@ -21,7 +21,7 @@
 /**
  * MCP 命令模块入口
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import mcpCommand from './MCP.js';
 
 const command: Command = {

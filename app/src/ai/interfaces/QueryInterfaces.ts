@@ -2,7 +2,7 @@
  * AI 查询接口定义
  */
 
-import type { ChatMessage } from '@modules/ai/models/types';
+import type { ChatMessage } from '@modules/ai';
 import type { ToolCall } from '@modules/tools/types';
 
 /**

@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +30,10 @@ import { join } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome } from '@modules/core/paths';
-import type { EventBus } from '@modules/core/events/EventBus';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { resolvePyappHome } from '@modules/core';
+import type { EventBus } from '@modules/core';
 
 export interface KnowledgeBaseEntry {
   title: string;

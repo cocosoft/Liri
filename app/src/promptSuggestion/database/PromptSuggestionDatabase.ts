@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Prompt Suggestion数据库模块
  * 用于存储建议历史和系统配置
  */
@@ -9,8 +9,8 @@ import type {
   SuggestionConfig,
   DEFAULT_SUGGESTION_CONFIG,
 } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolveDbPath } from '@modules/core/paths';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDbPath } from '@modules/core';
 
 /**
  * PromptSuggestion数据库存储实现

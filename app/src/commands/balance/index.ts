@@ -24,7 +24,7 @@
  * 查询供应商账户余额
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const balanceCommand: Command = {
   type: 'local',

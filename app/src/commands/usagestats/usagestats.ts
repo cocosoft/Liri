@@ -24,8 +24,8 @@
  * 查看模型使用量统计数据
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { usageStatsService } from '@modules/ai/models/UsageStatsService.js';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { usageStatsService } from '@modules/ai';
 
 /** 格式化货币显示 */
 function fmtUSD(amount: number): string {

@@ -1,4 +1,4 @@
-import {
+﻿import {
   getRegisteredSections,
   resolveSystemPromptSections,
   CACHE_BOUNDARY,
@@ -7,10 +7,10 @@ import {
 import {
   buildSystemPrompt,
   type SystemPromptContext,
-} from '@modules/ai/prompts/SystemPromptBuilder';
+} from '@modules/ai';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
-import { modelManager } from '@modules/ai/models/ModelManager';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { modelManager } from '@modules/ai';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';

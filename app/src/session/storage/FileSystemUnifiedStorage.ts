@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises';
+﻿import fs from 'node:fs/promises';
 import { Dirent } from 'node:fs';
 import path from 'node:path';
 
@@ -10,7 +10,7 @@ import type {
   Transaction,
   UnifiedMessageQueryOptions,
 } from './UnifiedStorage.js';
-import { resolveSessionsDir } from '@modules/core/paths';
+import { resolveSessionsDir } from '@modules/core';
 import type {
   UnifiedSession,
   SessionFilter,

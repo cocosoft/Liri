@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 项目文件读取器（参考CC源码 context.ts getClaudeMds）
  * 读取 Liri.md（对应CC的CLAUDE.md，遵循规则K品牌约束）
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveMemoryDir } from '@modules/core/paths';
+import { resolvePyappHome, resolveMemoryDir } from '@modules/core';
 import { configManager } from '@modules/config';
 
 export interface ProjectFiles {

@@ -14,12 +14,12 @@ import type {
   ChatMessage,
   ChatResponse,
   ToolDefinition,
-} from '@modules/ai/models/types';
+} from '@modules/ai';
 import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
-import type { AIProvider } from '@modules/ai/providers';
-import { providerRegistry } from '@modules/ai/providers';
-import { modelRouter } from '@modules/ai/modelRouter';
+import type { AIProvider } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
+import { modelRouter } from '@modules/ai';
 
 /**
  * 子代理进度事件类型

@@ -22,7 +22,7 @@
  * 计划命令
  * 管理任务计划和执行
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * plan 命令定义

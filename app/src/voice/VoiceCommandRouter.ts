@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VoiceCommandRouter
  * 语音命令路由
  * 将语音唤醒 + 转录文本映射到具体命令/工具执行
@@ -13,7 +13,7 @@ import type {
   ToolResultCallback,
   ToolProgressCallback,
 } from './VoiceToolBridge';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

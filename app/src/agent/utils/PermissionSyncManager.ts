@@ -1,11 +1,11 @@
-//
+﻿//
 /**
  * Agent权限同步管理器
  * 负责在团队中同步和传播权限设置
  * 参考CC源码 cc_code/backend/utils/swarm/permissionSync.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

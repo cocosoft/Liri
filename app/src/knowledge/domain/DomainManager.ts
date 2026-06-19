@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 域管理器 — DomainManager
  *
  * 管理 ~/.pyapp/knowledge/domains/ 下的多域知识库。
@@ -10,12 +10,12 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { load, dump } from 'js-yaml';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   resolveDomainsRoot,
   resolveDomainDir,
   resolveDomainSchemaDir,
-} from '@modules/core/paths';
+} from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

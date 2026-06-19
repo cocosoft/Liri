@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 文件权限存储
  * 使用文件系统存储权限数据
  */
 
 import fs from 'fs';
 import path from 'path';
-import { resolvePermissionsDir } from '@modules/core/paths';
+import { resolvePermissionsDir } from '@modules/core';
 import type {
   PermissionStorage,
   PermissionRule,

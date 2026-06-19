@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * 远程配置管理器
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'RemoteConfigManager' });
 

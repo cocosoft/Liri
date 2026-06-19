@@ -1,4 +1,4 @@
-import { handleError } from '@modules/error/handleError';
+﻿import { handleError } from '@modules/error';
 /**
  * IntegrationTestRunner 集成测试运行器
  * 对标 CC 的集成测试框架

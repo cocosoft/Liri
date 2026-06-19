@@ -6,7 +6,7 @@
 
 import { logForDebugging } from '../utils/debug.js';
 import { ModelPricing } from './ModelPricing.js';
-import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
+import { ModelRegistry } from '@modules/ai';
 
 /**
  * 定价版本信息

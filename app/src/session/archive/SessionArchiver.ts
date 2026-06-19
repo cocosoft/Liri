@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { ArchiveStorage } from './ArchiveStorage';
 import type {
   ArchiveConfig,

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 命令历史模块
  * 管理CLI命令历史记录
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 export interface HistoryOptions {
   maxItems?: number;

@@ -4,8 +4,8 @@
  * 将响应复制到剪贴板
  */
 
-import type { CommandContext } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { CommandContext } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import clipboardy from 'clipboardy';
 
 const logger = getLogger('Copy');

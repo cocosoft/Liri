@@ -3,7 +3,7 @@
  * 查看和管理 MCP 服务器、资源和工具
  * 对标 CC 源码 cc_code/backend/commands/mcp/mcp.tsx
  */
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 
 /**
  * 简易服务器信息（展示用）

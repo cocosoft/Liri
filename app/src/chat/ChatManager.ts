@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import crypto from 'node:crypto';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { repairModelJson } from '@modules/utils/json';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -64,18 +64,18 @@ import {
   sanitizeHTML,
   validateInput,
 } from '@modules/utils/sanitization.js';
-import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
-import { getAIModelManager } from '@modules/ai/AIModelManager.js';
-import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
-import { trackUsage } from '@modules/ai/UsageTracker.js';
-import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
+import { ToolAwareClient } from '@modules/ai';
+import { getAIModelManager } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
+import { trackUsage } from '@modules/ai';
+import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
   ChatMessage,
   ParsedToolCall,
   ToolDefinition,
-} from '@modules/ai/models/types.js';
-import type { ThinkingProviderChunk } from '@modules/ai/providers/index.js';
+} from '@modules/ai';
+import type { ThinkingProviderChunk } from '@modules/ai';
 import type {
   ChatStreamChunk,
   QuestionData,
@@ -107,8 +107,8 @@ import type {
 } from '@modules/session/types/Message';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
-import { resolveProjectRoot } from '@modules/core/paths';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { resolveProjectRoot } from '@modules/core';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCounter.js';
 import { ContextCompressor } from '@modules/agent/ContextCompressor';
 

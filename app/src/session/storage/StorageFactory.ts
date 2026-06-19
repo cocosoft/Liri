@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 存储工厂类
  * 用于创建统一存储实例
  */
 
 import type { UnifiedSessionStorage } from './UnifiedStorage.js';
 import { StorageConfig, StorageType } from './UnifiedStorage.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 /**

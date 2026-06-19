@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 图片验证工具
  *
  * 验证图片是否符合API限制。
@@ -14,7 +14,7 @@ export interface OversizedImage {
   size: number;
 }
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 图片大小超限错误

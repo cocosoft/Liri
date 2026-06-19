@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mattermost 通道插件
  * 厂商: Mattermost, Inc.
  * 协议: REST API v4 + WebSocket
@@ -17,7 +17,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   getDefaultMattermostConfig,
   validateMattermostConfig,

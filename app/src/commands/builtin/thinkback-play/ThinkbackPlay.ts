@@ -2,7 +2,7 @@
  * 思考回放播放命令
  * 回放思考过程（由 thinkback 技能调用）
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 思考回放播放实现

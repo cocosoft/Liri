@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Agent源管理器
  * 负责从不同来源加载Agent定义，支持热加载
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
@@ -16,7 +16,7 @@ import {
   loadLocalAgents,
 } from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
-import { resolvePyappHome, resolveDataDir } from '@modules/core/paths';
+import { resolvePyappHome, resolveDataDir } from '@modules/core';
 
 /**
  * Agent源类型

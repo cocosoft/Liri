@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 反馈收集组件
  * 用于收集用户反馈
  */
 
 import React, { useState } from 'react';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('Feedback');
 

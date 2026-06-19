@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { TaskNotifyPolicy, TaskDeliveryStatus, TaskStatus } from './types';
 import type { TaskState, DeliveryRecord } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';

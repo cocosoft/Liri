@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { ChatMessage } from '@modules/ai/models/types';
+import type { ChatMessage } from '@modules/ai';
 import { getSubAgentEngine } from './SubAgentEngine';
 import { configManager } from '@modules/config';
 import type {

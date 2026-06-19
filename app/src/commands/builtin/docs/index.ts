@@ -21,7 +21,7 @@
 /**
  * Docs命令模块入口
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const docsCommand: Command = {
   type: 'local',

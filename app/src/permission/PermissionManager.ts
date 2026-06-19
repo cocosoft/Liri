@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
  */
@@ -48,8 +48,8 @@ import {
   SandboxIntegrationService,
   sandboxIntegrationService,
 } from './SandboxIntegration';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

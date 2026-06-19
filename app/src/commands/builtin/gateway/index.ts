@@ -25,7 +25,7 @@
  *
  * @deprecated 基于旧 ChannelManager 体系，待迁移至 channels/ 新 IChannelPlugin 体系
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { getChannelManager } from '../../../core/gateway/ChannelManagerFactory';
 import { channelRegistry } from '../../../channels/registry/ChannelRegistry';
 import type { GatewayChannel } from '../../../core/gateway/types';

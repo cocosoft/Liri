@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 支持Hook的并发执行、超时控制、错误处理、性能监控等功能
  */
 
@@ -9,7 +9,7 @@ import type {
   HookExecutorConfig,
   HookExecutionStats,
 } from '../types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('HookExecutor');
 

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 应用核心类
  * 整合所有子系统，提供统一的入口和管理接口
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger } from '@modules/monitoring';
 import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
 import { TerminalUIIntegration } from '@modules/ui/TerminalUIIntegration.js';
 import {

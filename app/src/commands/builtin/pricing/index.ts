@@ -2,7 +2,7 @@
  * Pricing 命令入口
  * 导出为 default，兼容 LazyCommand 懒加载
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 export const pricingCommand: Command = {
   type: 'local',

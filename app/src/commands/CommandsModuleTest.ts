@@ -1,4 +1,4 @@
-//
+﻿//
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { CommandPipeline, PipelineStage } from './pipeline/CommandPipeline';
 import type {
@@ -7,7 +7,7 @@ import type {
 } from './pipeline/CommandPipeline';
 import { AdvancedCommandHistory } from './history/AdvancedCommandHistory';
 import type { HistoryEntry } from './history/AdvancedCommandHistory';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 describe('CommandPipeline', () => {
   let pipeline: CommandPipeline;

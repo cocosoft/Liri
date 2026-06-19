@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Chronos后台维护模块
  * 负责Chronos系统的后台维护任务调度
  */
@@ -16,7 +16,7 @@ import {
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '../../core/delivery/archiver/TranscriptArchiver';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

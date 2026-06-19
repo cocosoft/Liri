@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具UI组件注册表
  *
  * 统一管理各工具的 UI 渲染函数映射。
@@ -7,7 +7,7 @@
  */
 
 import type React from 'react';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 export interface ToolUIRenderer {
   renderToolUseMessage?: (

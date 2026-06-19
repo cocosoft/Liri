@@ -1,4 +1,4 @@
-/**
+﻿/**
  * startup.yaml 加载器
  * 提供纯内置 YAML 解析 + 文件加载 + 校验能力
  */
@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { Logger } from '../monitoring/logs/Logger.js';
 import { configManager } from '@modules/config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';
 import { DEFAULT_STARTUP_CONFIG } from './StartupConfig.js';
 

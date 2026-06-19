@@ -1,11 +1,11 @@
-/**
+﻿/**
  * GroupPolicy 组策略管理
  * 定义基于用户组的工具访问策略，支持角色继承和策略优先级
  * 对标 Hermes security/policies/group-policy.ts
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import { EventEmitter } from 'node:events';
 
 /**

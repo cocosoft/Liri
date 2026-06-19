@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 用户自定义绑定加载
  * 加载用户定义的按键绑定配置（来自 ~/.pyapp/keybindings.json）
  */
 import { readFileSync, existsSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import type {
   KeybindingsLoadResult,
   ParsedBinding,
@@ -14,7 +14,7 @@ import type {
 import { validateKeybindings } from './schema.js';
 import { parseChord, formatChord } from './parser.js';
 import type { KeybindingContextName } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

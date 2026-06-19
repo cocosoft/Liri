@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 自动记忆服务
  * 负责自动识别和创建记忆
  */
@@ -14,8 +14,8 @@ interface MemoryManager {
   ): Promise<Memory>;
   getAllMemories(): Promise<Memory[]>;
 }
-import type { AIService } from '@modules/ai/models/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { AIService } from '@modules/ai';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
 
 /**

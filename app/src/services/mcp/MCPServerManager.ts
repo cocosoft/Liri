@@ -1,10 +1,10 @@
-/**
+﻿/**
  * MCP服务器管理器
  * 标准层实现，负责管理多个MCP服务器连接
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -15,7 +15,7 @@ import {
   type ScopedMcpServerConfig,
 } from './types';
 import { MCPConnection } from './MCPConnection';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 服务器统计信息

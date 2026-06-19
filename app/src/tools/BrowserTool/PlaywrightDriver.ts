@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Playwright 浏览器驱动
  * 为 BrowserTool 提供浏览器自动化能力
  * 对齐 OpenClaw browser tools
@@ -7,8 +7,8 @@
  * 使用 unknown 类型避免编译时对 playwright 包的依赖。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

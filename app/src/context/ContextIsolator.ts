@@ -1,6 +1,6 @@
-import { asyncContextStorage } from './AsyncContextStorage';
+﻿import { asyncContextStorage } from './AsyncContextStorage';
 import type { Context } from './types/Context';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export type IsolationLevel = 'strict' | 'inherited' | 'shared';
 

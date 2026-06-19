@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 文件导出器
  * 提供指标和追踪数据的文件输出
  */
 
 import fs from 'fs';
 import path from 'path';
-import { resolveLogsDir } from '@modules/core/paths';
+import { resolveLogsDir } from '@modules/core';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error/utils';
+import { errorMessage } from '@modules/error';
 
 /**
  * 导出数据

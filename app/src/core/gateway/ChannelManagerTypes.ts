@@ -1,8 +1,8 @@
-/**
+﻿/**
  * ChannelManager 类型定义
  * 从 ChannelManager.ts 抽取，遵循单类原则。
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
 import type { GatewayChannel, ChannelConfig, ChannelStatus } from './types';
 import { ChannelType } from './types';

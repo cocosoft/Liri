@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bridge API客户端
  * 提供与Bridge服务通信的客户端接口
  */
@@ -534,4 +534,4 @@ export type {
   PermissionEvent,
   BackoffConfig,
 } from '../types/BridgeApiTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

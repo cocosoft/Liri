@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -24,15 +24,15 @@ import { Database } from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { SimpleMutex } from '@modules/core';
 import {
   resolveDbPath,
   resolveInboundDir,
   resolveMediaDir,
-} from '@modules/core/paths';
+} from '@modules/core';
 import {
   getCreateTableSqlList,
   FILES_TABLE,

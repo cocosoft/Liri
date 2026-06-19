@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 插件版本检查器
  * 负责检查插件更新和管理版本历史
  * 参考CC源码 cc_code/backend/utils/plugins/pluginVersioning.ts 实现
@@ -7,7 +7,7 @@
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

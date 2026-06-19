@@ -1,7 +1,7 @@
-import { MCPManager } from './managers/MCPManager.js';
+﻿import { MCPManager } from './managers/MCPManager.js';
 import { MCPServerManager } from './managers/MCPServerManager.js';
 import { MCPServerConfig, MCPToolDefinition } from './types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

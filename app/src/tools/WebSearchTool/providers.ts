@@ -1,10 +1,10 @@
-/**
+﻿/**
  * WebSearch Multi-Provider Support
  * 对标OpenClaw web-search多Provider支持
  * 支持Bing、Google、DuckDuckGo、Brave等多个搜索引擎
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export type SearchProvider =
   | 'bing'

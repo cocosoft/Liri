@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SessionCompactionBridge — 将会话生命周期与 AutoCompactService 桥接
  *
  * 职责：
@@ -13,7 +13,7 @@
 import type { Session } from '../models/Session';
 import type { CompactionRecord } from './CompactionRecord';
 import { createCompactionRecord } from './CompactionRecord';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

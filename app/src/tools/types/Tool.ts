@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 工具接口定义
  * 参考CC_CODE的Tool接口设计，适应backend现有架构
  */
@@ -6,7 +6,7 @@ import type { ToolResult } from './ToolResult';
 import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
 import type { ToolPermissionContext } from './PermissionContext';
-import type { Message } from '@modules/core/types';
+import type { Message } from '@modules/core';
 
 export type { ToolResult };
 

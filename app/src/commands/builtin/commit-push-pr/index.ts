@@ -26,7 +26,7 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
+} from '@modules/commands';
 
 /**
  * commit-push-pr 命令定义

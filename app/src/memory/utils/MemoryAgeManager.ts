@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 记忆年龄管理
  * 负责管理记忆的新鲜度，计算记忆的年龄和提示
  * 参考CC源码 cc_code/backend/memdir/memoryAge.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

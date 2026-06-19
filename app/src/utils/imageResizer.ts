@@ -1,4 +1,4 @@
-//
+﻿//
 /**
  * 图片缩放工具
  *
@@ -17,7 +17,7 @@ import {
 
 const execAsync = promisify(exec);
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 图片缩放错误

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 安全日志工具
  * 提供安全的错误记录功能，自动清理敏感信息
  */
 
-import { getLogger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger, LogLevel } from '@modules/monitoring';
 
 const logger = getLogger('safeLog');
 import {

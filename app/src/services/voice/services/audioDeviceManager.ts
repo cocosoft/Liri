@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AudioDeviceManager
  * 音频设备选择管理
  *
@@ -11,10 +11,10 @@
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
-import { resolvePyappHome, ensureDir } from '@modules/core/paths';
+import { resolvePyappHome, ensureDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

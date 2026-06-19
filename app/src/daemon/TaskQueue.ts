@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { getMonitoringService } from '../monitoring/MonitoringService';
 import type { QueueBackend, QueuedTaskEntry } from './QueueBackend';
 import { InMemoryQueueBackend } from './QueueBackend';

@@ -2,8 +2,8 @@
  * 命令注册表
  * 管理已注册的命令
  */
-import type { Command } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { Command } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CommandRegistry');
 

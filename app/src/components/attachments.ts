@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import {
   writeFileSync,
   readFileSync,
@@ -11,7 +11,7 @@ import {
   resolveAttachmentsDir,
   resolveDataSubDir,
   resolveDbPath,
-} from '@modules/core/paths';
+} from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
 
 const logger = new Logger({ level: LogLevel.INFO });

@@ -8,8 +8,8 @@
 
 import { join } from 'path';
 import { writeFileSync } from 'fs';
-import { resolveDataDir } from '@modules/core/paths';
-import type { CommandContext } from '@modules/commands/types';
+import { resolveDataDir } from '@modules/core';
+import type { CommandContext } from '@modules/commands';
 
 interface MsgLike {
   type?: string;

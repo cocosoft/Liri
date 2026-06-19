@@ -6,7 +6,8 @@
 import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 export type { LoadedPlugin };
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { PluginError } from '@modules/error';
+export { PluginError };
 
 // ====================================
 
@@ -136,21 +137,4 @@ export interface PluginManager {
   clearCache(): void;
 }
 
-/**
- * 插件错误类
- *
- * @deprecated 请使用 @modules/error/types 中的 PluginError 替代。
- *   本类为插件模块独立定义的 PluginError，与 @modules/error/types 中的
- *   标准 PluginError 功能重复。新代码应导入 @modules/error/types 的 PluginError。
- *   此类型将在未来版本中移除。
- */
-export class PluginError extends AppError {
-  constructor(
-    message: string,
-    public readonly pluginName?: string,
-    code?: string
-  ) {
-    super(message, ErrorCategory.EXECUTION, ErrorSeverity.MEDIUM, code);
-    this.name = 'PluginError';
-  }
-}
+

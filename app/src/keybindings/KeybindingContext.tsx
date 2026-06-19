@@ -1,10 +1,10 @@
-//
+﻿//
 /**
  * 按键绑定上下文管理
  * 提供按键绑定系统的React上下文和API
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ErrorCodes } from '@modules/error';
 import React, { createContext, useContext, useRef } from 'react';
 import type {
   KeybindingContextName,

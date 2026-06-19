@@ -3,9 +3,9 @@
  * 负责提供命令自动补全功能，集成 CommandCatalog 增强补全体验
  */
 
-import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
-import { commandHistoryManager } from '@modules/commands/history/CommandHistoryManager.js';
-import { commandCatalog } from '@modules/commands/framework/CommandCatalog.js';
+import { commandRegistry } from '@modules/commands';
+import { commandHistoryManager } from '@modules/commands';
+import { commandCatalog } from '@modules/commands';
 
 /**
  * 补全项类型

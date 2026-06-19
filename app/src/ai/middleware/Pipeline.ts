@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI 请求中间件管道
  *
  * 提供请求前/响应后拦截能力，各中间件可组合成链：
@@ -19,7 +19,7 @@ import type {
   ThinkingProviderChunk,
 } from '../providers/AIProvider';
 import type { ChatMessage, ChatResponse } from '../models/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

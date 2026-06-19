@@ -1,4 +1,4 @@
-/**
+﻿/**
  * QueryEngine核心
  * 基于现有ChatManager和其他组件实现查询引擎核心功能
  */
@@ -68,7 +68,7 @@ import {
   type StopHookReason,
 } from './StopHooks.js';
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
 const logger = new Logger({ level: LogLevel.INFO });

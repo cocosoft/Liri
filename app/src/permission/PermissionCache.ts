@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 权限缓存和验证机制
  * 负责缓存权限检查结果和验证权限规则
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
 import type { ICache, CacheStats } from '@modules/cache/types';

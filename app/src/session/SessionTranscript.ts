@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 对话转录管理器
  * 持久化完整对话历史到转录文件
  * 对齐 OpenClaw config/sessions/transcript.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   existsSync,
   writeFileSync,
@@ -13,7 +13,7 @@ import {
   mkdirSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { resolveTranscriptsDir } from '@modules/core/paths';
+import { resolveTranscriptsDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

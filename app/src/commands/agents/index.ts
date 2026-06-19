@@ -22,7 +22,7 @@
  * Subagent 命令模块入口
  * 管理多个 Agent 定义，支持从不同源加载 .md 配置文件
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const subagentCommand: Command = {
   type: 'local',

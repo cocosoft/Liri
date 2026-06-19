@@ -24,7 +24,7 @@
  * 查看模型使用量统计数据
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const usagestatsCommand: Command = {
   type: 'local',

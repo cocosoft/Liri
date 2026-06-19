@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Discord 通道插件
  * 厂商: Discord Inc., 协议: Gateway WebSocket + HTTP REST API
  * 特色: Slash Command / Embed / Webhook
@@ -15,8 +15,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 interface DirectoryEntry {

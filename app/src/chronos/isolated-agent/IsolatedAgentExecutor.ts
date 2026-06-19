@@ -1,4 +1,4 @@
-/**
+﻿/**
  * IsolatedAgentExecutor 隔离 Agent 执行器
  * 对标 OpenClaw 的隔离 Agent 运行机制
  */
@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@modules/error';
 
 /**
  * 执行配置

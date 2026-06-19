@@ -1,11 +1,11 @@
-/**
+﻿/**
  * ChannelPluginPresence 渠道插件存在检测
  * 对标 OpenClaw 的渠道插件存在检测系统，检查渠道插件是否可用
  * 使用系统自带的 fs/path 模块，不使用 require.resolve
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

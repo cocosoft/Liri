@@ -22,7 +22,7 @@
  * 键盘快捷键命令
  * 管理键盘快捷键
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * keyboard 命令定义

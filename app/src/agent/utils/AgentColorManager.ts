@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Agent颜色管理器
  * 负责管理Agent的颜色分配和回收
  * 参考CC源码 cc_code/backend/tools/AgentTool/agentColorManager.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

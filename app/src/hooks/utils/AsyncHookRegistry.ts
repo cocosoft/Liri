@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 异步钩子注册表
  * 管理异步钩子的执行和状态
  * 参考CC源码: cc_code/backend/utils/hooks/AsyncHookRegistry.ts
@@ -7,7 +7,7 @@
 import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 import { diagnosticManager } from './DiagnosticManager';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('AsyncHookRegistry');
 

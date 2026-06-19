@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,7 +39,7 @@ import { ToolUseContext } from '../tools/types/ToolUseContext';
 import { createToolManager } from '../tools/ToolManager';
 import { createAbortController } from '../utils/abortController';
 import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -57,7 +57,7 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
 }
 
 import { createAssistantMessage } from '../utils/messages';
-import { modelManager } from '@modules/ai/models/ModelManager';
+import { modelManager } from '@modules/ai';
 import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '../utils/slowOperations';
 import { getErrorParts } from '../utils/toolErrors';

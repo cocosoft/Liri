@@ -28,7 +28,7 @@ import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
 import { getGitInfo } from '@modules/context/GitDetector';
 import { readProjectFiles } from '@modules/context/ProjectFileReader';
 import { basename, join } from 'path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';

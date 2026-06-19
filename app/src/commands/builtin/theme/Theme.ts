@@ -4,7 +4,7 @@
  * 集成 ThemeManager 和 ThemeLoader，提供完整的主题管理功能。
  * 子命令：list / set / current / preview / import / reset / help
  */
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 import { ThemeManager } from '@modules/ui/ThemeManager';
 
 export default {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OAuth统一服务
  * 作为OAuth模块的统一入口，协调所有OAuth操作
  *
@@ -16,7 +16,7 @@ import type {
   OAuthTokenData,
   AuthorizeOptions,
 } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class OAuthService {
   private tokenManager: OAuthTokenManager;

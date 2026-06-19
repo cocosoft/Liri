@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 策略选择器
  * 基于任务特征矩阵自动匹配最佳 Agent 策略
  */
@@ -11,7 +11,7 @@ import {
   type StrategyRule,
   type StrategySelection,
 } from './types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

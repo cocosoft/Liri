@@ -3,6 +3,7 @@
  * 用于优化网络请求，实现请求缓存、重试、超时处理等功能
  */
 
+import { AppError } from '@modules/error';
 import { logger } from './log.js';
 import { CacheFactory } from '@modules/cache/CacheFactory';
 
@@ -53,7 +54,7 @@ export interface NetworkResponse<T = unknown> {
  * 网络管理器内部错误
  * 注意：使用 NetworkManagerError 避免与 error/types 中标准 NetworkError 同名冲突
  */
-export class NetworkManagerError extends Error {
+export class NetworkManagerError extends AppError {
   constructor(
     message: string,
     public status?: number,

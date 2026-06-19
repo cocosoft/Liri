@@ -1,15 +1,15 @@
-/**
+﻿/**
  * 本地设置管理（gitignored）
  * 管理项目级别的本地配置（不提交到版本控制），存储在 ~/.pyapp/settings.local.json
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'LocalSettings' });
 import { deepMerge } from '@modules/utils/common.js';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 /**
  * 本地设置文件名

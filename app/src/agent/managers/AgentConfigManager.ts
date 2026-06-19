@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Agent配置管理器
  * 负责Agent配置的持久化存储和管理
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   readFileSync,
   writeFileSync,
@@ -13,8 +13,8 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { AgentConfig } from '../models/types';
-import { AIModelType } from '@modules/ai/models/types';
-import { resolvePyappHome } from '@modules/core/paths';
+import { AIModelType } from '@modules/ai';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

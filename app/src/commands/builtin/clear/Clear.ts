@@ -1,4 +1,4 @@
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 
 export default {
   async call(args: string, context: CommandContext): Promise<{ type: 'skip' }> {

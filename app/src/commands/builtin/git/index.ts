@@ -22,7 +22,7 @@
  * Git命令
  * 提供Git操作封装
  */
-import type { Command, CommandContext } from '@modules/commands/types';
+import type { Command, CommandContext } from '@modules/commands';
 import GitCommand from './Git.js';
 
 const gitCommand: Command = {

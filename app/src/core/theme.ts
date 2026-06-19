@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 主题系统
  * 提供不同的视觉主题选项
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

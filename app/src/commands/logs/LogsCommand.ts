@@ -8,9 +8,9 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
+} from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
+import { StructuredLogger } from '@modules/monitoring';
 
 const logger = getLogger('LogsCommand');
 

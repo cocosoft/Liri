@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EdgeTTSProvider
  * Edge TTS 提供者
  *
@@ -11,8 +11,8 @@
 import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID } from 'crypto';
 import { writeFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   TTSProvider,
   TTSVoice,

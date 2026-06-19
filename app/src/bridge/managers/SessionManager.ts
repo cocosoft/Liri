@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 会话管理器
  * 负责创建、管理和销毁会话，追踪会话活动与状态
  */
@@ -9,7 +9,7 @@ import type {
   SessionDoneStatus,
   SessionActivity,
 } from '../types/index.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * 会话信息

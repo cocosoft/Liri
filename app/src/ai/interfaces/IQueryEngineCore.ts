@@ -3,7 +3,7 @@
  * 定义统一查询契约，可被多种查询引擎实现
  */
 
-import type { ChatMessage, ToolDefinition } from '@modules/ai/models/types';
+import type { ChatMessage, ToolDefinition } from '@modules/ai';
 import type { QueryResult, StreamEvent } from './QueryInterfaces';
 
 /**

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LocalHTTPServiceHelpers.ts — HTTP 服务辅助方法（从 LocalHTTPService 提取）
  *
  * 包含通道注册表、动态注册、知识库种子、编译调度等辅助功能。
@@ -6,8 +6,8 @@
 
 import http from 'node:http';
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 

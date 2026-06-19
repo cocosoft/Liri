@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Speculation 超前执行模块
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { randomUUID } from 'crypto';
 import { join } from 'path';

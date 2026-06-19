@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -58,15 +58,15 @@ import type { SessionManager } from '@modules/chat/types/session';
 import type { UnifiedMessage } from '@modules/session/types/Message';
 import type { ToolManager } from '@modules/tools/core/ToolManager';
 import { globalToolManager } from '@modules/tools/core/ToolManager';
-import type { Coordinator } from '@modules/core/Coordinator';
-import { coordinator as defaultCoordinator } from '@modules/core/Coordinator';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
-import { modelRouter } from '@modules/ai/modelRouter';
-import { SmartRouter } from '@modules/ai/router/SmartRouter';
-import type { RouteDecision } from '@modules/ai/router/types';
-import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient';
-import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
+import type { Coordinator } from '@modules/core';
+import { coordinator as defaultCoordinator } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { modelRouter } from '@modules/ai';
+import { SmartRouter } from '@modules/ai';
+import type { RouteDecision } from '@modules/ai';
+import { ToolAwareClient } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
 import { getToolManager } from '@modules/tools/ToolManager';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 import { costTracker } from '@modules/cost/CostTracker.js';

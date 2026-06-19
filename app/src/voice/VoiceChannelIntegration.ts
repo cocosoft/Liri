@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VoiceChannelIntegration
  * 语音通道集成层
  * 将 VoiceServiceBridge 的能力暴露给消息通道系统（channels/）
@@ -10,7 +10,7 @@ import {
   detectRuntimeEnvironment,
   isVoiceAvailable,
 } from '../services/voice/services/environmentRuntimeDetector';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

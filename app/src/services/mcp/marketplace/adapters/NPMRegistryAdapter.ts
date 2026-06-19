@@ -1,5 +1,5 @@
-import * as https from 'https';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import * as https from 'https';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   RegistryAdapter,
   SearchParams,

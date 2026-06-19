@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+﻿import { Logger, LogLevel } from '@modules/monitoring';
 import { FileSystemStorage } from './storage/FileSystemStorage';
 import type { Session } from './models/Session';
 import type { SessionMessage } from './models/SessionMessage';

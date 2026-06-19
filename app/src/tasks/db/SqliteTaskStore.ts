@@ -1,8 +1,8 @@
-import { join } from 'path';
+﻿import { join } from 'path';
 import { Database } from 'sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { DatabaseError } from '@modules/error';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath } from '@modules/core';
 import { SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
 import type { TaskState } from '../types';
 import type {

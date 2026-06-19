@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 治理配置管理服务
  * 提供配置持久化、热更新和版本管理功能
  * 参考CC源码: cc_code/backend/utils/settings/settings.ts
@@ -9,8 +9,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveGovernanceDir } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveGovernanceDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

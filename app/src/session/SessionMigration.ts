@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 会话存储迁移管理器
  * 支持跨版本会话数据结构升级
  * 对齐 OpenClaw config/sessions/store-migrations.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveDataDir, resolveSessionsDir } from '@modules/core/paths';
+import { resolveDataDir, resolveSessionsDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

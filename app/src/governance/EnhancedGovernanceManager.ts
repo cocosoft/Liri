@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 增强治理管理器
  * 提供智能治理分析、合规监控、风险预测等高级功能
  */
 
 import { GovernanceManager } from './managers/GovernanceManager.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * AI代理
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   AIAgent,
   AgentConfig,
@@ -17,7 +17,7 @@ import { StrategyFactory } from './strategies/agentStrategy';
 import { createAgentMemory } from './memory/agentMemory';
 import { AIModelType, AIMessageRole } from '../ai';
 import aiService from '../ai';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {
@@ -27,7 +27,7 @@ import {
 } from './trajectory';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolveSessionsDir } from '@modules/core/paths';
+import { resolveSessionsDir } from '@modules/core';
 import { CuratorScheduler } from '@modules/tools/AgentTool/CuratorScheduler';
 import { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 import { InternalEventBus } from './events';

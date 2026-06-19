@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Transcript管理器
  */
 
 import { writeFile, readFile, mkdir, stat, unlink, readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 
 import { UnifiedMessage, MessageType, MessageRole } from './types/Message.js';
 import type {
@@ -24,7 +24,7 @@ import type {
   TranscriptSearchResult,
 } from './types/Transcript.js';
 import { isTranscriptMessage, isChainParticipant } from './types/Transcript.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

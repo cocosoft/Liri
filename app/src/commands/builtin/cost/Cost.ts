@@ -6,7 +6,7 @@
  * CC 中仅显示 formatTotalCost()，Liri 实现更丰富的成本分析视图。
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 成本数据类型定义

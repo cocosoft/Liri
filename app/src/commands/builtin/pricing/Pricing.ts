@@ -4,8 +4,8 @@
  * 支持：列表查看、定价覆盖、社区同步、恢复默认
  */
 
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { modelManager } from '@modules/ai/models/ModelManager';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { modelManager } from '@modules/ai';
 import {
   readFileSync,
   writeFileSync,
@@ -14,7 +14,7 @@ import {
   statSync,
 } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 import { load, dump } from 'js-yaml';
 
 interface PricingEntry {

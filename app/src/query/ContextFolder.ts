@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,7 +28,7 @@
  * 借鉴: DeepSeek-Reasonix src/context-manager.ts
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import type { ChatMessage } from '../tools/repair/types';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';

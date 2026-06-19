@@ -11,7 +11,7 @@
  */
 
 import { TTLCache } from '@modules/utils/cache';
-import { ALL_MODEL_CONFIGS } from '@modules/ai/models/ModelConfigs';
+import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
 /** TTL 默认值: 5 分钟 */

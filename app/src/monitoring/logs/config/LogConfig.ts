@@ -1,9 +1,9 @@
-/**
+﻿/**
  * LogConfig 日志配置管理
  * 对标 CC 的日志配置管理机制
  */
 
-import { resolveLogsDir } from '@modules/core/paths';
+import { resolveLogsDir } from '@modules/core';
 import { join } from 'path';
 import { LogLevel } from '../Logger.js';
 

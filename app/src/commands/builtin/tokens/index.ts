@@ -22,7 +22,7 @@
  * Tokens 命令模块入口
  * 显示 Token 使用统计
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 const tokensCommand: Command = {
   type: 'local',

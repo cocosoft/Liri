@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PromptCache 管理器
  *
  * 配置 Anthropic prompt prefix caching 策略，
@@ -10,7 +10,7 @@
  *   - openclaw prompt-cache.ts（TTL 检查 + 失效策略）
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

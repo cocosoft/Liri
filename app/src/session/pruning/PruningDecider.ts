@@ -1,4 +1,4 @@
-import type { Session } from '../models/Session';
+﻿import type { Session } from '../models/Session';
 import type {
   PruningStrategy,
   PruningResult,
@@ -8,7 +8,7 @@ import type {
 import { DEFAULT_PRUNING_CONFIG } from './PruningStrategy';
 import { CacheTTLPruner } from './CacheTTLPruner';
 import { SoftTrimmer } from './SoftTrimmer';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

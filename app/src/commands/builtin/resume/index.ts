@@ -21,7 +21,7 @@
 /**
  * Resume 命令入口 - 会话恢复
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 export const resumeCommand: Command = {
   type: 'local',

@@ -10,7 +10,7 @@
  */
 
 import { configManager } from '@modules/config/ConfigManager.js';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 快速模式状态缓存键

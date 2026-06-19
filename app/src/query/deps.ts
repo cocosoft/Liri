@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 查询依赖管理（参考CC源码 cc_code/query/deps.ts）
  * 统一管理QueryEngine所需的依赖项
  */
@@ -10,7 +10,7 @@ import type { PostSamplingHookManager } from '../hooks/managers/PostSamplingHook
 import type { TokenBudgetManager } from './TokenBudget';
 import type { StopHookManager } from './StopHooks';
 import type { QueryConfigManager } from './config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export interface QueryDependencies {
   chatManager: ChatManager;

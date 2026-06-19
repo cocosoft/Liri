@@ -22,7 +22,7 @@
  * 帮助命令
  * 显示帮助信息和可用命令，支持 search/topic 子命令
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * 帮助命令

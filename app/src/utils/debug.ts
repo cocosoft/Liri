@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 调试工具
  */
 
 import { isEnvTruthy } from './envUtils.js';
 import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('debug');
 

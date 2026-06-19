@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 诊断日志管理器
  * 提供钩子系统的诊断和日志功能
  */
 
 import { EventEmitter } from 'events';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('DiagnosticManager');
 

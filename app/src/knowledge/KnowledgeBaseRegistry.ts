@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 知识库注册表 (KnowledgeBaseRegistry)
  *
  * 管理 ~/.pyapp/knowledge/ 下的知识库元数据。
@@ -9,8 +9,8 @@
 import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolvePyappHome } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 
 export interface KnowledgeBaseMeta {
   label: string;

@@ -22,7 +22,7 @@
  * 反馈命令
  * 提交用户反馈
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * feedback 命令定义

@@ -7,8 +7,8 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+} from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 import {
   existsSync,
   readFileSync,
@@ -17,7 +17,7 @@ import {
   copyFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = getLogger('MigrateCommand');
 

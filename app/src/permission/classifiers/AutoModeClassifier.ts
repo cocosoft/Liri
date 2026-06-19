@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 自动模式分类器
  * 用于自动判断工具使用是否安全
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

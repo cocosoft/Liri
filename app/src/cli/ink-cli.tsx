@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 //
 
 import React, { useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import {
   ScrollBox,
   AlternateScreen,
 } from '@modules/ink';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools/ToolManager';

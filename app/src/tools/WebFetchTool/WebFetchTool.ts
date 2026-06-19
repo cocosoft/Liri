@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WebFetch 工具
  *
  * 提供网页内容获取功能
@@ -17,7 +17,7 @@ import type {
   ValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
-import { resolveDownloadsDir, resolveInboundDir } from '@modules/core/paths';
+import { resolveDownloadsDir, resolveInboundDir } from '@modules/core';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';

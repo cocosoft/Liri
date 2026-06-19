@@ -1,4 +1,4 @@
-/**
+﻿/**
  * REPL工具实现
  */
 
@@ -12,7 +12,7 @@ import {
   REPLSessionStatus,
 } from './types/REPLTool.js';
 import { replSessionManager } from './REPLSessionManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * REPL工具实现

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 记忆遗忘机制
  * 基于重要性、访问次数和年龄自动遗忘不重要记忆
  * 参考CC源码的记忆年龄管理思路实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

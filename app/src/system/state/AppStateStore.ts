@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 应用状态存储实现
  * 参考CC源码 cc_code/backend/state/store.ts 实现
  */
@@ -11,8 +11,8 @@ import {
   StateChangeListener,
   StateUpdater,
 } from './AppState';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 系统上下文收集服务
  * 提供系统级别的上下文信息收集功能
  * 参考CC源码: cc_code/backend/context.ts
@@ -6,7 +6,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { TTLCache } from '@modules/utils/cache';
 import { configManager } from '@modules/config';
 

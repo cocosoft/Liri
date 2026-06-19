@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bash工具
  * 用于执行Bash命令
  */
@@ -8,7 +8,7 @@ import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils, checkPathAccessibility } from '../utils/ToolUtils';
 import { exec, execSync, ExecOptions } from 'child_process';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ToolSandboxRouter } from '../sandbox/ToolSandboxRouter';
 
 /**

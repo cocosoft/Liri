@@ -22,7 +22,7 @@
  * 主题命令
  * 管理界面主题，支持内置主题和用户自定义主题。
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * theme 命令定义

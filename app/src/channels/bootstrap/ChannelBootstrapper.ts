@@ -1,8 +1,8 @@
-/**
+﻿/**
  * ChannelBootstrapper — 通道自动注册启动器
  * 根据配置文件自动创建并注册已启用通道到 ChannelRegistry
  */
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import type { IChannelPlugin } from '../types/IChannel';
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 系统诊断服务
  * 实现系统诊断、安装类型检测、配置检测等功能
  */
@@ -9,7 +9,7 @@ import { existsSync, statSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, hostname } from 'os';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveProjectRoot } from '@modules/core/paths';
+import { resolveDbPath, resolveProjectRoot } from '@modules/core';
 
 const execAsync = promisify(exec);
 

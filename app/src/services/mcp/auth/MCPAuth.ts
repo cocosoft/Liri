@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MCP OAuth认证管理器
  * 集成OAuth Discovery和Token持久化功能
  */
@@ -8,7 +8,7 @@ import { MCPOAuthConfig, MCPOAuthToken, MCPOAuthState } from './types.js';
 import { feature } from '@modules/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@modules/oauth';
 import { logger } from '@modules/infrastructure';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class MCPAuthManager {
   private tokens: Map<string, MCPOAuthToken> = new Map();

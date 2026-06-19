@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 依赖注入容器
  * 支持 singleton/transient/request 三种作用域、循环依赖检测、自动装配、
  * 生命周期钩子、ModuleRegistry 回退解析、统一启动入口等特性
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 import {
   type ContainerConfig,
   DEFAULT_CONTAINER_CONFIG,
@@ -265,7 +265,7 @@ export class DIContainer {
    *
    * 使用方式（main.ts 入口处）：
    *
-   *   import { getDIContainer } from '@modules/core/DIContainer';
+   *   import { getDIContainer } from '@modules/core';
    *   import { moduleRegistry } from '@modules/modules/ModuleRegistry';
    *   await getDIContainer().bootstrap(moduleRegistry, { mode: 'repl' });
    *

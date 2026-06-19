@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 会话存储工具
  *
  * 提供基于文件系统的持久化会话存储能力。
@@ -7,7 +7,7 @@
 import { readFile, writeFile, mkdir, readdir, unlink, stat } from 'fs/promises';
 import { join, dirname, basename } from 'path';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome } from '@modules/core';
 
 export interface SessionData<T = unknown> {
   id: string;

@@ -1,4 +1,4 @@
-//
+﻿//
 import { spawn, type ChildProcess } from 'child_process';
 
 import type {
@@ -18,7 +18,7 @@ import type {
   TextEdit,
   WorkspaceEdit,
 } from './types.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;

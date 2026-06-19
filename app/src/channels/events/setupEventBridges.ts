@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +33,7 @@
  * 同时通过 handleError 的内存追踪记录，将标准化错误 publish 到 globalEventBus。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { channelEventBus, ChannelEvents } from './ChannelEventBus';
 import type { EventBus } from '../../core/events/EventBus';
 

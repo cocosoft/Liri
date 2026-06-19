@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,13 +29,13 @@
 import http from 'node:http';
 import path from 'node:path';
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   resolveOutputDir,
   resolveDownloadsDir,
   resolveAttachmentsDir,
   resolvePyappHome,
-} from '@modules/core/paths';
+} from '@modules/core';
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 

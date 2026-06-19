@@ -3,7 +3,7 @@
  * 管理命令历史记录：查看、搜索和清空
  */
 
-import type { CommandContext } from '@modules/commands/types';
+import type { CommandContext } from '@modules/commands';
 import { historyManager } from '@modules/utils/history.js';
 
 /**

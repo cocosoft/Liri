@@ -1,4 +1,4 @@
-import {
+﻿import {
   AIAgent,
   AgentConfig,
   AgentState,
@@ -9,7 +9,7 @@ import {
 import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 
 const logger = new Logger({ level: LogLevel.INFO });

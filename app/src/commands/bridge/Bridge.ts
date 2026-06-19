@@ -13,8 +13,8 @@ import {
   type BridgeMain,
 } from '@modules/bridge/BridgeMain.js';
 import { createDummySpawner } from '@modules/bridge/sessions/MultiSessionManager.js';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import type { CommandContext, CommandResult } from '@modules/commands';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('Bridge');
 

@@ -4,7 +4,7 @@
  */
 import { arch, platform } from 'node:os';
 import { configManager } from '@modules/config';
-import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * 应用相关环境变量前缀列表

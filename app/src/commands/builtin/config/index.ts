@@ -22,7 +22,7 @@
  * 配置命令
  * 管理配置，支持 get/set/list/reset 子命令
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * 配置命令

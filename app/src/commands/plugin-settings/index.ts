@@ -27,7 +27,7 @@ import type {
   Command,
   CommandContext,
   CommandResult,
-} from '@modules/commands/types';
+} from '@modules/commands';
 
 /**
  * 插件设置命令

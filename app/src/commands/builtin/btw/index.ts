@@ -22,7 +22,7 @@
  * btw命令
  * 快速记录简短备注
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 /**
  * btw 命令定义

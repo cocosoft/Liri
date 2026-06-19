@@ -3,7 +3,7 @@
  * 管理任务（通过 TaskRegistry）
  */
 
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
 import { TaskStatus } from '@modules/tasks/types.js';
 import { BaseTask } from '@modules/tasks/BaseTask.js';

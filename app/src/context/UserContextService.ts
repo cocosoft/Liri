@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 用户上下文服务
  * 实现用户上下文文件的读取和注入
  */
 
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

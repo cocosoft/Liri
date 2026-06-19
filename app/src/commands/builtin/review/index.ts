@@ -21,7 +21,7 @@
 /**
  * Review 命令入口
  */
-import type { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands';
 
 export const reviewCommand: Command = {
   type: 'local',

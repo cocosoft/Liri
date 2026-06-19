@@ -1,4 +1,4 @@
-/**
+﻿/**
  * dreamIntegration.ts — Buddy 梦境集成模块
  *
  * 连接 AutoDream 后台事件与 Buddy 前端反馈。
@@ -11,14 +11,14 @@
 
 import type { DreamEvent } from '@modules/chronos/autoDream/AutoDream';
 import { offDreamEvent } from '@modules/chronos/autoDream/AutoDream';
-import type { EventBus } from '@modules/core/events/EventBus';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import type { EventBus } from '@modules/core';
+import { globalEventBus, SystemEvents } from '@modules/core';
 import {
   createInfoNotification,
   createAchievementNotification,
   createLevelUpNotification,
 } from './notifications';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('BuddyDream');
 import { ifNotificationsEnabled } from './conditional';

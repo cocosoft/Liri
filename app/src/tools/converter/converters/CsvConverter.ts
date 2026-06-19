@@ -1,6 +1,6 @@
-import { BaseConverter } from '../engine/BaseConverter';
+﻿import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 
 const logger = new Logger();
 

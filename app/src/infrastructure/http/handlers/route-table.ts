@@ -5,7 +5,7 @@
  */
 
 import type http from 'node:http';
-import { tryHandleRoute } from '@modules/ai/ModelManagementAPI';
+import { tryHandleRoute } from '@modules/ai';
 
 // Voice handlers（直接函数调用，不使用 this.handleXxx）
 import {

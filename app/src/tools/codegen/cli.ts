@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 代码生成工具CLI
  */
 
 import { Command } from 'commander';
 import { generateCodeFile, CodeGenOptions } from './CodeGenerator';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

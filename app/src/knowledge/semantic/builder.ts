@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,13 +28,13 @@
  * 借鉴: DeepSeek-Reasonix src/index/semantic/builder.ts
  */
 
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring';
 import { chunkDirectory } from './chunker';
 import type { ChunkOptions } from './chunker';
-import { globalEmbeddingManager } from '@modules/ai/embedding/EmbeddingManager';
+import { globalEmbeddingManager } from '@modules/ai';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry } from './store';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger();
 

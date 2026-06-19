@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 个人微信 Bot 通道插件
  * 厂商: 腾讯, 协议: weixin-cli HTTP Bridge
  * 前置: npx -y @tencent-weixin/openclaw-weixin-cli@latest install
@@ -21,8 +21,8 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 
 const WECHAT_META: ChannelMeta = {

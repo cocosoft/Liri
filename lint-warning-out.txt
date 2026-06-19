@@ -1,0 +1,147 @@
+宸叉壂鎻?4079 涓?TypeScript 鏂囦欢
+
+杩愯鏋舵瀯鍚堣妫€鏌?..
+
+
+[Console 鍩虹嚎] 褰撳墠 2041 娆¤皟鐢紙鍩虹嚎: 2045锛屼笂闄? 2250锛?  璋冪敤鏈€澶氱殑鏂囦欢:
+    app\src\commands\builtin\onboard\Onboard.ts: 231 娆?    app\src\cli\index.ts: 210 娆?    app\src\plugins\cli\market.ts: 120 娆?    app\src\cli\handlers\sessionHandler.ts: 79 娆?    app\src\cli\handlers\diagnoseHandler.ts: 72 娆?
+[Barrel 鏂囦欢] 鍙戠幇 128 涓?barrel 鏂囦欢锛堜粎 re-export锛?
+[Message 妯″瀷] 3 涓枃浠惰嚜瀹?Message 绫诲瀷锛堣鑼冩潵婧? chat/types/message.ts锛?
+[Config/Env] 0 澶?process.env 鐩存帴璁块棶锛? 涓枃浠讹級
+
+[閲嶅渚濊禆] 鍙戠幇 1 缁勫姛鑳介噸鍙犱緷璧?
+[tsconfig/ESLint] 0 涓洰褰曞瓨鍦ㄧ被鍨嬫鏌ョ洸鍖?
+[R01-005 鍋ュ悍妫€鏌 7 澶勮嚜寤哄仴搴锋鏌?
+[R02-003 Session 妯″瀷] 2 涓枃浠惰嚜瀹?SessionId/SessionID 绫诲瀷
+
+[R03-002 妯″潡鍑哄彛鍗曚竴] 1157 澶勫瓙鐩綍 import 杩濊
+
+[R03-004 娑堟伅璺敱] 0 澶勭洿鎺?CoreAPI.chat() 璋冪敤
+宸插姞杞?65 涓ā鍧楃殑鍒嗗眰鏄犲皠
+宸插姞杞?20 鏉℃湁鏁堝垎灞備緥澶?
+杩愯鍒嗗眰鍚堣妫€鏌?(R00-001)...
+鍒嗗眰妫€鏌ュ畬鎴? 妫€鏌?3868 涓枃浠?| 杩濊 0 | 宸茶眮鍏?236
+
+========== 鏋舵瀯鍚堣妫€鏌ョ粨鏋?==========
+閿欒: 0  璀﹀憡: 1084  鎬昏: 1084
+========================================
+
+鈿狅笍 [R01-001] 1 鏉¤繚瑙?
+  - app\src\core\events\UiEventBus.ts
+    鍙兘瀛樺湪鑷缓浜嬩欢鍒嗗彂锛圡ap<string, Handler> 妯″紡锛?    寤鸿: 鏇挎崲涓?core/events/EventBus.ts 鐨?EventBusImpl
+
+鈿狅笍 [R01-003] 1 鏉¤繚瑙?
+  - app\src\infrastructure\http\handlers\channel-handlers.ts
+    鍙兘鍖呭惈鑷缓閲嶈瘯閫昏緫
+    寤鸿: 璇蜂娇鐢?utils/withRetry.ts 鐨?withRetry()锛堟爣鍑嗛噸璇曞疄鐜帮級
+
+鈿狅笍 [R01-004] 1 鏉¤繚瑙?
+  - app\src\core\spi\CacheService.ts
+    妫€娴嬪埌鑷缓缂撳瓨 `cache`锛坣ew Map 妯″紡锛?    寤鸿: 璇锋敼鐢?cache/CacheSystem.ts
+
+鈿狅笍 [R02-002] 756 鏉¤繚瑙?
+  - acp\control-plane\manager.ts (class), runtime\acp\session.ts (class)
+    瀵煎嚭 "AcpSessionManager" (class) 鍦?2 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - acp\conversation-id.ts (function), system\state\types.ts (function)
+    瀵煎嚭 "generateSessionId" (function) 鍦?2 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - acp\normalize-text.ts (function), common\utils.ts (function)
+    瀵煎嚭 "isBlank" (function) 鍦?2 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - acp\types.ts (type), system\state\types.ts (type), types\ids.ts (type)
+    瀵煎嚭 "SessionId" (type) 鍦?3 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  - agent\AgentCleanup.ts (interface), monitoring\archival\DataArchivalStrategy.ts (interface), monitoring\backup\BackupManager.ts (interface), services\file\FileCleanupService.ts (interface), tasks\types.ts (interface)
+    瀵煎嚭 "CleanupResult" (interface) 鍦?5 涓笉鍚屾ā鍧椾腑瀹氫箟
+    寤鸿: 璇锋鏌ヨ繖浜涘畾涔夋槸鍚﹀簲缁熶竴涓烘牳蹇冩暟鎹绾︼紙濡?core/data-models.ts锛夋垨褰掑苟鍒板崟涓€妯″潡
+  ... 鍙婂叾浠?751 鏉?
+鈿狅笍 [R03-001] 21 鏉¤繚瑙?
+  - app\src\acp\control-plane\runtime-cache.ts
+    鍙兘鍖呭惈鑷缓 Cache
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - app\src\agent\managers\AgentConfigManager.ts
+    鍙兘鍖呭惈鑷缓 ConfigManager
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - app\src\ai\health\ModelHealthCheck.ts
+    鍙兘鍖呭惈鑷缓 HealthChecker
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - app\src\ai\localAgent\LocalAgentCache.ts
+    鍙兘鍖呭惈鑷缓 Cache
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  - app\src\ai\prompts\PromptCacheManager.ts
+    鍙兘鍖呭惈鑷缓 Cache
+    寤鸿: 濡傜‘涓哄熀纭€璁炬柦锛岃纭繚宸茶幏鏋舵瀯 review 鎵瑰噯
+  ... 鍙婂叾浠?16 鏉?
+鈿狅笍 [R04-001] 298 鏉¤繚瑙?
+  - app\src\agent\agent.ts
+    鏂囦欢 679 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - app\src\agent\chains\AgentChain.ts
+    鏂囦欢 532 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - app\src\agent\memory\AdvancedMemorySystem.ts
+    鏂囦欢 540 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - app\src\agent\template-market\AgentTemplateMarket.ts
+    鏂囦欢 661 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  - app\src\agent\tool-catalog\index.ts
+    鏂囦欢 611 琛岋紝瓒呰繃 500 琛岄檺鍒?    寤鸿: 鑰冭檻鎷嗗垎涓哄瓙鐩綍涓嬬殑澶氫釜鏂囦欢
+  ... 鍙婂叾浠?293 鏉?
+鈿狅笍 [R05-005] 1 鏉¤繚瑙?
+  - app\src\agent\builtin\index.ts
+    瀛樺湪 128 涓粎鍋?re-export 鐨?barrel 鏂囦欢锛坕ndex.ts锛?    寤鸿: Barrel 鏂囦欢涓嶅埄浜?tree-shaking锛岃鑰冭檻鏄惁蹇呰
+  鍙楀奖鍝嶆枃浠?
+    - app\src\agent\builtin\index.ts
+    - app\src\agent\chains\index.ts
+    - app\src\agent\swarms\index.ts
+    - app\src\agent\trajectory\index.ts
+    - app\src\ai\embedding\index.ts
+    - app\src\ai\formatters\index.ts
+    - app\src\ai\middleware\index.ts
+    - app\src\ai\parsers\index.ts
+    - app\src\bridge\logger\index.ts
+    - app\src\channels\base\index.ts
+    ... 鍙婂叾浠?118 涓?
+鈿狅笍 [R05-011] 1 鏉¤繚瑙?
+  - core/types.ts
+    瀛樺湪 3 涓枃浠惰嚜琛屽畾涔変簡 Message 绫诲瀷锛屾湭浣跨敤 chat/types/message.ts 鐨勮鑼冨畾涔?    寤鸿: 璇风粺涓€寮曠敤 chat/types/message.ts 鐨?Message 绫诲瀷
+  鍙楀奖鍝嶆枃浠?
+    - core/types.ts (Message)
+    - types/index.ts (Message)
+    - types/message.ts (Message)
+
+鈿狅笍 [R05-008] 1 鏉¤繚瑙?
+  - app/package.json
+    渚濊禆閲嶅: [Schema 鏍￠獙] 鍚屾椂浣跨敤浜?ajv銆亃od銆丂sinclair/typebox
+    寤鸿: 璇风粺涓€浣跨敤涓€绉?schema 鏍￠獙搴擄紝鎺ㄨ崘 Zod
+
+鈿狅笍 [R01-005] 1 鏉¤繚瑙?
+  - app\src\core\flows\doctor-health.ts
+    妫€娴嬪埌 7 澶勮嚜寤哄仴搴锋鏌ワ紙搴旂粺涓€閫氳繃 HealthChecker 娉ㄥ唽锛?    寤鸿: 璇峰皢鎵€鏈夊仴搴锋鏌ラ€昏緫缁熶竴鍒?monitoring/health/HealthChecker.ts 娉ㄥ唽
+  - app\src\core\flows\doctor-health.ts:124
+  - app\src\core\flows\doctor-health.ts:152
+  - app\src\core\flows\doctor-health.ts:159
+  - app\src\core\flows\doctor-health.ts:170
+  - app\src\daemon\HealthServer.ts:93
+  - app\src\entrypoints\api-handler.ts:120
+  - app\src\infrastructure\http\handlers\route-table.ts:1299
+
+鈿狅笍 [R02-003] 1 鏉¤繚瑙?
+  - system/state/types.ts
+    瀛樺湪 2 涓枃浠惰嚜琛屽畾涔変簡 SessionId/SessionID 绫诲瀷锛屾湭浣跨敤 acp/types.ts 鐨勮鑼冨畾涔?    寤鸿: 璇风粺涓€寮曠敤 acp/types.ts 鐨?SessionId锛坆randed type锛?  鍙楀奖鍝嶆枃浠?
+    - system/state/types.ts (type)
+    - types/ids.ts (type)
+
+鈿狅笍 [R03-002] 1 鏉¤繚瑙?
+  - agent/agent.ts
+    瀛樺湪 1157 澶勪粠妯″潡瀛愮洰褰曠洿鎺?import 鐨勮涓猴紙搴旈€氳繃妯″潡 index.ts 鍑哄彛瀵煎叆锛?    寤鸿: 璇锋敼涓轰粠妯″潡 index.ts 鍑哄彛瀵煎叆
+  绀轰緥 (top 5):
+    - agent/agent.ts 鈫?@modules/core/paths
+    - agent/agent.ts 鈫?@modules/tools/AgentTool
+    - agent/agent.ts 鈫?@modules/tools/AgentTool
+    - agent/AgentIsolation.ts 鈫?@modules/core/paths
+    - agent/AgentModuleTest.ts 鈫?@modules/ai/models
+    ... 鍙婂叾浠?1152 澶?
+========================================
+瑙勫垯瀹氫箟: .trae/rules/architecture-compliance.md
+========================================
+
+瀛樺湪 WARNING 绾у埆杩濊锛屽缓璁湪鍚庣画杩唬涓慨澶嶃€?

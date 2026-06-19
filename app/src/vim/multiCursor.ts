@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Vim多光标模块
  * 支持多光标同时编辑
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

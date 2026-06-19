@@ -26,8 +26,6 @@ function _createNoopLogger(module: string): ILogger {
       console.warn(`[${module}] ${message}`, meta ?? ''),
     warning: (message: string, meta?: unknown) =>
       console.warn(`[${module}] ${message}`, meta ?? ''),
-    error(message: string, meta?: unknown): void;
-    error(message: string, error: Error): void;
     error(message: string, metaOrError?: unknown): void {
       console.error(
         `[${module}] ${message}`,

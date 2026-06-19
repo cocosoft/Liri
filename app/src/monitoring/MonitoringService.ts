@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 监控服务
  * 提供性能指标收集、日志监控和健康检查功能
  */
@@ -633,4 +633,16 @@ export function getAndStartMonitoringService(
   return service;
 }
 
-export default getMonitoringService();
+// 使用 Proxy 懒加载，避免模块加载时立即初始化导致循环依赖 TDZ
+const _defaultMonitoringService = new Proxy({} as MonitoringService, {
+  get(_, prop: keyof MonitoringService) {
+    const instance = getMonitoringService();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
+
+export default _defaultMonitoringService;

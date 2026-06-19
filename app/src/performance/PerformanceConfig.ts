@@ -1,4 +1,3 @@
-//
 /**
  * 性能优化配置管理
  * 用于管理性能优化系统的配置参数
@@ -78,38 +77,41 @@ export interface PerformanceConfig {
 }
 
 /**
- * 默认性能优化配置
+ * 获取默认性能优化配置（懒加载）
+ * 避免模块加载时立即调用 configManager.env() 导致的循环依赖问题
  */
-const DEFAULT_CONFIG: PerformanceConfig = {
-  startupProfiling: {
-    enabled: isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP')),
-    sampleRate: configManager.env('USER_TYPE') === 'ant' ? 1.0 : 0.005,
-  },
-  slowOperations: {
-    thresholdMs: getEnvNumber(
-      'Liri_SLOW_OPERATION_THRESHOLD_MS',
-      configManager.env('NODE_ENV') === 'development' ? 20 : 300
-    ),
-    enabled: true,
-  },
-  memoryManagement: {
-    enabled: true,
-    thresholdMb: getEnvNumber('Liri_MEMORY_THRESHOLD_MB', 512),
-    checkIntervalMs: getEnvNumber('Liri_MEMORY_CHECK_INTERVAL_MS', 60000),
-    heapUsageThreshold: 85,
-    growthRateThreshold: 20,
-    gcThreshold: 90,
-    maxSnapshots: 100,
-  },
-  cache: {
-    sizeLimitMb: getEnvNumber('Liri_CACHE_SIZE_LIMIT_MB', 100),
-    expirationMs: getEnvNumber('Liri_CACHE_EXPIRATION_MS', 3600000),
-  },
-  lazyLoading: {
-    enabled: isEnvTruthy(configManager.env('Liri_LAZY_LOADING_ENABLED')),
-    preloadThresholdMs: getEnvNumber('Liri_PRELOAD_THRESHOLD_MS', 100),
-  },
-};
+function getDefaultConfig(): PerformanceConfig {
+  return {
+    startupProfiling: {
+      enabled: isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP')),
+      sampleRate: configManager.env('USER_TYPE') === 'ant' ? 1.0 : 0.005,
+    },
+    slowOperations: {
+      thresholdMs: getEnvNumber(
+        'Liri_SLOW_OPERATION_THRESHOLD_MS',
+        configManager.env('NODE_ENV') === 'development' ? 20 : 300
+      ),
+      enabled: true,
+    },
+    memoryManagement: {
+      enabled: true,
+      thresholdMb: getEnvNumber('Liri_MEMORY_THRESHOLD_MB', 512),
+      checkIntervalMs: getEnvNumber('Liri_MEMORY_CHECK_INTERVAL_MS', 60000),
+      heapUsageThreshold: 85,
+      growthRateThreshold: 20,
+      gcThreshold: 90,
+      maxSnapshots: 100,
+    },
+    cache: {
+      sizeLimitMb: getEnvNumber('Liri_CACHE_SIZE_LIMIT_MB', 100),
+      expirationMs: getEnvNumber('Liri_CACHE_EXPIRATION_MS', 3600000),
+    },
+    lazyLoading: {
+      enabled: isEnvTruthy(configManager.env('Liri_LAZY_LOADING_ENABLED')),
+      preloadThresholdMs: getEnvNumber('Liri_PRELOAD_THRESHOLD_MS', 100),
+    },
+  };
+}
 
 /**
  * 性能优化配置管理
@@ -119,7 +121,7 @@ export class PerformanceConfigManager {
   private listeners: Set<() => void> = new Set();
 
   constructor() {
-    this.config = { ...DEFAULT_CONFIG };
+    this.config = { ...getDefaultConfig() };
     this.validateConfig();
     logForDebugging('性能优化配置已初始化', { ...this.config });
   }
@@ -193,43 +195,43 @@ export class PerformanceConfigManager {
         level: 'warn',
       });
       this.config.startupProfiling.sampleRate =
-        DEFAULT_CONFIG.startupProfiling.sampleRate;
+        getDefaultConfig().startupProfiling.sampleRate;
     }
 
     // 验证慢操作检测配置
     if (this.config.slowOperations.thresholdMs < 0) {
       logForDebugging('无效的慢操作阈值，使用默认值', { level: 'warn' });
       this.config.slowOperations.thresholdMs =
-        DEFAULT_CONFIG.slowOperations.thresholdMs;
+        getDefaultConfig().slowOperations.thresholdMs;
     }
 
     // 验证内存管理配置
     if (this.config.memoryManagement.thresholdMb < 0) {
       logForDebugging('无效的内存阈值，使用默认值', { level: 'warn' });
       this.config.memoryManagement.thresholdMb =
-        DEFAULT_CONFIG.memoryManagement.thresholdMb;
+        getDefaultConfig().memoryManagement.thresholdMb;
     }
     if (this.config.memoryManagement.checkIntervalMs < 0) {
       logForDebugging('无效的内存检查间隔，使用默认值', { level: 'warn' });
       this.config.memoryManagement.checkIntervalMs =
-        DEFAULT_CONFIG.memoryManagement.checkIntervalMs;
+        getDefaultConfig().memoryManagement.checkIntervalMs;
     }
 
     // 验证缓存配置
     if (this.config.cache.sizeLimitMb < 0) {
       logForDebugging('无效的缓存大小限制，使用默认值', { level: 'warn' });
-      this.config.cache.sizeLimitMb = DEFAULT_CONFIG.cache.sizeLimitMb;
+      this.config.cache.sizeLimitMb = getDefaultConfig().cache.sizeLimitMb;
     }
     if (this.config.cache.expirationMs < 0) {
       logForDebugging('无效的缓存过期时间，使用默认值', { level: 'warn' });
-      this.config.cache.expirationMs = DEFAULT_CONFIG.cache.expirationMs;
+      this.config.cache.expirationMs = getDefaultConfig().cache.expirationMs;
     }
 
     // 验证延迟加载配置
     if (this.config.lazyLoading.preloadThresholdMs < 0) {
       logForDebugging('无效的预加载阈值，使用默认值', { level: 'warn' });
       this.config.lazyLoading.preloadThresholdMs =
-        DEFAULT_CONFIG.lazyLoading.preloadThresholdMs;
+        getDefaultConfig().lazyLoading.preloadThresholdMs;
     }
   }
 
@@ -267,7 +269,29 @@ export class PerformanceConfigManager {
 /**
  * 全局性能配置管理器实例
  */
-export const performanceConfigManager = new PerformanceConfigManager();
+let _performanceConfigManager: PerformanceConfigManager | undefined;
+
+/**
+ * 获取全局性能配置管理器单例（懒加载）
+ */
+export function getPerformanceConfigManager(): PerformanceConfigManager {
+  if (!_performanceConfigManager) {
+    _performanceConfigManager = new PerformanceConfigManager();
+  }
+  return _performanceConfigManager;
+}
+
+// 使用 Proxy 保持向后兼容（方法调用时绑定 this 到实际实例）
+export const performanceConfigManager = new Proxy({} as PerformanceConfigManager, {
+  get(_, prop: keyof PerformanceConfigManager) {
+    const instance = getPerformanceConfigManager();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 
 /**
  * 获取性能配置

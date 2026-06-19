@@ -219,6 +219,28 @@ export function createCommandExecutor(
 }
 
 /**
- * 命令执行器实例
+ * 命令执行器实例（使用 Proxy 懒加载，避免循环依赖导致 TDZ）
  */
-export const commandExecutor = new CommandExecutor();
+let _commandExecutor: CommandExecutor | undefined;
+
+export function getCommandExecutor(config?: CommandExecutorConfig): CommandExecutor {
+  if (!_commandExecutor) {
+    _commandExecutor = new CommandExecutor(config);
+  }
+  return _commandExecutor;
+}
+
+export const commandExecutor = new Proxy({} as CommandExecutor, {
+  get(_, prop: keyof CommandExecutor) {
+    const instance = getCommandExecutor();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+  set(_, prop: keyof CommandExecutor, value) {
+    (getCommandExecutor() as any)[prop] = value;
+    return true;
+  },
+});

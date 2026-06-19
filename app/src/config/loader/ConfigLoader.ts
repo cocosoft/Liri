@@ -1,4 +1,4 @@
-﻿import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
@@ -324,4 +324,27 @@ export class ConfigLoader implements IConfigLoader {
   }
 }
 
-export const configLoader = new ConfigLoader();
+let _configLoader: ConfigLoader | undefined;
+
+/**
+ * 获取全局 ConfigLoader 单例（懒加载）
+ * 避免模块加载时直接实例化导致的循环依赖 TDZ 问题
+ */
+export function getConfigLoader(): ConfigLoader {
+  if (!_configLoader) {
+    _configLoader = new ConfigLoader();
+  }
+  return _configLoader;
+}
+
+// 使用 Proxy 保持向后兼容（方法调用时绑定 this 到实际实例）
+export const configLoader = new Proxy({} as ConfigLoader, {
+  get(_, prop: keyof ConfigLoader) {
+    const instance = getConfigLoader();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

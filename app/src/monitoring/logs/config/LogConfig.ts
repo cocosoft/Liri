@@ -127,4 +127,27 @@ export class LogConfigManager {
   }
 }
 
-export const logConfigManager = LogConfigManager.getInstance();
+let _logConfigManager: LogConfigManager | undefined;
+
+/**
+ * 获取全局日志配置管理器单例（懒加载）
+ * 避免模块加载时立即初始化导致循环依赖 TDZ
+ */
+export function getLogConfigManager(): LogConfigManager {
+  if (!_logConfigManager) {
+    _logConfigManager = LogConfigManager.getInstance();
+  }
+  return _logConfigManager;
+}
+
+// 使用 Proxy 保持向后兼容（方法调用时绑定 this 到实际实例）
+export const logConfigManager = new Proxy({} as LogConfigManager, {
+  get(_, prop: keyof LogConfigManager) {
+    const instance = getLogConfigManager();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

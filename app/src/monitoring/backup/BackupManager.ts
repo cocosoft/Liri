@@ -101,8 +101,10 @@ const DEFAULT_MAX_BACKUPS = 7;
 /** 默认备份间隔（24 小时） */
 const DEFAULT_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-/** 默认备份目录 */
-const DEFAULT_BACKUP_DIR = join(resolveDataDir(), 'backups');
+/** 获取默认备份目录（懒加载，避免模块加载时调用 resolveDataDir 导致循环依赖 TDZ） */
+function getDefaultBackupDir(): string {
+  return join(resolveDataDir(), 'backups');
+}
 
 /**
  * 数据库备份管理器
@@ -117,7 +119,7 @@ export class BackupManager {
    */
   constructor(config?: Partial<BackupConfig>) {
     this.config = {
-      backupDir: config?.backupDir ?? DEFAULT_BACKUP_DIR,
+      backupDir: config?.backupDir ?? getDefaultBackupDir(),
       maxBackups: config?.maxBackups ?? DEFAULT_MAX_BACKUPS,
       enabled: config?.enabled ?? true,
       backupIntervalMs: config?.backupIntervalMs ?? DEFAULT_BACKUP_INTERVAL_MS,
@@ -471,7 +473,7 @@ export class BackupManager {
  */
 export function createDefaultBackupManager(backupDir?: string): BackupManager {
   const manager = new BackupManager({
-    backupDir: backupDir ?? DEFAULT_BACKUP_DIR,
+    backupDir: backupDir ?? getDefaultBackupDir(),
     enabled: true,
   });
 

@@ -39,6 +39,23 @@ export {
   getMetricsService,
   createMetricsService,
 } from './metrics/MetricsService.js';
+export {
+  getSystemCpuPercentAsync,
+  getDiskInfoAsync,
+  getProcessCpuPercent,
+  getSystemCpuPercent,
+  getProcessMemory,
+  getSystemMemory,
+  getDiskInfo,
+  collectAllMetrics,
+  resetCpuState,
+} from './metrics/SystemMetricsCollector.js';
+export type {
+  ProcessMemory,
+  SystemMemory,
+  DiskInfo,
+  SystemMetrics,
+} from './metrics/SystemMetricsCollector.js';
 
 export type {
   MetricConfig,

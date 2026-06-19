@@ -101,6 +101,8 @@ export type {
   CacheStats,
   PromptCacheConfig,
 } from './prompts/PromptCacheManager';
+export { buildSystemPrompt } from './prompts/SystemPromptBuilder';
+export type { SystemPromptContext } from './prompts/SystemPromptBuilder';
 
 // parsers/ — 工具调用解析器（对标 Hermes ToolCallParser 系统）
 export { BaseParser } from './parsers/BaseParser';

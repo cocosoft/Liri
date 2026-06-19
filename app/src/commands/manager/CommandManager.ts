@@ -485,24 +485,20 @@ export class CommandManager {
 }
 
 /**
- * 命令管理器实例（使用 Symbol 存储在全局对象中，防止模块重复加载导致实例丢失）
- */
-const COMMAND_MANAGER_SYMBOL = Symbol.for('Liri_COMMAND_MANAGER');
-
-/**
  * 获取命令管理器实例
  * @returns 命令管理器实例
  */
 export function getCommandManager(): CommandManager {
   const globalObj = globalThis as any;
+  const symbol = Symbol.for('Liri_COMMAND_MANAGER');
 
-  if (!globalObj[COMMAND_MANAGER_SYMBOL]) {
-    globalObj[COMMAND_MANAGER_SYMBOL] = new CommandManager(
+  if (!globalObj[symbol]) {
+    globalObj[symbol] = new CommandManager(
       commandRegistry,
       commandLoaderRegistry
     );
   }
-  return globalObj[COMMAND_MANAGER_SYMBOL];
+  return globalObj[symbol];
 }
 
 /**

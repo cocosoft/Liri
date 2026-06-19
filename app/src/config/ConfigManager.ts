@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 配置管理器
  * 提供配置加载、保存、缓存和监控功能
  */
@@ -1077,7 +1077,12 @@ export function getConfigManager(): ConfigManager {
 // 使用 Proxy 保持向后兼容，所有现有 import { configManager } 仍可正常工作
 export const configManager = new Proxy({} as ConfigManager, {
   get(_, prop: keyof ConfigManager) {
-    return getConfigManager()[prop];
+    const instance = getConfigManager();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
   },
   set(_, prop: keyof ConfigManager, value) {
     (getConfigManager() as any)[prop] = value;

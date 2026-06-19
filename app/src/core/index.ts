@@ -63,7 +63,7 @@ export { PluginEcosystem, type EcosystemConfig } from './PluginEcosystem';
 /** @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system */
 export { PluginSDK, type PluginSDKConfig } from './PluginSDK';
 export type { Plugin } from '@modules/plugin-sdk';
-export { Coordinator, type CoordinatorConfig } from './Coordinator';
+export { Coordinator, coordinator, type CoordinatorConfig } from './Coordinator';
 export type { ContextData } from './context/index';
 export type { AuthManager, AuthConfig } from '@modules/system/auth/AuthManager';
 
@@ -85,6 +85,9 @@ export {
 
 // ==================== 交付模块（从 delivery/ 迁移） ====================
 export * from './delivery/index';
+
+// ==================== 并发工具 ====================
+export { SimpleMutex } from './SimpleMutex';
 
 // ==================== SPI 接口（core 层定义的上层抽象契约） ====================
 export {

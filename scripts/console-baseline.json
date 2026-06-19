@@ -1,0 +1,8 @@
+{
+  "description": "Console 调用基线",
+  "count": 2045,
+  "threshold": 0.10,
+  "capturedAt": "2026-06-18",
+  "files": 100,
+  "note": "超过基线 10% 触发 warning。如需更新基线，修改 count 字段。"
+}

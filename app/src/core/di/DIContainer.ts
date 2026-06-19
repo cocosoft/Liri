@@ -1,7 +1,7 @@
 /**
  * 依赖注入容器
  * 支持 singleton/transient/request 三种作用域、循环依赖检测、自动装配、
- * 生命周期钩子、ModuleRegistry 回退解析等特性
+ * 生命周期钩子、ModuleRegistry 回退解析、统一启动入口等特性
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getLogger } from '@modules/monitoring/logs/Logger';
@@ -10,6 +10,7 @@ import {
   DEFAULT_CONTAINER_CONFIG,
   type ServiceDescriptor,
   type CycleDetectionResult,
+  type BootstrapOptions,
 } from './types';
 import { ContainerScope } from './ContainerScope';
 import { AutoWiringEngine } from './AutoWiringEngine';
@@ -213,6 +214,54 @@ export class DIContainer {
    */
   getAllDescriptors(): ServiceDescriptor[] {
     return this.scopeManager.getAllDescriptors();
+  }
+
+  /**
+   * 启动容器（统一入口）
+   *
+   * 封装完整的启动流程，委托给 ModuleRegistry 的 bootstrap 实现：
+   * 1. 注册所有模块到容器
+   * 2. 初始化必需模块（CRITICAL 优先级）
+   * 3. 在后台调度延迟模块的异步加载
+   *
+   * 替代直接调用 ModuleRegistry.bootstrap()，
+   * 使 DIContainer 成为启动入口。
+   * ModuleRegistry 保留作为元数据查询层。
+   *
+   * 使用方式（main.ts 入口处）：
+   *
+   *   import { getDIContainer } from '@modules/core/DIContainer';
+   *   await getDIContainer().bootstrap({ mode: 'repl' });
+   *
+   * 使用动态导入避免与 ModuleRegistry 循环依赖。
+   *
+   * @param options - 启动选项
+   */
+  async bootstrap(options?: BootstrapOptions): Promise<void> {
+    const startTime = performance.now();
+
+    try {
+      logger.info('DIContainer: 启动容器...');
+      const { moduleRegistry } = await import(
+        '../../modules/ModuleRegistry'
+      );
+
+      await moduleRegistry.bootstrap({
+        mode: options?.mode ?? 'repl',
+        args: options?.args,
+        debug: options?.debug,
+        verbose: options?.verbose,
+        skipEnvInit: options?.skipEnvInit,
+      });
+
+      const duration = performance.now() - startTime;
+      logger.info(`DIContainer: 容器启动完成 (${duration.toFixed(0)}ms)`);
+    } catch (error) {
+      logger.error('DIContainer: 容器启动失败', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 }
 

@@ -34,3 +34,20 @@ export interface CycleDetectionResult {
   hasCycle: boolean;
   cycle?: string[];
 }
+
+/**
+ * 启动选项
+ * 传递给 DIContainer.bootstrap() 的统一启动配置
+ */
+export interface BootstrapOptions {
+  /** 启动模式 */
+  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test';
+  /** 调试模式 */
+  debug?: boolean;
+  /** 详细输出 */
+  verbose?: boolean;
+  /** 命令行参数 */
+  args?: string[];
+  /** 跳过环境初始化（用于测试） */
+  skipEnvInit?: boolean;
+}

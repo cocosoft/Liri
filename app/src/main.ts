@@ -733,8 +733,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 显示加载提示（在 T1 执行期间给用户进度反馈）
     process.stdout.write('⏳ Liri 正在加载模块...\r');
 
-    const { moduleRegistry } = await import('./modules/ModuleRegistry');
-    await moduleRegistry.bootstrap({
+    const { getDIContainer } = await import('./core/DIContainer');
+    await getDIContainer().bootstrap({
       mode: options.mode,
       args: options.args,
       debug: options.debug,

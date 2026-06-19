@@ -1061,5 +1061,26 @@ export class ConfigManager {
   }
 }
 
-// 导出单例实例
-export const configManager = new ConfigManager();
+let _configManager: ConfigManager | undefined;
+
+/**
+ * 获取全局 ConfigManager 单例（懒加载）
+ * 避免模块加载时直接实例化导致的循环依赖 TDZ 问题
+ */
+export function getConfigManager(): ConfigManager {
+  if (!_configManager) {
+    _configManager = new ConfigManager();
+  }
+  return _configManager;
+}
+
+// 使用 Proxy 保持向后兼容，所有现有 import { configManager } 仍可正常工作
+export const configManager = new Proxy({} as ConfigManager, {
+  get(_, prop: keyof ConfigManager) {
+    return getConfigManager()[prop];
+  },
+  set(_, prop: keyof ConfigManager, value) {
+    (getConfigManager() as any)[prop] = value;
+    return true;
+  },
+});

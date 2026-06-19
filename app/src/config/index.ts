@@ -23,7 +23,7 @@
  * 提供配置管理的统一接口
  */
 
-export { ConfigManager, configManager } from './ConfigManager.js';
+export { ConfigManager, configManager, getConfigManager } from './ConfigManager.js';
 
 export { ConfigValidator } from './ConfigValidator.js';
 

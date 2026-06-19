@@ -758,7 +758,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
       process.stdout.write('⏳ Liri 正在加载模块...\r');
 
       const { getDIContainer } = await import('./core/DIContainer');
-      await getDIContainer().bootstrap({
+      const { moduleRegistry } = await import('./modules/ModuleRegistry');
+      await getDIContainer().bootstrap(moduleRegistry, {
         mode: options.mode,
         args: options.args,
         debug: options.debug,

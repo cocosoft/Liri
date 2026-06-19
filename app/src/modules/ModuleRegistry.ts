@@ -7,10 +7,6 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
-  getDIContainer,
-  type DIContainer,
-} from '@modules/core/DIContainer';
-import {
   ModuleCategory,
   type ModuleDefinition,
   initRegistry,
@@ -19,6 +15,17 @@ import {
 const logger = new Logger({ level: LogLevel.INFO });
 
 export { ModuleCategory, type ModuleDefinition };
+
+/**
+ * DI 容器最小接口
+ * 定义 ModuleRegistry 对 DIContainer 的依赖契约，避免与 core/ 的循环依赖。
+ * DIContainer 类隐式满足此接口（duck typing）。
+ */
+interface DIContainerLike {
+  resolve<T>(name: string): T;
+  registerInstance<T>(name: string, instance: T): void;
+  setResolveFallback(fn: (name: string) => unknown | undefined): void;
+}
 
 /**
  * 模块注册表类
@@ -33,7 +40,7 @@ export class ModuleRegistry {
   private static instance: ModuleRegistry;
   private modules: Map<string, ModuleDefinition> = new Map();
   private initializedModules: Set<string> = new Set();
-  private container: DIContainer | null = null;
+  private container: DIContainerLike | null = null;
 
   /**
    * 获取单例实例
@@ -50,7 +57,7 @@ export class ModuleRegistry {
    * 将所有已注册模块同步到容器中，后续注册的模块也会自动注册到容器。
    * 同时设置回退解析器，使 DIContainer 可通过 ModuleRegistry 查找模块实例。
    */
-  public useContainer(diContainer: DIContainer): void {
+  public useContainer(diContainer: DIContainerLike): void {
     this.container = diContainer;
 
     // 双向桥接：DIContainer → ModuleRegistry
@@ -280,20 +287,24 @@ export class ModuleRegistry {
    * 使用方式（main.ts 入口处）：
    *
    *   import { moduleRegistry } from './modules/ModuleRegistry';
-   *   await moduleRegistry.bootstrap({ mode: 'repl' });
+   *   import { getDIContainer } from '@modules/core/DIContainer';
+   *   await moduleRegistry.bootstrap(getDIContainer(), { mode: 'repl' });
    *
-   * 该方法是整个模块系统的唯一推荐入口，替代直接调用
-   * ModuleInitializer.registerAllModules / initializeEssentialModules / scheduleDeferredModules，
-   * 以及 entrypoints/init.ts 中的 init() 函数。
+   * 为避免循环依赖，容器实例通过参数传入而非顶层导入获取。
+   * DIContainer.bootstrap() 内部调用此方法时传递自身引用。
    *
+   * @param container - DI 容器实例
    * @param options - 启动选项（模式、调试标志等）
    */
-  public async bootstrap(options?: BootstrapOptions): Promise<void> {
+  public async bootstrap(
+    container: DIContainerLike,
+    options?: BootstrapOptions
+  ): Promise<void> {
     initRegistry(this);
     const moduleInitializerModule = await import('./ModuleInitializer');
     moduleInitializerModule.moduleInitializer.registerAllModules();
 
-    this.useContainer(getDIContainer());
+    this.useContainer(container);
 
     // 初始化环境（startup.yaml → 配置系统 → 数据目录 → 优雅关闭）
     // 此步骤在模块初始化之前执行，确保配置系统就绪

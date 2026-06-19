@@ -180,7 +180,8 @@ export class AppCore {
 
         // 通过 DIContainer.bootstrap() 统一注册并启动所有模块
         const { getDIContainer } = await import('./DIContainer');
-        await getDIContainer().bootstrap({
+        const { moduleRegistry } = await import('../modules/ModuleRegistry');
+        await getDIContainer().bootstrap(moduleRegistry, {
           mode: this.config.mode ?? 'repl',
         });
         this.profiler.checkpoint('di_container_booted');

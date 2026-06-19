@@ -13,21 +13,18 @@ import {
   type BootstrapOptions,
 } from './types';
 import { ContainerScope } from './ContainerScope';
-import { AutoWiringEngine } from './AutoWiringEngine';
 
 const logger = getLogger('DIContainer');
 
 export class DIContainer {
   private scopeManager: ContainerScope;
   private config: ContainerConfig;
-  readonly autoWiring: AutoWiringEngine;
   /** ModuleRegistry 回退解析器：当本容器找不到服务时回调 */
   private resolveFallback?: (name: string) => unknown | undefined;
 
   constructor(config: ContainerConfig = DEFAULT_CONTAINER_CONFIG) {
     this.config = config;
     this.scopeManager = new ContainerScope(config);
-    this.autoWiring = new AutoWiringEngine();
   }
 
   /**
@@ -269,28 +266,38 @@ export class DIContainer {
    * 使用方式（main.ts 入口处）：
    *
    *   import { getDIContainer } from '@modules/core/DIContainer';
-   *   await getDIContainer().bootstrap({ mode: 'repl' });
+   *   import { moduleRegistry } from '@modules/modules/ModuleRegistry';
+   *   await getDIContainer().bootstrap(moduleRegistry, { mode: 'repl' });
    *
-   * 使用动态导入避免与 ModuleRegistry 循环依赖。
+   * 注：ModuleRegistry 由调用方传入而非动态导入，
+   * 以避免 madge 静态分析将动态 import 计入循环依赖。
    *
+   * @param moduleRegistry - 模块注册表实例（由调用方传入，避免循环依赖）
    * @param options - 启动选项
    */
-  async bootstrap(options?: BootstrapOptions): Promise<void> {
+  async bootstrap(
+    moduleRegistry?: {
+      bootstrap: (
+        container: DIContainer,
+        options?: BootstrapOptions
+      ) => Promise<void>;
+    },
+    options?: BootstrapOptions
+  ): Promise<void> {
     const startTime = performance.now();
 
     try {
       logger.info('DIContainer: 启动容器...');
-      const { moduleRegistry } = await import(
-        '../../modules/ModuleRegistry'
-      );
 
-      await moduleRegistry.bootstrap({
-        mode: options?.mode ?? 'repl',
-        args: options?.args,
-        debug: options?.debug,
-        verbose: options?.verbose,
-        skipEnvInit: options?.skipEnvInit,
-      });
+      if (moduleRegistry) {
+        await moduleRegistry.bootstrap(this, {
+          mode: options?.mode ?? 'repl',
+          args: options?.args,
+          debug: options?.debug,
+          verbose: options?.verbose,
+          skipEnvInit: options?.skipEnvInit,
+        });
+      }
 
       // 注册 Logger SPI 实现（容器就绪后）
       try {

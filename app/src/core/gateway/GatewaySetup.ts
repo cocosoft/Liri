@@ -11,7 +11,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { handleError } from '@modules/error/handleError';
 import { cliConfigManager } from '../../cli/config';
 import { configManager } from '@modules/config';
-import { getChannelManager } from './ChannelManager';
+import { getChannelManager } from './ChannelManagerFactory';
 import { getCoreAPI } from '../../runtime/api/CoreAPIImpl';
 import { TelegramChannel } from './TelegramChannel';
 import { WebChannel } from './WebChannel';

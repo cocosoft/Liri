@@ -2,10 +2,11 @@
  * 工具接口定义
  * 参考CC_CODE的Tool接口设计，适应backend现有架构
  */
-import type { ToolUseContext } from './ToolUseContext';
 import type { ToolResult } from './ToolResult';
 import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
+import type { ToolPermissionContext } from './PermissionContext';
+import type { Message } from '@modules/core/types';
 
 export type { ToolResult };
 
@@ -81,6 +82,86 @@ export interface ToolInfo {
  */
 export type ToolCallProgress<P extends ToolProgressData = ToolProgressData> =
   (progress: { toolUseID: string; data: P }) => void;
+
+/**
+ * 紧凑进度事件类型
+ */
+export type CompactProgressEvent =
+  | {
+      type: 'hooks_start';
+      hookType: 'pre_compact' | 'post_compact' | 'session_start';
+    }
+  | { type: 'compact_start' }
+  | { type: 'compact_end' };
+
+/**
+ * 工具使用上下文类型
+ */
+export interface ToolUseContext {
+  /** 选项 */
+  options: {
+    commands: unknown[];
+    debug: boolean;
+    mainLoopModel: string;
+    tools: Tools;
+    verbose: boolean;
+    thinkingConfig: unknown;
+    mcpClients: unknown[];
+    mcpResources: Record<string, unknown[]>;
+    isNonInteractiveSession: boolean;
+    agentDefinitions: unknown;
+    maxBudgetUsd?: number;
+    customSystemPrompt?: string;
+    appendSystemPrompt?: string;
+    querySource?: string;
+    refreshTools?: () => Tools;
+    cwd?: string;
+    environment?: Record<string, string>;
+  };
+  abortController: AbortController;
+  readFileState: unknown;
+  getAppState(): unknown;
+  setAppState(f: (prev: unknown) => unknown): void;
+  setAppStateForTasks?: (f: (prev: unknown) => unknown) => void;
+  handleElicitation?: (serverName: string, params: unknown, signal: AbortSignal) => Promise<unknown>;
+  setToolJSX?: (args: { jsx: unknown | null; shouldHidePromptInput: boolean; shouldContinueAnimation?: true; showSpinner?: boolean; isLocalJSXCommand?: boolean; isImmediate?: boolean; clearLocalJSX?: boolean; } | null) => void;
+  addNotification?: (notif: unknown) => void;
+  appendSystemMessage?: (msg: unknown) => void;
+  sendOSNotification?: (opts: { message: string; notificationType: string; }) => void;
+  nestedMemoryAttachmentTriggers?: Set<string>;
+  loadedNestedMemoryPaths?: Set<string>;
+  dynamicSkillDirTriggers?: Set<string>;
+  discoveredSkillNames?: Set<string>;
+  userModified?: boolean;
+  setInProgressToolUseIDs: (f: (prev: Set<string>) => Set<string>) => void;
+  setHasInterruptibleToolInProgress?: (v: boolean) => void;
+  setResponseLength: (f: (prev: number) => number) => void;
+  pushApiMetricsEntry?: (ttftMs: number) => void;
+  setStreamMode?: (mode: string) => void;
+  onCompactProgress?: (event: CompactProgressEvent) => void;
+  setSDKStatus?: (status: unknown) => void;
+  openMessageSelector?: () => void;
+  updateFileHistoryState: (updater: (prev: unknown) => unknown) => void;
+  updateAttributionState: (updater: (prev: unknown) => unknown) => void;
+  setConversationId?: (id: string) => void;
+  agentId?: string;
+  agentType?: string;
+  requireCanUseTool?: boolean;
+  messages: Message[];
+  fileReadingLimits?: { maxTokens?: number; maxSizeBytes?: number; };
+  globLimits?: { maxResults?: number; };
+  toolDecisions?: Map<string, { source: string; decision: 'accept' | 'reject'; timestamp: number; }>;
+  queryTracking?: { chainId: string; depth: number; };
+  requestPrompt?: (sourceName: string, toolInputSummary?: string | null) => (request: unknown) => Promise<unknown>;
+  toolUseId?: string;
+  criticalSystemReminder_EXPERIMENTAL?: string;
+  preserveToolUseResults?: boolean;
+  localDenialTracking?: unknown;
+  contentReplacementState?: unknown;
+  renderedSystemPrompt?: unknown;
+  toolPermissionContext?: ToolPermissionContext;
+  traceId?: string;
+}
 
 /**
  * 工具接口

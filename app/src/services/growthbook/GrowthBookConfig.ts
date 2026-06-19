@@ -1,4 +1,4 @@
-import { configManager } from '@modules/config/types';
+import { configManager } from '@modules/config';
 
 export interface GrowthBookUserAttributes {
   id: string;

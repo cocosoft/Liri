@@ -1,9 +1,17 @@
 /**
  * 自动装配引擎
  * 通过构造函数参数名自动解析依赖
+ *
+ * 使用 IContainer 接口而非 DIContainer 类型，避免循环依赖。
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import type { DIContainer } from './DIContainer';
+
+/**
+ * 容器最小接口，供 AutoWiringEngine 安全使用
+ */
+interface IContainer {
+  resolve<T>(name: string): T;
+}
 
 export class AutoWiringEngine {
   /**
@@ -29,7 +37,7 @@ export class AutoWiringEngine {
    */
   resolveConstructor<T>(
     target: new (...args: unknown[]) => T,
-    container: DIContainer
+    container: IContainer
   ): T {
     const paramNames = this.getParameterNames(target);
     const resolvedParams = paramNames.map((name) => {

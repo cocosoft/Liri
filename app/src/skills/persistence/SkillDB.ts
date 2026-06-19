@@ -35,9 +35,7 @@ import { Database } from 'sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
-import type { SkillUsageRecord } from '../SkillUsageTracker';
-import type { SkillCurationState, CuratorActionRecord } from '../SkillCurator';
-import type { SkillProvenanceEntry } from '../SkillProvenanceTracker';
+import type { SkillUsageRecord, SkillCurationState, CuratorActionRecord, SkillProvenanceEntry } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

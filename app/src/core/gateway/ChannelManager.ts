@@ -519,6 +519,4 @@ export class ChannelManager extends EventEmitter {
   }
 }
 
-// 向后兼容：维持原有的导出路径
-export { createChannelManager, getChannelManager, disconnectAllChannels } from './ChannelManagerFactory';
 export type { ChannelManagerConfig, ChannelManagerStatus } from './ChannelManagerTypes';

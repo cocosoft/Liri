@@ -195,17 +195,17 @@ jobs:
     - name: Install dependencies
       run: bun install
 
-    - name: Check circular dependencies (baseline at most 14)
+    - name: Check circular dependencies (baseline at most 7)
       run: |
         OUTPUT=$(npx madge --circular --extensions ts,tsx src/ 2>&1) || true
         echo "$OUTPUT"
         COUNT=$(echo "$OUTPUT" | grep -oP 'Found \K\d+' || echo "0")
         echo "Found $COUNT circular dependencies"
-        if [ "$COUNT" -gt 14 ]; then
-          echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (14)"
+        if [ "$COUNT" -gt 7 ]; then
+          echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (7)"
           exit 1
         fi
-        echo "PASS: Within baseline limit (at most 14)"
+        echo "PASS: Within baseline limit (at most 7)"
       working-directory: app
 
   arch-check:

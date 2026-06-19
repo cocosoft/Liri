@@ -21,7 +21,7 @@
 /**
  * ConfigIO 导出
  */
-export { ConfigIO, configIO } from './ConfigIO.js';
+export { ConfigIO, getConfigIO } from './ConfigIO.js';
 export type {
   ConfigFormat,
   ConfigScope,

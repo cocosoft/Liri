@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ConfigIO 配置读写管理
  * 提供文件锁、原子写入等 I/O 安全机制
  */
@@ -315,4 +315,15 @@ export class ConfigIO {
   }
 }
 
-export const configIO = new ConfigIO();
+let _configIO: ConfigIO | null = null;
+
+/**
+ * 获取全局 ConfigIO 单例（懒加载）
+ * 避免模块加载时直接实例化导致的循环依赖 TDZ 问题
+ */
+export function getConfigIO(): ConfigIO {
+  if (!_configIO) {
+    _configIO = new ConfigIO();
+  }
+  return _configIO;
+}

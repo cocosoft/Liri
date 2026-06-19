@@ -271,12 +271,8 @@ export type {
 export { BalanceChecker } from './providers/BalanceChecker';
 export type { BalanceResult, BalanceData } from './providers/BalanceChecker';
 
-export { ModelFetcher } from './providers/ModelFetcher';
-export type { FetchedModel } from './providers/ModelFetcher';
-
-export { ModelFetcher } from './providers/ModelFetcher';
+export { ModelFetcher, fetchModels } from './providers/ModelFetcher';
 export type { FetchedModel, FetchModelsOptions, FetchModelsResult } from './providers/ModelFetcher';
-export { fetchModels } from './providers/ModelFetcher';
 
 export {
   detectUnifiedProviders,

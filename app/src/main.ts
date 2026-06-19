@@ -725,24 +725,50 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T0_preroll');
     profileCheckpoint('T0_preroll_end');
 
-    // T1: 模块系统初始化 — 使用 ModuleRegistry.bootstrap() 统一入口
-    // 替代旧的 initializeModuleSystem() → quickInitialize() 路径
+    // T1: 模块系统初始化
     profileCheckpoint('module_init_start');
     profilePhaseStart('T1_module_init');
 
-    // 显示加载提示（在 T1 执行期间给用户进度反馈）
-    process.stdout.write('⏳ Liri 正在加载模块...\r');
+    // 灰度回退：检测 --use-legacy-module-system 标志
+    // 启用旧版 ModuleDependencyManager 替代统一 ModuleRegistry + DIContainer 路径
+    const useLegacyModuleSystem =
+      process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1';
 
-    const { getDIContainer } = await import('./core/DIContainer');
-    await getDIContainer().bootstrap({
-      mode: options.mode,
-      args: options.args,
-      debug: options.debug,
-      verbose: options.verbose,
-    });
+    if (useLegacyModuleSystem) {
+      // V1 回退路径：使用 AppCore + ModuleDependencyManager
+      logger.info('使用旧版模块系统（V1 回退路径）');
 
-    // 清除加载提示行
-    process.stdout.write('\x1b[K');
+      const { AppCore } = await import('./core/AppCore');
+      const appCore = new AppCore({
+        name: 'Liri',
+        version: '3.0.0',
+        debug: options.debug ?? false,
+        useLegacyModuleSystem: true,
+        startup: {
+          terminalBackup: false,
+          worktree: { enabled: false },
+        },
+      });
+
+      await appCore.init();
+      logger.info('旧版模块系统初始化完成');
+    } else {
+      // V2 统一路径：使用 DIContainer.bootstrap()
+      // 显示加载提示（在 T1 执行期间给用户进度反馈）
+      process.stdout.write('⏳ Liri 正在加载模块...\r');
+
+      const { getDIContainer } = await import('./core/DIContainer');
+      await getDIContainer().bootstrap({
+        mode: options.mode,
+        args: options.args,
+        debug: options.debug,
+        verbose: options.verbose,
+      });
+
+      // 清除加载提示行
+      process.stdout.write('\x1b[K');
+    }
+
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 
@@ -777,27 +803,29 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // 非致命：env 读取失败时静默跳过
     }
 
-    // T1.25: 加载模型配置（从 YAML + DB 单一数据源）
-    try {
-      const { ModelRegistry } =
-        await import('@modules/ai/models/ModelRegistry');
-      const registry = ModelRegistry.getInstance();
-      registry.loadDefaultModels();
-      registry.loadUserConfigs();
+    // T1.25: 加载模型配置（V2 路径专属）
+    if (!useLegacyModuleSystem) {
+      try {
+        const { ModelRegistry } =
+          await import('@modules/ai/models/ModelRegistry');
+        const registry = ModelRegistry.getInstance();
+        registry.loadDefaultModels();
+        registry.loadUserConfigs();
 
-      // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
-      const { modelPricingService } =
-        await import('@modules/ai/models/ModelPricingService.js').catch(() => {
-          return { modelPricingService: null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService };
-        });
-      if (modelPricingService) {
-        await modelPricingService.initialize();
-      } else {
-        // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
-        await registry.loadDbPricing();
+        // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
+        const { modelPricingService } =
+          await import('@modules/ai/models/ModelPricingService.js').catch(() => {
+            return { modelPricingService: null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService };
+          });
+        if (modelPricingService) {
+          await modelPricingService.initialize();
+        } else {
+          // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
+          await registry.loadDbPricing();
+        }
+      } catch (e) {
+        logger.warning('加载模型配置失败（非致命）', e as Error);
       }
-    } catch (e) {
-      logger.warning('加载模型配置失败（非致命）', e as Error);
     }
 
     // T1.5: 等待关键预读取完成
@@ -810,54 +838,58 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T1_await_prefetch');
     profileCheckpoint('T1_await_prefetch_end');
 
-    // T1.75: 初始化 ACP 模块桥接（非阻塞，失败不影响主流程）
-    import('./bridge/ModuleBridgeSetup.js').then(
-      ({ setupModuleBridgeOnStartup }) => {
-        setupModuleBridgeOnStartup().catch((err) => {
-          logger.warning('ACP 模块桥接初始化异常（非致命）', {
-            error: String(err),
+    // T1.75: 初始化 ACP 模块桥接（V2 路径专属，非阻塞，失败不影响主流程）
+    if (!useLegacyModuleSystem) {
+      import('./bridge/ModuleBridgeSetup.js').then(
+        ({ setupModuleBridgeOnStartup }) => {
+          setupModuleBridgeOnStartup().catch((err) => {
+            logger.warning('ACP 模块桥接初始化异常（非致命）', {
+              error: String(err),
+            });
           });
-        });
-      }
-    );
-
-    // T1.8: 初始化 SmartRouter 智能路由（非阻塞，失败不影响主流程）
-    try {
-      const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
-      const { providerRegistry } =
-        await import('@modules/ai/providers/ProviderRegistry');
-      const { configManager } = await import('@modules/config/ConfigManager');
-
-      // 从 configManager 读取路由配置，若无则使用默认值
-      const routerCfg = (configManager.getConfigValue<Record<string, unknown>>(
-          'models.router'
-        ) || {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
-      const routerConfig: import('@modules/ai/router/types').RouterConfig = {
-        enabled: routerCfg?.enabled !== false,
-        defaultTier: routerCfg?.defaultTier || 'medium',
-        sessionSticky: routerCfg?.sessionSticky !== false,
-        tiers: {
-          simple: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
-          medium: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
-          complex: { model: 'deepseek-v4-pro', providerHint: 'deepseek' },
-          reasoning: { model: 'deepseek-reasoner', providerHint: 'deepseek' },
-        },
-      };
-
-      const smartRouter = new SmartRouter({
-        config: routerConfig,
-        providerRegistry,
-      });
-
-      // 注入 CoreAPIImpl 全局单例
-      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-      getCoreAPI().setSmartRouter(smartRouter);
-      logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
-    } catch (e) {
-      logger.warning(
-        'SmartRouter 初始化失败（非致命，使用静态路由）',
-        e as Error
+        }
       );
+    }
+
+    // T1.8: 初始化 SmartRouter 智能路由（V2 路径专属，非阻塞，失败不影响主流程）
+    if (!useLegacyModuleSystem) {
+      try {
+        const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
+        const { providerRegistry } =
+          await import('@modules/ai/providers/ProviderRegistry');
+        const { configManager } = await import('@modules/config/ConfigManager');
+
+        // 从 configManager 读取路由配置，若无则使用默认值
+        const routerCfg = (configManager.getConfigValue<Record<string, unknown>>(
+            'models.router'
+          ) || {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
+        const routerConfig: import('@modules/ai/router/types').RouterConfig = {
+          enabled: routerCfg?.enabled !== false,
+          defaultTier: routerCfg?.defaultTier || 'medium',
+          sessionSticky: routerCfg?.sessionSticky !== false,
+          tiers: {
+            simple: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
+            medium: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
+            complex: { model: 'deepseek-v4-pro', providerHint: 'deepseek' },
+            reasoning: { model: 'deepseek-reasoner', providerHint: 'deepseek' },
+          },
+        };
+
+        const smartRouter = new SmartRouter({
+          config: routerConfig,
+          providerRegistry,
+        });
+
+        // 注入 CoreAPIImpl 全局单例
+        const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+        getCoreAPI().setSmartRouter(smartRouter);
+        logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
+      } catch (e) {
+        logger.warning(
+          'SmartRouter 初始化失败（非致命，使用静态路由）',
+          e as Error
+        );
+      }
     }
 
     // T2: 模式分发 + 后台延迟加载

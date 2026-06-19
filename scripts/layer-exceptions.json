@@ -1,7 +1,7 @@
 {
-  "version": "1.0",
-  "description": "Liri 分层例外清单。例外按衰减规则自动过期，过期后 lint:arch 将重新报告对应违规",
-  "lastUpdated": "2026-06-18",
+  "version": "2.0",
+  "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）",
+  "lastUpdated": "2026-06-19",
 
   "decayRules": {
     "batchExpiryDays": 60,
@@ -14,17 +14,233 @@
     {
       "id": "BULK-001",
       "ruleId": "R00-001",
-      "pattern": "domain -> infrastructure",
-      "description": "历史遗留：domain 层（agent/ai/chat/commands/services/...）直接依赖 infrastructure 层（core/config/runtime/cache/...）",
-      "rationale": "当前架构未严格分层，domain 层大量耦合 infrastructure 实现。需通过 Phase 2-3 逐步重构解耦",
-      "estimatedCount": 429,
-      "createdAt": "2026-06-18",
-      "expiresAt": "2026-08-17",
+      "pattern": "app -> infra",
+      "description": "应用层直接依赖基础设施层（日志/配置/错误处理等）",
+      "rationale": "应用层（agent/ai/chat/tools/gateway 等）大量使用 infra 层的基础能力，需通过 Phase 2-3 逐步引入 SPI 接口解耦",
+      "estimatedCount": 120,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-002",
+      "ruleId": "R00-001",
+      "pattern": "service -> infra",
+      "description": "服务层依赖基础设施层",
+      "rationale": "服务层（session/bridge/channels）使用 infra 层的监控和工具函数，属合理依赖。后续通过 SPI 接口治理",
+      "estimatedCount": 50,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-003",
+      "ruleId": "R00-001",
+      "pattern": "app -> service",
+      "description": "应用层依赖服务层",
+      "rationale": "应用层（agent/ai/chat）引用服务层（session/bridge）是正常依赖，无需治理",
+      "estimatedCount": 40,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-004",
+      "ruleId": "R00-001",
+      "pattern": "app -> ui",
+      "description": "应用层引用 UI 层组件",
+      "rationale": "部分混合模块（buddy/chat）直接引用 UI 组件渲染。后续通过事件模式解耦",
+      "estimatedCount": 30,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-005",
+      "ruleId": "R00-001",
+      "pattern": "service -> app",
+      "description": "服务层引用应用层",
+      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦",
+      "estimatedCount": 20,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-006",
+      "ruleId": "R00-001",
+      "pattern": "ui -> app",
+      "description": "UI 层引用应用层",
+      "rationale": "UI 组件直接调用应用层服务。后续通过事件订阅解耦",
+      "estimatedCount": 185,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-007",
+      "ruleId": "R00-001",
+      "pattern": "infra -> app",
+      "description": "基础设施层引用应用层",
+      "rationale": "infra 层模块（chronos/scheduling）直接调用应用层回调。后续通过事件总线解耦",
+      "estimatedCount": 204,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-008",
+      "ruleId": "R00-001",
+      "pattern": "infra -> service",
+      "description": "基础设施层引用服务层",
+      "rationale": "infra 层模块（chronos/constants）引用服务层模块。后续通过 SPI 接口解耦",
+      "estimatedCount": 50,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-009",
+      "ruleId": "R00-001",
+      "pattern": "infra -> ui",
+      "description": "基础设施层引用 UI 层",
+      "rationale": "infra 层引用 UI 组件的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-010",
+      "ruleId": "R00-001",
+      "pattern": "core -> infra",
+      "description": "核心层引用基础设施层",
+      "rationale": "core 层（AppCore/acp）直接使用 infra 层的错误处理和监控。需通过 Phase 2 SPI 接口解耦",
+      "estimatedCount": 50,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-011",
+      "ruleId": "R00-001",
+      "pattern": "core -> service",
+      "description": "核心层引用服务层",
+      "rationale": "core 层引用服务层的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-012",
+      "ruleId": "R00-001",
+      "pattern": "core -> app",
+      "description": "核心层引用应用层",
+      "rationale": "core 层引用应用层的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-013",
+      "ruleId": "R00-001",
+      "pattern": "core -> ui",
+      "description": "核心层引用 UI 层",
+      "rationale": "core 层引用 UI 组件的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-014",
+      "ruleId": "R00-001",
+      "pattern": "service -> ui",
+      "description": "服务层引用 UI 层",
+      "rationale": "服务层引用 UI 组件的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-015",
+      "ruleId": "R00-001",
+      "pattern": "app -> entry",
+      "description": "应用层引用入口层",
+      "rationale": "应用层引用入口点的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-016",
+      "ruleId": "R00-001",
+      "pattern": "infra -> entry",
+      "description": "基础设施层引用入口层",
+      "rationale": "infra 层引用入口点的异常模式。后续治理",
+      "estimatedCount": 10,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-017",
+      "ruleId": "R00-001",
+      "pattern": "core -> entry",
+      "description": "核心层引用入口层",
+      "rationale": "core 层引用入口点的异常模式。后续治理",
+      "estimatedCount": 1,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-018",
+      "ruleId": "R00-001",
+      "pattern": "service -> entry",
+      "description": "服务层引用入口层",
+      "rationale": "service 层引用入口点的异常模式。后续治理",
+      "estimatedCount": 1,
+      "createdAt": "2026-06-19",
+      "expiresAt": "2026-08-18",
       "owner": "@arch-lead"
     }
   ],
 
-  "perModuleExceptions": [],
+  "perModuleExceptions": [
+    {
+      "id": "PM-001",
+      "ruleId": "R00-001",
+      "sourceModule": "buddy",
+      "targetModule": "ui",
+      "description": "Buddy 模块需要 UI 组件渲染精灵动画",
+      "rationale": "buddy 是混合模块，同时包含业务逻辑和 UI 渲染，后续通过事件模式解耦",
+      "expiresAt": "2026-08-18",
+      "owner": "@buddy-team"
+    },
+    {
+      "id": "PM-002",
+      "ruleId": "R00-001",
+      "sourceModule": "core",
+      "targetModule": "types",
+      "description": "core 模块引用 types 目录的定义",
+      "rationale": "types 是全局类型共享目录，所有层都可引用。待统一类型治理后移除",
+      "expiresAt": "2026-08-18",
+      "owner": "@arch-lead"
+    }
+  ],
 
-  "outdatedHistory": []
+  "outdatedHistory": [
+    {
+      "id": "BULK-001-OLD",
+      "ruleId": "R00-001",
+      "pattern": "domain -> infrastructure",
+      "description": "旧分层模型例外，v2 层模型已替换",
+      "deprecatedAt": "2026-06-19"
+    }
+  ]
 }

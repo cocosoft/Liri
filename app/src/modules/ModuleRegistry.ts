@@ -22,6 +22,12 @@ export { ModuleCategory, type ModuleDefinition };
 
 /**
  * 模块注册表类
+ *
+ * @deprecated 模块管理已统一到 DIContainer。
+ *   外部代码应使用 getDIContainer() 替代直接操作 ModuleRegistry。
+ *   ModuleRegistry 内部仍被 DIContainer.bootstrap() 使用作为实现细节，
+ *   但外部导入方应迁移到 DIContainer API。
+ *   后续版本将把 ModuleRegistry 改为 DIContainer 的内部模块，不再作为公共 API 导出。
  */
 export class ModuleRegistry {
   private static instance: ModuleRegistry;
@@ -345,5 +351,8 @@ export interface BootstrapOptions {
 
 /**
  * 全局模块注册表实例
+ *
+ * @deprecated 使用 getDIContainer() 替代。
+ *   DIContainer.bootstrap() 内部会处理 ModuleRegistry，外部无需直接引用。
  */
 export const moduleRegistry = ModuleRegistry.getInstance();

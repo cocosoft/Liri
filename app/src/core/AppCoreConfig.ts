@@ -41,6 +41,12 @@ export interface AppCoreConfig {
   startup?: AppCoreStartupOptions;
 
   /**
+   * 启动模式（对应 CLI 的 mode 参数）
+   * 传递给 DIContainer.bootstrap() 使用
+   */
+  mode?: 'repl' | 'daemon' | 'oneshot';
+
+  /**
    * 使用旧版模块系统（ModuleDependencyManager）
    * 灰度回退标志：设为 true 则沿用 AppCore 内部的模块管理，跳过 ModuleRegistry 统一路径
    * 对应 CLI 参数 --use-legacy-module-system

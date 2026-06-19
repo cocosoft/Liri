@@ -47,6 +47,12 @@ export interface PluginSDKConfig {
    */
   moduleManager?: ModuleDependencyManager;
   configPath?: string;
+  /**
+   * 是否使用旧版插件系统回退模式
+   * 启用后保持本地 Map 管理，不委托给 PluginSystem。
+   * 默认从环境变量 LIRI_USE_LEGACY_PLUGIN_SYSTEM 读取。
+   */
+  useLegacyPluginSystem?: boolean;
 }
 
 /**
@@ -58,16 +64,25 @@ export class PluginSDK {
   private contexts: Map<string, PluginContext> = new Map();
   private skills: Map<string, SkillInfo> = new Map();
   private configPath: string;
+  private useLegacy: boolean;
 
   constructor(config: PluginSDKConfig) {
     this.moduleManager = config.moduleManager;
     this.configPath = config.configPath || './plugin-configs';
+    this.useLegacy = config.useLegacyPluginSystem ?? true;
   }
 
   /**
    * 注册插件
    */
   async registerPlugin(plugin: Plugin): Promise<void> {
+    // 非回退路径：直接委托给 PluginSystem
+    if (!this.useLegacy) {
+      await pluginSystem.registerPluginFromSDK(plugin);
+      logger.info(`Registered plugin via SDK (delegated): ${plugin.name} v${plugin.version}`);
+      return;
+    }
+
     if (this.plugins.has(plugin.id)) {
       logger.warn(`Plugin ${plugin.id} is already registered, re-registering`);
       await this.unregisterPlugin(plugin.id);
@@ -97,7 +112,7 @@ export class PluginSDK {
       });
     }
 
-    // 存储技能信息（本地管理，PluginSystem 不跟踪技能粒度）
+    // 存储技能信息（旧版路径，本地管理）
     if (plugin.skills) {
       for (const skill of plugin.skills) {
         this.skills.set(skill.id, {
@@ -146,6 +161,13 @@ export class PluginSDK {
    * 激活插件
    */
   async activatePlugin(pluginId: string): Promise<void> {
+    // 非回退路径：直连 PluginSystem 注册表
+    if (!this.useLegacy) {
+      pluginSystem.getRegistry().enablePlugin(pluginId);
+      logger.info(`Activated plugin (delegated): ${pluginId}`);
+      return;
+    }
+
     const plugin = this.plugins.get(pluginId);
     const context = this.contexts.get(pluginId);
 
@@ -171,6 +193,13 @@ export class PluginSDK {
    * 停用插件
    */
   async deactivatePlugin(pluginId: string): Promise<void> {
+    // 非回退路径：直连 PluginSystem 注册表
+    if (!this.useLegacy) {
+      pluginSystem.getRegistry().disablePlugin(pluginId);
+      logger.info(`Deactivated plugin (delegated): ${pluginId}`);
+      return;
+    }
+
     const plugin = this.plugins.get(pluginId);
     const context = this.contexts.get(pluginId);
 
@@ -200,6 +229,11 @@ export class PluginSDK {
     skillId: string,
     args: Record<string, unknown>
   ): Promise<unknown> {
+    // 非回退路径：委托给 PluginSystem
+    if (!this.useLegacy) {
+      return pluginSystem.executeSkill(pluginId, skillId, args);
+    }
+
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
@@ -253,6 +287,13 @@ export class PluginSDK {
    * 注销插件
    */
   async unregisterPlugin(pluginId: string): Promise<void> {
+    // 非回退路径：委托给 PluginSystem
+    if (!this.useLegacy) {
+      await pluginSystem.unregisterPluginFromSDK(pluginId);
+      logger.info(`Unregistered plugin (delegated): ${pluginId}`);
+      return;
+    }
+
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
       return;
@@ -288,22 +329,36 @@ export class PluginSDK {
 
   /**
    * 获取插件列表
+   * @deprecated 非回退模式下使用 PluginSystem 管理插件
    */
   getPlugins(): Plugin[] {
+    if (!this.useLegacy) {
+      logger.warn('getPlugins() 在非回退模式下返回空列表，请使用 PluginSystem');
+      return [];
+    }
     return Array.from(this.plugins.values());
   }
 
   /**
    * 获取插件
+   * @deprecated 非回退模式下请使用 PluginSystem
    */
   getPlugin(pluginId: string): Plugin | undefined {
+    if (!this.useLegacy) {
+      logger.warn(`getPlugin() 在非回退模式下返回 undefined，请使用 PluginSystem`);
+      return undefined;
+    }
     return this.plugins.get(pluginId);
   }
 
   /**
    * 获取所有 SDK 注册的技能
+   * 非回退模式下委托给 PluginSystem
    */
   getAllSkills(): SkillInfo[] {
+    if (!this.useLegacy) {
+      return pluginSystem.getAllSkills();
+    }
     return Array.from(this.skills.values());
   }
 

@@ -53,7 +53,8 @@ import {
   PluginEventType,
   PluginEvent,
 } from './types/PluginTypes';
-import type { PluginInfo } from './types/PluginDisplay.js';
+import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
+import type { Plugin, SkillContext } from '@modules/plugin-sdk';
 import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -96,6 +97,11 @@ export class PluginSystem {
   private _configManager: PluginConfigManager | null = null;
   private _eventSystem: PluginEventSystem | null = null;
   private _kernelRegistry: KernelServiceRegistry | null = null;
+
+  /** SDK 程序化注册的插件（非文件扫描加载） */
+  private _sdkPlugins = new Map<string, Plugin>();
+  /** SDK 程序化注册的技能 */
+  private _sdkSkills = new Map<string, SkillInfo>();
 
   private _pluginsDiscovered = false;
   private _pluginsLoaded = false;
@@ -585,6 +591,150 @@ export class PluginSystem {
     }
 
     return results;
+  }
+
+  // ==================== SDK 程序化注册 ====================
+
+  /**
+   * 程序化注册插件（SDK 路径）
+   * 将第三方插件通过 Plugin SDK 动态注册到系统中
+   */
+  async registerPluginFromSDK(plugin: Plugin): Promise<void> {
+    // 注册到内部注册表
+    try {
+      this.registry.registerPlugin({
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        path: '',
+        state: PluginState.LOADED,
+        enabled: true,
+        dependencies: [],
+        dependents: [],
+        registeredAt: new Date(),
+      });
+    } catch (error) {
+      logger.warn(`Plugin ${plugin.id} may already be registered`, {
+        error: String(error),
+      });
+    }
+
+    // 存储技能信息（PluginSystem 本地管理技能粒度）
+    if (plugin.skills) {
+      for (const skill of plugin.skills) {
+        this._sdkSkills.set(skill.id, {
+          id: skill.id,
+          name: skill.name,
+          version: plugin.version,
+          description: skill.description,
+          author: plugin.author,
+          tags: plugin.tags,
+          category: plugin.category,
+          pluginId: plugin.id,
+        });
+      }
+    }
+
+    this._sdkPlugins.set(plugin.id, plugin);
+
+    logger.info(`Registered plugin via SDK: ${plugin.name} v${plugin.version}`);
+  }
+
+  /**
+   * 程序化注销插件（SDK 路径）
+   */
+  async unregisterPluginFromSDK(pluginId: string): Promise<void> {
+    const plugin = this._sdkPlugins.get(pluginId);
+    if (!plugin) return;
+
+    try {
+      this.registry.unregisterPlugin(pluginId);
+    } catch {
+      // 注册表中不存在则忽略
+    }
+
+    // 清理技能
+    for (const [id, skill] of this._sdkSkills) {
+      if (skill.pluginId === pluginId) this._sdkSkills.delete(id);
+    }
+
+    this._sdkPlugins.delete(pluginId);
+
+    logger.info(`Unregistered plugin via SDK: ${pluginId}`);
+  }
+
+  // ==================== 技能管理 ====================
+
+  /**
+   * 获取所有已注册的技能（含 SDK 程序化注册）
+   */
+  getAllSkills(): SkillInfo[] {
+    return Array.from(this._sdkSkills.values());
+  }
+
+  /**
+   * 获取指定插件的所有技能
+   */
+  getPluginSkills(pluginId: string): SkillInfo[] {
+    return Array.from(this._sdkSkills.values()).filter(
+      (skill) => skill.pluginId === pluginId
+    );
+  }
+
+  /**
+   * 执行插件技能
+   * 查找指定插件下的技能定义并执行
+   */
+  async executeSkill(
+    pluginId: string,
+    skillId: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
+    const plugin = this._sdkPlugins.get(pluginId);
+    if (!plugin) {
+      throw new AppError(
+        `Plugin ${pluginId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
+    }
+
+    const skill = plugin.skills?.find((s) => s.id === skillId);
+    if (!skill) {
+      throw new AppError(
+        `Skill ${skillId} not found in plugin ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
+    }
+
+    const skillContext: SkillContext = {
+      pluginId,
+      skillId,
+      log: {
+        debug: (message: string, ...args: unknown[]) =>
+          logger.debug(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        info: (message: string, ...args: unknown[]) =>
+          logger.info(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        warn: (message: string, ...args: unknown[]) =>
+          logger.warn(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        error: (message: string, ...args: unknown[]) => {
+          const fullMsg = `[${pluginId}:${skillId}] ${message}${args[0] ? ' ' + String(args[0]) : ''}`;
+          logger.error(fullMsg, args[1] as Record<string, unknown> | undefined);
+        },
+      },
+    };
+
+    return skill.execute(skillContext, args);
   }
 
   getActivatedPlugins(): LoadedPlugin[] {

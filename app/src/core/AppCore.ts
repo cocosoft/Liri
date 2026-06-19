@@ -35,6 +35,11 @@ const logger = new Logger({ module: 'AppCore' });
 
 /**
  * 应用核心
+ *
+ * @deprecated 应用启动已统一到 DIContainer.bootstrap() 路径。
+ *   main.ts V2 路径直接调用 getDIContainer().bootstrap() 替代 AppCore。
+ *   旧版模块路径通过 --use-legacy-module-system 回退。
+ *   后续版本将移除整个 AppCore 类。
  */
 export class AppCore {
   private static instance: AppCore;
@@ -62,7 +67,6 @@ export class AppCore {
   constructor(config: AppCoreConfig) {
     this.config = {
       debug: false,
-      // 如果环境变量设置了旧版标志，自动启用
       useLegacyModuleSystem:
         process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1',
       ...config,
@@ -82,11 +86,11 @@ export class AppCore {
     this.lazyPluginSDK = new LazyModuleLoader(async () => {
       // 非旧版模式下 PluginSDK 不需要 ModuleDependencyManager
       if (!this.useLegacyModuleSystem) {
-        return new PluginSDK({});
+        return new PluginSDK({ useLegacyPluginSystem: false });
       }
 
       const moduleManager = await this.lazyModuleManager.get();
-      return new PluginSDK({ moduleManager });
+      return new PluginSDK({ moduleManager, useLegacyPluginSystem: true });
     });
   }
 
@@ -173,6 +177,13 @@ export class AppCore {
 
         await this.lazyPluginSDK.get();
         this.profiler.checkpoint('plugin_sdk_loaded');
+
+        // 通过 DIContainer.bootstrap() 统一注册并启动所有模块
+        const { getDIContainer } = await import('./DIContainer');
+        await getDIContainer().bootstrap({
+          mode: this.config.mode ?? 'repl',
+        });
+        this.profiler.checkpoint('di_container_booted');
       }
 
       // 初始化成本跟踪系统
@@ -228,6 +239,10 @@ export class AppCore {
 
   /**
    * 初始化核心模块（旧版 ModuleDependencyManager 路径）
+   *
+   * @deprecated 已由 DIContainer.bootstrap() 替代。
+   *   仅在 --use-legacy-module-system 模式下使用此方法。
+   *   后续版本将移除。
    */
   private async initializeCoreModules(): Promise<void> {
     // 注册核心模块

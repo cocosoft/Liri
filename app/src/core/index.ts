@@ -26,8 +26,18 @@
 
 export * from '@modules/system/state';
 export * from './events/EventBus';
+export * from './events/UiEvents';
+export { UiEventBus, uiEventBus } from './events/UiEventBus';
 
 export { AppCore, createAppCore, type AppCoreConfig } from './AppCore';
+export {
+  BootstrapPhase,
+  BootstrapPriority,
+  type ModuleBootstrapper,
+  type ModuleLifecycle,
+  type BootstrapperModule,
+  type BootstrapProgress,
+} from './ModuleBootstrapper';
 export {
   DIContainer,
   getDIContainer,
@@ -74,3 +84,18 @@ export {
 
 // ==================== 交付模块（从 delivery/ 迁移） ====================
 export * from './delivery/index';
+
+// ==================== SPI 接口（core 层定义的上层抽象契约） ====================
+export {
+  type ILogger,
+  type ILoggerService,
+  SpiLogLevel,
+  LOGGER_SERVICE_ID,
+  registerLoggerSpi,
+  resolveLogger,
+  TtlCache,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  ERROR_SERVICE_ID,
+} from './spi';

@@ -10,7 +10,7 @@ export const ACP_ERROR_CODES = [
 
 export type AcpRuntimeErrorCode = (typeof ACP_ERROR_CODES)[number];
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/core';
 
 export class AcpRuntimeError extends AppError {
   declare readonly code: AcpRuntimeErrorCode;

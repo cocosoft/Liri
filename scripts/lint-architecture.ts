@@ -836,6 +836,7 @@ class ArchitectureLinter {
             'TMP',
             'OS',
             'COMPUTERNAME',
+            'XDG_SESSION_TYPE',     // Linux 桌面会话类型（系统信息，非配置变量）
         ]);
 
         // 已知例外的文件路径片段（边界场景，合理的 process.env 直接访问）
@@ -1013,6 +1014,263 @@ class ArchitectureLinter {
         console.log(`\n[tsconfig/ESLint] ${actualBlindSpots.length} 个目录存在类型检查盲区`);
     }
 
+    // ============ P1a-T1-S1: R01-005 健康检查统一注册 ============
+
+    /** R01-005: 检查健康检查是否统一注册到 HealthChecker */
+    async checkHealthCheckRegistration(): Promise<void> {
+        const canonicalPath = 'monitoring/health/HealthChecker';
+        let healthCheckCount = 0;
+        const violatingFiles: Array<{ file: string; line: number }> = [];
+
+        for (const file of this.allFiles) {
+            // 跳过 HealthChecker 自身
+            if (file.includes(canonicalPath.replace(/\//g, '\\')) || file.includes(canonicalPath.replace(/\\/g, '/'))) continue;
+            // 跳过测试文件
+            if (file.endsWith('.test.ts') || file.endsWith('.spec.ts')) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            const lines = content.split('\n');
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const lineNum = i + 1;
+
+                // 检测自建健康检查模式: registerHealthCheck / addHealthCheck / healthCheck()
+                const selfBuilt = /(register|add|create)HealthCheck\s*\(/.test(line);
+                if (selfBuilt) {
+                    violatingFiles.push({ file: relative(process.cwd(), file), line: lineNum });
+                    healthCheckCount++;
+                    continue;
+                }
+
+                // 检测自建 /health 端点
+                if (/['"`]\/health['"`]/.test(line) && !content.includes(canonicalPath)) {
+                    violatingFiles.push({ file: relative(process.cwd(), file), line: lineNum });
+                    healthCheckCount++;
+                    continue;
+                }
+            }
+        }
+
+        if (healthCheckCount > 0) {
+            this.violations.push({
+                ruleId: 'R01-005',
+                severity: 'warning',
+                file: violatingFiles[0].file,
+                message: `检测到 ${healthCheckCount} 处自建健康检查（应统一通过 HealthChecker 注册）`,
+                suggestion: `请将所有健康检查逻辑统一到 monitoring/health/HealthChecker.ts 注册\n  ${violatingFiles.slice(0, 10).map(f => `- ${f.file}:${f.line}`).join('\n  ')}${violatingFiles.length > 10 ? `\n  ... 及其他 ${violatingFiles.length - 10} 处` : ''}`,
+            });
+        }
+
+        console.log(`\n[R01-005 健康检查] ${healthCheckCount} 处自建健康检查`);
+    }
+
+    // ============ P1a-T1-S2: R02-003 Session 模型统一 ============
+
+    /** R02-003: 检查 Session ID 是否使用 acp/types.ts 的统一 SessionId */
+    async checkSessionModel(): Promise<void> {
+        const canonicalPaths = [
+            'acp/types',
+            'acp/types.ts',
+            '@modules/acp/types',
+        ];
+
+        const knownExceptions = [
+            'session/Session.ts',       // Session 类自身的 ID 字段
+            'session/SessionManager.ts', // SessionManager 中的 ID 管理
+        ];
+
+        const sessionIdDefs: Array<{ file: string; typeName: string }> = [];
+
+        for (const file of this.allFiles) {
+            const relPath = relative(this.srcPath, file).replace(/\\/g, '/');
+
+            // 跳过规范路径
+            if (canonicalPaths.some(p => relPath.includes(p))) continue;
+            // 跳过已知例外
+            if (knownExceptions.some(e => relPath.includes(e))) continue;
+
+            const content = readFileSync(file, 'utf-8');
+
+            // 检测自定 SessionId 或 SessionID 类型（非 import 重新导出）
+            const sessionIdPattern = /export\s+(interface|type)\s+(SessionId|SessionID)\b/g;
+            let match: RegExpExecArray | null;
+            while ((match = sessionIdPattern.exec(content)) !== null) {
+                // 排除从规范路径 re-export 的场景
+                const beforeMatch = content.substring(0, match.index);
+                if (beforeMatch.includes("from '") || beforeMatch.includes('from "')) {
+                    // 检查 export { ... } from 语法
+                    const lastExport = beforeMatch.lastIndexOf('export');
+                    if (lastExport >= 0) {
+                        const exportLine = content.substring(lastExport, match.index).trim();
+                        if (exportLine.includes('from')) continue; // re-export，跳过
+                    }
+                }
+                sessionIdDefs.push({ file: relPath, typeName: match[1] });
+            }
+        }
+
+        if (sessionIdDefs.length > 0) {
+            this.violations.push({
+                ruleId: 'R02-003',
+                severity: 'warning',
+                file: sessionIdDefs[0].file,
+                message: `存在 ${sessionIdDefs.length} 个文件自行定义了 SessionId/SessionID 类型，未使用 acp/types.ts 的规范定义`,
+                suggestion: `请统一引用 acp/types.ts 的 SessionId（branded type）\n  受影响文件:\n${sessionIdDefs.slice(0, 10).map(d => `    - ${d.file} (${d.typeName})`).join('\n')}${sessionIdDefs.length > 10 ? `\n    ... 及其他 ${sessionIdDefs.length - 10} 个` : ''}`,
+            });
+        }
+
+        console.log(`\n[R02-003 Session 模型] ${sessionIdDefs.length} 个文件自定 SessionId/SessionID 类型`);
+    }
+
+    // ============ P1a-T1-S3: R03-002 模块出口单一 ============
+
+    /** R03-002: 检查模块是否从子目录直接 import（应通过 index.ts 出口） */
+    async checkModuleSingleExport(): Promise<void> {
+        // 定义已知的模块根目录
+        const moduleRoots = new Set([
+            'acp', 'agent', 'ai', 'bridge', 'cache', 'channels', 'chat',
+            'chronos', 'cli', 'commands', 'config', 'context', 'core',
+            'cost', 'diagnostics', 'error', 'gateway', 'hooks', 'infrastructure',
+            'ink', 'llm', 'mcp', 'memory', 'monitoring', 'oauth', 'permission',
+            'performance', 'plugins', 'promptSuggestion', 'query', 'remote',
+            'runtime', 'sandbox', 'services', 'session', 'skillCode', 'state',
+            'subagent', 'subagents', 'tasks', 'tools', 'types', 'ui', 'utils', 'voice',
+        ]);
+
+        // 已知合法的子目录 import（框架内部、测试辅助等）
+        const knownSubdirExceptions = [
+            '/__tests__/',    // 测试文件可自由 import
+            '.test.ts',       // 测试文件
+            '.spec.ts',       // 测试文件
+            '/node_modules/', // 跳过
+        ];
+
+        const violations: Array<{ importer: string; targetModule: string; subDir: string }> = [];
+
+        for (const file of this.allFiles) {
+            // 跳过测试文件
+            if (knownSubdirExceptions.some(e => file.includes(e))) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            const relPath = relative(this.srcPath, file).replace(/\\/g, '/');
+            const importerModule = relPath.split('/')[0];
+
+            // 匹配 @modules/xxx/yyy 形式的 import（xxx 是模块名，yyy > 1 层深度即子目录）
+            const importRegex = /from\s+['"]@modules\/([^'"/]+)\/([^'"]+)['"]/g;
+            let match: RegExpExecArray | null;
+            while ((match = importRegex.exec(content)) !== null) {
+                const targetModule = match[1];
+                const subPath = match[2];
+                // 跳过跨模块类型导入（从 types/ 目录导入属于类型出口，允许）
+                if (targetModule === 'types') continue;
+                // 跳过模块自身的子目录 import（同模块内不算违规）
+                if (targetModule === importerModule) continue;
+                // 如果目标不在已知模块根中，跳过（可能是第三方包）
+                if (!moduleRoots.has(targetModule)) continue;
+                // 如果 subPath 是 index 或 index.js，不算违规
+                if (subPath === 'index' || subPath === 'index.js') continue;
+
+                violations.push({
+                    importer: relPath,
+                    targetModule,
+                    subDir: subPath.split('/')[0],
+                });
+            }
+
+            // 匹配相对路径 import，检测是否跨模块子目录 import
+            const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
+            while ((match = relImportRegex.exec(content)) !== null) {
+                const relImport = match[1];
+                // 将相对路径解析到 src 目录
+                const resolved = resolve(dirname(file), relImport);
+                if (!resolved.startsWith(this.srcPath)) continue;
+
+                const resolvedRel = relative(this.srcPath, resolved).replace(/\\/g, '/');
+                const parts = resolvedRel.split('/');
+                if (parts.length < 3) continue; // 同一模块内或根目录，跳过
+
+                const targetModule = parts[0];
+                const subDir = parts[1];
+
+                // 如果目标是不同类型模块或非模块根，跳过
+                if (!moduleRoots.has(targetModule)) continue;
+                if (targetModule === importerModule) continue; // 同模块，跳过
+
+                // 跳过 index 入口
+                const fileName = parts[parts.length - 1];
+                if (fileName === 'index.ts' || fileName === 'index.tsx' || fileName === 'index.js') continue;
+
+                violations.push({
+                    importer: relPath,
+                    targetModule,
+                    subDir,
+                });
+            }
+        }
+
+        if (violations.length > 0) {
+            this.violations.push({
+                ruleId: 'R03-002',
+                severity: 'warning',
+                file: violations[0].importer,
+                message: `存在 ${violations.length} 处从模块子目录直接 import 的行为（应通过模块 index.ts 出口导入）`,
+                suggestion: `请改为从模块 index.ts 出口导入\n  示例 (top 5):\n${violations.slice(0, 5).map(v => `    - ${v.importer} → @modules/${v.targetModule}/${v.subDir}`).join('\n')}${violations.length > 5 ? `\n    ... 及其他 ${violations.length - 5} 处` : ''}`,
+            });
+        }
+
+        console.log(`\n[R03-002 模块出口单一] ${violations.length} 处子目录 import 违规`);
+    }
+
+    // ============ P1a-T1-S4: R03-004 消息路由管线统一 ============
+
+    /** R03-004: 检查消息路由是否统一通过 routeChannelMessage() */
+    async checkMessageRouting(): Promise<void> {
+        const canonicalPath = 'channels/routing/messageRouter';
+        let directChatCalls = 0;
+        const violatingFiles: Array<{ file: string; line: number; detail: string }> = [];
+
+        for (const file of this.allFiles) {
+            // 跳过自身和测试文件
+            if (file.includes(canonicalPath.replace(/\//g, '\\')) || file.includes(canonicalPath.replace(/\\/g, '/'))) continue;
+            if (file.endsWith('.test.ts') || file.endsWith('.spec.ts')) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            const lines = content.split('\n');
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const lineNum = i + 1;
+
+                // 检测绕过 routeChannelMessage() 直接调用 CoreAPI.chat()
+                const directChat = /CoreAPI\s*\.\s*chat\s*\(/.test(line);
+                if (directChat) {
+                    // 检查是否在 messageRouter 相关文件中
+                    if (!file.includes('messageRouter')) {
+                        violatingFiles.push({
+                            file: relative(process.cwd(), file),
+                            line: lineNum,
+                            detail: '直接调用 CoreAPI.chat()，应通过 routeChannelMessage()',
+                        });
+                        directChatCalls++;
+                    }
+                }
+            }
+        }
+
+        if (directChatCalls > 0) {
+            this.violations.push({
+                ruleId: 'R03-004',
+                severity: 'warning',
+                file: violatingFiles[0].file,
+                message: `检测到 ${directChatCalls} 处绕过 routeChannelMessage() 直接调用 CoreAPI.chat()`,
+                suggestion: `所有入站消息必须通过 channels/routing/messageRouter.ts 的 routeChannelMessage() 统一处理\n  ${violatingFiles.slice(0, 10).map(f => `- ${f.file}:${f.line} — ${f.detail}`).join('\n  ')}${violatingFiles.length > 10 ? `\n  ... 及其他 ${violatingFiles.length - 10} 处` : ''}`,
+            });
+        }
+
+        console.log(`\n[R03-004 消息路由] ${directChatCalls} 处直接 CoreAPI.chat() 调用`);
+    }
+
     // ============ R00 分层合规 ============
 
     private layerExceptions: Set<string> = new Set();
@@ -1020,7 +1278,7 @@ class ArchitectureLinter {
 
     /** 加载分层例外清单 */
     async loadLayerExceptions(): Promise<void> {
-        const exPath = resolve(process.cwd(), 'scripts', 'layer-exceptions.json');
+        const exPath = resolve(__dirname, 'layer-exceptions.json');
         if (!existsSync(exPath)) return;
 
         const data = JSON.parse(readFileSync(exPath, 'utf-8'));
@@ -1064,7 +1322,7 @@ class ArchitectureLinter {
 
     /** 加载分层映射配置 */
     async loadLayerMapping(): Promise<void> {
-        const mappingPath = resolve(process.cwd(), 'scripts', 'modules-to-layers.json');
+        const mappingPath = resolve(__dirname, 'modules-to-layers.json');
         if (!existsSync(mappingPath)) {
             console.warn('⚠ 警告: scripts/modules-to-layers.json 不存在，跳过分层检查');
             return;
@@ -1187,6 +1445,11 @@ class ArchitectureLinter {
             this.checkConfigEnvAccess(),
             this.checkDuplicateDependencies(),
             this.checkTsconfigEslintConsistency(),
+            // P1a-T1 新增检查项
+            this.checkHealthCheckRegistration(),
+            this.checkSessionModel(),
+            this.checkModuleSingleExport(),
+            this.checkMessageRouting(),
         ]);
 
         // 分层合规检查（需按顺序在 loadFiles 之后执行）

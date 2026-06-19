@@ -27,7 +27,7 @@
 
 import type { Duplex } from 'node:stream';
 import * as net from 'node:net';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveLogger, type ILogger } from '@modules/core';
 import {
   OpCode,
   DEFAULT_MAX_MESSAGE_SIZE,
@@ -35,7 +35,7 @@ import {
   encodeWebSocketFrame,
 } from './websocket.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger: ILogger = resolveLogger('acp');
 
 /**
  * ACP 客户端消息结构

@@ -142,6 +142,48 @@ export class ContainerScope {
   }
 
   /**
+   * 按拓扑序调用所有服务的 onLoad 钩子
+   */
+  async loadAll(): Promise<void> {
+    const order = this.getTopologicalOrder();
+    for (const id of order) {
+      const desc = this.descriptors.get(id);
+      if (!desc?.onLoad) continue;
+      const instance = this.singletonInstances.get(id) ?? this.requestInstances.get(id);
+      if (!instance) continue;
+      try {
+        await desc.onLoad(instance);
+      } catch (error) {
+        logger.error(`服务 onLoad 钩子执行失败: ${id}`, {
+          error: String(error),
+        });
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * 按拓扑序调用所有服务的 onReady 钩子
+   */
+  async readyAll(): Promise<void> {
+    const order = this.getTopologicalOrder();
+    for (const id of order) {
+      const desc = this.descriptors.get(id);
+      if (!desc?.onReady) continue;
+      const instance = this.singletonInstances.get(id) ?? this.requestInstances.get(id);
+      if (!instance) continue;
+      try {
+        await desc.onReady(instance);
+      } catch (error) {
+        logger.error(`服务 onReady 钩子执行失败: ${id}`, {
+          error: String(error),
+        });
+        throw error;
+      }
+    }
+  }
+
+  /**
    * 释放所有服务
    */
   async disposeAll(): Promise<void> {
@@ -162,6 +204,35 @@ export class ContainerScope {
    */
   getTopologicalOrder(): string[] {
     return this.cycleDetector.topologicalSort(this.descriptors);
+  }
+
+  /**
+   * 查找依赖指定服务的所有服务（反向依赖查询）
+   * 对应 ModuleDependencyManager.getDependents()
+   */
+  getDependents(id: string): string[] {
+    return this.cycleDetector.findDependents(this.descriptors, id);
+  }
+
+  /**
+   * 获取指定服务的依赖列表（必选依赖）
+   * 对应 ModuleDependencyManager.getDependencies()
+   */
+  getDependencies(id: string): string[] {
+    const desc = this.descriptors.get(id);
+    return desc?.dependencies ?? [];
+  }
+
+  /**
+   * 检查指定服务是否为可选依赖
+   * 对应 ModuleDependencyManager.isOptionalDependency()
+   */
+  isOptionalDependency(id: string): boolean {
+    for (const [, desc] of this.descriptors) {
+      const optDeps = desc.optionalDependencies ?? [];
+      if (optDeps.includes(id)) return true;
+    }
+    return false;
   }
 
   /**

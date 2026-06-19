@@ -25,7 +25,18 @@ export interface ServiceDescriptor<T = unknown> {
   factory: () => T;
   scope: ServiceScope;
   dependencies?: string[];
+  optionalDependencies?: string[];
+
+  /** 初始化阶段：服务实例创建后立即调用 */
   onInit?: (instance: T) => Promise<void>;
+
+  /** 加载阶段：所有服务注册完成后，按依赖序调用 */
+  onLoad?: (instance: T) => Promise<void>;
+
+  /** 就绪阶段：所有依赖已就绪，执行业务初始化 */
+  onReady?: (instance: T) => Promise<void>;
+
+  /** 销毁阶段：释放资源，逆序调用 */
   onDispose?: (instance: T) => Promise<void>;
 }
 

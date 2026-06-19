@@ -35,7 +35,7 @@ import type {
 } from './runtime/types.js';
 import { getDefaultSessionStore } from './session.js';
 import type { AcpSessionStore } from './session.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveLogger, type ILogger } from '@modules/core';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import type { Duplex } from 'node:stream';
@@ -45,7 +45,7 @@ import { AcpWsClient } from './AcpWsClient.js';
 import type { AcpClientMessage } from './AcpWsClient.js';
 import { AcpGateway } from './AcpGateway.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger: ILogger = resolveLogger('acp');
 
 /**
  * ACP WebSocket 远程桥接服务器

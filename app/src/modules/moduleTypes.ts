@@ -38,8 +38,22 @@ export interface ModuleDefinition {
   dependencies: string[];
   optionalDependencies: string[];
   configSchema?: object;
+
+  /** @deprecated 由 onLoad 替代，保留向后兼容 */
   initialize?: () => Promise<void>;
+
+  /** @deprecated 由 onDestroy 替代，保留向后兼容 */
   destroy?: () => Promise<void>;
+
+  /** 加载阶段：依赖注入完成，服务已注册但未初始化 */
+  onLoad?: () => Promise<void>;
+
+  /** 就绪阶段：所有依赖模块已就绪，执行业务初始化 */
+  onReady?: () => Promise<void>;
+
+  /** 销毁阶段：释放资源，逆序调用 */
+  onDestroy?: () => Promise<void>;
+
   instance?: any;
 }
 

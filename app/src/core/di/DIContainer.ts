@@ -203,6 +203,44 @@ export class DIContainer {
   }
 
   /**
+   * 按拓扑序调用所有服务的 onLoad 钩子
+   */
+  async loadAll(): Promise<void> {
+    await this.scopeManager.loadAll();
+  }
+
+  /**
+   * 按拓扑序调用所有服务的 onReady 钩子
+   */
+  async readyAll(): Promise<void> {
+    await this.scopeManager.readyAll();
+  }
+
+  /**
+   * 查找依赖指定服务（ID）的所有服务（反向依赖查询）
+   * 对应 ModuleDependencyManager.getDependents()
+   */
+  getDependents(id: string): string[] {
+    return this.scopeManager.getDependents(id);
+  }
+
+  /**
+   * 获取指定服务的必选依赖列表
+   * 对应 ModuleDependencyManager.getDependencies()
+   */
+  getDependencies(id: string): string[] {
+    return this.scopeManager.getDependencies(id);
+  }
+
+  /**
+   * 检查指定服务是否为某个已注册服务的可选依赖
+   * 对应 ModuleDependencyManager.isOptionalDependency()
+   */
+  isOptionalDependency(id: string): boolean {
+    return this.scopeManager.isOptionalDependency(id);
+  }
+
+  /**
    * 释放所有服务
    */
   async disposeAll(): Promise<void> {
@@ -253,6 +291,20 @@ export class DIContainer {
         verbose: options?.verbose,
         skipEnvInit: options?.skipEnvInit,
       });
+
+      // 注册 Logger SPI 实现（容器就绪后）
+      try {
+        const { registerLoggerSpi } = await import('../spi/LoggerService');
+        await registerLoggerSpi(this);
+      } catch (spiError) {
+        logger.warn('Logger SPI 注册失败（非致命，使用回退路径）', {
+          error: spiError instanceof Error ? spiError.message : String(spiError),
+        });
+      }
+
+      // 完成 ModuleRegistry 注册后，执行 onLoad → onReady 生命周期
+      await this.loadAll();
+      await this.readyAll();
 
       const duration = performance.now() - startTime;
       logger.info(`DIContainer: 容器启动完成 (${duration.toFixed(0)}ms)`);

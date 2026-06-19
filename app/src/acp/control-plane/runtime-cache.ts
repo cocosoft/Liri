@@ -1,13 +1,13 @@
 import type { AcpRuntimeCapabilities } from '../runtime/types.js';
-import { TTLCache } from '@modules/utils/cache';
+import { TtlCache } from '@modules/core';
 
 export class RuntimeCapabilitiesCache {
-  private cache: TTLCache<AcpRuntimeCapabilities>;
+  private cache: TtlCache<AcpRuntimeCapabilities>;
   private ttlMs: number;
 
   constructor(ttlMs: number = 60_000) {
     this.ttlMs = ttlMs;
-    this.cache = new TTLCache<AcpRuntimeCapabilities>(1000, ttlMs);
+    this.cache = new TtlCache<AcpRuntimeCapabilities>(1000, ttlMs);
   }
 
   set(key: string, capabilities: AcpRuntimeCapabilities): void {

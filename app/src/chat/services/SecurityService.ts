@@ -8,6 +8,8 @@ import type { SensitiveError, SensitiveDataConfig } from '@modules/security';
 
 export const SecurityErrorType = SensitiveErrorType;
 export type SecurityErrorAlias = SensitiveError;
+/** SecurityError 类型 */
+export type SecurityError = SensitiveError;
 export type SecurityConfig = SensitiveDataConfig;
 
 export class SecurityService extends EventEmitter {

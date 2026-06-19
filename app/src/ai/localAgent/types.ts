@@ -39,11 +39,15 @@ export type IntentType =
   | 'general';
 
 export interface RouteDecision {
-  target: RouteTarget;
+  target: RouteTarget | string;
   model?: string;
   handler?: string;
   fallback?: RouteDecision;
   reason?: string;
+  /** 兼容 SmartRouter 的决策字段 */
+  provider?: string;
+  /** 兼容 SmartRouter 的决策 tier */
+  tier?: string;
 }
 
 export type RouteTarget = 'rule_engine' | 'ollama' | 'cloud';

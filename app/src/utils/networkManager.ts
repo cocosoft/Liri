@@ -3,7 +3,7 @@
  * 用于优化网络请求，实现请求缓存、重试、超时处理等功能
  */
 
-import { AppError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { logger } from './log.js';
 import { CacheFactory } from '@modules/cache/CacheFactory';
 
@@ -60,7 +60,7 @@ export class NetworkManagerError extends AppError {
     public status?: number,
     public response?: NetworkResponse
   ) {
-    super(message);
+    super(message, ErrorCategory.NETWORK, ErrorSeverity.MEDIUM);
     this.name = 'NetworkManagerError';
   }
 }

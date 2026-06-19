@@ -138,7 +138,7 @@ export {
   ToolErrorCollector,
   createToolErrorCollector,
 } from './ToolErrorCollector.js';
-export type { ToolError, ToolErrorSummary } from './ToolErrorCollector.js';
+export type { ToolErrorRecord as ToolError, ToolErrorSummary } from './ToolErrorCollector.js';
 export type {
   TAORLoopConfig,
   TAORLoopResult,

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块注册表
  * 统一管理所有模块的注册、查找和依赖解析
  */
@@ -349,7 +349,7 @@ export class ModuleRegistry {
  */
 export interface BootstrapOptions {
   /** 启动模式 */
-  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test';
+  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test' | 'oneshot';
   /** 调试模式 */
   debug?: boolean;
   /** 详细输出 */

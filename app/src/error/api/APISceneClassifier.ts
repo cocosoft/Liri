@@ -572,9 +572,9 @@ function formatSSLErrorMessage(code?: string): string {
  * 解析 Retry-After 头
  */
 function parseRetryAfterHeader(error: APIError): number | undefined {
-  const header =
-    (error.headers as Record<string, string>)?.['retry-after'] ??
-    (error.headers as Record<string, string>)?.['Retry-After'];
+  const errorAny = error as unknown as Record<string, unknown>;
+  const headers = errorAny.headers as Record<string, string> | undefined;
+  const header = headers?.['retry-after'] ?? headers?.['Retry-After'];
 
   if (header) {
     const seconds = parseInt(header, 10);

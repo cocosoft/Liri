@@ -46,12 +46,12 @@ export type {
   GatewayChannel,
 } from './types';
 
+export { ChannelManager } from './ChannelManager';
 export {
-  ChannelManager,
   createChannelManager,
   getChannelManager,
   disconnectAllChannels,
-} from './ChannelManager';
+} from './ChannelManagerFactory';
 
 export type {
   ChannelManagerConfig,

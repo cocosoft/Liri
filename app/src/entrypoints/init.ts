@@ -324,7 +324,7 @@ export async function init(): Promise<void> {
           if (!gatewayLegacyDisabled) {
             // 预创建 ChannelManager 单例
             const { getChannelManager } =
-              await import('../core/gateway/ChannelManager.js');
+              await import('../core/gateway/ChannelManagerFactory.js');
             getChannelManager();
 
             // 根据配置自动注册并启动 Gateway 通道

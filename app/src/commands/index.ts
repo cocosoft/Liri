@@ -29,6 +29,9 @@ export type {
   CommandLoader,
   CommandType,
   CommandImplementation,
+  CommandLoadStatus,
+  LoadResult,
+  ParsedCommand,
 } from './types/index.js';
 
 export { commandRegistry } from './registry/index.js';

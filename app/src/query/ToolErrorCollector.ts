@@ -69,7 +69,7 @@ export class ToolErrorCollector {
    * 批量记录多个工具错误
    * @param errors 错误列表
    */
-  recordBatch(errors: ToolError[]): void {
+  recordBatch(errors: ToolErrorRecord[]): void {
     for (const error of errors) {
       this.record(error);
     }
@@ -79,7 +79,7 @@ export class ToolErrorCollector {
    * 获取指定轮次的所有错误
    * @param turn 轮次号
    */
-  getByTurn(turn: number): ToolError[] {
+  getByTurn(turn: number): ToolErrorRecord[] {
     return this.errors.filter((e) => e.turn === turn);
   }
 
@@ -87,14 +87,14 @@ export class ToolErrorCollector {
    * 获取指定工具的所有错误
    * @param toolName 工具名称
    */
-  getByTool(toolName: string): ToolError[] {
+  getByTool(toolName: string): ToolErrorRecord[] {
     return this.errors.filter((e) => e.toolName === toolName);
   }
 
   /**
    * 获取所有错误
    */
-  getAll(): ToolError[] {
+  getAll(): ToolErrorRecord[] {
     return [...this.errors];
   }
 

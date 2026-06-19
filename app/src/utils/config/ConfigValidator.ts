@@ -109,7 +109,7 @@ export class ConfigValidator {
     key: string,
     value: unknown,
     rule: ConfigValidationRule
-  ): ValidationError | null {
+  ): ConfigValidationError | null {
     const actualType = Array.isArray(value) ? 'array' : typeof value;
 
     if (actualType !== rule.type) {
@@ -171,7 +171,7 @@ export function validateRequiredKeys(
   config: Record<string, unknown>,
   requiredKeys: string[]
 ): ValidationResult {
-  const errors: ValidationError[] = [];
+  const errors: ConfigValidationError[] = [];
 
   for (const key of requiredKeys) {
     if (config[key] === undefined || config[key] === null) {

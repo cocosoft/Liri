@@ -101,7 +101,7 @@ export function resolveLogger(module?: string): ILogger {
  * @param container - DI 容器实例
  */
 export async function registerLoggerSpi(container: {
-  registerDescriptor: <T>(desc: { id: string; factory: () => T; scope: string }) => void;
+  registerDescriptor: <T>(desc: { id: string; factory: () => T; scope: 'singleton' | 'transient' | 'request' }) => void;
 }): Promise<void> {
   const { getLogger: getLoggerImpl, setGlobalConfigProvider: setGlobalConfigProviderImpl } =
     await import('../../monitoring/logs/Logger');

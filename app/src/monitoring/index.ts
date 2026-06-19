@@ -194,8 +194,10 @@ export type {
   SystemMonitorConfig,
   SystemInfo,
   ProcessInfo,
-  DiskInfo,
 } from './integration/index.js';
+
+// 集成层 DiskInfo（注意与 metrics/DiskInfo 重名，使用时小心混淆）
+export type { DiskInfo as IntegrationDiskInfo } from './integration/index.js';
 
 // 性能分析
 export {

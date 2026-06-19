@@ -99,6 +99,8 @@ export interface RouteDecision {
   reason: string;
   /** 是否来自快速通道（SimpleQA/规则引擎跳过） */
   fastPath?: boolean;
+  /** 兼容 LocalAgent 的决策目标 */
+  target?: string;
 }
 
 /** 会话路由记录（持久化到 SQLite） */

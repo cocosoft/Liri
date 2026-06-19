@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -304,7 +304,10 @@ export class CoreAPIImpl implements CoreAPI {
     if (this.smartRouter?.isEnabled()) {
       try {
         const decision = await this.smartRouter.decide(content, sessionId);
-        this.lastRouteDecision = decision;
+        this.lastRouteDecision = {
+          ...decision,
+          target: decision.target ?? 'cloud',
+        };
         if (decision.model) {
           return { model: decision.model, tier: decision.tier };
         }

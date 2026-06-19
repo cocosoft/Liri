@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 依赖注入容器
  * 支持 singleton/transient/request 三种作用域、循环依赖检测、自动装配、
  * 生命周期钩子、ModuleRegistry 回退解析、统一启动入口等特性
@@ -155,6 +155,13 @@ export class DIContainer {
    */
   has(name: string): boolean {
     return this.scopeManager.hasDescriptor(name);
+  }
+
+  /**
+   * 检查服务描述符是否存在（兼容旧版 API）
+   */
+  hasDescriptor(id: string): boolean {
+    return this.scopeManager.hasDescriptor(id);
   }
 
   /**

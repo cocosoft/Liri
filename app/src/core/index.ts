@@ -26,6 +26,7 @@
 
 export * from '@modules/system/state';
 export * from './paths';
+export type { Message, ToolCall, ToolResult, ToolContext } from './types';
 export * from './events/EventBus';
 export * from './events/UiEvents';
 export { UiEventBus, uiEventBus } from './events/UiEventBus';
@@ -63,7 +64,7 @@ export { PluginEcosystem, type EcosystemConfig } from './PluginEcosystem';
 /** @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system */
 export { PluginSDK, type PluginSDKConfig } from './PluginSDK';
 export type { Plugin } from '@modules/plugin-sdk';
-export { Coordinator, coordinator, type CoordinatorConfig } from './Coordinator';
+export { Coordinator, coordinator, type CoordinatorConfig, type CoordinatorTask } from './Coordinator';
 export type { ContextData } from './context/index';
 export type { AuthManager, AuthConfig } from '@modules/system/auth/AuthManager';
 

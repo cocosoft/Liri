@@ -38,7 +38,7 @@ export interface ProgressEvent {
   message: string;
   /** 工具名称（仅在 tool_executing 阶段存在） */
   toolName?: string;
-}WIN
+}
 
 /** 聊天请求 */
 export interface ChatRequest {

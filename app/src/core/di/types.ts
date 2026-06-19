@@ -52,7 +52,7 @@ export interface CycleDetectionResult {
  */
 export interface BootstrapOptions {
   /** 启动模式 */
-  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test';
+  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test' | 'oneshot';
   /** 调试模式 */
   debug?: boolean;
   /** 详细输出 */

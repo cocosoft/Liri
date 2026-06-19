@@ -8,6 +8,7 @@
 import type { LoadedPlugin } from '../types/index.js';
 import { parsePluginIdentifier } from './pluginIdentifier.js';
 import type { PluginId } from './schemas.js';
+import { PluginError } from '@modules/error';
 
 /**
  * 依赖查找结果
@@ -35,7 +36,7 @@ export type ResolutionResult =
  */
 export interface DemoteResult {
   demoted: Set<string>;
-  errors: PluginError[];
+  errors: PluginDependencyError[];
 }
 
 /**

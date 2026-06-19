@@ -46,6 +46,7 @@ export type { APIProvider, ModelKey } from './models/ModelConfigs';
 export {
   ALL_MODEL_CONFIGS,
   getModelConfigById,
+  getModelKeyByName,
 } from './models/ModelConfigs';
 
 export { AIModelManager, getAIModelManager } from './AIModelManager';
@@ -154,6 +155,7 @@ export { DefaultToolExecutor } from './interfaces/ToolExecutor';
 export type {
   IToolExecutor,
   ToolExecutorConfig,
+  ToolRegistry,
 } from './interfaces/ToolExecutor';
 export type { ToolExecutorConfig as IToolExecutorConfig } from './interfaces/ToolExecutor';
 export type {
@@ -270,7 +272,7 @@ export type {
   ProviderListFilter,
 } from './providers/ProviderManager';
 
-export { BalanceChecker } from './providers/BalanceChecker';
+export { BalanceChecker, checkBalance, formatBalanceResult } from './providers/BalanceChecker';
 export type { BalanceResult, BalanceData } from './providers/BalanceChecker';
 
 export { ModelFetcher, fetchModels } from './providers/ModelFetcher';
@@ -282,7 +284,11 @@ export {
 } from './providers/detectUnifiedProviders';
 export type { UnifiedProviderConfig } from './providers/detectUnifiedProviders';
 
-export { SpeedTestService } from './providers/SpeedTestService';
+export {
+  SpeedTestService,
+  testEndpoints,
+  formatSpeedResults,
+} from './providers/SpeedTestService';
 export type { EndpointLatency } from './providers/SpeedTestService';
 
 export {
@@ -331,7 +337,11 @@ export type {
   FailoverEvent,
 } from './providers/PriorityBasedFailover';
 
-export { ProviderSyncService } from './providers/ProviderSyncService';
+export {
+  ProviderSyncService,
+  registerProviderFromDB,
+  unregisterProviderFromRegistry,
+} from './providers/ProviderSyncService';
 
 export { tryHandleRoute } from './ModelManagementAPI';
 

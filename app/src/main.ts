@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bun
+#!/usr/bin/env bun
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
@@ -750,7 +750,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
         },
       });
 
-      await appCore.init();
+      await appCore.initialize();
       logger.info('旧版模块系统初始化完成');
     } else {
       // V2 统一路径：使用 DIContainer.bootstrap()

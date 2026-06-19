@@ -56,7 +56,7 @@ async function handleGateway(): Promise<CommandResult> {
   let gatewayInfo: string;
   try {
     const { getChannelManager } =
-      await import('@modules/core/gateway/ChannelManager.js');
+      await import('@modules/core/gateway/ChannelManagerFactory.js');
     const status = getChannelManager().getStatus();
     gatewayInfo = [
       '  Running:          ' + (status.isRunning ? 'Yes' : 'No'),
@@ -93,7 +93,7 @@ async function handleChannels(): Promise<CommandResult> {
   let channelsInfo: string;
   try {
     const { getChannelManager } =
-      await import('@modules/core/gateway/ChannelManager.js');
+      await import('@modules/core/gateway/ChannelManagerFactory.js');
     const manager = getChannelManager();
     const channels = manager.listChannels();
     const active = channels.filter(

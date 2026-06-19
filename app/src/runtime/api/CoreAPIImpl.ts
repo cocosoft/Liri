@@ -327,6 +327,7 @@ export class CoreAPIImpl implements CoreAPI {
         metadata: { ...request.metadata, routerTier: tier },
         stream: request.stream,
         model,
+        onProgress: request.onProgress,
       });
 
       // 检查是否返回了待处理的用户交互（非流式路径）

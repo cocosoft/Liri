@@ -669,6 +669,21 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
 
       const coreAPI = getCoreAPI();
 
+      // 进度消息节流：相同内容不重复发送
+      let _lastProgressMsg = '';
+      const throttledProgress = (msg: string) => {
+        if (msg === _lastProgressMsg) return;
+        _lastProgressMsg = msg;
+        if (plugin.outbound) {
+          plugin.outbound.sendText(
+            message.conversationId ?? message.senderId,
+            msg
+          ).catch(() => {
+            // 进度推送失败不计入主流程
+          });
+        }
+      };
+
       // 1. 为 AI 处理添加超时保护（120 秒）
       let timeoutHandle: NodeJS.Timeout;
       const chatPromise = coreAPI.chat({
@@ -680,6 +695,9 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
           messageType: message.messageType,
           isDirectMessage: message.isDirectMessage,
           rawPayload: message.rawPayload,
+        },
+        onProgress: (event) => {
+          throttledProgress(event.message);
         },
       });
 

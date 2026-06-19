@@ -22,7 +22,7 @@
 /**
  * CoreAPI 核心接口
  * 统一的应用门面，为所有外部入口（CLI、Bridge、通道插件）提供一致的功能入口
- */
+ liriliri*/
 
 import type {
   ConversionResult,
@@ -30,12 +30,24 @@ import type {
 } from '@modules/tools/converter/engine/types';
 import type { TodoBlockData } from './todo-types';
 
+/** 进度事件，用于通知调用方当前 AI 处理阶段 */
+export interface ProgressEvent {
+  /** 处理阶段 */
+  stage: 'analyzing' | 'tool_executing' | 'generating' | 'completed';
+  /** 人类可读的描述 */
+  message: string;
+  /** 工具名称（仅在 tool_executing 阶段存在） */
+  toolName?: string;
+}WIN
+
 /** 聊天请求 */
 export interface ChatRequest {
   content: string;
   sessionId?: string;
   stream?: boolean;
   metadata?: Record<string, unknown>;
+  /** 进度回调，用于在非流式路径中获取 AI 处理阶段信息 */
+  onProgress?: (event: ProgressEvent) => void;
 }
 
 /** 聊天响应 */

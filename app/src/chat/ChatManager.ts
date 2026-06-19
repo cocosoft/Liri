@@ -1045,6 +1045,9 @@ export class ChatManagerImpl implements ChatManager {
     const maxCtx = this._resolveMaxContextTokens(options?.model);
     await this._truncateApiMessages(apiMessages, maxCtx);
 
+    // 通知进度：开始 LLM 分析
+    options?.onProgress?.({ stage: 'analyzing', message: '正在分析问题...' });
+
     logger.debug('准备调用 activeClient.sendMessage', {
       constructor: (activeClient as any)?.constructor?.name,
       providerId: activeClient?.getProviderId(),
@@ -1300,6 +1303,9 @@ export class ChatManagerImpl implements ChatManager {
           }
           // ---- 结束用户交互检查 ----
 
+          // 通知进度：正在执行工具
+          options?.onProgress?.({ stage: 'tool_executing', message: `正在执行 ${normalizedToolCall.name}...`, toolName: normalizedToolCall.name });
+
           const toolResult = await this.executeTool({
             id: normalizedToolCall.id,
             name: normalizedToolCall.name,
@@ -1381,6 +1387,9 @@ export class ChatManagerImpl implements ChatManager {
         logger.debug('Updated messages for tool results', {
           messages: updatedMessages,
         });
+
+        // 通知进度：工具执行完成，正在生成回答
+        options?.onProgress?.({ stage: 'generating', message: '正在生成回答...' });
 
         const toolResultResponse = await activeClient.sendMessage(
           updatedMessages as unknown as ChatMessage[],
@@ -1491,6 +1500,9 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
+    // 通知进度：处理完成
+    options?.onProgress?.({ stage: 'completed', message: '处理完成' });
+
     // 通知会话状态变化为空闲状态（使用 finish 回到 IDLE，允许下一轮 start）
     this.getSessionMachine(session.id).finish('sendMessage完成');
 
@@ -1597,6 +1609,9 @@ export class ChatManagerImpl implements ChatManager {
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     const maxCtx = this._resolveMaxContextTokens(options?.model);
     await this._truncateApiMessages(apiMessages, maxCtx);
+
+    // 通知进度：开始 LLM 分析
+    options?.onProgress?.({ stage: 'analyzing', message: '正在分析计划步骤...' });
 
     let response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
@@ -1709,6 +1724,9 @@ export class ChatManagerImpl implements ChatManager {
         }
         // ---- 结束用户交互检查 ----
 
+        // 通知进度：正在执行工具
+        options?.onProgress?.({ stage: 'tool_executing', message: `正在执行 ${toolName}...`, toolName });
+
         const toolResult = await this.executeTool({
           id: toolCallId,
           name: toolName,
@@ -1757,6 +1775,9 @@ export class ChatManagerImpl implements ChatManager {
               : '',
         })),
       ];
+
+      // 通知进度：工具执行完成，正在生成最终回答
+      options?.onProgress?.({ stage: 'generating', message: '正在生成最终回答...' });
 
       const toolResultResponse = await activeClient.sendMessage(
         updatedMessages as unknown as ChatMessage[],
@@ -1830,6 +1851,8 @@ export class ChatManagerImpl implements ChatManager {
         currentCalls = [];
       }
     }
+    // 通知进度：处理完成
+    options?.onProgress?.({ stage: 'completed', message: '处理完成' });
   }
 
   /**

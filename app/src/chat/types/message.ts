@@ -652,6 +652,17 @@ export interface SendMessageOptions {
    * @param usage 词元用量信息（包含输入、输出、缓存等）
    */
   onUsage?: (usage: UsageInfo) => void;
+
+  /**
+   * 进度回调
+   * 在 AI 处理的各个阶段触发，用于向调用方报告处理进度
+   * @param event 包含处理阶段和人类可读描述信息的进度事件
+   */
+  onProgress?: (event: {
+    stage: 'analyzing' | 'tool_executing' | 'generating' | 'completed';
+    message: string;
+    toolName?: string;
+  }) => void;
 }
 
 /**

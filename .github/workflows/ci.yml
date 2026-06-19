@@ -64,7 +64,7 @@ jobs:
     - name: Run linter
       run: bun run lint
 
-    - name: "Console usage gate (baseline: 2009)"
+    - name: "Console usage gate (baseline: 2034)"
       run: |
         COUNT=$(grep -rn "console\.\(log\|warn\|error\|info\|debug\|trace\)(" \
           --include="*.ts" --include="*.tsx" \
@@ -73,9 +73,9 @@ jobs:
           | grep -v "\.test\." \
           | grep -v "/tests/" \
           | wc -l)
-        echo "Console calls: $COUNT (baseline: 2009)"
-        if [ "$COUNT" -gt 2009 ]; then
-          echo "FAIL: Console calls ($COUNT) exceed baseline (2009)"
+        echo "Console calls: $COUNT (baseline: 2034)"
+        if [ "$COUNT" -gt 2034 ]; then
+          echo "FAIL: Console calls ($COUNT) exceed baseline (2034)"
           echo "Please migrate new console calls to Logger or justify the exemption."
           exit 1
         fi

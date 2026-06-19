@@ -58,8 +58,8 @@ export {
   createConfigManager,
 } from './ConfigManager.js';
 
-// 事件总线
-export { EventBus, createEventBus } from './EventBus.js';
+// 事件总线（重用核心版，弃用本地封装）
+export { type EventBus, createEventBus, globalEventBus } from '../events/EventBus.js';
 
 // 可扩展性服务
 export {
@@ -76,7 +76,7 @@ import {
 import { PluginLoader, createPluginLoader } from './PluginLoader.js';
 import { ModuleManager, createModuleManager } from './ModuleManager.js';
 import { ConfigManager, createConfigManager } from './ConfigManager.js';
-import { EventBus, createEventBus } from './EventBus.js';
+import { EventBus, createEventBus, globalEventBus } from '../events/EventBus.js';
 import { extensibilityUtils } from './ExtensibilityService.js';
 import { PluginState, PluginType, ModuleType, EventType } from './types.js';
 
@@ -87,7 +87,6 @@ export default {
   ModuleManager,
   ConfigManager,
   EventType,
-  EventBus,
   extensibilityUtils,
   createPluginLoader,
   createModuleManager,
@@ -95,4 +94,5 @@ export default {
   createEventBus,
   ExtensibilityService,
   getExtensibilityService,
+  globalEventBus,
 };

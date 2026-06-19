@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,7 @@ import { PluginType, ModuleType, ModuleState, EventType } from './types.js';
 import type { Config } from './types.js';
 import { ModuleManager, createModuleManager } from './ModuleManager.js';
 import { ConfigManager, createConfigManager } from './ConfigManager.js';
-import { EventBus, createEventBus } from './EventBus.js';
+import { EventBus, createEventBus } from '../events/EventBus.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -172,7 +172,7 @@ export class ExtensibilityService {
     const { pluginSystem } = await import('../../plugins/index.js');
     await pluginSystem.initialize();
 
-    this.eventBus.emit(EventType.SYSTEM_START);
+    this.eventBus.publish(EventType.SYSTEM_START);
   }
 
   /**
@@ -445,11 +445,11 @@ export class ExtensibilityService {
    * 销毁可扩展性服务
    */
   async destroy(): Promise<void> {
-    this.eventBus.emit(EventType.SYSTEM_STOP);
+    this.eventBus.publish(EventType.SYSTEM_STOP);
     await this.stopAllModules();
     await this.moduleManager.destroy();
     await this.configManager.destroy();
-    this.eventBus.destroy();
+    this.eventBus.unsubscribeAll();
   }
 
   /**

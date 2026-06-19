@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EnhancedToolSystem - 增强工具系统
  *
  * 整合EnhancedQueryEngine、EnhancedMessage、EnhancedError、EnhancedPerformance、EnhancedExtensibility等功能
@@ -105,16 +105,16 @@ export class EnhancedToolSystem {
    */
   private registerEventListeners(): void {
     // 监听系统事件
-    this.eventBus.on(EventType.SYSTEM_START, (event) => {
+    this.eventBus.subscribe(EventType.SYSTEM_START, (event) => {
       logger.info('Enhanced tool system started');
     });
 
-    this.eventBus.on(EventType.SYSTEM_STOP, (event) => {
+    this.eventBus.subscribe(EventType.SYSTEM_STOP, (event) => {
       logger.info('Enhanced tool system stopped');
     });
 
     // 监听错误事件
-    this.eventBus.on(EventType.ERROR, (event) => {
+    this.eventBus.subscribe(EventType.ERROR, (event) => {
       logger.error('Enhanced tool system error', event.data);
     });
   }
@@ -207,7 +207,7 @@ export class EnhancedToolSystem {
    * 启动增强工具系统
    */
   start(): void {
-    this.eventBus.emit(EventType.SYSTEM_START);
+    this.eventBus.publish(EventType.SYSTEM_START);
     logger.info('Enhanced tool system started');
   }
 
@@ -215,13 +215,13 @@ export class EnhancedToolSystem {
    * 停止增强工具系统
    */
   async stop(): Promise<void> {
-    this.eventBus.emit(EventType.SYSTEM_STOP);
+    this.eventBus.publish(EventType.SYSTEM_STOP);
 
     // 清理资源
     await this.pluginLoader.destroy();
     await this.moduleManager.destroy();
     await this.configManager.destroy();
-    this.eventBus.destroy();
+    this.eventBus.unsubscribeAll();
     this.performanceProfiler.destroy();
     this.memoryCache.destroy();
 

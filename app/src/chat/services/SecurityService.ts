@@ -3,13 +3,13 @@ import {
   SensitiveDataService,
   sensitiveDataService as coreService,
   SensitiveErrorType,
+  SensitiveError,
 } from '@modules/security';
-import type { SensitiveError, SensitiveDataConfig } from '@modules/security';
+import type { SensitiveDataConfig } from '@modules/security';
+import { SecurityError } from '@modules/error/types';
 
 export const SecurityErrorType = SensitiveErrorType;
-export type SecurityErrorAlias = SensitiveError;
-/** SecurityError 类型 */
-export type SecurityError = SensitiveError;
+export type SecurityErrorAlias = SecurityError;
 export type SecurityConfig = SensitiveDataConfig;
 
 export class SecurityService extends EventEmitter {
@@ -55,11 +55,11 @@ export class SecurityService extends EventEmitter {
     return this.coreService.validateFileExtension(filename);
   }
 
-  logSecurityError(error: Omit<SecurityError, 'timestamp'>): void {
+  logSecurityError(error: Omit<SensitiveError, 'timestamp'>): void {
     this.coreService.logSecurityError(error);
   }
 
-  getErrorHistory(): SecurityError[] {
+  getErrorHistory(): SensitiveError[] {
     return this.coreService.getErrorHistory();
   }
 
@@ -67,7 +67,7 @@ export class SecurityService extends EventEmitter {
     this.coreService.clearErrorHistory();
   }
 
-  getLastSecurityError(): SecurityError | null {
+  getLastSecurityError(): SensitiveError | null {
     return this.coreService.getLastSecurityError();
   }
 
@@ -75,7 +75,7 @@ export class SecurityService extends EventEmitter {
     return this.coreService.getErrorStats();
   }
 
-  createFriendlyErrorMessage(error: SecurityError): string {
+  createFriendlyErrorMessage(error: SensitiveError): string {
     return this.coreService.createFriendlyErrorMessage(error);
   }
 

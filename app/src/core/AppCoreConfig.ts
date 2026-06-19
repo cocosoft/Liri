@@ -38,7 +38,6 @@ export interface AppCoreConfig {
   name: string;
   version: string;
   debug?: boolean;
-  ecosystem?: import('./PluginEcosystem.js').EcosystemConfig;
   startup?: AppCoreStartupOptions;
 
   /**

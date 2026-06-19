@@ -3,14 +3,16 @@
  *
  * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
  * 为第三方插件开发者提供开发工具和接口
+ *
+ * 注意：内部已不再依赖 PluginEcosystem，直接使用 PluginSystem。
+ * PluginEcosystem 将在后续版本中移除。
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger } from '@modules/monitoring/logs/Logger';
-
-const logger = new Logger({ module: 'PluginSDK' });
-import { PluginEcosystem } from './PluginEcosystem.js';
-import type { PluginInfo, SkillInfo } from '@modules/plugins/types/index.js';
+import { pluginSystem } from '@modules/plugins/index.js';
+import type { PluginState } from '@modules/plugins/types/PluginTypes';
+import type { SkillInfo } from '@modules/plugins/types/index.js';
 import {
   ModuleDependencyManager,
   ModuleDefinition,
@@ -24,6 +26,8 @@ import type {
   SkillContext,
 } from '@modules/plugin-sdk';
 
+const logger = new Logger({ module: 'PluginSDK' });
+
 export type {
   PluginContext,
   Plugin,
@@ -36,8 +40,6 @@ export type {
  * 插件SDK配置
  */
 export interface PluginSDKConfig {
-  ecosystem: PluginEcosystem;
-
   /**
    * 模块依赖管理器（可选）
    * 旧版模块系统提供 ModuleDependencyManager 实例；
@@ -51,14 +53,13 @@ export interface PluginSDKConfig {
  * 插件开发SDK
  */
 export class PluginSDK {
-  private ecosystem: PluginEcosystem;
   private moduleManager?: ModuleDependencyManager;
   private plugins: Map<string, Plugin> = new Map();
   private contexts: Map<string, PluginContext> = new Map();
+  private skills: Map<string, SkillInfo> = new Map();
   private configPath: string;
 
   constructor(config: PluginSDKConfig) {
-    this.ecosystem = config.ecosystem;
     this.moduleManager = config.moduleManager;
     this.configPath = config.configPath || './plugin-configs';
   }
@@ -76,23 +77,30 @@ export class PluginSDK {
     const context = this.createPluginContext(plugin);
     this.contexts.set(plugin.id, context);
 
-    // 注册到生态系统
-    const pluginInfo: PluginInfo = {
-      id: plugin.id,
-      name: plugin.name,
-      version: plugin.version,
-      description: plugin.description,
-      author: plugin.author,
-      tags: plugin.tags,
-      category: plugin.category,
-    };
+    // 注册到 PluginSystem 的注册表
+    try {
+      pluginSystem.getRegistry().registerPlugin({
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        path: '',
+        state: 'LOADED' as PluginState,
+        enabled: true,
+        dependencies: [],
+        dependents: [],
+        registeredAt: new Date(),
+      });
+    } catch (error) {
+      // 如果插件已存在，记录警告但继续
+      logger.warn(`Plugin ${plugin.id} may already be registered in PluginSystem`, {
+        error: String(error),
+      });
+    }
 
-    this.ecosystem.registerPlugin(pluginInfo);
-
-    // 注册技能
+    // 存储技能信息（本地管理，PluginSystem 不跟踪技能粒度）
     if (plugin.skills) {
       for (const skill of plugin.skills) {
-        const skillInfo: SkillInfo = {
+        this.skills.set(skill.id, {
           id: skill.id,
           name: skill.name,
           version: plugin.version,
@@ -101,13 +109,11 @@ export class PluginSDK {
           tags: plugin.tags,
           category: plugin.category,
           pluginId: plugin.id,
-        };
-
-        this.ecosystem.registerSkill(skillInfo);
+        });
       }
     }
 
-    // 注册为模块
+    // 注册为模块（旧版路径）
     const moduleDef: ModuleDefinition = {
       name: plugin.id,
       version: plugin.version,
@@ -155,7 +161,8 @@ export class PluginSDK {
       await plugin.activate(context);
     }
 
-    this.ecosystem.enablePlugin(pluginId);
+    // 通过 PluginSystem 注册表启用
+    pluginSystem.getRegistry().enablePlugin(pluginId);
 
     logger.info(`Activated plugin: ${pluginId}`);
   }
@@ -179,7 +186,8 @@ export class PluginSDK {
       await plugin.deactivate(context);
     }
 
-    this.ecosystem.disablePlugin(pluginId);
+    // 通过 PluginSystem 注册表禁用
+    pluginSystem.getRegistry().disablePlugin(pluginId);
 
     logger.info(`Deactivated plugin: ${pluginId}`);
   }
@@ -257,7 +265,18 @@ export class PluginSDK {
       }
     }
 
-    this.ecosystem.unregisterPlugin(pluginId);
+    // 从 PluginSystem 注册表中移除
+    try {
+      pluginSystem.getRegistry().unregisterPlugin(pluginId);
+    } catch {
+      // 如果注册表中不存在，忽略
+    }
+
+    // 清理本地存储的技能
+    for (const [id, skill] of this.skills) {
+      if (skill.pluginId === pluginId) this.skills.delete(id);
+    }
+
     if (this.moduleManager) {
       this.moduleManager.unregisterModule(pluginId);
     }
@@ -279,6 +298,13 @@ export class PluginSDK {
    */
   getPlugin(pluginId: string): Plugin | undefined {
     return this.plugins.get(pluginId);
+  }
+
+  /**
+   * 获取所有 SDK 注册的技能
+   */
+  getAllSkills(): SkillInfo[] {
+    return Array.from(this.skills.values());
   }
 
   /**

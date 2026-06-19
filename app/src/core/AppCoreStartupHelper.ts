@@ -18,7 +18,7 @@ import { resolveSessionsDir, resolveDataDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import type { AppCoreConfig } from './AppCoreConfig';
 import type { ModuleDependencyManager } from './ModuleDependencyManager.js';
-import type { PluginEcosystem } from './PluginEcosystem.js';
+import type { PluginSystem } from '@modules/plugins/index.js';
 
 const logger = new Logger({ module: 'AppCore' });
 
@@ -200,7 +200,7 @@ export function showStartupReport(
   profiler: StartupProfiler,
   useLegacyModuleSystem: boolean,
   moduleManager?: ModuleDependencyManager,
-  ecosystem?: PluginEcosystem
+  pluginSystem?: PluginSystem
 ): void {
   profiler.stop();
   const report = profiler.generateReport();
@@ -218,8 +218,7 @@ export function showStartupReport(
         ? moduleManager?.getModules().length.toString() ?? 'N/A'
         : '由 ModuleRegistry 管理',
     ],
-    ['插件数量', ecosystem?.getAllPlugins().length.toString() ?? 'N/A'],
-    ['技能数量', ecosystem?.getAllSkills().length.toString() ?? 'N/A'],
+    ['插件数量', pluginSystem?.getPluginInfoList().length.toString() ?? 'N/A'],
   ];
 
   TerminalComponents.printKeyValue(stats);

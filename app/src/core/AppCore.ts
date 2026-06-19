@@ -11,10 +11,10 @@ import {
   ModuleDependencyManager,
   type ModuleDefinition,
 } from './ModuleDependencyManager.js';
-import { PluginEcosystem } from './PluginEcosystem.js';
+
 import { pluginSystem } from '@modules/plugins/index.js';
 import type { PluginSystem } from '@modules/plugins/index.js';
-import { PluginSDK, type Plugin, type PluginSDKConfig } from './PluginSDK.js';
+import { PluginSDK, type Plugin } from './PluginSDK.js';
 import { StartupProfiler } from '@modules/utils/startupProfiler.js';
 import {
   StartupPreloader,
@@ -48,7 +48,6 @@ export class AppCore {
   private terminalBackupPath: string | null = null;
 
   private readonly lazyModuleManager: LazyModuleLoader<ModuleDependencyManager>;
-  private readonly lazyEcosystem: LazyModuleLoader<PluginEcosystem>;
   private readonly lazyPluginSDK: LazyModuleLoader<PluginSDK>;
   private readonly lazyTerminalUI: LazyModuleLoader<TerminalUIIntegration>;
 
@@ -76,41 +75,23 @@ export class AppCore {
       () => new ModuleDependencyManager()
     );
 
-    this.lazyEcosystem = new LazyModuleLoader(
-      () => new PluginEcosystem(this.config.ecosystem)
-    );
-
     this.lazyTerminalUI = new LazyModuleLoader(() =>
       TerminalUIIntegration.getInstance()
     );
 
     this.lazyPluginSDK = new LazyModuleLoader(async () => {
-      const ecosystem = await this.lazyEcosystem.get();
-
       // 非旧版模式下 PluginSDK 不需要 ModuleDependencyManager
       if (!this.useLegacyModuleSystem) {
-        const sdkConfig: PluginSDKConfig = {
-          ecosystem,
-          moduleManager: undefined,
-        };
-        return new PluginSDK(sdkConfig);
+        return new PluginSDK({});
       }
 
       const moduleManager = await this.lazyModuleManager.get();
-      const sdkConfig: PluginSDKConfig = {
-        ecosystem,
-        moduleManager,
-      };
-      return new PluginSDK(sdkConfig);
+      return new PluginSDK({ moduleManager });
     });
   }
 
   private get moduleManager(): ModuleDependencyManager {
     return this.lazyModuleManager.getSync();
-  }
-
-  private get ecosystem(): PluginEcosystem {
-    return this.lazyEcosystem.getSync();
   }
 
   private get pluginSDK(): PluginSDK {
@@ -173,29 +154,23 @@ export class AppCore {
       this.profiler.checkpoint('preload_started');
 
       if (this.useLegacyModuleSystem) {
-        // 旧版路径：并行加载独立核心子系统（ModuleManager、Ecosystem、TerminalUI 互无依赖）
+        // 旧版路径：并行加载核心子系统（TerminalUI 无依赖）
         await Promise.all([
           this.lazyModuleManager.get(),
-          this.lazyEcosystem.get(),
           this.lazyTerminalUI.get(),
         ]);
         this.profiler.checkpoint('core_subsystems_loaded');
 
-        // PluginSDK 依赖 ModuleManager + Ecosystem，在前两者加载完成后初始化
         await this.lazyPluginSDK.get();
         this.profiler.checkpoint('plugin_sdk_loaded');
 
         await this.initializeCoreModules();
         this.profiler.checkpoint('core_modules_initialized');
       } else {
-        // 统一路径：Ecosystem 和 TerminalUI 仍然需要，ModuleManager 由 ModuleRegistry 管理
-        await Promise.all([
-          this.lazyEcosystem.get(),
-          this.lazyTerminalUI.get(),
-        ]);
+        // 统一路径：TerminalUI 仍然需要，ModuleManager 由 ModuleRegistry 管理
+        await this.lazyTerminalUI.get();
         this.profiler.checkpoint('core_subsystems_loaded');
 
-        // PluginSDK 在非旧版模式下不需要 ModuleDependencyManager
         await this.lazyPluginSDK.get();
         this.profiler.checkpoint('plugin_sdk_loaded');
       }
@@ -238,7 +213,7 @@ export class AppCore {
         this.profiler,
         this.useLegacyModuleSystem,
         this.useLegacyModuleSystem ? this.moduleManager : undefined,
-        this.ecosystem
+        pluginSystem
       );
 
       TerminalComponents.printSuccess(`${this.config.name} 初始化完成`);
@@ -278,20 +253,10 @@ export class AppCore {
         },
       },
       {
-        name: 'ecosystem',
-        version: '1.0.0',
-        description: '插件生态系统',
-        dependencies: ['logger'],
-        priority: 80,
-        init: async () => {
-          logger.info('Ecosystem module initialized');
-        },
-      },
-      {
         name: 'sdk',
         version: '1.0.0',
         description: '插件SDK',
-        dependencies: ['ecosystem'],
+        dependencies: ['logger'],
         priority: 70,
         init: async () => {
           logger.info('SDK module initialized');
@@ -325,14 +290,11 @@ export class AppCore {
 
   /**
    * 初始化插件系统
-   * 启动 PluginSystem（懒加载核心），并绑定到 PluginEcosystem（展示层）
+   * 启动 PluginSystem（懒加载核心），注册示例插件
    */
   private async initializePluginSystem(): Promise<void> {
     // 初始化 PluginSystem（懒加载模式，注册内核服务）
     await pluginSystem.initialize();
-
-    // 绑定到 PluginEcosystem，使展示层可查询 PluginSystem 数据
-    this.ecosystem.bindPluginSystem(pluginSystem);
 
     // 注册示例插件（通过 SDK）
     const examplePlugin = PluginSDK.createExamplePlugin();
@@ -425,14 +387,6 @@ export class AppCore {
   }
 
   /**
-   * 获取插件生态系统（Deprecated）
-   * @deprecated 请使用 getPluginSystem() 代替
-   */
-  getEcosystem(): PluginEcosystem {
-    return this.ecosystem;
-  }
-
-  /**
    * 获取插件SDK
    */
   getPluginSDK(): PluginSDK {
@@ -459,8 +413,7 @@ export class AppCore {
       ['模块数量', this.useLegacyModuleSystem
         ? this.moduleManager.getModules().length.toString()
         : '由 ModuleRegistry 管理'],
-      ['插件数量', this.ecosystem.getAllPlugins().length.toString()],
-      ['技能数量', this.ecosystem.getAllSkills().length.toString()],
+      ['插件数量', pluginSystem.getPluginInfoList().length.toString()],
     ];
 
     TerminalComponents.printKeyValue(stats);

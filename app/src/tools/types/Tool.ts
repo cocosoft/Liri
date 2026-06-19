@@ -123,11 +123,28 @@ export interface ToolUseContext {
   getAppState(): unknown;
   setAppState(f: (prev: unknown) => unknown): void;
   setAppStateForTasks?: (f: (prev: unknown) => unknown) => void;
-  handleElicitation?: (serverName: string, params: unknown, signal: AbortSignal) => Promise<unknown>;
-  setToolJSX?: (args: { jsx: unknown | null; shouldHidePromptInput: boolean; shouldContinueAnimation?: true; showSpinner?: boolean; isLocalJSXCommand?: boolean; isImmediate?: boolean; clearLocalJSX?: boolean; } | null) => void;
+  handleElicitation?: (
+    serverName: string,
+    params: unknown,
+    signal: AbortSignal
+  ) => Promise<unknown>;
+  setToolJSX?: (
+    args: {
+      jsx: unknown | null;
+      shouldHidePromptInput: boolean;
+      shouldContinueAnimation?: true;
+      showSpinner?: boolean;
+      isLocalJSXCommand?: boolean;
+      isImmediate?: boolean;
+      clearLocalJSX?: boolean;
+    } | null
+  ) => void;
   addNotification?: (notif: unknown) => void;
   appendSystemMessage?: (msg: unknown) => void;
-  sendOSNotification?: (opts: { message: string; notificationType: string; }) => void;
+  sendOSNotification?: (opts: {
+    message: string;
+    notificationType: string;
+  }) => void;
   nestedMemoryAttachmentTriggers?: Set<string>;
   loadedNestedMemoryPaths?: Set<string>;
   dynamicSkillDirTriggers?: Set<string>;
@@ -148,11 +165,17 @@ export interface ToolUseContext {
   agentType?: string;
   requireCanUseTool?: boolean;
   messages: Message[];
-  fileReadingLimits?: { maxTokens?: number; maxSizeBytes?: number; };
-  globLimits?: { maxResults?: number; };
-  toolDecisions?: Map<string, { source: string; decision: 'accept' | 'reject'; timestamp: number; }>;
-  queryTracking?: { chainId: string; depth: number; };
-  requestPrompt?: (sourceName: string, toolInputSummary?: string | null) => (request: unknown) => Promise<unknown>;
+  fileReadingLimits?: { maxTokens?: number; maxSizeBytes?: number };
+  globLimits?: { maxResults?: number };
+  toolDecisions?: Map<
+    string,
+    { source: string; decision: 'accept' | 'reject'; timestamp: number }
+  >;
+  queryTracking?: { chainId: string; depth: number };
+  requestPrompt?: (
+    sourceName: string,
+    toolInputSummary?: string | null
+  ) => (request: unknown) => Promise<unknown>;
   toolUseId?: string;
   criticalSystemReminder_EXPERIMENTAL?: string;
   preserveToolUseResults?: boolean;

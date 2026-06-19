@@ -213,7 +213,9 @@ export class SmartMemoryAnalyzer {
     if (memories.length < 5) return false;
 
     // 按时间排序
-    const sortedMemories = [...memories].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const sortedMemories = [...memories].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+    );
 
     // 检查复杂度是否随时间增加
     let complexityIncrease = 0;
@@ -451,7 +453,9 @@ export class SmartMemoryAnalyzer {
   private generateTrendInsight(memories: Memory[]): MemoryInsight | null {
     if (memories.length < 5) return null;
 
-    const sortedMemories = [...memories].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const sortedMemories = [...memories].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+    );
     const complexityTrend = this.analyzeComplexityTrend(sortedMemories);
 
     if (complexityTrend.direction !== 'stable') {

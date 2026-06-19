@@ -11,11 +11,7 @@ import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import type { CoreAPI } from '../../runtime/api/CoreAPI';
-import type {
-  GatewayChannel,
-  InboundMessage,
-  OutboundMessage,
-} from './types';
+import type { GatewayChannel, InboundMessage, OutboundMessage } from './types';
 import { ChannelType, ChannelEvent } from './types';
 import { HealthMonitor } from './HealthMonitor';
 import type { HealthReport } from './HealthMonitor';
@@ -167,12 +163,28 @@ export class ChannelManager extends EventEmitter {
     };
 
     // 通过内部工厂创建一个可捕捉 this 闭包的回调包装
-    const boundRouteMessage = async (ch: GatewayChannel, msg: InboundMessage): Promise<void> => {
-      await routeMessage(ch, msg, this.coreAPI, logger, this.emit.bind(this),
-        (c, m, code, err) => sendErrorResponse(c, m, code, err, logger));
+    const boundRouteMessage = async (
+      ch: GatewayChannel,
+      msg: InboundMessage
+    ): Promise<void> => {
+      await routeMessage(
+        ch,
+        msg,
+        this.coreAPI,
+        logger,
+        this.emit.bind(this),
+        (c, m, code, err) => sendErrorResponse(c, m, code, err, logger)
+      );
     };
     const boundReconnect = (name: string, reg: ChannelRegistration): void => {
-      attemptReconnect(name, reg, this.config, () => this.isRunning, logger, this.emit.bind(this));
+      attemptReconnect(
+        name,
+        reg,
+        this.config,
+        () => this.isRunning,
+        logger,
+        this.emit.bind(this)
+      );
     };
 
     channel.setCallbacks(
@@ -285,7 +297,14 @@ export class ChannelManager extends EventEmitter {
           (name: string) => {
             const reg2 = this.channels.get(name);
             if (reg2) {
-              attemptReconnect(name, reg2, this.config, () => this.isRunning, logger, this.emit.bind(this));
+              attemptReconnect(
+                name,
+                reg2,
+                this.config,
+                () => this.isRunning,
+                logger,
+                this.emit.bind(this)
+              );
             }
           }
         )
@@ -313,7 +332,14 @@ export class ChannelManager extends EventEmitter {
       });
       const reg = this.channels.get(status.channelName);
       if (reg && this.config.autoReconnect) {
-        attemptReconnect(status.channelName, reg, this.config, () => this.isRunning, logger, this.emit.bind(this));
+        attemptReconnect(
+          status.channelName,
+          reg,
+          this.config,
+          () => this.isRunning,
+          logger,
+          this.emit.bind(this)
+        );
       }
     });
 
@@ -376,7 +402,14 @@ export class ChannelManager extends EventEmitter {
       (channelName: string) => {
         const reg = this.channels.get(channelName);
         if (reg) {
-          attemptReconnect(channelName, reg, this.config, () => this.isRunning, logger, this.emit.bind(this));
+          attemptReconnect(
+            channelName,
+            reg,
+            this.config,
+            () => this.isRunning,
+            logger,
+            this.emit.bind(this)
+          );
         }
       }
     );
@@ -519,4 +552,7 @@ export class ChannelManager extends EventEmitter {
   }
 }
 
-export type { ChannelManagerConfig, ChannelManagerStatus } from './ChannelManagerTypes';
+export type {
+  ChannelManagerConfig,
+  ChannelManagerStatus,
+} from './ChannelManagerTypes';

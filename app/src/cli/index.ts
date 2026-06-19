@@ -53,10 +53,7 @@ import { createAutoUpdater } from './autoUpdater';
 import { registerSkillsCommands } from '../skills/cli/skills';
 import { UpdateHandler } from './update';
 import * as print from './print';
-import type {
-  CommandImplementation,
-  CommandContext,
-} from '@modules/commands';
+import type { CommandImplementation, CommandContext } from '@modules/commands';
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });

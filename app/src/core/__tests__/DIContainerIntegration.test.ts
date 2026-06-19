@@ -44,6 +44,8 @@ describe('DIContainer.bootstrap() 集成测试', () => {
     expect(coreModule).toBeDefined();
     expect(coreModule!.id).toBe('core');
     // 验证 core 模块已初始化（通过 initializedModules 集合）
-    expect(moduleRegistry.getStatistics().initialized).toBeGreaterThanOrEqual(1);
+    expect(moduleRegistry.getStatistics().initialized).toBeGreaterThanOrEqual(
+      1
+    );
   });
 });

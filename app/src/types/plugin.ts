@@ -136,5 +136,3 @@ export interface PluginManager {
   registerBuiltinPlugin(plugin: LoadedPlugin): void;
   clearCache(): void;
 }
-
-

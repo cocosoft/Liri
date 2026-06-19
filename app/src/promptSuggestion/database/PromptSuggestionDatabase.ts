@@ -341,13 +341,17 @@ export class PromptSuggestionDatabase {
     params.push(limit);
 
     return new Promise((resolve, reject) => {
-      this.db?.all(sql, params, (err: Error | null, rows: SuggestionHistory[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows as SuggestionHistory[]);
+      this.db?.all(
+        sql,
+        params,
+        (err: Error | null, rows: SuggestionHistory[]) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows as SuggestionHistory[]);
+          }
         }
-      });
+      );
     });
   }
 
@@ -460,34 +464,44 @@ export class PromptSuggestionDatabase {
     sql += ' GROUP BY outcome';
 
     return new Promise((resolve, reject) => {
-      this.db?.all(sql, params, (err: Error | null, rows: Array<{ outcome: string; count: number }>) => {
-        if (err) {
-          reject(err);
-        } else {
-          const stats = {
-            total: 0,
-            accepted: 0,
-            ignored: 0,
-            acceptanceRate: 0,
-          };
+      this.db?.all(
+        sql,
+        params,
+        (
+          err: Error | null,
+          rows: Array<{ outcome: string; count: number }>
+        ) => {
+          if (err) {
+            reject(err);
+          } else {
+            const stats = {
+              total: 0,
+              accepted: 0,
+              ignored: 0,
+              acceptanceRate: 0,
+            };
 
-          for (const row of rows as Array<{ outcome: string; count: number }>) {
-            stats.total += row.count;
-            if (row.outcome === 'accepted') {
-              stats.accepted = row.count;
-            } else if (row.outcome === 'ignored') {
-              stats.ignored = row.count;
+            for (const row of rows as Array<{
+              outcome: string;
+              count: number;
+            }>) {
+              stats.total += row.count;
+              if (row.outcome === 'accepted') {
+                stats.accepted = row.count;
+              } else if (row.outcome === 'ignored') {
+                stats.ignored = row.count;
+              }
             }
+
+            stats.acceptanceRate =
+              stats.total > 0
+                ? Math.round((stats.accepted / stats.total) * 10000) / 100
+                : 0;
+
+            resolve(stats);
           }
-
-          stats.acceptanceRate =
-            stats.total > 0
-              ? Math.round((stats.accepted / stats.total) * 10000) / 100
-              : 0;
-
-          resolve(stats);
         }
-      });
+      );
     });
   }
 

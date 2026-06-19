@@ -60,11 +60,8 @@ export interface RequiresActionDetails {
  * - PAUSED → RUNNING：从暂停恢复执行
  */
 export const SESSION_TRANSITIONS: TransitionRules<SessionState> = {
-  [SessionState.IDLE]:            [
-    SessionState.RUNNING,
-    SessionState.ABORTED,
-  ],
-  [SessionState.RUNNING]:         [
+  [SessionState.IDLE]: [SessionState.RUNNING, SessionState.ABORTED],
+  [SessionState.RUNNING]: [
     SessionState.IDLE,
     SessionState.REQUIRES_ACTION,
     SessionState.PAUSED,
@@ -78,16 +75,13 @@ export const SESSION_TRANSITIONS: TransitionRules<SessionState> = {
     SessionState.ERROR,
     SessionState.ABORTED,
   ],
-  [SessionState.PAUSED]:          [
-    SessionState.RUNNING,
-    SessionState.ABORTED,
-  ],
-  [SessionState.COMPLETED]:       [SessionState.ARCHIVED],
-  [SessionState.ERROR]:           [
+  [SessionState.PAUSED]: [SessionState.RUNNING, SessionState.ABORTED],
+  [SessionState.COMPLETED]: [SessionState.ARCHIVED],
+  [SessionState.ERROR]: [
     SessionState.IDLE,
     SessionState.RUNNING,
     SessionState.ABORTED,
   ],
-  [SessionState.ARCHIVED]:        [],
-  [SessionState.ABORTED]:         [],
+  [SessionState.ARCHIVED]: [],
+  [SessionState.ABORTED]: [],
 };

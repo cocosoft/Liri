@@ -116,13 +116,15 @@ export class ComputerUseTool extends BaseTool {
     {
       name: 'text',
       type: 'string',
-      description: 'Text content (required for keyboardType/setClipboard/launchApp)',
+      description:
+        'Text content (required for keyboardType/setClipboard/launchApp)',
       required: false,
     },
     {
       name: 'key',
       type: 'string',
-      description: 'Key or key combination (e.g., ENTER, "ctrl+c", "alt+tab" for keyCombination)',
+      description:
+        'Key or key combination (e.g., ENTER, "ctrl+c", "alt+tab" for keyCombination)',
       required: false,
     },
     {
@@ -163,14 +165,18 @@ export class ComputerUseTool extends BaseTool {
     return getComputerUseAdapter();
   }
 
-  async execute(input: ComputerUseInput, _context: ToolUseContext): Promise<ToolResult> {
+  async execute(
+    input: ComputerUseInput,
+    _context: ToolUseContext
+  ): Promise<ToolResult> {
     try {
       const adapter = this.getAdapter();
 
       if (!adapter.isSupported()) {
         return {
           success: false,
-          error: 'ComputerUse is only supported on Windows, macOS and Linux platforms',
+          error:
+            'ComputerUse is only supported on Windows, macOS and Linux platforms',
         };
       }
 
@@ -293,8 +299,10 @@ export class ComputerUseTool extends BaseTool {
       button: input.button ?? 'left',
     });
 
-    const pos = (input.x !== undefined && input.y !== undefined) ?
-      ` at (${input.x}, ${input.y})` : '';
+    const pos =
+      input.x !== undefined && input.y !== undefined
+        ? ` at (${input.x}, ${input.y})`
+        : '';
     return {
       success: true,
       output: `Mouse ${input.button || 'left'}-clicked${pos}`,
@@ -315,8 +323,10 @@ export class ComputerUseTool extends BaseTool {
       button: input.button ?? 'left',
     });
 
-    const pos = (input.x !== undefined && input.y !== undefined) ?
-      ` at (${input.x}, ${input.y})` : '';
+    const pos =
+      input.x !== undefined && input.y !== undefined
+        ? ` at (${input.x}, ${input.y})`
+        : '';
     return {
       success: true,
       output: `Mouse ${input.button || 'left'}-double-clicked${pos}`,
@@ -336,8 +346,10 @@ export class ComputerUseTool extends BaseTool {
       y: input.y,
     });
 
-    const pos = (input.x !== undefined && input.y !== undefined) ?
-      ` at (${input.x}, ${input.y})` : '';
+    const pos =
+      input.x !== undefined && input.y !== undefined
+        ? ` at (${input.x}, ${input.y})`
+        : '';
     return {
       success: true,
       output: `Mouse right-clicked${pos}`,
@@ -366,7 +378,9 @@ export class ComputerUseTool extends BaseTool {
   /**
    * 处理获取鼠标位置操作
    */
-  private async handleGetMousePos(adapter: ComputerUseAdapter): Promise<ToolResult> {
+  private async handleGetMousePos(
+    adapter: ComputerUseAdapter
+  ): Promise<ToolResult> {
     const pos: MousePosition = await adapter.getMousePosition();
 
     return {
@@ -422,7 +436,10 @@ export class ComputerUseTool extends BaseTool {
     input: ComputerUseInput
   ): Promise<ToolResult> {
     if (!input.key) {
-      return { success: false, error: 'key is required for keyCombination (e.g., "ctrl+c", "alt+tab")' };
+      return {
+        success: false,
+        error: 'key is required for keyCombination (e.g., "ctrl+c", "alt+tab")',
+      };
     }
 
     await adapter.keyboardAction({ type: 'keyCombination', key: input.key });
@@ -505,8 +522,12 @@ export class ComputerUseTool extends BaseTool {
     adapter: ComputerUseAdapter,
     input: ComputerUseInput
   ): Promise<ToolResult> {
-    if (input.startX === undefined || input.startY === undefined ||
-        input.x === undefined || input.y === undefined) {
+    if (
+      input.startX === undefined ||
+      input.startY === undefined ||
+      input.x === undefined ||
+      input.y === undefined
+    ) {
       return {
         success: false,
         error: 'startX, startY, x, y are required for drag',
@@ -516,7 +537,11 @@ export class ComputerUseTool extends BaseTool {
     const button = input.button ?? 'left';
 
     // 1. 移动到起始位置
-    await adapter.mouseAction({ type: 'move', x: input.startX, y: input.startY });
+    await adapter.mouseAction({
+      type: 'move',
+      x: input.startX,
+      y: input.startY,
+    });
     await sleep(50);
 
     // 2. 按下鼠标
@@ -549,8 +574,12 @@ export class ComputerUseTool extends BaseTool {
     adapter: ComputerUseAdapter,
     input: ComputerUseInput
   ): Promise<ToolResult> {
-    if (input.x === undefined || input.y === undefined ||
-        input.deltaX === undefined || input.deltaY === undefined) {
+    if (
+      input.x === undefined ||
+      input.y === undefined ||
+      input.deltaX === undefined ||
+      input.deltaY === undefined
+    ) {
       return {
         success: false,
         error: 'x, y, deltaX (width), deltaY (height) are required for zoom',
@@ -578,7 +607,12 @@ export class ComputerUseTool extends BaseTool {
         height: result.height,
         size,
         base64,
-        region: { x: input.x, y: input.y, width: input.deltaX, height: input.deltaY },
+        region: {
+          x: input.x,
+          y: input.y,
+          width: input.deltaX,
+          height: input.deltaY,
+        },
       },
       output: `Region screenshot: (${input.x}, ${input.y}) ${input.deltaX}x${input.deltaY}, ${(size / 1024).toFixed(1)}KB`,
     };
@@ -587,7 +621,9 @@ export class ComputerUseTool extends BaseTool {
   /**
    * 处理读取剪贴板操作
    */
-  private async handleGetClipboard(adapter: ComputerUseAdapter): Promise<ToolResult> {
+  private async handleGetClipboard(
+    adapter: ComputerUseAdapter
+  ): Promise<ToolResult> {
     const content = await adapter.getClipboard();
 
     return {
@@ -619,7 +655,9 @@ export class ComputerUseTool extends BaseTool {
   /**
    * 处理获取窗口列表操作
    */
-  private async handleGetWindows(adapter: ComputerUseAdapter): Promise<ToolResult> {
+  private async handleGetWindows(
+    adapter: ComputerUseAdapter
+  ): Promise<ToolResult> {
     const apps = await adapter.getRunningApps();
 
     return {
@@ -632,7 +670,9 @@ export class ComputerUseTool extends BaseTool {
   /**
    * 处理获取前台窗口操作
    */
-  private async handleGetFrontmostWindow(adapter: ComputerUseAdapter): Promise<ToolResult> {
+  private async handleGetFrontmostWindow(
+    adapter: ComputerUseAdapter
+  ): Promise<ToolResult> {
     const app = await adapter.getFrontmostApp();
 
     if (!app) {
@@ -649,7 +689,9 @@ export class ComputerUseTool extends BaseTool {
   /**
    * 处理获取主显示尺寸操作
    */
-  private async handleGetDisplaySize(adapter: ComputerUseAdapter): Promise<ToolResult> {
+  private async handleGetDisplaySize(
+    adapter: ComputerUseAdapter
+  ): Promise<ToolResult> {
     const geometry = await adapter.getDisplayGeometry();
 
     return {
@@ -662,15 +704,20 @@ export class ComputerUseTool extends BaseTool {
   /**
    * 处理获取所有显示器信息操作
    */
-  private async handleGetAllDisplays(adapter: ComputerUseAdapter): Promise<ToolResult> {
+  private async handleGetAllDisplays(
+    adapter: ComputerUseAdapter
+  ): Promise<ToolResult> {
     const displays = await adapter.getAllDisplays();
 
     return {
       success: true,
       data: { displays, count: displays.length },
-      output: `Displays (${displays.length}):\n${displays.map((d) =>
-        `  - ${d.id}: ${d.width}x${d.height} at (${d.x},${d.y})${d.isPrimary ? ' [Primary]' : ''}`
-      ).join('\n')}`,
+      output: `Displays (${displays.length}):\n${displays
+        .map(
+          (d) =>
+            `  - ${d.id}: ${d.width}x${d.height} at (${d.x},${d.y})${d.isPrimary ? ' [Primary]' : ''}`
+        )
+        .join('\n')}`,
     };
   }
 
@@ -682,14 +729,19 @@ export class ComputerUseTool extends BaseTool {
     input: ComputerUseInput
   ): Promise<ToolResult> {
     if (!input.text) {
-      return { success: false, error: 'text (app path/name) is required for launchApp' };
+      return {
+        success: false,
+        error: 'text (app path/name) is required for launchApp',
+      };
     }
 
     const ok = await adapter.launchApp(input.text);
 
     return {
       success: ok,
-      output: ok ? `Launched application: ${input.text}` : `Failed to launch: ${input.text}`,
+      output: ok
+        ? `Launched application: ${input.text}`
+        : `Failed to launch: ${input.text}`,
     };
   }
 }

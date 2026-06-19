@@ -137,10 +137,9 @@ export async function sendErrorResponse(
       });
     }
   } catch (sendError) {
-    logger.warning(
-      `ChannelManager: 发送错误帧失败 — ${channel.name}`,
-      { error: String(sendError) }
-    );
+    logger.warning(`ChannelManager: 发送错误帧失败 — ${channel.name}`, {
+      error: String(sendError),
+    });
   }
 
   logger.warning(`ChannelManager: 非法消息被拦截 — ${channel.name}`, {
@@ -162,7 +161,9 @@ export function createChannelCallbacks(
   logger: RedactedLogger,
   routeMessageFn: (ch: GatewayChannel, msg: InboundMessage) => Promise<void>,
   attemptReconnectFn: (name: string, reg: ChannelRegistration) => void
-): ChannelEventCallbacks & { onReconnecting: (attempt: number, maxAttempts: number) => void } {
+): ChannelEventCallbacks & {
+  onReconnecting: (attempt: number, maxAttempts: number) => void;
+} {
   return {
     onConnected: () => {
       const reg = channels.get(channel.name);
@@ -322,10 +323,9 @@ export async function startChannelInternal(
     await channel.connect();
     logger.info(`ChannelManager: 通道已启动 — ${channel.name}`);
   } catch (error) {
-    logger.warning(
-      `ChannelManager: 通道启动失败 — ${channel.name}`,
-      { error: String(error) }
-    );
+    logger.warning(`ChannelManager: 通道启动失败 — ${channel.name}`, {
+      error: String(error),
+    });
 
     if (config.autoReconnect) {
       attemptReconnectFn(channel.name);
@@ -353,10 +353,9 @@ export async function stopChannelInternal(
     await channel.disconnect();
     logger.info(`ChannelManager: 通道已停止 — ${channel.name}`);
   } catch (error) {
-    logger.warning(
-      `ChannelManager: 通道停止失败 — ${channel.name}`,
-      { error: String(error) }
-    );
+    logger.warning(`ChannelManager: 通道停止失败 — ${channel.name}`, {
+      error: String(error),
+    });
   }
 }
 
@@ -381,7 +380,12 @@ export function attemptReconnect(
   registration.reconnectAttempts++;
 
   // 直接 emit 事件，无需通过回调工厂
-  emit(ChannelEvent.RECONNECTING, name, registration.reconnectAttempts, config.maxReconnectAttempts);
+  emit(
+    ChannelEvent.RECONNECTING,
+    name,
+    registration.reconnectAttempts,
+    config.maxReconnectAttempts
+  );
   channelEventBus.publish(ChannelEvents.CHANNEL_RECONNECTING, {
     channelName: name,
     attempt: registration.reconnectAttempts,
@@ -404,18 +408,10 @@ export function attemptReconnect(
       registration.reconnectAttempts = 0;
       logger.info(`ChannelManager: 通道 ${name} 重连成功`);
     } catch (error) {
-      logger.warning(
-        `ChannelManager: 通道 ${name} 重连失败`,
-        { error: String(error) }
-      );
-      attemptReconnect(
-        name,
-        registration,
-        config,
-        isRunning,
-        logger,
-        emit
-      );
+      logger.warning(`ChannelManager: 通道 ${name} 重连失败`, {
+        error: String(error),
+      });
+      attemptReconnect(name, registration, config, isRunning, logger, emit);
     }
   }, config.reconnectInterval);
 }

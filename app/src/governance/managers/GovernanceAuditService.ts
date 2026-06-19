@@ -281,7 +281,10 @@ export class GovernanceAuditService extends EventEmitter {
 
       if ((event.type as string) === 'execution_completed' && event.data) {
         executionCount++;
-        const eventData = event.data as { success?: boolean; executionTime?: number };
+        const eventData = event.data as {
+          success?: boolean;
+          executionTime?: number;
+        };
         const success = eventData.success;
         eventsByStatus[success ? 'success' : 'failure'] =
           (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;

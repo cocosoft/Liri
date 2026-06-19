@@ -60,7 +60,8 @@ export class StateMachine<S extends string> {
   constructor(config: StateMachineConfig<S>) {
     this.currentState = config.initialState;
     this.rules = config.rules;
-    this.isTerminalFn = config.isTerminal ?? computeDefaultTerminal(config.rules);
+    this.isTerminalFn =
+      config.isTerminal ?? computeDefaultTerminal(config.rules);
     this.isActiveFn = config.isActive;
     this.maxHistorySize = config.maxHistorySize;
     this.contextId = config.contextId ?? 'unknown';
@@ -149,7 +150,11 @@ export class StateMachine<S extends string> {
    * @returns 转换成功返回 true
    * @throws IllegalTransitionError 当转移不被规则表允许时抛出
    */
-  transition(to: S, reason?: string, metadata?: Record<string, unknown>): boolean {
+  transition(
+    to: S,
+    reason?: string,
+    metadata?: Record<string, unknown>
+  ): boolean {
     const from = this.currentState;
 
     if (from === to) {
@@ -175,7 +180,10 @@ export class StateMachine<S extends string> {
     this.history.push(record);
 
     // 限制历史记录容量
-    if (this.maxHistorySize !== undefined && this.history.length > this.maxHistorySize) {
+    if (
+      this.maxHistorySize !== undefined &&
+      this.history.length > this.maxHistorySize
+    ) {
       this.history = this.history.slice(-this.maxHistorySize);
     }
 

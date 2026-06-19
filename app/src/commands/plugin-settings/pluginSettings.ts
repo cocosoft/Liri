@@ -85,7 +85,9 @@ function listAllPluginSettings(): CommandResult {
 
   for (const plugin of plugins) {
     const settings = readPluginConfig();
-    const configSchema = plugin.manifest?.configSchema as PluginConfigSchema | undefined;
+    const configSchema = plugin.manifest?.configSchema as
+      | PluginConfigSchema
+      | undefined;
     const itemCount = configSchema?.items?.length || 0;
     const hasSettings = Object.keys(settings).length > 0;
 
@@ -145,7 +147,8 @@ function getPluginSetting(pluginName: string, key?: string): CommandResult {
   const output: string[] = [];
   if (configSchema?.items) {
     for (const item of configSchema.items) {
-      const value = (settings as Record<string, unknown>)[item.key] ?? item.default;
+      const value =
+        (settings as Record<string, unknown>)[item.key] ?? item.default;
       output.push(`  ${item.key}: ${JSON.stringify(value)}`);
     }
   } else {
@@ -290,7 +293,8 @@ function listPluginSettings(pluginName: string): CommandResult {
   const lines: string[] = [`${pluginName} 配置项:\n`];
 
   for (const item of configSchema.items) {
-    const value = (settings as Record<string, unknown>)[item.key] ?? item.default;
+    const value =
+      (settings as Record<string, unknown>)[item.key] ?? item.default;
     lines.push(`  ${item.key}`);
     lines.push(`    类型: ${item.type}`);
     lines.push(`    描述: ${item.description || '无'}`);

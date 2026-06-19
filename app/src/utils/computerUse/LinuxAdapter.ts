@@ -114,7 +114,10 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       }
 
       if (region) {
-        args.push('-crop', `${region.width}x${region.height}+${region.x}+${region.y}`);
+        args.push(
+          '-crop',
+          `${region.width}x${region.height}+${region.x}+${region.y}`
+        );
       }
 
       // 设置质量并输出到临时文件
@@ -130,10 +133,11 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       let width = 0;
       let height = 0;
       try {
-        const dimInfo = await this.execCommand('identify', [
-          '-format', '%w %h',
-          tmpFile,
-        ], 5_000);
+        const dimInfo = await this.execCommand(
+          'identify',
+          ['-format', '%w %h', tmpFile],
+          5_000
+        );
         const parts = dimInfo.trim().split(' ').map(Number);
         if (parts.length === 2) {
           width = parts[0];
@@ -146,12 +150,20 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       }
 
       // 清理临时文件
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {
+        /* ignore */
+      }
 
       return { data, format: 'jpeg', width, height };
     } catch (err) {
       // 清理临时文件
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {
+        /* ignore */
+      }
       throw err;
     }
   }
@@ -205,7 +217,9 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
 
       for (const line of lines) {
         // 匹配显示器行，如: "HDMI-1 connected primary 1920x1080+0+0"
-        const match = line.match(/^(\S+)\s+connected\s+(primary\s+)?(\d+)x(\d+)\+(-?\d+)\+(-?\d+)/);
+        const match = line.match(
+          /^(\S+)\s+connected\s+(primary\s+)?(\d+)x(\d+)\+(-?\d+)\+(-?\d+)/
+        );
         if (match) {
           const isPrimary = !!match[2];
           displays.push({
@@ -229,8 +243,11 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
   async mouseAction(action: MouseAction): Promise<void> {
     // 对于 click/doubleClick/rightClick 且带了坐标的，先移动鼠标
     if (
-      (action.type === 'click' || action.type === 'doubleClick' || action.type === 'rightClick') &&
-      action.x !== undefined && action.y !== undefined
+      (action.type === 'click' ||
+        action.type === 'doubleClick' ||
+        action.type === 'rightClick') &&
+      action.x !== undefined &&
+      action.y !== undefined
     ) {
       await this.mouseAction({ type: 'move', x: action.x, y: action.y });
     }
@@ -250,7 +267,14 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
         break;
       }
       case 'doubleClick': {
-        await this.execCommand('xdotool', ['click', '--repeat', '2', '--delay', '50', '1']);
+        await this.execCommand('xdotool', [
+          'click',
+          '--repeat',
+          '2',
+          '--delay',
+          '50',
+          '1',
+        ]);
         break;
       }
       case 'rightClick': {
@@ -307,7 +331,12 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       case 'type': {
         if (!action.text) break;
         // 使用 --delay 选项确保输入稳定
-        await this.execCommand('xdotool', ['type', '--delay', '12', action.text]);
+        await this.execCommand('xdotool', [
+          'type',
+          '--delay',
+          '12',
+          action.text,
+        ]);
         break;
       }
       case 'keyPress': {
@@ -407,14 +436,18 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
   async getClipboard(): Promise<string> {
     try {
       const stdout = await this.execCommand('xclip', [
-        '-o', '-selection', 'clipboard',
+        '-o',
+        '-selection',
+        'clipboard',
       ]);
       return stdout;
     } catch {
       // 尝试退回到主选择区
       try {
         const stdout = await this.execCommand('xclip', [
-          '-o', '-selection', 'primary',
+          '-o',
+          '-selection',
+          'primary',
         ]);
         return stdout;
       } catch {
@@ -459,9 +492,7 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
     // 通过读取 /proc 和 wmctrl 获取正在运行的窗口应用
     try {
       // 使用 wmctrl 列出所有窗口
-      const stdout = await this.execCommand('wmctrl', [
-        '-l', '-p',
-      ], 5_000);
+      const stdout = await this.execCommand('wmctrl', ['-l', '-p'], 5_000);
 
       const lines = stdout.trim().split('\n').filter(Boolean);
       for (const line of lines) {
@@ -481,18 +512,26 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
     } catch {
       // wmctrl 不可用时尝试通过 xdotool
       try {
-        const stdout = await this.execCommand('xdotool', [
-          'search', '', '', // 获取所有窗口
-        ], 5_000);
+        const stdout = await this.execCommand(
+          'xdotool',
+          [
+            'search',
+            '',
+            '', // 获取所有窗口
+          ],
+          5_000
+        );
         const windowIds = stdout.trim().split('\n').filter(Boolean);
 
         for (const wid of windowIds.slice(0, 50)) {
           try {
             const name = await this.execCommand('xdotool', [
-              'getwindowname', wid,
+              'getwindowname',
+              wid,
             ]);
             const pidStr = await this.execCommand('xdotool', [
-              'getwindowpid', wid,
+              'getwindowpid',
+              wid,
             ]);
             const nameClean = name.trim();
             if (nameClean) {
@@ -515,25 +554,21 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
 
   async getFrontmostApp(): Promise<AppInfo | null> {
     try {
-      const windowId = await this.execCommand('xdotool', [
-        'getactivewindow',
-      ]);
+      const windowId = await this.execCommand('xdotool', ['getactivewindow']);
       const wid = windowId.trim();
 
       let name = '';
       try {
-        name = (await this.execCommand('xdotool', [
-          'getwindowname', wid,
-        ])).trim();
+        name = (
+          await this.execCommand('xdotool', ['getwindowname', wid])
+        ).trim();
       } catch {
         name = 'unknown';
       }
 
       let pid: number | undefined;
       try {
-        const pidStr = await this.execCommand('xdotool', [
-          'getwindowpid', wid,
-        ]);
+        const pidStr = await this.execCommand('xdotool', ['getwindowpid', wid]);
         pid = parseInt(pidStr.trim(), 10);
       } catch {
         pid = undefined;
@@ -567,28 +602,26 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
   async activateApp(_bundleId: string): Promise<boolean> {
     // 通过窗口标题搜索并激活窗口
     try {
-      const stdout = await this.execCommand('xdotool', [
-        'search', '--name', _bundleId,
-        '--limit', '1',
-      ], 5_000);
+      const stdout = await this.execCommand(
+        'xdotool',
+        ['search', '--name', _bundleId, '--limit', '1'],
+        5_000
+      );
       const wid = stdout.trim();
       if (wid) {
-        await this.execCommand('xdotool', [
-          'windowactivate', wid,
-        ]);
+        await this.execCommand('xdotool', ['windowactivate', wid]);
         return true;
       }
 
       // 尝试按类名搜索
-      const stdout2 = await this.execCommand('xdotool', [
-        'search', '--class', _bundleId,
-        '--limit', '1',
-      ], 5_000);
+      const stdout2 = await this.execCommand(
+        'xdotool',
+        ['search', '--class', _bundleId, '--limit', '1'],
+        5_000
+      );
       const wid2 = stdout2.trim();
       if (wid2) {
-        await this.execCommand('xdotool', [
-          'windowactivate', wid2,
-        ]);
+        await this.execCommand('xdotool', ['windowactivate', wid2]);
         return true;
       }
 

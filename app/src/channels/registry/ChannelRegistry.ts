@@ -351,7 +351,11 @@ export class ChannelRegistry extends EventEmitter {
 
             // 若因历史数据重复（同一 key 多行），保留含凭据的配置
             const existing = this.configs.get(key);
-            if (existing && Object.keys(existing.options).length > 0 && Object.keys(options).length === 0) {
+            if (
+              existing &&
+              Object.keys(existing.options).length > 0 &&
+              Object.keys(options).length === 0
+            ) {
               continue;
             }
 

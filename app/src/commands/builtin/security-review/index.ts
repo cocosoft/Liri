@@ -22,11 +22,7 @@
  * security-review 命令
  * 对当前分支的变更进行安全审查
  */
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * security-review 命令定义

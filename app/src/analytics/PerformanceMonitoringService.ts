@@ -25,8 +25,7 @@ class PerformanceMonitoringService {
   };
   static instance: PerformanceMonitoringService;
 
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * 获取单例实例
@@ -172,7 +171,12 @@ class PerformanceMonitoringService {
    * @param value 指标值
    * @param tags 标签
    */
-  recordMetric(type: string, name: string, value: number, tags: Record<string, any> = {}) {
+  recordMetric(
+    type: string,
+    name: string,
+    value: number,
+    tags: Record<string, any> = {}
+  ) {
     const metric = {
       id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
@@ -202,7 +206,11 @@ class PerformanceMonitoringService {
    * @param duration 持续时间（毫秒）
    * @param tags 标签
    */
-  recordResponseTime(operation: string, duration: number, tags: Record<string, any> = {}) {
+  recordResponseTime(
+    operation: string,
+    duration: number,
+    tags: Record<string, any> = {}
+  ) {
     this.recordMetric('response_time', `response_time_${operation}`, duration, {
       operation,
       ...tags,
@@ -215,7 +223,11 @@ class PerformanceMonitoringService {
    * @param count 操作次数
    * @param tags 标签
    */
-  recordThroughput(operation: string, count: number, tags: Record<string, any> = {}) {
+  recordThroughput(
+    operation: string,
+    count: number,
+    tags: Record<string, any> = {}
+  ) {
     this.recordMetric('throughput', `throughput_${operation}`, count, {
       operation,
       ...tags,
@@ -229,7 +241,12 @@ class PerformanceMonitoringService {
    * @param totalCount 总次数
    * @param tags 标签
    */
-  recordErrorRate(operation: string, errorCount: number, totalCount: number, tags: Record<string, any> = {}) {
+  recordErrorRate(
+    operation: string,
+    errorCount: number,
+    totalCount: number,
+    tags: Record<string, any> = {}
+  ) {
     const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
     this.recordMetric('error_rate', `error_rate_${operation}`, errorRate, {
       operation,

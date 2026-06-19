@@ -8,7 +8,12 @@ import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
-import { type MemoryFile, MemoryType, MemoryLayer, MemdirService } from './MemdirService';
+import {
+  type MemoryFile,
+  MemoryType,
+  MemoryLayer,
+  MemdirService,
+} from './MemdirService';
 import { MemdirMemoryScanner } from './MemoryScanner';
 import type { RelevantMemoryResult } from './MemoryScanner';
 

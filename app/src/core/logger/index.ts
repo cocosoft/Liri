@@ -9,7 +9,11 @@
  *             获取 Logger 实例。
  */
 
-import { type ILogger, type ILoggerService, LOGGER_SERVICE_ID } from '../spi/LoggerService';
+import {
+  type ILogger,
+  type ILoggerService,
+  LOGGER_SERVICE_ID,
+} from '../spi/LoggerService';
 import { getDIContainer } from '../di/DIContainer';
 
 /** 按模块名缓存的回退 Logger 实例 */

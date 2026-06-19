@@ -68,12 +68,24 @@ let _loggerService: ILoggerService | null = null;
 /** 空操作 Logger：在 SPI 服务注册完成前提供安全降级 */
 function createNoopLogger(): ILogger {
   return {
-    debug() { /* noop */ },
-    info() { /* noop */ },
-    warn() { /* noop */ },
-    warning() { /* noop */ },
-    error() { /* noop */ },
-    fatal() { /* noop */ },
+    debug() {
+      /* noop */
+    },
+    info() {
+      /* noop */
+    },
+    warn() {
+      /* noop */
+    },
+    warning() {
+      /* noop */
+    },
+    error() {
+      /* noop */
+    },
+    fatal() {
+      /* noop */
+    },
   };
 }
 
@@ -101,10 +113,16 @@ export function resolveLogger(module?: string): ILogger {
  * @param container - DI 容器实例
  */
 export async function registerLoggerSpi(container: {
-  registerDescriptor: <T>(desc: { id: string; factory: () => T; scope: 'singleton' | 'transient' | 'request' }) => void;
+  registerDescriptor: <T>(desc: {
+    id: string;
+    factory: () => T;
+    scope: 'singleton' | 'transient' | 'request';
+  }) => void;
 }): Promise<void> {
-  const { getLogger: getLoggerImpl, setGlobalConfigProvider: setGlobalConfigProviderImpl } =
-    await import('../../monitoring/logs/Logger');
+  const {
+    getLogger: getLoggerImpl,
+    setGlobalConfigProvider: setGlobalConfigProviderImpl,
+  } = await import('../../monitoring/logs/Logger');
 
   const service: ILoggerService = {
     getLogger(module?: string): ILogger {

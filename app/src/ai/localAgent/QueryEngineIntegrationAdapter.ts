@@ -105,7 +105,11 @@ export class QueryEngineIntegrationAdapter {
         };
       }
 
-      if (this.config.bypassRoutes?.includes(result.routeDecision.target as RouteTarget)) {
+      if (
+        this.config.bypassRoutes?.includes(
+          result.routeDecision.target as RouteTarget
+        )
+      ) {
         return {
           handled: true,
           result,

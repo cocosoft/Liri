@@ -815,9 +815,14 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
         // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
         const { modelPricingService } =
-          await import('@modules/ai/models/ModelPricingService.js').catch(() => {
-            return { modelPricingService: null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService };
-          });
+          await import('@modules/ai/models/ModelPricingService.js').catch(
+            () => {
+              return {
+                modelPricingService:
+                  null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService,
+              };
+            }
+          );
         if (modelPricingService) {
           await modelPricingService.initialize();
         } else {
@@ -861,9 +866,11 @@ export async function launch(options: LaunchOptions): Promise<void> {
         const { configManager } = await import('@modules/config/ConfigManager');
 
         // 从 configManager 读取路由配置，若无则使用默认值
-        const routerCfg = (configManager.getConfigValue<Record<string, unknown>>(
-            'models.router'
-          ) || {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
+        const routerCfg = (configManager.getConfigValue<
+          Record<string, unknown>
+        >('models.router') || {}) as Partial<
+          import('@modules/ai/router/types').RouterConfig
+        >;
         const routerConfig: import('@modules/ai/router/types').RouterConfig = {
           enabled: routerCfg?.enabled !== false,
           defaultTier: routerCfg?.defaultTier || 'medium',

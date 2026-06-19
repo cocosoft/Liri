@@ -33,10 +33,7 @@
  *   - 新：直接依赖 SemanticStore 做向量检索，持久化存储、重启不丢
  */
 
-import {
-  EmbeddingManager,
-  globalEmbeddingManager,
-} from '@modules/ai';
+import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai';
 import type {
   IKnowledgeSearch,
   KnowledgeRoute,

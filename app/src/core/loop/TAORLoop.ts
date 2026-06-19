@@ -5,11 +5,7 @@
 import type { ToolCall, ToolResult } from '@modules/core';
 import type { AIProvider } from '@modules/ai';
 import type { ChatOptions } from '@modules/ai';
-import type {
-  ChatMessage,
-  ToolDefinition,
-  ParsedToolCall,
-} from '@modules/ai';
+import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
 
 interface TAORLoopConfig {
   systemPrompt?: string;

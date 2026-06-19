@@ -4,11 +4,7 @@
  * 对齐 OpenClaw commands/doctor.ts
  */
 
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { runSecurityAudit } from '@modules/security';
 import type { SecurityAuditReport } from '@modules/security';

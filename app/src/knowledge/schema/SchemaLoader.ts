@@ -39,10 +39,7 @@ import { join } from 'path';
 import { load } from 'js-yaml';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import {
-  resolveKnowledgeDir,
-  resolveDomainSchemaDir,
-} from '@modules/core';
+import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

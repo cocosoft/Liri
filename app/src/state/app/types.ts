@@ -28,8 +28,8 @@ export enum AppState {
  * 应用状态转移规则表
  */
 export const APP_TRANSITIONS: TransitionRules<AppState> = {
-  [AppState.IDLE]:   [AppState.BUSY, AppState.PAUSED],
-  [AppState.BUSY]:   [AppState.IDLE, AppState.PAUSED, AppState.ERROR],
+  [AppState.IDLE]: [AppState.BUSY, AppState.PAUSED],
+  [AppState.BUSY]: [AppState.IDLE, AppState.PAUSED, AppState.ERROR],
   [AppState.PAUSED]: [AppState.IDLE],
-  [AppState.ERROR]:  [AppState.IDLE, AppState.PAUSED],
+  [AppState.ERROR]: [AppState.IDLE, AppState.PAUSED],
 };

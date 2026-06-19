@@ -24,11 +24,7 @@
  * 提供 session/tools/tokens 三个维度的统计
  */
 
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
 
 /**

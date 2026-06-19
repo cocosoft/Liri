@@ -29,24 +29,15 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import {
-  providerManager,
-  type ProviderType,
-} from '@modules/ai';
-import {
-  testEndpoints,
-  formatSpeedResults,
-} from '@modules/ai';
+import { providerManager, type ProviderType } from '@modules/ai';
+import { testEndpoints, formatSpeedResults } from '@modules/ai';
 import { fetchModels } from '@modules/ai';
 import {
   registerProviderFromDB,
   unregisterProviderFromRegistry,
   ProviderSyncService,
 } from '@modules/ai';
-import {
-  detectUnifiedProviders,
-  formatEnvProviderName,
-} from '@modules/ai';
+import { detectUnifiedProviders, formatEnvProviderName } from '@modules/ai';
 
 const logger = getLogger('provider');
 

@@ -39,12 +39,16 @@ export class SessionStateMachine extends StateMachine<SessionState> {
    * 需要用户操作：RUNNING → REQUIRES_ACTION
    */
   requireAction(details: RequiresActionDetails): boolean {
-    return this.transition(SessionState.REQUIRES_ACTION, details.action_description, {
-      tool_name: details.tool_name,
-      tool_use_id: details.tool_use_id,
-      request_id: details.request_id,
-      input: details.input,
-    });
+    return this.transition(
+      SessionState.REQUIRES_ACTION,
+      details.action_description,
+      {
+        tool_name: details.tool_name,
+        tool_use_id: details.tool_use_id,
+        request_id: details.request_id,
+        input: details.input,
+      }
+    );
   }
 
   /**

@@ -56,8 +56,7 @@ class DiagnosticsService {
   private installType = InstallType.UNKNOWN;
   static instance: DiagnosticsService;
 
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * 获取单例实例

@@ -68,7 +68,14 @@ export interface DisplayGeometry {
 }
 
 export interface MouseAction {
-  type: 'move' | 'click' | 'doubleClick' | 'rightClick' | 'scroll' | 'mouseDown' | 'mouseUp';
+  type:
+    | 'move'
+    | 'click'
+    | 'doubleClick'
+    | 'rightClick'
+    | 'scroll'
+    | 'mouseDown'
+    | 'mouseUp';
   x?: number;
   y?: number;
   button?: 'left' | 'right' | 'middle';
@@ -77,7 +84,13 @@ export interface MouseAction {
 }
 
 export interface KeyboardAction {
-  type: 'type' | 'keyPress' | 'keyDown' | 'keyUp' | 'keyCombination' | 'keyHold';
+  type:
+    | 'type'
+    | 'keyPress'
+    | 'keyDown'
+    | 'keyUp'
+    | 'keyCombination'
+    | 'keyHold';
   text?: string;
   key?: string;
   modifiers?: string[];

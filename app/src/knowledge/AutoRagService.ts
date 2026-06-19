@@ -37,10 +37,7 @@ import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
-import {
-  EmbeddingManager,
-  globalEmbeddingManager,
-} from '@modules/ai';
+import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai';
 import { IndexManager } from './IndexManager';
 
 const logger = new Logger({ level: LogLevel.INFO });

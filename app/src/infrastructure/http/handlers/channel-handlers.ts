@@ -611,13 +611,16 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
   const _processingMessages = new Set<string>();
 
   /** 跟踪待重试的出站回复（用于断点恢复） */
-  const _pendingOutboundReplies = new Map<string, {
-    target: string;
-    content: string;
-    retryCount: number;
-    lastAttemptAt: number;
-    channelType: string;
-  }>();
+  const _pendingOutboundReplies = new Map<
+    string,
+    {
+      target: string;
+      content: string;
+      retryCount: number;
+      lastAttemptAt: number;
+      channelType: string;
+    }
+  >();
 
   /** 定期重试待发送的失败回复 */
   let _retryTimer: ReturnType<typeof setInterval> | null = null;
@@ -638,14 +641,20 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
           pending.retryCount++;
           if (pending.retryCount >= 3) {
             _pendingOutboundReplies.delete(key);
-            logger.error(`[${channelType}] 消息发送失败（已达最大重试次数 3）`, {
-              target: pending.target,
-              retryCount: pending.retryCount,
-            });
+            logger.error(
+              `[${channelType}] 消息发送失败（已达最大重试次数 3）`,
+              {
+                target: pending.target,
+                retryCount: pending.retryCount,
+              }
+            );
           } else {
-            logger.warn(`[${channelType}] 消息发送重试 ${pending.retryCount}/3 失败`, {
-              error: String(err),
-            });
+            logger.warn(
+              `[${channelType}] 消息发送重试 ${pending.retryCount}/3 失败`,
+              {
+                error: String(err),
+              }
+            );
           }
         }
       }
@@ -675,12 +684,11 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
         if (msg === _lastProgressMsg) return;
         _lastProgressMsg = msg;
         if (plugin.outbound) {
-          plugin.outbound.sendText(
-            message.conversationId ?? message.senderId,
-            msg
-          ).catch(() => {
-            // 进度推送失败不计入主流程
-          });
+          plugin.outbound
+            .sendText(message.conversationId ?? message.senderId, msg)
+            .catch(() => {
+              // 进度推送失败不计入主流程
+            });
         }
       };
 

@@ -50,7 +50,10 @@ export async function handleEvents(
 /**
  * 广播事件到所有 SSE 客户端
  */
-export function broadcastEvent(event: string, data: Record<string, unknown>): void {
+export function broadcastEvent(
+  event: string,
+  data: Record<string, unknown>
+): void {
   const payload = JSON.stringify({ ...data, ts: Date.now() });
   for (const client of clients) {
     client.write(`event: ${event}\ndata: ${payload}\n\n`);

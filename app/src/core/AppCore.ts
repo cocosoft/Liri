@@ -67,8 +67,7 @@ export class AppCore {
   constructor(config: AppCoreConfig) {
     this.config = {
       debug: false,
-      useLegacyModuleSystem:
-        process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1',
+      useLegacyModuleSystem: process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1',
       ...config,
     };
 
@@ -426,9 +425,12 @@ export class AppCore {
     const stats: [string, string][] = [
       ['应用名称', `${this.config.name} v${this.config.version}`],
       ['初始化状态', this.initialized ? '已完成' : '未初始化'],
-      ['模块数量', this.useLegacyModuleSystem
-        ? this.moduleManager.getModules().length.toString()
-        : '由 ModuleRegistry 管理'],
+      [
+        '模块数量',
+        this.useLegacyModuleSystem
+          ? this.moduleManager.getModules().length.toString()
+          : '由 ModuleRegistry 管理',
+      ],
       ['插件数量', pluginSystem.getPluginInfoList().length.toString()],
     ];
 

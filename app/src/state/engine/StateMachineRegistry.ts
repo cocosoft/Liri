@@ -178,6 +178,7 @@ export class StateMachineRegistry {
    * 重置注册中心（仅用于测试）
    */
   static reset(): void {
-    StateMachineRegistry.instance = undefined as unknown as StateMachineRegistry;
+    StateMachineRegistry.instance =
+      undefined as unknown as StateMachineRegistry;
   }
 }

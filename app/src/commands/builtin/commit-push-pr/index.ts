@@ -22,11 +22,7 @@
  * commit-push-pr 命令
  * 提交、推送并创建 PR 的工作流命令
  */
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 
 /**
  * commit-push-pr 命令定义

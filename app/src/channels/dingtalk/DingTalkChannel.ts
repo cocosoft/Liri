@@ -444,11 +444,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
                 });
               });
             } catch (parseErr) {
-                handleError(parseErr, {
-                  module: 'channels:dingtalk',
-                  action: 'webhook:parseMessage',
-                });
-              }
+              handleError(parseErr, {
+                module: 'channels:dingtalk',
+                action: 'webhook:parseMessage',
+              });
+            }
           });
         });
 

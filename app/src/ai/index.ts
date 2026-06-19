@@ -272,11 +272,19 @@ export type {
   ProviderListFilter,
 } from './providers/ProviderManager';
 
-export { BalanceChecker, checkBalance, formatBalanceResult } from './providers/BalanceChecker';
+export {
+  BalanceChecker,
+  checkBalance,
+  formatBalanceResult,
+} from './providers/BalanceChecker';
 export type { BalanceResult, BalanceData } from './providers/BalanceChecker';
 
 export { ModelFetcher, fetchModels } from './providers/ModelFetcher';
-export type { FetchedModel, FetchModelsOptions, FetchModelsResult } from './providers/ModelFetcher';
+export type {
+  FetchedModel,
+  FetchModelsOptions,
+  FetchModelsResult,
+} from './providers/ModelFetcher';
 
 export {
   detectUnifiedProviders,

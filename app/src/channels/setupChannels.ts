@@ -272,15 +272,16 @@ export async function setupChannelsFromConfig(): Promise<{
     persistedConfigs
       .filter(
         (cfg) =>
-          cfg.enabled &&
-          cfg.options &&
-          Object.keys(cfg.options).length > 0
+          cfg.enabled && cfg.options && Object.keys(cfg.options).length > 0
       )
       .map((cfg) => cfg.type)
   );
   const dbEnabledDefs: typeof channelCandidates = [];
   for (const candidate of channelCandidates) {
-    if (!candidate.enabled && persistedTypesWithCredentials.has(candidate.type)) {
+    if (
+      !candidate.enabled &&
+      persistedTypesWithCredentials.has(candidate.type)
+    ) {
       dbEnabledDefs.push({ ...candidate, enabled: true });
     }
   }

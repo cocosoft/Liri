@@ -10,11 +10,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type {
-  ChatMessage,
-  ChatResponse,
-  ToolDefinition,
-} from '@modules/ai';
+import type { ChatMessage, ChatResponse, ToolDefinition } from '@modules/ai';
 import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';

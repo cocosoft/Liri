@@ -18,9 +18,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';
-import type {
-  ThirdPartySkillSearchResult,
-} from './ThirdPartySkillAdapter';
+import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill, ThirdPartySkillMeta } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -181,7 +179,10 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
    */
   private async refreshCatalogCache(): Promise<void> {
     const now = Date.now();
-    if (now - this.lastCacheUpdate < this.cacheTtlMs && this.catalogCache.size > 0) {
+    if (
+      now - this.lastCacheUpdate < this.cacheTtlMs &&
+      this.catalogCache.size > 0
+    ) {
       return;
     }
 

@@ -19,11 +19,7 @@ export class IllegalTransitionError extends AppError {
    * @param to 目标状态
    * @param machineType 状态机类型标识（用于日志溯源）
    */
-  constructor(
-    from: unknown,
-    to: unknown,
-    machineType?: string
-  ) {
+  constructor(from: unknown, to: unknown, machineType?: string) {
     super(
       `非法状态转换: ${String(from)} → ${String(to)}`,
       ErrorCategory.EXECUTION,
@@ -46,10 +42,7 @@ export class InvalidSnapshotError extends AppError {
    * @param message 错误描述
    * @param details 详细上下文（含快照信息）
    */
-  constructor(
-    message: string,
-    details?: Record<string, unknown>
-  ) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(
       message,
       ErrorCategory.DATA,

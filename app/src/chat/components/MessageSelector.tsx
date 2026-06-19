@@ -252,7 +252,9 @@ export function MessageSelector({
                 className={`message-item ${isSelected ? 'selected' : ''}`}
                 onClick={() => handleSelectMessage(msg)}
               >
-                {typeof msg.content === 'string' ? msg.content : '(current prompt)'}
+                {typeof msg.content === 'string'
+                  ? msg.content
+                  : '(current prompt)'}
               </div>
             );
           })}

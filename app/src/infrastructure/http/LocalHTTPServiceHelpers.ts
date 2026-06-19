@@ -324,7 +324,9 @@ async function writeDefaultKnowledgeDocs(
  * 启动编译调度器
  * 仅在 AI 服务已配置默认模型时才启用 runOnStart，避免无模型时大量编译失败
  */
-export async function startCompileScheduler(): Promise<{ stop: () => void } | null> {
+export async function startCompileScheduler(): Promise<{
+  stop: () => void;
+} | null> {
   try {
     const { aiService } = await import('@modules/ai/services/aiService');
     const defaultModel = aiService.getDefaultModel();
@@ -500,10 +502,7 @@ export function copyDirectory(
   const entries = fs.readdirSync(src, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (
-      entry.name === '.migrating' ||
-      entry.name === '.migration_committed'
-    ) {
+    if (entry.name === '.migrating' || entry.name === '.migration_committed') {
       continue;
     }
     const srcPath = path.join(src, entry.name);

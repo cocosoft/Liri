@@ -51,16 +51,24 @@ export class SubAgentManager {
     let subAgent: SubAgent;
     switch (config.type) {
       case SubAgentType.IN_PROCESS:
-        subAgent = this.factory.createInProcessSubAgent(config as InProcessSubAgentConfig);
+        subAgent = this.factory.createInProcessSubAgent(
+          config as InProcessSubAgentConfig
+        );
         break;
       case SubAgentType.PROCESS:
-        subAgent = this.factory.createProcessSubAgent(config as ProcessSubAgentConfig);
+        subAgent = this.factory.createProcessSubAgent(
+          config as ProcessSubAgentConfig
+        );
         break;
       case SubAgentType.TMUX:
-        subAgent = this.factory.createTmuxSubAgent(config as TmuxSubAgentConfig);
+        subAgent = this.factory.createTmuxSubAgent(
+          config as TmuxSubAgentConfig
+        );
         break;
       case SubAgentType.ITERM:
-        subAgent = this.factory.createITermSubAgent(config as ITermSubAgentConfig);
+        subAgent = this.factory.createITermSubAgent(
+          config as ITermSubAgentConfig
+        );
         break;
       case SubAgentType.CUSTOM:
         subAgent = this.factory.createCustomSubAgent(

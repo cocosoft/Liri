@@ -6,7 +6,6 @@
  * 实际类型在 dom.ts 中通过类型合并（intersection）补全。
  */
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface FocusManagerLike {}
 
 export type TextName = '#text';

@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 /**
  * CoreAPI 实现
  * 串联现有的 ChatManager、ToolManager、Coordinator、ConverterEngine 等服务
@@ -248,14 +246,11 @@ export class CoreAPIImpl implements CoreAPI {
         const envProvider = envProviders[0];
 
         if (envProvider) {
-          provider = providerRegistry.getOrCreate(
-            envProvider.providerType,
-            {
-              apiKey: envProvider.apiKey || '',
-              baseUrl: envProvider.baseUrl,
-              model: envProvider.model || currentModel,
-            }
-          );
+          provider = providerRegistry.getOrCreate(envProvider.providerType, {
+            apiKey: envProvider.apiKey || '',
+            baseUrl: envProvider.baseUrl,
+            model: envProvider.model || currentModel,
+          });
 
           if (envProvider.apiKey) {
             provider.setApiKey?.(envProvider.apiKey);
@@ -897,7 +892,10 @@ export class CoreAPIImpl implements CoreAPI {
         assistantResponse,
         async (messages) => {
           const llmClient = this.chatManager.getLLMClient();
-          const response = await llmClient.sendMessage(messages as import('@modules/ai/models/types').ChatMessage[], {});
+          const response = await llmClient.sendMessage(
+            messages as import('@modules/ai/models/types').ChatMessage[],
+            {}
+          );
           return response?.content || null;
         }
       );

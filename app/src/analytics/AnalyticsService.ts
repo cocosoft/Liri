@@ -160,7 +160,11 @@ export class AnalyticsService {
    * @param operationType 操作类型
    * @param duration 操作持续时间
    */
-  updateSessionActivity(sessionId: string, operationType: string, duration: number) {
+  updateSessionActivity(
+    sessionId: string,
+    operationType: string,
+    duration: number
+  ) {
     const session = this.sessions.get(sessionId);
     if (!session) {
       return;
@@ -170,7 +174,9 @@ export class AnalyticsService {
     session.interactionCount++;
     session.totalDuration = session.lastActivity - session.startTime;
 
-    let operation = session.operations.find((op: any) => op.type === operationType);
+    let operation = session.operations.find(
+      (op: any) => op.type === operationType
+    );
     if (!operation) {
       operation = { type: operationType, count: 0, totalDuration: 0 };
       session.operations.push(operation);
@@ -237,7 +243,11 @@ export class AnalyticsService {
    * 获取工具调用统计
    * @returns 工具调用统计
    */
-  getToolCallStats(): { totalCalls: number; uniqueTools: number; topTools: Array<{ name: string; count: number }> } {
+  getToolCallStats(): {
+    totalCalls: number;
+    uniqueTools: number;
+    topTools: Array<{ name: string; count: number }>;
+  } {
     const sorted = [...this.toolCallCounts.entries()]
       .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
       .slice(0, 10);

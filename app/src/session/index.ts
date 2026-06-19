@@ -80,13 +80,8 @@ export { SessionPruner } from './SessionPruner.js';
 export type { PrunerOptions, PruneResult } from './SessionPruner.js';
 export { SessionLock } from './SessionLock.js';
 export type { LockOptions, LockAcquireResult } from './SessionLock.js';
-export {
-  SessionMigration,
-} from './SessionMigration.js';
-export type {
-  MigrationVersion,
-  MigrationResult,
-} from './SessionMigration.js';
+export { SessionMigration } from './SessionMigration.js';
+export type { MigrationVersion, MigrationResult } from './SessionMigration.js';
 export { SessionManager, createSessionManager } from './SessionManager.js';
 export type { SessionManagerConfig } from './SessionManager.js';
 

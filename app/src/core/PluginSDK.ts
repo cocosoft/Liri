@@ -79,7 +79,9 @@ export class PluginSDK {
     // 非回退路径：直接委托给 PluginSystem
     if (!this.useLegacy) {
       await pluginSystem.registerPluginFromSDK(plugin);
-      logger.info(`Registered plugin via SDK (delegated): ${plugin.name} v${plugin.version}`);
+      logger.info(
+        `Registered plugin via SDK (delegated): ${plugin.name} v${plugin.version}`
+      );
       return;
     }
 
@@ -107,9 +109,12 @@ export class PluginSDK {
       });
     } catch (error) {
       // 如果插件已存在，记录警告但继续
-      logger.warn(`Plugin ${plugin.id} may already be registered in PluginSystem`, {
-        error: String(error),
-      });
+      logger.warn(
+        `Plugin ${plugin.id} may already be registered in PluginSystem`,
+        {
+          error: String(error),
+        }
+      );
     }
 
     // 存储技能信息（旧版路径，本地管理）
@@ -345,7 +350,9 @@ export class PluginSDK {
    */
   getPlugin(pluginId: string): Plugin | undefined {
     if (!this.useLegacy) {
-      logger.warn(`getPlugin() 在非回退模式下返回 undefined，请使用 PluginSystem`);
+      logger.warn(
+        `getPlugin() 在非回退模式下返回 undefined，请使用 PluginSystem`
+      );
       return undefined;
     }
     return this.plugins.get(pluginId);

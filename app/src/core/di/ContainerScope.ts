@@ -149,7 +149,8 @@ export class ContainerScope {
     for (const id of order) {
       const desc = this.descriptors.get(id);
       if (!desc?.onLoad) continue;
-      const instance = this.singletonInstances.get(id) ?? this.requestInstances.get(id);
+      const instance =
+        this.singletonInstances.get(id) ?? this.requestInstances.get(id);
       if (!instance) continue;
       try {
         await desc.onLoad(instance);
@@ -170,7 +171,8 @@ export class ContainerScope {
     for (const id of order) {
       const desc = this.descriptors.get(id);
       if (!desc?.onReady) continue;
-      const instance = this.singletonInstances.get(id) ?? this.requestInstances.get(id);
+      const instance =
+        this.singletonInstances.get(id) ?? this.requestInstances.get(id);
       if (!instance) continue;
       try {
         await desc.onReady(instance);

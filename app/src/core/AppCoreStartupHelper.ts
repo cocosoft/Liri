@@ -100,15 +100,12 @@ export async function loadSessionPersistence(
 
   try {
     const { SessionFactory } = await import('../session/SessionFactory.js');
-    const { UnifiedStorageAdapter } = await import(
-      '../session/storage/UnifiedStorageAdapter.js'
-    );
-    const { FileSystemUnifiedStorage } = await import(
-      '../session/storage/FileSystemUnifiedStorage.js'
-    );
-    const { StorageType } = await import(
-      '../session/storage/UnifiedStorage.js'
-    );
+    const { UnifiedStorageAdapter } =
+      await import('../session/storage/UnifiedStorageAdapter.js');
+    const { FileSystemUnifiedStorage } =
+      await import('../session/storage/FileSystemUnifiedStorage.js');
+    const { StorageType } =
+      await import('../session/storage/UnifiedStorage.js');
 
     const storageDir = opts.storageDir ?? resolveSessionsDir();
     const unifiedStorage = new FileSystemUnifiedStorage({
@@ -215,7 +212,7 @@ export function showStartupReport(
     [
       '模块数量',
       useLegacyModuleSystem
-        ? moduleManager?.getModules().length.toString() ?? 'N/A'
+        ? (moduleManager?.getModules().length.toString() ?? 'N/A')
         : '由 ModuleRegistry 管理',
     ],
     ['插件数量', pluginSystem?.getPluginInfoList().length.toString() ?? 'N/A'],

@@ -3,11 +3,7 @@
  * Liri channel list/status/connect/disconnect
  */
 
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { channelRegistry } from '@modules/channels';
 import type { ChannelInterface } from '@modules/channels';

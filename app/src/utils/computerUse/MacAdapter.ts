@@ -272,9 +272,13 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       let height = 0;
       try {
         const sipsResult = await new Promise<string>((resolve, reject) => {
-          const child = spawn('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', '--stdin'], {
-            stdio: ['pipe', 'pipe', 'ignore'],
-          });
+          const child = spawn(
+            'sips',
+            ['-g', 'pixelWidth', '-g', 'pixelHeight', '--stdin'],
+            {
+              stdio: ['pipe', 'pipe', 'ignore'],
+            }
+          );
 
           const timer = setTimeout(() => {
             child.kill();
@@ -339,7 +343,11 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       JSON.stringify({ width: width, height: height, scaleFactor: scale });
     `;
 
-    const stdout = await this.runOsascript(script, OSASCRIPT_TIMEOUT_DEFAULT, 'JavaScript');
+    const stdout = await this.runOsascript(
+      script,
+      OSASCRIPT_TIMEOUT_DEFAULT,
+      'JavaScript'
+    );
     try {
       return JSON.parse(stdout.trim());
     } catch {
@@ -374,7 +382,11 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       JSON.stringify(result);
     `;
 
-    const stdout = await this.runOsascript(script, OSASCRIPT_TIMEOUT_DEFAULT, 'JavaScript');
+    const stdout = await this.runOsascript(
+      script,
+      OSASCRIPT_TIMEOUT_DEFAULT,
+      'JavaScript'
+    );
     try {
       const displays: DisplayGeometry[] = JSON.parse(stdout.trim());
       return Array.isArray(displays) ? displays : [];
@@ -386,8 +398,11 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
   async mouseAction(action: MouseAction): Promise<void> {
     // 对于 click/doubleClick 且带了坐标的，先移动鼠标
     if (
-      (action.type === 'click' || action.type === 'doubleClick' || action.type === 'rightClick') &&
-      action.x !== undefined && action.y !== undefined
+      (action.type === 'click' ||
+        action.type === 'doubleClick' ||
+        action.type === 'rightClick') &&
+      action.x !== undefined &&
+      action.y !== undefined
     ) {
       await this.mouseAction({ type: 'move', x: action.x, y: action.y });
     }
@@ -456,11 +471,20 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
           );
           $.CGEventPost($.kCGHIDEventTap, scrollEvent);
         `;
-        await this.runOsascript(scrollScript, OSASCRIPT_TIMEOUT_DEFAULT, 'JavaScript');
+        await this.runOsascript(
+          scrollScript,
+          OSASCRIPT_TIMEOUT_DEFAULT,
+          'JavaScript'
+        );
         break;
       }
       case 'mouseDown': {
-        const button = action.button === 'right' ? '2' : action.button === 'middle' ? '3' : '1';
+        const button =
+          action.button === 'right'
+            ? '2'
+            : action.button === 'middle'
+              ? '3'
+              : '1';
         const script = `
           tell application "System Events"
             click at {${action.x ?? 'current position'}, ${action.y ?? 'current position'}}
@@ -623,9 +647,7 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       meta: 'command down',
     };
 
-    const parts = modifiers
-      .map((m) => modifierMap[m])
-      .filter(Boolean);
+    const parts = modifiers.map((m) => modifierMap[m]).filter(Boolean);
 
     if (parts.length === 0) return '';
     return `using {${parts.join(', ')}}`;

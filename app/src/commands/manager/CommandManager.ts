@@ -3,18 +3,11 @@
  * 命令管理器
  * 处理命令执行和管理
  */
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { commandRegistry } from '@modules/commands';
 import { commandLoaderRegistry } from '@modules/commands';
 import { getCommandParser } from '@modules/commands';
-import {
-  REMOTE_SAFE_COMMANDS,
-  BRIDGE_SAFE_COMMANDS,
-} from '@modules/commands';
+import { REMOTE_SAFE_COMMANDS, BRIDGE_SAFE_COMMANDS } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 

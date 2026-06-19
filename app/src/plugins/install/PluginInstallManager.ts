@@ -134,14 +134,16 @@ export class PluginInstallManager {
     const warnings: string[] = [];
 
     if (!options.skipSecurityScan) {
-      const scanResult = await pluginSecurityScanner.scanPluginDir(options.sourcePath);
+      const scanResult = await pluginSecurityScanner.scanPluginDir(
+        options.sourcePath
+      );
       if (!scanResult.safe) {
         return {
           success: false,
           pluginName: options.sourcePath,
           version: options.version || 'unknown',
           installPath: '',
-          error: `安全扫描未通过: ${scanResult.issues?.map(i => i.description).join(', ') || '未知风险'}`,
+          error: `安全扫描未通过: ${scanResult.issues?.map((i) => i.description).join(', ') || '未知风险'}`,
         };
       }
     }
@@ -288,10 +290,7 @@ export class PluginInstallManager {
     options: InstallOptions,
     targetPath: string
   ): Promise<void> {
-    await this.npmDistributor.install(
-      options.sourcePath,
-      options.version
-    );
+    await this.npmDistributor.install(options.sourcePath, options.version);
   }
 
   /**

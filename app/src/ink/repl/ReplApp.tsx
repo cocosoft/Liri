@@ -656,7 +656,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   );
 
   const conversationHeight = Math.max(6, terminalHeight - 9);
-// 9 = header(1) + floatingBar(~3) + questions(~2~4) + input(~2)
+  // 9 = header(1) + floatingBar(~3) + questions(~2~4) + input(~2)
 
   useEffect(() => {
     const handler = () => {

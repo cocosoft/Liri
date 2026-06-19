@@ -146,7 +146,10 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
     const { stdout } = await this.runPowerShell(script, PS_TIMEOUT_SCREENSHOT);
 
     const output = stdout.trim();
-    const lines = output.split('\n').map((l) => l.trim()).filter(Boolean);
+    const lines = output
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
 
     // 第一行是 "width,height"，后面的 base64 数据可能跨多行
     const dimLine = lines.find((l) => /^\d+,\d+$/.test(l));
@@ -225,8 +228,11 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
 
   async mouseAction(action: MouseAction): Promise<void> {
     // 如果是 click/doubleClick 且带了 x/y，先移动鼠标
-    if ((action.type === 'click' || action.type === 'doubleClick') &&
-        action.x !== undefined && action.y !== undefined) {
+    if (
+      (action.type === 'click' || action.type === 'doubleClick') &&
+      action.x !== undefined &&
+      action.y !== undefined
+    ) {
       await this.mouseAction({ type: 'move', x: action.x, y: action.y });
     }
     const script = this.buildMouseScript(action);
@@ -362,9 +368,12 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
       buttonCode = '0x0002'; // MOUSEEVENTF_LEFTDOWN (default)
     }
     // button up code
-    const buttonUpCode = buttonCode === '0x0008' ? '0x0010' :
-                         buttonCode === '0x0020' ? '0x0040' :
-                         '0x0004';
+    const buttonUpCode =
+      buttonCode === '0x0008'
+        ? '0x0010'
+        : buttonCode === '0x0020'
+          ? '0x0040'
+          : '0x0004';
 
     switch (action.type) {
       case 'move':
@@ -481,33 +490,33 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
 
         // 特殊键映射（功能键、方向键等）
         const keyMap: Record<string, string> = {
-          'enter': '{ENTER}',
-          'tab': '{TAB}',
-          'esc': '{ESC}',
-          'escape': '{ESC}',
-          'backspace': '{BACKSPACE}',
-          'delete': '{DELETE}',
-          'home': '{HOME}',
-          'end': '{END}',
-          'up': '{UP}',
-          'down': '{DOWN}',
-          'left': '{LEFT}',
-          'right': '{RIGHT}',
-          'pageup': '{PGUP}',
-          'pagedown': '{PGDN}',
-          'space': ' ',
-          'f1': '{F1}',
-          'f2': '{F2}',
-          'f3': '{F3}',
-          'f4': '{F4}',
-          'f5': '{F5}',
-          'f6': '{F6}',
-          'f7': '{F7}',
-          'f8': '{F8}',
-          'f9': '{F9}',
-          'f10': '{F10}',
-          'f11': '{F11}',
-          'f12': '{F12}',
+          enter: '{ENTER}',
+          tab: '{TAB}',
+          esc: '{ESC}',
+          escape: '{ESC}',
+          backspace: '{BACKSPACE}',
+          delete: '{DELETE}',
+          home: '{HOME}',
+          end: '{END}',
+          up: '{UP}',
+          down: '{DOWN}',
+          left: '{LEFT}',
+          right: '{RIGHT}',
+          pageup: '{PGUP}',
+          pagedown: '{PGDN}',
+          space: ' ',
+          f1: '{F1}',
+          f2: '{F2}',
+          f3: '{F3}',
+          f4: '{F4}',
+          f5: '{F5}',
+          f6: '{F6}',
+          f7: '{F7}',
+          f8: '{F8}',
+          f9: '{F9}',
+          f10: '{F10}',
+          f11: '{F11}',
+          f12: '{F12}',
         };
 
         const mappedKey = keyMap[mainKey] || mainKey.toUpperCase();

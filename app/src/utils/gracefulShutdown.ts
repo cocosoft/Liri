@@ -3,6 +3,10 @@
  * 处理应用的优雅关闭流程
  */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ level: LogLevel.INFO, module: 'gracefulShutdown' });
+
 let shutdownHandlers: any[] = [];
 let isShuttingDown = false;
 
@@ -21,7 +25,7 @@ async function executeShutdownHandlers() {
   if (isShuttingDown) return;
 
   isShuttingDown = true;
-  console.log('开始优雅关闭...');
+  logger.info('开始优雅关闭...');
 
   try {
     // 执行所有注册的关闭处理函数
@@ -29,13 +33,13 @@ async function executeShutdownHandlers() {
       try {
         await handler();
       } catch (error) {
-        console.error('关闭处理函数执行失败:', error);
+        logger.error('关闭处理函数执行失败:', error as Error);
       }
     }
 
-    console.log('优雅关闭完成');
+    logger.info('优雅关闭完成');
   } catch (error) {
-    console.error('优雅关闭失败:', error);
+    logger.error('优雅关闭失败:', error as Error);
   } finally {
     process.exit(0);
   }
@@ -47,25 +51,25 @@ async function executeShutdownHandlers() {
 export function setupGracefulShutdown() {
   // 监听SIGINT信号（Ctrl+C）
   process.on('SIGINT', () => {
-    console.log('收到 SIGINT 信号，开始优雅关闭...');
+    logger.info('收到 SIGINT 信号，开始优雅关闭...');
     executeShutdownHandlers();
   });
 
   // 监听SIGTERM信号
   process.on('SIGTERM', () => {
-    console.log('收到 SIGTERM 信号，开始优雅关闭...');
+    logger.info('收到 SIGTERM 信号，开始优雅关闭...');
     executeShutdownHandlers();
   });
 
   // 监听未捕获的异常
   process.on('uncaughtException', (error) => {
-    console.error('未捕获的异常:', error);
+    logger.error('未捕获的异常:', error);
     executeShutdownHandlers();
   });
 
   // 监听未处理的Promise拒绝
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('未处理的Promise拒绝:', reason);
+  process.on('unhandledRejection', (reason) => {
+    logger.error('未处理的Promise拒绝:', reason as Error);
     executeShutdownHandlers();
   });
 }

@@ -32,7 +32,9 @@ export class SessionStateBridge {
 
     this.subscriptions.push(
       this.eventBus.on('session:activated', (event: SessionLifecycleEvent) => {
-        this.getSessionMachine(event.sessionId).start(`会话已激活: ${event.sessionId}`);
+        this.getSessionMachine(event.sessionId).start(
+          `会话已激活: ${event.sessionId}`
+        );
       })
     );
 
@@ -44,7 +46,9 @@ export class SessionStateBridge {
 
     this.subscriptions.push(
       this.eventBus.on('session:resumed', (event: SessionLifecycleEvent) => {
-        this.getSessionMachine(event.sessionId).resume(`会话已恢复: ${event.sessionId}`);
+        this.getSessionMachine(event.sessionId).resume(
+          `会话已恢复: ${event.sessionId}`
+        );
       })
     );
 
@@ -61,7 +65,9 @@ export class SessionStateBridge {
 
     this.subscriptions.push(
       this.eventBus.on('session:error', (event: SessionLifecycleEvent) => {
-        this.getSessionMachine(event.sessionId).error(new Error(event.reason ?? '会话发生错误'));
+        this.getSessionMachine(event.sessionId).error(
+          new Error(event.reason ?? '会话发生错误')
+        );
       })
     );
 

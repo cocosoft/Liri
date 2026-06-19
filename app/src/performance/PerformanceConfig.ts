@@ -282,16 +282,19 @@ export function getPerformanceConfigManager(): PerformanceConfigManager {
 }
 
 // 使用 Proxy 保持向后兼容（方法调用时绑定 this 到实际实例）
-export const performanceConfigManager = new Proxy({} as PerformanceConfigManager, {
-  get(_, prop: keyof PerformanceConfigManager) {
-    const instance = getPerformanceConfigManager();
-    const value = instance[prop];
-    if (typeof value === 'function') {
-      return value.bind(instance);
-    }
-    return value;
-  },
-});
+export const performanceConfigManager = new Proxy(
+  {} as PerformanceConfigManager,
+  {
+    get(_, prop: keyof PerformanceConfigManager) {
+      const instance = getPerformanceConfigManager();
+      const value = instance[prop];
+      if (typeof value === 'function') {
+        return value.bind(instance);
+      }
+      return value;
+    },
+  }
+);
 
 /**
  * 获取性能配置

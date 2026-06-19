@@ -15,8 +15,7 @@ export async function handleListCommands(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCommandManager } =
-      await import('@modules/commands');
+    const { getCommandManager } = await import('@modules/commands');
     const commandManager = getCommandManager();
     const commands = await commandManager.getAllCommands();
     const result = commands.map((cmd: any) => ({

@@ -4,11 +4,7 @@
  * 对齐 OpenClaw logs CLI
  */
 
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { StructuredLogger } from '@modules/monitoring';
 

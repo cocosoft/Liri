@@ -223,7 +223,9 @@ export function createCommandExecutor(
  */
 let _commandExecutor: CommandExecutor | undefined;
 
-export function getCommandExecutor(config?: CommandExecutorConfig): CommandExecutor {
+export function getCommandExecutor(
+  config?: CommandExecutorConfig
+): CommandExecutor {
   if (!_commandExecutor) {
     _commandExecutor = new CommandExecutor(config);
   }

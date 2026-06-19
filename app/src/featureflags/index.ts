@@ -24,10 +24,7 @@
  * 保留环境变量覆盖能力（FEATURE_* 前缀）
  */
 
-import {
-  feature as coreFeature,
-  type FeatureFlag,
-} from '@modules/core';
+import { feature as coreFeature, type FeatureFlag } from '@modules/core';
 
 const featureCache: Partial<Record<string, boolean>> = {};
 

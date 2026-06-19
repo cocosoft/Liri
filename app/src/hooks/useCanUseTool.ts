@@ -74,10 +74,12 @@ export function useCanUseTool(
 
   return {
     canUse,
-    permissionResult: result || {
-      behavior: 'ask',
-      decisionReason: { type: 'default' },
-    } as PermissionResult<Record<string, unknown>>,
+    permissionResult:
+      result ||
+      ({
+        behavior: 'ask',
+        decisionReason: { type: 'default' },
+      } as PermissionResult<Record<string, unknown>>),
     denialReason,
     decisionReason,
   };

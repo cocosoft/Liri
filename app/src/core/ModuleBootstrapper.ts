@@ -108,7 +108,10 @@ export interface ModuleBootstrapper {
   register(module: BootstrapperModule, priority?: BootstrapPriority): void;
 
   /** 批量注册模块 */
-  registerAll(modules: BootstrapperModule[], defaultPriority?: BootstrapPriority): void;
+  registerAll(
+    modules: BootstrapperModule[],
+    defaultPriority?: BootstrapPriority
+  ): void;
 
   /** 执行完整启动流程：REGISTER → LOAD → READY */
   bootstrap(options?: BootstrapOptions): Promise<void>;

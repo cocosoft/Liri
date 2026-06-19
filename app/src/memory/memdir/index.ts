@@ -22,14 +22,52 @@
  * 文件化记忆系统（Memdir）导出文件
  */
 
-import { MemdirService, type MemoryFile, type MemoryType, type MemoryLayer, type MemdirConfig, type EntrypointTruncation } from './MemdirService';
-import { MemdirMemoryScanner, type MemoryScanResult, type RelevantMemoryResult, type MemoryAgingConfig } from './MemoryScanner';
-import { MemoryCommands, type MemoryCommandOptions, type MemoryCommandResult, type AutoMemoryConfig } from './MemoryCommands';
-import { MemoryIntegrationService, type IntegratedMemory, type MemoryIntegrationConfig } from './MemoryIntegrationService';
+import {
+  MemdirService,
+  type MemoryFile,
+  type MemoryType,
+  type MemoryLayer,
+  type MemdirConfig,
+  type EntrypointTruncation,
+} from './MemdirService';
+import {
+  MemdirMemoryScanner,
+  type MemoryScanResult,
+  type RelevantMemoryResult,
+  type MemoryAgingConfig,
+} from './MemoryScanner';
+import {
+  MemoryCommands,
+  type MemoryCommandOptions,
+  type MemoryCommandResult,
+  type AutoMemoryConfig,
+} from './MemoryCommands';
+import {
+  MemoryIntegrationService,
+  type IntegratedMemory,
+  type MemoryIntegrationConfig,
+} from './MemoryIntegrationService';
 
-export { MemdirService, MemoryFile, MemoryType, MemoryLayer, MemdirConfig, EntrypointTruncation };
-export { MemdirMemoryScanner, MemoryScanResult, RelevantMemoryResult, MemoryAgingConfig };
-export { MemoryCommands, MemoryCommandOptions, MemoryCommandResult, AutoMemoryConfig };
+export {
+  MemdirService,
+  MemoryFile,
+  MemoryType,
+  MemoryLayer,
+  MemdirConfig,
+  EntrypointTruncation,
+};
+export {
+  MemdirMemoryScanner,
+  MemoryScanResult,
+  RelevantMemoryResult,
+  MemoryAgingConfig,
+};
+export {
+  MemoryCommands,
+  MemoryCommandOptions,
+  MemoryCommandResult,
+  AutoMemoryConfig,
+};
 export { MemoryIntegrationService, IntegratedMemory, MemoryIntegrationConfig };
 
 /**

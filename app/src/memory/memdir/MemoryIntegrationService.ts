@@ -4,10 +4,7 @@
  */
 
 import type { Memory, MemoryStats } from '../types/Memory';
-import type {
-  MemoryFile,
-  MemdirService,
-} from './MemdirService';
+import type { MemoryFile, MemdirService } from './MemdirService';
 import { MemoryType, MemoryLayer } from './MemdirService';
 import type {
   MemdirMemoryScanner,

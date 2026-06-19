@@ -28,10 +28,7 @@
  * 基于核心 EventBusImpl 的领域封装，提供可扩展性系统专用的事件机制。
  */
 
-import {
-  EventBus as CoreEventBus,
-  EventBusImpl,
-} from '@modules/core';
+import { EventBus as CoreEventBus, EventBusImpl } from '@modules/core';
 import { EventType, EventData, EventListener } from './types.js';
 
 /**

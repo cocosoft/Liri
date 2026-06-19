@@ -4,10 +4,7 @@ import type {
   ThinkingProviderChunk,
 } from '@modules/ai';
 import type { ChatMessage, ChatResponse } from '@modules/ai';
-import type {
-  IToolExecutor,
-  ToolRegistry,
-} from '@modules/ai';
+import type { IToolExecutor, ToolRegistry } from '@modules/ai';
 
 export class ToolAwareClient {
   private provider: AIProvider;

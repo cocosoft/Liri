@@ -95,7 +95,10 @@ export class CycleDetector {
   /**
    * 查找依赖指定服务的所有服务（反向依赖查询）
    */
-  findDependents(descriptors: Map<string, ServiceDescriptor>, targetId: string): string[] {
+  findDependents(
+    descriptors: Map<string, ServiceDescriptor>,
+    targetId: string
+  ): string[] {
     const dependents: string[] = [];
 
     for (const [id, desc] of descriptors) {

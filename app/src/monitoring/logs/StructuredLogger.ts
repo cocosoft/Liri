@@ -4,11 +4,7 @@
  * 对齐 OpenClaw logging subsystem
  */
 
-import {
-  Logger,
-  LogLevel,
-  type LoggerConfig,
-} from '@modules/monitoring';
+import { Logger, LogLevel, type LoggerConfig } from '@modules/monitoring';
 import {
   MODULE_LOG_MEMORY,
   appendLogEntry,

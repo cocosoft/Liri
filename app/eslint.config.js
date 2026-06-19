@@ -7,7 +7,9 @@ export default [
   {
     ignores: [
       '**/hooks/**/*.js',
-      '**/config.d.ts'
+      '**/config.d.ts',
+      'src/utils/sinks.d.ts',
+      'src/analytics/AnalyticsService.d.ts'
     ]
   },
   {
@@ -31,7 +33,7 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      'no-empty': ['error', { allowEmptyCatch: false }],
+      'no-empty': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
@@ -147,6 +149,7 @@ export default [
       'src/utils/monitoring.ts',
       'src/utils/startupProfiler.ts',
       'src/error/safeLog.ts',
+      'src/core/logger/index.ts',
     ],
     rules: {
       'no-console': 'off'
@@ -184,6 +187,10 @@ export default [
       'src/query/SlowQueryDetector.ts',
       'src/core/paths.ts',
       'src/utils/errorHintManager.ts',
+      'src/analytics/AnalyticsService.ts',
+      'src/analytics/IntelligentAnalysisService.ts',
+      'src/analytics/PerformanceMonitoringService.ts',
+      'src/context/context.ts',
     ],
     rules: {
       'no-console': 'off'

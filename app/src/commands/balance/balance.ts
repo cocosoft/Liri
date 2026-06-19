@@ -25,10 +25,7 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
-import {
-  checkBalance,
-  formatBalanceResult,
-} from '@modules/ai';
+import { checkBalance, formatBalanceResult } from '@modules/ai';
 import { providerManager } from '@modules/ai';
 
 const balanceCommand = {

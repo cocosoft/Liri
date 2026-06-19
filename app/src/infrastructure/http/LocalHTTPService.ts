@@ -36,7 +36,10 @@ import {
 } from '@modules/core';
 import { configManager } from '@modules/config';
 import type { IChannelPlugin } from '@modules/channels/types';
-import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp/marketplace/types';
+import type {
+  RegistryType,
+  ThirdPartyRegistry,
+} from '@modules/services/mcp/marketplace/types';
 
 import {
   handleMonitorSummary,
@@ -116,10 +119,7 @@ import {
   handleKanbanDelete,
   handleKanbanMove,
 } from './handlers/kanban-handlers';
-import {
-  handleListTools,
-  handleExecuteTool,
-} from './handlers/tools-handlers';
+import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
 import {
   handleListAgentTasks,
   handleExecuteAgentTask,
@@ -167,9 +167,7 @@ import {
   handleGetSemanticIndexStatus,
   handleClearSemanticIndex,
 } from './handlers/semantic-index-handlers';
-import {
-  handleListWorkspaces,
-} from './handlers/workspaces-handlers';
+import { handleListWorkspaces } from './handlers/workspaces-handlers';
 import {
   handleListKnowledge,
   handleSearchKnowledge,
@@ -693,7 +691,13 @@ export class LocalHTTPService {
     sessionId: string,
     messageId: string
   ): Promise<void> {
-    return handleUpdateMessageBlocks(this._handlerCtx, req, res, sessionId, messageId);
+    return handleUpdateMessageBlocks(
+      this._handlerCtx,
+      req,
+      res,
+      sessionId,
+      messageId
+    );
   }
 
   private async handleDeleteSession(
@@ -1361,8 +1365,7 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const { getCommandManager } =
-        await import('@modules/commands');
+      const { getCommandManager } = await import('@modules/commands');
       const commandManager = getCommandManager();
       const commands = await commandManager.getAllCommands();
       const result = commands.map((cmd: any) => ({
@@ -2318,10 +2321,12 @@ export class LocalHTTPService {
       );
       const query = parsedUrl.searchParams.get('query') || '';
       const category = parsedUrl.searchParams.get('category') || undefined;
-      const registry =
-        (parsedUrl.searchParams.get('registry')) as RegistryType | undefined;
-      const sourceRegistry =
-        (parsedUrl.searchParams.get('sourceRegistry')) as ThirdPartyRegistry | undefined;
+      const registry = parsedUrl.searchParams.get('registry') as
+        | RegistryType
+        | undefined;
+      const sourceRegistry = parsedUrl.searchParams.get('sourceRegistry') as
+        | ThirdPartyRegistry
+        | undefined;
 
       const { mcpSystem } = await import('@modules/services/mcp');
 

@@ -67,10 +67,9 @@ export const StatusFloatingBar: React.FC<StatusFloatingBarProps> = ({
       break;
   }
 
-  const elapsed =
-    streamStats?.startTime
-      ? formatElapsed(streamStats.startTime)
-      : null;
+  const elapsed = streamStats?.startTime
+    ? formatElapsed(streamStats.startTime)
+    : null;
 
   return (
     <Box
@@ -82,9 +81,7 @@ export const StatusFloatingBar: React.FC<StatusFloatingBarProps> = ({
       marginY={0}
       width="100%"
     >
-      <Text color={statusColor as any}>
-        {statusText}
-      </Text>
+      <Text color={statusColor as any}>{statusText}</Text>
       {modelName && (
         <>
           <Text> </Text>

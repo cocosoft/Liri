@@ -104,12 +104,18 @@ export class MediaPlugin implements Plugin {
       throw new Error('ImageGenerateTool 未初始化');
     }
 
-    const result = await this._imageGenerateTool.execute(params, {} as ToolUseContext);
+    const result = await this._imageGenerateTool.execute(
+      params,
+      {} as ToolUseContext
+    );
     if (!result.success || !result.data) {
       throw new Error(`图片生成失败: ${result.error}`);
     }
 
-    return (result.data as Record<string, unknown>).images as { url: string; alt: string }[];
+    return (result.data as Record<string, unknown>).images as {
+      url: string;
+      alt: string;
+    }[];
   }
 
   /**
@@ -123,7 +129,10 @@ export class MediaPlugin implements Plugin {
       throw new Error('ImageAnalysisTool 未初始化');
     }
 
-    const result = await this._imageAnalysisTool.execute(params, {} as ToolUseContext);
+    const result = await this._imageAnalysisTool.execute(
+      params,
+      {} as ToolUseContext
+    );
     if (!result.success) {
       throw new Error(`图片分析失败: ${result.error}`);
     }

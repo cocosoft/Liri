@@ -3,11 +3,7 @@
  * 跨版本配置升级和迁移
  */
 
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import {
   existsSync,

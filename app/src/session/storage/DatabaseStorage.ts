@@ -429,13 +429,17 @@ export class DatabaseStorage implements SessionStorage {
 
     // 再删除会话
     await new Promise<void>((resolve, reject) => {
-      this.db?.run(`DELETE FROM sessions WHERE id = ?`, [sessionId], (err: any) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
+      this.db?.run(
+        `DELETE FROM sessions WHERE id = ?`,
+        [sessionId],
+        (err: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         }
-      });
+      );
     });
   }
 

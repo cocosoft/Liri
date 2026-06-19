@@ -70,11 +70,7 @@ import { providerRegistry } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
-import type {
-  ChatMessage,
-  ParsedToolCall,
-  ToolDefinition,
-} from '@modules/ai';
+import type { ChatMessage, ParsedToolCall, ToolDefinition } from '@modules/ai';
 import type { ThinkingProviderChunk } from '@modules/ai';
 import type {
   ChatStreamChunk,
@@ -656,7 +652,10 @@ export class ChatManagerImpl implements ChatManager {
     // ── 优先尝试 AI 摘要压缩 ──
     const compressibleMessages = apiMessages.map((msg, idx) => ({
       role: msg.role as 'system' | 'user' | 'assistant' | 'tool',
-      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+      content:
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content),
       tokenCount: roughTokenCountForMessages([
         msg as { content?: string | unknown; role?: string },
       ]),
@@ -664,14 +663,23 @@ export class ChatManagerImpl implements ChatManager {
       id: `msg_${idx}_${Date.now()}`,
     }));
     try {
-      const compressResult = await this._contextCompressor.compress(compressibleMessages);
-      if (compressResult.compressionRatio < 0.9 && compressResult.messages.length > 0) {
+      const compressResult =
+        await this._contextCompressor.compress(compressibleMessages);
+      if (
+        compressResult.compressionRatio < 0.9 &&
+        compressResult.messages.length > 0
+      ) {
         // AI 压缩有效：将压缩结果转回 apiMessages 格式
         apiMessages.length = 0;
         for (const cm of compressResult.messages) {
-          const entry: Record<string, unknown> = { role: cm.role, content: cm.content };
-          if (cm.metadata?.tool_calls) entry.tool_calls = cm.metadata.tool_calls;
-          if (cm.metadata?.tool_call_id) entry.tool_call_id = cm.metadata.tool_call_id;
+          const entry: Record<string, unknown> = {
+            role: cm.role,
+            content: cm.content,
+          };
+          if (cm.metadata?.tool_calls)
+            entry.tool_calls = cm.metadata.tool_calls;
+          if (cm.metadata?.tool_call_id)
+            entry.tool_call_id = cm.metadata.tool_call_id;
           apiMessages.push(entry);
         }
         logger.warn(
@@ -725,7 +733,9 @@ export class ChatManagerImpl implements ChatManager {
 
     logger.warn(
       `上下文截断完成: 移除 ${dropCount} 条旧消息，估算剩余 ${currentTokens} tokens` +
-        (currentTokens > SAFE_LIMIT ? `（仍超限 ${currentTokens - SAFE_LIMIT} tokens，将在 API 层被截断）` : '')
+        (currentTokens > SAFE_LIMIT
+          ? `（仍超限 ${currentTokens - SAFE_LIMIT} tokens，将在 API 层被截断）`
+          : '')
     );
 
     // 截断后重新 sanitize，修复可能被破坏的 tool/tool_calls 配对
@@ -1304,7 +1314,11 @@ export class ChatManagerImpl implements ChatManager {
           // ---- 结束用户交互检查 ----
 
           // 通知进度：正在执行工具
-          options?.onProgress?.({ stage: 'tool_executing', message: `正在执行 ${normalizedToolCall.name}...`, toolName: normalizedToolCall.name });
+          options?.onProgress?.({
+            stage: 'tool_executing',
+            message: `正在执行 ${normalizedToolCall.name}...`,
+            toolName: normalizedToolCall.name,
+          });
 
           const toolResult = await this.executeTool({
             id: normalizedToolCall.id,
@@ -1389,7 +1403,10 @@ export class ChatManagerImpl implements ChatManager {
         });
 
         // 通知进度：工具执行完成，正在生成回答
-        options?.onProgress?.({ stage: 'generating', message: '正在生成回答...' });
+        options?.onProgress?.({
+          stage: 'generating',
+          message: '正在生成回答...',
+        });
 
         const toolResultResponse = await activeClient.sendMessage(
           updatedMessages as unknown as ChatMessage[],
@@ -1611,7 +1628,10 @@ export class ChatManagerImpl implements ChatManager {
     await this._truncateApiMessages(apiMessages, maxCtx);
 
     // 通知进度：开始 LLM 分析
-    options?.onProgress?.({ stage: 'analyzing', message: '正在分析计划步骤...' });
+    options?.onProgress?.({
+      stage: 'analyzing',
+      message: '正在分析计划步骤...',
+    });
 
     let response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
@@ -1725,7 +1745,11 @@ export class ChatManagerImpl implements ChatManager {
         // ---- 结束用户交互检查 ----
 
         // 通知进度：正在执行工具
-        options?.onProgress?.({ stage: 'tool_executing', message: `正在执行 ${toolName}...`, toolName });
+        options?.onProgress?.({
+          stage: 'tool_executing',
+          message: `正在执行 ${toolName}...`,
+          toolName,
+        });
 
         const toolResult = await this.executeTool({
           id: toolCallId,
@@ -1777,7 +1801,10 @@ export class ChatManagerImpl implements ChatManager {
       ];
 
       // 通知进度：工具执行完成，正在生成最终回答
-      options?.onProgress?.({ stage: 'generating', message: '正在生成最终回答...' });
+      options?.onProgress?.({
+        stage: 'generating',
+        message: '正在生成最终回答...',
+      });
 
       const toolResultResponse = await activeClient.sendMessage(
         updatedMessages as unknown as ChatMessage[],

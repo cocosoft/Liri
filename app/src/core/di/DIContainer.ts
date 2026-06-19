@@ -312,7 +312,8 @@ export class DIContainer {
         await registerLoggerSpi(this);
       } catch (spiError) {
         logger.warn('Logger SPI 注册失败（非致命，使用回退路径）', {
-          error: spiError instanceof Error ? spiError.message : String(spiError),
+          error:
+            spiError instanceof Error ? spiError.message : String(spiError),
         });
       }
 

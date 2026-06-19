@@ -4,10 +4,7 @@
   CACHE_BOUNDARY,
   type SystemPromptSection,
 } from '@modules/constants/systemPromptSections';
-import {
-  buildSystemPrompt,
-  type SystemPromptContext,
-} from '@modules/ai';
+import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { modelManager } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';

@@ -4,11 +4,7 @@
  * 用于切换brief-only模式
  */
 
-import type {
-  Command,
-  CommandContext,
-  CommandResult,
-} from '@modules/commands';
+import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'BriefCommand' });

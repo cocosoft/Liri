@@ -1,6 +1,7 @@
 /**
  * 插件和技能生态系统（薄代理层）
  *
+ * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
  * 数据查询委托给 PluginSystem，本地仅保留 SDK 程序化注册的插件/技能。
  * PluginSystem 绑定前调用相关方法会抛出 AppError。
  */

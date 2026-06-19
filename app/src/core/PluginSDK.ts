@@ -1,5 +1,7 @@
 /**
  * 插件开发SDK
+ *
+ * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
  * 为第三方插件开发者提供开发工具和接口
  */
 

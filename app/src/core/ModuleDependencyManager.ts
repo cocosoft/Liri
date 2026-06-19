@@ -1,5 +1,7 @@
 /**
  * 模块依赖管理系统
+ *
+ * @deprecated 由 ModuleRegistry + DIContainer 替代。保留用于 --use-legacy-module-system 回退路径。
  * 负责管理模块的依赖关系、加载顺序和循环依赖检测
  */
 

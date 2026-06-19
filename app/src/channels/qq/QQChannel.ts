@@ -1379,12 +1379,15 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
+    // 使用服务器下发间隔的 70% 作为实际心跳间隔，确保在服务器超时前发送
+    const safeInterval = Math.floor(this.heartbeatIntervalMs * 0.7);
     this.logger.info('QQ Bot 心跳开始', {
       intervalMs: this.heartbeatIntervalMs,
+      safeIntervalMs: safeInterval,
     });
     this.heartbeatTimer = setInterval(() => {
       this.sendHeartbeat();
-    }, this.heartbeatIntervalMs);
+    }, safeInterval);
   }
 
   /**

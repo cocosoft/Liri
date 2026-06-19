@@ -110,6 +110,7 @@ import { MessageRole as SessionMessageRole } from '@modules/session/types/Messag
 import { resolveProjectRoot } from '@modules/core/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCounter.js';
+import { ContextCompressor } from '@modules/agent/ContextCompressor';
 
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
@@ -234,6 +235,11 @@ export class ChatManagerImpl implements ChatManager {
   private compactService: CompactServiceImpl;
 
   /**
+   * AI 上下文压缩器（智能摘要压缩，超限时优先使用）
+   */
+  private _contextCompressor: ContextCompressor;
+
+  /**
    * 令牌追踪器
    */
   private tokenTracker: SessionTokenTracker | null = null;
@@ -263,6 +269,7 @@ export class ChatManagerImpl implements ChatManager {
     this.streamService = createStreamService();
     this.sessionGateway = createSessionGateway();
     this.compactService = new CompactServiceImpl();
+    this._contextCompressor = new ContextCompressor();
     this.hookChainManager = HookChainManager.getInstance();
     this._checkpointService = getCheckpointService();
   }
@@ -620,17 +627,18 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 上下文长度保护：估算 apiMessages 的 Token 数，超限则从前往后截断旧消息
-   * （保留 system prompt + 最近 N 条消息）
+   * 上下文长度保护：估算 apiMessages 的 Token 数，超限则优先使用 AI 摘要压缩，
+   * 压缩失败或压缩不足时退化为截断旧消息（保留 system prompt + 最近 N 条消息）。
+   * 截断后重新 sanitize 以修复 tool/tool_calls 配对完整性。
    *
    * @param apiMessages - 待发送的消息列表（会被原地修改）
    * @param maxContextTokens - 模型上下文窗口上限（如 1_000_000），
    *       如果传入 0 或负数，则跳过滤检
    */
-  private _truncateApiMessages(
+  private async _truncateApiMessages(
     apiMessages: Record<string, unknown>[],
     maxContextTokens: number
-  ): void {
+  ): Promise<void> {
     if (maxContextTokens <= 0) return;
 
     const RESPONSE_BUFFER_TOKENS = 50_000;
@@ -642,7 +650,42 @@ export class ChatManagerImpl implements ChatManager {
     if (estimatedTokens <= SAFE_LIMIT) return;
 
     logger.warn(
-      `上下文超限: 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
+      `上下文超限: 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，尝试 AI 摘要压缩`
+    );
+
+    // ── 优先尝试 AI 摘要压缩 ──
+    const compressibleMessages = apiMessages.map((msg, idx) => ({
+      role: msg.role as 'system' | 'user' | 'assistant' | 'tool',
+      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+      tokenCount: roughTokenCountForMessages([
+        msg as { content?: string | unknown; role?: string },
+      ]),
+      timestamp: Date.now() + idx,
+      id: `msg_${idx}_${Date.now()}`,
+    }));
+    try {
+      const compressResult = await this._contextCompressor.compress(compressibleMessages);
+      if (compressResult.compressionRatio < 0.9 && compressResult.messages.length > 0) {
+        // AI 压缩有效：将压缩结果转回 apiMessages 格式
+        apiMessages.length = 0;
+        for (const cm of compressResult.messages) {
+          const entry: Record<string, unknown> = { role: cm.role, content: cm.content };
+          if (cm.metadata?.tool_calls) entry.tool_calls = cm.metadata.tool_calls;
+          if (cm.metadata?.tool_call_id) entry.tool_call_id = cm.metadata.tool_call_id;
+          apiMessages.push(entry);
+        }
+        logger.warn(
+          `AI 摘要压缩完成: ${compressResult.originalTokenCount} → ${compressResult.compressedTokenCount} tokens (ratio=${compressResult.compressionRatio.toFixed(2)})`
+        );
+        return;
+      }
+    } catch (err) {
+      logger.warn('AI 摘要压缩失败，退化为截断模式', { error: String(err) });
+    }
+
+    // ── AI 压缩失败/不足，退化为截断删除 ──
+    logger.warn(
+      `退化为截断模式: 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
     );
 
     // 保护系统消息和最近的 N 条消息，移除中间的旧消息
@@ -654,7 +697,7 @@ export class ChatManagerImpl implements ChatManager {
       (m: Record<string, unknown>) => m.role !== 'system'
     );
 
-    // 从前往后移除旧消息，直到 token 数降至安全线以下
+    // 循环截断：可能一次截断不足以降到安全线以下
     let currentTokens = estimatedTokens;
     let dropCount = 0;
     const toDrop = new Set<number>();
@@ -681,8 +724,12 @@ export class ChatManagerImpl implements ChatManager {
     for (const msg of keptNonSystem) apiMessages.push(msg);
 
     logger.warn(
-      `上下文截断完成: 移除 ${dropCount} 条旧消息，估算剩余 ${currentTokens} tokens`
+      `上下文截断完成: 移除 ${dropCount} 条旧消息，估算剩余 ${currentTokens} tokens` +
+        (currentTokens > SAFE_LIMIT ? `（仍超限 ${currentTokens - SAFE_LIMIT} tokens，将在 API 层被截断）` : '')
     );
+
+    // 截断后重新 sanitize，修复可能被破坏的 tool/tool_calls 配对
+    this._sanitizeApiMessages(apiMessages);
   }
 
   /**
@@ -993,10 +1040,10 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // ─────────────────────────────────────────────────────────
-    // 上下文长度保护：超限则截断旧消息
+    // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     // ─────────────────────────────────────────────────────────
     const maxCtx = this._resolveMaxContextTokens(options?.model);
-    this._truncateApiMessages(apiMessages, maxCtx);
+    await this._truncateApiMessages(apiMessages, maxCtx);
 
     logger.debug('准备调用 activeClient.sendMessage', {
       constructor: (activeClient as any)?.constructor?.name,
@@ -1444,8 +1491,8 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 通知会话状态变化为空闲状态
-    this.getSessionMachine(session.id).complete('sendMessage完成');
+    // 通知会话状态变化为空闲状态（使用 finish 回到 IDLE，允许下一轮 start）
+    this.getSessionMachine(session.id).finish('sendMessage完成');
 
     return assistantMessage;
   }
@@ -1547,9 +1594,9 @@ export class ChatManagerImpl implements ChatManager {
 
     const toolDefinitions = this.buildToolDefinitions();
 
-    // 上下文长度保护：超限则截断旧消息
+    // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     const maxCtx = this._resolveMaxContextTokens(options?.model);
-    this._truncateApiMessages(apiMessages, maxCtx);
+    await this._truncateApiMessages(apiMessages, maxCtx);
 
     let response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
@@ -2041,9 +2088,9 @@ export class ChatManagerImpl implements ChatManager {
 
     const activeClient = this.getClientForModel(options?.model);
 
-    // 上下文长度保护：超限则截断旧消息
+    // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     const maxCtx = this._resolveMaxContextTokens(options?.model);
-    this._truncateApiMessages(apiMessages, maxCtx);
+    await this._truncateApiMessages(apiMessages, maxCtx);
 
     const gen = activeClient.streamMessage(
       apiMessages as unknown as ChatMessage[],

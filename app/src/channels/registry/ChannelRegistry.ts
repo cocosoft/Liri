@@ -230,6 +230,11 @@ export class ChannelRegistry extends EventEmitter {
     await this.createTable();
     await this.loadSavedConfigs();
 
+    // 迁移：归一化通道名称为小写（消除大小写不一致导致的重复行）
+    this.db!.run(
+      `UPDATE channel_configs SET name = LOWER(name) WHERE name != LOWER(name)`
+    );
+
     this.persistenceReady = true;
   }
 
@@ -341,7 +346,16 @@ export class ChannelRegistry extends EventEmitter {
               /* ignore */
             }
 
-            this.configs.set(row.id, {
+            // 用 type（通道标识，如 "qq"）作为 key，而非自增 id
+            const key = (row.type || row.name).toLowerCase();
+
+            // 若因历史数据重复（同一 key 多行），保留含凭据的配置
+            const existing = this.configs.get(key);
+            if (existing && Object.keys(existing.options).length > 0 && Object.keys(options).length === 0) {
+              continue;
+            }
+
+            this.configs.set(key, {
               name: row.name,
               type: row.type || row.id,
               enabled: row.enabled === 1,
@@ -367,8 +381,7 @@ export class ChannelRegistry extends EventEmitter {
       this.db!.run(
         `INSERT INTO channel_configs (id, name, type, enabled, options, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name,
+         ON CONFLICT(name) DO UPDATE SET
            type = excluded.type,
            enabled = excluded.enabled,
            options = excluded.options,
@@ -397,7 +410,7 @@ export class ChannelRegistry extends EventEmitter {
         return;
       }
       this.db!.run(
-        'DELETE FROM channel_configs WHERE id = ?',
+        'DELETE FROM channel_configs WHERE name = ?',
         [id],
         (err: Error | null) => {
           if (err) {

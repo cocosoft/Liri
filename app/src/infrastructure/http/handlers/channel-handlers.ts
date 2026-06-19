@@ -610,6 +610,53 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
 
   const _processingMessages = new Set<string>();
 
+  /** 跟踪待重试的出站回复（用于断点恢复） */
+  const _pendingOutboundReplies = new Map<string, {
+    target: string;
+    content: string;
+    retryCount: number;
+    lastAttemptAt: number;
+    channelType: string;
+  }>();
+
+  /** 定期重试待发送的失败回复 */
+  let _retryTimer: ReturnType<typeof setInterval> | null = null;
+  function schedulePendingFlush(): void {
+    if (_retryTimer) return;
+    _retryTimer = setInterval(async () => {
+      if (_pendingOutboundReplies.size === 0) return;
+      const now = Date.now();
+      for (const [key, pending] of _pendingOutboundReplies) {
+        // 至少等待 10 秒再重试
+        if (now - pending.lastAttemptAt < 10_000) continue;
+        pending.lastAttemptAt = now;
+        try {
+          await plugin.outbound.sendText(pending.target, pending.content);
+          _pendingOutboundReplies.delete(key);
+          logger.info(`[${channelType}] 待发送消息重试成功`, { key });
+        } catch (err) {
+          pending.retryCount++;
+          if (pending.retryCount >= 3) {
+            _pendingOutboundReplies.delete(key);
+            logger.error(`[${channelType}] 消息发送失败（已达最大重试次数 3）`, {
+              target: pending.target,
+              retryCount: pending.retryCount,
+            });
+          } else {
+            logger.warn(`[${channelType}] 消息发送重试 ${pending.retryCount}/3 失败`, {
+              error: String(err),
+            });
+          }
+        }
+      }
+      // 全部完成则停止定时器
+      if (_pendingOutboundReplies.size === 0 && _retryTimer) {
+        clearInterval(_retryTimer);
+        _retryTimer = null;
+      }
+    }, 15_000);
+  }
+
   plugin.inbound.setMessageHandler(async (message: any) => {
     if (_processingMessages.has(message.messageId)) return;
     _processingMessages.add(message.messageId);
@@ -621,7 +668,10 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
       console.log(message.content);
 
       const coreAPI = getCoreAPI();
-      const response = await coreAPI.chat({
+
+      // 1. 为 AI 处理添加超时保护（120 秒）
+      let timeoutHandle: NodeJS.Timeout;
+      const chatPromise = coreAPI.chat({
         content: message.content,
         sessionId: message.conversationId ?? message.senderId,
         metadata: {
@@ -633,17 +683,60 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
         },
       });
 
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`[${label}] 请求处理超时（120秒）`));
+        }, 120_000);
+      });
+
+      let response: any;
+      try {
+        response = await Promise.race([chatPromise, timeoutPromise]);
+        clearTimeout(timeoutHandle!);
+      } catch (error) {
+        clearTimeout(timeoutHandle!);
+        throw error;
+      }
+
       if (response.content && plugin.outbound) {
         console.log(`\n── [${label}] Liri ──`);
         console.log(response.content);
         console.log('');
 
-        await plugin.outbound.sendText(
-          message.conversationId ?? message.senderId,
-          response.content
-        );
+        // 2. 发送回复（失败时加入重试队列）
+        const target = message.conversationId ?? message.senderId;
+        try {
+          await plugin.outbound.sendText(target, response.content);
+        } catch (err) {
+          logger.warn(`[${channelType}] 首次发送失败，加入重试队列`, {
+            target,
+            error: String(err),
+          });
+          const retryKey = `${target}_${message.messageId || Date.now()}`;
+          _pendingOutboundReplies.set(retryKey, {
+            target,
+            content: response.content,
+            retryCount: 0,
+            lastAttemptAt: Date.now(),
+            channelType,
+          });
+          schedulePendingFlush();
+        }
       }
     } catch (error) {
+      // 3. 超时时通知用户
+      const errorMsg = String(error);
+      if (errorMsg.includes('超时') && plugin.outbound) {
+        try {
+          await plugin.outbound.sendText(
+            message.conversationId ?? message.senderId,
+            '⏱️ 请求处理超时（120秒），请稍后重试或简化您的问题。'
+          );
+        } catch {
+          // 超时通知发送失败不处理
+        }
+      }
+
       await handleError(error, {
         module: 'infra:http',
         action: 'channel_inbound_message',

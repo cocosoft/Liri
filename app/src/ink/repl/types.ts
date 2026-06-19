@@ -28,6 +28,9 @@ export interface DisplayMessage {
   timestamp: number;
   toolCalls?: ToolCallInfo[];
 
+  /** 消息来源通道标识，如 'qq'、'wechat'、'discord' 等。为空表示本地终端消息 */
+  channelId?: string;
+
   /** 本条消息消耗的 token 数（仅 assistant 消息有效） */
   tokenInfo?: {
     input: number;

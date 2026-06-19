@@ -7,6 +7,43 @@ interface MessageBubbleProps {
   message: DisplayMessage;
 }
 
+/** 渠道图标映射 */
+const CHANNEL_ICONS: Record<string, string> = {
+  qq: '🐧',
+  wechat: '💬',
+  discord: '🎮',
+  telegram: '✈️',
+  dingtalk: '📌',
+  feishu: '📄',
+  slack: '🔷',
+  line: '💚',
+  irc: '🌐',
+  nostr: '🧩',
+  email: '📧',
+  sms: '📱',
+  webhook: '🔗',
+  wecom: '🏢',
+  googlechat: '💭',
+  msteams: '💼',
+  zalo: '🔵',
+  yuanbao: '🟢',
+  whatsapp: '📞',
+  signal: '🔒',
+  matrix: '🧊',
+  facebook: '👍',
+  twitter: '🐦',
+  claude: '🤖',
+  mattermost: '🔴',
+  bluebubbles: '💙',
+};
+
+/** 获取渠道显示标签 */
+function getChannelTag(channelId?: string): string {
+  if (!channelId) return '';
+  const icon = CHANNEL_ICONS[channelId] || '📨';
+  return `[${icon} ${channelId.charAt(0).toUpperCase() + channelId.slice(1)}] `;
+}
+
 /** 格式化时间戳为 HH:MM */
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -67,7 +104,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isSystem = message.role === 'system';
   const isAssistant = message.role === 'assistant';
 
-  const roleLabel = isUser ? '💬 You: ' : isSystem ? '⚙️ System: ' : '🤖 AI: ';
+  const channelTag = getChannelTag(message.channelId);
+  const roleLabel = `${channelTag}${isUser ? '💬 You: ' : isSystem ? '⚙️ System: ' : '🤖 AI: '}`;
   const roleColor = isUser ? 'cyan' : isSystem ? 'yellow' : 'green';
 
   const timeStr = formatTime(message.timestamp);

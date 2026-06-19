@@ -65,6 +65,7 @@ import {
   validateInput,
 } from '@modules/utils/sanitization.js';
 import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
+import { getAIModelManager } from '@modules/ai/AIModelManager.js';
 import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
 import { trackUsage } from '@modules/ai/UsageTracker.js';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
@@ -108,6 +109,8 @@ import { MessageType as SessionMessageType } from '@modules/session/types/Messag
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
 import { resolveProjectRoot } from '@modules/core/paths';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCounter.js';
+
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
@@ -616,6 +619,87 @@ export class ChatManagerImpl implements ChatManager {
     }
   }
 
+  /**
+   * 上下文长度保护：估算 apiMessages 的 Token 数，超限则从前往后截断旧消息
+   * （保留 system prompt + 最近 N 条消息）
+   *
+   * @param apiMessages - 待发送的消息列表（会被原地修改）
+   * @param maxContextTokens - 模型上下文窗口上限（如 1_000_000），
+   *       如果传入 0 或负数，则跳过滤检
+   */
+  private _truncateApiMessages(
+    apiMessages: Record<string, unknown>[],
+    maxContextTokens: number
+  ): void {
+    if (maxContextTokens <= 0) return;
+
+    const RESPONSE_BUFFER_TOKENS = 50_000;
+    const SAFE_LIMIT = maxContextTokens - RESPONSE_BUFFER_TOKENS;
+
+    const estimatedTokens = roughTokenCountForMessages(
+      apiMessages as { content?: string | unknown; role?: string }[]
+    );
+    if (estimatedTokens <= SAFE_LIMIT) return;
+
+    logger.warn(
+      `上下文超限: 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
+    );
+
+    // 保护系统消息和最近的 N 条消息，移除中间的旧消息
+    const protectedCount = 20;
+    const systemMsg = apiMessages.find(
+      (m: Record<string, unknown>) => m.role === 'system'
+    );
+    const nonSystemMessages = apiMessages.filter(
+      (m: Record<string, unknown>) => m.role !== 'system'
+    );
+
+    // 从前往后移除旧消息，直到 token 数降至安全线以下
+    let currentTokens = estimatedTokens;
+    let dropCount = 0;
+    const toDrop = new Set<number>();
+
+    for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
+      if (currentTokens <= SAFE_LIMIT) break;
+      const msgTokens = roughTokenCountForMessages([
+        nonSystemMessages[i] as {
+          content?: string | unknown;
+          role?: string;
+        },
+      ]);
+      currentTokens -= msgTokens;
+      toDrop.add(i);
+      dropCount++;
+    }
+
+    // 重建 apiMessages（原地替换）
+    const keptNonSystem = nonSystemMessages.filter(
+      (_: unknown, i: number) => !toDrop.has(i)
+    );
+    apiMessages.length = 0;
+    if (systemMsg) apiMessages.push(systemMsg);
+    for (const msg of keptNonSystem) apiMessages.push(msg);
+
+    logger.warn(
+      `上下文截断完成: 移除 ${dropCount} 条旧消息，估算剩余 ${currentTokens} tokens`
+    );
+  }
+
+  /**
+   * 根据模型名称动态获取上下文窗口大小，如无法获取则返回保守默认值
+   */
+  private _resolveMaxContextTokens(model?: string): number {
+    if (model) {
+      try {
+        const ctx = getAIModelManager().getContextWindow(model);
+        if (ctx > 0) return ctx;
+      } catch {
+        // 模型未注册等情况，使用默认值
+      }
+    }
+    return 128_000; // 保守默认值
+  }
+
   private _mapSessionStatusToState(status: string): SessionState {
     switch (status) {
       case 'active':
@@ -780,7 +864,7 @@ export class ChatManagerImpl implements ChatManager {
     const activeClient = this.getClientForModel(options?.model);
 
     // 准备消息列表（用于API调用）
-    const apiMessages = messages.map((msg) => {
+    let apiMessages = messages.map((msg) => {
       const chatMessage: Record<string, unknown> = {
         role: msg.role,
         content:
@@ -907,6 +991,12 @@ export class ChatManagerImpl implements ChatManager {
         // 共享上下文加载失败不影响主流程
       }
     }
+
+    // ─────────────────────────────────────────────────────────
+    // 上下文长度保护：超限则截断旧消息
+    // ─────────────────────────────────────────────────────────
+    const maxCtx = this._resolveMaxContextTokens(options?.model);
+    this._truncateApiMessages(apiMessages, maxCtx);
 
     logger.debug('准备调用 activeClient.sendMessage', {
       constructor: (activeClient as any)?.constructor?.name,
@@ -1428,7 +1518,7 @@ export class ChatManagerImpl implements ChatManager {
     const activeClient = this.getClientForModel(options?.model);
 
     const messages = session.messages;
-    const apiMessages = messages.map((msg: Message) => {
+    let apiMessages = messages.map((msg: Message) => {
       const chatMessage: Record<string, unknown> = {
         role: msg.role,
         content:
@@ -1456,6 +1546,10 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     const toolDefinitions = this.buildToolDefinitions();
+
+    // 上下文长度保护：超限则截断旧消息
+    const maxCtx = this._resolveMaxContextTokens(options?.model);
+    this._truncateApiMessages(apiMessages, maxCtx);
 
     let response = await activeClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
@@ -1842,7 +1936,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // 准备消息列表（用于API调用）
     const messages = session.messages;
-    const apiMessages = messages.map((msg) => {
+    let apiMessages = messages.map((msg) => {
       const chatMessage: Record<string, unknown> = {
         role: msg.role,
         content:
@@ -1946,6 +2040,10 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     const activeClient = this.getClientForModel(options?.model);
+
+    // 上下文长度保护：超限则截断旧消息
+    const maxCtx = this._resolveMaxContextTokens(options?.model);
+    this._truncateApiMessages(apiMessages, maxCtx);
 
     const gen = activeClient.streamMessage(
       apiMessages as unknown as ChatMessage[],

@@ -2,6 +2,9 @@
  * REPL工具类型定义
  */
 
+import type { ChildProcess } from 'child_process';
+import type { Writable, Readable } from 'stream';
+
 /**
  * REPL选项
  */
@@ -145,6 +148,26 @@ export interface REPLSession {
    * 添加执行记录
    */
   addExecution(execution: REPLExecution): void;
+
+  /**
+   * 子进程
+   */
+  process?: ChildProcess;
+
+  /**
+   * 标准输入
+   */
+  stdin?: Writable;
+
+  /**
+   * 标准输出
+   */
+  stdout?: Readable;
+
+  /**
+   * 标准错误
+   */
+  stderr?: Readable;
 }
 
 /**

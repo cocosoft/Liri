@@ -3,9 +3,9 @@
  * 定义子代理的类型、配置和通信协议
  */
 
-import { Tool } from '../tools/types/Tool';
-import { ToolUseContext } from '../tools/types/ToolUseContext';
-import { ToolResult } from '../tools/types/ToolResult';
+import { Tool } from '../../tools/types/Tool';
+import { ToolUseContext } from '../../tools/types/ToolUseContext';
+import { ToolResult } from '../../tools/types/ToolResult';
 
 /**
  * 子代理类型枚举

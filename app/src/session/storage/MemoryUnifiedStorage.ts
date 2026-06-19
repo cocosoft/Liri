@@ -161,11 +161,14 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
     if (sessionId) {
       const session = this.sessions.get(sessionId);
       if (!session) {
-        return { totalSessions: 0, totalMessages: 0, sessions: [] };
+        return { totalSessions: 0, activeSessions: 0, archivedSessions: 0, averageSessionDuration: 0, totalMessages: 0, sessions: [] };
       }
       const msgs = this.messages.get(sessionId) ?? [];
       return {
         totalSessions: 1,
+        activeSessions: 1,
+        archivedSessions: 0,
+        averageSessionDuration: 0,
         totalMessages: msgs.length,
         sessions: [session.id],
       };
@@ -178,6 +181,9 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
 
     return {
       totalSessions: this.sessions.size,
+      activeSessions: this.sessions.size,
+      archivedSessions: 0,
+      averageSessionDuration: 0,
       totalMessages,
       sessions: Array.from(this.sessions.keys()),
     };

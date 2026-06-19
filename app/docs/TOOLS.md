@@ -426,6 +426,73 @@ MonitorTool({})
 
 ---
 
+### ComputerUseTool - 桌面自动化
+
+**描述**: 控制桌面操作系统执行截图、鼠标操作、键盘输入、剪贴板访问和窗口管理。跨平台支持 Windows、macOS 和 Linux。
+
+**输入参数**:
+- `action` (string, 必需): 操作类型，可选值：
+  - `screenshot` - 全屏截图
+  - `mouseMove` - 移动鼠标（需 x, y）
+  - `mouseClick` - 鼠标点击（可选 x, y, button）
+  - `mouseDoubleClick` - 鼠标双击（可选 x, y）
+  - `mouseRightClick` - 鼠标右键（可选 x, y）
+  - `mouseScroll` - 滚轮滚动（需 deltaX, deltaY）
+  - `getMousePos` - 获取鼠标位置
+  - `keyboardType` - 键盘输入（需 text）
+  - `keyPress` - 按键（需 key）
+  - `keyCombination` - 组合键（需 key，如 `ctrl+c`）
+  - `mouseDown` - 鼠标按下（可选 button）
+  - `mouseUp` - 鼠标释放（可选 button）
+  - `drag` - 拖拽（需 startX, startY, x, y）
+  - `zoom` - 区域截图（需 x, y, deltaX, deltaY）
+  - `getClipboard` - 读取剪贴板
+  - `setClipboard` - 写入剪贴板（需 text）
+  - `getWindows` - 获取窗口列表
+  - `getFrontmostWindow` - 获取前台窗口
+  - `getDisplaySize` - 获取主显示器尺寸
+  - `getAllDisplays` - 获取所有显示器信息
+  - `launchApp` - 启动应用（需 text）
+  - `keyHold` - 长按按键（需 key, durationMs）
+- `x` (number, 可选): X 坐标
+- `y` (number, 可选): Y 坐标
+- `startX` (number, 可选): 拖拽起始 X
+- `startY` (number, 可选): 拖拽起始 Y
+- `text` (string, 可选): 文本内容
+- `key` (string, 可选): 按键名或组合键表达式
+- `button` (string, 可选): 鼠标按钮 `left` / `right` / `middle`（默认 `left`）
+- `deltaX` (number, 可选): 水平滚动量或区域宽度
+- `deltaY` (number, 可选): 垂直滚动量或区域高度
+- `quality` (number, 可选): 截图质量 0-1（默认 0.75）
+- `durationMs` (number, 可选): 按键保持时长（毫秒）
+
+**使用示例**:
+```javascript
+// 截图
+computer_use({ action: "screenshot" })
+
+// 移动鼠标并点击
+computer_use({ action: "mouseClick", x: 500, y: 300 })
+
+// 键盘输入
+computer_use({ action: "keyboardType", text: "Hello, Liri!" })
+
+// 组合键
+computer_use({ action: "keyCombination", key: "ctrl+c" })
+```
+
+**平台要求与注意事项**:
+
+| 平台 | 依赖 | 备注 |
+|------|------|------|
+| Windows | PowerShell（内置） | 无需额外安装 |
+| macOS | 系统内置工具 | 需授权屏幕录制和辅助功能权限 |
+| Linux | xdotool, xclip, imagemagick, wmctrl | 仅支持 X11 会话 |
+
+详细说明请参阅 [工具参考/computer-use.md](docs/工具参考/computer-use.md)。
+
+---
+
 ## 工具使用技巧
 
 ### 1. 组合使用工具

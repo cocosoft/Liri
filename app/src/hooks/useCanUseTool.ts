@@ -77,7 +77,7 @@ export function useCanUseTool(
     permissionResult: result || {
       behavior: 'ask',
       decisionReason: { type: 'default' },
-    },
+    } as PermissionResult<Record<string, unknown>>,
     denialReason,
     decisionReason,
   };

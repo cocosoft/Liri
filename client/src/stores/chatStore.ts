@@ -968,6 +968,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       batchPending = false;
 
+      // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
+      // 不等待 updateMessageBlocks 和 doAutoRename 完成
+      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
+
       const finalMessages = get().messages;
       const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
       if (finalMsgIdx !== -1) {
@@ -995,9 +999,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           }
         }
       }
-
-      // 重置发送/输入/流式状态，UI 立刻响应
-      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
 
       // 再执行自动重命名（不阻塞 UI 状态）
       if (shouldAutoRename(sessionId)) {

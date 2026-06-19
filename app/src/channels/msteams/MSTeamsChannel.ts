@@ -13,6 +13,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 import { TTLCache } from '@modules/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import path from 'node:path';
@@ -336,6 +337,11 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
         activityId: data['id'] as string,
       };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:msteams',
+        action: 'sendActivity',
+        context: { conversationId },
+      });
       return { ok: false, error: String(e) };
     }
   }
@@ -430,6 +436,11 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
         messageId: result.activityId,
       };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:msteams',
+        action: 'sendFileMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -550,7 +561,11 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
               if (activity['type'] === 'message') {
                 self.handleTeamsActivity(activity);
               }
-            } catch {
+            } catch (parseErr) {
+              handleError(parseErr, {
+                module: 'channels:msteams',
+                action: 'webhook:parseActivity',
+              });
               res.writeHead(400);
               res.end('Bad Request');
             }
@@ -566,8 +581,9 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
             resolve();
           });
           self.webhookServer!.on('error', (err: Error) => {
-            self.logger.error('MS Teams Webhook 启动失败', {
-              error: String(err),
+            handleError(err, {
+              module: 'channels:msteams',
+              action: 'webhook:serverError',
             });
             reject(err);
           });
@@ -648,7 +664,10 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(ctx).catch((err) => {
-      this.logger.error('MS Teams 消息处理异常', { error: String(err) });
+      handleError(err, {
+        module: 'channels:msteams',
+        action: 'handleIncomingMessage',
+      });
     });
   }
 }

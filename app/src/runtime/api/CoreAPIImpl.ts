@@ -148,7 +148,7 @@ export class CoreAPIImpl implements CoreAPI {
   }) {
     this.chatManager = options?.chatManager ?? createChatManager();
     this.sessionManager =
-      options?.sessionManager ?? (this.chatManager as any).getSessionManager();
+      options?.sessionManager ?? this.chatManager.getSessionManager();
     this.toolManager = options?.toolManager ?? globalToolManager;
     this.coordinator = options?.coordinator ?? defaultCoordinator;
     this.converterEngine = options?.converterEngine ?? getConverterEngine();
@@ -249,7 +249,7 @@ export class CoreAPIImpl implements CoreAPI {
 
         if (envProvider) {
           provider = providerRegistry.getOrCreate(
-            envProvider.providerType as any,
+            envProvider.providerType,
             {
               apiKey: envProvider.apiKey || '',
               baseUrl: envProvider.baseUrl,
@@ -893,7 +893,7 @@ export class CoreAPIImpl implements CoreAPI {
         assistantResponse,
         async (messages) => {
           const llmClient = this.chatManager.getLLMClient();
-          const response = await llmClient.sendMessage(messages as any, {});
+          const response = await llmClient.sendMessage(messages as import('@modules/ai/models/types').ChatMessage[], {});
           return response?.content || null;
         }
       );

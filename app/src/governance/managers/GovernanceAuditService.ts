@@ -172,9 +172,9 @@ export class GovernanceAuditService extends EventEmitter {
   ): AuditEvent {
     const event: Omit<AuditEvent, 'auditId'> = {
       type: 'execution_completed' as GovernanceEventType,
-      toolName: (result as any).toolName,
-      toolUseId: (result as any).toolUseId,
-      executionId: (result as any).executionId,
+      toolName: result.toolName || '',
+      toolUseId: result.toolUseId || '',
+      executionId: result.executionId,
       userId,
       sessionId,
       timestamp: new Date(),
@@ -182,7 +182,7 @@ export class GovernanceAuditService extends EventEmitter {
         result: result,
         success: result.success,
         error: result.error,
-        executionTime: (result as any).executionTime,
+        executionTime: result.executionTime,
       },
     };
 
@@ -281,7 +281,8 @@ export class GovernanceAuditService extends EventEmitter {
 
       if ((event.type as string) === 'execution_completed' && event.data) {
         executionCount++;
-        const success = (event.data as any).success;
+        const eventData = event.data as { success?: boolean; executionTime?: number };
+        const success = eventData.success;
         eventsByStatus[success ? 'success' : 'failure'] =
           (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;
 
@@ -289,8 +290,8 @@ export class GovernanceAuditService extends EventEmitter {
           successCount++;
         }
 
-        if ((event.data as any).executionTime) {
-          totalExecutionTime += (event.data as any).executionTime;
+        if (eventData.executionTime) {
+          totalExecutionTime += eventData.executionTime;
         }
       }
     }

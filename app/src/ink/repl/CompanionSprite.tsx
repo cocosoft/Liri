@@ -5,13 +5,11 @@ import type { StreamState } from './types';
 interface CompanionSpriteProps {
   streamState: StreamState;
   hasContent: boolean;
-  hasToolCalls: boolean;
 }
 
 export const CompanionSprite: React.FC<CompanionSpriteProps> = ({
   streamState,
   hasContent,
-  hasToolCalls,
 }) => {
   const [showDone, setShowDone] = useState(false);
 
@@ -43,14 +41,6 @@ export const CompanionSprite: React.FC<CompanionSpriteProps> = ({
     return (
       <Box paddingX={2}>
         <Text color="yellow"> ⏸ Paused (ESC to resume)</Text>
-      </Box>
-    );
-  }
-
-  if (hasToolCalls) {
-    return (
-      <Box paddingX={2}>
-        <Text color="yellow"> Executing tools...</Text>
       </Box>
     );
   }

@@ -4,7 +4,7 @@ import { MessageBubble } from './MessageBubble';
 import { StreamingMessage } from './StreamingMessage';
 import { ToolCallPanel } from './ToolCallPanel';
 import { CompanionSprite } from './CompanionSprite';
-import type { DisplayMessage, ActiveToolCall, StreamState } from './types';
+import type { DisplayMessage, StreamState } from './types';
 
 const CHARS_PER_LINE = 70;
 const BASE_LINES_PER_MSG = 2;
@@ -14,7 +14,6 @@ interface ConversationAreaProps {
   streamingContent: string;
   isStreaming: boolean;
   streamState: StreamState;
-  activeToolCalls: ActiveToolCall[];
   height: number;
 }
 
@@ -29,7 +28,6 @@ export const ConversationArea: React.FC<ConversationAreaProps> = ({
   streamingContent,
   isStreaming,
   streamState,
-  activeToolCalls,
   height,
 }) => {
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -138,11 +136,7 @@ export const ConversationArea: React.FC<ConversationAreaProps> = ({
         <CompanionSprite
           streamState={streamState}
           hasContent={streamingContent.length > 0}
-          hasToolCalls={activeToolCalls.length > 0}
         />
-      )}
-      {isStreaming && activeToolCalls.length > 0 && (
-        <ToolCallPanel activeToolCalls={activeToolCalls} />
       )}
       {isStreaming && <StreamingMessage content={streamingContent} />}
       {messages.length === 0 && !isStreaming && (

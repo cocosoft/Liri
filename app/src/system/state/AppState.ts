@@ -11,7 +11,7 @@ import type {
   ServerResource,
 } from '@modules/mcp/types/index.js';
 import type { LoadedPlugin, PluginError } from '@modules/types/plugin.js';
-import type { TaskState } from '@modules/types/task.js';
+import type { TaskState } from './types.js';
 import type { AgentId } from '@modules/types/ids.js';
 import type { SettingsJson } from '@modules/types/settings.js';
 import type { ModelSetting } from '@modules/types/model.js';

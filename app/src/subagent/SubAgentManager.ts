@@ -6,6 +6,11 @@ import {
   SubAgentConfig,
   SubAgentStatus,
   SubAgentType,
+  InProcessSubAgentConfig,
+  ProcessSubAgentConfig,
+  TmuxSubAgentConfig,
+  ITermSubAgentConfig,
+  CustomSubAgentConfig,
 } from './types/SubAgent';
 import { SubAgentFactory } from './SubAgentFactory';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
@@ -46,21 +51,21 @@ export class SubAgentManager {
     let subAgent: SubAgent;
     switch (config.type) {
       case SubAgentType.IN_PROCESS:
-        subAgent = this.factory.createInProcessSubAgent(config as any);
+        subAgent = this.factory.createInProcessSubAgent(config as InProcessSubAgentConfig);
         break;
       case SubAgentType.PROCESS:
-        subAgent = this.factory.createProcessSubAgent(config as any);
+        subAgent = this.factory.createProcessSubAgent(config as ProcessSubAgentConfig);
         break;
       case SubAgentType.TMUX:
-        subAgent = this.factory.createTmuxSubAgent(config as any);
+        subAgent = this.factory.createTmuxSubAgent(config as TmuxSubAgentConfig);
         break;
       case SubAgentType.ITERM:
-        subAgent = this.factory.createITermSubAgent(config as any);
+        subAgent = this.factory.createITermSubAgent(config as ITermSubAgentConfig);
         break;
       case SubAgentType.CUSTOM:
         subAgent = this.factory.createCustomSubAgent(
           config.type,
-          config as any
+          config as CustomSubAgentConfig
         );
         break;
       default:

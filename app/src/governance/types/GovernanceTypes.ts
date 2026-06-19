@@ -87,6 +87,10 @@ export interface GovernanceExecutionResult {
   events: GovernanceEvent[];
   violations: SandboxViolationEvent[];
   governanceCheck: GovernanceCheckResult;
+  toolName?: string;
+  toolUseId?: string;
+  executionId?: string;
+  executionTime?: number;
 }
 
 /**

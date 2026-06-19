@@ -52,8 +52,8 @@ export function initPluginsCommand(program: Command): void {
       plugins.forEach((plugin, index) => {
         console.log(chalk.green(`#${index + 1}`), chalk.bold(plugin.name));
         console.log(chalk.gray('  ID:'), plugin.repository);
-        console.log(chalk.gray('  Version:'), plugin.manifest.version);
-        console.log(chalk.gray('  Description:'), plugin.manifest.description);
+        console.log(chalk.gray('  Version:'), plugin.manifest?.version);
+        console.log(chalk.gray('  Description:'), plugin.manifest?.description);
         console.log(
           chalk.gray('  Status:'),
           plugin.enabled ? chalk.green('Enabled') : chalk.red('Disabled')
@@ -77,9 +77,9 @@ export function initPluginsCommand(program: Command): void {
         enablePluginConfig(configPath, pluginId);
         console.log(chalk.green('✓ Plugin installed successfully!'));
         console.log(chalk.gray(`  Name: ${plugin.name}`));
-        console.log(chalk.gray(`  Version: ${plugin.manifest.version}`));
+        console.log(chalk.gray(`  Version: ${plugin.manifest?.version}`));
         console.log(
-          chalk.gray(`  Description: ${plugin.manifest.description}`)
+          chalk.gray(`  Description: ${plugin.manifest?.description}`)
         );
       } catch (error) {
         console.log(

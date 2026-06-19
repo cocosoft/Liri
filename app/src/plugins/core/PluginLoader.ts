@@ -157,6 +157,7 @@ export class PluginLoader extends EventEmitter {
         version: manifest.version,
         state: PluginState.UNLOADED,
         path: pluginPath,
+        source: manifest.id,
         enabled: false,
         config: {},
         stats: {

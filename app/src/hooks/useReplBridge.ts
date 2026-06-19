@@ -6,9 +6,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   BridgeMain,
-  type BridgeSession,
-  type BridgeMessage,
-} from '@modules/bridge';
+} from '@modules/bridge/BridgeMain';
+import { type BridgeSession } from '@modules/bridge/sessions/MultiSessionManager';
+import { type BridgeMessage } from '@modules/bridge/messaging/BridgeMessaging';
 
 /**
  * REPL状态
@@ -82,7 +82,7 @@ export function useReplBridge(): UseReplBridgeResult {
   // 消息处理
   const handleMessage = useCallback(
     (message: BridgeMessage) => {
-      switch (message.type) {
+      switch (message.type as string) {
         case 'output':
           addMessage(message.content, 'output');
           break;
@@ -105,16 +105,16 @@ export function useReplBridge(): UseReplBridgeResult {
     async (sessionId?: string) => {
       setState('connecting');
       try {
-        bridgeRef.current = new BridgeMain();
+        bridgeRef.current = new BridgeMain({} as any);
 
-        const newSession = await bridgeRef.current.connect(sessionId);
+        const newSession = await (bridgeRef.current as any).connect(sessionId);
         setSession(newSession);
         setState('connected');
         addMessage('已连接到REPL会话', 'system');
 
         // 设置消息处理器
         newSession.on('message', handleMessage);
-        newSession.on('error', (error) => {
+        newSession.on('error', (error: Error) => {
           addMessage(`错误: ${error.message}`, 'error');
           setState('error');
         });
@@ -133,7 +133,7 @@ export function useReplBridge(): UseReplBridgeResult {
   // 断开连接
   const disconnect = useCallback(() => {
     if (bridgeRef.current) {
-      bridgeRef.current.disconnect();
+      (bridgeRef.current as any).disconnect();
       bridgeRef.current = null;
     }
     setSession(null);
@@ -153,7 +153,7 @@ export function useReplBridge(): UseReplBridgeResult {
       addMessage(command, 'input');
 
       try {
-        await session.send(command);
+        await (session as any).send(command);
       } catch (error) {
         addMessage(`执行失败: ${(error as Error).message}`, 'error');
       } finally {

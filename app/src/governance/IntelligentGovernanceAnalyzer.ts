@@ -106,6 +106,76 @@ export interface ComplianceAnalysis {
 }
 
 /**
+ * 合规控制分析（子类型）
+ */
+export interface ComplianceControlAnalysis {
+  /** 控制有效性 */
+  controlEffectiveness: number;
+  /** 控制覆盖率 */
+  controlCoverage: number;
+  /** 控制成熟度 */
+  controlMaturity: number;
+  /** 改进建议 */
+  improvementSuggestions: string[];
+}
+
+/**
+ * 合规改进分析（子类型）
+ */
+export interface ComplianceImprovementAnalysis {
+  /** 改进进度 */
+  improvementProgress: number;
+  /** 改进有效性 */
+  improvementEffectiveness: number;
+  /** 改进优先级 */
+  improvementPriority: string;
+  /** 改进时间线（天） */
+  improvementTimeline: number;
+}
+
+/**
+ * 合规检查分析（子类型）
+ */
+export interface ComplianceCheckAnalysis {
+  /** 执行时间 */
+  executionTime: number;
+  /** 成功率 */
+  successRate: number;
+  /** 稳定性 */
+  stability: number;
+  /** 效率 */
+  efficiency: number;
+}
+
+/**
+ * 审计处理分析（子类型）
+ */
+export interface AuditProcessingAnalysis {
+  /** 执行时间 */
+  executionTime: number;
+  /** 成功率 */
+  successRate: number;
+  /** 稳定性 */
+  stability: number;
+  /** 效率 */
+  efficiency: number;
+}
+
+/**
+ * 系统性能分析（子类型）
+ */
+export interface SystemPerformanceAnalysis {
+  /** 总体评分 */
+  overallScore: number;
+  /** 资源使用率 */
+  resourceUsage: number;
+  /** 可扩展性 */
+  scalability: number;
+  /** 可靠性 */
+  reliability: number;
+}
+
+/**
  * 性能分析
  */
 export interface PerformanceAnalysis {
@@ -140,6 +210,50 @@ export interface MaturityAnalysis {
 }
 
 /**
+ * 成熟度维度分析（子类型）
+ */
+export interface MaturityDimensionAnalysis {
+  /** 政策 */
+  policy: number;
+  /** 流程 */
+  process: number;
+  /** 技术 */
+  technology: number;
+  /** 人员 */
+  people: number;
+  /** 度量 */
+  measurement: number;
+}
+
+/**
+ * 成熟度改进分析（子类型）
+ */
+export interface MaturityImprovementAnalysis {
+  /** 改进进度 */
+  improvementProgress: number;
+  /** 改进有效性 */
+  improvementEffectiveness: number;
+  /** 改进优先级 */
+  improvementPriority: string;
+  /** 改进时间线（天） */
+  improvementTimeline: number;
+}
+
+/**
+ * 成熟度基准分析（子类型）
+ */
+export interface MaturityBenchmarkAnalysis {
+  /** 行业平均 */
+  industryAverage: number;
+  /** 最佳实践 */
+  bestPractice: number;
+  /** 与最佳实践的差距 */
+  gapToBestPractice: number;
+  /** 改进机会 */
+  improvementOpportunities: string[];
+}
+
+/**
  * 效率分析
  */
 export interface EfficiencyAnalysis {
@@ -157,6 +271,62 @@ export interface EfficiencyAnalysis {
 }
 
 /**
+ * 流程效率分析（子类型）
+ */
+export interface ProcessEfficiencyAnalysis {
+  /** 效率 */
+  efficiency: number;
+  /** 自动化程度 */
+  automation: number;
+  /** 标准化程度 */
+  standardization: number;
+  /** 优化程度 */
+  optimization: number;
+}
+
+/**
+ * 资源效率分析（子类型）
+ */
+export interface ResourceEfficiencyAnalysis {
+  /** 资源利用率 */
+  resourceUtilization: number;
+  /** 资源分配 */
+  resourceAllocation: number;
+  /** 资源优化 */
+  resourceOptimization: number;
+  /** 成本效益 */
+  costEffectiveness: number;
+}
+
+/**
+ * 成本效率分析（子类型）
+ */
+export interface CostEfficiencyAnalysis {
+  /** 每笔交易成本 */
+  costPerTransaction: number;
+  /** 成本节省 */
+  costSavings: number;
+  /** 投资回报率 */
+  roi: number;
+  /** 成本优化 */
+  costOptimization: number;
+}
+
+/**
+ * 自动化效率分析（子类型）
+ */
+export interface AutomationEfficiencyAnalysis {
+  /** 自动化率 */
+  automationRate: number;
+  /** 自动化有效性 */
+  automationEffectiveness: number;
+  /** 自动化覆盖率 */
+  automationCoverage: number;
+  /** 自动化成熟度 */
+  automationMaturity: number;
+}
+
+/**
  * 趋势分析
  */
 export interface TrendAnalysis {
@@ -171,6 +341,94 @@ export interface TrendAnalysis {
 
   /** 成熟度趋势分析 */
   maturityTrend: MaturityTrendAnalysis;
+}
+
+/**
+ * 风险趋势分析（子类型）
+ */
+export interface RiskTrendAnalysis {
+  /** 趋势方向 */
+  direction?: string;
+  /** 统计显著性 */
+  statisticalSignificance?: number;
+  /** 趋势方向（显示用） */
+  trendDirection: string;
+  /** 趋势强度 */
+  trendStrength: number;
+  /** 趋势波动性 */
+  trendVolatility: number;
+  /** 趋势预测 */
+  trendPrediction: string;
+}
+
+/**
+ * 合规趋势分析（子类型）
+ */
+export interface ComplianceTrendAnalysis {
+  /** 趋势方向 */
+  direction?: string;
+  /** 统计显著性 */
+  statisticalSignificance?: number;
+  /** 趋势方向（显示用） */
+  trendDirection: string;
+  /** 趋势强度 */
+  trendStrength: number;
+  /** 趋势波动性 */
+  trendVolatility: number;
+  /** 趋势预测 */
+  trendPrediction: string;
+}
+
+/**
+ * 性能趋势分析（子类型）
+ */
+export interface PerformanceTrendAnalysis {
+  /** 趋势方向 */
+  direction?: string;
+  /** 统计显著性 */
+  statisticalSignificance?: number;
+  /** 趋势方向（显示用） */
+  trendDirection: string;
+  /** 趋势强度 */
+  trendStrength: number;
+  /** 趋势波动性 */
+  trendVolatility: number;
+  /** 趋势预测 */
+  trendPrediction: string;
+}
+
+/**
+ * 成熟度趋势分析（子类型）
+ */
+export interface MaturityTrendAnalysis {
+  /** 趋势方向 */
+  direction?: string;
+  /** 统计显著性 */
+  statisticalSignificance?: number;
+  /** 趋势方向（显示用） */
+  trendDirection: string;
+  /** 趋势强度 */
+  trendStrength: number;
+  /** 趋势波动性 */
+  trendVolatility: number;
+  /** 趋势预测 */
+  trendPrediction: string;
+}
+
+/**
+ * 风险因素分布（子类型）
+ */
+export interface RiskFactorDistribution {
+  /** 合规 */
+  compliance: number;
+  /** 安全 */
+  security: number;
+  /** 运营 */
+  operational: number;
+  /** 财务 */
+  financial: number;
+  /** 声誉 */
+  reputational: number;
 }
 
 /**

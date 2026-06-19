@@ -23,7 +23,15 @@
  */
 
 export * from './types';
-export * from './PromptSuggestionConfig';
+export {
+  shouldEnablePromptSuggestion,
+  getSuggestionSuppressReason,
+  setSettingsManager,
+  setFeatureManager,
+  setSessionChecker,
+  setSwarmChecker,
+  getPromptSuggestionConfig,
+} from './PromptSuggestionConfig';
 export * from './SuggestionFilter';
 export * from './PromptSuggestion';
 export * from './UnifiedSuggestions';

@@ -245,7 +245,7 @@ export class ModuleRegistry {
     byCategory: Record<ModuleCategory, number>;
   } {
     const modules = this.getAllModules();
-    const byCategory: Record<ModuleCategory, number> = {} as any;
+    const byCategory = {} as Record<ModuleCategory, number>;
 
     // 初始化分类统计
     Object.values(ModuleCategory).forEach((category) => {

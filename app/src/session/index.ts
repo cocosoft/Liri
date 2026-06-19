@@ -34,7 +34,20 @@ export type {
 } from './FTS5SearchEngine';
 
 export * from './types/index.js';
-export * from './storage/UnifiedStorage.js';
+export {
+  StorageType,
+  createDefaultStorageConfig,
+  createDatabaseStorageConfig,
+  createFileSystemStorageConfig,
+  createHybridStorageConfig,
+  getStorageTypeName,
+} from './storage/UnifiedStorage.js';
+export type {
+  StorageConfig,
+  Transaction,
+  UnifiedMessageQueryOptions,
+  UnifiedSessionStorage,
+} from './storage/UnifiedStorage.js';
 export * from './storage/StorageFactory.js';
 import './storage/MemoryUnifiedStorage.js';
 export { StorageAdapter, createStorageAdapter } from './StorageAdapter.js';
@@ -69,9 +82,11 @@ export { SessionLock } from './SessionLock.js';
 export type { LockOptions, LockAcquireResult } from './SessionLock.js';
 export {
   SessionMigration,
-  CURRENT_SESSION_VERSION,
 } from './SessionMigration.js';
-export type { MigrationFunction } from './SessionMigration.js';
+export type {
+  MigrationVersion,
+  MigrationResult,
+} from './SessionMigration.js';
 export { SessionManager, createSessionManager } from './SessionManager.js';
 export type { SessionManagerConfig } from './SessionManager.js';
 

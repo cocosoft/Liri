@@ -293,10 +293,10 @@ export class SessionHookService {
             hooks: functionHooks,
           };
 
-          if (!result.has(event)) {
-            result.set(event, []);
+          if (!result.has(event!)) {
+            result.set(event!, []);
           }
-          result.get(event)!.push(entry);
+          result.get(event!)!.push(entry);
         }
       }
     };

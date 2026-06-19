@@ -2,6 +2,8 @@
  * 定义插件元数据、生命周期、依赖关系、事件等核心类型
  */
 
+import type { PluginManifest } from '@modules/types/plugin.js';
+
 /**
  * 插件生命周期状态
  */
@@ -285,13 +287,13 @@ export interface LoadedPlugin {
   config?: PluginConfig;
 
   /** 插件清单（来自 types/plugin.ts 消费方） */
-  manifest?: Record<string, unknown>;
+  manifest?: PluginManifest;
 
   /** 是否启用 */
   enabled: boolean;
 
   /** 插件来源 */
-  source?: string;
+  source: string;
 
   /** 插件仓库 */
   repository?: string;

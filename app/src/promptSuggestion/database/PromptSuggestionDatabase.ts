@@ -32,7 +32,7 @@ export class PromptSuggestionDatabase {
     }
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
           reject(err);
         } else {
@@ -93,7 +93,7 @@ export class PromptSuggestionDatabase {
           created_at INTEGER NOT NULL
         )
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -109,7 +109,7 @@ export class PromptSuggestionDatabase {
         CREATE INDEX IF NOT EXISTS idx_suggestion_session
         ON suggestion_history(session_id)
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -125,7 +125,7 @@ export class PromptSuggestionDatabase {
         CREATE INDEX IF NOT EXISTS idx_suggestion_outcome
         ON suggestion_history(outcome)
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -141,7 +141,7 @@ export class PromptSuggestionDatabase {
         CREATE INDEX IF NOT EXISTS idx_suggestion_created
         ON suggestion_history(created_at)
       `,
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -180,7 +180,7 @@ export class PromptSuggestionDatabase {
           VALUES (?, ?, strftime('%s', 'now'))
         `,
           [config.key, config.value],
-          (err) => {
+          (err: Error | null) => {
             if (err) {
               reject(err);
             } else {
@@ -230,7 +230,7 @@ export class PromptSuggestionDatabase {
           history.session_id,
           history.created_at,
         ],
-        function (err) {
+        function (this: { lastID: number }, err: Error | null) {
           if (err) {
             reject(err);
           } else {
@@ -267,7 +267,7 @@ export class PromptSuggestionDatabase {
         WHERE id = ?
       `,
         [acceptedAt, acceptMethod, timeToAcceptMs, id],
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -302,7 +302,7 @@ export class PromptSuggestionDatabase {
         WHERE id = ?
       `,
         [timeToIgnoreMs, id],
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -341,7 +341,7 @@ export class PromptSuggestionDatabase {
     params.push(limit);
 
     return new Promise((resolve, reject) => {
-      this.db?.all(sql, params, (err, rows) => {
+      this.db?.all(sql, params, (err: Error | null, rows: SuggestionHistory[]) => {
         if (err) {
           reject(err);
         } else {
@@ -370,7 +370,7 @@ export class PromptSuggestionDatabase {
         SELECT value FROM system_config WHERE key = ?
       `,
         [key],
-        (err, row) => {
+        (err: Error | null, row: { value: string } | undefined) => {
           if (err) {
             reject(err);
           } else if (row) {
@@ -403,7 +403,7 @@ export class PromptSuggestionDatabase {
         VALUES (?, ?, strftime('%s', 'now'))
       `,
         [key, value],
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
@@ -460,7 +460,7 @@ export class PromptSuggestionDatabase {
     sql += ' GROUP BY outcome';
 
     return new Promise((resolve, reject) => {
-      this.db?.all(sql, params, (err, rows) => {
+      this.db?.all(sql, params, (err: Error | null, rows: Array<{ outcome: string; count: number }>) => {
         if (err) {
           reject(err);
         } else {

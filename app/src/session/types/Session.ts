@@ -119,6 +119,7 @@ export interface SessionStats {
   averageSessionDuration: number;
   totalMessages: number;
   lastActivityAt?: number;
+  sessions?: string[];
 }
 
 /**

@@ -88,9 +88,9 @@ export function extractConnectionErrorDetails(
     if (
       current instanceof Error &&
       'code' in current &&
-      typeof (current as any).code === 'string'
+      typeof (current as Record<string, unknown>).code === 'string'
     ) {
-      const code = (current as any).code;
+      const code = (current as Record<string, unknown>).code as string;
       const isSSLError = SSL_ERROR_CODES.has(code);
       return {
         code,
@@ -102,9 +102,9 @@ export function extractConnectionErrorDetails(
     if (
       current instanceof Error &&
       'cause' in current &&
-      (current as any).cause !== current
+      (current as unknown as Record<string, unknown>).cause !== current
     ) {
-      current = (current as any).cause;
+      current = (current as unknown as Record<string, unknown>).cause;
       depth++;
     } else {
       break;

@@ -110,7 +110,10 @@ class WecomChannelPlugin extends BaseChannelPlugin {
         errmsg: data['errmsg'],
       });
     } catch (err) {
-      this.logger.error('企业微信获取 access_token 网络错误', err as Error);
+      await handleError(err, {
+        module: 'channels:wecom',
+        action: 'getAccessToken',
+      });
     }
     return null;
   }
@@ -137,6 +140,10 @@ class WecomChannelPlugin extends BaseChannelPlugin {
         error: ok ? undefined : (data['errmsg'] as string),
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:wecom',
+        action: 'callSendApi',
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -254,6 +261,11 @@ class WecomChannelPlugin extends BaseChannelPlugin {
       }
       return { mediaId: data['media_id'] as string };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:wecom',
+        action: 'uploadMedia',
+        context: { mediaType },
+      });
       return { error: String(e) };
     }
   }

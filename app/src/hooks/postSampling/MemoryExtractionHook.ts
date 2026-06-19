@@ -67,11 +67,11 @@ export function createMemoryExtractionHook(
 
     const { messages, toolUseContext } = context;
 
-    if (!toolUseContext?.session?.id) {
+    if (!(toolUseContext as any)?.sessionId) {
       return;
     }
 
-    const sessionId = toolUseContext.session.id;
+    const sessionId = (toolUseContext as any).sessionId;
     let extractedCount = 0;
 
     // Phase 1: Deep AI-driven memory extraction

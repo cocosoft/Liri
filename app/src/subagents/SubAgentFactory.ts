@@ -9,6 +9,10 @@ import {
   SubAgentConfig,
   SubAgentType,
   SubAgentStatus,
+  SubAgentInfo,
+  SubAgentExecutionRequest,
+  SubAgentExecutionResponse,
+  SubAgentMessage,
   SubAgentManager,
 } from './types/SubAgentTypes';
 import { BaseSubAgent, GenericSubAgent } from './BaseSubAgent';

@@ -110,7 +110,7 @@ function SecretField({
           type={showPassword ? "text" : "password"}
           value={currentInput}
           onChange={(e) => onSecretChange(field.key, e.target.value)}
-          placeholder={field.placeholder}
+          placeholder={defaultValue ? "已保存，留空则不修改" : field.placeholder}
           className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -186,7 +186,12 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
   const [lastChannelId, setLastChannelId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!channel || channel.id === lastChannelId) return;
+    // 模态框关闭时重置 lastChannelId，确保下次打开时重新初始化
+    if (!channel) {
+      setLastChannelId(null);
+      return;
+    }
+    if (channel.id === lastChannelId) return;
     setLastChannelId(channel.id);
     setName(channel.name);
     setEnabled(channel.enabled);
@@ -199,6 +204,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
       const val = cfg[f.key];
       if (val !== undefined && val !== null) {
         if (f.type === "password") {
+          // 密码字段置空，让用户重新输入；下方显示"当前: ***"指示已保存的值
           secrets[f.key] = "";
         } else {
           texts[f.key] = String(val);

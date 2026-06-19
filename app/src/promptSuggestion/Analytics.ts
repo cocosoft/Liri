@@ -144,7 +144,7 @@ export function logSuggestionIgnored(
   analyticsData.suggestionIgnored++;
 
   if (configManager.env('DEBUG_PROMPT_SUGGESTION') === 'true') {
-    logger.debug('建议已忽略', { suggestion, promptId, source });
+    logger.debug('建议已忽略', { suggestion, promptId });
   }
 }
 

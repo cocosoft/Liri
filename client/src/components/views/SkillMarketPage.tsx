@@ -1,9 +1,9 @@
 import { useEffect, useCallback, useState, useRef } from "react";
 import { useConfigStore } from "../../stores/configStore";
-import { useSkillMarketStore } from "../../stores/skillMarketStore";
+import { useSkillStore } from "../../stores/skillStore";
 import { useToastStore } from "../../stores/toastStore";
-import type { ClawHubSkillMeta } from "../../services/skillMarketService";
-import { skillMarketService } from "../../services/skillMarketService";
+import type { ClawHubSkillMeta } from "../../services/skillService";
+import { skillService } from "../../services/skillService";
 import { SkillDetailModal } from "./SkillDetailModal";
 import ConfirmDialog from "../common/ConfirmDialog";
 
@@ -27,8 +27,8 @@ function SkillMarketPage() {
   const {
     searchResults,
     recommended,
-    installed,
-    categories,
+    marketInstalled: installed,
+    marketCategories: categories,
     availableSources,
     marketSource,
     isLoading,
@@ -36,32 +36,32 @@ function SkillMarketPage() {
     error,
     updatingIds,
     searchMarket,
-    loadInstalled,
+    loadMarketInstalled: loadInstalled,
     loadRecommended,
-    loadCategories,
+    loadMarketCategories: loadCategories,
     loadSources,
-    installSkill,
-    uninstallSkill,
-    updateSkill,
-    updateAllSkills,
-    toggleSkill,
+    installMarketSkill: installSkill,
+    uninstallMarketSkill: uninstallSkill,
+    updateMarketSkill: updateSkill,
+    updateAllMarketSkills: updateAllSkills,
+    toggleMarketSkill: toggleSkill,
     setSearchQuery,
     setSourceFilter,
     setMarketSource,
     categoryFilter,
     setCategoryFilter,
-    isInstalled,
-    isEnabled,
-    getStats,
-    hasUpdates,
+    isMarketInstalled: isInstalled,
+    isMarketEnabled: isEnabled,
+    getMarketStats: getStats,
+    hasMarketUpdates: hasUpdates,
     page,
     pageSize,
     setPage,
     addCustomSource,
     removeCustomSource,
-  } = useSkillMarketStore();
+  } = useSkillStore();
 
-  const sourceFilter = useSkillMarketStore((s) => s.sourceFilter);
+  const sourceFilter = useSkillStore((s) => s.sourceFilter);
   const { addToast } = useToastStore();
 
   const [selectedSkill, setSelectedSkill] = useState<ClawHubSkillMeta | null>(
@@ -191,7 +191,7 @@ function SkillMarketPage() {
 
   const handleExport = useCallback(async () => {
     try {
-      const data = await skillMarketService.exportAll();
+      const data = await skillService.exportAll();
       if (data.length === 0) {
         addToast("info", "没有可导出的已安装技能");
         return;
@@ -255,7 +255,7 @@ function SkillMarketPage() {
           return;
         }
 
-        await skillMarketService.importSkills(skills);
+        await skillService.importSkills(skills);
         await loadInstalled();
         addToast("success", `成功导入 ${skills.length} 个技能`);
       } catch (err) {
@@ -276,7 +276,7 @@ function SkillMarketPage() {
   const handleClone = useCallback(
     async (skillId: string) => {
       try {
-        await skillMarketService.clone(skillId);
+        await skillService.cloneSkill(skillId);
         await loadInstalled();
         addToast("success", "克隆成功");
       } catch {

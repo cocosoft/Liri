@@ -51,7 +51,7 @@ interface DependencyResolutionResult {
   /**
    * 解析后的Hook ID列表（按执行顺序）
    */
-  executionOrder: string[];
+  executionOrder?: string[];
 
   /**
    * 错误信息

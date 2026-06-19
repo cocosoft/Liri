@@ -11,10 +11,10 @@ import { getLogger } from '@modules/monitoring/logs/Logger';
 const logger = getLogger('useMergedTools');
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { getToolRegistry, type Tool } from '@modules/tools';
+import { getToolRegistry } from '@modules/tools';
+import { type Tool } from '@modules/tools/types/Tool';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { useStore } from 'zustand';
-import { ToolConfig } from '@modules/tools/types';
 
 /**
  * 工具来源类型

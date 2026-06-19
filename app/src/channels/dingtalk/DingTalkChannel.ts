@@ -16,6 +16,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 
 const DINGTALK_META: ChannelMeta = {
   id: 'dingtalk',
@@ -197,6 +198,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
         error: ok ? undefined : (data['errmsg'] as string),
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:dingtalk',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -211,6 +217,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
         markdown: { title: 'Liri', text: content },
       });
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:dingtalk',
+        action: 'sendMarkdownMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -244,6 +255,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
       }
       return { mediaId: data['media_id'] as string };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:dingtalk',
+        action: 'uploadMedia',
+        context: { url, mediaType },
+      });
       return { error: String(e) };
     }
   }
@@ -276,6 +292,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
         error: data['errmsg'] as string,
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:dingtalk',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -308,6 +329,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
         error: data['errmsg'] as string,
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:dingtalk',
+        action: 'sendFileMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -331,6 +357,11 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
         },
       });
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:dingtalk',
+        action: 'sendInteractiveMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -407,11 +438,17 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
               };
 
               self.handleIncomingMessage(ctx).catch((err) => {
-                self.logger.error('钉钉消息处理异常', { error: String(err) });
+                handleError(err, {
+                  module: 'channels:dingtalk',
+                  action: 'webhook:handleIncomingMessage',
+                });
               });
-            } catch {
-              self.logger.warn('钉钉 Webhook 消息解析失败');
-            }
+            } catch (parseErr) {
+                handleError(parseErr, {
+                  module: 'channels:dingtalk',
+                  action: 'webhook:parseMessage',
+                });
+              }
           });
         });
 
@@ -424,8 +461,9 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
             resolve();
           });
           self.webhookServer!.on('error', (err: Error) => {
-            self.logger.error('钉钉 Webhook 服务器启动失败', {
-              error: String(err),
+            handleError(err, {
+              module: 'channels:dingtalk',
+              action: 'webhook:serverError',
             });
             reject(err);
           });

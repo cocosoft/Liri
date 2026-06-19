@@ -66,6 +66,7 @@ import { ExitWorktreeTool } from './ExitWorktreeTool/ExitWorktreeTool';
 import { ListPeersTool } from './ListPeersTool/ListPeersTool';
 import { SessionsTool } from './SessionsTool/SessionsTool';
 import { ClipboardTool } from './ClipboardTool/ClipboardTool';
+import { createComputerUseTool } from './ComputerUseTool';
 import { ImageTool } from './ImageTool/ImageTool';
 import { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
 import { VideoTool } from './VideoTool/VideoTool';
@@ -885,6 +886,13 @@ export class ToolFactory {
    */
   createClipboardTool(): Tool {
     return new ClipboardTool();
+  }
+
+  /**
+   * 创建桌面自动化工具（ComputerUse）
+   */
+  createComputerUseTool(): Tool {
+    return createComputerUseTool();
   }
 
   /**

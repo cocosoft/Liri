@@ -35,10 +35,10 @@ export class REPLToolImpl implements REPLTool {
         options
       );
 
-      (session as any).process = process;
-      (session as any).stdin = stdin;
-      (session as any).stdout = stdout;
-      (session as any).stderr = stderr;
+      session.process = process;
+      session.stdin = stdin;
+      session.stdout = stdout;
+      session.stderr = stderr;
 
       session.setStatus(REPLSessionStatus.RUNNING);
       this.sessions.set(session.id, session);
@@ -64,10 +64,10 @@ export class REPLToolImpl implements REPLTool {
     }
 
     const startTime = Date.now();
-    const process = (session as any).process;
-    const stdin = (session as any).stdin;
-    const stdout = (session as any).stdout;
-    const stderr = (session as any).stderr;
+    const process = session.process;
+    const stdin = session.stdin;
+    const stdout = session.stdout;
+    const stderr = session.stderr;
 
     if (!process || !stdin || !stdout || !stderr) {
       throw new AppError(
@@ -150,7 +150,7 @@ export class REPLToolImpl implements REPLTool {
    * 停止REPL
    */
   async stopREPL(session: REPLSession): Promise<void> {
-    const process = (session as any).process;
+    const process = session.process;
     if (process) {
       process.kill();
     }

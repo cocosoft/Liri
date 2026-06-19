@@ -24,8 +24,8 @@
  *
  * 根据平台自动选择合适的适配器：
  * - win32: WindowsComputerUseAdapter (PowerShell)
- * - darwin: 预留给 macOS 适配器（依赖 Swift 原生模块）
- * - linux: 预留给 Linux 适配器（依赖 X11/Xdotool）
+ * - darwin: MacComputerUseAdapter (osascript/screencapture)
+ * - linux: LinuxComputerUseAdapter (xdotool/xclip/ImageMagick)
  * - 默认: NoopComputerUseAdapter（告知不支持）
  */
 
@@ -47,9 +47,21 @@ export function getComputerUseAdapter(): ComputerUseAdapter {
         break;
       }
     case 'darwin':
-      break;
+      try {
+        const { MacComputerUseAdapter } = require('./MacAdapter');
+        adapter = new MacComputerUseAdapter();
+        return adapter!;
+      } catch {
+        break;
+      }
     case 'linux':
-      break;
+      try {
+        const { LinuxComputerUseAdapter } = require('./LinuxAdapter');
+        adapter = new LinuxComputerUseAdapter();
+        return adapter!;
+      } catch {
+        break;
+      }
   }
 
   return new NoopComputerUseAdapter();

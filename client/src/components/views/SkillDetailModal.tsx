@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useConfigStore } from "../../stores/configStore";
-import type { ClawHubSkillMeta } from "../../services/skillMarketService";
+import type { ClawHubSkillMeta } from "../../services/skillService";
 
 interface SkillDetailModalProps {
   skill: ClawHubSkillMeta;

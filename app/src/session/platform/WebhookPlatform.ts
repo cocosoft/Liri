@@ -208,7 +208,7 @@ export class WebhookPlatform implements PlatformAdapter {
         id: message.id,
         role: message.role,
         content: message.content,
-        createdAt: message.createdAt,
+        createdAt: message.timestamp,
         metadata: message.metadata,
       },
       timestamp: Date.now(),

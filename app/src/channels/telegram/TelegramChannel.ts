@@ -245,7 +245,12 @@ class TelegramFallbackTransport {
       });
       if (resp.ok) {
         if (this.stickyIp && this.canRetryDefault()) {
-          this.tryRestoreDefault().catch(() => {});
+          this.tryRestoreDefault().catch((err) => {
+            handleError(err, {
+              module: 'channels:telegram',
+              action: 'tryRestoreDefault',
+            });
+          });
         }
         return resp;
       }
@@ -681,8 +686,9 @@ class TelegramChannel extends BaseChannelPlugin {
             };
 
             this.handleIncomingMessage(voiceMessage).catch((error) => {
-              this.logger.error('Telegram 语音消息处理异常', {
-                error: String(error),
+              handleError(error, {
+                module: 'channels:telegram',
+                action: 'handleIncomingMessage(voice)',
               });
             });
             continue;
@@ -712,8 +718,9 @@ class TelegramChannel extends BaseChannelPlugin {
           };
 
           this.handleIncomingMessage(message).catch((error) => {
-            this.logger.error('Telegram 消息处理异常', {
-              error: String(error),
+            handleError(error, {
+              module: 'channels:telegram',
+              action: 'handleIncomingMessage(text)',
             });
           });
         }

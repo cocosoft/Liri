@@ -222,5 +222,5 @@ export function canMergePR(pr: PRInfo): boolean {
   const status = getPRCombinedStatus(pr);
   const hasApproval = pr.reviews?.some((r) => r.state === 'approved');
 
-  return status === 'success' && hasApproval && pr.state === 'open';
+  return status === 'success' && !!hasApproval && pr.state === 'open';
 }

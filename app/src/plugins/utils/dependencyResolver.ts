@@ -170,7 +170,7 @@ export function verifyAndDemote(
     for (const p of plugins) {
       if (!enabled.has(p.source)) continue;
 
-      for (const rawDep of p.manifest.dependencies ?? []) {
+      for (const rawDep of p.manifest?.dependencies ?? []) {
         const dep = qualifyDependency(rawDep, p.source);
         const isBare = !parsePluginIdentifier(dep).marketplace;
         const satisfied = isBare
@@ -228,7 +228,7 @@ export function findReverseDependents(
     .filter(
       (p) =>
         p.enabled &&
-        (p.manifest.dependencies ?? []).some((dep: string) => {
+        (p.manifest?.dependencies ?? []).some((dep: string) => {
           const { name } = parsePluginIdentifier(dep);
           return name === targetName;
         })
@@ -255,7 +255,7 @@ export function topologicalSort(plugins: LoadedPlugin[]): LoadedPlugin[] {
   }
 
   for (const plugin of plugins) {
-    for (const dep of plugin.manifest.dependencies ?? []) {
+    for (const dep of plugin.manifest?.dependencies ?? []) {
       const depKey = qualifyDependency(dep, plugin.source);
       const existingDep = plugins.find(
         (p) => p.source === depKey || p.name === dep
@@ -307,7 +307,7 @@ export function detectCycle(plugins: LoadedPlugin[]): PluginId[] | null {
 
     const plugin = plugins.find((p) => p.source === pluginId);
     if (plugin) {
-      for (const dep of plugin.manifest.dependencies ?? []) {
+      for (const dep of plugin.manifest?.dependencies ?? []) {
         const depKey = qualifyDependency(dep, pluginId);
         if (!visited.has(depKey)) {
           const cycle = dfs(depKey);

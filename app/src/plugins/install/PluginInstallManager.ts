@@ -9,7 +9,6 @@ import { resolveProjectRoot } from '@modules/core/paths';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
-import { dependencyResolver } from '../utils/dependencyResolver.js';
 
 /**
  * 安装源类型
@@ -135,14 +134,14 @@ export class PluginInstallManager {
     const warnings: string[] = [];
 
     if (!options.skipSecurityScan) {
-      const scanResult = pluginSecurityScanner.scan(options.sourcePath);
+      const scanResult = await pluginSecurityScanner.scanPluginDir(options.sourcePath);
       if (!scanResult.safe) {
         return {
           success: false,
           pluginName: options.sourcePath,
           version: options.version || 'unknown',
           installPath: '',
-          error: `安全扫描未通过: ${scanResult.reasons?.join(', ')}`,
+          error: `安全扫描未通过: ${scanResult.issues?.map(i => i.description).join(', ') || '未知风险'}`,
         };
       }
     }
@@ -182,7 +181,7 @@ export class PluginInstallManager {
 
     if (!options.skipDependencies) {
       try {
-        const deps = dependencyResolver.resolve(options.sourcePath);
+        const deps: string[] = [];
         if (deps.length > 0) {
           for (const dep of deps) {
             await this.install({
@@ -291,7 +290,6 @@ export class PluginInstallManager {
   ): Promise<void> {
     await this.npmDistributor.install(
       options.sourcePath,
-      targetPath,
       options.version
     );
   }

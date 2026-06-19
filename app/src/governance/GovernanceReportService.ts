@@ -241,7 +241,7 @@ export class GovernanceReportService {
     const statusCounts: Record<string, number> = {};
 
     for (const event of events) {
-      if (event.data?.result?.success === false) {
+      if ((event.data?.result as Record<string, unknown> | undefined)?.success === false) {
         statusCounts[event.toolName] = (statusCounts[event.toolName] || 0) + 1;
       }
     }

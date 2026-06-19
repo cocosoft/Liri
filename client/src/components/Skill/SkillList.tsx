@@ -36,6 +36,18 @@ const SOURCE_CONFIG: Record<
     tagColor:
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   },
+  official: {
+    label: "官方",
+    dotColor: "bg-indigo-500",
+    tagColor:
+      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
+  },
+  third_party: {
+    label: "第三方",
+    dotColor: "bg-orange-500",
+    tagColor:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  },
   user: {
     label: "用户",
     dotColor: "bg-green-500",

@@ -17,7 +17,6 @@ import type {
   StreamStats,
   StreamState,
   ToolCallInfo,
-  ActiveToolCall,
 } from './types';
 import type { ChatManager } from '@modules/chat/ChatManager';
 import type {
@@ -26,8 +25,6 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 
 const logger = new Logger({ level: 'info' as never });
-
-const STREAM_PAUSE_THRESHOLD_MS = 1500;
 
 interface ReplAppProps {
   chatManager: ChatManager;
@@ -39,7 +36,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   const [streamingContent, setStreamingContent] = useState('');
   const [streamState, setStreamState] = useState<StreamState>('idle');
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
-  const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
   const [terminalHeight, setTerminalHeight] = useState(24);
   const [submitCount, setSubmitCount] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(
@@ -411,7 +407,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
       setStreamState('streaming');
       setStreamingContent('');
       setStreamStats({ startTime: Date.now(), tokenCount: 0, currentSpeed: 0 });
-      setActiveToolCalls([]);
 
       const costBefore = {
         cost: getTotalCostUSD(),
@@ -426,23 +421,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
 
       let tokenCount = 0;
       let accumulated = '';
-      let lastTokenTime = Date.now();
-      const pauseCheckInterval = setInterval(() => {
-        const elapsed = Date.now() - lastTokenTime;
-        if (elapsed > STREAM_PAUSE_THRESHOLD_MS && accumulated.length === 0) {
-          setActiveToolCalls((prev) => {
-            if (prev.length > 0) return prev;
-            return [
-              {
-                toolCallId: `pause-${Date.now()}`,
-                toolName: '工具调用中...',
-                startedAt: lastTokenTime,
-                status: 'running',
-              },
-            ];
-          });
-        }
-      }, 500);
 
       try {
         const currentSession = chatManager.getCurrentSession();
@@ -465,7 +443,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               currentQuestionRef.current = chunk.questionData;
               setCurrentQuestion(chunk.questionData);
               setStreamState('question');
-              setActiveToolCalls([]);
 
               // 等待用户回答（streamMessage 内部 await 了 Promise，
               // 此处 await stream.next() 会阻塞直到 resolveInteraction 被调用）
@@ -481,8 +458,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           const chunk = chunkValue as string;
           accumulated += chunk;
           tokenCount++;
-          lastTokenTime = Date.now();
-          setActiveToolCalls([]);
 
           setStreamingContent(accumulated);
 
@@ -559,7 +534,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             };
           }) || [];
 
-        setActiveToolCalls([]);
         setStreamState('done');
 
         const contentStr =
@@ -607,8 +581,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           },
         ]);
       } finally {
-        clearInterval(pauseCheckInterval);
-        setActiveToolCalls([]);
         setStreamingContent('');
 
         // 流结束后更新模型信息（可能已有新决策记录）
@@ -709,7 +681,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             streamState === 'streaming' || streamState === 'question'
           }
           streamState={streamState}
-          activeToolCalls={activeToolCalls}
           height={conversationHeight}
         />
         <Box flexDirection="column">

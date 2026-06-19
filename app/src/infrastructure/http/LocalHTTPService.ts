@@ -36,6 +36,7 @@ import {
 } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import type { IChannelPlugin } from '@modules/channels/types';
+import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp/marketplace/types';
 
 import {
   handleMonitorSummary,
@@ -627,8 +628,8 @@ export class LocalHTTPService {
 
     const endpoint = new CostReportEndpoint(costTracker);
     const result = endpoint.handle({
-      format: format as any,
-      period: period as any,
+      format: format as 'json' | 'text' | 'csv' | 'prometheus',
+      period: period as 'today' | 'week' | 'month' | 'custom',
     });
 
     const contentType =
@@ -1745,13 +1746,65 @@ export class LocalHTTPService {
         if (!existsSync(dir)) return;
         const entries = await readdir(dir, { withFileTypes: true });
         for (const entry of entries) {
+          // 子目录：查找 SKILL.md
+          if (entry.isDirectory()) {
+            const skillDir = join(dir, entry.name);
+            const skillMdPath = join(skillDir, 'SKILL.md');
+            try {
+              await stat(skillMdPath); // 检查 SKILL.md 是否存在
+              const content = await readFile(skillMdPath, 'utf-8');
+              const parsed = parseSkillFrontmatter(content);
+              const name = entry.name;
+              const description = parsed.frontmatter?.description || '';
+              const fm = parsed.frontmatter as Record<string, any>;
+              const version = fm?.version || '1.0.0';
+              const author = fm?.author || '';
+              const category = fm?.category || 'general';
+
+              if (seen.has(name)) continue;
+              seen.add(name);
+
+              let createdAt = 0;
+              let updatedAt = 0;
+              try {
+                const st = await stat(skillMdPath);
+                createdAt = st.birthtimeMs;
+                updatedAt = st.mtimeMs;
+              } catch {
+                /* use defaults */
+              }
+
+              skills.push({
+                id: name,
+                name,
+                description,
+                status: 'enabled',
+                category,
+                parameters: [],
+                createdAt,
+                updatedAt,
+                usageCount: 0,
+                lastUsedAt: null,
+                source,
+                version,
+                filePath: skillMdPath,
+                frontmatter: { author, version, category },
+              });
+            } catch {
+              // 没有 SKILL.md 的子目录跳过
+              continue;
+            }
+            continue;
+          }
+
+          // 根目录下的 .md 文件（兼容旧结构）
           if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
           const filePath = join(dir, entry.name);
           try {
             const content = await readFile(filePath, 'utf-8');
             const parsed = parseSkillFrontmatter(content);
             const name = entry.name.replace(/\.md$/, '');
-            const description = (parsed.frontmatter as any)?.description || '';
+            const description = parsed.frontmatter?.description || '';
             const fm = parsed.frontmatter as Record<string, any>;
             const version = fm?.version || '1.0.0';
             const author = fm?.author || '';
@@ -2266,9 +2319,9 @@ export class LocalHTTPService {
       const query = parsedUrl.searchParams.get('query') || '';
       const category = parsedUrl.searchParams.get('category') || undefined;
       const registry =
-        (parsedUrl.searchParams.get('registry') as any) || undefined;
+        (parsedUrl.searchParams.get('registry')) as RegistryType | undefined;
       const sourceRegistry =
-        (parsedUrl.searchParams.get('sourceRegistry') as any) || undefined;
+        (parsedUrl.searchParams.get('sourceRegistry')) as ThirdPartyRegistry | undefined;
 
       const { mcpSystem } = await import('@modules/services/mcp');
 

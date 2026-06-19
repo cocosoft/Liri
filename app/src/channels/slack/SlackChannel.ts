@@ -103,6 +103,11 @@ class SlackChannelPlugin extends BaseChannelPlugin {
         error: data['error'] as string | undefined,
       };
     } catch (e) {
+      handleError(e, {
+        module: 'channels:slack',
+        action: 'slackApiCall',
+        context: { method },
+      });
       return { ok: false, error: String(e) };
     }
   }
@@ -231,8 +236,9 @@ class SlackChannelPlugin extends BaseChannelPlugin {
         this.connectSocketMode(wsUrl);
       })
       .catch((err) => {
-        this.logger.error('Slack apps.connections.open 请求失败', {
-          error: String(err),
+        handleError(err, {
+          module: 'channels:slack',
+          action: 'appsConnectionsOpen',
         });
       });
   }
@@ -333,7 +339,10 @@ class SlackChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((err) => {
-      this.logger.error('Slack 消息处理异常', { error: String(err) });
+      handleError(err, {
+        module: 'channels:slack',
+        action: 'handleIncomingMessage',
+      });
     });
   }
 

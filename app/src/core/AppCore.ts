@@ -91,7 +91,7 @@ export class AppCore {
       if (!this.useLegacyModuleSystem) {
         const sdkConfig: PluginSDKConfig = {
           ecosystem,
-          moduleManager: undefined as any,
+          moduleManager: undefined,
         };
         return new PluginSDK(sdkConfig);
       }

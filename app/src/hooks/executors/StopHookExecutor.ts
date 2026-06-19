@@ -7,7 +7,7 @@
 
 import type { Message } from '@modules/chat/types/message.js';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
-import { HookExecutor, HookExecutor } from './HookExecutor.js';
+import { HookExecutor } from './HookExecutor.js';
 import type {
   IndividualHookConfig,
   HookExecutionResult,
@@ -95,11 +95,13 @@ export class StopHookExecutor {
         const durationMs =
           Date.now() - (this.activeHooks.get(hookId)?.startTime || Date.now());
 
+        const hookName = String(hook.matcher || hook.config.type || 'unknown');
+
         const hookInfo: StopHookInfo = {
           hookId,
-          hookName: hook.matcher || hook.config.type,
+          hookName,
           success: result.success,
-          output: result.output,
+          output: result.output as string | undefined,
           error: result.error,
           durationMs,
           preventedContinuation:
@@ -122,7 +124,7 @@ export class StopHookExecutor {
 
         hookInfos.push({
           hookId,
-          hookName: hook.matcher || hook.config.type,
+          hookName: String(hook.matcher || hook.config.type || 'unknown'),
           success: false,
           error: errorMessage,
           durationMs:
@@ -171,7 +173,7 @@ export class StopHookExecutor {
         context.toolUseContext.options?.tools?.map((t) => t.name) || [],
     };
 
-    return await this.hookExecutor.execute(hook, hookContext);
+    return await this.hookExecutor.execute(hook, hookContext as any);
   }
 
   /**
@@ -186,7 +188,7 @@ export class StopHookExecutor {
 
     if (result.output) {
       try {
-        const output = JSON.parse(result.output);
+        const output = JSON.parse(result.output as string);
         return output.preventContinuation === true;
       } catch {
         return false;
@@ -204,10 +206,11 @@ export class StopHookExecutor {
   private createErrorMessage(error: string): Message {
     return {
       id: `error-${Date.now()}`,
-      role: 'system',
+      role: 'system' as any,
       content: `[StopHook Error]: ${error}`,
-      timestamp: new Date(),
-    };
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Message;
   }
 
   /**

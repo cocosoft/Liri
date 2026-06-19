@@ -20,7 +20,7 @@ export const CanvasToolPluginMetadata: PluginMetadata = {
   description: '画布工具模块插件，提供画布创建、绘制和导出功能（阶段4推广）',
   author: 'Liri Team',
   category: 'tool',
-  dependencies: ['tools'],
+  dependencies: ['tools'] as any,
   enabledByDefault: true,
 };
 
@@ -64,8 +64,8 @@ export class CanvasToolPlugin implements Plugin {
         id: this._canvasTool.name,
         name: this._canvasTool.name,
         description: this._canvasTool.description,
-        handler: this._canvasTool.execute.bind(this._canvasTool),
-        schema: this._canvasTool.schema,
+        handler: this._canvasTool.execute.bind(this._canvasTool) as any,
+        schema: (this._canvasTool as any).schema,
       });
 
       this._api.commands.registerCommand('canvas.help', async () => {

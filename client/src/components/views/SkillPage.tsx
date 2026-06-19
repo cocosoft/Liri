@@ -14,6 +14,7 @@ import ConfirmDialog from "../common/ConfirmDialog";
 import SkillList from "../Skill/SkillList";
 import SkillDetail from "../Skill/SkillDetail";
 import SkillEditor from "../Skill/SkillEditor";
+import SkillMarketModal from "./SkillMarketModal";
 
 function SkillPage() {
   const config = useConfigStore((s) => s.config);
@@ -43,10 +44,21 @@ function SkillPage() {
   const [statusFilter, setStatusFilter] = useState<SkillStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SkillSource | null>(null);
+  const [activeTab, setActiveTab] = useState<"local" | "official" | "third_party">("local");
+  const [showMarket, setShowMarket] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Skill | null>(null);
   const [skillContent, setSkillContent] = useState<SkillContent | null>(null);
+
+  useEffect(() => {
+    // 当 Tab 切换时同步更新 sourceFilter
+    if (activeTab === "local") {
+      setSourceFilter(null);
+    } else {
+      setSourceFilter(activeTab);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     loadSkills({
@@ -178,7 +190,7 @@ function SkillPage() {
     <div
       className={`flex-1 overflow-hidden flex flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
-      <div className="max-w-7xl mx-auto w-full p-6">
+      <div className="max-w-7xl mx-auto w-full p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1
@@ -192,16 +204,28 @@ function SkillPage() {
               管理和配置系统技能，共 {total} 个
             </p>
           </div>
-          <button
-            onClick={handleCreate}
-            className={`px-4 py-2 rounded-lg font-medium text-white transition-colors ${
-              isDark
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            + 创建技能
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMarket(true)}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                isDark
+                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
+              }`}
+            >
+              进入市场
+            </button>
+            <button
+              onClick={handleCreate}
+              className={`px-4 py-2 rounded-lg font-medium text-white transition-colors ${
+                isDark
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              + 创建技能
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -252,6 +276,34 @@ function SkillPage() {
           ))}
         </div>
 
+        {/* 来源 Tab 栏 */}
+        <div className="flex items-center gap-1 mb-4">
+          {[
+            { key: "local" as const, label: "系统技能", desc: "内置/用户/项目" },
+            { key: "official" as const, label: "官方", desc: "官方发布" },
+            { key: "third_party" as const, label: "第三方", desc: "社区来源" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? isDark
+                    ? "bg-blue-900/50 text-blue-300 border border-blue-600"
+                    : "bg-blue-100 text-blue-700 border border-blue-300"
+                  : isDark
+                    ? "text-gray-400 hover:text-gray-200 border border-gray-700 hover:bg-gray-800"
+                    : "text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              <div>{tab.label}</div>
+              <div className={`text-xs mt-0.5 ${activeTab === tab.key ? (isDark ? "text-blue-400" : "text-blue-500") : (isDark ? "text-gray-500" : "text-gray-400")}`}>
+                {tab.desc}
+              </div>
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <SearchInput
             value={searchQuery}
@@ -270,6 +322,16 @@ function SkillPage() {
               source: "builtin" as SkillSource,
               label: "内置",
               dotColor: "bg-blue-500",
+            },
+            {
+              source: "official" as SkillSource,
+              label: "官方",
+              dotColor: "bg-indigo-500",
+            },
+            {
+              source: "third_party" as SkillSource,
+              label: "第三方",
+              dotColor: "bg-orange-500",
             },
             {
               source: "user" as SkillSource,
@@ -477,6 +539,9 @@ function SkillPage() {
           </div>
         )}
       </div>
+
+      {/* 技能市场弹窗 */}
+      {showMarket && <SkillMarketModal onClose={() => setShowMarket(false)} />}
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

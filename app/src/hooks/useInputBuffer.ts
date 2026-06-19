@@ -69,7 +69,7 @@ export function createInputBufferStore(
       pendingPushTimeout = null;
     }
 
-    if (now - lastPushTime.current < debounceMs) {
+    if (now - lastPushTime < debounceMs) {
       pendingPushTimeout = setTimeout(() => {
         pushToBuffer(text, cursorOffset, pastedContents);
       }, debounceMs);

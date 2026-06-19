@@ -256,8 +256,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
       await this.inbound.start({});
       this.logger.info('QQ Bot WebSocket 入站监听已启动');
     } catch (error) {
-      this.logger.error('QQ Bot WebSocket 连接失败', {
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:qq',
+        action: 'onConnect:startWebSocket',
       });
       throw error;
     }
@@ -305,6 +306,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * POST https://bots.qq.com/app/getAppAccessToken
    */
   private async refreshAccessToken(): Promise<void> {
+    this.logger.info('QQ Bot 开始换取 Access Token');
     const resp = await fetch('https://bots.qq.com/app/getAppAccessToken', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -490,6 +492,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
         target,
         error: (err as Error).message,
       });
+      await handleError(err, {
+        module: 'channels:qq',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -523,6 +530,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
         messageId: data['id'] as string,
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:qq',
+        action: 'sendQQMediaMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -574,6 +586,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
       }
       return { fileUuid: data['file_uuid'] as string };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:qq',
+        action: 'uploadQQFile',
+        context: { target, fileType },
+      });
       return { error: String(e) };
     }
   }
@@ -609,6 +626,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
         messageId: data['id'] as string,
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:qq',
+        action: 'sendQQMediaMessage(media)',
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -644,6 +665,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
           messageId: data['id'] as string,
         };
       } catch (err) {
+        await handleError(err, {
+          module: 'channels:qq',
+          action: 'sendImageMessage(guild)',
+        });
         return { success: false, error: (err as Error).message };
       }
     }
@@ -737,6 +762,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 获取 QQ Bot WebSocket 网关地址
    */
   private async resolveGatewayUrl(): Promise<void> {
+    this.logger.info('QQ Bot 开始获取 WebSocket 网关地址');
     const token = await this.getAccessToken();
     const resp = await fetch('https://api.sgroup.qq.com/gateway', {
       headers: { Authorization: `QQBot ${token}` },
@@ -783,6 +809,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
           ? this.gatewayUrl
           : `wss://${this.gatewayUrl}`;
 
+        this.logger.info('QQ Bot 正在建立 WebSocket 连接', { wsUrl });
         this.ws = new WebSocket(wsUrl);
 
         const connectTimeout = setTimeout(() => {
@@ -818,8 +845,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
               s: payload.s,
             });
             this.handleGatewayPayload(payload).catch((error) => {
-              this.logger.error('QQ Bot 网关消息处理异常', {
-                error: String(error),
+              handleError(error, {
+                module: 'channels:qq',
+                action: 'handleGatewayPayload',
               });
             });
           } catch (error) {
@@ -857,6 +885,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
           this.handleDisconnect();
         };
       } catch (error) {
+        handleError(error, {
+          module: 'channels:qq',
+          action: 'connectWebSocket',
+        });
         if (!resolved) {
           resolved = true;
           reject(error);
@@ -1347,6 +1379,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
+    this.logger.info('QQ Bot 心跳开始', {
+      intervalMs: this.heartbeatIntervalMs,
+    });
     this.heartbeatTimer = setInterval(() => {
       this.sendHeartbeat();
     }, this.heartbeatIntervalMs);
@@ -1371,6 +1406,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
+      this.logger.info('QQ Bot 心跳停止');
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
@@ -1466,6 +1502,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 对标 OpenClaw ReconnectState + Hermes onclose 逻辑
    */
   private handleDisconnect(): void {
+    this.logger.info('QQ Bot WebSocket 断开，开始处理断开事件', {
+      code: this.lastCloseCode,
+      attempt: this.reconnectAttempts,
+    });
     this.stopHeartbeat();
     this.setInboundListening(false);
 
@@ -1550,19 +1590,24 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     this.reconnectTimer = setTimeout(async () => {
       try {
-        // 清理会话状态（如果需要）
+        // 清理会话状态（如果需要），仅执行一次后重置标志
         if (this.needsSessionClear) {
           this.sessionId = null;
           this.lastSeq = null;
+          this.needsSessionClear = false;
         }
 
-        // 刷新 Token（如果需要）
+        // 刷新 Token（如果需要），仅执行一次后重置标志
         if (this.needsTokenRefresh) {
           await this.refreshAccessToken();
           this.needsTokenRefresh = false;
         }
 
-        await this.resolveGatewayUrl();
+        // 网关地址缓存复用：仅首次连接时重新获取网关地址，
+        // 后续重连复用已缓存的地址，避免频繁调用 /gateway 接口触发 QQ 开放平台限流
+        if (!this.gatewayUrl) {
+          await this.resolveGatewayUrl();
+        }
         await this.connectWebSocket();
       } catch (error) {
         await handleError(error, {
@@ -1597,11 +1642,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
         this.ws.onopen = null;
         this.ws.close(1000, '主动断开');
       } catch {
-        // 关闭错误忽略
+        // 清理阶段关闭 WebSocket 出错是正常的（可能已经关闭），无需记录
       }
       this.ws = null;
     }
-
     this.setInboundListening(false);
   }
 

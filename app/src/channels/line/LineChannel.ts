@@ -12,6 +12,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { TTLCache } from '@modules/utils/cache';
+import { handleError } from '@modules/error/handleError';
 
 const LINE_API_BASE = 'https://api.line.me/v2/bot';
 
@@ -201,6 +202,11 @@ class LineChannelPlugin extends BaseChannelPlugin {
         : `LINE API ${resp.status}: ${await resp.text()}`;
       return { ok: resp.ok, data, error };
     } catch (e) {
+      handleError(e, {
+        module: 'channels:line',
+        action: 'linePost',
+        context: { path },
+      });
       return { ok: false, error: String(e) };
     }
   }
@@ -293,7 +299,10 @@ class LineChannelPlugin extends BaseChannelPlugin {
       }
       return true;
     } catch (e) {
-      this.logger.warn(`LINE reply 失败: ${e}`);
+      handleError(e, {
+        module: 'channels:line',
+        action: 'replyMessage',
+      });
       return false;
     }
   }
@@ -406,14 +415,18 @@ class LineChannelPlugin extends BaseChannelPlugin {
                   };
 
                   self.handleIncomingMessage(ctx).catch((err) => {
-                    self.logger.error('LINE 消息处理异常', {
-                      error: String(err),
+                    handleError(err, {
+                      module: 'channels:line',
+                      action: 'handleIncomingMessage',
                     });
                   });
                 });
               }
-            } catch {
-              self.logger.warn('LINE Webhook 消息解析失败');
+            } catch (parseErr) {
+              handleError(parseErr, {
+                module: 'channels:line',
+                action: 'webhook:parseEvent',
+              });
             }
           });
         });

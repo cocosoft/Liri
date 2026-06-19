@@ -42,6 +42,7 @@ export interface ScreenshotOptions {
   maxWidth?: number;
   maxHeight?: number;
   region?: { x: number; y: number; width: number; height: number };
+  displayId?: number; // 显示器ID，0=主显示器，>=1=扩展显示器
 }
 
 export interface ScreenshotResult {
@@ -56,19 +57,31 @@ export interface MousePosition {
   y: number;
 }
 
+/** 显示器几何信息 */
+export interface DisplayGeometry {
+  id: number;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  isPrimary: boolean;
+}
+
 export interface MouseAction {
-  type: 'move' | 'click' | 'doubleClick' | 'rightClick' | 'scroll';
+  type: 'move' | 'click' | 'doubleClick' | 'rightClick' | 'scroll' | 'mouseDown' | 'mouseUp';
   x?: number;
   y?: number;
+  button?: 'left' | 'right' | 'middle';
   deltaX?: number;
   deltaY?: number;
 }
 
 export interface KeyboardAction {
-  type: 'type' | 'keyPress' | 'keyDown' | 'keyUp';
+  type: 'type' | 'keyPress' | 'keyDown' | 'keyUp' | 'keyCombination' | 'keyHold';
   text?: string;
   key?: string;
   modifiers?: string[];
+  durationMs?: number;
 }
 
 export interface AppInfo {
@@ -89,6 +102,7 @@ export interface ComputerUseAdapter {
     height: number;
     scaleFactor: number;
   }>;
+  getAllDisplays(): Promise<DisplayGeometry[]>;
 
   mouseAction(action: MouseAction): Promise<void>;
   getMousePosition(): Promise<MousePosition>;

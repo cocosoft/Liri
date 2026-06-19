@@ -22,7 +22,7 @@
  * SessionKeyManager 导出（加密密钥管理）
  */
 export { SessionKeyManager, sessionKeyManager } from './SessionKeyManager.js';
-export type { KeyConfig, SessionKey } from './SessionKeyManager.js';
+export type { KeyConfig } from './SessionKeyManager.js';
 
 /**
  * 结构化会话路由 Key 导出

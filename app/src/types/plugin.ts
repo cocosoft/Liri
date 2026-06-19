@@ -19,6 +19,9 @@ export interface PluginManifest {
   version: string;
   author?: string;
   license?: string;
+  dependencies?: string[];
+  skills?: string[];
+  configSchema?: Record<string, unknown>;
   commandsPath?: string;
   commandsPaths?: string[];
   agentsPath?: string;

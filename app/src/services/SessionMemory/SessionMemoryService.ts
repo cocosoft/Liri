@@ -147,7 +147,7 @@ export class SessionMemoryServiceImpl implements SessionMemoryService {
           id: `task_${Date.now()}_${index}`,
           type: 'task',
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
           relatedMessages: [message.id],
           importance: this.calculateImportance(content),
         });
@@ -159,7 +159,7 @@ export class SessionMemoryServiceImpl implements SessionMemoryService {
           id: `insight_${Date.now()}_${index}`,
           type: 'insight',
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
           relatedMessages: [message.id],
           importance: this.calculateImportance(content),
         });
@@ -171,7 +171,7 @@ export class SessionMemoryServiceImpl implements SessionMemoryService {
           id: `decision_${Date.now()}_${index}`,
           type: 'decision',
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
           relatedMessages: [message.id],
           importance: this.calculateImportance(content),
         });
@@ -183,7 +183,7 @@ export class SessionMemoryServiceImpl implements SessionMemoryService {
           id: `action_${Date.now()}_${index}`,
           type: 'action',
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
           relatedMessages: [message.id],
           importance: this.calculateImportance(content),
         });
@@ -195,7 +195,7 @@ export class SessionMemoryServiceImpl implements SessionMemoryService {
           id: `problem_${Date.now()}_${index}`,
           type: 'problem',
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
           relatedMessages: [message.id],
           importance: this.calculateImportance(content),
         });
@@ -207,7 +207,7 @@ export class SessionMemoryServiceImpl implements SessionMemoryService {
           id: `solution_${Date.now()}_${index}`,
           type: 'solution',
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
           relatedMessages: [message.id],
           importance: this.calculateImportance(content),
         });

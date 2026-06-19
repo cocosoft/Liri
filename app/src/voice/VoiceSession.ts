@@ -417,8 +417,8 @@ export class VoiceSession {
     if (event.type === 'error') {
       this.logger.error('Provider 错误事件', {
         sessionId: this.id,
-        code: (event as any).code,
-        message: (event as any).message,
+        code: event.code,
+        message: event.message,
       });
     }
 
@@ -453,8 +453,8 @@ export class VoiceSession {
       this.toolCallCount++;
       this.logger.info('工具调用事件', {
         sessionId: this.id,
-        toolName: (event as any).name,
-        callId: (event as any).id,
+        toolName: event.name,
+        callId: event.id,
       });
 
       // Phase 2-3: OTel 追踪——工具调用
@@ -463,8 +463,8 @@ export class VoiceSession {
           name: 'voice.tool.call',
           attributes: {
             'voice.session_id': this.id,
-            'voice.tool_name': (event as any).name ?? 'unknown',
-            'voice.tool_call_id': (event as any).id ?? 'unknown',
+            'voice.tool_name': event.name ?? 'unknown',
+            'voice.tool_call_id': event.id ?? 'unknown',
           },
         },
         () => {

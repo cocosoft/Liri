@@ -889,7 +889,7 @@ export class EnhancedGovernanceManager {
     recommendations?: IntelligentGovernanceRecommendation[];
   }> {
     // 执行基础治理操作
-    const result = await this.baseManager.execute(
+    const result = await (this.baseManager as any).execute(
       governanceDomain,
       operation,
       context

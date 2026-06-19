@@ -79,7 +79,7 @@ export interface PluginLoadState {
 export interface TaskState {
   id: string;
   type: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'killed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'killed' | 'cancelled';
   description: string;
   toolUseId?: string;
   startTime: number;

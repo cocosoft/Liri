@@ -735,7 +735,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     const { moduleRegistry } = await import('./modules/ModuleRegistry');
     await moduleRegistry.bootstrap({
-      mode: options.mode as any,
+      mode: options.mode,
       args: options.args,
       debug: options.debug,
       verbose: options.verbose,
@@ -788,7 +788,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
       const { modelPricingService } =
         await import('@modules/ai/models/ModelPricingService.js').catch(() => {
-          return { modelPricingService: null as any };
+          return { modelPricingService: null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService };
         });
       if (modelPricingService) {
         await modelPricingService.initialize();
@@ -829,14 +829,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
       const { configManager } = await import('@modules/config/ConfigManager');
 
       // 从 configManager 读取路由配置，若无则使用默认值
-      const routerCfg =
-        configManager.getConfigValue<Record<string, unknown>>(
+      const routerCfg = (configManager.getConfigValue<Record<string, unknown>>(
           'models.router'
-        ) || {};
+        ) || {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
       const routerConfig: import('@modules/ai/router/types').RouterConfig = {
-        enabled: (routerCfg as any)?.enabled !== false,
-        defaultTier: ((routerCfg as any)?.defaultTier as any) || 'medium',
-        sessionSticky: (routerCfg as any)?.sessionSticky !== false,
+        enabled: routerCfg?.enabled !== false,
+        defaultTier: routerCfg?.defaultTier || 'medium',
+        sessionSticky: routerCfg?.sessionSticky !== false,
         tiers: {
           simple: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
           medium: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },

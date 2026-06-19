@@ -43,7 +43,7 @@ export class DatabaseStorage implements SessionStorage {
     }
 
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err) => {
+      const db = new Database(this.dbPath, (err: any) => {
         if (err) {
           reject(err);
         } else {
@@ -81,7 +81,7 @@ export class DatabaseStorage implements SessionStorage {
           state TEXT
         )
       `,
-        (err) => {
+        (err: any) => {
           if (err) {
             reject(err);
           } else {
@@ -106,7 +106,7 @@ export class DatabaseStorage implements SessionStorage {
           FOREIGN KEY (sessionId) REFERENCES sessions(id)
         )
       `,
-        (err) => {
+        (err: any) => {
           if (err) {
             reject(err);
           } else {
@@ -132,7 +132,7 @@ export class DatabaseStorage implements SessionStorage {
       );
     }
 
-    const sessionData = session.toJSON();
+    const sessionData = session.toJSON() as Record<string, any>;
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `INSERT OR REPLACE INTO sessions (id, createdAt, updatedAt, metadata, state) VALUES (?, ?, ?, ?, ?)`,
@@ -143,7 +143,7 @@ export class DatabaseStorage implements SessionStorage {
           JSON.stringify(sessionData.metadata),
           JSON.stringify(sessionData.state),
         ],
-        (err) => {
+        (err: any) => {
           if (err) {
             reject(err);
           } else {
@@ -174,7 +174,7 @@ export class DatabaseStorage implements SessionStorage {
       this.db?.get(
         `SELECT * FROM sessions WHERE id = ?`,
         [sessionId],
-        (err, row) => {
+        (err: any, row: any) => {
           if (err) {
             reject(err);
           } else {
@@ -194,7 +194,7 @@ export class DatabaseStorage implements SessionStorage {
       updatedAt: row.updatedAt,
       metadata: JSON.parse(row.metadata),
       state: JSON.parse(row.state),
-      messages: [],
+      messages: [] as SessionMessage[],
     };
 
     // 加载消息
@@ -220,7 +220,7 @@ export class DatabaseStorage implements SessionStorage {
       );
     }
 
-    const messageData = message.toJSON();
+    const messageData = message.toJSON() as Record<string, any>;
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `INSERT INTO messages (id, sessionId, type, content, createdAt, parentId, toolResult) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -235,7 +235,7 @@ export class DatabaseStorage implements SessionStorage {
             ? JSON.stringify(messageData.toolResult)
             : null,
         ],
-        (err) => {
+        (err: any) => {
           if (err) {
             reject(err);
           } else {
@@ -304,7 +304,7 @@ export class DatabaseStorage implements SessionStorage {
     }
 
     const rows = await new Promise<any[]>((resolve, reject) => {
-      this.db?.all(query, params, (err, rows) => {
+      this.db?.all(query, params, (err: any, rows: any) => {
         if (err) {
           reject(err);
         } else {
@@ -349,7 +349,7 @@ export class DatabaseStorage implements SessionStorage {
       this.db?.run(
         `UPDATE sessions SET metadata = ? WHERE id = ?`,
         [JSON.stringify(metadata.toJSON()), sessionId],
-        (err) => {
+        (err: any) => {
           if (err) {
             reject(err);
           } else {
@@ -380,7 +380,7 @@ export class DatabaseStorage implements SessionStorage {
       this.db?.get(
         `SELECT metadata FROM sessions WHERE id = ?`,
         [sessionId],
-        (err, row) => {
+        (err: any, row: any) => {
           if (err) {
             reject(err);
           } else {
@@ -390,11 +390,11 @@ export class DatabaseStorage implements SessionStorage {
       );
     });
 
-    if (!row || !row.metadata) {
+    if (!row || !(row as any).metadata) {
       return null;
     }
 
-    return SessionMetadata.fromJSON(JSON.parse(row.metadata));
+    return SessionMetadata.fromJSON(JSON.parse((row as any).metadata));
   }
 
   /**
@@ -417,7 +417,7 @@ export class DatabaseStorage implements SessionStorage {
       this.db?.run(
         `DELETE FROM messages WHERE sessionId = ?`,
         [sessionId],
-        (err) => {
+        (err: any) => {
           if (err) {
             reject(err);
           } else {
@@ -429,7 +429,7 @@ export class DatabaseStorage implements SessionStorage {
 
     // 再删除会话
     await new Promise<void>((resolve, reject) => {
-      this.db?.run(`DELETE FROM sessions WHERE id = ?`, [sessionId], (err) => {
+      this.db?.run(`DELETE FROM sessions WHERE id = ?`, [sessionId], (err: any) => {
         if (err) {
           reject(err);
         } else {
@@ -488,7 +488,7 @@ export class DatabaseStorage implements SessionStorage {
     }
 
     const rows = await new Promise<any[]>((resolve, reject) => {
-      this.db?.all(query, params, (err, rows) => {
+      this.db?.all(query, params, (err: any, rows: any) => {
         if (err) {
           reject(err);
         } else {
@@ -520,7 +520,7 @@ export class DatabaseStorage implements SessionStorage {
       this.db?.get(
         `SELECT id FROM sessions WHERE id = ?`,
         [sessionId],
-        (err, row) => {
+        (err: any, row: any) => {
           if (err) {
             reject(err);
           } else {
@@ -547,16 +547,8 @@ export class DatabaseStorage implements SessionStorage {
    */
   async close(): Promise<void> {
     if (this.db) {
-      await new Promise<void>((resolve, reject) => {
-        this.db?.close((err) => {
-          if (err) {
-            reject(err);
-          } else {
-            this.db = null;
-            resolve();
-          }
-        });
-      });
+      this.db.close();
+      this.db = null;
     }
   }
 }

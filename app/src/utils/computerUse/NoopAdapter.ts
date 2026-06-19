@@ -14,6 +14,7 @@ import type {
   MouseAction,
   KeyboardAction,
   AppInfo,
+  DisplayGeometry,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -49,6 +50,15 @@ export class NoopComputerUseAdapter implements ComputerUseAdapter {
     height: number;
     scaleFactor: number;
   }> {
+    throw new AppError(
+      'ComputerUse is not supported on this platform',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
+  }
+
+  async getAllDisplays(): Promise<DisplayGeometry[]> {
     throw new AppError(
       'ComputerUse is not supported on this platform',
       ErrorCategory.EXECUTION,

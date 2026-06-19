@@ -2,6 +2,9 @@
 name: system-info
 description: 显示系统信息
 version: 1.0.0
+source: builtin
+author: Liri
+license: MIT
 user-invocable: true
 when-to-use: 当你需要了解当前系统信息时
 ---

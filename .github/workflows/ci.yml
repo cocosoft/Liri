@@ -104,6 +104,44 @@ jobs:
     - name: Run build
       run: bun run build
 
+  cargo-build:
+    name: Rust Native Build (cargo check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app/native
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('app/native/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: app/native/target
+        key: ${{ runner.os }}-cargo-build-${{ hashFiles('app/native/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-build-
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run cargo check (native core)
+      run: cargo check
+
+    - name: Run cargo build (release)
+      run: cargo build --release
+      continue-on-error: true
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -190,6 +228,11 @@ jobs:
     - name: Run architecture compliance check
       run: |
         bun run scripts/lint-architecture.ts
+
+    - name: Run file size check
+      run: |
+        bun run scripts/lint-file-size.ts
+      continue-on-error: true
 
   command-test:
     name: Command Tests (Phase 1 + 2)

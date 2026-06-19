@@ -1,10 +1,8 @@
 /**
  * ChannelSecretStore 渠道密钥存储
  *
- * 统一的渠道凭据存储入口，所有渠道的配置信息（API Key、Token、Secret 等）
- * 通过此组件读写，底层基于 channelRegistry 持久化到 app.db 的 channel_configs 表。
- *
- * 解析优先级：显式传入值 > store（DB 持久化） > process.env > 默认值
+ * 数出同源：所有渠道凭据统一经由 channelRegistry 持久化到 app.db
+ * 的 channel_configs 表，不再回退到 process.env，确保配置管理的确定性。
  *
  * @example
  * ```typescript
@@ -53,111 +51,6 @@ function getRegistry(): _ChannelRegistry {
 }
 
 /**
- * 渠道凭据环境变量对照表
- * key: 渠道 ID, value: 渠道配置键名到环境变量名的映射
- */
-const CHANNEL_ENV_MAP: Record<string, Record<string, string>> = {
-  qq: {
-    appId: 'QQ_APP_ID',
-    clientSecret: 'QQ_APP_SECRET',
-    homeChannelId: 'QQ_HOME_CHANNEL_ID',
-  },
-  telegram: {
-    botToken: 'TELEGRAM_BOT_TOKEN',
-  },
-  discord: {
-    botToken: 'DISCORD_TOKEN',
-  },
-  dingtalk: {
-    appKey: 'DINGTALK_APP_KEY',
-    appSecret: 'DINGTALK_APP_SECRET',
-  },
-  feishu: {
-    appId: 'FEISHU_APP_ID',
-    appSecret: 'FEISHU_APP_SECRET',
-  },
-  wechat: {
-    botHttpUrl: 'WECHAT_BOT_HTTP_URL',
-  },
-  slack: {
-    botToken: 'SLACK_BOT_TOKEN',
-    signingSecret: 'SLACK_SIGNING_SECRET',
-  },
-  line: {
-    channelAccessToken: 'LINE_CHANNEL_ACCESS_TOKEN',
-    channelSecret: 'LINE_CHANNEL_SECRET',
-  },
-  irc: {
-    server: 'IRC_SERVER',
-    nick: 'IRC_NICK',
-  },
-  nostr: {
-    privateKey: 'NOSTR_PRIVATE_KEY',
-    relays: 'NOSTR_RELAYS',
-  },
-  email: {
-    host: 'EMAIL_HOST',
-    user: 'EMAIL_USER',
-  },
-  sms: {
-    fromNumber: 'SMS_FROM_NUMBER',
-  },
-  webhook: {
-    listenPort: 'WEBHOOK_LISTEN_PORT',
-  },
-  wecom: {
-    corpId: 'WECOM_CORP_ID',
-    corpSecret: 'WECOM_CORP_SECRET',
-    agentId: 'WECOM_AGENT_ID',
-  },
-  googlechat: {
-    serviceAccount: 'GOOGLECHAT_SERVICE_ACCOUNT',
-  },
-  msteams: {
-    botId: 'MSTEAMS_BOT_ID',
-    botPassword: 'MSTEAMS_BOT_PASSWORD',
-  },
-  zalo: {
-    appId: 'ZALO_APP_ID',
-    appSecret: 'ZALO_APP_SECRET',
-  },
-  yuanbao: {
-    appId: 'YUANBAO_APP_ID',
-    appKey: 'YUANBAO_APP_KEY',
-  },
-  whatsapp: {
-    phoneNumberId: 'WHATSAPP_PHONE_NUMBER_ID',
-    accessToken: 'WHATSAPP_ACCESS_TOKEN',
-  },
-  signal: {
-    account: 'SIGNAL_ACCOUNT',
-  },
-  matrix: {
-    homeserverUrl: 'MATRIX_HOMESERVER_URL',
-    accessToken: 'MATRIX_ACCESS_TOKEN',
-  },
-  facebook: {
-    pageAccessToken: 'FACEBOOK_PAGE_ACCESS_TOKEN',
-  },
-  twitter: {
-    apiKey: 'TWITTER_API_KEY',
-    apiSecretKey: 'TWITTER_API_SECRET_KEY',
-  },
-  claude: {
-    enabled: 'CLAUDE_CHANNEL_ENABLED',
-    apiKey: 'CLAUDE_API_KEY',
-  },
-  mattermost: {
-    serverUrl: 'MATTERMOST_URL',
-    botToken: 'MATTERMOST_TOKEN',
-  },
-  bluebubbles: {
-    serverUrl: 'BLUEBUBBLES_URL',
-    password: 'BLUEBUBBLES_PASSWORD',
-  },
-};
-
-/**
  * ChannelSecretStore — 统一渠道凭据存储
  *
  * 单例模式，通过 ChannelSecretStore.getInstance() 获取实例。
@@ -181,40 +74,18 @@ export class ChannelSecretStore {
   /**
    * 获取指定渠道的凭据
    *
-   * 解析优先级：
-   * 1. 从 channelRegistry 的已持久化配置中读取（DB 中的 options）
-   * 2. 未命中时从 process.env 读取（向后兼容）
+   * 数出同源：仅从 DB 持久化配置中读取，process.env 不再作为回退源。
+   * 所有渠道凭据须通过 UI 前端保存到 DB，确保配置管理的确定性。
    *
    * @param channelId 渠道 ID（如 'qq', 'telegram'）
    * @returns 凭据对象，可能为空对象
    */
   get(channelId: string): Record<string, unknown> {
-    const credentials: Record<string, unknown> = {};
-
-    // 第一步：从 DB 持久化配置中读取
     const config = getRegistry().getConfig(channelId);
     if (config?.options && Object.keys(config.options).length > 0) {
-      Object.assign(credentials, config.options);
+      return { ...config.options };
     }
-
-    // 第二步：从 process.env 补充缺失值（向后兼容）
-    const envMap = CHANNEL_ENV_MAP[channelId];
-    if (envMap) {
-      for (const [key, envVar] of Object.entries(envMap)) {
-        if (
-          !(key in credentials) ||
-          credentials[key] === '' ||
-          credentials[key] === undefined
-        ) {
-          const envVal = process.env[envVar];
-          if (envVal) {
-            credentials[key] = envVal;
-          }
-        }
-      }
-    }
-
-    return credentials;
+    return {};
   }
 
   /**

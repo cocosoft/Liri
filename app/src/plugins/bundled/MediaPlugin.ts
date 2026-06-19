@@ -9,6 +9,7 @@ import type { IPluginAPI } from '../api/PluginAPI.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { ImageGenerateTool } from '../../tools/ImageGenerateTool/ImageGenerateTool.js';
 import { ImageAnalysisTool } from '../../tools/ImageAnalysisTool/ImageAnalysisTool.js';
+import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -22,7 +23,7 @@ export const MediaPluginMetadata: PluginMetadata = {
   description: '多媒体插件，提供图片生成、分析和语音能力',
   author: 'Liri Team',
   category: 'image_generation',
-  dependencies: ['tools'],
+  dependencies: [{ name: 'tools' }],
   enabledByDefault: true,
 };
 
@@ -65,10 +66,10 @@ export class MediaPlugin implements Plugin {
 
     if (this._api) {
       if (this._imageGenerateTool) {
-        this._api.tools.registerTool(this._imageGenerateTool);
+        this._api.tools.registerTool(this._imageGenerateTool as any);
       }
       if (this._imageAnalysisTool) {
-        this._api.tools.registerTool(this._imageAnalysisTool);
+        this._api.tools.registerTool(this._imageAnalysisTool as any);
       }
 
       this._api.commands.registerCommand('media.help', async () => {
@@ -103,12 +104,12 @@ export class MediaPlugin implements Plugin {
       throw new Error('ImageGenerateTool 未初始化');
     }
 
-    const result = await this._imageGenerateTool.execute(params, {} as any);
+    const result = await this._imageGenerateTool.execute(params, {} as ToolUseContext);
     if (!result.success || !result.data) {
       throw new Error(`图片生成失败: ${result.error}`);
     }
 
-    return result.data.images as { url: string; alt: string }[];
+    return (result.data as Record<string, unknown>).images as { url: string; alt: string }[];
   }
 
   /**
@@ -122,7 +123,7 @@ export class MediaPlugin implements Plugin {
       throw new Error('ImageAnalysisTool 未初始化');
     }
 
-    const result = await this._imageAnalysisTool.execute(params, {} as any);
+    const result = await this._imageAnalysisTool.execute(params, {} as ToolUseContext);
     if (!result.success) {
       throw new Error(`图片分析失败: ${result.error}`);
     }

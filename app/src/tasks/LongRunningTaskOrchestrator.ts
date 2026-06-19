@@ -16,6 +16,7 @@ import { Logger } from '@modules/monitoring/logs/Logger';
 import { configManager } from '@modules/config';
 import { taskOrchestrator } from './TaskOrchestrator';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
+import { TaskStatus } from './types';
 import { LifecycleTracker } from './LifecycleTracker';
 import type { LifecycleEvent } from './LifecycleTracker';
 import { createAgentIsolation, throwIfAborted } from '../agent/AgentIsolation';
@@ -112,7 +113,7 @@ export class LongRunningTaskOrchestrator {
     this.taskId = taskId;
     this.lifecycle = new LifecycleTracker();
     this.isolation = createAgentIsolation(taskId);
-    this.lifecycle.record('created', 'pending' as any);
+    this.lifecycle.record('created', TaskStatus.PENDING);
 
     // 默认 executor：通过 AI 服务执行
     this.executor =
@@ -124,7 +125,7 @@ export class LongRunningTaskOrchestrator {
           const service = createAIService({
             defaultModel: '',
             apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
-          } as any);
+          });
           const response = await (service as any).chat({
             messages: [
               { role: 'system', content: params.systemPrompt },
@@ -161,7 +162,7 @@ export class LongRunningTaskOrchestrator {
   ): Promise<Plan> {
     throwIfAborted(this.isolation);
     this.phase = 'plan';
-    this.lifecycle.record('started', 'running' as any, 'Plan phase started');
+    this.lifecycle.record('started', TaskStatus.RUNNING, 'Plan phase started');
 
     // 让 Planner 分析并输出步骤
     const planPrompt = `请分析以下任务并输出 JSON 格式的执行计划：
@@ -208,7 +209,7 @@ export class LongRunningTaskOrchestrator {
     this.planId = plan.id;
     this.lifecycle.record(
       'progress',
-      'running' as any,
+      TaskStatus.RUNNING,
       `Plan created with ${steps.length} steps`
     );
 
@@ -250,7 +251,7 @@ export class LongRunningTaskOrchestrator {
     this.stepDurations.set(step.id, { startMs: Date.now() });
     this.lifecycle.record(
       'progress',
-      'running' as any,
+      TaskStatus.RUNNING,
       `Executing step: ${step.description}`
     );
 
@@ -278,7 +279,7 @@ export class LongRunningTaskOrchestrator {
 
       this.lifecycle.record(
         'progress',
-        'running' as any,
+        TaskStatus.RUNNING,
         `Step completed: ${step.description}`
       );
     } catch (e) {
@@ -289,7 +290,7 @@ export class LongRunningTaskOrchestrator {
 
       this.lifecycle.record(
         'progress',
-        'running' as any,
+        TaskStatus.RUNNING,
         `Step failed: ${step.description} — ${errMsg}`
       );
     }
@@ -325,7 +326,7 @@ export class LongRunningTaskOrchestrator {
 
     this.lifecycle.record(
       'progress',
-      'running' as any,
+      TaskStatus.RUNNING,
       `Review: ${formatReviewSummary(review)}`
     );
 
@@ -365,7 +366,7 @@ export class LongRunningTaskOrchestrator {
         // 已完成，无需更多操作
         this.lifecycle.record(
           'progress',
-          'running' as any,
+          TaskStatus.RUNNING,
           `Approved: ${step.description}`
         );
         break;
@@ -379,7 +380,7 @@ export class LongRunningTaskOrchestrator {
           step.error = `Exceeded max retries (${maxRetries})`;
           this.lifecycle.record(
             'progress',
-            'running' as any,
+            TaskStatus.RUNNING,
             `Retry limit exceeded for: ${step.description}`
           );
           break;
@@ -392,7 +393,7 @@ export class LongRunningTaskOrchestrator {
         step.reviewResult = undefined;
         this.lifecycle.record(
           'progress',
-          'running' as any,
+          TaskStatus.RUNNING,
           `Retry #${step.retryCount} for: ${step.description}`
         );
         break;
@@ -402,7 +403,7 @@ export class LongRunningTaskOrchestrator {
         step.status = 'cancelled';
         this.lifecycle.record(
           'progress',
-          'running' as any,
+          TaskStatus.RUNNING,
           `Skipped: ${step.description}`
         );
         break;
@@ -411,7 +412,7 @@ export class LongRunningTaskOrchestrator {
         step.status = 'failed';
         this.lifecycle.record(
           'progress',
-          'running' as any,
+          TaskStatus.RUNNING,
           `Escalated: ${step.description}`
         );
         break;
@@ -499,7 +500,7 @@ export class LongRunningTaskOrchestrator {
     // 生成审计报告
     this.phase = 'completed';
     this.auditReport = this.generateReport();
-    this.lifecycle.record('finalized', 'completed' as any, 'PDCA completed');
+    this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
 
     return this.getStatus();
   }
@@ -560,7 +561,7 @@ export class LongRunningTaskOrchestrator {
 
   async abort(): Promise<void> {
     this.isolation.abort('User aborted');
-    this.lifecycle.record('finalized', 'failed' as any, 'Aborted by user');
+    this.lifecycle.record('finalized', TaskStatus.FAILED, 'Aborted by user');
   }
 
   async shutdown(): Promise<void> {

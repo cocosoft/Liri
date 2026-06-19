@@ -2,6 +2,9 @@
 name: hello-world
 description: 向用户问好
 version: 1.0.0
+source: builtin
+author: Liri
+license: MIT
 user-invocable: true
 when-to-use: 当你需要向用户问好或测试技能系统时
 ---

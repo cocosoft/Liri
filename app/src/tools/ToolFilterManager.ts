@@ -231,7 +231,7 @@ export class ToolFilterManager {
       const info = tool.getInfo();
 
       // 检查是否始终加载
-      if (info.alwaysLoad || (tool as any).alwaysLoad) {
+      if (info.alwaysLoad || tool.alwaysLoad) {
         alwaysLoadTools.push(tool);
         continue;
       }
@@ -257,7 +257,7 @@ export class ToolFilterManager {
       }
 
       // 如果工具被延迟加载（shouldDefer），归类到延迟工具
-      if (!filtered && (info.deferred || (tool as any).shouldDefer)) {
+      if (!filtered && (info.deferred || tool.shouldDefer)) {
         deferredTools.push(tool);
       }
 
@@ -424,7 +424,7 @@ export class ToolFilterManager {
 
     for (const tool of allTools) {
       const info = tool.getInfo();
-      if (info.deferred || (tool as any).shouldDefer) {
+      if (info.deferred || tool.shouldDefer) {
         if (
           !this.isFilteredByFeatureFlag(tool) &&
           !this.isFilteredByDenyRule(tool)
@@ -447,7 +447,7 @@ export class ToolFilterManager {
 
     for (const tool of allTools) {
       const info = tool.getInfo();
-      if (info.alwaysLoad || (tool as any).alwaysLoad) {
+      if (info.alwaysLoad || tool.alwaysLoad) {
         alwaysLoadTools.push(tool);
       }
     }
@@ -487,8 +487,8 @@ export class ToolFilterManager {
         }
       }
 
-      if ((tool as any).searchHint) {
-        const hint = (tool as any).searchHint as string;
+      if (tool.searchHint) {
+        const hint = tool.searchHint;
         if (hint.toLowerCase().includes(queryLower)) {
           results.push(tool);
           continue;

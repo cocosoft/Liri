@@ -33,7 +33,6 @@ const CONVERSATION_SECTION_NAMES = new Set([
   'toolUse',
   'taskNegotiation',
   'sessionContext',
-  'memoryContext',
 ]);
 
 export interface AssembleOptions {

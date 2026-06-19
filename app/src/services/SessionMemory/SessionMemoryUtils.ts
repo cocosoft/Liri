@@ -113,3 +113,13 @@ export function resetSessionMemoryState(): void {
   sessionMemoryInitialized = false;
   toolCallCountSinceLastUpdate = 0;
 }
+
+/**
+ * 从消息中提取会话记忆项
+ * @param _messages 最近的消息列表
+ * @returns 暂未实现，返回空数组
+ */
+export function extractSessionMemoryFromMessages(_messages: any[]): any[] {
+  // TODO: 实现从消息中提取关键信息的逻辑
+  return [];
+}

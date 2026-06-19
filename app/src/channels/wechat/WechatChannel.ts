@@ -22,6 +22,7 @@ import type {
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@modules/error/handleError';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 
 const WECHAT_META: ChannelMeta = {
@@ -174,6 +175,11 @@ class WechatChannelPlugin extends BaseChannelPlugin {
         error: resp.ok ? undefined : (data['error'] as string),
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:wechat',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -198,6 +204,11 @@ class WechatChannelPlugin extends BaseChannelPlugin {
         error: resp.ok ? undefined : (data['error'] as string),
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:wechat',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }

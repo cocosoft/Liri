@@ -12,6 +12,7 @@ import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type { IChannelPlugin, MessageContext } from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
 
@@ -264,13 +265,22 @@ export async function setupChannelsFromConfig(): Promise<{
 
   const enabledDefs = channelCandidates.filter((c) => c.enabled);
 
-  // 补充：DB 中已持久化的通道也视为"已启用"（凭据来自前端保存，不依赖 .env）
-  const persistedTypes = new Set(
-    channelRegistry.getAllConfigs().map((cfg) => cfg.type)
+  // 补充：DB 中已持久化且有实际凭据配置的通道也视为"已启用"（凭据来自前端保存，不依赖 .env）
+  // 仅当通道的 options 非空时才启用，避免"已启用但无凭据"的空壳状态
+  const persistedConfigs = channelRegistry.getAllConfigs();
+  const persistedTypesWithCredentials = new Set(
+    persistedConfigs
+      .filter(
+        (cfg) =>
+          cfg.enabled &&
+          cfg.options &&
+          Object.keys(cfg.options).length > 0
+      )
+      .map((cfg) => cfg.type)
   );
   const dbEnabledDefs: typeof channelCandidates = [];
   for (const candidate of channelCandidates) {
-    if (!candidate.enabled && persistedTypes.has(candidate.type)) {
+    if (!candidate.enabled && persistedTypesWithCredentials.has(candidate.type)) {
       dbEnabledDefs.push({ ...candidate, enabled: true });
     }
   }
@@ -443,18 +453,8 @@ export async function lazyConnectChannels(): Promise<void> {
     }
 
     try {
-      await Promise.race([
-        channel.connect(),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`通道 ${channel.name} 连接超时 (5s)`)),
-            5000
-          )
-        ),
-      ]);
-      connectedCount++;
-      logger.info(`通道已连接: ${channel.name}`);
-
+      // 必须在 connect() 之前注册 messageHandler，否则连接建立后立即到达的消息会因
+      // handler 未注册而被丢弃（'hasHandler: false' → 消息丢弃日志）
       if (plugin.inbound) {
         plugin.inbound.setMessageHandler(async (message: MessageContext) => {
           logger.info('[TRACE] setupChannels messageHandler 被调用', {
@@ -516,9 +516,10 @@ export async function lazyConnectChannels(): Promise<void> {
                     });
                   }
                 } catch (sendError) {
-                  logger.error(`通道 ${channel.name} 消息发送异常`, {
-                    target,
-                    error: String(sendError),
+                  handleError(sendError, {
+                    module: 'channels:setup',
+                    action: 'inbound:sendMessage',
+                    context: { target, channelName: channel.name },
                   });
                 }
               }
@@ -536,10 +537,28 @@ export async function lazyConnectChannels(): Promise<void> {
         });
         logger.info(`通道入站消息处理器已注册: ${channel.name}`);
       }
+
+      // handler 已注册，现在建立连接。连接后到达的 WS 消息将能正确路由到 messageHandler
+      await Promise.race([
+        channel.connect(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`通道 ${channel.name} 连接超时 (5s)`)),
+            5000
+          )
+        ),
+      ]);
+      connectedCount++;
+      logger.info(`通道已连接: ${channel.name}`);
     } catch (error) {
-      const msg = `连接通道失败: ${channel.name} — ${error instanceof Error ? error.message : String(error)}`;
-      logger.warning(msg);
-      errors.push(msg);
+      handleError(error, {
+        module: 'channels:setup',
+        action: 'lazyConnectChannels',
+        context: { channelName: channel.name },
+      });
+      errors.push(
+        `连接通道失败: ${channel.name} — ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

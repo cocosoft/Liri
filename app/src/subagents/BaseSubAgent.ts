@@ -12,7 +12,7 @@ import {
   SubAgentExecutionResponse,
   SubAgentMessage,
   SubAgentMemory,
-} from './SubAgentTypes';
+} from './types/SubAgentTypes';
 import { Tool } from '../tools/types/Tool';
 import { ToolRegistry, createToolRegistry } from '../tools/ToolRegistry';
 import { v4 as uuidv4 } from 'uuid';
@@ -313,7 +313,7 @@ export abstract class BaseSubAgent implements SubAgent {
 
     if (tags.length > 0) {
       filteredMemory = filteredMemory.filter((item) =>
-        item.tags?.some((tag) => tags.includes(tag))
+        item.tags?.some((tag: string) => tags.includes(tag))
       );
     }
 
@@ -361,7 +361,7 @@ export abstract class BaseSubAgent implements SubAgent {
     try {
       if (tags.length > 0) {
         this.memory = this.memory.filter(
-          (item) => !item.tags?.some((tag) => tags.includes(tag))
+          (item) => !item.tags?.some((tag: string) => tags.includes(tag))
         );
       } else {
         this.memory = [];
@@ -408,7 +408,7 @@ export abstract class BaseSubAgent implements SubAgent {
    */
   unregisterTool(toolName: string): boolean {
     try {
-      this.toolRegistry.unregisterTool(toolName);
+      this.toolRegistry.removeTool(toolName);
       return true;
     } catch (error) {
       logger.error(

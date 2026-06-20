@@ -87,6 +87,7 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 |------|------|------|
 | `Liri.md` | 始终 | 通用行为准则 |
 | `project_rules.md` | 始终 | 编码规范 |
+| `coding-standards.md` | 始终 | 编码铁律（CS01-CS05，AI 可执行） |
 | `paths.md` | 磁盘IO时 | 路径使用规范 |
 | `frontend.md` | 前端开发 | 前端规则 |
 | `architecture.md` | 架构/重构 | 架构原则 |

@@ -392,10 +392,13 @@ export class DaemonService {
       switch (action) {
         case 'install': {
           // 安装服务并配置参数
-          execSync(`"${nssm}" install "${serviceName}" "${this.config.execPath}"`, {
-            stdio: 'pipe',
-            shell: 'cmd.exe',
-          });
+          execSync(
+            `"${nssm}" install "${serviceName}" "${this.config.execPath}"`,
+            {
+              stdio: 'pipe',
+              shell: 'cmd.exe',
+            }
+          );
 
           const sets: [string, string][] = [
             ['DisplayName', this.config.displayName],
@@ -430,7 +433,11 @@ export class DaemonService {
             });
           }
 
-          return { success: true, action, message: `服务 ${serviceName} 已安装（nssm）` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已安装（nssm）`,
+          };
         }
 
         case 'uninstall': {
@@ -442,7 +449,11 @@ export class DaemonService {
             stdio: 'pipe',
             shell: 'cmd.exe',
           });
-          return { success: true, action, message: `服务 ${serviceName} 已卸载（nssm）` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已卸载（nssm）`,
+          };
         }
 
         case 'start':
@@ -450,21 +461,33 @@ export class DaemonService {
             stdio: 'pipe',
             shell: 'cmd.exe',
           });
-          return { success: true, action, message: `服务 ${serviceName} 已启动` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已启动`,
+          };
 
         case 'stop':
           execSync(`"${nssm}" stop "${serviceName}"`, {
             stdio: 'pipe',
             shell: 'cmd.exe',
           });
-          return { success: true, action, message: `服务 ${serviceName} 已停止` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已停止`,
+          };
 
         case 'restart':
           execSync(`"${nssm}" restart "${serviceName}"`, {
             stdio: 'pipe',
             shell: 'cmd.exe',
           });
-          return { success: true, action, message: `服务 ${serviceName} 已重启` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已重启`,
+          };
 
         case 'status': {
           const st = this.getNssmStatus();

@@ -31,13 +31,11 @@ const RESTRICTED_MODULES = new Set([
   'chronos',
   'cli',
   'commands',
-  'config',
   'context',
   'cost',
   'daemon',
   'docs',
   'enterprise',
-  'error',
   'featureflags',
   'flows',
   'governance',
@@ -66,7 +64,6 @@ const RESTRICTED_MODULES = new Set([
   'tasks',
   'tools',
   'ui',
-  'utils',
   'vim',
   'voice',
 ]);
@@ -130,7 +127,11 @@ module.exports = {
       // Match @modules/<moduleId>/... or @modules/<moduleId>
       const match = source.match(/^@modules\/([^/]+)/);
       if (match && RESTRICTED_MODULES.has(match[1])) {
-        // If the path continues beyond the module ID, check if it's allowed
+        // 检查完整导入路径是否匹配豁免模式（用于 eslint config 中配置的基础模块豁免）
+        if (isAllowedImportPath(source)) {
+          return null;
+        }
+        // 如果路径在模块 ID 后还有子路径，检查子路径是否为允许的模式
         if (source !== `@modules/${match[1]}`) {
           const restPath = source.slice(`@modules/${match[1]}`.length);
           if (restPath.length > 0 && isAllowedImportPath(restPath)) {

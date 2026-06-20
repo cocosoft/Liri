@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VoiceServiceBridge
  * services/voice ↔ voice/ 双轨统一 Gate 层
  *
@@ -16,7 +16,6 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getMetricsService } from '@modules/monitoring';
 import type { MetricsService } from '@modules/monitoring';
-// eslint-disable-next-line module-registry/no-direct-module-import
 import { SessionManager } from '@modules/session/SessionManager';
 import { getAlertManager, AlertLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';

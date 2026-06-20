@@ -141,6 +141,8 @@ export interface SessionInfo {
   updatedAt: Date;
   messageCount: number;
   roundCount: number;
+  /** 渠道来源标识，如 'web'、'qq'、'discord' 等 */
+  source?: string;
   metadata?: Record<string, unknown>;
 }
 

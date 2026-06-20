@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DaemonService 跨平台守护进程服务管理
  * 支持 systemd (Linux)、launchd (macOS)、schtasks (Windows) 三平台
  */
@@ -37,6 +37,11 @@ export interface ServiceConfig {
   workingDir: string;
   envVars?: Record<string, string>;
   runAs?: string;
+  /**
+   * nssm.exe 路径（Windows 平台可选）
+   * 提供后使用 nssm 替代 schtasks 注册为真正的 Windows 服务
+   */
+  nssmPath?: string;
 }
 
 /**
@@ -84,6 +89,7 @@ export class DaemonService {
 
   /**
    * 执行服务操作
+   * Windows 平台优先使用 nssm（若提供了 nssmPath），否则回退 schtasks
    */
   execute(action: ServiceAction): ServiceActionResult {
     switch (this.platform) {
@@ -92,6 +98,9 @@ export class DaemonService {
       case 'darwin':
         return this.executeLaunchd(action);
       case 'win32':
+        if (this.config.nssmPath) {
+          return this.executeNssm(action);
+        }
         return this.executeSchtasks(action);
       default:
         return {
@@ -162,6 +171,7 @@ export class DaemonService {
 
   /**
    * 获取服务状态
+   * Windows 平台优先使用 nssm（若提供了 nssmPath），否则回退 schtasks
    */
   getStatus(): ServiceStatus {
     switch (this.platform) {
@@ -170,6 +180,9 @@ export class DaemonService {
       case 'darwin':
         return this.getLaunchdStatus();
       case 'win32':
+        if (this.config.nssmPath) {
+          return this.getNssmStatus();
+        }
         return this.getSchtasksStatus();
       default:
         return { running: false, enabled: false };
@@ -368,6 +381,110 @@ export class DaemonService {
   }
 
   /**
+   * nssm 执行 (Windows) — 注册为真正的 Windows 服务
+   * 需要先通过 nssmPath 配置提供 nssm.exe 路径
+   */
+  private executeNssm(action: ServiceAction): ServiceActionResult {
+    const nssm = this.config.nssmPath!;
+    const serviceName = this.config.name;
+
+    try {
+      switch (action) {
+        case 'install': {
+          // 安装服务并配置参数
+          execSync(`"${nssm}" install "${serviceName}" "${this.config.execPath}"`, {
+            stdio: 'pipe',
+            shell: 'cmd.exe',
+          });
+
+          const sets: [string, string][] = [
+            ['DisplayName', this.config.displayName],
+            ['Description', this.config.description],
+            ['AppDirectory', this.config.workingDir],
+            ['Start', 'SERVICE_AUTO_START'],
+            ['AppExit', 'Default Restart'],
+            ['AppRestartDelay', '5000'],
+            ['AppThrottle', '1500'],
+            ['AppStopMethodSkip', '0'],
+            ['AppStopMethodConsole', '3000'],
+            ['AppStopMethodWindow', '3000'],
+            ['AppStopMethodThreads', '3000'],
+            ['AppRotateFiles', '1'],
+            ['AppRotateOnline', '1'],
+            ['AppRotateSeconds', '86400'],
+            ['AppEnvironmentExtra', 'LIRI_SERVICE_MODE=1'],
+          ];
+
+          // 设置日志路径（输出到服务可执行文件所在目录的 logs/ 下）
+          const logDir = path.join(path.dirname(this.config.execPath), 'logs');
+          fs.mkdirSync(logDir, { recursive: true });
+          sets.push(
+            ['AppStdout', path.join(logDir, 'liri-stdout.log')],
+            ['AppStderr', path.join(logDir, 'liri-stderr.log')]
+          );
+
+          for (const [key, val] of sets) {
+            execSync(`"${nssm}" set "${serviceName}" ${key} "${val}"`, {
+              stdio: 'pipe',
+              shell: 'cmd.exe',
+            });
+          }
+
+          return { success: true, action, message: `服务 ${serviceName} 已安装（nssm）` };
+        }
+
+        case 'uninstall': {
+          execSync(`"${nssm}" stop "${serviceName}"`, {
+            stdio: 'pipe',
+            shell: 'cmd.exe',
+          });
+          execSync(`"${nssm}" remove "${serviceName}" confirm`, {
+            stdio: 'pipe',
+            shell: 'cmd.exe',
+          });
+          return { success: true, action, message: `服务 ${serviceName} 已卸载（nssm）` };
+        }
+
+        case 'start':
+          execSync(`"${nssm}" start "${serviceName}"`, {
+            stdio: 'pipe',
+            shell: 'cmd.exe',
+          });
+          return { success: true, action, message: `服务 ${serviceName} 已启动` };
+
+        case 'stop':
+          execSync(`"${nssm}" stop "${serviceName}"`, {
+            stdio: 'pipe',
+            shell: 'cmd.exe',
+          });
+          return { success: true, action, message: `服务 ${serviceName} 已停止` };
+
+        case 'restart':
+          execSync(`"${nssm}" restart "${serviceName}"`, {
+            stdio: 'pipe',
+            shell: 'cmd.exe',
+          });
+          return { success: true, action, message: `服务 ${serviceName} 已重启` };
+
+        case 'status': {
+          const st = this.getNssmStatus();
+          return {
+            success: true,
+            action,
+            message: st.running ? '运行中' : '已停止',
+          };
+        }
+      }
+    } catch (err) {
+      return {
+        success: false,
+        action,
+        message: `nssm 操作失败: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  /**
    * 获取 systemd 状态
    */
   private getSystemdStatus(): ServiceStatus {
@@ -412,6 +529,26 @@ export class DaemonService {
         { stdio: 'pipe', encoding: 'utf-8', shell: 'cmd.exe' }
       ).toString();
       const running = output.includes('Running');
+      return { running, enabled: true };
+    } catch {
+      return { running: false, enabled: false };
+    }
+  }
+
+  /**
+   * 获取 nssm 服务状态
+   */
+  private getNssmStatus(): ServiceStatus {
+    try {
+      const nssm = this.config.nssmPath!;
+      const output = execSync(`"${nssm}" status "${this.config.name}"`, {
+        stdio: 'pipe',
+        encoding: 'utf-8',
+        shell: 'cmd.exe',
+      })
+        .toString()
+        .trim();
+      const running = output.includes('SERVICE_RUNNING');
       return { running, enabled: true };
     } catch {
       return { running: false, enabled: false };

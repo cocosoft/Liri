@@ -728,6 +728,7 @@ export class CoreAPIImpl implements CoreAPI {
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
       roundCount: countUserMessages(session.messages),
+      source: this._resolveSessionSource(session),
       metadata: session.metadata,
     };
   }
@@ -826,6 +827,34 @@ export class CoreAPIImpl implements CoreAPI {
     await this.chatManager.updateMessageBlocks(sessionId, messageId, blocks);
   }
 
+  /**
+   * 从会话对象解析来源渠道标识
+   *
+   * 优先级：
+   * 1. session.metadata.channel（新创建的会话会在 metadata 中存储 channel）
+   * 2. 从 session ID 前缀推断（兼容旧会话）
+   * 3. 兜底返回 'web'（Web/Tauri 客户端等未显式标注来源的会话）
+   */
+  private _resolveSessionSource(
+    session: import('@modules/chat/types/session').ChatSession
+  ): string {
+    // 优先从 metadata.channel 获取
+    const channel = session.metadata?.channel as string | undefined;
+    if (channel) return channel;
+
+    // 从 session ID 前缀推断（兼容 QQ 等渠道创建的历史会话）
+    const id = session.id;
+    if (
+      typeof id === 'string' &&
+      (id.startsWith('c2c:') || id.startsWith('group:'))
+    ) {
+      return 'qq';
+    }
+
+    // 兜底：Web/Tauri 客户端发起的会话统一标记为 web
+    return 'web';
+  }
+
   async listSessions(): Promise<SessionInfo[]> {
     const sessions = this.sessionManager.getSessions();
 
@@ -836,6 +865,7 @@ export class CoreAPIImpl implements CoreAPI {
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
       roundCount: countUserMessages(session.messages),
+      source: this._resolveSessionSource(session),
       metadata: session.metadata,
     }));
   }
@@ -914,6 +944,14 @@ export class CoreAPIImpl implements CoreAPI {
     // 后台 fire-and-forget：不影响流式响应速度
     setImmediate(async () => {
       try {
+        // 检查会话是否已有有意义的标题（非默认值），防止每次对话都覆盖标题
+        const session = this.chatManager
+          .getSessions()
+          .find((s) => s.id === sessionId);
+        if (session && session.title && session.title !== 'New Session') {
+          return;
+        }
+
         const title = await this.generateSessionTitle(
           sessionId,
           userMessage,

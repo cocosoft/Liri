@@ -4,6 +4,37 @@ import { useSessionStore } from "../../stores/sessionStore";
 import ConfirmDialog from "../common/ConfirmDialog";
 
 /**
+ * 会话来源渠道 → 显示名称映射
+ * 根据会话的 source 字段显示来源标签，如【QQ】【WeChat】
+ */
+const SESSION_SOURCE_LABELS: Record<string, string> = {
+  web:       'Web',
+  qq:        'QQ',
+  discord:   'Discord',
+  telegram:  'Telegram',
+  wechat:    'WeChat',
+  wecom:     '企微',
+  feishu:    '飞书',
+  dingtalk:  '钉钉',
+  slack:     'Slack',
+  mcp:       'MCP',
+  api:       'API',
+  cli:       'CLI',
+  irc:       'IRC',
+  nostr:     'Nostr',
+};
+
+/**
+ * 根据会话 source 获取来源显示标签
+ * @returns 如 "【QQ】" 格式的标签文字，无 source 时返回空字符串
+ */
+function getSourceLabel(source?: string): string {
+  if (!source) return '';
+  const label = SESSION_SOURCE_LABELS[source];
+  return label ? `【${label}】` : '';
+}
+
+/**
  * 会话历史侧边栏组件
  * 位于聊天界面左侧，展示当前用户的所有会话记录。
  * 支持新建、切换、重命名、删除会话，可折叠/展开。
@@ -372,7 +403,6 @@ function SessionHistorySidebar() {
                       }
                       className="flex-1 flex items-center gap-2 truncate text-left min-w-0"
                     >
-                      <span className="flex-shrink-0">💬</span>
                       {editingId === session.id ? (
                         <input
                           type="text"
@@ -390,6 +420,9 @@ function SessionHistorySidebar() {
                             {session.title || "未命名会话"}
                           </div>
                           <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                            {session.source ? (
+                              <span className="font-medium text-gray-400 dark:text-gray-500 mr-1">{getSourceLabel(session.source)}</span>
+                            ) : null}
                             {formatTime(session.updatedAt)}
                             {(session.roundCount ?? Math.ceil(session.messageCount / 2)) > 0 &&
                               ` · ${session.roundCount ?? Math.ceil(session.messageCount / 2)} 轮对话`}

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -557,7 +557,9 @@ export class ChatManagerImpl implements ChatManager {
       apiMessages.pop();
     }
 
-    // 中间孤立 tool 消息清理：其 tool_call_id 不在任何前置 assistant 的 tool_calls 中
+    // 中间孤立 tool 消息清理：
+    // 1) 没有 tool_call_id 的 tool 消息（API 无法处理）
+    // 2) tool_call_id 不在任何前置 assistant 的 tool_calls 中
     const knownToolCallIds = new Set<string>();
     for (let i = 0; i < apiMessages.length; i++) {
       const msg = apiMessages[i];
@@ -568,8 +570,9 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     for (let i = apiMessages.length - 1; i >= 0; i--) {
-      if (apiMessages[i].role === 'tool' && apiMessages[i].tool_call_id) {
-        if (!knownToolCallIds.has(apiMessages[i].tool_call_id as string)) {
+      if (apiMessages[i].role === 'tool') {
+        const tcId = apiMessages[i].tool_call_id as string | undefined;
+        if (!tcId || !knownToolCallIds.has(tcId)) {
           apiMessages.splice(i, 1);
         }
       }
@@ -816,9 +819,9 @@ export class ChatManagerImpl implements ChatManager {
       // 先获取或创建会话，以便将历史消息传入命令上下文
       const cmdSession = options?.sessionId
         ? this._getLocalSession(options.sessionId) ||
-          this.createSession({ title: 'New Session', id: options.sessionId })
+          this.createSession({ title: 'New Session', id: options.sessionId, metadata: options?.metadata })
         : this._getLocalSession(this._currentSessionId) ||
-          this.createSession({ title: 'New Session' });
+          this.createSession({ title: 'New Session', metadata: options?.metadata });
 
       const parts = content.slice(1).split(' ');
       const [commandName, ...args] = parts;
@@ -850,9 +853,9 @@ export class ChatManagerImpl implements ChatManager {
       // 添加到会话
       const session = options?.sessionId
         ? this._getLocalSession(options.sessionId) ||
-          this.createSession({ title: 'New Session', id: options.sessionId })
+          this.createSession({ title: 'New Session', id: options.sessionId, metadata: options?.metadata })
         : this._getLocalSession(this._currentSessionId) ||
-          this.createSession({ title: 'New Session' });
+          this.createSession({ title: 'New Session', metadata: options?.metadata });
 
       if (session) {
         this._addAndPersistMessage(session.id, commandMessage);
@@ -864,9 +867,9 @@ export class ChatManagerImpl implements ChatManager {
     // 获取或创建会话
     const session = options?.sessionId
       ? this._getLocalSession(options.sessionId) ||
-        this.createSession({ title: 'New Session', id: options.sessionId })
+        this.createSession({ title: 'New Session', id: options.sessionId, metadata: options?.metadata })
       : this._getLocalSession(this._currentSessionId) ||
-        this.createSession({ title: 'New Session' });
+        this.createSession({ title: 'New Session', metadata: options?.metadata });
 
     if (!session) {
       throw new AppError(
@@ -930,9 +933,16 @@ export class ChatManagerImpl implements ChatManager {
             : JSON.stringify(msg.content),
       };
 
-      // 对于工具结果消息，确保添加tool_call_id
-      if (msg.role === 'tool' && msg.toolCallId) {
-        chatMessage.tool_call_id = msg.toolCallId;
+      // 对于工具结果消息，确保添加 tool_call_id
+      // 优先使用 msg.toolCallId，其次从 metadata 中查找
+      // 只有在确实存在 tool_call_id 时才设置该字段，避免向 API 发送空值
+      if (msg.role === 'tool') {
+        const tcId = msg.toolCallId ||
+          (msg.metadata?.toolCallId as string) ||
+          (msg.metadata?.tool_call_id as string);
+        if (tcId) {
+          chatMessage.tool_call_id = tcId;
+        }
       }
 
       // 对于助手消息，添加tool_calls（从metadata中读取）
@@ -1602,8 +1612,16 @@ export class ChatManagerImpl implements ChatManager {
             ? msg.content
             : JSON.stringify(msg.content),
       };
-      if (msg.role === 'tool' && msg.toolCallId) {
-        chatMessage.tool_call_id = msg.toolCallId;
+      // 对于工具结果消息，确保添加 tool_call_id
+      // 优先使用 msg.toolCallId，其次从 metadata 中查找
+      // 只有在确实存在 tool_call_id 时才设置该字段，避免向 API 发送空值
+      if (msg.role === 'tool') {
+        const tcId = msg.toolCallId ||
+          (msg.metadata?.toolCallId as string) ||
+          (msg.metadata?.tool_call_id as string);
+        if (tcId) {
+          chatMessage.tool_call_id = tcId;
+        }
       }
       if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
         chatMessage.tool_calls = msg.metadata.tool_calls;
@@ -1990,9 +2008,9 @@ export class ChatManagerImpl implements ChatManager {
     // 获取或创建会话
     const session = options?.sessionId
       ? this._getLocalSession(options.sessionId) ||
-        this.createSession({ title: 'New Session', id: options.sessionId })
+        this.createSession({ title: 'New Session', id: options.sessionId, metadata: options?.metadata })
       : this._getLocalSession(this._currentSessionId) ||
-        this.createSession({ title: 'New Session' });
+        this.createSession({ title: 'New Session', metadata: options?.metadata });
 
     if (!session) {
       throw new AppError(
@@ -2042,9 +2060,16 @@ export class ChatManagerImpl implements ChatManager {
             : JSON.stringify(msg.content),
       };
 
-      // 对于工具结果消息，确保添加tool_call_id
-      if (msg.role === 'tool' && msg.toolCallId) {
-        chatMessage.tool_call_id = msg.toolCallId;
+      // 对于工具结果消息，确保添加 tool_call_id
+      // 优先使用 msg.toolCallId，其次从 metadata 中查找
+      // 只有在确实存在 tool_call_id 时才设置该字段，避免向 API 发送空值
+      if (msg.role === 'tool') {
+        const tcId = msg.toolCallId ||
+          (msg.metadata?.toolCallId as string) ||
+          (msg.metadata?.tool_call_id as string);
+        if (tcId) {
+          chatMessage.tool_call_id = tcId;
+        }
       }
 
       // 对于助手消息，添加tool_calls（从metadata中读取）

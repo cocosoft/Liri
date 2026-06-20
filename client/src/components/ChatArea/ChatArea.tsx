@@ -8,7 +8,7 @@ import RoundNavigator from "./RoundNavigator";
 
 function ChatArea() {
   const { messages, error, isStreaming } = useChatStore();
-  const { currentSession } = useSessionStore();
+  const { currentSession, createSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
 
   const { containerRef } = useAutoScroll({
@@ -18,6 +18,10 @@ function ChatArea() {
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
+  };
+
+  const handleCreateSession = () => {
+    createSession("新会话");
   };
 
   const displayError =
@@ -99,6 +103,7 @@ function ChatArea() {
           sessionUsage={sessionUsage}
           hasSession={!!currentSession}
           sessionTitle={currentSession?.title}
+          onCreateSession={handleCreateSession}
         />
       </div>
 

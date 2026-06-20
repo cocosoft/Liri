@@ -35,6 +35,9 @@ const PROJECT_ROOT = resolve(APP_DIR, '..');
 /** 编译产物目录 */
 const DIST_DIR = resolve(PROJECT_ROOT, 'dist');
 
+/** 内置 nssm 目录 */
+const NSSM_DIR = resolve(APP_DIR, 'scripts', 'nssm');
+
 /** 服务名称（Windows 任务名、Linux systemd 单元名、macOS launchd 标签） */
 const SERVICE_NAME = 'liri-backend';
 
@@ -96,6 +99,36 @@ function findCompiledBinary(): string | null {
 }
 
 /**
+ * 查找 nssm.exe 路径（仅 Windows）
+ */
+function findNssmPath(): string | undefined {
+  if (process.platform !== 'win32') return undefined;
+
+  // 1. 检查项目内置的 nssm
+  const localNssm = join(NSSM_DIR, 'nssm.exe');
+  if (existsSync(localNssm)) {
+    return localNssm;
+  }
+
+  // 2. 检查 PATH
+  try {
+    const result = execSync('where nssm', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: 'cmd.exe',
+    });
+    const lines = result.trim().split('\n');
+    if (lines.length > 0 && lines[0].length > 0) {
+      return lines[0].trim();
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+/**
  * 构建服务配置
  */
 function buildServiceConfig(options: ScriptOptions): ServiceConfig {
@@ -142,6 +175,8 @@ function buildServiceConfig(options: ScriptOptions): ServiceConfig {
     envVars: {
       LIRI_SERVICE_MODE: '1',
     },
+    // Windows 平台自动查找 nssm，优先使用 nssm 替代 schtasks
+    nssmPath: findNssmPath(),
   };
 }
 
@@ -173,7 +208,7 @@ function findBunPath(): string {
 function getPlatformLabel(): string {
   switch (process.platform) {
     case 'win32':
-      return 'Windows (schtasks)';
+      return findNssmPath() ? 'Windows (nssm)' : 'Windows (schtasks)';
     case 'darwin':
       return 'macOS (launchd)';
     case 'linux':

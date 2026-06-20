@@ -16,6 +16,8 @@ interface ChatMessageListProps {
   hasSession: boolean;
   /** 会话标题（空消息时展示） */
   sessionTitle?: string;
+  /** 创建新会话回调（欢迎页按钮） */
+  onCreateSession?: () => void;
 }
 
 /** 聊天消息列表：消息渲染 + 空状态展示 */
@@ -25,6 +27,7 @@ export default function ChatMessageList({
   sessionUsage,
   hasSession,
   sessionTitle,
+  onCreateSession,
 }: ChatMessageListProps) {
   // 无会话状态
   if (!hasSession) {
@@ -44,9 +47,18 @@ export default function ChatMessageList({
           <p className="text-gray-500 dark:text-gray-400">
             官网: https://openliri.com
           </p>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-gray-500 dark:text-gray-400 mt-1 mb-8">
             请从左侧选择一个会话或创建新会话开始聊天
           </p>
+          <button
+            onClick={onCreateSession}
+            className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-lg hover:shadow-xl transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            开始聊天
+          </button>
         </div>
       </div>
     );

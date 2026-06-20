@@ -223,6 +223,20 @@ interface ChatStore {
 import { sessionService } from "../services/sessionService";
 
 /**
+ * 判断标题是否为默认占位标题（未经用户或 AI 凝练）
+ * 匹配所有已知的默认标题模式
+ */
+function isDefaultTitle(title: string): boolean {
+  return (
+    title.startsWith("新会话") ||
+    title.startsWith("New Session") ||
+    title.startsWith("Default Session") ||
+    title.startsWith("默认会话") ||
+    title === "Untitled"
+  );
+}
+
+/**
  * 判断是否需要自动重命名会话
  * 优先从 currentSession 查找，若 sessionId 不匹配则降级到 sessions 列表中查找
  */
@@ -237,8 +251,7 @@ function shouldAutoRename(sessionId?: string): boolean {
   // 优先从 currentSession 查找
   if (store.currentSession?.id === sessionId) {
     const title = store.currentSession.title || "";
-    const shouldRename =
-      title.startsWith("新会话") || title.startsWith("New Session");
+    const shouldRename = isDefaultTitle(title);
     console.debug(
       "[shouldAutoRename] title:",
       title,
@@ -252,8 +265,7 @@ function shouldAutoRename(sessionId?: string): boolean {
   const found = store.sessions.find((s) => s.id === sessionId);
   if (found) {
     const title = found.title || "";
-    const shouldRename =
-      title.startsWith("新会话") || title.startsWith("New Session");
+    const shouldRename = isDefaultTitle(title);
     console.debug(
       "[shouldAutoRename] fallback found, title:",
       title,

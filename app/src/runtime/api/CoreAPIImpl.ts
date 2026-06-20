@@ -936,6 +936,19 @@ export class CoreAPIImpl implements CoreAPI {
     }
   }
 
+  /**
+   * 判断标题是否为默认占位标题（未经用户或 AI 凝练）
+   */
+  private isDefaultTitle(title: string): boolean {
+    return (
+      title.startsWith('新会话') ||
+      title.startsWith('New Session') ||
+      title.startsWith('Default Session') ||
+      title.startsWith('默认会话') ||
+      title === 'Untitled'
+    );
+  }
+
   private autoGenerateTitle(
     sessionId: string,
     userMessage: string,
@@ -948,7 +961,7 @@ export class CoreAPIImpl implements CoreAPI {
         const session = this.chatManager
           .getSessions()
           .find((s) => s.id === sessionId);
-        if (session && session.title && session.title !== 'New Session') {
+        if (session && session.title && !this.isDefaultTitle(session.title)) {
           return;
         }
 

@@ -201,6 +201,7 @@ async function performLogin(params: LoginParams): Promise<LoginResult> {
 
   return {
     success: false,
-    message: '请提供API Key或使用OAuth登录。\n\n用法:\n  /login <API_KEY>\n  /login --oauth\n  /login --provider claudeai --oauth',
+    message:
+      '请提供API Key或使用OAuth登录。\n\n用法:\n  /login <API_KEY>\n  /login --oauth\n  /login --provider claudeai --oauth',
   };
 }

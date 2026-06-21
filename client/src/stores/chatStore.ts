@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Message, MessageBlock, FilePreview } from "../types";
-import type { ToolCall, TaskCardTask } from "../types";
+import type { ToolCall, TaskCardTask, ProgressData } from "../types";
 import { chatService } from "../services/chatService";
 import { httpLegacy as http } from "../services/httpClient";
 import { resolveFilePath } from "../services/filePathResolver";
@@ -187,6 +187,12 @@ interface ChatStore {
   isStreaming: boolean;
   /** 流式响应实时状态文本，用于 ChatInput 状态栏显示 */
   streamingStatus: string;
+  /** 执行阶段追踪数据，由后端 ExecutionPhaseTracker 通过流式事件推送 */
+  executionPhase: {
+    phase: "analyzing" | "designing" | "implementing" | "verifying" | "presenting" | null;
+    progress: number;
+    description: string;
+  } | null;
   error: string | null;
   replyMessage: Message | null;
   /** 当前预览的文件 */
@@ -199,7 +205,7 @@ interface ChatStore {
   abortController: AbortController | null;
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
-  streamMessage: (content: string, sessionId?: string) => Promise<void>;
+  streamMessage: (content: string, sessionId?: string, workMode?: "plan" | "do") => Promise<void>;
   /** 重新生成上一条 AI 消息 */
   regenerateMessage: (sessionId?: string) => Promise<void>;
   /** 在出错后重试（传入出错的 assistant 消息 ID，内部找到前置用户消息重新发送） */
@@ -482,6 +488,30 @@ class ChronologicalBlockBuilder {
     });
   }
 
+  /**
+   * 添加或更新进度块
+   * 流式传输中，同一次执行的进度块会被更新而非重复追加
+   */
+  addProgress(progressData: ProgressData): void {
+    // 按 phase 查找已有的进度块（同一次执行中同一 phase 不会重复出现）
+    const idx = this.blocks.findIndex(
+      (b) => b.type === "progress" && b.progressData?.phase === progressData.phase,
+    );
+    if (idx !== -1) {
+      this.blocks[idx].progressData = progressData;
+      this.blocks[idx].content = progressData.description;
+      return;
+    }
+    this.blocks.push({
+      id: generateBlockId(),
+      type: "progress",
+      content: progressData.description,
+      progressData,
+      isStreaming: true,
+      groupId: this.currentGroupId,
+    });
+  }
+
   /** 冻结所有块 */
   freezeAll(): void {
     for (const block of this.blocks) {
@@ -629,6 +659,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isInputBlocked: false,
   isStreaming: false,
   streamingStatus: "",
+  executionPhase: null,
   error: null,
   replyMessage: null,
   previewFile: null,
@@ -692,7 +723,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  streamMessage: async (content: string, sessionId?: string) => {
+  streamMessage: async (content: string, sessionId?: string, workMode?: "plan" | "do") => {
     // J1: 取消上一个未完成的流式请求
     const prevController = get().abortController;
     if (prevController) {
@@ -782,6 +813,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         content,
         sessionId,
         abortController.signal,
+        workMode ? { workMode } : undefined,
       );
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();
@@ -826,6 +858,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         } else if (chunk.type === "status") {
           blockBuilder.addStatus(chunk.content);
           set({ streamingStatus: chunk.content });
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "execution_phase" && chunk.executionPhase) {
+          // 执行阶段推送：更新 executionPhase 状态 + 生成进度块
+          const ep = chunk.executionPhase;
+          const progressData: ProgressData = {
+            phase: (ep.phase as ProgressData["phase"]) || "analyzing",
+            progress: ep.progress || 0,
+            description: ep.description || "",
+            steps: (ep.steps as ProgressData["steps"]) || [],
+            currentStep: ep.currentStep || "",
+          };
+          set({
+            executionPhase: {
+              phase: progressData.phase,
+              progress: progressData.progress,
+              description: progressData.description,
+            },
+          });
+          blockBuilder.addProgress(progressData);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "error") {
           // 将错误信息显示在聊天界面中
@@ -926,7 +977,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
       // 不等待 updateMessageBlocks 和 doAutoRename 完成
-      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
+      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
 
       const finalMessages = get().messages;
       const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
@@ -968,9 +1019,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
     } catch (error) {
       if (!abortController.signal.aborted) {
-        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
+        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
       } else {
-        set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
+        set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
       }
     }
   },
@@ -1004,7 +1055,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const truncated = messages.slice(0, lastUserIdx + 1);
     set({ messages: truncated });
 
-    await get().streamMessage(content, sessionId || userMsg.session_id);
+    // 检测工作模式：若当前工作项活跃，传递 Plan/Do 模式到后端
+    let workMode: "plan" | "do" | undefined;
+    try {
+      const { useWorkStore } = await import("./workStore");
+      const workState = useWorkStore.getState();
+      if (workState.activeWorkItem) {
+        workMode = workState.mode;
+      }
+    } catch {
+      // workStore 不可用时静默忽略
+    }
+
+    await get().streamMessage(content, sessionId || userMsg.session_id, workMode);
   },
 
   /**

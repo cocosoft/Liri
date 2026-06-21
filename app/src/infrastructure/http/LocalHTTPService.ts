@@ -167,7 +167,16 @@ import {
   handleGetSemanticIndexStatus,
   handleClearSemanticIndex,
 } from './handlers/semantic-index-handlers';
-import { handleListWorkspaces } from './handlers/workspaces-handlers';
+import { handleListWorkspaces, handleListWorkspaceSessions, handleCreateWorkspaceSession, handleListWorkItems, handleCreateWorkItem, handleUpdateWorkItem, handleDetectLiriDir, handleInitLiriDir, handleGetWorkspaceConfig, handleUpdateWorkspaceConfig, handleGetWorkspaceRules, handleUpdateWorkspaceRules, handleListChangeSets, handleCreateChangeSet, handleGetChangeSet, handleAddFileChange, handleUpdateChangeSet, handleGetChangeSetSummary, handleListProjects, handleCreateProject, handleGetProject, handleUpdateProject, handleDeleteProject, handleGetProjectBoard, handleGetProjectRules, handleUpdateProjectRules, handleGetTemplates, handleCreateProjectWorkItem } from './handlers/workspaces-handlers';
+import { handleOrchestrationStream, handleGetOrchestrationSnapshot, handleGetSwarmStatus, handleGetAgentModelBindings, handleUpdateAgentModelBindings } from './handlers/orchestration-handlers';
+import { handleListTeams, handleCreateTeam, handleGetTeam, handleUpdateTeam, handleDeleteTeam, handleAddTeamMember, handleRemoveTeamMember, handleUpdateMemberRole } from './handlers/team-handlers';
+import { handleWorkspaceCostReport, handleWorkspaceBudgetStatus } from './handlers/cost-handlers';
+import { handleSearchWorkItems, handleWorkItemReview } from './handlers/workitem-search-handlers';
+import { handleListWorkflowTemplates, handleGetWorkflowTemplate, handleCreateWorkflowTemplate, handleUpdateWorkflowTemplate, handleDeleteWorkflowTemplate } from './handlers/workflow-template-handlers';
+import { handleCreateCouncil, handleGetCouncil, handleCouncilStream, handleListCouncils, handleSubmitStatement } from './handlers/council-handlers';
+import { handleImpactAnalysis, handleRiskDetection, handleDecisionClassify, handleEscalation, handleGetEscalations, handleResourceSchedule, handleGetResources } from './handlers/orch-intelligence-handlers';
+import { handleListRules, handleGetRule, handleWriteRule, handleAppendRule, handleLoadRulesForWorkItem, handleRulesOverview } from './handlers/rule-handlers';
+import { handleBottleneckAnalysis } from './handlers/bottleneck-handlers';
 import {
   handleListKnowledge,
   handleSearchKnowledge,
@@ -894,6 +903,642 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleListWorkspaces(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 处理列出工作空间会话请求
+   * GET /v1/workspaces/:id/sessions
+   */
+  private async handleListWorkspaceSessions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleListWorkspaceSessions(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理创建工作空间会话请求
+   * POST /v1/workspaces/:id/sessions
+   */
+  private async handleCreateWorkspaceSession(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleCreateWorkspaceSession(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理列出工作项请求
+   * GET /v1/workspaces/:id/items
+   */
+  private async handleListWorkItems(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleListWorkItems(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理创建工作项请求
+   * POST /v1/workspaces/:id/items
+   */
+  private async handleCreateWorkItem(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleCreateWorkItem(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理更新工作项请求
+   * PATCH /v1/workspaces/:id/items/:itemId
+   */
+  private async handleUpdateWorkItem(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    itemId: string
+  ): Promise<void> {
+    return handleUpdateWorkItem(this._handlerCtx, req, res, workspaceId, itemId);
+  }
+
+  /**
+   * 处理 .liri/ 目录检测请求（委派到 workspaces-handlers）
+   */
+  private async handleDetectLiriDir(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleDetectLiriDir(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理 .liri/ 目录初始化请求（委派到 workspaces-handlers）
+   */
+  private async handleInitLiriDir(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleInitLiriDir(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理获取工作空间配置请求（委派到 workspaces-handlers）
+   */
+  private async handleGetWorkspaceConfig(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleGetWorkspaceConfig(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理更新工作空间配置请求（委派到 workspaces-handlers）
+   */
+  private async handleUpdateWorkspaceConfig(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleUpdateWorkspaceConfig(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理获取工作空间规则请求（委派到 workspaces-handlers）
+   */
+  private async handleGetWorkspaceRules(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleGetWorkspaceRules(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 处理更新工作空间规则请求（委派到 workspaces-handlers）
+   */
+  private async handleUpdateWorkspaceRules(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleUpdateWorkspaceRules(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 列出工作项的变更集
+   */
+  private async handleListChangeSets(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    itemId: string
+  ): Promise<void> {
+    return handleListChangeSets(this._handlerCtx, req, res, workspaceId, itemId);
+  }
+
+  /**
+   * 创建变更集
+   */
+  private async handleCreateChangeSet(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    itemId: string
+  ): Promise<void> {
+    return handleCreateChangeSet(this._handlerCtx, req, res, workspaceId, itemId);
+  }
+
+  /**
+   * 获取变更集详情
+   */
+  private async handleGetChangeSet(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    changesetId: string
+  ): Promise<void> {
+    return handleGetChangeSet(this._handlerCtx, req, res, workspaceId, changesetId);
+  }
+
+  /**
+   * 添加文件变更到变更集
+   */
+  private async handleAddFileChange(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    changesetId: string
+  ): Promise<void> {
+    return handleAddFileChange(this._handlerCtx, req, res, workspaceId, changesetId);
+  }
+
+  /**
+   * 更新变更集状态（审核）
+   */
+  private async handleUpdateChangeSet(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    changesetId: string
+  ): Promise<void> {
+    return handleUpdateChangeSet(this._handlerCtx, req, res, workspaceId, changesetId);
+  }
+
+  /**
+   * 获取变更集统计摘要
+   */
+  private async handleGetChangeSetSummary(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    changesetId: string
+  ): Promise<void> {
+    return handleGetChangeSetSummary(this._handlerCtx, req, res, workspaceId, changesetId);
+  }
+
+  // ========== Project Handlers ==========
+
+  private async handleListProjects(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleListProjects(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleCreateProject(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleCreateProject(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleGetProject(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleGetProject(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  private async handleUpdateProject(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleUpdateProject(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  private async handleDeleteProject(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleDeleteProject(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  private async handleGetProjectBoard(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleGetProjectBoard(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  private async handleGetProjectRules(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleGetProjectRules(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  private async handleUpdateProjectRules(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleUpdateProjectRules(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  private async handleGetTemplates(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleGetTemplates(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleCreateProjectWorkItem(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleCreateProjectWorkItem(this._handlerCtx, req, res, workspaceId, projectId);
+  }
+
+  // ========== Orchestration Handlers ==========
+
+  private async handleOrchestrationStream(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    itemId: string
+  ): Promise<void> {
+    return handleOrchestrationStream(this._handlerCtx, req, res, workspaceId, itemId);
+  }
+
+  private async handleGetOrchestrationSnapshot(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    itemId: string
+  ): Promise<void> {
+    return handleGetOrchestrationSnapshot(this._handlerCtx, req, res, workspaceId, itemId);
+  }
+
+  private async handleGetSwarmStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleGetSwarmStatus(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleGetAgentModelBindings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleGetAgentModelBindings(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleUpdateAgentModelBindings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleUpdateAgentModelBindings(this._handlerCtx, req, res, workspaceId);
+  }
+
+  // ========== Team Handlers ==========
+
+  private async handleListTeams(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleListTeams(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleCreateTeam(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleCreateTeam(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleGetTeam(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    teamId: string
+  ): Promise<void> {
+    return handleGetTeam(this._handlerCtx, req, res, workspaceId, teamId);
+  }
+
+  private async handleUpdateTeam(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    teamId: string
+  ): Promise<void> {
+    return handleUpdateTeam(this._handlerCtx, req, res, workspaceId, teamId);
+  }
+
+  private async handleDeleteTeam(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    teamId: string
+  ): Promise<void> {
+    return handleDeleteTeam(this._handlerCtx, req, res, workspaceId, teamId);
+  }
+
+  private async handleAddTeamMember(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    teamId: string
+  ): Promise<void> {
+    return handleAddTeamMember(this._handlerCtx, req, res, workspaceId, teamId);
+  }
+
+  private async handleRemoveTeamMember(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    teamId: string,
+    memberId: string
+  ): Promise<void> {
+    return handleRemoveTeamMember(this._handlerCtx, req, res, workspaceId, teamId, memberId);
+  }
+
+  private async handleUpdateMemberRole(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    teamId: string,
+    memberId: string
+  ): Promise<void> {
+    return handleUpdateMemberRole(this._handlerCtx, req, res, workspaceId, teamId, memberId);
+  }
+
+  // ========== Cost Handlers ==========
+
+  private async handleWorkspaceCostReport(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleWorkspaceCostReport(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleWorkspaceBudgetStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleWorkspaceBudgetStatus(this._handlerCtx, req, res, workspaceId);
+  }
+
+  // ========== Work Item Search Handlers ==========
+
+  private async handleSearchWorkItems(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleSearchWorkItems(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleWorkItemReview(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleWorkItemReview(this._handlerCtx, req, res, workspaceId);
+  }
+
+  // ========== Workflow Template Handlers ==========
+
+  private async handleListWorkflowTemplates(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleListWorkflowTemplates(this._handlerCtx, req, res);
+  }
+
+  private async handleGetWorkflowTemplate(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    templateId: string
+  ): Promise<void> {
+    return handleGetWorkflowTemplate(this._handlerCtx, req, res, templateId);
+  }
+
+  private async handleCreateWorkflowTemplate(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleCreateWorkflowTemplate(this._handlerCtx, req, res);
+  }
+
+  private async handleUpdateWorkflowTemplate(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    templateId: string
+  ): Promise<void> {
+    return handleUpdateWorkflowTemplate(this._handlerCtx, req, res, templateId);
+  }
+
+  private async handleDeleteWorkflowTemplate(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    templateId: string
+  ): Promise<void> {
+    return handleDeleteWorkflowTemplate(this._handlerCtx, req, res, templateId);
+  }
+
+  /**
+   * Council 相关处理器
+   */
+  private async handleCreateCouncil(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleCreateCouncil(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleGetCouncil(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleGetCouncil(this._handlerCtx, req, res, sessionId);
+  }
+
+  private async handleCouncilStream(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleCouncilStream(this._handlerCtx, req, res, sessionId);
+  }
+
+  private async handleListCouncils(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleListCouncils(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleSubmitStatement(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleSubmitStatement(this._handlerCtx, req, res, sessionId);
+  }
+
+  /**
+   * 编排智能处理器
+   */
+  private async handleImpactAnalysis(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleImpactAnalysis(this._handlerCtx, req, res);
+  }
+
+  private async handleRiskDetection(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleRiskDetection(this._handlerCtx, req, res);
+  }
+
+  private async handleDecisionClassify(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleDecisionClassify(this._handlerCtx, req, res);
+  }
+
+  private async handleEscalation(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleEscalation(this._handlerCtx, req, res);
+  }
+
+  private async handleGetEscalations(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleGetEscalations(this._handlerCtx, req, res);
+  }
+
+  private async handleResourceSchedule(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleResourceSchedule(this._handlerCtx, req, res);
+  }
+
+  private async handleGetResources(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleGetResources(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 规则管理处理器
+   */
+  private async handleListRules(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string
+  ): Promise<void> {
+    return handleListRules(this._handlerCtx, req, res, workspaceId);
+  }
+
+  private async handleGetRule(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    specialization: string
+  ): Promise<void> {
+    return handleGetRule(this._handlerCtx, req, res, specialization);
+  }
+
+  private async handleWriteRule(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    specialization: string
+  ): Promise<void> {
+    return handleWriteRule(this._handlerCtx, req, res, specialization);
+  }
+
+  private async handleAppendRule(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    specialization: string
+  ): Promise<void> {
+    return handleAppendRule(this._handlerCtx, req, res, specialization);
+  }
+
+  private async handleLoadRulesForWorkItem(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleLoadRulesForWorkItem(this._handlerCtx, req, res);
+  }
+
+  private async handleRulesOverview(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleRulesOverview(this._handlerCtx, req, res);
+  }
+
+  /**
+   * 瓶颈感知处理器
+   */
+  private async handleBottleneckAnalysis(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleBottleneckAnalysis(this._handlerCtx, req, res);
   }
 
   /**

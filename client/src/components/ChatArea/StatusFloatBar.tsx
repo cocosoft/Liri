@@ -1,17 +1,27 @@
 import { useChatStore } from "../../stores/chatStore";
 
+const PHASE_LABELS: Record<string, string> = {
+  analyzing:    "正在分析代码...",
+  designing:    "正在设计方案...",
+  implementing: "正在实施变更...",
+  verifying:    "正在验证结果...",
+  presenting:   "正在生成报告...",
+};
+
 /**
  * 运行状态浮动面板
  *
  * 浮于 ChatArea 消息列表与 ChatInput 输入区之间，展示当前会话的运行状态。
  * - 运行中：绿色脉冲点 + 状态描述文本
  * - 空闲：不渲染
+ * - 执行阶段：读取 executionPhase，优先显示阶段文本
  */
 export default function StatusFloatBar() {
   const isSending = useChatStore((s) => s.isSending);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const isUploading = useChatStore((s) => s.isUploading);
   const streamingStatus = useChatStore((s) => s.streamingStatus);
+  const executionPhase = useChatStore((s) => s.executionPhase);
 
   const isActive = isSending || isStreaming || isUploading;
 
@@ -19,10 +29,17 @@ export default function StatusFloatBar() {
 
   /**
    * 根据当前状态生成显示文本
+   * 优先级：executionPhase > streamingStatus > 默认状态
    */
   const getStatusText = (): string => {
     if (isUploading) return "正在上传文件...";
     if (isSending && !isStreaming) return "正在发送...";
+    if (executionPhase?.phase) {
+      const phaseLabel = PHASE_LABELS[executionPhase.phase] || executionPhase.phase;
+      return executionPhase.description
+        ? `${phaseLabel} ${executionPhase.description}`
+        : phaseLabel;
+    }
     if (streamingStatus) return streamingStatus;
     return "AI 正在回复...";
   };

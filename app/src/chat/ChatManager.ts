@@ -664,6 +664,8 @@ export class ChatManagerImpl implements ChatManager {
       ]),
       timestamp: Date.now() + idx,
       id: `msg_${idx}_${Date.now()}`,
+      // 保留原始 metadata，确保 tool_call_id / toolCallId 不丢失
+      metadata: { ...(msg as Record<string, unknown>) },
     }));
     try {
       const compressResult =
@@ -683,6 +685,8 @@ export class ChatManagerImpl implements ChatManager {
             entry.tool_calls = cm.metadata.tool_calls;
           if (cm.metadata?.tool_call_id)
             entry.tool_call_id = cm.metadata.tool_call_id;
+          else if (cm.metadata?.toolCallId)
+            entry.tool_call_id = cm.metadata.toolCallId;
           apiMessages.push(entry);
         }
         logger.warn(

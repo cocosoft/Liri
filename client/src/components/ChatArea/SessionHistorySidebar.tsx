@@ -56,6 +56,17 @@ function SessionHistorySidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // 窄屏（< 1024px）自动折叠侧栏
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsExpanded(!e.matches);
+    };
+    handleChange(mediaQuery);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
   // 确认对话框状态
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -267,8 +278,8 @@ function SessionHistorySidebar() {
 
   if (!isExpanded) {
     return (
-      <div className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-12">
-        <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-center">
+      <div className="group bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-12 hover:w-60">
+        <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-center group-hover:justify-between group-hover:px-3">
           <button
             onClick={() => setIsExpanded(true)}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -288,8 +299,11 @@ function SessionHistorySidebar() {
               />
             </svg>
           </button>
+          <span className="hidden group-hover:inline text-xs font-medium text-gray-500 dark:text-gray-400">
+            会话历史
+          </span>
         </div>
-        <div className="flex-1 flex flex-col items-center py-2 gap-2">
+        <div className="flex-1 flex flex-col items-center py-2 gap-2 group-hover:hidden">
           <svg
             className="w-5 h-5 text-gray-400"
             fill="none"
@@ -306,6 +320,11 @@ function SessionHistorySidebar() {
           {sessions.length > 0 && (
             <span className="text-xs text-gray-400">{sessions.length}</span>
           )}
+        </div>
+        <div className="hidden group-hover:flex flex-1 flex-col overflow-y-auto p-2">
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
+            会话列表
+          </p>
         </div>
       </div>
     );

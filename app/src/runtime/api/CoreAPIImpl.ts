@@ -702,6 +702,7 @@ export class CoreAPIImpl implements CoreAPI {
       title: params?.title || 'New Session',
       tags: params?.tags,
       mode: params?.mode,
+      metadata: params?.metadata,
     });
 
     return {

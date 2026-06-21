@@ -1,18 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useConfigStore } from "../../stores/configStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { workspaceService } from "../../services/workspaceService";
 import AgentStrategySelector from "../Agent/AgentStrategySelector";
 import AgentSwarmView from "../Agent/AgentSwarmView";
 import AgentTrajectoryView from "../Agent/AgentTrajectoryView";
 import AgentIdentityConfig from "../Agent/AgentIdentityConfig";
+import AgentModelBindingConfig from "../Workspace/AgentModelBindingConfig";
 
-type AgentTab = "strategy" | "swarm" | "trajectory" | "identity";
+type AgentTab = "strategy" | "swarm" | "trajectory" | "identity" | "bindings";
 
 function AgentAdvancedPage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
+  const activeWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
 
   const [activeTab, setActiveTab] = useState<AgentTab>("strategy");
   const [currentStrategy, setCurrentStrategy] = useState<string>("general");
+  const [swarmAgents, setSwarmAgents] = useState<Array<{ id: string; name: string; role: string; status: "idle" | "running" | "completed" | "error"; connections: string[] }>>([]);
   const [identity, setIdentity] = useState({
     name: "Assistant",
     description: "An intelligent AI assistant",
@@ -26,7 +31,21 @@ function AgentAdvancedPage() {
     { key: "swarm", label: "Swarm编排" },
     { key: "trajectory", label: "执行轨迹" },
     { key: "identity", label: "身份配置" },
+    { key: "bindings", label: "模型绑定" },
   ];
+
+  // 加载真实 Swarm 数据
+  useEffect(() => {
+    if (activeWorkspaceId) {
+      workspaceService.getSwarmStatus(activeWorkspaceId).then((data) => {
+        if (data.agents && Array.isArray(data.agents)) {
+          setSwarmAgents(data.agents as Array<{ id: string; name: string; role: string; status: "idle" | "running" | "completed" | "error"; connections: string[] }>);
+        }
+      }).catch(() => {
+        // 保持 mock 数据回退
+      });
+    }
+  }, [activeWorkspaceId]);
 
   return (
     <div
@@ -77,7 +96,7 @@ function AgentAdvancedPage() {
           {activeTab === "swarm" && (
             <AgentSwarmView
               isDark={isDark}
-              agents={[]}
+              agents={swarmAgents}
               onAgentClick={(agent) => void agent}
             />
           )}
@@ -93,6 +112,13 @@ function AgentAdvancedPage() {
               onUpdate={(newIdentity) =>
                 setIdentity({ ...identity, ...newIdentity })
               }
+            />
+          )}
+
+          {activeTab === "bindings" && activeWorkspaceId && (
+            <AgentModelBindingConfig
+              workspaceId={activeWorkspaceId}
+              isDark={isDark}
             />
           )}
         </div>

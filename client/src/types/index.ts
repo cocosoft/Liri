@@ -14,6 +14,9 @@ export type {
   ToolCall,
   TaskCardData,
   TaskCardTask,
+  ProgressData,
+  DeliverableData,
+  DiffData,
   Tool,
 } from "./message";
 

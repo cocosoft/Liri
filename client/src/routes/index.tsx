@@ -18,6 +18,7 @@ const AgentAdvancedPage = lazy(() => import("../components/views/AgentAdvancedPa
 const CronPage = lazy(() => import("../components/views/CronPage"));
 const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
+const WorkPageLayout = lazy(() => import("../components/Workspace/WorkPageLayout"));
 const ChannelsPage = lazy(() => import("../components/views/ChannelsPage"));
 const SettingsPage = lazy(() => import("../components/views/SettingsPage"));
 const PermissionPage = lazy(() => import("../components/views/PermissionPage"));
@@ -75,8 +76,16 @@ export const routes: RouteObject[] = [
   // 梦境模块
   { path: "/dream", element: <AuthGuard><DreamPage /></AuthGuard> },
 
-  // 任务中心
+  // 任务中心 → 工作模块
   { path: "/tasks", element: <AuthGuard><TaskCenterPage /></AuthGuard> },
+
+  // 工作模块快捷入口（无工作空间时使用 "default" 占位，WorkPageLayout 内部处理）
+  { path: "/work", element: <Navigate to="/workspace/default/work" replace /> },
+
+  // 工作界面（功能开关：VITE_FEATURE_WORK_MODULE=disabled 时不注册）
+  ...(import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled"
+    ? [{ path: "/workspace/:id/work", element: <AuthGuard><WorkPageLayout /></AuthGuard> } as RouteObject]
+    : []),
 
   // 频道管理
   { path: "/channels", element: <AuthGuard><ChannelsPage /></AuthGuard> },

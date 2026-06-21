@@ -1,4 +1,5 @@
 import React, { memo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Message, MessageBlock } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ThinkingBlock from "./ThinkingBlock";
@@ -8,9 +9,13 @@ import ToolExecutionGroup from "./ToolExecutionGroup";
 import ToolResultMessage from "./ToolResultMessage";
 import TaskCard from "./TaskCard";
 import QuestionBlock from "./QuestionBlock";
+import ProgressCard from "./ProgressCard";
+import DeliverableCard from "./DeliverableCard";
+import DiffBlock from "./DiffBlock";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import { useChatStore } from "../../stores/chatStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 
 interface ChatMessageProps {
   message: Message;
@@ -447,10 +452,6 @@ function AssistantMessage({
     };
     const store = useChatStore.getState();
     store.addMessage(newMsg);
-  }, (content) => {
-    // TaskCard/Todo 按钮点击：发送用户消息到对话流
-    const store = useChatStore.getState();
-    store.sendMessage(content, message.session_id);
   });
   return (
     <div className="text-sm break-words max-w-none space-y-3">
@@ -512,7 +513,6 @@ function renderBlocksWithGroups(
   blocks: MessageBlock[],
   sessionId?: string,
   onQuestionResponse?: (content: string) => void,
-  onSendMessage?: (content: string) => void,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
@@ -531,7 +531,6 @@ function renderBlocksWithGroups(
           block={block}
           sessionId={sessionId}
           onQuestionResponse={onQuestionResponse}
-          onSendMessage={onSendMessage}
         />,
       );
       i++;
@@ -570,11 +569,25 @@ interface BlockRendererProps {
   block: MessageBlock;
   sessionId?: string;
   onQuestionResponse?: (content: string) => void;
-  onSendMessage?: (content: string) => void;
 }
 
-function BlockRenderer({ block, sessionId, onQuestionResponse, onSendMessage }: BlockRendererProps) {
+function BlockRenderer({ block, sessionId, onQuestionResponse }: BlockRendererProps) {
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
+  const navigate = useNavigate();
+  const backendReady = useWorkspaceStore((s) => s.backendReady);
+
+  /** 功能开关：VITE_FEATURE_WORK_MODULE=disabled 时隐藏工作模块入口 */
+  const workModuleEnabled = import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled";
+
+  /**
+   * 进入工作模式：从聊天界面跳转到工作界面
+   * Phase 1-B 骨架阶段：直接导航，后端 Workspace API 就绪后改为先创建 workspace session 再跳转
+   */
+  const handleEnterWorkMode = () => {
+    if (sessionId) {
+      navigate(`/workspace/${sessionId}/work`);
+    }
+  };
   switch (block.type) {
     case "thinking":
       return (
@@ -606,9 +619,21 @@ function BlockRenderer({ block, sessionId, onQuestionResponse, onSendMessage }: 
         />
       ) : null;
     case "task_decomposition":
-      return block.taskCard ? <TaskCard data={block.taskCard} sessionId={sessionId} onSendMessage={onSendMessage} /> : null;
+      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
     case "todo":
-      return block.taskCard ? <TaskCard data={block.taskCard} sessionId={sessionId} onSendMessage={onSendMessage} /> : null;
+      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
+    case "progress":
+      return block.progressData ? <ProgressCard data={block.progressData} /> : null;
+    case "deliverable":
+      return block.deliverableData ? (
+        <DeliverableCard
+          data={block.deliverableData}
+          onEnterWorkMode={workModuleEnabled ? handleEnterWorkMode : undefined}
+          workModeReady={backendReady}
+        />
+      ) : null;
+    case "diff":
+      return block.diffData ? <DiffBlock data={block.diffData} /> : null;
     case "text":
     default:
       return (

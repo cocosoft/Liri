@@ -20,11 +20,21 @@ export interface QuestionData {
 }
 
 export interface StreamChunk {
-  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo";
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo" | "execution_phase" | "progress" | "deliverable" | "diff";
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
   todoData?: import("../types").TaskCardData;
+  executionPhase?: {
+    phase: string;
+    progress: number;
+    description: string;
+    steps?: { name: string; status: string }[];
+    currentStep?: string;
+  };
+  progressData?: import("../types").ProgressData;
+  deliverableData?: import("../types").DeliverableData;
+  diffData?: import("../types").DiffData;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -190,6 +200,7 @@ export const chatService = {
     content: string,
     sessionId?: string,
     signal?: AbortSignal,
+    options?: { workMode?: "plan" | "do" },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
@@ -198,6 +209,7 @@ export const chatService = {
       stream: true,
     };
     if (sessionId) body.session_id = sessionId;
+    if (options?.workMode) body.work_mode = options.workMode;
 
     const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: "POST",

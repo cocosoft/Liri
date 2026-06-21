@@ -15,7 +15,9 @@ export type AppPage =
   | "settings"
   | "buddy"
   | "plans"
-  | "semantic";
+  | "semantic"
+  | "workspace"
+  | "tasks";
 
 type NavigateFn = (path: string) => void;
 

@@ -96,7 +96,8 @@ export interface ChatStreamChunk {
     | 'done'
     | 'error'
     | 'question'
-    | 'todo';
+    | 'todo'
+    | 'execution_phase';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
@@ -106,6 +107,44 @@ export interface ChatStreamChunk {
   questionData?: QuestionData;
   /** 仅在 type='todo' 时存在 */
   todoData?: TodoBlockData;
+  /** 仅在 type='execution_phase' 时存在：执行阶段数据 */
+  executionPhase?: ExecutionPhaseData;
+  /** 进度数据（ProgressData 格式） */
+  progressData?: ProgressBlockData;
+  /** 交付物数据（DeliverableData 格式） */
+  deliverableData?: DeliverableBlockData;
+  /** diff 数据 */
+  diffData?: DiffBlockData;
+  /** 工作模式（Plan/Do） */
+  mode?: 'plan' | 'do';
+}
+
+/** 执行阶段数据 */
+export interface ExecutionPhaseData {
+  phase: 'analyzing' | 'designing' | 'implementing' | 'verifying' | 'presenting';
+  progress: number;
+  description: string;
+  steps?: { name: string; status: 'pending' | 'in_progress' | 'done' | 'failed' }[];
+  currentStep?: string;
+}
+
+/** 进度块数据 */
+export interface ProgressBlockData {
+  steps: { name: string; status: 'pending' | 'in_progress' | 'done' | 'failed' }[];
+  currentStep: string;
+}
+
+/** 交付物块数据 */
+export interface DeliverableBlockData {
+  files: { path: string; change: 'added' | 'modified' | 'deleted'; status: 'pending' | 'verified' | 'failed' }[];
+  summary: string;
+}
+
+/** diff 块数据 */
+export interface DiffBlockData {
+  file: string;
+  diff: string;
+  language?: string;
 }
 
 /** 工具调用描述 */
@@ -151,6 +190,8 @@ export interface SessionCreateParams {
   title?: string;
   tags?: string[];
   mode?: string;
+  /** 会话元数据（如 workspaceId、workMode 等） */
+  metadata?: Record<string, unknown>;
 }
 
 /** Agent 任务参数 */

@@ -59,6 +59,26 @@ CREATE INDEX IF NOT EXISTS idx_task_audit_timestamp ON task_audit_log(timestamp)
 CREATE INDEX IF NOT EXISTS idx_task_flow_status ON task_flow(status);
 CREATE INDEX IF NOT EXISTS idx_task_flow_owner ON task_flow(owner_key);
 
+-- Phase 2: 工作项表
+CREATE TABLE IF NOT EXISTS work_items (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL DEFAULT 'task',
+  status TEXT NOT NULL DEFAULT 'pending',
+  session_id TEXT,
+  tags TEXT,
+  priority INTEGER DEFAULT 3,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_items_workspace ON work_items(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_work_items_status ON work_items(status);
+CREATE INDEX IF NOT EXISTS idx_work_items_updated ON work_items(updated_at);
+
 -- task_runs: 跟踪每个任务的执行历史记录
 CREATE TABLE IF NOT EXISTS task_runs (
   id TEXT PRIMARY KEY,

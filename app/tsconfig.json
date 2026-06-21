@@ -142,7 +142,9 @@
       "@modules/voice": ["voice"],
       "@modules/voice/*": ["voice/*"],
       "@modules/components": ["components"],
-      "@modules/components/*": ["components/*"]
+      "@modules/components/*": ["components/*"],
+      "@modules/workspace": ["workspace"],
+      "@modules/workspace/*": ["workspace/*"]
     }
   },
   "include": ["src/**/*"],

@@ -21,17 +21,30 @@
 
 import type http from 'node:http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
+import type { Skill } from '@modules/skills/types';
+
+/**
+ * ClawHub Adapter 接口类型
+ * 基于 BaseThirdPartyAdapter 的实际方法
+ */
+interface ClawHubAdapter {
+  installSkill(skillId: string, sourceUrl?: string): Promise<Skill | null>;
+  uninstallSkill(skillId: string): Promise<boolean>;
+  enableSkill(skillId: string): Promise<void>;
+  disableSkill(skillId: string): Promise<void>;
+}
 
 /**
  * 获取 ClawHubAdapter 实例
  */
-async function getClawHubAdapter(): Promise<unknown> {
+async function getClawHubAdapter(): Promise<ClawHubAdapter> {
   try {
     const { thirdPartyAdapterRegistry } =
       await import('@modules/skills/loaders/adapter/ThirdPartyAdapterRegistry');
     const registered = thirdPartyAdapterRegistry.get('clawhub');
     if (registered) {
-      return registered;
+      // ThirdPartySkillAdapter 缺少 enableSkill/disableSkill，需要类型断言
+      return registered as unknown as ClawHubAdapter;
     }
   } catch {
     // 注册表不可用时 fallback
@@ -43,7 +56,7 @@ async function getClawHubAdapter(): Promise<unknown> {
   if (!adapter['initialized']) {
     await adapter.initialize();
   }
-  return adapter;
+  return adapter as unknown as ClawHubAdapter;
 }
 
 // ========== SkillCRUD Handlers ==========
@@ -77,6 +90,7 @@ export async function handleCreateSkill(
 
 /**
  * 更新指定技能
+ * 注意：当前 ClawHubAdapter 不支持 updateSkill 方法，此功能暂不可用
  */
 export async function handleUpdateSkillById(
   _req: http.IncomingMessage,
@@ -84,11 +98,15 @@ export async function handleUpdateSkillById(
   skillId: string
 ): Promise<void> {
   try {
-    const adapter = await getClawHubAdapter();
-    const skill = await adapter.updateSkill(skillId);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(skill));
-    broadcastEvent('skill:updated', { skill });
+    // TODO: 实现 updateSkill 方法
+    // 当前 BaseThirdPartyAdapter 没有 updateSkill 方法
+    res.writeHead(501, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        error: { message: 'updateSkill 功能暂不支持' },
+        skillId,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

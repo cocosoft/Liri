@@ -13,7 +13,10 @@
 import type http from 'node:http';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
-import { getRuleEngine } from '@modules/workspace/RuleEngine';
+import {
+  getRuleEngine,
+  type RuleSpecialization,
+} from '@modules/workspace/RuleEngine';
 
 const logger = new Logger({ module: 'RuleHandlers', level: LogLevel.INFO });
 
@@ -50,7 +53,7 @@ export function handleGetRule(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  specialization: string
+  specialization: RuleSpecialization
 ): void {
   try {
     const engine = getRuleEngine();
@@ -86,7 +89,7 @@ export async function handleWriteRule(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  specialization: string
+  specialization: RuleSpecialization
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
@@ -121,7 +124,7 @@ export async function handleAppendRule(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  specialization: string
+  specialization: RuleSpecialization
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);

@@ -87,6 +87,57 @@ import {
   handleWorkItemReview,
 } from './handlers/workitem-search-handlers';
 import {
+  handleListWorkspaces,
+  handleListWorkspaceSessions,
+  handleCreateWorkspaceSession,
+  handleListWorkItems,
+  handleCreateWorkItem,
+  handleUpdateWorkItem,
+  handleDetectLiriDir,
+  handleInitLiriDir,
+  handleGetWorkspaceConfig,
+  handleUpdateWorkspaceConfig,
+  handleGetWorkspaceRules,
+  handleUpdateWorkspaceRules,
+  handleListChangeSets,
+  handleCreateChangeSet,
+  handleGetChangeSet,
+  handleAddFileChange,
+  handleUpdateChangeSet,
+  handleGetChangeSetSummary,
+  handleListProjects,
+  handleCreateProject,
+  handleGetProject,
+  handleUpdateProject,
+  handleDeleteProject,
+  handleGetProjectBoard,
+  handleGetProjectRules,
+  handleUpdateProjectRules,
+  handleGetTemplates,
+  handleCreateProjectWorkItem,
+} from './handlers/workspaces-handlers';
+import {
+  handleOrchestrationStream,
+  handleGetOrchestrationSnapshot,
+  handleGetSwarmStatus,
+  handleGetAgentModelBindings,
+  handleUpdateAgentModelBindings,
+} from './handlers/orchestration-handlers';
+import {
+  handleListTeams,
+  handleCreateTeam,
+  handleGetTeam,
+  handleUpdateTeam,
+  handleDeleteTeam,
+  handleAddTeamMember,
+  handleRemoveTeamMember,
+  handleUpdateMemberRole,
+} from './handlers/team-handlers';
+import {
+  handleWorkspaceCostReport,
+  handleWorkspaceBudgetStatus,
+} from './handlers/cost-handlers';
+import {
   handleListWorkflowTemplates,
   handleGetWorkflowTemplate,
   handleCreateWorkflowTemplate,
@@ -117,6 +168,7 @@ import {
   handleLoadRulesForWorkItem,
   handleRulesOverview,
 } from './handlers/rule-handlers';
+import type { RuleSpecialization } from '@modules/workspace/RuleEngine';
 import { handleBottleneckAnalysis } from './handlers/bottleneck-handlers';
 import {
   handleListKnowledge,
@@ -145,7 +197,14 @@ import {
   handleSendFileToAI,
 } from './handlers/files-handlers';
 import { handleEvents } from './handlers/config-handlers';
+import {
+  handleGetBuddy,
+  handleBuddyInteract,
+  handleGetBuddyStats,
+  handleGetDreamLogs,
+} from './handlers/buddy-handlers';
 import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
+import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { dispatchRoute } from './handlers/route-table';
 import {
   verifyRequestAuth,
@@ -1487,7 +1546,12 @@ export class LocalHTTPService {
     res: http.ServerResponse,
     specialization: string
   ): Promise<void> {
-    return handleGetRule(this._handlerCtx, req, res, specialization);
+    return handleGetRule(
+      this._handlerCtx,
+      req,
+      res,
+      specialization as RuleSpecialization
+    );
   }
 
   private async handleWriteRule(
@@ -1495,7 +1559,12 @@ export class LocalHTTPService {
     res: http.ServerResponse,
     specialization: string
   ): Promise<void> {
-    return handleWriteRule(this._handlerCtx, req, res, specialization);
+    return handleWriteRule(
+      this._handlerCtx,
+      req,
+      res,
+      specialization as RuleSpecialization
+    );
   }
 
   private async handleAppendRule(
@@ -1503,7 +1572,12 @@ export class LocalHTTPService {
     res: http.ServerResponse,
     specialization: string
   ): Promise<void> {
-    return handleAppendRule(this._handlerCtx, req, res, specialization);
+    return handleAppendRule(
+      this._handlerCtx,
+      req,
+      res,
+      specialization as RuleSpecialization
+    );
   }
 
   private async handleLoadRulesForWorkItem(

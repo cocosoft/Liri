@@ -1,5 +1,5 @@
 import { useWorkStore, type ContentView } from "../../stores/workStore";
-import { WorkView } from "./WorkBoardView";
+import { WorkBoardView } from "./WorkBoardView";
 import { TeamView } from "./TeamView";
 import { CostView } from "./CostView";
 import { WorkflowTemplateView } from "./WorkflowTemplateView";

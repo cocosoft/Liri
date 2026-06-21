@@ -32,7 +32,6 @@ import {
 import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createChangeSetStore } from '@modules/workspace/ChangeSetStore';
 import { createProjectStore } from '@modules/workspace/ProjectStore';
-import type { WorkItem } from '@modules/workspace/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -9,17 +9,13 @@
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createLiriConfigManager } from '@modules/workspace/LiriConfigManager';
 import { resolveWorkspacePath } from './workspaces-handlers';
 import type {
-  WorkItem,
   WorkItemSearchQuery,
   WorkItemSearchResult,
 } from '@modules/workspace/types';
-
-const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 搜索工作项

@@ -4,7 +4,8 @@
 export type { ApiError, ApiResponse } from "./api";
 export { isApiResponse, unwrapApiResponse } from "./api";
 
-// ─── 核心业务类型 ───export type { Session } from "./session";
+// ─── 核心业务类型 ───
+export type { Session } from "./session";
 export type {
   Message,
   MessageBlock,
@@ -23,7 +24,7 @@ export type {
 export type {
   ModelInfo,
   ProviderInfo,
-  ProviderData,
+  ProviderFormData,
   ProviderPreset,
   ProviderCategory,
   EndpointLatency,

@@ -16,7 +16,6 @@ import {
 import { join } from 'path';
 import type {
   Project,
-  ProjectStatus,
   ProjectBoard,
   ProjectBoardColumn,
   WorkItemTemplate,

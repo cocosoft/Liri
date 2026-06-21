@@ -15,7 +15,6 @@
 import { randomUUID } from 'node:crypto';
 import type {
   CouncilSession,
-  CouncilPhase,
   CouncilAgentRole,
   CouncilStatement,
   CouncilStreamEvent,
@@ -135,7 +134,7 @@ export class CouncilEngine {
     try {
       // 阶段 1：召集 Agent（通知所有 Agent 加入）
       session.phase = 'convening';
-      for (const agent of session.agents) {
+      for (const _agent of session.agents) {
         this.emit({
           type: 'agent_joined',
           sessionId,

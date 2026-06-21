@@ -25,7 +25,7 @@ import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 /**
  * 获取 ClawHubAdapter 实例
  */
-async function getClawHubAdapter(): Promise<any> {
+async function getClawHubAdapter(): Promise<unknown> {
   try {
     const { thirdPartyAdapterRegistry } =
       await import('@modules/skills/loaders/adapter/ThirdPartyAdapterRegistry');

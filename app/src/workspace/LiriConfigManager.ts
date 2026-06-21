@@ -5,13 +5,7 @@
  * 提供工作空间自动检测、配置加载/保存、记忆管理等功能。
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  readdirSync,
-} from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import type {
   LiriWorkspaceConfig,
@@ -20,9 +14,6 @@ import type {
   LiriMemoryConfig,
   LiriMemoryEntry,
   LiriDetectionResult,
-  LiriCostControl,
-  LiriAIStrategy,
-  LiriModelPreference,
 } from './types';
 
 /** .liri/ 目录常量 */

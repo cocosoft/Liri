@@ -13,7 +13,7 @@ import {
   readdirSync,
   unlinkSync,
 } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 

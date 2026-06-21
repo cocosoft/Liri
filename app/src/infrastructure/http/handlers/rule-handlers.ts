@@ -54,7 +54,7 @@ export function handleGetRule(
 ): void {
   try {
     const engine = getRuleEngine();
-    const content = engine.readRule(specialization as any);
+    const content = engine.readRule(specialization);
 
     if (content === null) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -100,7 +100,7 @@ export async function handleWriteRule(
     }
 
     const engine = getRuleEngine();
-    engine.writeRule(specialization as any, content);
+    engine.writeRule(specialization, content);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ specialization, message: '规则已保存' }));
@@ -135,7 +135,7 @@ export async function handleAppendRule(
     }
 
     const engine = getRuleEngine();
-    engine.appendRule(specialization as any, content);
+    engine.appendRule(specialization, content);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ specialization, message: '规则已追加' }));

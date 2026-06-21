@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useProjectStore } from "../../stores/projectStore";
 import type { ProjectNode, ProjectViewMode, ProjectPriority } from "../../types/work";
 
@@ -146,7 +146,7 @@ function NodeTree({
 /**
  * 项目需求导入面板
  */
-function ImportPanel({ onImport }: { onImport: (text: string => void }) {
+function ImportPanel({ onImport }: { onImport: (text: string) => void }) {
   const [text, setText] = useState("");
   const isDecomposing = useProjectStore((s) => s.isDecomposing);
 
@@ -203,9 +203,7 @@ export function WorkBoardView({
   const project = useProjectStore((s) => s.projects[projectId]);
   const getRootNodes = useProjectStore((s) => s.getRootNodes);
   const importNodesDirect = useProjectStore((s) => s.importNodesDirect);
-  const isDecomposing = useProjectStore((s) => s.isDecomposing);
   const [viewMode, setViewMode] = useState<ProjectViewMode>("board");
-  const [selectedNode, setSelectedNode] = useState<ProjectNode | null>(null);
   const [showImport, setShowImport] = useState(!project);
 
   const rootNodes = project ? getRootNodes(projectId) : [];
@@ -218,7 +216,6 @@ export function WorkBoardView({
   };
 
   const handleNodeClick = (node: ProjectNode) => {
-    setSelectedNode(node);
     onNodeClick?.(node);
   };
 

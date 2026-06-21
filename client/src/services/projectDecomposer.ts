@@ -1,25 +1,9 @@
-import type { ProjectNode, ProjectNodeType, ProjectPriority } from "../types/work";
-
-/**
- * AI 项目分解服务
- *
- * 将用户输入的需求文档/一句话,自动分解为多层次的
- * 项目工作项网络(ProjectNode 树)
- *
- * Phase 0:本地模拟 AI 分解逻辑
- * Phase 1:对接后端 AI 服务,返回结构化 JSON
- */
+import type { ProjectNode } from "../types/work";
 
 export interface DecomposeOptions {
   projectId: string;
 }
 
-/**
- * 基于规则的需求分解引擎
- *
- * 将需求文本按场景、功能、子任务拆解,
- * 形成 ProjectNode 树状结构
- */
 function ruleBasedDecompose(
   requirements: string,
   options: { projectId: string }
@@ -29,22 +13,21 @@ function ruleBasedDecompose(
   let nodeCounter = 0;
   const id = () => `${projectId}_n${++nodeCounter}`;
 
-  // 核心场景关键词检测
   const hasScene = (keyword: string) =>
     requirements.includes(keyword);
 
-  // ────── 公共节点:流程数据底座(所有场景共用) ──────
   const baseNodeId = id();
   nodes.push({
     id: baseNodeId,
-    projectId    type: "phase",
+    projectId,
+    type: "phase",
     title: "流程数据接入层搭建",
     description: "对接电网管理平台各业务域数据接口,建立统一的数据模型和指标引擎",
     priority: "P0",
     status: "planning",
     progress: 0,
     children: [id(), id(), id()],
-    dependsOn [],
+    dependsOn: [],
     tags: ["", "数据"],
     estimatedEffort: "3-4 周",
     assignee: "",
@@ -53,14 +36,13 @@ function ruleBasedDecompose(
     createdAt: Date.now(),
   });
 
-  // 数据底座子节点
   const baseChildren = ["数据接口适配器", "统一流程数据模型", "流程指标计算引擎"];
   for (const i in baseChildren) {
     nodes.push({
       id: `${baseNodeId}_${i}`,
       projectId,
       type: "task",
-      title baseChildren[i],
+      title: baseChildren[i],
       description: "",
       priority: "P0",
       status: "planning",
@@ -70,26 +52,25 @@ function ruleBasedDecompose(
       tags: ["底座"],
       estimatedEffort: "1-2 周",
       assignee: "",
-     At: 0,
+      startedAt: 0,
       completedAt: 0,
       createdAt: Date.now(),
     });
   }
 
-  // ────── 公共节点:大看板框架 ──────
   const boardNodeId = id();
   nodes.push({
     id: boardNodeId,
     projectId,
     type: "phase",
-   : "流程穿式监控大看板框架",
+    title: "流程穿式监控大看板框架",
     description: "统一入口框架,集中展示流程运行状态、关键指标、问题分布、风险等级和整改进度",
     priority: "P0",
     status: "planning",
     progress: 0,
     children: [id(), id()],
     dependsOn: [baseNodeId],
- tags: ["底座", "看板"],
+    tags: ["底座", "看板"],
     estimatedEffort: "2-3 周",
     assignee: "",
     startedAt: 0,
@@ -109,7 +90,7 @@ function ruleBasedDecompose(
       status: "planning",
       progress: 0,
       children: [],
-      dependsOn: ,
+      dependsOn: [],
       tags: ["看板"],
       estimatedEffort: "1 周",
       assignee: "",
@@ -119,7 +100,6 @@ function ruleBasedDecompose(
     });
   }
 
-  // ────── 场景 1:采购全流程时长预警(推荐 MVP) ──────
   const scene5Id = id();
   nodes.push({
     id: scene5Id,
@@ -127,10 +107,10 @@ function ruleBasedDecompose(
     type: "story",
     title: "采购全流程时长预警场景",
     description: "采购立项→方案编制→文件审批→招标→定标→通知书下发→履约的全流程时长监控与预警",
- priority "P0",
+    priority: "P0",
     status: "planning",
     progress: 0,
-    children [id(), id(), id()],
+    children: [id(), id(), id()],
     dependsOn: [baseNodeId],
     tags: ["场景", "采购", "MVP"],
     estimatedEffort: "4-5 周",
@@ -148,7 +128,7 @@ function ruleBasedDecompose(
       type: "task",
       title: scene5Children[i],
       description: "",
- priority: "P0",
+      priority: "P0",
       status: "planning",
       progress: 0,
       children: [],
@@ -162,7 +142,6 @@ function ruleBasedDecompose(
     });
   }
 
-  // ────── 场景 2:花钱问效经营分析 ──────
   if (hasScene("花钱问效") || hasScene("经营")) {
     const scene3Id = id();
     nodes.push({
@@ -176,7 +155,7 @@ function ruleBasedDecompose(
       progress: 0,
       children: [id(), id()],
       dependsOn: [baseNodeId],
-     : ["场景", "经营分析"],
+      tags: ["场景", "经营分析"],
       estimatedEffort: "3-4 周",
       assignee: "",
       startedAt: 0,
@@ -204,7 +183,7 @@ function ruleBasedDecompose(
     });
     nodes.push({
       id: `${scene3Id}_2`,
-      project,
+      projectId,
       type: "task",
       title: "经营分析看板与报表卡片",
       description: "",
@@ -222,10 +201,9 @@ function ruleBasedDecompose(
     });
   }
 
-  // ────── 场景 3:特高压工程监控 ──────
   if (hasScene("特高压")) {
     const scene4Id = id();
- nodes.push({
+    nodes.push({
       id: scene4Id,
       projectId,
       type: "story",
@@ -281,7 +259,6 @@ function ruleBasedDecompose(
     });
   }
 
-  // ────── 场景 4:智慧两票 ──────
   if (hasScene("两票") || hasScene("智慧两票")) {
     const scene1Id = id();
     nodes.push({
@@ -294,7 +271,7 @@ function ruleBasedDecompose(
       status: "planning",
       progress: 0,
       children: [id(), id()],
-      dependsOn: baseNodeId],
+      dependsOn: [baseNodeId],
       tags: ["场景", "两票", "基层减负"],
       estimatedEffort: "5-6 周",
       assignee: "",
@@ -307,7 +284,7 @@ function ruleBasedDecompose(
       projectId,
       type: "task",
       title: "两票智能编制与审核",
-      description": "",
+      description: "",
       priority: "P2",
       status: "planning",
       progress: 0,
@@ -340,7 +317,6 @@ function ruleBasedDecompose(
     });
   }
 
- // ────── 场景 5:第一议题学习 ──────
   if (hasScene("第一议题")) {
     const scene2Id = id();
     nodes.push({
@@ -366,8 +342,8 @@ function ruleBasedDecompose(
       projectId,
       type: "task",
       title: "第一议题流程数字化与数据接入",
-      description "",
-      priority: "2",
+      description: "",
+      priority: "P2",
       status: "planning",
       progress: 0,
       children: [],
@@ -399,7 +375,6 @@ function ruleBasedDecompose(
     });
   }
 
-  // ────── AI 能力层 ──────
   const aiNodeId = id();
   nodes.push({
     id: aiNodeId,
@@ -457,22 +432,16 @@ function ruleBasedDecompose(
     createdAt: Date.now(),
   });
 
-  // 关联父节点与子节点
-  // 构建 children 数组(简化,保持引用一致性)
-
   return nodes;
 }
 
-/**
- * 将需求文本分解为结构化的工作项网络
- */
-export async function decomposese(
+export async function decompose(
   requirements: string,
-  options: DecomposeOons
+  options: DecomposeOptions
 ): Promise<ProjectNode[]> {
-  // Phase 0:本地规则分解(不需要后端 AI 服务)
   return ruleBasedDecompose(requirements, options);
 }
 
-export const projectDecomposer =  decompose,
+export const projectDecomposer = {
+  decompose,
 };

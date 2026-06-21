@@ -13,13 +13,8 @@ import type http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
-import { createHandlerCtx } from './handler-utils';
 import { CouncilEngine } from '@modules/workspace/CouncilEngine';
-import type {
-  CouncilSession,
-  CouncilStreamEvent,
-  CouncilAgentRole,
-} from '@modules/workspace/CouncilTypes';
+import type { CouncilStreamEvent } from '@modules/workspace/CouncilTypes';
 
 const logger = new Logger({ module: 'CouncilHandlers', level: LogLevel.INFO });
 

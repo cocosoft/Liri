@@ -12,28 +12,15 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
-import {
-  attachmentManager,
-  AttachmentSource,
-} from '@modules/components/attachments';
 import { costTracker } from '@modules/cost/CostTracker';
 import { CostReportEndpoint } from '@modules/cost/CostReportEndpoint';
 import { getCostRecordRepository } from '@modules/cost/CostRecordRepository';
 import { analyticsService } from '@modules/analytics/AnalyticsService';
 import { PerformanceMonitorService } from '@modules/analytics/PerformanceMonitorService';
-import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
-import {
-  resolveOutputDir,
-  resolveDownloadsDir,
-  resolveAttachmentsDir,
-  resolvePyappHome,
-} from '@modules/core';
 import { configManager } from '@modules/config';
 import type { IChannelPlugin } from '@modules/channels/types';
 import type {
@@ -75,12 +62,7 @@ import {
   handleFileRegistryDelete,
   handleFileHealth,
 } from './handlers/files-handlers';
-import {
-  handleFileUpload as hFileUpload,
-  handleConvertFile as hConvertFile,
-  handleDetectFileType as hDetectFileType,
-  handleSendFileToAI as hSendFileToAI,
-} from './handlers/file-upload-handlers';
+
 import {
   handleListSessions,
   handleCreateSession,
@@ -94,130 +76,12 @@ import {
   handleRenameSession,
   handleGenerateTitle,
 } from './handlers/session-handlers';
-import {
-  handleListPlans,
-  handleCreatePlan,
-  handleGetPlan,
-  handleExecutePlan,
-  handleAbortPlan,
-  handleListFlows,
-  handleGetFlow,
-} from './handlers/plan-flow-handlers';
-import {
-  handlePdcaStart,
-  handlePdcaStatus,
-  handlePdcaAudit,
-  handlePdcaReviewStep,
-  handlePdcaDecideStep,
-  handlePdcaList,
-  handlePdcaConfirm,
-} from './handlers/pdca-handlers';
-import {
-  handleKanbanList,
-  handleKanbanCreate,
-  handleKanbanUpdate,
-  handleKanbanDelete,
-  handleKanbanMove,
-} from './handlers/kanban-handlers';
 import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
 import {
   handleListAgentTasks,
   handleExecuteAgentTask,
   handleGetAgentProgress,
 } from './handlers/agent1-handlers';
-import {
-  handleCancelAgentTask,
-  handleGetAgentTaskState,
-  handleGetAgentTaskAudit,
-  handleGetAgentTaskLogs,
-  handleGetAgentTaskOutput,
-  handleRecoverAgentTask,
-  handleAgentTaskChat,
-} from './handlers/agent2-handlers';
-import {
-  handleCreateCheckpoint,
-  handleListCheckpoints,
-  handleGetCheckpoint,
-  handleRollbackCheckpoint,
-  handleDeleteCheckpoint,
-} from './handlers/checkpoint-handlers';
-import {
-  handleListMemories,
-  handleSearchMemories,
-  handleGetMemory,
-  handleCreateMemory,
-  handleCreateMemoryFromFile,
-  handleUpdateMemory,
-  handleDeleteMemory,
-  handleDeleteAllMemories,
-  handleGetMemorySummary,
-  handleGetMemoryWeights,
-  handleGetSyncStatus,
-  handleSyncMemories,
-  handleConsolidateMemories,
-  handleFileOpen,
-  handleFileRead,
-  handleFilePaths,
-  handleFileResolvePath,
-  handleFilePreview,
-} from './handlers/memory-handlers';
-import {
-  handleBuildSemanticIndex,
-  handleSearchSemantic,
-  handleGetSemanticIndexStatus,
-  handleClearSemanticIndex,
-} from './handlers/semantic-index-handlers';
-import {
-  handleListWorkspaces,
-  handleListWorkspaceSessions,
-  handleCreateWorkspaceSession,
-  handleListWorkItems,
-  handleCreateWorkItem,
-  handleUpdateWorkItem,
-  handleDetectLiriDir,
-  handleInitLiriDir,
-  handleGetWorkspaceConfig,
-  handleUpdateWorkspaceConfig,
-  handleGetWorkspaceRules,
-  handleUpdateWorkspaceRules,
-  handleListChangeSets,
-  handleCreateChangeSet,
-  handleGetChangeSet,
-  handleAddFileChange,
-  handleUpdateChangeSet,
-  handleGetChangeSetSummary,
-  handleListProjects,
-  handleCreateProject,
-  handleGetProject,
-  handleUpdateProject,
-  handleDeleteProject,
-  handleGetProjectBoard,
-  handleGetProjectRules,
-  handleUpdateProjectRules,
-  handleGetTemplates,
-  handleCreateProjectWorkItem,
-} from './handlers/workspaces-handlers';
-import {
-  handleOrchestrationStream,
-  handleGetOrchestrationSnapshot,
-  handleGetSwarmStatus,
-  handleGetAgentModelBindings,
-  handleUpdateAgentModelBindings,
-} from './handlers/orchestration-handlers';
-import {
-  handleListTeams,
-  handleCreateTeam,
-  handleGetTeam,
-  handleUpdateTeam,
-  handleDeleteTeam,
-  handleAddTeamMember,
-  handleRemoveTeamMember,
-  handleUpdateMemberRole,
-} from './handlers/team-handlers';
-import {
-  handleWorkspaceCostReport,
-  handleWorkspaceBudgetStatus,
-} from './handlers/cost-handlers';
 import {
   handleSearchWorkItems,
   handleWorkItemReview,
@@ -275,68 +139,6 @@ import {
   handleBatchTagKnowledge,
 } from './handlers/knowledge-handlers';
 import {
-  handleGetBuddy,
-  handleBuddyInteract,
-  handleGetBuddyStats,
-  handleGetDreamLogs,
-} from './handlers/buddy-handlers';
-import {
-  handleListConfig,
-  handleGetConfig,
-  handleSetConfig,
-  handleDeleteConfig,
-  handleRouterGetConfig,
-  handleRouterUpdateConfig,
-} from './handlers/config-handlers';
-import {
-  handleListCommands,
-  handleExecuteCommand,
-  handleSetDataDirectory,
-  handleListSkills,
-  handleListSystemSkills,
-  handleSystemSkillContent,
-  handleSearchSkills,
-  handleRecommendedSkills,
-  handleSkillCategories,
-  handleSkillSources,
-  handleAddSkillSource,
-  handleRemoveSkillSource,
-  handleGetSkillDetail,
-  handleInstallSkill,
-  handleUninstallSkill,
-  handleUpdateSkill,
-  handleToggleSkill,
-} from './handlers/commands-handlers';
-import {
-  handleCreateSkill,
-  handleUpdateSkillById,
-  handleDeleteSkill,
-  handleEnableSkill,
-  handleDisableSkill,
-} from './handlers/skill-handlers';
-import {
-  handleMCPMarketplaceSearch,
-  handleMCPMarketplaceRegistries,
-  handleMCPMarketplaceCategories,
-  handleMCPMarketplaceServerDetail,
-  handleMCPInstalledServers,
-  handleMCPInstallServer,
-  handleMCPUninstallServer,
-  handleMCPToggleServer,
-  handleMCPVerifyServer,
-  handleMCPListTools,
-  handleMCPToggleTool,
-} from './handlers/mcp-marketplace-handlers';
-import {
-  handleListChannelPlugins,
-  handleInstallChannelPlugin,
-} from './handlers/channel-plugin-handlers';
-import {
-  handleListApiKeys,
-  handleCreateApiKey,
-  handleDeleteApiKey,
-} from './handlers/apikey-handlers';
-import {
   handleFileUpload,
   handleConvertFile,
   handleDetectFileType,
@@ -349,10 +151,6 @@ import {
   verifyRequestAuth,
   seedKnowledgeBaseIfEmpty,
   startCompileScheduler,
-  tryDynamicRegister,
-  copyDirectory,
-  CHANNEL_TABLE,
-  getChannelEntry,
 } from './LocalHTTPServiceHelpers';
 import { broadcastEvent, stopSSE } from './LocalHTTPServiceSSE';
 const logger = new Logger({ level: LogLevel.INFO });

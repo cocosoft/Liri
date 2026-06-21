@@ -16,11 +16,8 @@ import type http from 'node:http';
 import * as path from 'node:path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { createTeamStore } from '@modules/workspace/TeamStore';
 import { resolveWorkspacePath } from './workspaces-handlers';
-
-const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 获取或创建 TeamStore

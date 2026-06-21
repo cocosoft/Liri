@@ -14,7 +14,10 @@ import {
   generateMemoryOptimizationReport,
   getMemoryOptimizationSuggestions,
 } from './MemoryOptimizer';
-import { profileCheckpoint, profileReport } from '../performance/StartupProfiler.js';
+import {
+  profileCheckpoint,
+  profileReport,
+} from '../performance/StartupProfiler.js';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('test-performance');

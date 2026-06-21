@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Prompt Suggestion核心服务模块
  */
 
@@ -139,7 +139,7 @@ interface GenerateSuggestionResult {
 
 /**
  * 生成AI预测建议
- * * 在完整 LLM 集成之前使用上下文感知的启发式建议。
+ * 在完整 LLM 集成之前使用上下文感知的启发式建议。
  * 当 Liri 的 AI 模块配置完成后可改为调用真实 LLM 推理。
  */
 export async function generateSuggestion(
@@ -147,13 +147,6 @@ export async function generateSuggestion(
   promptId: PromptVariant,
   cacheSafeParams: CacheSafeParams
 ): Promise<GenerateSuggestionResult> {
-  if (configManager.env('MOCK_PROMPT_SUGGESTION') === 'true') {
-    return {
-      suggestion: 'run the tests',
-      generationRequestId: 'mock-' + Date.now(),
-    };
-  }
-
   if (abortController.signal.aborted) {
     return { suggestion: null, generationRequestId: null };
   }

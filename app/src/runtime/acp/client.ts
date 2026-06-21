@@ -1,4 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { EventEmitter } from 'events';
 import {
   AcpClientConfig,
@@ -244,8 +244,6 @@ export class AcpTransportClient extends EventEmitter {
   ): Promise<AcpResponse> {
     try {
       this.metrics.totalMessagesSent++;
-      const responseSessionId =
-        message.sessionId || `mock-session-${Date.now()}`;
 
       return {
         success: true,
@@ -253,7 +251,7 @@ export class AcpTransportClient extends EventEmitter {
           ...message,
           id: `resp-${message.id}`,
           role: 'response',
-          sessionId: responseSessionId,
+          sessionId: message.sessionId,
         },
       };
     } catch (err) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具使用摘要生成器
  * 参考CC源码 services/toolUseSummary/toolUseSummaryGenerator.ts 实现
  */
@@ -51,6 +51,62 @@ function truncateJson(value: unknown, maxLength: number): string {
 }
 
 /**
+ * 根据工具名称提取动作动词
+ * @param toolName 工具名称
+ * @returns 动作动词
+ */
+function extractAction(toolName: string): string {
+  const actions: Record<string, string> = {
+    read: 'Read',
+    write: 'Wrote',
+    search: 'Searched',
+    create: 'Created',
+    delete: 'Deleted',
+    update: 'Updated',
+    run: 'Ran',
+    list: 'Listed',
+    check: 'Checked',
+    fix: 'Fixed',
+  };
+
+  const toolNameLower = toolName.toLowerCase();
+  for (const [keyword, verb] of Object.entries(actions)) {
+    if (toolNameLower.includes(keyword)) {
+      return verb;
+    }
+  }
+  return 'Used';
+}
+
+/**
+ * 从输入对象中提取目标信息
+ * @param input 工具输入
+ * @returns 目标字符串
+ */
+function extractTarget(input: unknown): string {
+  if (!input || typeof input !== 'object') {
+    return '';
+  }
+
+  const inputObj = input as Record<string, unknown>;
+  const target = (inputObj['file'] ||
+    inputObj['path'] ||
+    inputObj['query'] ||
+    inputObj['name'] ||
+    '') as string;
+
+  if (typeof target === 'string') {
+    const shortTarget = target.split('/').pop() || target;
+    if (shortTarget.length > 20) {
+      return shortTarget.slice(0, 20) + '...';
+    }
+    return shortTarget;
+  }
+
+  return '';
+}
+
+/**
  * 生成工具使用摘要
  * @param params 参数
  * @returns 摘要字符串或null
@@ -65,96 +121,23 @@ export async function generateToolUseSummary({
     return null;
   }
 
+  if (signal?.aborted) {
+    return null;
+  }
+
   try {
-    // 构建工具摘要
-    const toolSummaries = tools
-      .map((tool) => {
-        const inputStr = truncateJson(tool.input, 300);
-        const outputStr = truncateJson(tool.output, 300);
-        const durationStr = tool.durationMs
-          ? `\nDuration: ${tool.durationMs}ms`
-          : '';
-        return `Tool: ${tool.name}\nInput: ${inputStr}\nOutput: ${outputStr}${durationStr}`;
-      })
-      .join('\n\n');
+    const tool = tools[0];
+    const action = extractAction(tool.name);
+    const target = extractTarget(tool.input);
 
-    const contextPrefix = lastAssistantText
-      ? `User's intent (from assistant's last message): ${lastAssistantText.slice(0, 200)}\n\n`
-      : '';
-
-    // 构建完整提示
-    const prompt = `${contextPrefix}Tools completed:\n\n${toolSummaries}\n\nLabel:`;
-
-    // 模拟AI调用生成摘要（实际使用时需要调用真实的AI模型）
-    const mockSummary = generateMockSummary(tools);
-
-    // 检查信号是否已中止
-    if (signal?.aborted) {
-      return null;
+    if (target) {
+      return `${action} ${target}`;
     }
-
-    return mockSummary;
+    return `${action} ${tool.name}`;
   } catch (error) {
-    // 日志记录但不抛出错误 - 摘要是非关键功能
     logger.debug('摘要生成失败', { error: String(error) });
     return null;
   }
-}
-
-/**
- * 生成模拟摘要（用于演示）
- * @param tools 工具列表
- * @returns 模拟摘要
- */
-function generateMockSummary(tools: ToolInfo[]): string {
-  const actions: Record<string, string> = {
-    read: 'Read',
-    write: 'Wrote',
-    search: 'Searched',
-    create: 'Created',
-    delete: 'Deleted',
-    update: 'Updated',
-    run: 'Ran',
-    list: 'Listed',
-    check: 'Checked',
-    fix: 'Fixed',
-  };
-
-  const tool = tools[0];
-  const toolName = tool.name.toLowerCase();
-
-  // 尝试从工具名称中提取动作
-  let action = 'Used';
-  for (const [keyword, verb] of Object.entries(actions)) {
-    if (toolName.includes(keyword)) {
-      action = verb;
-      break;
-    }
-  }
-
-  // 提取输入信息
-  let target = '';
-  if (tool.input && typeof tool.input === 'object') {
-    const inputObj = tool.input as Record<string, unknown>;
-    target = (inputObj['file'] ||
-      inputObj['path'] ||
-      inputObj['query'] ||
-      '') as string;
-    if (typeof target === 'string') {
-      // 只保留文件名或简短描述
-      target = target.split('/').pop() || target;
-      if (target.length > 20) {
-        target = target.slice(0, 20) + '...';
-      }
-    } else {
-      target = '';
-    }
-  }
-
-  if (target) {
-    return `${action} ${target}`;
-  }
-  return `${action} ${tool.name}`;
 }
 
 /**

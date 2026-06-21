@@ -12,37 +12,6 @@ interface AgentSwarmViewProps {
   onAgentClick: (agent: SwarmAgent) => void;
 }
 
-const DEFAULT_AGENTS: SwarmAgent[] = [
-  {
-    id: "1",
-    name: "Coordinator",
-    role: "协调者",
-    status: "running",
-    connections: ["2", "3"],
-  },
-  {
-    id: "2",
-    name: "Researcher",
-    role: "研究者",
-    status: "running",
-    connections: ["4"],
-  },
-  {
-    id: "3",
-    name: "Coder",
-    role: "编码者",
-    status: "idle",
-    connections: ["4"],
-  },
-  {
-    id: "4",
-    name: "Reviewer",
-    role: "审核者",
-    status: "idle",
-    connections: [],
-  },
-];
-
 const STATUS_COLORS = {
   idle: { bg: "bg-gray-400", text: "text-gray-400", dot: "bg-gray-400" },
   running: { bg: "bg-green-400", text: "text-green-400", dot: "bg-green-400" },
@@ -51,7 +20,7 @@ const STATUS_COLORS = {
 };
 
 function AgentSwarmView({ isDark, agents, onAgentClick }: AgentSwarmViewProps) {
-  const displayAgents = agents.length > 0 ? agents : DEFAULT_AGENTS;
+  const displayAgents = agents;
 
   const getAgentPosition = (index: number, total: number) => {
     const angle = (2 * Math.PI * index) / total - Math.PI / 2;

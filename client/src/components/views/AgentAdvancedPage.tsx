@@ -34,15 +34,12 @@ function AgentAdvancedPage() {
     { key: "bindings", label: "模型绑定" },
   ];
 
-  // 加载真实 Swarm 数据
   useEffect(() => {
     if (activeWorkspaceId) {
       workspaceService.getSwarmStatus(activeWorkspaceId).then((data) => {
         if (data.agents && Array.isArray(data.agents)) {
           setSwarmAgents(data.agents as Array<{ id: string; name: string; role: string; status: "idle" | "running" | "completed" | "error"; connections: string[] }>);
         }
-      }).catch(() => {
-        // 保持 mock 数据回退
       });
     }
   }, [activeWorkspaceId]);

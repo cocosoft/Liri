@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PluginMarketplace 插件市场
  * 提供插件市场的浏览、搜索、安装功能
  * 支持多版本、本地缓存、远程同步和更新检查
@@ -120,7 +120,6 @@ export class PluginMarketplace {
   constructor(catalogUrl?: string) {
     this.catalogUrl = catalogUrl || 'https://registry.pyapp.dev/plugins';
     this.cacheDir = getCacheDir();
-    this.initializeDefaultCatalog();
     this.loadLocalCache();
   }
 
@@ -456,138 +455,6 @@ export class PluginMarketplace {
     if (!meta) return 0;
     const remaining = meta.ttlMs - (Date.now() - meta.cachedAt);
     return remaining > 0 ? remaining : 0;
-  }
-
-  /**
-   * 初始化默认市场目录
-   */
-  private initializeDefaultCatalog(): void {
-    const defaultPlugins: MarketplacePlugin[] = [
-      {
-        id: 'pyapp.code-analyzer',
-        name: 'Code Analyzer',
-        description: '代码质量分析与优化建议',
-        version: '1.0.0',
-        author: 'Liri',
-        tags: ['analysis', 'code', 'quality'],
-        downloads: 1520,
-        rating: 4.5,
-        updatedAt: '2026-05-01',
-      },
-      {
-        id: 'pyapp.git-manager',
-        name: 'Git Manager',
-        description: 'Git 操作管理与可视化',
-        version: '1.2.0',
-        author: 'Liri',
-        tags: ['git', 'vcs', 'manager'],
-        downloads: 2340,
-        rating: 4.8,
-        updatedAt: '2026-05-10',
-      },
-      {
-        id: 'pyapp.theme-editor',
-        name: 'Theme Editor',
-        description: '主题自定义编辑器',
-        version: '0.9.0',
-        author: 'Liri',
-        tags: ['theme', 'ui', 'editor'],
-        downloads: 890,
-        rating: 4.2,
-        updatedAt: '2026-04-20',
-      },
-      {
-        id: 'pyapp.terminal-plus',
-        name: 'Terminal Plus',
-        description: '增强终端模拟器',
-        version: '2.1.0',
-        author: 'Liri',
-        tags: ['terminal', 'ui', 'tool'],
-        downloads: 3100,
-        rating: 4.9,
-        updatedAt: '2026-05-14',
-      },
-      {
-        id: 'pyapp.export-tools',
-        name: 'Export Tools',
-        description: '多格式导出工具集',
-        version: '1.0.0',
-        author: 'Liri',
-        tags: ['export', 'pdf', 'markdown', 'html'],
-        downloads: 1200,
-        rating: 4.3,
-        updatedAt: '2026-05-05',
-      },
-    ];
-
-    const defaultVersions: Array<{
-      id: string;
-      versions: MarketPluginVersion[];
-    }> = [
-      {
-        id: 'pyapp.code-analyzer',
-        versions: [
-          {
-            version: '0.9.0',
-            publishedAt: '2026-03-01',
-            releaseNotes: '初始测试版本',
-          },
-          {
-            version: '1.0.0',
-            publishedAt: '2026-05-01',
-            releaseNotes: '正式发布版本',
-          },
-        ],
-      },
-      {
-        id: 'pyapp.git-manager',
-        versions: [
-          {
-            version: '1.0.0',
-            publishedAt: '2026-04-01',
-            releaseNotes: '初始版本，支持基本 Git 操作',
-          },
-          {
-            version: '1.1.0',
-            publishedAt: '2026-04-15',
-            releaseNotes: '新增分支可视化',
-          },
-          {
-            version: '1.2.0',
-            publishedAt: '2026-05-10',
-            releaseNotes: '新增冲突解决助手',
-          },
-        ],
-      },
-      {
-        id: 'pyapp.terminal-plus',
-        versions: [
-          {
-            version: '1.0.0',
-            publishedAt: '2026-01-10',
-            releaseNotes: '初始版本',
-          },
-          {
-            version: '2.0.0',
-            publishedAt: '2026-03-20',
-            releaseNotes: '重构终端渲染引擎',
-          },
-          {
-            version: '2.1.0',
-            publishedAt: '2026-05-14',
-            releaseNotes: '新增分屏支持',
-          },
-        ],
-      },
-    ];
-
-    for (const plugin of defaultPlugins) {
-      this.plugins.set(plugin.id, plugin);
-    }
-
-    for (const entry of defaultVersions) {
-      this.versions.set(entry.id, entry.versions);
-    }
   }
 
   /**

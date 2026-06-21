@@ -3,6 +3,8 @@
  * 任务管理与跟踪
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
+import { taskRegistry } from '@modules/tasks';
+import { TaskStatus } from '@modules/tasks/types';
 
 interface TaskItem {
   id: string;
@@ -15,56 +17,36 @@ interface TaskItem {
   tags?: string[];
 }
 
-const MOCK_TASKS: TaskItem[] = [
-  {
-    id: 'T001',
-    title: '代码审查 - API 模块',
-    status: 'in-progress',
-    priority: 'high',
-    createdAt: '2026-05-14',
-    updatedAt: '2026-05-14',
-  },
-  {
-    id: 'T002',
-    title: '更新项目文档',
-    status: 'pending',
-    priority: 'medium',
-    createdAt: '2026-05-14',
-    updatedAt: '2026-05-14',
-  },
-  {
-    id: 'T003',
-    title: '修复登录页面样式',
-    status: 'completed',
-    priority: 'high',
-    createdAt: '2026-05-13',
-    updatedAt: '2026-05-14',
-  },
-  {
-    id: 'T004',
-    title: '性能优化 - 数据库查询',
-    status: 'pending',
-    priority: 'critical',
-    createdAt: '2026-05-13',
-    updatedAt: '2026-05-13',
-  },
-  {
-    id: 'T005',
-    title: '新增单元测试',
-    status: 'in-progress',
-    priority: 'medium',
-    createdAt: '2026-05-12',
-    updatedAt: '2026-05-14',
-  },
-  {
-    id: 'T006',
-    title: '安全漏洞修复',
-    status: 'failed',
-    priority: 'critical',
-    createdAt: '2026-05-12',
-    updatedAt: '2026-05-13',
-  },
-];
+function statusToDisplay(status: TaskStatus): TaskItem['status'] {
+  switch (status) {
+    case TaskStatus.PENDING:
+      return 'pending';
+    case TaskStatus.RUNNING:
+      return 'in-progress';
+    case TaskStatus.COMPLETED:
+      return 'completed';
+    case TaskStatus.FAILED:
+    case TaskStatus.LOST:
+    case TaskStatus.KILLED:
+      return 'failed';
+  }
+}
+
+function taskToItem(task: any): TaskItem {
+  const state = task.taskState || task;
+  return {
+    id: state.id,
+    title: state.description || '未命名任务',
+    status: statusToDisplay(state.status),
+    priority: state.metadata?.priority || 'medium',
+    createdAt: new Date(state.startTime).toISOString().split('T')[0],
+    updatedAt: state.endTime
+      ? new Date(state.endTime).toISOString().split('T')[0]
+      : new Date(state.startTime).toISOString().split('T')[0],
+    assignee: state.metadata?.assignee,
+    tags: state.metadata?.tags,
+  };
+}
 
 const tasksCommand = {
   /**
@@ -191,7 +173,8 @@ const tasksCommand = {
    * 列出任务
    */
   listTasks(filter?: string): CommandResult {
-    let filtered = [...MOCK_TASKS];
+    const allTasks = taskRegistry.getAllTasks();
+    let filtered = allTasks.map(taskToItem);
 
     if (filter) {
       filtered = filtered.filter(
@@ -262,7 +245,7 @@ const tasksCommand = {
    * 查看任务详情
    */
   showTask(taskId: string): CommandResult {
-    const task = MOCK_TASKS.find((t) => t.id === taskId);
+    const task = taskRegistry.getTask(taskId);
     if (!task) {
       return {
         success: false,
@@ -270,6 +253,8 @@ const tasksCommand = {
         message: `未找到任务: ${taskId}\n使用 /tasks list 查看所有任务。`,
       };
     }
+
+    const item = taskToItem(task);
 
     const statusLabel: Record<string, string> = {
       pending: '⏳ 待处理',
@@ -286,22 +271,22 @@ const tasksCommand = {
     };
 
     const lines = [
-      `📋 任务详情: ${task.id}`,
+      `📋 任务详情: ${item.id}`,
       '',
-      `  标题: ${task.title}`,
-      `  状态: ${statusLabel[task.status] || task.status}`,
-      `  优先级: ${priorityLabel[task.priority] || task.priority}`,
-      `  创建时间: ${task.createdAt}`,
-      `  更新时间: ${task.updatedAt}`,
-      task.assignee ? `  负责人: ${task.assignee}` : '',
-      task.tags ? `  标签: ${task.tags.join(', ')}` : '',
+      `  标题: ${item.title}`,
+      `  状态: ${statusLabel[item.status] || item.status}`,
+      `  优先级: ${priorityLabel[item.priority] || item.priority}`,
+      `  创建时间: ${item.createdAt}`,
+      `  更新时间: ${item.updatedAt}`,
+      item.assignee ? `  负责人: ${item.assignee}` : '',
+      item.tags ? `  标签: ${item.tags.join(', ')}` : '',
     ];
 
     return {
       success: true,
       type: 'text',
       message: lines.filter(Boolean).join('\n'),
-      data: task,
+      data: item,
     };
   },
 
@@ -309,118 +294,133 @@ const tasksCommand = {
    * 添加新任务
    */
   addTask(title: string): CommandResult {
-    const taskId = `T${String(MOCK_TASKS.length + 1).padStart(3, '0')}`;
-
-    MOCK_TASKS.push({
-      id: taskId,
-      title,
-      status: 'pending',
-      priority: 'medium',
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-    });
-
-    return {
-      success: true,
-      type: 'text',
-      message: `✅ 任务已创建: [${taskId}] ${title}\n使用 /tasks ${taskId} 查看详情。`,
-      data: { id: taskId, title },
-    };
+    try {
+      const task = taskRegistry.registerNoteTask(title);
+      return {
+        success: true,
+        type: 'text',
+        message: `✅ 任务已创建: [${task.id}] ${title}\n使用 /tasks ${task.id} 查看详情。`,
+        data: { id: task.id, title },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        type: 'text',
+        message: `创建任务失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   },
 
   /**
    * 完成任务
    */
-  completeTask(taskId: string): CommandResult {
-    const task = MOCK_TASKS.find((t) => t.id === taskId);
+  async completeTask(taskId: string): Promise<CommandResult> {
+    const task = taskRegistry.getTask(taskId);
     if (!task) {
       return { success: false, type: 'text', message: `未找到任务: ${taskId}` };
     }
 
-    task.status = 'completed';
-    task.updatedAt = new Date().toISOString().split('T')[0];
-
-    return {
-      success: true,
-      type: 'text',
-      message: `✅ 任务已完成: [${task.id}] ${task.title}`,
-      data: task,
-    };
+    try {
+      taskRegistry.updateState(taskId, {
+        status: TaskStatus.COMPLETED,
+        endTime: Date.now(),
+      });
+      const item = taskToItem(task);
+      return {
+        success: true,
+        type: 'text',
+        message: `✅ 任务已完成: [${item.id}] ${item.title}`,
+        data: item,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        type: 'text',
+        message: `完成任务失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   },
 
   /**
    * 删除任务
    */
-  deleteTask(taskId: string): CommandResult {
-    const index = MOCK_TASKS.findIndex((t) => t.id === taskId);
-    if (index === -1) {
+  async deleteTask(taskId: string): Promise<CommandResult> {
+    const task = taskRegistry.getTask(taskId);
+    if (!task) {
       return { success: false, type: 'text', message: `未找到任务: ${taskId}` };
     }
 
-    const task = MOCK_TASKS[index];
-    MOCK_TASKS.splice(index, 1);
-
-    return {
-      success: true,
-      type: 'text',
-      message: `🗑️ 任务已删除: [${task.id}] ${task.title}`,
-      data: task,
-    };
+    try {
+      const item = taskToItem(task);
+      await taskRegistry.removeTask(taskId);
+      return {
+        success: true,
+        type: 'text',
+        message: `🗑️ 任务已删除: [${item.id}] ${item.title}`,
+        data: item,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        type: 'text',
+        message: `删除任务失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   },
 
   /**
    * 设置优先级
    */
   setPriority(taskId: string, priority: TaskItem['priority']): CommandResult {
-    const task = MOCK_TASKS.find((t) => t.id === taskId);
+    const task = taskRegistry.getTask(taskId);
     if (!task) {
       return { success: false, type: 'text', message: `未找到任务: ${taskId}` };
     }
 
-    task.priority = priority;
-    task.updatedAt = new Date().toISOString().split('T')[0];
-
-    return {
-      success: true,
-      type: 'text',
-      message: `✅ 任务优先级已更新: [${task.id}] ${task.title} -> ${priority}`,
-      data: task,
-    };
+    try {
+      const state = task.taskState;
+      taskRegistry.updateState(taskId, {
+        metadata: { ...state.metadata, priority },
+      });
+      const item = taskToItem(task);
+      return {
+        success: true,
+        type: 'text',
+        message: `✅ 任务优先级已更新: [${item.id}] ${item.title} -> ${priority}`,
+        data: item,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        type: 'text',
+        message: `更新优先级失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   },
 
   /**
    * 显示任务统计
    */
   showStats(): CommandResult {
-    const total = MOCK_TASKS.length;
-    const completed = MOCK_TASKS.filter((t) => t.status === 'completed').length;
-    const inProgress = MOCK_TASKS.filter(
-      (t) => t.status === 'in-progress'
-    ).length;
-    const pending = MOCK_TASKS.filter((t) => t.status === 'pending').length;
-    const failed = MOCK_TASKS.filter((t) => t.status === 'failed').length;
-    const critical = MOCK_TASKS.filter(
-      (t) => t.priority === 'critical' && t.status !== 'completed'
-    ).length;
+    const stats = taskRegistry.getTaskStats();
 
     const lines = [
       '📊 任务统计',
       '',
-      `  总任务数: ${total}`,
-      `  ✅ 已完成: ${completed}`,
-      `  🔄 进行中: ${inProgress}`,
-      `  ⏳ 待处理: ${pending}`,
-      `  ❌ 失败: ${failed}`,
+      `  总任务数: ${stats.total}`,
+      `  ✅ 已完成: ${stats.completed}`,
+      `  🔄 进行中: ${stats.running}`,
+      `  ⏳ 待处理: ${stats.pending}`,
+      `  ❌ 失败: ${stats.failed + stats.lost}`,
       '',
-      `  🔴 未完成的紧急任务: ${critical}`,
-      `  完成率: ${total > 0 ? ((completed / total) * 100).toFixed(1) : '0'}%`,
+      `  完成率: ${stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : '0'}%`,
     ];
 
     return {
       success: true,
       type: 'text',
       message: lines.join('\n'),
-      data: { total, completed, inProgress, pending, failed },
+      data: stats,
     };
   },
 };

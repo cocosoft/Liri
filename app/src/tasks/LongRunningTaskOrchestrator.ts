@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LongRunningTaskOrchestrator — PDCA 长程任务编排器
  *
  * 四阶段闭环：
@@ -119,26 +119,20 @@ export class LongRunningTaskOrchestrator {
     this.executor =
       executor ??
       (async (params) => {
-        try {
-          const { createAIService } = await import('../ai');
-          // FIXME: 迁移到新的 AIService API（generate/stream 替代 chat）
-          const service = createAIService({
-            defaultModel: '',
-            apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
-          });
-          const response = await (service as any).chat({
-            messages: [
-              { role: 'system', content: params.systemPrompt },
-              { role: 'user', content: params.userPrompt },
-            ],
-          });
-          return typeof response === 'string'
-            ? response
-            : (response?.content ?? '');
-        } catch (e) {
-          logger.warn('AI executor failed, using mock', { error: String(e) });
-          return `[模拟输出] 执行完成: ${params.userPrompt.slice(0, 100)}`;
-        }
+        const { createAIService } = await import('../ai');
+        const service = createAIService({
+          defaultModel: '',
+          apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
+        });
+        const response = await (service as any).chat({
+          messages: [
+            { role: 'system', content: params.systemPrompt },
+            { role: 'user', content: params.userPrompt },
+          ],
+        });
+        return typeof response === 'string'
+          ? response
+          : (response?.content ?? '');
       });
   }
 

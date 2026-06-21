@@ -1,4 +1,3 @@
-//
 /**
  * Login命令执行逻辑
  * 处理用户登录流程，支持OAuth和API Key两种方式
@@ -185,28 +184,23 @@ function parseLoginArgs(args: string): LoginParams {
 
 /**
  * 执行登录验证
+ * API Key 登录需要用户提供有效的 API Key，否则返回失败
  */
 async function performLogin(params: LoginParams): Promise<LoginResult> {
   if (params.token) {
     return {
       success: true,
-      message: '使用提供的token登录成功',
+      message: '使用提供的API Key登录成功',
       token: params.token,
       user: {
-        id: 'user_' + Date.now(),
+        id: 'api_user_' + Date.now(),
         name: 'API User',
       },
     };
   }
 
   return {
-    success: true,
-    message: 'OAuth登录成功',
-    token: 'mock_token_' + Date.now(),
-    user: {
-      id: 'user_' + Date.now(),
-      name: 'OAuth User',
-      email: 'user@example.com',
-    },
+    success: false,
+    message: '请提供API Key或使用OAuth登录。\n\n用法:\n  /login <API_KEY>\n  /login --oauth\n  /login --provider claudeai --oauth',
   };
 }

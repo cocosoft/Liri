@@ -212,30 +212,10 @@ const uninstallCommand = {
 
   /**
    * 获取已安装的组件列表
+   * 待实现：连接真实的插件/技能/工具管理系统
    */
   getInstalledItems(type: string): Array<{ name: string; version?: string }> {
-    const mockItems: Record<
-      string,
-      Array<{ name: string; version?: string }>
-    > = {
-      plugin: [
-        { name: 'code-analyzer', version: '1.2.0' },
-        { name: 'git-integration', version: '2.0.1' },
-        { name: 'markdown-preview', version: '1.0.0' },
-      ],
-      skill: [
-        { name: 'code-review', version: '1.0.0' },
-        { name: 'test-generator', version: '1.1.0' },
-      ],
-      tool: [{ name: 'custom-fetch', version: '0.1.0' }],
-      theme: [
-        { name: 'dracula', version: '1.0.0' },
-        { name: 'monokai', version: '1.0.0' },
-      ],
-      agent: [{ name: 'code-assistant', version: '1.0.0' }],
-    };
-
-    return mockItems[type] || [];
+    return [];
   },
 
   /**

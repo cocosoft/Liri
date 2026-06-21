@@ -17,36 +17,7 @@ function BuddyDreamDetail() {
   const [selectedDream, setSelectedDream] = useState<DreamEntry | null>(null);
 
   useEffect(() => {
-    const mockDreams: DreamEntry[] = [
-      {
-        id: "1",
-        date: "2026-05-28",
-        title: "星空探索",
-        content: "梦见和伙伴一起在星空中飞翔，探索未知的星球。",
-        mood: "excited",
-        duration: 45,
-        symbols: ["⭐", "🚀", "🌌"],
-      },
-      {
-        id: "2",
-        date: "2026-05-27",
-        title: "深海冒险",
-        content: "梦见潜入深海，与海洋生物一起游泳。",
-        mood: "peaceful",
-        duration: 30,
-        symbols: ["🌊", "🐠", "🪸"],
-      },
-      {
-        id: "3",
-        date: "2026-05-26",
-        title: "森林奇遇",
-        content: "梦见在神秘的森林中迷路，但伙伴引导找到了出口。",
-        mood: "adventurous",
-        duration: 60,
-        symbols: ["🌲", "🦋", "🍄"],
-      },
-    ];
-    setDreams(mockDreams);
+    setDreams([]);
   }, []);
 
   const getMoodEmoji = (mood: string) => {

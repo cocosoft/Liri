@@ -21,48 +21,6 @@ interface AgentTrajectoryViewProps {
   trajectories: Trajectory[];
 }
 
-const DEFAULT_TRAJECTORY: Trajectory = {
-  id: "1",
-  name: "示例任务：代码重构",
-  startedAt: Date.now() - 3600000,
-  completedAt: Date.now() - 1800000,
-  status: "completed",
-  steps: [
-    {
-      id: "s1",
-      timestamp: Date.now() - 3600000,
-      action: "analyze",
-      input: "分析现有代码结构",
-      output: "发现 3 个模块需要重构",
-      duration: 5000,
-    },
-    {
-      id: "s2",
-      timestamp: Date.now() - 3500000,
-      action: "plan",
-      input: "制定重构计划",
-      output: "计划：模块A → 模块B → 模块C",
-      duration: 3000,
-    },
-    {
-      id: "s3",
-      timestamp: Date.now() - 3400000,
-      action: "execute",
-      input: "重构模块A",
-      output: "完成模块A重构，修复2个bug",
-      duration: 120000,
-    },
-    {
-      id: "s4",
-      timestamp: Date.now() - 3200000,
-      action: "test",
-      input: "运行测试",
-      output: "所有测试通过",
-      duration: 30000,
-    },
-  ],
-};
-
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   analyze: { label: "分析", color: "text-purple-500" },
   plan: { label: "规划", color: "text-blue-500" },
@@ -75,8 +33,7 @@ function AgentTrajectoryView({
   isDark,
   trajectories,
 }: AgentTrajectoryViewProps) {
-  const displayTrajectories =
-    trajectories.length > 0 ? trajectories : [DEFAULT_TRAJECTORY];
+  const displayTrajectories = trajectories;
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN", {

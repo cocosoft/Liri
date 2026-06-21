@@ -12,41 +12,13 @@ interface AgentStrategySelectorProps {
   onSelect: (strategyId: string) => void;
 }
 
-const DEFAULT_STRATEGIES: AgentStrategy[] = [
-  {
-    id: "general",
-    name: "通用策略",
-    description: "适用于日常对话和通用任务处理",
-    icon: "💬",
-  },
-  {
-    id: "code",
-    name: "代码策略",
-    description: "专注于代码生成、调试和重构任务",
-    icon: "💻",
-  },
-  {
-    id: "explore",
-    name: "探索策略",
-    description: "深入研究和分析复杂问题",
-    icon: "🔍",
-  },
-  {
-    id: "plan",
-    name: "规划策略",
-    description: "擅长任务分解和执行规划",
-    icon: "📋",
-  },
-];
-
 function AgentStrategySelector({
   isDark,
   currentStrategy,
   strategies,
   onSelect,
 }: AgentStrategySelectorProps) {
-  const displayStrategies =
-    strategies.length > 0 ? strategies : DEFAULT_STRATEGIES;
+  const displayStrategies = strategies;
 
   return (
     <div>

@@ -2,6 +2,8 @@
  * Unified Suggestions 统一建议生成模块
  */
 
+import { promises as fs } from 'fs';
+import { join } from 'path';
 import {
   MAX_UNIFIED_SUGGESTIONS,
   DESCRIPTION_MAX_LENGTH,
@@ -69,46 +71,116 @@ function createSuggestionFromSource(
 }
 
 /**
+ * 获取文件类型描述
+ * @param filename 文件名
+ * @returns 文件类型描述
+ */
+function getFileDescription(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const descriptions: Record<string, string> = {
+    ts: 'TypeScript 文件',
+    tsx: 'React TypeScript 文件',
+    js: 'JavaScript 文件',
+    jsx: 'React JavaScript 文件',
+    json: '配置文件',
+    md: 'Markdown 文档',
+    html: 'HTML 文件',
+    css: '样式文件',
+    scss: 'SCSS 文件',
+    vue: 'Vue 组件',
+    py: 'Python 文件',
+    go: 'Go 文件',
+    rs: 'Rust 文件',
+    yaml: 'YAML 配置',
+    yml: 'YAML 配置',
+    toml: 'TOML 配置',
+    lock: '依赖锁定文件',
+    env: '环境配置文件',
+    gitignore: 'Git 忽略配置',
+  };
+  return descriptions[ext || ''] || '文件';
+}
+
+/**
+ * 扫描目录获取文件列表
+ * @param dir 目录路径
+ * @param depth 递归深度
+ * @returns 文件路径列表
+ */
+async function scanDirectory(
+  dir: string,
+  depth: number = 2
+): Promise<string[]> {
+  const results: string[] = [];
+
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        if (depth > 0) {
+          const nested = await scanDirectory(fullPath, depth - 1);
+          results.push(...nested);
+        }
+      } else {
+        results.push(fullPath);
+      }
+    }
+  } catch {
+    // 忽略无法访问的目录
+  }
+
+  return results;
+}
+
+/**
  * 生成文件建议
  */
-export function generateFileSuggestions(
+export async function generateFileSuggestions(
   query: string,
   showOnEmpty = false
-): FileSuggestionSource[] {
+): Promise<FileSuggestionSource[]> {
   if (!query && !showOnEmpty) {
     return [];
   }
 
   const suggestions: FileSuggestionSource[] = [];
 
-  const mockFiles = [
-    { path: './src/index.ts', filename: 'index.ts', description: '主入口文件' },
-    { path: './src/types.ts', filename: 'types.ts', description: '类型定义' },
-    {
-      path: './package.json',
-      filename: 'package.json',
-      description: '项目配置',
-    },
-    { path: './README.md', filename: 'README.md', description: '项目文档' },
-  ];
+  try {
+    const cwd = process.cwd();
+    const files = await scanDirectory(cwd, 2);
 
-  const queryLower = query.toLowerCase();
+    const queryLower = query.toLowerCase();
 
-  for (const file of mockFiles) {
-    if (
-      !query ||
-      file.filename.toLowerCase().includes(queryLower) ||
-      file.path.toLowerCase().includes(queryLower)
-    ) {
-      suggestions.push({
-        type: 'file',
-        displayText: file.path,
-        description: file.description,
-        path: file.path,
-        filename: file.filename,
-        score: query ? 1.0 : undefined,
-      });
+    for (const fullPath of files) {
+      const filename = fullPath.split(/[\\/]/).pop() || '';
+      const relativePath = fullPath.startsWith(cwd)
+        ? fullPath.slice(cwd.length + 1)
+        : fullPath;
+
+      if (
+        !query ||
+        filename.toLowerCase().includes(queryLower) ||
+        relativePath.toLowerCase().includes(queryLower)
+      ) {
+        suggestions.push({
+          type: 'file',
+          displayText: './' + relativePath,
+          description: getFileDescription(filename),
+          path: './' + relativePath,
+          filename,
+          score: query ? 1.0 : undefined,
+        });
+      }
+
+      if (suggestions.length >= MAX_UNIFIED_SUGGESTIONS) {
+        break;
+      }
     }
+  } catch {
+    // 扫描失败时返回空列表
   }
 
   return suggestions;
@@ -234,7 +306,7 @@ export async function generateUnifiedSuggestions(
 ): Promise<SuggestionItem[]> {
   const sources: UnifiedSuggestionSource[] = [];
 
-  const fileSuggestions = generateFileSuggestions(query, showOnEmpty);
+  const fileSuggestions = await generateFileSuggestions(query, showOnEmpty);
   sources.push(...fileSuggestions);
 
   const agentSuggestions = generateAgentSuggestions(agents, query, showOnEmpty);

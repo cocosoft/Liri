@@ -73,45 +73,6 @@ export interface UsePrStatusResult {
 }
 
 /**
- * 模拟PR API响应（实际应用中应调用GitHub API）
- */
-const mockPRData: PRInfo = {
-  number: 123,
-  title: 'feat: 添加语音输入功能',
-  author: 'developer',
-  state: 'open',
-  status: 'success',
-  createdAt: new Date('2026-04-28'),
-  updatedAt: new Date('2026-04-30'),
-  url: 'https://github.com/example/repo/pull/123',
-  branch: 'feature/voice-input',
-  targetBranch: 'main',
-  checks: [
-    {
-      name: 'CI/CD',
-      status: 'success',
-      conclusion: 'success',
-      completedAt: new Date(),
-    },
-    {
-      name: 'Lint',
-      status: 'success',
-      conclusion: 'success',
-      completedAt: new Date(),
-    },
-    {
-      name: 'Tests',
-      status: 'success',
-      conclusion: 'success',
-      completedAt: new Date(),
-    },
-  ],
-  reviews: [
-    { author: 'reviewer1', state: 'approved', submittedAt: new Date() },
-  ],
-};
-
-/**
  * usePrStatus Hook
  * @param repo GitHub仓库名称（格式: owner/repo）
  * @param prNumber PR编号
@@ -123,19 +84,76 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
   const [error, setError] = useState<string | null>(null);
   const subscriptionRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 获取PR状态
   const fetchPRStatus = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // 实际应用中应调用GitHub API
-      // const response = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`);
-      // const data = await response.json();
+      const token = process.env.GITHUB_TOKEN || '';
+      const headers: Record<string, string> = {
+        'Accept': 'application/vnd.github.v3+json',
+      };
+      if (token) {
+        headers['Authorization'] = `token ${token}`;
+      }
 
-      // 模拟API响应
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setPr({ ...mockPRData, number: prNumber });
+      const response = await fetch(
+        `https://api.github.com/repos/${repo}/pulls/${prNumber}`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      const checksResponse = await fetch(
+        `https://api.github.com/repos/${repo}/commits/${data.head.sha}/check-runs`,
+        { headers }
+      );
+      const checksData = checksResponse.ok ? await checksResponse.json() : { check_runs: [] };
+
+      const reviewsResponse = await fetch(
+        `https://api.github.com/repos/${repo}/pulls/${prNumber}/reviews`,
+        { headers }
+      );
+      const reviewsData = reviewsResponse.ok ? await reviewsResponse.json() : [];
+
+      const combinedStatusResponse = await fetch(
+        `https://api.github.com/repos/${repo}/commits/${data.head.sha}/status`,
+        { headers }
+      );
+      const combinedStatusData = combinedStatusResponse.ok ? await combinedStatusResponse.json() : { state: 'unknown' };
+
+      const prInfo: PRInfo = {
+        number: data.number,
+        title: data.title,
+        author: data.user.login,
+        state: data.state as 'open' | 'closed' | 'merged',
+        status: combinedStatusData.state as PRStatus || 'unknown',
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+        url: data.html_url,
+        branch: data.head.ref,
+        targetBranch: data.base.ref,
+        checks: checksData.check_runs?.map((check: any) => ({
+          name: check.name,
+          status: check.status === 'completed'
+            ? (check.conclusion === 'success' ? 'success' : 'failure')
+            : check.status === 'in_progress' ? 'in_progress' : 'pending',
+          conclusion: check.conclusion,
+          detailsUrl: check.html_url,
+          completedAt: check.completed_at ? new Date(check.completed_at) : undefined,
+        })) || [],
+        reviews: reviewsData?.map((review: any) => ({
+          author: review.user.login,
+          state: review.state as 'approved' | 'changes_requested' | 'commented' | 'dismissed',
+          submittedAt: new Date(review.submitted_at),
+        })) || [],
+      };
+
+      setPr(prInfo);
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取PR状态失败');
     } finally {

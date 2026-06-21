@@ -42,7 +42,7 @@ export default function WorkChatPanel({ className }: WorkChatPanelProps) {
       </div>
 
       {/* 底部输入区 */}
-      <div className="border-t border-gray-200 dark:border-gray-700 flex-shrink-0 min-h-[120px]">
+      <div className="border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
         <ChatInput />
       </div>
     </div>

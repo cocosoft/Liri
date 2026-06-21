@@ -72,7 +72,7 @@ export default function WorkPageLayout() {
       className="flex h-screen bg-gray-50 dark:bg-gray-950 select-none"
     >
       {/* 左栏：文件树 + 工作项列表 */}
-      <div style={{ width: leftWidth }} className="flex-shrink-0">
+      <div style={{ width: leftWidth }} className="flex-shrink-0 h-full">
         <WorkSpaceSidebar className="h-full" />
       </div>
 
@@ -87,7 +87,7 @@ export default function WorkPageLayout() {
       />
 
       {/* 中间：内容区 */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 h-full">
         <WorkContentArea className="h-full" />
       </div>
 
@@ -102,7 +102,7 @@ export default function WorkPageLayout() {
       />
 
       {/* 右栏：AI 对话区 */}
-      <div style={{ width: rightWidth }} className="flex-shrink-0">
+      <div style={{ width: rightWidth }} className="flex-shrink-0 h-full">
         <WorkChatPanel className="h-full" />
       </div>
     </div>

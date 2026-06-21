@@ -118,7 +118,7 @@ export class PluginMarketplace {
   private cacheDir: string;
 
   constructor(catalogUrl?: string) {
-    this.catalogUrl = catalogUrl || 'https://registry.pyapp.dev/plugins';
+    this.catalogUrl = catalogUrl || 'https://registry.openliri.com/plugins';
     this.cacheDir = getCacheDir();
     this.loadLocalCache();
   }

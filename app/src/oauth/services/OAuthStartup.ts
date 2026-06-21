@@ -124,7 +124,7 @@ export class OAuthStartupManager {
 
     try {
       const apiUrl =
-        configManager.env('Liri_API_BASE_URL') || 'https://api.pyapp.dev';
+        configManager.env('Liri_API_BASE_URL') || 'https://api.openliri.com';
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 

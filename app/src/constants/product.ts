@@ -5,13 +5,13 @@
 /**
  * 产品主页URL
  */
-export const PRODUCT_URL = 'https://pyapp.dev';
+export const PRODUCT_URL = 'https://openliri.com';
 
 /**
  * 远程会话基础URL
  */
-export const APP_BASE_URL = 'https://app.pyapp.dev';
-export const APP_STAGING_BASE_URL = 'https://app-staging.pyapp.dev';
+export const APP_BASE_URL = 'https://app.openliri.com';
+export const APP_STAGING_BASE_URL = 'https://app-staging.openliri.com';
 export const APP_LOCAL_BASE_URL = 'http://localhost:4000';
 
 /**

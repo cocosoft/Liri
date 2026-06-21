@@ -64,8 +64,8 @@ export const VI_MODE_TEMPLATE: KeybindingTemplate = {
   description: 'Vim-style keybindings',
   variables: DEFAULT_TEMPLATE_VARIABLES,
   template: {
-    $schema: 'https://pyapp.dev/schemas/keybindings.json',
-    $docs: 'https://pyapp.dev/docs/keybindings',
+    $schema: 'https://openliri.com/schemas/keybindings.json',
+    $docs: 'https://openliri.com/docs/keybindings',
     bindings: [
       {
         context: 'Global',
@@ -95,8 +95,8 @@ export const EMACS_MODE_TEMPLATE: KeybindingTemplate = {
   description: 'Emacs-style keybindings',
   variables: DEFAULT_TEMPLATE_VARIABLES,
   template: {
-    $schema: 'https://pyapp.dev/schemas/keybindings.json',
-    $docs: 'https://pyapp.dev/docs/keybindings',
+    $schema: 'https://openliri.com/schemas/keybindings.json',
+    $docs: 'https://openliri.com/docs/keybindings',
     bindings: [
       {
         context: 'Global',
@@ -128,8 +128,8 @@ export const DEFAULT_TEMPLATE: KeybindingTemplate = {
   description: 'Default keybindings',
   variables: DEFAULT_TEMPLATE_VARIABLES,
   template: {
-    $schema: 'https://pyapp.dev/schemas/keybindings.json',
-    $docs: 'https://pyapp.dev/docs/keybindings',
+    $schema: 'https://openliri.com/schemas/keybindings.json',
+    $docs: 'https://openliri.com/docs/keybindings',
     bindings: [
       {
         context: 'Global',

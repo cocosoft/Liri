@@ -25,14 +25,14 @@ export const ALL_OAUTH_SCOPES = Array.from(
   new Set([...CONSOLE_OAUTH_SCOPES, ...Liri_OAUTH_SCOPES])
 );
 
-export const SUCCESS_URL = 'https://pyapp.dev/auth/success';
-export const MANUAL_REDIRECT_URL = 'https://pyapp.dev/auth/manual';
+export const SUCCESS_URL = 'https://openliri.com/auth/success';
+export const MANUAL_REDIRECT_URL = 'https://openliri.com/auth/manual';
 
-export const DEFAULT_API_BASE_URL = 'https://api.pyapp.dev';
+export const DEFAULT_API_BASE_URL = 'https://api.openliri.com';
 
 export const ALLOWED_OAUTH_BASE_URLS: string[] = [
-  'https://api.pyapp.dev',
-  'https://api.staging.pyapp.dev',
+  'https://api.openliri.com',
+  'https://api.staging.openliri.com',
   'http://localhost:8080',
 ];
 

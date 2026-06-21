@@ -20,9 +20,9 @@ export function createOAuthConfig(options: {
     authorizeUrl: options.authorizeUrl,
     tokenUrl: options.tokenUrl,
     profileUrl: options.profileUrl || '',
-    successUrl: options.successUrl || 'https://pyapp.dev/auth/success',
+    successUrl: options.successUrl || 'https://openliri.com/auth/success',
     manualRedirectUrl:
-      options.manualRedirectUrl || 'https://pyapp.dev/auth/manual',
+      options.manualRedirectUrl || 'https://openliri.com/auth/manual',
     clientId: options.clientId,
     scopes: options.scopes,
   };

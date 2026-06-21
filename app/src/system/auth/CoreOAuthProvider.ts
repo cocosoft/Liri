@@ -27,13 +27,13 @@ export class CoreOAuthProvider implements OAuthProvider {
     this.config = {
       authorizeUrl:
         configManager.env('OAUTH_AUTH_URL') ||
-        'https://auth.pyapp.dev/oauth/authorize',
+        'https://auth.openliri.com/oauth/authorize',
       tokenUrl:
         configManager.env('OAUTH_TOKEN_URL') ||
-        'https://auth.pyapp.dev/oauth/token',
+        'https://auth.openliri.com/oauth/token',
       profileUrl:
         configManager.env('OAUTH_PROFILE_URL') ||
-        'https://auth.pyapp.dev/oauth/userinfo',
+        'https://auth.openliri.com/oauth/userinfo',
       clientId: (configManager.env('OAUTH_CLIENT_ID') || '') as string,
       clientSecret: (configManager.env('OAUTH_CLIENT_SECRET') || '') as string,
       redirectUri: (configManager.env('OAUTH_REDIRECT_URI') ||

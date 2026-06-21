@@ -164,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: standalone-${{ matrix.variant }}-${{ matrix.platform }}
-          path: app/dist/release/py_app-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}.tar.gz
+          path: dist/release/py_app-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}.tar.gz
 
   # ══════════════════════════════════════════════
   # Tauri 桌面客户端（嵌入 sidecar）
@@ -249,14 +249,14 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          Copy-Item ../dist/py_app_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/py_app_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          Copy-Item ../dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
         shell: powershell
         if: matrix.config.os == 'windows-latest'
 
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          cp ../dist/py_app_coding "src-tauri/binaries/py_app_coding-${{ matrix.config.target }}"
+          cp ../dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
         shell: bash
         if: matrix.config.os != 'windows-latest'
 

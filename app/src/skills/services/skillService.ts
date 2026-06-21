@@ -47,7 +47,7 @@ export class SkillService {
       skillsDir: config.skillsDir || join(getConfigHomeDir(), 'skills'),
       enableMarketplace: config.enableMarketplace ?? false,
       marketplaceApiUrl:
-        config.marketplaceApiUrl ?? 'https://api.pyapp.dev/skills',
+        config.marketplaceApiUrl ?? 'https://api.openliri.com/skills',
     };
     this.registry = registry ?? new SkillRegistry();
   }

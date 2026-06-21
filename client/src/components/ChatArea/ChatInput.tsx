@@ -759,7 +759,7 @@ function ChatInput() {
 
   return (
     <div
-      className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors ${
+      className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors flex-shrink-0 ${
         isDragOver ? "ring-2 ring-blue-400 ring-inset" : ""
       }`}
       onDrop={handleFileDrop}

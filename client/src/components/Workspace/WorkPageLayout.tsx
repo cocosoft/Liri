@@ -69,7 +69,7 @@ export default function WorkPageLayout() {
   return (
     <div
       ref={containerRef}
-      className="flex h-screen bg-gray-50 dark:bg-gray-950 select-none"
+      className="flex h-full bg-gray-50 dark:bg-gray-950 select-none"
     >
       {/* 左栏：文件树 + 工作项列表 */}
       <div style={{ width: leftWidth }} className="flex-shrink-0 h-full">

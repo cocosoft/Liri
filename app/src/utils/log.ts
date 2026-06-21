@@ -13,4 +13,4 @@ export { LogLevel };
 /**
  * 全局日志记录器单例
  */
-export const logger = getLogger('utils');
+export const logger = getLogger('app');

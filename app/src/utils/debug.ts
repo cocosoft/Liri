@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 调试工具
  */
 
@@ -36,7 +36,6 @@ export function logForDebugging(
   switch (level) {
     case 'error':
       console.error(logMessage);
-      logger.error(message, { debug: true });
       break;
     case 'warn':
       console.warn(logMessage);

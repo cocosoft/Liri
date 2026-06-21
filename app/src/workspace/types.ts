@@ -32,7 +32,7 @@ export interface LiriAIStrategy {
   /** 自动接受改动（skip review）：true = AI 改完直接提交，false = 改完等用户审核 */
   autoAccept?: boolean;
   /** 代码审查严格程度：strict / normal / relaxed */
-  reviewStrictness?: "strict" | "normal" | "relaxed";
+  reviewStrictness?: 'strict' | 'normal' | 'relaxed';
   /** 是否自动创建备份 */
   autoBackup?: boolean;
   /** 最大并行工作项数 */
@@ -147,7 +147,7 @@ export interface LiriMemoryConfig {
 // ========== 变更集 ==========
 
 /** 文件变更状态 */
-export type FileChangeType = "added" | "modified" | "deleted";
+export type FileChangeType = 'added' | 'modified' | 'deleted';
 
 /** 单个文件变更 */
 export interface FileChange {
@@ -160,7 +160,7 @@ export interface FileChange {
   /** 变更后行数 */
   deletions?: number;
   /** 变更状态 */
-  status: "pending" | "verified" | "failed";
+  status: 'pending' | 'verified' | 'failed';
 }
 
 /** 变更集 */
@@ -178,16 +178,28 @@ export interface ChangeSet {
   /** 更新时间 */
   updatedAt: string;
   /** 状态 */
-  status: "pending" | "reviewing" | "accepted" | "rejected";
+  status: 'pending' | 'reviewing' | 'accepted' | 'rejected';
 }
 
 // ========== 工作项生命周期 ==========
 
 /** 工作项状态 */
-export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";
+export type WorkItemStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'review'
+  | 'done'
+  | 'failed';
 
 /** 工作项类型 */
-export type WorkItemType = "task" | "bug" | "feature" | "refactor" | "docs" | "decision";
+export type WorkItemType =
+  | 'task'
+  | 'bug'
+  | 'feature'
+  | 'refactor'
+  | 'docs'
+  | 'decision';
 
 /** 工作项 */
 export interface WorkItem {
@@ -242,7 +254,7 @@ export interface LiriDetectionResult {
 // ========== 项目（Project） ==========
 
 /** 项目状态 */
-export type ProjectStatus = "active" | "paused" | "completed" | "archived";
+export type ProjectStatus = 'active' | 'paused' | 'completed' | 'archived';
 
 /** 项目 */
 export interface Project {
@@ -313,7 +325,7 @@ export interface ProjectBoard {
 // ========== 团队（Team） ==========
 
 /** 团队成员角色 */
-export type TeamRole = "owner" | "admin" | "member" | "viewer";
+export type TeamRole = 'owner' | 'admin' | 'member' | 'viewer';
 
 /** 团队成员 */
 export interface TeamMember {
@@ -354,7 +366,7 @@ export interface Team {
 /** 工作项分配目标 */
 export interface Assignee {
   /** 分配类型 */
-  type: "human" | "agent" | "team";
+  type: 'human' | 'agent' | 'team';
   /** 分配目标 ID */
   id: string;
   /** 分配目标名称 */
@@ -382,7 +394,7 @@ export interface WorkflowStep {
   /** 步骤描述 */
   description: string;
   /** 步骤类型 */
-  type: "manual" | "auto" | "review";
+  type: 'manual' | 'auto' | 'review';
   /** 依赖的步骤 ID 列表 */
   dependsOn?: string[];
   /** 建议的 Agent 角色 */
@@ -434,20 +446,23 @@ export interface CostReport {
   /** 输出 Token 数 */
   outputTokens: number;
   /** 各模型成本明细 */
-  modelBreakdown: Record<string, {
-    model: string;
-    costUSD: number;
-    tokens: number;
-    requestCount: number;
-  }>;
+  modelBreakdown: Record<
+    string,
+    {
+      model: string;
+      costUSD: number;
+      tokens: number;
+      requestCount: number;
+    }
+  >;
   /** 预算状态 */
-  budgetStatus: "ok" | "warning" | "exceeded";
+  budgetStatus: 'ok' | 'warning' | 'exceeded';
   /** 预算利用率（0-1） */
   budgetUtilization: number;
   /** 报告时间 */
   generatedAt: string;
   /** 周期 */
-  period: "daily" | "weekly" | "monthly" | "total";
+  period: 'daily' | 'weekly' | 'monthly' | 'total';
 }
 
 // ========== 对话式回顾 ==========
@@ -467,9 +482,9 @@ export interface WorkItemSearchQuery {
   /** 分配者过滤 */
   assigneeId?: string;
   /** 排序字段 */
-  sortBy?: "createdAt" | "updatedAt" | "priority";
+  sortBy?: 'createdAt' | 'updatedAt' | 'priority';
   /** 排序方向 */
-  sortOrder?: "asc" | "desc";
+  sortOrder?: 'asc' | 'desc';
   /** 分页 */
   limit?: number;
   offset?: number;

@@ -10,12 +10,12 @@
  * - GET  /v1/workspaces/:id/rules/overview    规则总览
  */
 
-import type http from "node:http";
-import { Logger, LogLevel } from "@modules/monitoring";
-import type { HandlerCtx } from "./handler-utils";
-import { getRuleEngine } from "@modules/workspace/RuleEngine";
+import type http from 'node:http';
+import { Logger, LogLevel } from '@modules/monitoring';
+import type { HandlerCtx } from './handler-utils';
+import { getRuleEngine } from '@modules/workspace/RuleEngine';
 
-const logger = new Logger({ module: "RuleHandlers", level: LogLevel.INFO });
+const logger = new Logger({ module: 'RuleHandlers', level: LogLevel.INFO });
 
 /**
  * GET /v1/workspaces/:id/rules
@@ -31,13 +31,13 @@ export function handleListRules(
     const engine = getRuleEngine(workspaceId);
     const rules = engine.listRules();
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(rules));
   } catch (err) {
-    logger.error("列出规则失败", { error: String(err) });
+    logger.error('列出规则失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "列出规则失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '列出规则失败' }));
     }
   }
 }
@@ -57,18 +57,23 @@ export function handleGetRule(
     const content = engine.readRule(specialization as any);
 
     if (content === null) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `规则 "${specialization}" 不存在`, exists: false }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: `规则 "${specialization}" 不存在`,
+          exists: false,
+        })
+      );
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ specialization, content, exists: true }));
   } catch (err) {
-    logger.error("读取规则失败", { error: String(err) });
+    logger.error('读取规则失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "读取规则失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '读取规则失败' }));
     }
   }
 }
@@ -89,21 +94,21 @@ export async function handleWriteRule(
     const { content } = data;
 
     if (!content) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "缺少必要参数：content" }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '缺少必要参数：content' }));
       return;
     }
 
     const engine = getRuleEngine();
     engine.writeRule(specialization as any, content);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ specialization, message: "规则已保存" }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ specialization, message: '规则已保存' }));
   } catch (err) {
-    logger.error("写入规则失败", { error: String(err) });
+    logger.error('写入规则失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "写入规则失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '写入规则失败' }));
     }
   }
 }
@@ -124,21 +129,21 @@ export async function handleAppendRule(
     const { content } = data;
 
     if (!content) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "缺少必要参数：content" }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '缺少必要参数：content' }));
       return;
     }
 
     const engine = getRuleEngine();
     engine.appendRule(specialization as any, content);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ specialization, message: "规则已追加" }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ specialization, message: '规则已追加' }));
   } catch (err) {
-    logger.error("追加规则失败", { error: String(err) });
+    logger.error('追加规则失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "追加规则失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '追加规则失败' }));
     }
   }
 }
@@ -158,21 +163,25 @@ export async function handleLoadRulesForWorkItem(
     const { title, description, changedFiles } = data;
 
     if (!title) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "缺少必要参数：title" }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '缺少必要参数：title' }));
       return;
     }
 
     const engine = getRuleEngine();
-    const rules = engine.loadRulesForWorkItem(title, description || "", changedFiles || []);
+    const rules = engine.loadRulesForWorkItem(
+      title,
+      description || '',
+      changedFiles || []
+    );
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ rules }));
   } catch (err) {
-    logger.error("加载规则失败", { error: String(err) });
+    logger.error('加载规则失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "加载规则失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '加载规则失败' }));
     }
   }
 }
@@ -190,13 +199,13 @@ export function handleRulesOverview(
     const engine = getRuleEngine();
     const overview = engine.getRulesOverview();
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ overview }));
   } catch (err) {
-    logger.error("获取规则总览失败", { error: String(err) });
+    logger.error('获取规则总览失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "获取规则总览失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '获取规则总览失败' }));
     }
   }
 }

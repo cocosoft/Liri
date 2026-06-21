@@ -3,12 +3,15 @@
  *
  * POST /v1/workspaces/:id/intelligence/bottleneck
  */
-import type http from "node:http";
-import { Logger, LogLevel } from "@modules/monitoring";
-import type { HandlerCtx } from "./handler-utils";
-import { bottleneckAnalyzer } from "@modules/workspace/BottleneckAnalyzer";
+import type http from 'node:http';
+import { Logger, LogLevel } from '@modules/monitoring';
+import type { HandlerCtx } from './handler-utils';
+import { bottleneckAnalyzer } from '@modules/workspace/BottleneckAnalyzer';
 
-const logger = new Logger({ module: "BottleneckHandlers", level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'BottleneckHandlers',
+  level: LogLevel.INFO,
+});
 
 /**
  * POST /v1/workspaces/:id/intelligence/bottleneck
@@ -25,20 +28,22 @@ export async function handleBottleneckAnalysis(
     const { steps } = data;
 
     if (!steps || !Array.isArray(steps) || steps.length === 0) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "缺少必要参数：steps（关键路径步骤列表）" }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: '缺少必要参数：steps（关键路径步骤列表）' })
+      );
       return;
     }
 
     const summary = bottleneckAnalyzer.analyze(steps);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(summary));
   } catch (err) {
-    logger.error("瓶颈分析失败", { error: String(err) });
+    logger.error('瓶颈分析失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "瓶颈分析失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '瓶颈分析失败' }));
     }
   }
 }

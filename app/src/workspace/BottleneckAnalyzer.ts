@@ -10,13 +10,13 @@
 
 /** 瓶颈类型 */
 export type BottleneckType =
-  | "waiting_human_review"   // 等待人审核
-  | "waiting_ai_execution"   // 等待 AI 执行
-  | "waiting_resource"       // 等待资源（Agent/模型/配额）
-  | "waiting_dependency"     // 等待前置步骤完成
-  | "rule_check_failed"      // 规则检查失败
-  | "test_failed"            // 测试失败
-  | "none";                  // 无瓶颈
+  | 'waiting_human_review' // 等待人审核
+  | 'waiting_ai_execution' // 等待 AI 执行
+  | 'waiting_resource' // 等待资源（Agent/模型/配额）
+  | 'waiting_dependency' // 等待前置步骤完成
+  | 'rule_check_failed' // 规则检查失败
+  | 'test_failed' // 测试失败
+  | 'none'; // 无瓶颈
 
 /** 瓶颈信息 */
 export interface BottleneckInfo {
@@ -41,7 +41,7 @@ export interface BottleneckInfo {
 /** 关键路径步骤 */
 export interface CriticalPathStep {
   name: string;
-  status: "pending" | "in_progress" | "blocked" | "done" | "failed";
+  status: 'pending' | 'in_progress' | 'blocked' | 'done' | 'failed';
   dependsOn: string[];
   estimatedDurationMs: number;
   assignee: string;
@@ -73,18 +73,25 @@ export class BottleneckAnalyzer {
    * @returns 瓶颈摘要
    */
   analyze(steps: CriticalPathStep[]): BottleneckSummary {
-    const completedSteps = steps.filter((s) => s.status === "done").length;
+    const completedSteps = steps.filter((s) => s.status === 'done').length;
     const totalSteps = steps.length;
-    const overallProgress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+    const overallProgress =
+      totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
     // 找到当前瓶颈
     const bottleneck = this.identifyBottleneck(steps);
 
     // 估算剩余时间
     const remainingSteps = steps.filter(
-      (s) => s.status === "pending" || s.status === "in_progress" || s.status === "blocked"
+      (s) =>
+        s.status === 'pending' ||
+        s.status === 'in_progress' ||
+        s.status === 'blocked'
     );
-    const estimatedRemainingMs = remainingSteps.reduce((sum, s) => sum + s.estimatedDurationMs, 0);
+    const estimatedRemainingMs = remainingSteps.reduce(
+      (sum, s) => sum + s.estimatedDurationMs,
+      0
+    );
 
     return {
       overallProgress,
@@ -92,7 +99,8 @@ export class BottleneckAnalyzer {
       criticalPath: steps,
       completedSteps,
       totalSteps,
-      estimatedRemainingMs: estimatedRemainingMs > 0 ? estimatedRemainingMs : null,
+      estimatedRemainingMs:
+        estimatedRemainingMs > 0 ? estimatedRemainingMs : null,
     };
   }
 
@@ -101,19 +109,19 @@ export class BottleneckAnalyzer {
    */
   private identifyBottleneck(steps: CriticalPathStep[]): BottleneckInfo | null {
     // 查找被阻塞的步骤
-    const blockedStep = steps.find((s) => s.status === "blocked");
+    const blockedStep = steps.find((s) => s.status === 'blocked');
     if (blockedStep) {
       return this.buildBottleneckInfo(blockedStep, steps);
     }
 
     // 查找进行中的步骤（可能卡住）
-    const inProgressStep = steps.find((s) => s.status === "in_progress");
+    const inProgressStep = steps.find((s) => s.status === 'in_progress');
     if (inProgressStep) {
       return this.buildBottleneckInfo(inProgressStep, steps);
     }
 
     // 查找失败的步骤
-    const failedStep = steps.find((s) => s.status === "failed");
+    const failedStep = steps.find((s) => s.status === 'failed');
     if (failedStep) {
       return this.buildBottleneckInfo(failedStep, steps);
     }
@@ -128,51 +136,58 @@ export class BottleneckAnalyzer {
     step: CriticalPathStep,
     allSteps: CriticalPathStep[]
   ): BottleneckInfo {
-    let type: BottleneckType = "none";
-    let description = "";
-    let waitingFor = "";
+    let type: BottleneckType = 'none';
+    let description = '';
+    let waitingFor = '';
     let autoResolvable = false;
 
     switch (step.status) {
-      case "blocked":
-        type = "waiting_dependency";
+      case 'blocked':
+        type = 'waiting_dependency';
         const blockingSteps = allSteps.filter(
-          (s) => step.dependsOn.includes(s.name) && s.status !== "done"
+          (s) => step.dependsOn.includes(s.name) && s.status !== 'done'
         );
         description = `步骤 "${step.name}" 被阻塞，等待前置步骤完成`;
-        waitingFor = blockingSteps.map((s) => s.name).join("、");
+        waitingFor = blockingSteps.map((s) => s.name).join('、');
         autoResolvable = false;
         break;
 
-      case "in_progress":
-        if (step.assignee.toLowerCase().includes("human") || step.assignee === "用户") {
-          type = "waiting_human_review";
+      case 'in_progress':
+        if (
+          step.assignee.toLowerCase().includes('human') ||
+          step.assignee === '用户'
+        ) {
+          type = 'waiting_human_review';
           description = `等待 ${step.assignee} 完成审核`;
           waitingFor = step.assignee;
           autoResolvable = false;
-        } else if (step.assignee.toLowerCase().includes("agent") || step.assignee.toLowerCase().includes("ai")) {
-          type = "waiting_ai_execution";
+        } else if (
+          step.assignee.toLowerCase().includes('agent') ||
+          step.assignee.toLowerCase().includes('ai')
+        ) {
+          type = 'waiting_ai_execution';
           description = `AI 正在执行 "${step.name}"`;
           waitingFor = step.assignee;
           autoResolvable = true;
         } else {
-          type = "waiting_resource";
+          type = 'waiting_resource';
           description = `等待资源 "${step.assignee}" 可用`;
           waitingFor = step.assignee;
           autoResolvable = true;
         }
         break;
 
-      case "failed":
-        type = "rule_check_failed";
+      case 'failed':
+        type = 'rule_check_failed';
         description = `步骤 "${step.name}" 执行失败`;
-        waitingFor = "系统";
+        waitingFor = '系统';
         autoResolvable = true;
         break;
     }
 
     // 找到下一步
-    const nextStep = allSteps.find((s) => s.status === "pending")?.name || "完成";
+    const nextStep =
+      allSteps.find((s) => s.status === 'pending')?.name || '完成';
 
     // 生成建议
     const suggestion = this.generateSuggestion(type, step, waitingFor);
@@ -198,20 +213,20 @@ export class BottleneckAnalyzer {
     waitingFor: string
   ): string {
     switch (type) {
-      case "waiting_human_review":
+      case 'waiting_human_review':
         return `请 ${waitingFor} 审核步骤 "${step.name}" 的结果`;
-      case "waiting_ai_execution":
+      case 'waiting_ai_execution':
         return `AI 正在处理中，预计还需 ${this.formatDuration(step.estimatedDurationMs)}`;
-      case "waiting_resource":
+      case 'waiting_resource':
         return `资源 "${waitingFor}" 暂时不可用，可以等待或手动分配`;
-      case "waiting_dependency":
+      case 'waiting_dependency':
         return `需要先完成 "${waitingFor}"，建议优先推进`;
-      case "rule_check_failed":
+      case 'rule_check_failed':
         return `规则检查失败，AI 将自动重试；连续失败 3 次将升级给用户`;
-      case "test_failed":
+      case 'test_failed':
         return `测试未通过，AI 将自动修复；建议检查测试用例是否正确`;
       default:
-        return "等待中...";
+        return '等待中...';
     }
   }
 

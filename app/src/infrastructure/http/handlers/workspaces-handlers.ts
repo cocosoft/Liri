@@ -25,7 +25,10 @@ import type { SessionInfo } from '@modules/runtime/api/CoreAPI';
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { createLiriConfigManager, detectLiriDir } from '@modules/workspace/LiriConfigManager';
+import {
+  createLiriConfigManager,
+  detectLiriDir,
+} from '@modules/workspace/LiriConfigManager';
 import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createChangeSetStore } from '@modules/workspace/ChangeSetStore';
 import { createProjectStore } from '@modules/workspace/ProjectStore';
@@ -100,10 +103,17 @@ export async function handleListWorkspaceSessions(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'workspace_session_list' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'workspace_session_list',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to list workspace sessions' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to list workspace sessions' },
+        })
+      );
     }
   }
 }
@@ -133,18 +143,27 @@ export async function handleCreateWorkspaceSession(
     });
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      id: session.id,
-      title: session.title,
-      workspaceId,
-      mode,
-      createdAt: session.createdAt,
-    }));
+    res.end(
+      JSON.stringify({
+        id: session.id,
+        title: session.title,
+        workspaceId,
+        mode,
+        createdAt: session.createdAt,
+      })
+    );
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'workspace_session_create' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'workspace_session_create',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to create workspace session' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to create workspace session' },
+        })
+      );
     }
   }
 }
@@ -180,7 +199,9 @@ export async function handleListWorkItems(
     await handleError(err, { module: 'infra:http', action: 'work_items_list' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to list work items' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to list work items' } })
+      );
     }
   }
 }
@@ -197,7 +218,13 @@ export async function handleCreateWorkItem(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const { title, description, type = 'task', tags, priority } = JSON.parse(body || '{}');
+    const {
+      title,
+      description,
+      type = 'task',
+      tags,
+      priority,
+    } = JSON.parse(body || '{}');
 
     if (!title) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -215,17 +242,29 @@ export async function handleCreateWorkItem(
 
     const manager = createLiriConfigManager(wsPath);
     const store = createWorkItemStore(manager.dir, manager);
-    const item = store.create({ workspaceId, title, description, type, tags, priority });
+    const item = store.create({
+      workspaceId,
+      title,
+      description,
+      type,
+      tags,
+      priority,
+    });
 
     logger.info(`工作项已创建: ${title}`, { workspaceId, itemId: item.id });
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(item));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'work_item_create' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'work_item_create',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to create work item' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to create work item' } })
+      );
     }
   }
 }
@@ -263,15 +302,23 @@ export async function handleUpdateWorkItem(
       return;
     }
 
-    logger.info(`工作项已更新: ${updated.title}`, { itemId, status: updated.status });
+    logger.info(`工作项已更新: ${updated.title}`, {
+      itemId,
+      status: updated.status,
+    });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'work_item_update' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'work_item_update',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to update work item' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to update work item' } })
+      );
     }
   }
 }
@@ -281,9 +328,12 @@ export async function handleUpdateWorkItem(
 /**
  * 根据 workspaceId 解析工作空间的文件系统路径
  */
-export async function resolveWorkspacePath(workspaceId: string): Promise<string | null> {
+export async function resolveWorkspacePath(
+  workspaceId: string
+): Promise<string | null> {
   try {
-    const { buildEntries } = await import('@modules/commands/builtin/workspace/WorkspaceStorage');
+    const { buildEntries } =
+      await import('@modules/commands/builtin/workspace/WorkspaceStorage');
     const entries = await buildEntries();
     const entry = entries.find((e) => e.meta.id === workspaceId);
     return entry ? entry.path : null;
@@ -319,7 +369,11 @@ export async function handleDetectLiriDir(
     await handleError(err, { module: 'infra:http', action: 'liri_detect' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to detect .liri directory' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to detect .liri directory' },
+        })
+      );
     }
   }
 }
@@ -354,7 +408,11 @@ export async function handleInitLiriDir(
     await handleError(err, { module: 'infra:http', action: 'liri_init' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to initialize .liri directory' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to initialize .liri directory' },
+        })
+      );
     }
   }
 }
@@ -387,7 +445,9 @@ export async function handleGetWorkspaceConfig(
     await handleError(err, { module: 'infra:http', action: 'liri_config_get' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to get workspace config' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to get workspace config' } })
+      );
     }
   }
 }
@@ -420,10 +480,17 @@ export async function handleUpdateWorkspaceConfig(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(merged));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'liri_config_update' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'liri_config_update',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to update workspace config' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to update workspace config' },
+        })
+      );
     }
   }
 }
@@ -456,7 +523,9 @@ export async function handleGetWorkspaceRules(
     await handleError(err, { module: 'infra:http', action: 'liri_rules_get' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to get workspace rules' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to get workspace rules' } })
+      );
     }
   }
 }
@@ -495,10 +564,17 @@ export async function handleUpdateWorkspaceRules(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'liri_rules_update' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'liri_rules_update',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to update workspace rules' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to update workspace rules' },
+        })
+      );
     }
   }
 }
@@ -535,7 +611,9 @@ export async function handleListChangeSets(
     await handleError(err, { module: 'infra:http', action: 'changesets_list' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to list change sets' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to list change sets' } })
+      );
     }
   }
 }
@@ -557,7 +635,9 @@ export async function handleCreateChangeSet(
 
     if (!description) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'description is required' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'description is required' } })
+      );
       return;
     }
 
@@ -576,10 +656,15 @@ export async function handleCreateChangeSet(
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(changeset));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'changesets_create' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'changesets_create',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to create change set' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to create change set' } })
+      );
     }
   }
 }
@@ -620,7 +705,9 @@ export async function handleGetChangeSet(
     await handleError(err, { module: 'infra:http', action: 'changesets_get' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to get change set' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to get change set' } })
+      );
     }
   }
 }
@@ -642,7 +729,9 @@ export async function handleAddFileChange(
 
     if (!path || !change) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'path and change are required' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'path and change are required' } })
+      );
       return;
     }
 
@@ -656,7 +745,13 @@ export async function handleAddFileChange(
 
     const manager = createLiriConfigManager(wsPath);
     const store = createChangeSetStore(manager.dir);
-    const updated = store.recordFileChange(changesetId, path, change, additions, deletions);
+    const updated = store.recordFileChange(
+      changesetId,
+      path,
+      change,
+      additions,
+      deletions
+    );
 
     if (!updated) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -667,10 +762,15 @@ export async function handleAddFileChange(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'changesets_add_file' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'changesets_add_file',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to add file change' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to add file change' } })
+      );
     }
   }
 }
@@ -717,10 +817,15 @@ export async function handleUpdateChangeSet(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'changesets_update' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'changesets_update',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to update change set' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to update change set' } })
+      );
     }
   }
 }
@@ -758,10 +863,17 @@ export async function handleGetChangeSetSummary(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(summary));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'changesets_summary' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'changesets_summary',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to get change set summary' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to get change set summary' },
+        })
+      );
     }
   }
 }
@@ -798,7 +910,9 @@ export async function handleListProjects(
     await handleError(err, { module: 'infra:http', action: 'projects_list' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to list projects' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to list projects' } })
+      );
     }
   }
 }
@@ -834,7 +948,13 @@ export async function handleCreateProject(
     const manager = createLiriConfigManager(wsPath);
     const workItemStore = createWorkItemStore(manager.dir, manager);
     const store = createProjectStore(manager.dir, workItemStore);
-    const project = store.create({ workspaceId, name, description, template, tags });
+    const project = store.create({
+      workspaceId,
+      name,
+      description,
+      template,
+      tags,
+    });
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(project));
@@ -842,7 +962,9 @@ export async function handleCreateProject(
     await handleError(err, { module: 'infra:http', action: 'project_create' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to create project' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to create project' } })
+      );
     }
   }
 }
@@ -929,7 +1051,9 @@ export async function handleUpdateProject(
     await handleError(err, { module: 'infra:http', action: 'project_update' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to update project' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to update project' } })
+      );
     }
   }
 }
@@ -971,7 +1095,9 @@ export async function handleDeleteProject(
     await handleError(err, { module: 'infra:http', action: 'project_delete' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to delete project' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to delete project' } })
+      );
     }
   }
 }
@@ -1013,7 +1139,9 @@ export async function handleGetProjectBoard(
     await handleError(err, { module: 'infra:http', action: 'project_board' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to get project board' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to get project board' } })
+      );
     }
   }
 }
@@ -1057,7 +1185,9 @@ export async function handleGetProjectRules(
     await handleError(err, { module: 'infra:http', action: 'project_rules' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to get project rules' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to get project rules' } })
+      );
     }
   }
 }
@@ -1107,10 +1237,15 @@ export async function handleUpdateProjectRules(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'project_rules_update' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'project_rules_update',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to update project rules' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to update project rules' } })
+      );
     }
   }
 }
@@ -1145,7 +1280,9 @@ export async function handleGetTemplates(
     await handleError(err, { module: 'infra:http', action: 'templates_list' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to list templates' } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to list templates' } })
+      );
     }
   }
 }
@@ -1182,7 +1319,11 @@ export async function handleCreateProjectWorkItem(
     const manager = createLiriConfigManager(wsPath);
     const workItemStore = createWorkItemStore(manager.dir, manager);
     const store = createProjectStore(manager.dir, workItemStore);
-    const item = store.createWorkItemFromTemplate(projectId, { title, description, type });
+    const item = store.createWorkItemFromTemplate(projectId, {
+      title,
+      description,
+      type,
+    });
 
     if (!item) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1193,10 +1334,17 @@ export async function handleCreateProjectWorkItem(
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(item));
   } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'project_item_create' });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'project_item_create',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Failed to create project work item' } }));
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to create project work item' },
+        })
+      );
     }
   }
 }

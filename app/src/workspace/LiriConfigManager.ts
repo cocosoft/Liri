@@ -5,8 +5,14 @@
  * 提供工作空间自动检测、配置加载/保存、记忆管理等功能。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "fs";
-import { join, dirname } from "path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+} from 'fs';
+import { join, dirname } from 'path';
 import type {
   LiriWorkspaceConfig,
   LiriKnowledgeConfig,
@@ -17,24 +23,18 @@ import type {
   LiriCostControl,
   LiriAIStrategy,
   LiriModelPreference,
-} from "./types";
+} from './types';
 
 /** .liri/ 目录常量 */
-const LIRI_DIR = ".liri";
-const CONFIG_FILE = "config.json";
-const RULES_FILE = "rules.md";
-const KNOWLEDGE_FILE = "knowledge.json";
-const TOOLS_FILE = "tools.json";
-const MEMORY_FILE = "memory.json";
+const LIRI_DIR = '.liri';
+const CONFIG_FILE = 'config.json';
+const RULES_FILE = 'rules.md';
+const KNOWLEDGE_FILE = 'knowledge.json';
+const TOOLS_FILE = 'tools.json';
+const MEMORY_FILE = 'memory.json';
 
 /** 默认 .liri/ 子目录 */
-const DEFAULT_SUBDIRS = [
-  "workflows",
-  "agents",
-  "projects",
-  "teams",
-  "memory",
-];
+const DEFAULT_SUBDIRS = ['workflows', 'agents', 'projects', 'teams', 'memory'];
 
 /**
  * .liri/ 配置管理器
@@ -54,7 +54,7 @@ export class LiriConfigManager {
 
   constructor(workspaceRoot: string) {
     this.workspaceRoot = workspaceRoot;
-    this.liriDir = join(workspaceRoot, ".liri");
+    this.liriDir = join(workspaceRoot, '.liri');
   }
 
   /** .liri/ 目录路径 */
@@ -130,17 +130,17 @@ export class LiriConfigManager {
     const configPath = join(this.liriDir, CONFIG_FILE);
     if (!existsSync(configPath)) {
       const defaultConfig: LiriWorkspaceConfig = {
-        name: "",
-        description: "",
+        name: '',
+        description: '',
         models: {
-          defaultModel: "",
-          planModel: "",
-          doModel: "",
-          analysisModel: "",
+          defaultModel: '',
+          planModel: '',
+          doModel: '',
+          analysisModel: '',
         },
         aiStrategy: {
           autoAccept: false,
-          reviewStrictness: "normal",
+          reviewStrictness: 'normal',
           autoBackup: true,
           maxParallelWorkItems: 3,
         },
@@ -149,7 +149,7 @@ export class LiriConfigManager {
           monthlyBudgetUSD: 20,
           alertThreshold: 0.8,
           hardLimit: false,
-          expensiveModelOnlyFor: ["council", "pdca"],
+          expensiveModelOnlyFor: ['council', 'pdca'],
         },
       };
       this.writeJsonFile(configPath, defaultConfig);
@@ -157,7 +157,11 @@ export class LiriConfigManager {
 
     const rulesPath = join(this.liriDir, RULES_FILE);
     if (!existsSync(rulesPath)) {
-      writeFileSync(rulesPath, "# 工作空间规则\n\n<!-- 在此添加项目规则，AI 在执行时会遵守这些规则 -->\n", "utf-8");
+      writeFileSync(
+        rulesPath,
+        '# 工作空间规则\n\n<!-- 在此添加项目规则，AI 在执行时会遵守这些规则 -->\n',
+        'utf-8'
+      );
     }
 
     const knowledgePath = join(this.liriDir, KNOWLEDGE_FILE);
@@ -165,7 +169,12 @@ export class LiriConfigManager {
       const defaultKnowledge: LiriKnowledgeConfig = {
         knowledgeBaseIds: [],
         autoIndex: true,
-        indexExcludePatterns: ["node_modules/**", ".git/**", "dist/**", ".liri/**"],
+        indexExcludePatterns: [
+          'node_modules/**',
+          '.git/**',
+          'dist/**',
+          '.liri/**',
+        ],
       };
       this.writeJsonFile(knowledgePath, defaultKnowledge);
     }
@@ -226,9 +235,9 @@ export class LiriConfigManager {
   loadRules(): string {
     const rulesPath = join(this.liriDir, RULES_FILE);
     if (!existsSync(rulesPath)) {
-      return "";
+      return '';
     }
-    return readFileSync(rulesPath, "utf-8");
+    return readFileSync(rulesPath, 'utf-8');
   }
 
   /**
@@ -236,7 +245,7 @@ export class LiriConfigManager {
    */
   saveRules(content: string): void {
     const rulesPath = join(this.liriDir, RULES_FILE);
-    writeFileSync(rulesPath, content, "utf-8");
+    writeFileSync(rulesPath, content, 'utf-8');
   }
 
   /**
@@ -244,7 +253,7 @@ export class LiriConfigManager {
    */
   appendRules(content: string): void {
     const current = this.loadRules();
-    this.saveRules(current + "\n" + content);
+    this.saveRules(current + '\n' + content);
   }
 
   // ========== knowledge.json 读写 ==========
@@ -254,7 +263,11 @@ export class LiriConfigManager {
    */
   loadKnowledge(): LiriKnowledgeConfig {
     const knowledgePath = join(this.liriDir, KNOWLEDGE_FILE);
-    return this.readJsonFile<LiriKnowledgeConfig>(knowledgePath) || { knowledgeBaseIds: [] };
+    return (
+      this.readJsonFile<LiriKnowledgeConfig>(knowledgePath) || {
+        knowledgeBaseIds: [],
+      }
+    );
   }
 
   /**
@@ -272,7 +285,12 @@ export class LiriConfigManager {
    */
   loadTools(): LiriToolConfig {
     const toolsPath = join(this.liriDir, TOOLS_FILE);
-    return this.readJsonFile<LiriToolConfig>(toolsPath) || { skills: [], mcpServers: [] };
+    return (
+      this.readJsonFile<LiriToolConfig>(toolsPath) || {
+        skills: [],
+        mcpServers: [],
+      }
+    );
   }
 
   /**
@@ -290,7 +308,12 @@ export class LiriConfigManager {
    */
   loadMemory(): LiriMemoryConfig {
     const memoryPath = join(this.liriDir, MEMORY_FILE);
-    return this.readJsonFile<LiriMemoryConfig>(memoryPath) || { entries: [], lastUpdated: "" };
+    return (
+      this.readJsonFile<LiriMemoryConfig>(memoryPath) || {
+        entries: [],
+        lastUpdated: '',
+      }
+    );
   }
 
   /**
@@ -340,7 +363,7 @@ export class LiriConfigManager {
       if (!existsSync(filePath)) {
         return null;
       }
-      const content = readFileSync(filePath, "utf-8");
+      const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as T;
     } catch {
       return null;
@@ -355,7 +378,7 @@ export class LiriConfigManager {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+    writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   }
 
   /**
@@ -370,10 +393,10 @@ export class LiriConfigManager {
 
       if (
         sourceVal !== null &&
-        typeof sourceVal === "object" &&
+        typeof sourceVal === 'object' &&
         !Array.isArray(sourceVal) &&
         targetVal !== null &&
-        typeof targetVal === "object" &&
+        typeof targetVal === 'object' &&
         !Array.isArray(targetVal)
       ) {
         result[key as string] = this.deepMerge(
@@ -392,7 +415,9 @@ export class LiriConfigManager {
 /**
  * 为指定目录创建 LiriConfigManager 实例
  */
-export function createLiriConfigManager(workspaceRoot: string): LiriConfigManager {
+export function createLiriConfigManager(
+  workspaceRoot: string
+): LiriConfigManager {
   return new LiriConfigManager(workspaceRoot);
 }
 

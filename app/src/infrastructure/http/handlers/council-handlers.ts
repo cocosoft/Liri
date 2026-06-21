@@ -9,19 +9,19 @@
  * - POST /v1/workspace/:id/council/:sessionId/statement  提交 AI 发言
  */
 
-import type http from "node:http";
-import { randomUUID } from "node:crypto";
-import { Logger, LogLevel } from "@modules/monitoring";
-import type { HandlerCtx } from "./handler-utils";
-import { createHandlerCtx } from "./handler-utils";
-import { CouncilEngine } from "@modules/workspace/CouncilEngine";
+import type http from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { Logger, LogLevel } from '@modules/monitoring';
+import type { HandlerCtx } from './handler-utils';
+import { createHandlerCtx } from './handler-utils';
+import { CouncilEngine } from '@modules/workspace/CouncilEngine';
 import type {
   CouncilSession,
   CouncilStreamEvent,
   CouncilAgentRole,
-} from "@modules/workspace/CouncilTypes";
+} from '@modules/workspace/CouncilTypes';
 
-const logger = new Logger({ module: "CouncilHandlers", level: LogLevel.INFO });
+const logger = new Logger({ module: 'CouncilHandlers', level: LogLevel.INFO });
 
 /** 全局 CouncilEngine 实例 */
 let councilEngine: CouncilEngine | null = null;
@@ -56,7 +56,10 @@ function registerSSEClient(sessionId: string, res: http.ServerResponse): void {
 }
 
 /** 注销 SSE 客户端 */
-function unregisterSSEClient(sessionId: string, res: http.ServerResponse): void {
+function unregisterSSEClient(
+  sessionId: string,
+  res: http.ServerResponse
+): void {
   const clients = sseClients.get(sessionId);
   if (clients) {
     clients.delete(res);
@@ -81,9 +84,19 @@ export async function handleCreateCouncil(
     const data = JSON.parse(body);
     const { topic, context, agents, maxRounds } = data;
 
-    if (!topic || !context || !agents || !Array.isArray(agents) || agents.length < 2) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "缺少必要参数：topic, context, agents（至少 2 个 Agent）" }));
+    if (
+      !topic ||
+      !context ||
+      !agents ||
+      !Array.isArray(agents) ||
+      agents.length < 2
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: '缺少必要参数：topic, context, agents（至少 2 个 Agent）',
+        })
+      );
       return;
     }
 
@@ -93,16 +106,18 @@ export async function handleCreateCouncil(
       maxRounds: maxRounds ?? 3,
     });
 
-    res.writeHead(201, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      sessionId: session.sessionId,
-      message: "Council 会话已创建，请通过 SSE 端点订阅辩论过程",
-    }));
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        sessionId: session.sessionId,
+        message: 'Council 会话已创建，请通过 SSE 端点订阅辩论过程',
+      })
+    );
   } catch (err) {
-    logger.error("创建 Council 会话失败", { error: String(err) });
+    logger.error('创建 Council 会话失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "创建 Council 会话失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '创建 Council 会话失败' }));
     }
   }
 }
@@ -122,18 +137,18 @@ export function handleGetCouncil(
     const session = engine.getSession(sessionId);
 
     if (!session) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Council 会话不存在" }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Council 会话不存在' }));
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
   } catch (err) {
-    logger.error("获取 Council 会话失败", { error: String(err) });
+    logger.error('获取 Council 会话失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "获取 Council 会话失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '获取 Council 会话失败' }));
     }
   }
 }
@@ -152,21 +167,21 @@ export function handleCouncilStream(
   const session = engine.getSession(sessionId);
 
   if (!session) {
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Council 会话不存在" }));
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Council 会话不存在' }));
     return;
   }
 
   // 设置 SSE 头
   res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
   });
 
   // 发送初始连接确认
-  res.write(`data: ${JSON.stringify({ type: "connected", sessionId })}\n\n`);
+  res.write(`data: ${JSON.stringify({ type: 'connected', sessionId })}\n\n`);
 
   registerSSEClient(sessionId, res);
 
@@ -174,7 +189,7 @@ export function handleCouncilStream(
   for (const statement of session.statements) {
     res.write(
       `data: ${JSON.stringify({
-        type: "statement",
+        type: 'statement',
         sessionId,
         phase: session.phase,
         round: statement.round,
@@ -185,12 +200,12 @@ export function handleCouncilStream(
   }
 
   // 如果会话已完成，发送完成事件
-  if (session.phase === "completed") {
+  if (session.phase === 'completed') {
     res.write(
       `data: ${JSON.stringify({
-        type: "council_completed",
+        type: 'council_completed',
         sessionId,
-        phase: "completed",
+        phase: 'completed',
         finalProposal: session.finalProposal,
         timestamp: Date.now(),
       })}\n\n`
@@ -201,7 +216,7 @@ export function handleCouncilStream(
   }
 
   // 客户端断开时清理
-  req.on("close", () => {
+  req.on('close', () => {
     unregisterSSEClient(sessionId, res);
   });
 }
@@ -220,13 +235,13 @@ export function handleListCouncils(
     const engine = getCouncilEngine();
     const sessions = engine.getActiveSessionsByWorkspace(workspaceId);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(sessions));
   } catch (err) {
-    logger.error("列出 Council 会话失败", { error: String(err) });
+    logger.error('列出 Council 会话失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "列出 Council 会话失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '列出 Council 会话失败' }));
     }
   }
 }
@@ -247,8 +262,8 @@ export async function handleSubmitStatement(
     const { agentId, agentName, round, type, content, keyPoints } = data;
 
     if (!agentId || !agentName || !round || !type || !content) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "缺少必要参数" }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '缺少必要参数' }));
       return;
     }
 
@@ -256,8 +271,8 @@ export async function handleSubmitStatement(
     const session = engine.getSession(sessionId);
 
     if (!session) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Council 会话不存在" }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Council 会话不存在' }));
       return;
     }
 
@@ -274,13 +289,13 @@ export async function handleSubmitStatement(
 
     session.statements.push(statement);
 
-    res.writeHead(201, { "Content-Type": "application/json" });
+    res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(statement));
   } catch (err) {
-    logger.error("提交 Council 发言失败", { error: String(err) });
+    logger.error('提交 Council 发言失败', { error: String(err) });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "提交 Council 发言失败" }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '提交 Council 发言失败' }));
     }
   }
 }

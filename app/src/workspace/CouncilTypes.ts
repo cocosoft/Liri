@@ -12,10 +12,10 @@
  */
 
 /** Council 辩论阶段 */
-export type CouncilPhase = "convening" | "debating" | "consensus" | "completed";
+export type CouncilPhase = 'convening' | 'debating' | 'consensus' | 'completed';
 
 /** 共识判定结果 */
-export type ConsensusResult = "unanimous" | "majority" | "deadlock";
+export type ConsensusResult = 'unanimous' | 'majority' | 'deadlock';
 
 /** Agent 角色 */
 export interface CouncilAgentRole {
@@ -40,7 +40,7 @@ export interface CouncilStatement {
   /** 轮次编号（从 1 开始） */
   round: number;
   /** 发言类型 */
-  type: "position" | "rebuttal" | "supplement" | "final";
+  type: 'position' | 'rebuttal' | 'supplement' | 'final';
   /** 发言内容 */
   content: string;
   /** 论据关键词 */
@@ -83,14 +83,14 @@ export interface CouncilSession {
 
 /** Council 流式事件类型 */
 export type CouncilEventType =
-  | "council_started"
-  | "agent_joined"
-  | "round_started"
-  | "statement"
-  | "round_completed"
-  | "consensus_reached"
-  | "council_completed"
-  | "council_error";
+  | 'council_started'
+  | 'agent_joined'
+  | 'round_started'
+  | 'statement'
+  | 'round_completed'
+  | 'consensus_reached'
+  | 'council_completed'
+  | 'council_error';
 
 /** Council 流式事件 */
 export interface CouncilStreamEvent {

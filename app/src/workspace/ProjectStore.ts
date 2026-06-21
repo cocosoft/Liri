@@ -5,85 +5,100 @@
  * 支持项目级规则继承（.liri/projects/<id>/rules.md）。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "fs";
-import { join } from "path";
-import type { Project, ProjectStatus, ProjectBoard, ProjectBoardColumn, WorkItemTemplate, WorkItem, WorkItemStatus } from "./types";
-import { WorkItemStore } from "./WorkItemStore";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
+import { join } from 'path';
+import type {
+  Project,
+  ProjectStatus,
+  ProjectBoard,
+  ProjectBoardColumn,
+  WorkItemTemplate,
+  WorkItem,
+  WorkItemStatus,
+} from './types';
+import { WorkItemStore } from './WorkItemStore';
 
 /** 项目存储子目录 */
-const PROJECTS_DIR = "projects";
+const PROJECTS_DIR = 'projects';
 
 /** 工作项状态到看板列标题的映射 */
 const STATUS_LABELS: Record<WorkItemStatus, string> = {
-  pending: "待处理",
-  running: "执行中",
-  paused: "已暂停",
-  review: "待审核",
-  done: "已完成",
-  failed: "已失败",
+  pending: '待处理',
+  running: '执行中',
+  paused: '已暂停',
+  review: '待审核',
+  done: '已完成',
+  failed: '已失败',
 };
 
 /** 内置工作项模板 */
 const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
   {
-    type: "bug",
-    name: "Bug 修复",
-    description: "修复代码缺陷或异常行为",
-    defaultTags: ["bug", "修复"],
+    type: 'bug',
+    name: 'Bug 修复',
+    description: '修复代码缺陷或异常行为',
+    defaultTags: ['bug', '修复'],
     defaultPriority: 2,
-    checklist: ["复现步骤", "根因分析", "修复方案", "验证修复"],
-    estimatedImpact: "修复目标文件及关联测试",
-    riskWarnings: ["注意回归风险", "检查是否有其他类似问题"],
+    checklist: ['复现步骤', '根因分析', '修复方案', '验证修复'],
+    estimatedImpact: '修复目标文件及关联测试',
+    riskWarnings: ['注意回归风险', '检查是否有其他类似问题'],
   },
   {
-    type: "feature",
-    name: "新功能",
-    description: "实现新的功能特性",
-    defaultTags: ["feature", "新功能"],
+    type: 'feature',
+    name: '新功能',
+    description: '实现新的功能特性',
+    defaultTags: ['feature', '新功能'],
     defaultPriority: 3,
-    checklist: ["需求确认", "接口设计", "实现", "单元测试", "集成测试"],
-    estimatedImpact: "新增文件及现有模块扩展",
-    riskWarnings: ["注意向后兼容性", "需更新文档"],
+    checklist: ['需求确认', '接口设计', '实现', '单元测试', '集成测试'],
+    estimatedImpact: '新增文件及现有模块扩展',
+    riskWarnings: ['注意向后兼容性', '需更新文档'],
   },
   {
-    type: "refactor",
-    name: "重构",
-    description: "优化代码结构，不改变外部行为",
-    defaultTags: ["refactor", "重构"],
+    type: 'refactor',
+    name: '重构',
+    description: '优化代码结构，不改变外部行为',
+    defaultTags: ['refactor', '重构'],
     defaultPriority: 3,
-    checklist: ["确认现有行为", "制定重构方案", "逐步重构", "回归测试"],
-    estimatedImpact: "目标模块及相关依赖",
-    riskWarnings: ["确保行为不变", "大规模重构需分步进行"],
+    checklist: ['确认现有行为', '制定重构方案', '逐步重构', '回归测试'],
+    estimatedImpact: '目标模块及相关依赖',
+    riskWarnings: ['确保行为不变', '大规模重构需分步进行'],
   },
   {
-    type: "docs",
-    name: "文档",
-    description: "编写或更新项目文档",
-    defaultTags: ["docs", "文档"],
+    type: 'docs',
+    name: '文档',
+    description: '编写或更新项目文档',
+    defaultTags: ['docs', '文档'],
     defaultPriority: 4,
-    checklist: ["确认文档范围", "编写内容", "格式检查", "审核"],
-    estimatedImpact: "仅文档文件",
+    checklist: ['确认文档范围', '编写内容', '格式检查', '审核'],
+    estimatedImpact: '仅文档文件',
     riskWarnings: [],
   },
   {
-    type: "task",
-    name: "通用任务",
-    description: "通用工作任务",
+    type: 'task',
+    name: '通用任务',
+    description: '通用工作任务',
     defaultTags: [],
     defaultPriority: 3,
     checklist: [],
-    estimatedImpact: "待评估",
+    estimatedImpact: '待评估',
     riskWarnings: [],
   },
   {
-    type: "decision",
-    name: "技术决策",
-    description: "记录和评估技术决策",
-    defaultTags: ["decision", "决策"],
+    type: 'decision',
+    name: '技术决策',
+    description: '记录和评估技术决策',
+    defaultTags: ['decision', '决策'],
     defaultPriority: 2,
-    checklist: ["问题描述", "可选方案", "方案对比", "最终决策", "决策理由"],
-    estimatedImpact: "架构或技术选型层面",
-    riskWarnings: ["影响范围可能较大", "需团队共识"],
+    checklist: ['问题描述', '可选方案', '方案对比', '最终决策', '决策理由'],
+    estimatedImpact: '架构或技术选型层面',
+    riskWarnings: ['影响范围可能较大', '需团队共识'],
   },
 ];
 
@@ -123,7 +138,7 @@ export class ProjectStore {
    * 获取项目规则文件路径
    */
   private getRulesPath(id: string): string {
-    return join(this.storeDir, id, "rules.md");
+    return join(this.storeDir, id, 'rules.md');
   }
 
   /**
@@ -137,9 +152,9 @@ export class ProjectStore {
       const projects: Project[] = [];
 
       for (const file of files) {
-        if (!file.endsWith(".json")) continue;
+        if (!file.endsWith('.json')) continue;
         try {
-          const content = readFileSync(join(this.storeDir, file), "utf-8");
+          const content = readFileSync(join(this.storeDir, file), 'utf-8');
           const project = JSON.parse(content) as Project;
           if (project.workspaceId === workspaceId) {
             projects.push(project);
@@ -149,8 +164,9 @@ export class ProjectStore {
         }
       }
 
-      projects.sort((a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      projects.sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
 
       return projects;
@@ -167,7 +183,7 @@ export class ProjectStore {
     if (!existsSync(filePath)) return null;
 
     try {
-      const content = readFileSync(filePath, "utf-8");
+      const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as Project;
     } catch {
       return null;
@@ -180,7 +196,7 @@ export class ProjectStore {
   save(project: Project): void {
     this.ensureDir();
     const filePath = this.getFilePath(project.id);
-    writeFileSync(filePath, JSON.stringify(project, null, 2), "utf-8");
+    writeFileSync(filePath, JSON.stringify(project, null, 2), 'utf-8');
   }
 
   /**
@@ -190,7 +206,7 @@ export class ProjectStore {
     workspaceId: string;
     name: string;
     description?: string;
-    template?: Project["template"];
+    template?: Project['template'];
     tags?: string[];
   }): Project {
     this.ensureDir();
@@ -202,8 +218,8 @@ export class ProjectStore {
       id,
       workspaceId: params.workspaceId,
       name: params.name,
-      description: params.description || "",
-      status: "active",
+      description: params.description || '',
+      status: 'active',
       workItemIds: [],
       template: params.template,
       tags: params.tags || [],
@@ -220,7 +236,9 @@ export class ProjectStore {
    */
   update(
     id: string,
-    updates: Partial<Pick<Project, "name" | "description" | "status" | "tags" | "template">>
+    updates: Partial<
+      Pick<Project, 'name' | 'description' | 'status' | 'tags' | 'template'>
+    >
   ): Project | null {
     const project = this.get(id);
     if (!project) return null;
@@ -231,7 +249,7 @@ export class ProjectStore {
       updatedAt: new Date().toISOString(),
     };
 
-    if (updates.status === "completed" || updates.status === "archived") {
+    if (updates.status === 'completed' || updates.status === 'archived') {
       merged.completedAt = new Date().toISOString();
     }
 
@@ -291,12 +309,21 @@ export class ProjectStore {
     const project = this.get(projectId);
     if (!project) return null;
 
-    const allStatuses: WorkItemStatus[] = ["pending", "running", "paused", "review", "done", "failed"];
+    const allStatuses: WorkItemStatus[] = [
+      'pending',
+      'running',
+      'paused',
+      'review',
+      'done',
+      'failed',
+    ];
 
     const columns: ProjectBoardColumn[] = allStatuses.map((status) => {
       const items = project.workItemIds
         .map((id) => this.workItemStore.get(id))
-        .filter((item): item is WorkItem => item !== null && item.status === status);
+        .filter(
+          (item): item is WorkItem => item !== null && item.status === status
+        );
 
       return {
         id: status,
@@ -313,12 +340,12 @@ export class ProjectStore {
    */
   getRules(projectId: string): string {
     const rulesPath = this.getRulesPath(projectId);
-    if (!existsSync(rulesPath)) return "";
+    if (!existsSync(rulesPath)) return '';
 
     try {
-      return readFileSync(rulesPath, "utf-8");
+      return readFileSync(rulesPath, 'utf-8');
     } catch {
-      return "";
+      return '';
     }
   }
 
@@ -333,7 +360,7 @@ export class ProjectStore {
       mkdirSync(rulesDir, { recursive: true });
     }
 
-    writeFileSync(rulesPath, content, "utf-8");
+    writeFileSync(rulesPath, content, 'utf-8');
   }
 
   /**
@@ -346,7 +373,7 @@ export class ProjectStore {
   /**
    * 获取指定类型的工作项模板
    */
-  getTemplate(type: WorkItemTemplate["type"]): WorkItemTemplate | undefined {
+  getTemplate(type: WorkItemTemplate['type']): WorkItemTemplate | undefined {
     return BUILTIN_TEMPLATES.find((t) => t.type === type);
   }
 
@@ -358,18 +385,18 @@ export class ProjectStore {
     params: {
       title: string;
       description?: string;
-      type?: WorkItemTemplate["type"];
+      type?: WorkItemTemplate['type'];
     }
   ): WorkItem | null {
     const project = this.get(projectId);
     if (!project) return null;
 
-    const template = this.getTemplate(params.type || "task");
+    const template = this.getTemplate(params.type || 'task');
     const item = this.workItemStore.create({
       workspaceId: project.workspaceId,
       title: params.title,
-      description: params.description || template?.description || "",
-      type: template?.type || "task",
+      description: params.description || template?.description || '',
+      type: template?.type || 'task',
       tags: template?.defaultTags,
       priority: template?.defaultPriority,
     });
@@ -385,6 +412,9 @@ export class ProjectStore {
 /**
  * 从 .liri/ 目录创建 ProjectStore 实例
  */
-export function createProjectStore(liriDir: string, workItemStore: WorkItemStore): ProjectStore {
+export function createProjectStore(
+  liriDir: string,
+  workItemStore: WorkItemStore
+): ProjectStore {
   return new ProjectStore(liriDir, workItemStore);
 }

@@ -9,32 +9,32 @@
  * 5. 资源争用自动调度（ResourceScheduler）
  */
 
-import { randomUUID } from "node:crypto";
-import { Logger, LogLevel } from "@modules/monitoring";
+import { randomUUID } from 'node:crypto';
+import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ module: "OrchIntelligence", level: LogLevel.INFO });
+const logger = new Logger({ module: 'OrchIntelligence', level: LogLevel.INFO });
 
 // ==================== 类型定义 ====================
 
 /** 影响范围级别 */
-export type ImpactLevel = "none" | "low" | "medium" | "high" | "critical";
+export type ImpactLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
 
 /** 风险等级 */
-export type RiskLevel = "none" | "low" | "medium" | "high" | "critical";
+export type RiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
 
 /** 决策类型 */
 export type DecisionType =
-  | "ai_auto"          // AI 自决
-  | "ai_propose_human_confirm"  // AI 出方案，人确认
-  | "human_required";  // 人必须审
+  | 'ai_auto' // AI 自决
+  | 'ai_propose_human_confirm' // AI 出方案，人确认
+  | 'human_required'; // 人必须审
 
 /** 异常类型 */
 export type EscalationType =
-  | "stuck"            // 卡住不动
-  | "timeout"          // 超时
-  | "repeated_failure" // 重复失败
-  | "resource_unavailable" // 资源不可用
-  | "conflict";        // 冲突
+  | 'stuck' // 卡住不动
+  | 'timeout' // 超时
+  | 'repeated_failure' // 重复失败
+  | 'resource_unavailable' // 资源不可用
+  | 'conflict'; // 冲突
 
 /** 变更影响分析结果 */
 export interface ChangeImpactResult {
@@ -63,7 +63,13 @@ export interface RiskDetectionResult {
   /** 风险等级 */
   level: RiskLevel;
   /** 风险类别 */
-  category: "security" | "performance" | "compatibility" | "data" | "architectural" | "other";
+  category:
+    | 'security'
+    | 'performance'
+    | 'compatibility'
+    | 'data'
+    | 'architectural'
+    | 'other';
   /** 触发条件 */
   trigger: string;
   /** 缓解建议 */
@@ -133,7 +139,8 @@ export class ChangeImpactAnalyzer {
   private moduleDependencies: Map<string, string[]> = new Map();
 
   /** 已知的破坏性变更模式 */
-  private breakingPatterns: Array<{ pattern: RegExp; description: string }> = [];
+  private breakingPatterns: Array<{ pattern: RegExp; description: string }> =
+    [];
 
   constructor() {
     this.initBreakingPatterns();
@@ -142,11 +149,23 @@ export class ChangeImpactAnalyzer {
   /** 初始化破坏性变更模式 */
   private initBreakingPatterns(): void {
     this.breakingPatterns = [
-      { pattern: /export\s+(interface|type)\s+\w+/, description: "导出类型变更" },
-      { pattern: /export\s+(default\s+)?class\s+\w+/, description: "导出类变更" },
-      { pattern: /import\s+.*\s+from\s+['"]/, description: "模块导入变更" },
-      { pattern: /\.env|config\.json|package\.json/, description: "配置文件变更" },
-      { pattern: /CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE/, description: "数据库结构变更" },
+      {
+        pattern: /export\s+(interface|type)\s+\w+/,
+        description: '导出类型变更',
+      },
+      {
+        pattern: /export\s+(default\s+)?class\s+\w+/,
+        description: '导出类变更',
+      },
+      { pattern: /import\s+.*\s+from\s+['"]/, description: '模块导入变更' },
+      {
+        pattern: /\.env|config\.json|package\.json/,
+        description: '配置文件变更',
+      },
+      {
+        pattern: /CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE/,
+        description: '数据库结构变更',
+      },
     ];
   }
 
@@ -162,10 +181,7 @@ export class ChangeImpactAnalyzer {
    * @param changedFiles 变更的文件列表
    * @param changedContent 变更内容摘要
    */
-  analyze(
-    changedFiles: string[],
-    changedContent: string
-  ): ChangeImpactResult {
+  analyze(changedFiles: string[], changedContent: string): ChangeImpactResult {
     const affectedModules = new Set<string>();
     const testSuggestions: string[] = [];
     const dependencyChain: string[] = [];
@@ -180,7 +196,7 @@ export class ChangeImpactAnalyzer {
       for (const { pattern, description } of this.breakingPatterns) {
         if (pattern.test(file) || pattern.test(changedContent)) {
           isBreaking = true;
-          logger.info("检测到破坏性变更", { file, pattern: description });
+          logger.info('检测到破坏性变更', { file, pattern: description });
         }
       }
 
@@ -201,9 +217,9 @@ export class ChangeImpactAnalyzer {
     );
 
     // 生成测试建议
-    testSuggestions.push(`单元测试: ${changedFiles.join(", ")}`);
+    testSuggestions.push(`单元测试: ${changedFiles.join(', ')}`);
     if (affectedModules.size > 1) {
-      testSuggestions.push(`集成测试: ${[...affectedModules].join(" → ")}`);
+      testSuggestions.push(`集成测试: ${[...affectedModules].join(' → ')}`);
     }
     if (isBreaking) {
       testSuggestions.push(`回归测试: 全量运行`);
@@ -213,7 +229,11 @@ export class ChangeImpactAnalyzer {
       affectedFiles: changedFiles,
       affectedModules: [...affectedModules],
       impactLevel,
-      description: this.generateImpactDescription(impactLevel, affectedModules.size, isBreaking),
+      description: this.generateImpactDescription(
+        impactLevel,
+        affectedModules.size,
+        isBreaking
+      ),
       testSuggestions,
       isBreaking,
       dependencyChain,
@@ -222,12 +242,12 @@ export class ChangeImpactAnalyzer {
 
   /** 从文件路径提取模块名 */
   private extractModuleName(filePath: string): string {
-    const parts = filePath.replace(/\\/g, "/").split("/");
-    const srcIndex = parts.indexOf("src");
+    const parts = filePath.replace(/\\/g, '/').split('/');
+    const srcIndex = parts.indexOf('src');
     if (srcIndex >= 0 && parts.length > srcIndex + 1) {
       return parts[srcIndex + 1];
     }
-    return parts[parts.length - 1].replace(/\.[^.]+$/, "");
+    return parts[parts.length - 1].replace(/\.[^.]+$/, '');
   }
 
   /** 计算影响级别 */
@@ -236,11 +256,11 @@ export class ChangeImpactAnalyzer {
     moduleCount: number,
     isBreaking: boolean
   ): ImpactLevel {
-    if (isBreaking && moduleCount > 3) return "critical";
-    if (isBreaking || moduleCount > 3) return "high";
-    if (fileCount > 5 || moduleCount > 1) return "medium";
-    if (fileCount > 1) return "low";
-    return "none";
+    if (isBreaking && moduleCount > 3) return 'critical';
+    if (isBreaking || moduleCount > 3) return 'high';
+    if (fileCount > 5 || moduleCount > 1) return 'medium';
+    if (fileCount > 1) return 'low';
+    return 'none';
   }
 
   /** 生成影响描述 */
@@ -251,9 +271,9 @@ export class ChangeImpactAnalyzer {
   ): string {
     const parts: string[] = [];
     parts.push(`影响 ${moduleCount} 个模块`);
-    if (isBreaking) parts.push("包含破坏性变更");
+    if (isBreaking) parts.push('包含破坏性变更');
     parts.push(`影响等级: ${level}`);
-    return parts.join("，");
+    return parts.join('，');
   }
 }
 
@@ -271,7 +291,7 @@ export class ChangeImpactAnalyzer {
 export class RiskDetector {
   /** 风险检测规则 */
   private rules: Array<{
-    category: RiskDetectionResult["category"];
+    category: RiskDetectionResult['category'];
     patterns: RegExp[];
     level: RiskLevel;
     description: string;
@@ -287,63 +307,63 @@ export class RiskDetector {
     this.rules = [
       // 安全风险
       {
-        category: "security",
+        category: 'security',
         patterns: [
           /\.innerHTML\s*=/,
           /eval\s*\(/,
           /dangerouslySetInnerHTML/,
           /raw\s+SQL|string\s+interpolation.*sql/i,
         ],
-        level: "high",
-        description: "检测到潜在的安全风险（XSS/注入）",
-        mitigation: "使用参数化查询或安全的 DOM API",
+        level: 'high',
+        description: '检测到潜在的安全风险（XSS/注入）',
+        mitigation: '使用参数化查询或安全的 DOM API',
       },
       // 性能风险
       {
-        category: "performance",
+        category: 'performance',
         patterns: [
           /for\s*\(.*\)\s*\{[^}]*await/,
           /Promise\.all\(.*map/,
           /\.forEach\(.*async/,
         ],
-        level: "medium",
-        description: "检测到潜在的性能风险（N+1 查询/串行异步）",
-        mitigation: "使用批量查询或并行处理",
+        level: 'medium',
+        description: '检测到潜在的性能风险（N+1 查询/串行异步）',
+        mitigation: '使用批量查询或并行处理',
       },
       // 兼容性风险
       {
-        category: "compatibility",
+        category: 'compatibility',
         patterns: [
           /export\s+(interface|type)\s+\w+/,
           /\.d\.ts$/,
           /package\.json/,
         ],
-        level: "medium",
-        description: "检测到接口/类型定义变更，可能影响兼容性",
-        mitigation: "确认变更是否为向后兼容，必要时提供迁移指南",
+        level: 'medium',
+        description: '检测到接口/类型定义变更，可能影响兼容性',
+        mitigation: '确认变更是否为向后兼容，必要时提供迁移指南',
       },
       // 数据风险
       {
-        category: "data",
+        category: 'data',
         patterns: [
           /DELETE\s+FROM|DROP\s+TABLE|TRUNCATE/,
           /\.remove\(\)|\.delete\(\)/,
           /migration|migrate|schema.*change/i,
         ],
-        level: "high",
-        description: "检测到数据删除或结构变更操作",
-        mitigation: "确保有数据备份，在非生产环境验证后再执行",
+        level: 'high',
+        description: '检测到数据删除或结构变更操作',
+        mitigation: '确保有数据备份，在非生产环境验证后再执行',
       },
       // 架构风险
       {
-        category: "architectural",
+        category: 'architectural',
         patterns: [
           /circular\s+import|circular\s+dependency/,
           /new\s+dependency|new\s+package/,
         ],
-        level: "low",
-        description: "检测到新增依赖或架构变更",
-        mitigation: "评估新依赖的必要性和维护成本",
+        level: 'low',
+        description: '检测到新增依赖或架构变更',
+        mitigation: '评估新依赖的必要性和维护成本',
       },
     ];
   }
@@ -360,7 +380,7 @@ export class RiskDetector {
     changedFiles: string[]
   ): RiskDetectionResult[] {
     const results: RiskDetectionResult[] = [];
-    const combinedText = `${workItemTitle}\n${workItemDescription}\n${changedFiles.join("\n")}`;
+    const combinedText = `${workItemTitle}\n${workItemDescription}\n${changedFiles.join('\n')}`;
 
     for (const rule of this.rules) {
       for (const pattern of rule.patterns) {
@@ -379,10 +399,12 @@ export class RiskDetector {
       }
     }
 
-    logger.info("风险检测完成", {
+    logger.info('风险检测完成', {
       workItemTitle,
       riskCount: results.length,
-      highRiskCount: results.filter((r) => r.level === "high" || r.level === "critical").length,
+      highRiskCount: results.filter(
+        (r) => r.level === 'high' || r.level === 'critical'
+      ).length,
     });
 
     return results;
@@ -390,9 +412,11 @@ export class RiskDetector {
 
   /** 获取风险摘要 */
   getRiskSummary(results: RiskDetectionResult[]): string {
-    if (results.length === 0) return "未检测到明显风险";
+    if (results.length === 0) return '未检测到明显风险';
 
-    const highRisks = results.filter((r) => r.level === "high" || r.level === "critical");
+    const highRisks = results.filter(
+      (r) => r.level === 'high' || r.level === 'critical'
+    );
     if (highRisks.length > 0) {
       return `检测到 ${highRisks.length} 个高风险项，建议审核后再执行`;
     }
@@ -426,56 +450,68 @@ export class DecisionClassifier {
     risks: RiskDetectionResult[]
   ): DecisionResult {
     const evidence: string[] = [];
-    let type: DecisionType = "ai_auto";
-    let reason = "";
+    let type: DecisionType = 'ai_auto';
+    let reason = '';
     let requiredApprover: string | undefined;
     let aiProposal: string | undefined;
 
     // 规则 1：破坏性变更 → 人必须审
     if (impactResult?.isBreaking) {
-      type = "human_required";
-      reason = "包含破坏性变更";
-      requiredApprover = "tech_lead";
-      evidence.push("破坏性变更检测");
+      type = 'human_required';
+      reason = '包含破坏性变更';
+      requiredApprover = 'tech_lead';
+      evidence.push('破坏性变更检测');
     }
 
     // 规则 2：高风险 → 人必须审
-    const highRisks = risks.filter((r) => r.level === "high" || r.level === "critical");
+    const highRisks = risks.filter(
+      (r) => r.level === 'high' || r.level === 'critical'
+    );
     if (highRisks.length > 0) {
-      type = "human_required";
+      type = 'human_required';
       reason = `检测到 ${highRisks.length} 个高风险项`;
-      requiredApprover = highRisks.some((r) => r.category === "security") ? "security_lead" : "tech_lead";
-      evidence.push(`高风险: ${highRisks.map((r) => r.description).join(", ")}`);
+      requiredApprover = highRisks.some((r) => r.category === 'security')
+        ? 'security_lead'
+        : 'tech_lead';
+      evidence.push(
+        `高风险: ${highRisks.map((r) => r.description).join(', ')}`
+      );
     }
 
     // 规则 3：影响范围大 → AI 出方案人确认
-    if (impactResult && impactResult.impactLevel === "high" && type !== "human_required") {
-      type = "ai_propose_human_confirm";
+    if (
+      impactResult &&
+      impactResult.impactLevel === 'high' &&
+      type !== 'human_required'
+    ) {
+      type = 'ai_propose_human_confirm';
       reason = `影响 ${impactResult.affectedModules.length} 个模块`;
       evidence.push(`影响范围: ${impactResult.description}`);
     }
 
     // 规则 4：中等风险 → AI 出方案人确认
-    const mediumRisks = risks.filter((r) => r.level === "medium");
-    if (mediumRisks.length > 0 && type === "ai_auto") {
-      type = "ai_propose_human_confirm";
+    const mediumRisks = risks.filter((r) => r.level === 'medium');
+    if (mediumRisks.length > 0 && type === 'ai_auto') {
+      type = 'ai_propose_human_confirm';
       reason = `检测到 ${mediumRisks.length} 个中风险项`;
-      evidence.push(`中风险: ${mediumRisks.map((r) => r.description).join(", ")}`);
+      evidence.push(
+        `中风险: ${mediumRisks.map((r) => r.description).join(', ')}`
+      );
     }
 
     // 规则 5：简单任务 → AI 自决
-    if (type === "ai_auto") {
-      reason = "低风险、低影响范围，AI 可自主决策";
-      evidence.push("无高风险或破坏性变更");
+    if (type === 'ai_auto') {
+      reason = '低风险、低影响范围，AI 可自主决策';
+      evidence.push('无高风险或破坏性变更');
       aiProposal = `根据分析，此任务可自动执行：${workItemTitle}`;
     }
 
     // 生成 AI 建议
-    if (type === "ai_propose_human_confirm") {
+    if (type === 'ai_propose_human_confirm') {
       aiProposal = `建议方案：${workItemTitle}\n${reason}\n\n请确认后执行。`;
     }
 
-    logger.info("决策分级完成", { type, reason, workItemTitle });
+    logger.info('决策分级完成', { type, reason, workItemTitle });
 
     return {
       type,
@@ -503,10 +539,10 @@ export class EscalationManager {
 
   /** 升级策略 */
   private readonly escalationPolicy = {
-    maxRetries: 3,           // 最大重试次数
-    retryDelayMs: 5000,      // 重试延迟
-    cooldownMs: 30000,       // 冷却时间（避免反复骚扰）
-    maxAutoEscalations: 2,   // 最大自动升级次数
+    maxRetries: 3, // 最大重试次数
+    retryDelayMs: 5000, // 重试延迟
+    cooldownMs: 30000, // 冷却时间（避免反复骚扰）
+    maxAutoEscalations: 2, // 最大自动升级次数
   };
 
   /**
@@ -532,7 +568,7 @@ export class EscalationManager {
     existing.push(request);
     this.escalations.set(workItemId, existing);
 
-    logger.warn("异常升级记录", {
+    logger.warn('异常升级记录', {
       workItemId,
       type,
       occurrenceCount: request.occurrenceCount,
@@ -570,7 +606,7 @@ export class EscalationManager {
    */
   getEscalationAdvice(workItemId: string): string {
     const existing = this.escalations.get(workItemId) || [];
-    if (existing.length === 0) return "";
+    if (existing.length === 0) return '';
 
     const lastEscalation = existing[existing.length - 1];
     const totalCount = existing.length;
@@ -673,11 +709,15 @@ export class ResourceScheduler {
       results.push(item);
     }
 
-    logger.info("资源调度完成", {
+    logger.info('资源调度完成', {
       workItemId,
       resources,
-      acquired: results.filter((r) => r.queuePosition === 0).map((r) => r.requiredResources),
-      queued: results.filter((r) => r.queuePosition > 0).map((r) => r.requiredResources),
+      acquired: results
+        .filter((r) => r.queuePosition === 0)
+        .map((r) => r.requiredResources),
+      queued: results
+        .filter((r) => r.queuePosition > 0)
+        .map((r) => r.requiredResources),
     });
 
     return results;
@@ -695,7 +735,7 @@ export class ResourceScheduler {
       if (queue && queue.length > 0) {
         const next = queue.shift()!;
         this.resourceLocks.set(resource, next.workItemId);
-        logger.info("资源已分配给下一个等待者", {
+        logger.info('资源已分配给下一个等待者', {
           resource,
           nextWorkItem: next.workItemId,
         });
@@ -706,15 +746,13 @@ export class ResourceScheduler {
   /**
    * 插队（高优先级工作项）
    */
-  jumpQueue(
-    workItemId: string,
-    resource: string,
-    priority: number
-  ): boolean {
+  jumpQueue(workItemId: string, resource: string, priority: number): boolean {
     const queue = this.waitQueue.get(resource);
     if (!queue) return false;
 
-    const existingIndex = queue.findIndex((item) => item.workItemId === workItemId);
+    const existingIndex = queue.findIndex(
+      (item) => item.workItemId === workItemId
+    );
     if (existingIndex === -1) return false;
 
     // 提升优先级到队首
@@ -722,7 +760,7 @@ export class ResourceScheduler {
     item.priority = priority;
     queue.unshift(item);
 
-    logger.info("工作项插队成功", { workItemId, resource, priority });
+    logger.info('工作项插队成功', { workItemId, resource, priority });
     return true;
   }
 

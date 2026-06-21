@@ -12,7 +12,7 @@
  * 通过回调将 AI 发言注入 CouncilEngine。
  */
 
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 import type {
   CouncilSession,
   CouncilPhase,
@@ -20,7 +20,7 @@ import type {
   CouncilStatement,
   CouncilStreamEvent,
   ConsensusResult,
-} from "./CouncilTypes.js";
+} from './CouncilTypes.js';
 
 /** Council 配置 */
 export interface CouncilConfig {
@@ -35,16 +35,14 @@ export type CouncilStatementCallback = (
   agentId: string,
   agentName: string,
   round: number,
-  type: CouncilStatement["type"],
+  type: CouncilStatement['type'],
   topic: string,
   context: string,
   previousStatements: CouncilStatement[]
 ) => Promise<{ content: string; keyPoints: string[] }>;
 
 /** 共识判定回调 */
-export type CouncilConsensusCallback = (
-  session: CouncilSession
-) => Promise<{
+export type CouncilConsensusCallback = (session: CouncilSession) => Promise<{
   result: ConsensusResult;
   finalProposal: string;
   minorityOpinion: string | null;
@@ -85,7 +83,7 @@ export class CouncilEngine {
     const session: CouncilSession = {
       sessionId,
       workspaceId,
-      phase: "convening",
+      phase: 'convening',
       topic,
       context,
       agents,
@@ -102,9 +100,9 @@ export class CouncilEngine {
     this.activeSessions.set(sessionId, session);
 
     this.emit({
-      type: "council_started",
+      type: 'council_started',
       sessionId,
-      phase: "convening",
+      phase: 'convening',
       timestamp: Date.now(),
     });
 
@@ -136,10 +134,10 @@ export class CouncilEngine {
 
     try {
       // 阶段 1：召集 Agent（通知所有 Agent 加入）
-      session.phase = "convening";
+      session.phase = 'convening';
       for (const agent of session.agents) {
         this.emit({
-          type: "agent_joined",
+          type: 'agent_joined',
           sessionId,
           phase: session.phase,
           timestamp: Date.now(),
@@ -147,13 +145,13 @@ export class CouncilEngine {
       }
 
       // 阶段 2：多轮辩论
-      session.phase = "debating";
+      session.phase = 'debating';
 
       for (let round = 1; round <= session.maxRounds; round++) {
         session.currentRound = round;
 
         this.emit({
-          type: "round_started",
+          type: 'round_started',
           sessionId,
           phase: session.phase,
           round,
@@ -161,12 +159,12 @@ export class CouncilEngine {
         });
 
         // 确定本轮发言类型
-        const statementType: CouncilStatement["type"] =
+        const statementType: CouncilStatement['type'] =
           round === 1
-            ? "position" // 第一轮：立场陈述
+            ? 'position' // 第一轮：立场陈述
             : round === session.maxRounds
-              ? "final" // 最后一轮：总结
-              : "rebuttal"; // 中间轮：反驳
+              ? 'final' // 最后一轮：总结
+              : 'rebuttal'; // 中间轮：反驳
 
         // 每个 Agent 依次发言
         for (const agent of session.agents) {
@@ -194,7 +192,7 @@ export class CouncilEngine {
           session.statements.push(statement);
 
           this.emit({
-            type: "statement",
+            type: 'statement',
             sessionId,
             phase: session.phase,
             round,
@@ -204,7 +202,7 @@ export class CouncilEngine {
         }
 
         this.emit({
-          type: "round_completed",
+          type: 'round_completed',
           sessionId,
           phase: session.phase,
           round,
@@ -213,7 +211,7 @@ export class CouncilEngine {
       }
 
       // 阶段 3：共识判定
-      session.phase = "consensus";
+      session.phase = 'consensus';
 
       const consensus = await consensusCallback(session);
       session.result = consensus.result;
@@ -221,7 +219,7 @@ export class CouncilEngine {
       session.minorityOpinion = consensus.minorityOpinion ?? undefined;
 
       this.emit({
-        type: "consensus_reached",
+        type: 'consensus_reached',
         sessionId,
         phase: session.phase,
         result: consensus.result,
@@ -231,11 +229,11 @@ export class CouncilEngine {
       });
 
       // 阶段 4：完成
-      session.phase = "completed";
+      session.phase = 'completed';
       session.completedAt = Date.now();
 
       this.emit({
-        type: "council_completed",
+        type: 'council_completed',
         sessionId,
         phase: session.phase,
         finalProposal: session.finalProposal,
@@ -247,7 +245,7 @@ export class CouncilEngine {
       const errorMsg = error instanceof Error ? error.message : String(error);
 
       this.emit({
-        type: "council_error",
+        type: 'council_error',
         sessionId,
         error: errorMsg,
         timestamp: Date.now(),

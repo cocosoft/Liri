@@ -29,11 +29,11 @@
 
 ### 三平台支持
 
-| 平台 | 底层机制 | 自动启停 | 开机自启 |
-|------|---------|---------|---------|
-| **Windows** | `schtasks` 任务计划程序 | ✅ | ✅（BootTrigger） |
-| **macOS** | `launchd` LaunchAgent | ✅ | ✅（RunAtLoad + KeepAlive） |
-| **Linux** | `systemd` service unit | ✅ | ✅（WantedBy=multi-user.target） |
+| 平台        | 底层机制                | 自动启停 | 开机自启                         |
+| ----------- | ----------------------- | -------- | -------------------------------- |
+| **Windows** | `schtasks` 任务计划程序 | ✅       | ✅（BootTrigger）                |
+| **macOS**   | `launchd` LaunchAgent   | ✅       | ✅（RunAtLoad + KeepAlive）      |
+| **Linux**   | `systemd` service unit  | ✅       | ✅（WantedBy=multi-user.target） |
 
 ### 快速使用
 
@@ -89,9 +89,9 @@ console.log(`运行中: ${status.running}`);
 
 ### DaemonService API
 
-| 方法 | 说明 |
-|------|------|
-| `execute(action)` | 执行服务操作：install / uninstall / start / stop / restart / status |
-| `executeWithChronos(action)` | 执行服务操作并同步管理 Chronos 调度器生命周期 |
-| `getStatus()` | 获取服务状态（running、pid、uptime 等） |
-| `registerChronosScheduler(scheduler)` | 注册 Chronos 调度器（可选集成） |
+| 方法                                  | 说明                                                                |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| `execute(action)`                     | 执行服务操作：install / uninstall / start / stop / restart / status |
+| `executeWithChronos(action)`          | 执行服务操作并同步管理 Chronos 调度器生命周期                       |
+| `getStatus()`                         | 获取服务状态（running、pid、uptime 等）                             |
+| `registerChronosScheduler(scheduler)` | 注册 Chronos 调度器（可选集成）                                     |

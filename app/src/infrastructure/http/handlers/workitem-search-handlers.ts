@@ -6,14 +6,18 @@
  * - GET  /v1/workspaces/:id/items/review  — 工作项回顾摘要
  */
 
-import type http from "node:http";
-import type { HandlerCtx } from "./handler-utils";
-import { handleError } from "@modules/error";
-import { Logger, LogLevel } from "@modules/monitoring";
-import { createWorkItemStore } from "@modules/workspace/WorkItemStore";
-import { createLiriConfigManager } from "@modules/workspace/LiriConfigManager";
-import { resolveWorkspacePath } from "./workspaces-handlers";
-import type { WorkItem, WorkItemSearchQuery, WorkItemSearchResult } from "@modules/workspace/types";
+import type http from 'node:http';
+import type { HandlerCtx } from './handler-utils';
+import { handleError } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
+import { createLiriConfigManager } from '@modules/workspace/LiriConfigManager';
+import { resolveWorkspacePath } from './workspaces-handlers';
+import type {
+  WorkItem,
+  WorkItemSearchQuery,
+  WorkItemSearchResult,
+} from '@modules/workspace/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -35,8 +39,8 @@ export async function handleSearchWorkItems(
 
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -76,8 +80,9 @@ export async function handleSearchWorkItems(
 
     // 标签过滤
     if (query.tags && query.tags.length > 0) {
-      items = items.filter((item) =>
-        item.tags && item.tags.some((tag) => query.tags!.includes(tag))
+      items = items.filter(
+        (item) =>
+          item.tags && item.tags.some((tag) => query.tags!.includes(tag))
       );
     }
 
@@ -85,18 +90,17 @@ export async function handleSearchWorkItems(
     if (query.assigneeId) {
       items = items.filter(
         (item) =>
-          item.assignment &&
-          item.assignment.assignee.id === query.assigneeId
+          item.assignment && item.assignment.assignee.id === query.assigneeId
       );
     }
 
     // 排序
-    const sortBy = query.sortBy || "updatedAt";
-    const sortOrder = query.sortOrder || "desc";
+    const sortBy = query.sortBy || 'updatedAt';
+    const sortOrder = query.sortOrder || 'desc';
     items.sort((a, b) => {
-      const aVal = a[sortBy] || "";
-      const bVal = b[sortBy] || "";
-      if (sortOrder === "asc") return aVal > bVal ? 1 : -1;
+      const aVal = a[sortBy] || '';
+      const bVal = b[sortBy] || '';
+      if (sortOrder === 'asc') return aVal > bVal ? 1 : -1;
       return aVal < bVal ? 1 : -1;
     });
 
@@ -114,13 +118,18 @@ export async function handleSearchWorkItems(
       searchedAt: new Date().toISOString(),
     };
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "search_workitems" });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'search_workitems',
+    });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to search work items" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to search work items' } })
+      );
     }
   }
 }
@@ -140,8 +149,8 @@ export async function handleWorkItemReview(
   try {
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -162,13 +171,13 @@ export async function handleWorkItemReview(
 
     // 最近完成的工作项
     const recentlyCompleted = items
-      .filter((item) => item.status === "done")
-      .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""))
+      .filter((item) => item.status === 'done')
+      .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
       .slice(0, 10);
 
     // 当前进行中的工作项
     const inProgress = items.filter(
-      (item) => item.status === "running" || item.status === "review"
+      (item) => item.status === 'running' || item.status === 'review'
     );
 
     const review = {
@@ -183,13 +192,15 @@ export async function handleWorkItemReview(
       generatedAt: new Date().toISOString(),
     };
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(review));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "workitem_review" });
+    await handleError(err, { module: 'infra:http', action: 'workitem_review' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to get work item review" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to get work item review' } })
+      );
     }
   }
 }

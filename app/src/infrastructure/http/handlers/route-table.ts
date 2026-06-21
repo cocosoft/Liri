@@ -674,7 +674,10 @@ export async function dispatchRoute(
     await self['handleCreateWorkItem'](req, res, workspaceId);
     return true;
   }
-  if (method === 'PATCH' && url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)$/)) {
+  if (
+    method === 'PATCH' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)$/);
     const workspaceId = match![1];
     const itemId = match![2];
@@ -715,32 +718,58 @@ export async function dispatchRoute(
   }
 
   // ---- .liri/ Changesets ----
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/)!;
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/
+    )!;
     await self['handleListChangeSets'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/)!;
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/(.+)\/changesets$/
+    )!;
     await self['handleCreateChangeSet'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/summary$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/summary$/)!;
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/summary$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/summary$/
+    )!;
     await self['handleGetChangeSetSummary'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)$/)!;
     await self['handleGetChangeSet'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/files$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/files$/)!;
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/files$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/changesets\/(.+)\/files$/
+    )!;
     await self['handleAddFileChange'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'PATCH' && url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)$/)) {
+  if (
+    method === 'PATCH' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/changesets\/(.+)$/)!;
     await self['handleUpdateChangeSet'](req, res, match[1], match[2]);
     return true;
@@ -762,50 +791,81 @@ export async function dispatchRoute(
     await self['handleGetTemplates'](req, res, workspaceId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/board$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/board$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/board$/)!;
     await self['handleGetProjectBoard'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/rules$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/rules$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/rules$/)!;
     await self['handleGetProjectRules'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'PUT' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/rules$/)) {
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/rules$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/rules$/)!;
     await self['handleUpdateProjectRules'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/items$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/items$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/items$/)!;
     await self['handleCreateProjectWorkItem'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
     await self['handleGetProject'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'PATCH' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)) {
+  if (
+    method === 'PATCH' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
     await self['handleUpdateProject'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'DELETE' && url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)) {
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
     await self['handleDeleteProject'](req, res, match[1], match[2]);
     return true;
   }
 
   // ---- Knowledge ----
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration\/stream$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration\/stream$/)!;
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration\/stream$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration\/stream$/
+    )!;
     await self['handleOrchestrationStream'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration$/)!;
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration$/
+    )!;
     await self['handleGetOrchestrationSnapshot'](req, res, match[1], match[2]);
     return true;
   }
@@ -814,13 +874,23 @@ export async function dispatchRoute(
     await self['handleGetSwarmStatus'](req, res, workspaceId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/agent-model-bindings$/)) {
-    const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/agent-model-bindings$/)![1];
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/agent-model-bindings$/)
+  ) {
+    const workspaceId = url.match(
+      /^\/v1\/workspaces\/(.+)\/agent-model-bindings$/
+    )![1];
     await self['handleGetAgentModelBindings'](req, res, workspaceId);
     return true;
   }
-  if (method === 'PUT' && url.match(/^\/v1\/workspaces\/(.+)\/agent-model-bindings$/)) {
-    const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/agent-model-bindings$/)![1];
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/agent-model-bindings$/)
+  ) {
+    const workspaceId = url.match(
+      /^\/v1\/workspaces\/(.+)\/agent-model-bindings$/
+    )![1];
     await self['handleUpdateAgentModelBindings'](req, res, workspaceId);
     return true;
   }
@@ -930,34 +1000,72 @@ export async function dispatchRoute(
     await self['handleCreateTeam'](req, res, workspaceId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)!;
     await self['handleGetTeam'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'PUT' && url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)) {
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)!;
     await self['handleUpdateTeam'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'DELETE' && url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)) {
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)$/)!;
     await self['handleDeleteTeam'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members$/)!;
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members$/
+    )!;
     await self['handleAddTeamMember'](req, res, match[1], match[2]);
     return true;
   }
-  if (method === 'DELETE' && url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)$/)!;
-    await self['handleRemoveTeamMember'](req, res, match[1], match[2], match[3]);
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)$/
+    )!;
+    await self['handleRemoveTeamMember'](
+      req,
+      res,
+      match[1],
+      match[2],
+      match[3]
+    );
     return true;
   }
-  if (method === 'PUT' && url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)\/role$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)\/role$/)!;
-    await self['handleUpdateMemberRole'](req, res, match[1], match[2], match[3]);
+  if (
+    method === 'PUT' &&
+    url.match(
+      /^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)\/role$/
+    )
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/teams\/([^/]+)\/members\/([^/]+)\/role$/
+    )!;
+    await self['handleUpdateMemberRole'](
+      req,
+      res,
+      match[1],
+      match[2],
+      match[3]
+    );
     return true;
   }
 
@@ -974,13 +1082,23 @@ export async function dispatchRoute(
   }
 
   // ---- Work Item Search ----
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/items\/search$/)) {
-    const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/items\/search$/)![1];
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/search$/)
+  ) {
+    const workspaceId = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/search$/
+    )![1];
     await self['handleSearchWorkItems'](req, res, workspaceId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/items\/review$/)) {
-    const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/items\/review$/)![1];
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/review$/)
+  ) {
+    const workspaceId = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/review$/
+    )![1];
     await self['handleWorkItemReview'](req, res, workspaceId);
     return true;
   }
@@ -1395,51 +1513,85 @@ export async function dispatchRoute(
     await self['handleCreateCouncil'](req, res, workspaceId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)$/)!;
     const sessionId = match[2];
     await self['handleGetCouncil'](req, res, sessionId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/stream$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/stream$/)!;
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/stream$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/stream$/
+    )!;
     const sessionId = match[2];
     await self['handleCouncilStream'](req, res, sessionId);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/statement$/)) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/statement$/)!;
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/statement$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/council\/([^/]+)\/statement$/
+    )!;
     const sessionId = match[2];
     await self['handleSubmitStatement'](req, res, sessionId);
     return true;
   }
 
   // ---- 编排智能 ----
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/impact$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/impact$/)
+  ) {
     await self['handleImpactAnalysis'](req, res);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/risks$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/risks$/)
+  ) {
     await self['handleRiskDetection'](req, res);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/decision$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/decision$/)
+  ) {
     await self['handleDecisionClassify'](req, res);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/escalate$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/escalate$/)
+  ) {
     await self['handleEscalation'](req, res);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/escalations$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/escalations$/)
+  ) {
     await self['handleGetEscalations'](req, res);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/schedule$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/schedule$/)
+  ) {
     await self['handleResourceSchedule'](req, res);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/resources$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/resources$/)
+  ) {
     await self['handleGetResources'](req, res);
     return true;
   }
@@ -1451,7 +1603,10 @@ export async function dispatchRoute(
     await self['handleListRules'](req, res, workspaceId);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/rules\/overview$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/rules\/overview$/)
+  ) {
     await self['handleRulesOverview'](req, res);
     return true;
   }
@@ -1459,19 +1614,28 @@ export async function dispatchRoute(
     await self['handleLoadRulesForWorkItem'](req, res);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)!;
     const specialization = match[2];
     await self['handleGetRule'](req, res, specialization);
     return true;
   }
-  if (method === 'PUT' && url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)) {
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)!;
     const specialization = match[2];
     await self['handleWriteRule'](req, res, specialization);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)
+  ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/rules\/([^/]+)$/)!;
     const specialization = match[2];
     await self['handleAppendRule'](req, res, specialization);
@@ -1479,7 +1643,10 @@ export async function dispatchRoute(
   }
 
   // ---- 瓶颈感知 ----
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/bottleneck$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/bottleneck$/)
+  ) {
     await self['handleBottleneckAnalysis'](req, res);
     return true;
   }

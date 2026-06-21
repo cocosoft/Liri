@@ -5,12 +5,19 @@
  * 变更集记录工作项执行期间所有改动的文件，支持统一审核。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "fs";
-import { join } from "path";
-import type { ChangeSet, FileChange, FileChangeType } from "./types";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
+import { join } from 'path';
+import type { ChangeSet, FileChange, FileChangeType } from './types';
 
 /** 变更集存储子目录 */
-const CHANGESETS_DIR = "changesets";
+const CHANGESETS_DIR = 'changesets';
 
 /**
  * 变更集文件存储
@@ -51,9 +58,9 @@ export class ChangeSetStore {
       const changesets: ChangeSet[] = [];
 
       for (const file of files) {
-        if (!file.endsWith(".json")) continue;
+        if (!file.endsWith('.json')) continue;
         try {
-          const content = readFileSync(join(this.storeDir, file), "utf-8");
+          const content = readFileSync(join(this.storeDir, file), 'utf-8');
           const cs = JSON.parse(content) as ChangeSet;
           if (cs.workItemId === workItemId) {
             changesets.push(cs);
@@ -63,8 +70,9 @@ export class ChangeSetStore {
         }
       }
 
-      changesets.sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      changesets.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
       return changesets;
@@ -81,7 +89,7 @@ export class ChangeSetStore {
     if (!existsSync(filePath)) return null;
 
     try {
-      const content = readFileSync(filePath, "utf-8");
+      const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as ChangeSet;
     } catch {
       return null;
@@ -94,7 +102,7 @@ export class ChangeSetStore {
   save(changeset: ChangeSet): void {
     this.ensureDir();
     const filePath = this.getFilePath(changeset.id);
-    writeFileSync(filePath, JSON.stringify(changeset, null, 2), "utf-8");
+    writeFileSync(filePath, JSON.stringify(changeset, null, 2), 'utf-8');
   }
 
   /**
@@ -117,7 +125,7 @@ export class ChangeSetStore {
       files: params.files || [],
       createdAt: now,
       updatedAt: now,
-      status: "pending",
+      status: 'pending',
     };
 
     this.save(changeset);
@@ -127,10 +135,7 @@ export class ChangeSetStore {
   /**
    * 添加文件变更到变更集
    */
-  addFileChange(
-    changesetId: string,
-    fileChange: FileChange
-  ): ChangeSet | null {
+  addFileChange(changesetId: string, fileChange: FileChange): ChangeSet | null {
     const cs = this.get(changesetId);
     if (!cs) return null;
 
@@ -162,17 +167,14 @@ export class ChangeSetStore {
       change,
       additions,
       deletions,
-      status: "pending",
+      status: 'pending',
     });
   }
 
   /**
    * 更新变更集状态
    */
-  updateStatus(
-    id: string,
-    status: ChangeSet["status"]
-  ): ChangeSet | null {
+  updateStatus(id: string, status: ChangeSet['status']): ChangeSet | null {
     const cs = this.get(id);
     if (!cs) return null;
 
@@ -188,7 +190,7 @@ export class ChangeSetStore {
   updateFileStatus(
     changesetId: string,
     filePath: string,
-    status: FileChange["status"]
+    status: FileChange['status']
   ): ChangeSet | null {
     const cs = this.get(changesetId);
     if (!cs) return null;

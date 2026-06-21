@@ -7,19 +7,19 @@
  * - 角色权限检查
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { Logger, LogLevel } from "@modules/monitoring";
-import type { Team, TeamMember, TeamRole } from "@modules/workspace/types";
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { Logger, LogLevel } from '@modules/monitoring';
+import type { Team, TeamMember, TeamRole } from '@modules/workspace/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /** 团队角色权限映射 */
 const ROLE_PERMISSIONS: Record<TeamRole, string[]> = {
-  owner: ["read", "write", "delete", "manage_members", "manage_team"],
-  admin: ["read", "write", "manage_members"],
-  member: ["read", "write"],
-  viewer: ["read"],
+  owner: ['read', 'write', 'delete', 'manage_members', 'manage_team'],
+  admin: ['read', 'write', 'manage_members'],
+  member: ['read', 'write'],
+  viewer: ['read'],
 };
 
 /**
@@ -49,21 +49,26 @@ export class TeamStore {
    */
   private loadAll(): void {
     try {
-      const files = fs.readdirSync(this.teamsDir).filter((f) => f.endsWith(".json"));
+      const files = fs
+        .readdirSync(this.teamsDir)
+        .filter((f) => f.endsWith('.json'));
 
       for (const file of files) {
         try {
-          const content = fs.readFileSync(path.join(this.teamsDir, file), "utf-8");
+          const content = fs.readFileSync(
+            path.join(this.teamsDir, file),
+            'utf-8'
+          );
           const team = JSON.parse(content) as Team;
           this.cache.set(team.id, team);
         } catch {
-          logger.warn("加载团队文件失败", { file });
+          logger.warn('加载团队文件失败', { file });
         }
       }
 
-      logger.info("团队加载完成", { count: this.cache.size });
+      logger.info('团队加载完成', { count: this.cache.size });
     } catch (err) {
-      logger.error("读取团队目录失败", { error: String(err) });
+      logger.error('读取团队目录失败', { error: String(err) });
     }
   }
 
@@ -72,7 +77,7 @@ export class TeamStore {
    */
   private save(team: Team): void {
     const filePath = path.join(this.teamsDir, `${team.id}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(team, null, 2), "utf-8");
+    fs.writeFileSync(filePath, JSON.stringify(team, null, 2), 'utf-8');
     this.cache.set(team.id, team);
   }
 
@@ -108,7 +113,11 @@ export class TeamStore {
   /**
    * 创建团队
    */
-  create(team: Omit<Team, "id" | "createdAt" | "updatedAt" | "members"> & { members?: TeamMember[] }): Team {
+  create(
+    team: Omit<Team, 'id' | 'createdAt' | 'updatedAt' | 'members'> & {
+      members?: TeamMember[];
+    }
+  ): Team {
     const newTeam: Team = {
       id: `team_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       workspaceId: team.workspaceId,
@@ -121,14 +130,17 @@ export class TeamStore {
     };
 
     this.save(newTeam);
-    logger.info("团队已创建", { teamId: newTeam.id, name: newTeam.name });
+    logger.info('团队已创建', { teamId: newTeam.id, name: newTeam.name });
     return newTeam;
   }
 
   /**
    * 更新团队基本信息
    */
-  update(teamId: string, updates: Partial<Pick<Team, "name" | "description" | "tags">>): Team | null {
+  update(
+    teamId: string,
+    updates: Partial<Pick<Team, 'name' | 'description' | 'tags'>>
+  ): Team | null {
     const team = this.cache.get(teamId);
     if (!team) return null;
 
@@ -144,20 +156,20 @@ export class TeamStore {
     if (!this.cache.has(teamId)) return false;
 
     this.deleteFile(teamId);
-    logger.info("团队已删除", { teamId });
+    logger.info('团队已删除', { teamId });
     return true;
   }
 
   /**
    * 添加成员
    */
-  addMember(teamId: string, member: Omit<TeamMember, "joinedAt">): Team | null {
+  addMember(teamId: string, member: Omit<TeamMember, 'joinedAt'>): Team | null {
     const team = this.cache.get(teamId);
     if (!team) return null;
 
     // 检查是否已存在
     if (team.members.some((m) => m.id === member.id)) {
-      logger.warn("成员已存在", { teamId, memberId: member.id });
+      logger.warn('成员已存在', { teamId, memberId: member.id });
       return team;
     }
 
@@ -168,7 +180,7 @@ export class TeamStore {
     team.updatedAt = new Date().toISOString();
 
     this.save(team);
-    logger.info("成员已添加", { teamId, memberId: member.id });
+    logger.info('成员已添加', { teamId, memberId: member.id });
     return team;
   }
 
@@ -186,14 +198,18 @@ export class TeamStore {
     team.updatedAt = new Date().toISOString();
 
     this.save(team);
-    logger.info("成员已移除", { teamId, memberId });
+    logger.info('成员已移除', { teamId, memberId });
     return team;
   }
 
   /**
    * 更新成员角色
    */
-  updateMemberRole(teamId: string, memberId: string, role: TeamRole): Team | null {
+  updateMemberRole(
+    teamId: string,
+    memberId: string,
+    role: TeamRole
+  ): Team | null {
     const team = this.cache.get(teamId);
     if (!team) return null;
 

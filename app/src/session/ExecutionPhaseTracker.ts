@@ -17,18 +17,18 @@
 
 /** 执行阶段 */
 export type ExecutionPhase =
-  | "analyzing"
-  | "designing"
-  | "implementing"
-  | "verifying"
-  | "presenting";
+  | 'analyzing'
+  | 'designing'
+  | 'implementing'
+  | 'verifying'
+  | 'presenting';
 
 /** 工作模式 */
-export type WorkMode = "plan" | "do";
+export type WorkMode = 'plan' | 'do';
 
 /** 产出物 */
 export interface Artifact {
-  type: "analysis" | "design" | "code" | "diff" | "report";
+  type: 'analysis' | 'design' | 'code' | 'diff' | 'report';
   summary: string;
   detail?: string;
   files?: string[];
@@ -51,19 +51,29 @@ export interface PhaseEvent {
   progress: number;
   description: string;
   timestamp: number;
-  steps?: { name: string; status: "pending" | "in_progress" | "done" | "failed" }[];
+  steps?: {
+    name: string;
+    status: 'pending' | 'in_progress' | 'done' | 'failed';
+  }[];
   currentStep?: string;
 }
 
 /** 进度数据（映射到前端 ProgressData） */
 export interface ProgressData {
-  steps: { name: string; status: "pending" | "in_progress" | "done" | "failed" }[];
+  steps: {
+    name: string;
+    status: 'pending' | 'in_progress' | 'done' | 'failed';
+  }[];
   currentStep: string;
 }
 
 /** 交付物数据（映射到前端 DeliverableData） */
 export interface DeliverableData {
-  files: { path: string; change: "added" | "modified" | "deleted"; status: "pending" | "verified" | "failed" }[];
+  files: {
+    path: string;
+    change: 'added' | 'modified' | 'deleted';
+    status: 'pending' | 'verified' | 'failed';
+  }[];
   summary: string;
 }
 
@@ -74,11 +84,11 @@ export type PhaseUpdateCallback = (event: PhaseEvent) => void;
 
 export class ExecutionPhaseTracker {
   private sessionId: string;
-  private mode: WorkMode = "plan";
+  private mode: WorkMode = 'plan';
   private currentPhase: ExecutionPhase | null = null;
   private history: PhaseRecord[] = [];
-  private currentSteps: ProgressData["steps"] = [];
-  private currentStep: string = "";
+  private currentSteps: ProgressData['steps'] = [];
+  private currentStep: string = '';
   private onUpdate: PhaseUpdateCallback;
 
   constructor(sessionId: string, onUpdate: PhaseUpdateCallback) {
@@ -128,7 +138,7 @@ export class ExecutionPhaseTracker {
   }
 
   /** 更新步骤列表 */
-  updateSteps(steps: ProgressData["steps"], currentStep: string): void {
+  updateSteps(steps: ProgressData['steps'], currentStep: string): void {
     this.currentSteps = steps;
     this.currentStep = currentStep;
     this.emitUpdate();
@@ -167,7 +177,7 @@ export class ExecutionPhaseTracker {
     const currentRecord = this.history[this.history.length - 1];
     if (!currentRecord || currentRecord.artifacts.length === 0) return null;
 
-    const files: DeliverableData["files"] = [];
+    const files: DeliverableData['files'] = [];
     const summaryParts: string[] = [];
 
     for (const artifact of currentRecord.artifacts) {
@@ -175,8 +185,8 @@ export class ExecutionPhaseTracker {
         for (const filePath of artifact.files) {
           files.push({
             path: filePath,
-            change: "modified",
-            status: "pending",
+            change: 'modified',
+            status: 'pending',
           });
         }
       }
@@ -185,7 +195,7 @@ export class ExecutionPhaseTracker {
 
     return {
       files,
-      summary: summaryParts.join("; "),
+      summary: summaryParts.join('; '),
     };
   }
 
@@ -202,21 +212,20 @@ export class ExecutionPhaseTracker {
     this.currentPhase = null;
     this.history = [];
     this.currentSteps = [];
-    this.currentStep = "";
+    this.currentStep = '';
   }
 
   /** 序列化用于前端推送 */
   toPhaseEvent(): PhaseEvent {
-    const currentRecord = this.history.length > 0
-      ? this.history[this.history.length - 1]
-      : null;
+    const currentRecord =
+      this.history.length > 0 ? this.history[this.history.length - 1] : null;
 
     return {
       sessionId: this.sessionId,
       mode: this.mode,
-      phase: this.currentPhase || "analyzing",
+      phase: this.currentPhase || 'analyzing',
       progress: currentRecord?.progress || 0,
-      description: currentRecord?.description || "",
+      description: currentRecord?.description || '',
       timestamp: Date.now(),
       steps: this.currentSteps.length > 0 ? this.currentSteps : undefined,
       currentStep: this.currentStep || undefined,

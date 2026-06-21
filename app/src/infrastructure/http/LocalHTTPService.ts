@@ -167,15 +167,92 @@ import {
   handleGetSemanticIndexStatus,
   handleClearSemanticIndex,
 } from './handlers/semantic-index-handlers';
-import { handleListWorkspaces, handleListWorkspaceSessions, handleCreateWorkspaceSession, handleListWorkItems, handleCreateWorkItem, handleUpdateWorkItem, handleDetectLiriDir, handleInitLiriDir, handleGetWorkspaceConfig, handleUpdateWorkspaceConfig, handleGetWorkspaceRules, handleUpdateWorkspaceRules, handleListChangeSets, handleCreateChangeSet, handleGetChangeSet, handleAddFileChange, handleUpdateChangeSet, handleGetChangeSetSummary, handleListProjects, handleCreateProject, handleGetProject, handleUpdateProject, handleDeleteProject, handleGetProjectBoard, handleGetProjectRules, handleUpdateProjectRules, handleGetTemplates, handleCreateProjectWorkItem } from './handlers/workspaces-handlers';
-import { handleOrchestrationStream, handleGetOrchestrationSnapshot, handleGetSwarmStatus, handleGetAgentModelBindings, handleUpdateAgentModelBindings } from './handlers/orchestration-handlers';
-import { handleListTeams, handleCreateTeam, handleGetTeam, handleUpdateTeam, handleDeleteTeam, handleAddTeamMember, handleRemoveTeamMember, handleUpdateMemberRole } from './handlers/team-handlers';
-import { handleWorkspaceCostReport, handleWorkspaceBudgetStatus } from './handlers/cost-handlers';
-import { handleSearchWorkItems, handleWorkItemReview } from './handlers/workitem-search-handlers';
-import { handleListWorkflowTemplates, handleGetWorkflowTemplate, handleCreateWorkflowTemplate, handleUpdateWorkflowTemplate, handleDeleteWorkflowTemplate } from './handlers/workflow-template-handlers';
-import { handleCreateCouncil, handleGetCouncil, handleCouncilStream, handleListCouncils, handleSubmitStatement } from './handlers/council-handlers';
-import { handleImpactAnalysis, handleRiskDetection, handleDecisionClassify, handleEscalation, handleGetEscalations, handleResourceSchedule, handleGetResources } from './handlers/orch-intelligence-handlers';
-import { handleListRules, handleGetRule, handleWriteRule, handleAppendRule, handleLoadRulesForWorkItem, handleRulesOverview } from './handlers/rule-handlers';
+import {
+  handleListWorkspaces,
+  handleListWorkspaceSessions,
+  handleCreateWorkspaceSession,
+  handleListWorkItems,
+  handleCreateWorkItem,
+  handleUpdateWorkItem,
+  handleDetectLiriDir,
+  handleInitLiriDir,
+  handleGetWorkspaceConfig,
+  handleUpdateWorkspaceConfig,
+  handleGetWorkspaceRules,
+  handleUpdateWorkspaceRules,
+  handleListChangeSets,
+  handleCreateChangeSet,
+  handleGetChangeSet,
+  handleAddFileChange,
+  handleUpdateChangeSet,
+  handleGetChangeSetSummary,
+  handleListProjects,
+  handleCreateProject,
+  handleGetProject,
+  handleUpdateProject,
+  handleDeleteProject,
+  handleGetProjectBoard,
+  handleGetProjectRules,
+  handleUpdateProjectRules,
+  handleGetTemplates,
+  handleCreateProjectWorkItem,
+} from './handlers/workspaces-handlers';
+import {
+  handleOrchestrationStream,
+  handleGetOrchestrationSnapshot,
+  handleGetSwarmStatus,
+  handleGetAgentModelBindings,
+  handleUpdateAgentModelBindings,
+} from './handlers/orchestration-handlers';
+import {
+  handleListTeams,
+  handleCreateTeam,
+  handleGetTeam,
+  handleUpdateTeam,
+  handleDeleteTeam,
+  handleAddTeamMember,
+  handleRemoveTeamMember,
+  handleUpdateMemberRole,
+} from './handlers/team-handlers';
+import {
+  handleWorkspaceCostReport,
+  handleWorkspaceBudgetStatus,
+} from './handlers/cost-handlers';
+import {
+  handleSearchWorkItems,
+  handleWorkItemReview,
+} from './handlers/workitem-search-handlers';
+import {
+  handleListWorkflowTemplates,
+  handleGetWorkflowTemplate,
+  handleCreateWorkflowTemplate,
+  handleUpdateWorkflowTemplate,
+  handleDeleteWorkflowTemplate,
+} from './handlers/workflow-template-handlers';
+import {
+  handleCreateCouncil,
+  handleGetCouncil,
+  handleCouncilStream,
+  handleListCouncils,
+  handleSubmitStatement,
+} from './handlers/council-handlers';
+import {
+  handleImpactAnalysis,
+  handleRiskDetection,
+  handleDecisionClassify,
+  handleEscalation,
+  handleGetEscalations,
+  handleResourceSchedule,
+  handleGetResources,
+} from './handlers/orch-intelligence-handlers';
+import {
+  handleListRules,
+  handleGetRule,
+  handleWriteRule,
+  handleAppendRule,
+  handleLoadRulesForWorkItem,
+  handleRulesOverview,
+} from './handlers/rule-handlers';
 import { handleBottleneckAnalysis } from './handlers/bottleneck-handlers';
 import {
   handleListKnowledge,
@@ -926,7 +1003,12 @@ export class LocalHTTPService {
     res: http.ServerResponse,
     workspaceId: string
   ): Promise<void> {
-    return handleCreateWorkspaceSession(this._handlerCtx, req, res, workspaceId);
+    return handleCreateWorkspaceSession(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId
+    );
   }
 
   /**
@@ -963,7 +1045,13 @@ export class LocalHTTPService {
     workspaceId: string,
     itemId: string
   ): Promise<void> {
-    return handleUpdateWorkItem(this._handlerCtx, req, res, workspaceId, itemId);
+    return handleUpdateWorkItem(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      itemId
+    );
   }
 
   /**
@@ -1041,7 +1129,13 @@ export class LocalHTTPService {
     workspaceId: string,
     itemId: string
   ): Promise<void> {
-    return handleListChangeSets(this._handlerCtx, req, res, workspaceId, itemId);
+    return handleListChangeSets(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      itemId
+    );
   }
 
   /**
@@ -1053,7 +1147,13 @@ export class LocalHTTPService {
     workspaceId: string,
     itemId: string
   ): Promise<void> {
-    return handleCreateChangeSet(this._handlerCtx, req, res, workspaceId, itemId);
+    return handleCreateChangeSet(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      itemId
+    );
   }
 
   /**
@@ -1065,7 +1165,13 @@ export class LocalHTTPService {
     workspaceId: string,
     changesetId: string
   ): Promise<void> {
-    return handleGetChangeSet(this._handlerCtx, req, res, workspaceId, changesetId);
+    return handleGetChangeSet(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      changesetId
+    );
   }
 
   /**
@@ -1077,7 +1183,13 @@ export class LocalHTTPService {
     workspaceId: string,
     changesetId: string
   ): Promise<void> {
-    return handleAddFileChange(this._handlerCtx, req, res, workspaceId, changesetId);
+    return handleAddFileChange(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      changesetId
+    );
   }
 
   /**
@@ -1089,7 +1201,13 @@ export class LocalHTTPService {
     workspaceId: string,
     changesetId: string
   ): Promise<void> {
-    return handleUpdateChangeSet(this._handlerCtx, req, res, workspaceId, changesetId);
+    return handleUpdateChangeSet(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      changesetId
+    );
   }
 
   /**
@@ -1101,7 +1219,13 @@ export class LocalHTTPService {
     workspaceId: string,
     changesetId: string
   ): Promise<void> {
-    return handleGetChangeSetSummary(this._handlerCtx, req, res, workspaceId, changesetId);
+    return handleGetChangeSetSummary(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      changesetId
+    );
   }
 
   // ========== Project Handlers ==========
@@ -1137,7 +1261,13 @@ export class LocalHTTPService {
     workspaceId: string,
     projectId: string
   ): Promise<void> {
-    return handleUpdateProject(this._handlerCtx, req, res, workspaceId, projectId);
+    return handleUpdateProject(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
   }
 
   private async handleDeleteProject(
@@ -1146,7 +1276,13 @@ export class LocalHTTPService {
     workspaceId: string,
     projectId: string
   ): Promise<void> {
-    return handleDeleteProject(this._handlerCtx, req, res, workspaceId, projectId);
+    return handleDeleteProject(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
   }
 
   private async handleGetProjectBoard(
@@ -1155,7 +1291,13 @@ export class LocalHTTPService {
     workspaceId: string,
     projectId: string
   ): Promise<void> {
-    return handleGetProjectBoard(this._handlerCtx, req, res, workspaceId, projectId);
+    return handleGetProjectBoard(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
   }
 
   private async handleGetProjectRules(
@@ -1164,7 +1306,13 @@ export class LocalHTTPService {
     workspaceId: string,
     projectId: string
   ): Promise<void> {
-    return handleGetProjectRules(this._handlerCtx, req, res, workspaceId, projectId);
+    return handleGetProjectRules(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
   }
 
   private async handleUpdateProjectRules(
@@ -1173,7 +1321,13 @@ export class LocalHTTPService {
     workspaceId: string,
     projectId: string
   ): Promise<void> {
-    return handleUpdateProjectRules(this._handlerCtx, req, res, workspaceId, projectId);
+    return handleUpdateProjectRules(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
   }
 
   private async handleGetTemplates(
@@ -1190,7 +1344,13 @@ export class LocalHTTPService {
     workspaceId: string,
     projectId: string
   ): Promise<void> {
-    return handleCreateProjectWorkItem(this._handlerCtx, req, res, workspaceId, projectId);
+    return handleCreateProjectWorkItem(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
   }
 
   // ========== Orchestration Handlers ==========
@@ -1201,7 +1361,13 @@ export class LocalHTTPService {
     workspaceId: string,
     itemId: string
   ): Promise<void> {
-    return handleOrchestrationStream(this._handlerCtx, req, res, workspaceId, itemId);
+    return handleOrchestrationStream(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      itemId
+    );
   }
 
   private async handleGetOrchestrationSnapshot(
@@ -1210,7 +1376,13 @@ export class LocalHTTPService {
     workspaceId: string,
     itemId: string
   ): Promise<void> {
-    return handleGetOrchestrationSnapshot(this._handlerCtx, req, res, workspaceId, itemId);
+    return handleGetOrchestrationSnapshot(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      itemId
+    );
   }
 
   private async handleGetSwarmStatus(
@@ -1234,7 +1406,12 @@ export class LocalHTTPService {
     res: http.ServerResponse,
     workspaceId: string
   ): Promise<void> {
-    return handleUpdateAgentModelBindings(this._handlerCtx, req, res, workspaceId);
+    return handleUpdateAgentModelBindings(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId
+    );
   }
 
   // ========== Team Handlers ==========
@@ -1298,7 +1475,14 @@ export class LocalHTTPService {
     teamId: string,
     memberId: string
   ): Promise<void> {
-    return handleRemoveTeamMember(this._handlerCtx, req, res, workspaceId, teamId, memberId);
+    return handleRemoveTeamMember(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      teamId,
+      memberId
+    );
   }
 
   private async handleUpdateMemberRole(
@@ -1308,7 +1492,14 @@ export class LocalHTTPService {
     teamId: string,
     memberId: string
   ): Promise<void> {
-    return handleUpdateMemberRole(this._handlerCtx, req, res, workspaceId, teamId, memberId);
+    return handleUpdateMemberRole(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      teamId,
+      memberId
+    );
   }
 
   // ========== Cost Handlers ==========

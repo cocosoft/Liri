@@ -12,13 +12,13 @@
  * - PUT    /v1/workspaces/:id/teams/:teamId/members/:memberId/role
  */
 
-import type http from "node:http";
-import * as path from "node:path";
-import type { HandlerCtx } from "./handler-utils";
-import { handleError } from "@modules/error";
-import { Logger, LogLevel } from "@modules/monitoring";
-import { createTeamStore } from "@modules/workspace/TeamStore";
-import { resolveWorkspacePath } from "./workspaces-handlers";
+import type http from 'node:http';
+import * as path from 'node:path';
+import type { HandlerCtx } from './handler-utils';
+import { handleError } from '@modules/error';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { createTeamStore } from '@modules/workspace/TeamStore';
+import { resolveWorkspacePath } from './workspaces-handlers';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -26,7 +26,7 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 获取或创建 TeamStore
  */
 function getTeamStore(wsPath: string) {
-  const teamsDir = path.join(wsPath, ".liri", "teams");
+  const teamsDir = path.join(wsPath, '.liri', 'teams');
   return createTeamStore(teamsDir);
 }
 
@@ -43,21 +43,21 @@ export async function handleListTeams(
   try {
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
     const store = getTeamStore(wsPath);
     const teams = store.list(workspaceId);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(teams));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "list_teams" });
+    await handleError(err, { module: 'infra:http', action: 'list_teams' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to list teams" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Failed to list teams' } }));
     }
   }
 }
@@ -74,18 +74,18 @@ export async function handleCreateTeam(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body || "{}");
+    const data = JSON.parse(body || '{}');
 
     if (!data.name) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team name is required" } }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Team name is required' } }));
       return;
     }
 
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -93,18 +93,18 @@ export async function handleCreateTeam(
     const team = store.create({
       workspaceId,
       name: data.name,
-      description: data.description || "",
+      description: data.description || '',
       members: data.members || [],
       tags: data.tags,
     });
 
-    res.writeHead(201, { "Content-Type": "application/json" });
+    res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(team));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "create_team" });
+    await handleError(err, { module: 'infra:http', action: 'create_team' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to create team" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Failed to create team' } }));
     }
   }
 }
@@ -123,8 +123,8 @@ export async function handleGetTeam(
   try {
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -132,18 +132,18 @@ export async function handleGetTeam(
     const team = store.get(teamId);
 
     if (!team) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Team not found' } }));
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(team));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "get_team" });
+    await handleError(err, { module: 'infra:http', action: 'get_team' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to get team" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Failed to get team' } }));
     }
   }
 }
@@ -161,12 +161,12 @@ export async function handleUpdateTeam(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body || "{}");
+    const data = JSON.parse(body || '{}');
 
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -174,18 +174,18 @@ export async function handleUpdateTeam(
     const team = store.update(teamId, data);
 
     if (!team) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Team not found' } }));
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(team));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "update_team" });
+    await handleError(err, { module: 'infra:http', action: 'update_team' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to update team" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Failed to update team' } }));
     }
   }
 }
@@ -204,8 +204,8 @@ export async function handleDeleteTeam(
   try {
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -213,18 +213,18 @@ export async function handleDeleteTeam(
     const deleted = store.delete(teamId);
 
     if (!deleted) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Team not found' } }));
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "delete_team" });
+    await handleError(err, { module: 'infra:http', action: 'delete_team' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to delete team" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Failed to delete team' } }));
     }
   }
 }
@@ -242,18 +242,22 @@ export async function handleAddTeamMember(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body || "{}");
+    const data = JSON.parse(body || '{}');
 
     if (!data.id || !data.name) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Member id and name are required" } }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Member id and name are required' },
+        })
+      );
       return;
     }
 
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -261,24 +265,26 @@ export async function handleAddTeamMember(
     const team = store.addMember(teamId, {
       id: data.id,
       name: data.name,
-      role: data.role || "member",
+      role: data.role || 'member',
       isAgent: data.isAgent || false,
       model: data.model,
     });
 
     if (!team) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Team not found' } }));
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(team));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "add_team_member" });
+    await handleError(err, { module: 'infra:http', action: 'add_team_member' });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to add team member" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to add team member' } })
+      );
     }
   }
 }
@@ -298,8 +304,8 @@ export async function handleRemoveTeamMember(
   try {
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -307,18 +313,25 @@ export async function handleRemoveTeamMember(
     const team = store.removeMember(teamId, memberId);
 
     if (!team) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team or member not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Team or member not found' } })
+      );
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(team));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "remove_team_member" });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'remove_team_member',
+    });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to remove team member" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to remove team member' } })
+      );
     }
   }
 }
@@ -337,18 +350,18 @@ export async function handleUpdateMemberRole(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body || "{}");
+    const data = JSON.parse(body || '{}');
 
     if (!data.role) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Role is required" } }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Role is required' } }));
       return;
     }
 
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Workspace not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
       return;
     }
 
@@ -356,18 +369,25 @@ export async function handleUpdateMemberRole(
     const team = store.updateMemberRole(teamId, memberId, data.role);
 
     if (!team) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Team or member not found" } }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Team or member not found' } })
+      );
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(team));
   } catch (err) {
-    await handleError(err, { module: "infra:http", action: "update_member_role" });
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'update_member_role',
+    });
     if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Failed to update member role" } }));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to update member role' } })
+      );
     }
   }
 }

@@ -121,22 +121,37 @@ export interface ChatStreamChunk {
 
 /** 执行阶段数据 */
 export interface ExecutionPhaseData {
-  phase: 'analyzing' | 'designing' | 'implementing' | 'verifying' | 'presenting';
+  phase:
+    | 'analyzing'
+    | 'designing'
+    | 'implementing'
+    | 'verifying'
+    | 'presenting';
   progress: number;
   description: string;
-  steps?: { name: string; status: 'pending' | 'in_progress' | 'done' | 'failed' }[];
+  steps?: {
+    name: string;
+    status: 'pending' | 'in_progress' | 'done' | 'failed';
+  }[];
   currentStep?: string;
 }
 
 /** 进度块数据 */
 export interface ProgressBlockData {
-  steps: { name: string; status: 'pending' | 'in_progress' | 'done' | 'failed' }[];
+  steps: {
+    name: string;
+    status: 'pending' | 'in_progress' | 'done' | 'failed';
+  }[];
   currentStep: string;
 }
 
 /** 交付物块数据 */
 export interface DeliverableBlockData {
-  files: { path: string; change: 'added' | 'modified' | 'deleted'; status: 'pending' | 'verified' | 'failed' }[];
+  files: {
+    path: string;
+    change: 'added' | 'modified' | 'deleted';
+    status: 'pending' | 'verified' | 'failed';
+  }[];
   summary: string;
 }
 

@@ -933,8 +933,8 @@ function ChatInput() {
                 }
                 disabled={!currentSession}
                 className="w-full px-3 py-2.5 bg-transparent resize-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:cursor-not-allowed"
-                rows={1}
-                style={{ minHeight: "40px", maxHeight: "200px" }}
+                rows={3}
+                style={{ minHeight: "80px", maxHeight: "200px" }}
               />
             </div>
 

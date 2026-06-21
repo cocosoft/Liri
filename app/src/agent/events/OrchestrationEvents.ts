@@ -5,7 +5,7 @@
  * 供前端实时展示编排过程和 Rule Check Gate 状态。
  */
 
-import { AgentEventType } from "./types";
+import { AgentEventType } from './types';
 
 // ========== 编排事件类型扩展 ==========
 
@@ -14,60 +14,61 @@ export const OrchestrationEventType = {
   // ========== DAG 编排 ==========
 
   /** 编排开始（含任务列表和依赖图） */
-  ORCH_START: "orch:dag:start",
+  ORCH_START: 'orch:dag:start',
   /** 单个任务开始执行 */
-  ORCH_TASK_START: "orch:dag:task:start",
+  ORCH_TASK_START: 'orch:dag:task:start',
   /** 任务进度更新 */
-  ORCH_TASK_PROGRESS: "orch:dag:task:progress",
+  ORCH_TASK_PROGRESS: 'orch:dag:task:progress',
   /** 单个任务完成 */
-  ORCH_TASK_END: "orch:dag:task:end",
+  ORCH_TASK_END: 'orch:dag:task:end',
   /** 编排完成 */
-  ORCH_END: "orch:dag:end",
+  ORCH_END: 'orch:dag:end',
   /** 编排出错 */
-  ORCH_ERROR: "orch:dag:error",
+  ORCH_ERROR: 'orch:dag:error',
 
   // ========== Rule Check Gate ==========
 
   /** 规则检查开始 */
-  RULE_CHECK_START: "orch:rule:check:start",
+  RULE_CHECK_START: 'orch:rule:check:start',
   /** 规则检查进度 */
-  RULE_CHECK_PROGRESS: "orch:rule:check:progress",
+  RULE_CHECK_PROGRESS: 'orch:rule:check:progress',
   /** 规则检查通过 */
-  RULE_CHECK_PASS: "orch:rule:check:pass",
+  RULE_CHECK_PASS: 'orch:rule:check:pass',
   /** 规则检查失败 */
-  RULE_CHECK_FAIL: "orch:rule:check:fail",
+  RULE_CHECK_FAIL: 'orch:rule:check:fail',
   /** 规则检查需要人工审核 */
-  RULE_CHECK_REVIEW: "orch:rule:check:review",
+  RULE_CHECK_REVIEW: 'orch:rule:check:review',
 
   // ========== Council 辩论 ==========
 
   /** Council 辩论开始 */
-  COUNCIL_START: "orch:council:start",
+  COUNCIL_START: 'orch:council:start',
   /** Council 辩论回合 */
-  COUNCIL_ROUND: "orch:council:round",
+  COUNCIL_ROUND: 'orch:council:round',
   /** Council 辩论结束 */
-  COUNCIL_END: "orch:council:end",
+  COUNCIL_END: 'orch:council:end',
   /** Council 辩论详情（用户追问时推送） */
-  COUNCIL_DETAIL: "orch:council:detail",
+  COUNCIL_DETAIL: 'orch:council:detail',
 
   // ========== Swarm 群组 ==========
 
   /** Swarm 任务分配 */
-  SWARM_DISPATCH: "orch:swarm:dispatch",
+  SWARM_DISPATCH: 'orch:swarm:dispatch',
   /** Swarm Agent 状态变更 */
-  SWARM_AGENT_STATUS: "orch:swarm:agent:status",
+  SWARM_AGENT_STATUS: 'orch:swarm:agent:status',
   /** Swarm 执行完成 */
-  SWARM_COMPLETE: "orch:swarm:complete",
+  SWARM_COMPLETE: 'orch:swarm:complete',
 
   // ========== 三层上下文 ==========
 
   /** 上下文层加载 */
-  CONTEXT_LAYER_LOAD: "orch:context:layer:load",
+  CONTEXT_LAYER_LOAD: 'orch:context:layer:load',
   /** 规则注入 */
-  CONTEXT_RULE_INJECT: "orch:context:rule:inject",
+  CONTEXT_RULE_INJECT: 'orch:context:rule:inject',
 } as const;
 
-export type OrchestrationEventTypeValue = (typeof OrchestrationEventType)[keyof typeof OrchestrationEventType];
+export type OrchestrationEventTypeValue =
+  (typeof OrchestrationEventType)[keyof typeof OrchestrationEventType];
 
 // ========== 编排事件数据载荷类型 ==========
 
@@ -152,7 +153,7 @@ export interface CouncilRoundData {
   /** 发言内容 */
   content: string;
   /** 立场（support/oppose/neutral） */
-  stance: "support" | "oppose" | "neutral";
+  stance: 'support' | 'oppose' | 'neutral';
   /** 置信度 (0-1) */
   confidence: number;
 }
@@ -167,7 +168,7 @@ export interface CouncilEndData {
   votes: Array<{
     agentId: string;
     agentName: string;
-    vote: "support" | "oppose" | "abstain";
+    vote: 'support' | 'oppose' | 'abstain';
     reason: string;
   }>;
   /** 胜出方案 */
@@ -197,7 +198,7 @@ export interface SwarmAgentStatusData {
   /** Agent 角色 */
   role: string;
   /** 状态 */
-  status: "idle" | "running" | "completed" | "error";
+  status: 'idle' | 'running' | 'completed' | 'error';
   /** 当前任务 */
   currentTask?: string;
   /** 关联的 Agent ID */
@@ -232,7 +233,13 @@ export interface ContextLayerData {
 }
 
 /** 编排状态枚举 */
-export type OrchestrationStatus = "idle" | "planning" | "executing" | "checking" | "completed" | "failed";
+export type OrchestrationStatus =
+  | 'idle'
+  | 'planning'
+  | 'executing'
+  | 'checking'
+  | 'completed'
+  | 'failed';
 
 /** 编排状态快照 */
 export interface OrchestrationSnapshot {
@@ -244,7 +251,7 @@ export interface OrchestrationSnapshot {
   tasks: Array<{
     id: string;
     name: string;
-    status: "pending" | "running" | "completed" | "failed";
+    status: 'pending' | 'running' | 'completed' | 'failed';
     dependsOn: string[];
     progress: number;
     result?: string;

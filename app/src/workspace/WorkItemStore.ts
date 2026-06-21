@@ -5,16 +5,23 @@
  * 生命周期状态：pending → running → paused | review → done | failed
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "fs";
-import { join, dirname } from "path";
-import type { WorkItem, WorkItemStatus, WorkItemType } from "./types";
-import type { LiriConfigManager } from "./LiriConfigManager";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
+import { join, dirname } from 'path';
+import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
+import type { LiriConfigManager } from './LiriConfigManager';
 
 /** .liri/workitems/ 子目录 */
-const WORKITEMS_DIR = "workitems";
+const WORKITEMS_DIR = 'workitems';
 
 /** 记忆条目标签 */
-const MEMORY_TAG = "auto:workitem";
+const MEMORY_TAG = 'auto:workitem';
 
 /**
  * 工作项文件存储
@@ -63,9 +70,9 @@ export class WorkItemStore {
       const items: WorkItem[] = [];
 
       for (const file of files) {
-        if (!file.endsWith(".json")) continue;
+        if (!file.endsWith('.json')) continue;
         try {
-          const content = readFileSync(join(this.itemsDir, file), "utf-8");
+          const content = readFileSync(join(this.itemsDir, file), 'utf-8');
           const item = JSON.parse(content) as WorkItem;
           if (item.workspaceId === workspaceId) {
             items.push(item);
@@ -76,8 +83,9 @@ export class WorkItemStore {
       }
 
       // 按创建时间倒序排列
-      items.sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      items.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
       return items;
@@ -96,7 +104,7 @@ export class WorkItemStore {
     }
 
     try {
-      const content = readFileSync(filePath, "utf-8");
+      const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as WorkItem;
     } catch {
       return null;
@@ -109,7 +117,7 @@ export class WorkItemStore {
   save(item: WorkItem): void {
     this.ensureDir();
     const filePath = this.getItemPath(item.id);
-    writeFileSync(filePath, JSON.stringify(item, null, 2), "utf-8");
+    writeFileSync(filePath, JSON.stringify(item, null, 2), 'utf-8');
   }
 
   /**
@@ -118,7 +126,18 @@ export class WorkItemStore {
    */
   update(
     id: string,
-    updates: Partial<Pick<WorkItem, "title" | "description" | "type" | "status" | "sessionId" | "tags" | "priority">>
+    updates: Partial<
+      Pick<
+        WorkItem,
+        | 'title'
+        | 'description'
+        | 'type'
+        | 'status'
+        | 'sessionId'
+        | 'tags'
+        | 'priority'
+      >
+    >
   ): WorkItem | null {
     const item = this.get(id);
     if (!item) return null;
@@ -129,7 +148,7 @@ export class WorkItemStore {
       updatedAt: new Date().toISOString(),
     };
 
-    if (updates.status === "done" || updates.status === "failed") {
+    if (updates.status === 'done' || updates.status === 'failed') {
       merged.completedAt = new Date().toISOString();
 
       // 经验自动沉淀：工作项完成时写入 memory
@@ -182,14 +201,14 @@ export class WorkItemStore {
     parts.push(`完成时间: ${item.completedAt || item.updatedAt}`);
 
     if (item.tags && item.tags.length > 0) {
-      parts.push(`标签: ${item.tags.join(", ")}`);
+      parts.push(`标签: ${item.tags.join(', ')}`);
     }
 
     if (item.riskWarnings && item.riskWarnings.length > 0) {
-      parts.push(`风险提示: ${item.riskWarnings.join("; ")}`);
+      parts.push(`风险提示: ${item.riskWarnings.join('; ')}`);
     }
 
-    return parts.join("\n");
+    return parts.join('\n');
   }
 
   /**
@@ -235,9 +254,9 @@ export class WorkItemStore {
       id,
       workspaceId: params.workspaceId,
       title: params.title,
-      description: params.description || "",
-      type: params.type || "task",
-      status: "pending",
+      description: params.description || '',
+      type: params.type || 'task',
+      status: 'pending',
       sessionId: params.sessionId,
       tags: params.tags || [],
       priority: params.priority || 3,
@@ -253,6 +272,9 @@ export class WorkItemStore {
 /**
  * 从 .liri/ 目录创建 WorkItemStore 实例
  */
-export function createWorkItemStore(liriDir: string, configManager?: LiriConfigManager): WorkItemStore {
+export function createWorkItemStore(
+  liriDir: string,
+  configManager?: LiriConfigManager
+): WorkItemStore {
   return new WorkItemStore(liriDir, configManager);
 }

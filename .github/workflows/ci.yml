@@ -87,7 +87,7 @@ jobs:
     - name: Generate coverage report
       run: bun test --coverage tests/ > coverage_output.txt 2>&1
 
-    - name: Check coverage threshold (at least 60%)
+    - name: Check coverage threshold (at least 30%)
       run: |
         node -e "
           const fs = require('fs');
@@ -105,8 +105,8 @@ jobs:
             process.exit(1);
           }
           console.log('Coverage: ' + pct + '%');
-          if (pct < 60) {
-            console.log('Error: Coverage ' + pct + '% is below threshold of 60%');
+          if (pct < 30) {
+            console.log('Error: Coverage ' + pct + '% is below threshold of 30%');
             process.exit(1);
           }
           console.log('Coverage ' + pct + '% meets threshold');

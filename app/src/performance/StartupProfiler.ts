@@ -15,18 +15,38 @@ import { logForDebugging } from '../utils/debug.js';
 import { getConfigHomeDir, isEnvTruthy } from '../utils/envUtils.js';
 import fs from 'fs';
 import { getPerformanceConfig } from './PerformanceConfig.js';
-import { configManager } from '@modules/config';
 
-// 模块级状态 - 在模块加载时决定
-const DETAILED_PROFILING = isEnvTruthy(
-  configManager.env('Liri_PROFILE_STARTUP')
-);
+// 模块级状态 - 延迟初始化避免循环依赖
+let DETAILED_PROFILING: boolean | undefined;
+let STATSIG_LOGGING_SAMPLED: boolean | undefined;
 
-// 采样率：100% 内部用户，0.5% 外部用户
-const STATSIG_SAMPLE_RATE = 0.005;
-const STATSIG_LOGGING_SAMPLED =
-  configManager.env('USER_TYPE') === 'ant' ||
-  Math.random() < STATSIG_SAMPLE_RATE;
+/**
+ * 获取是否启用详细分析模式
+ */
+function isDetailedProfiling(): boolean {
+  if (DETAILED_PROFILING === undefined) {
+    // 延迟导入 configManager 避免循环依赖
+    const { configManager } = require('@modules/config');
+    DETAILED_PROFILING = isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP'));
+  }
+  return DETAILED_PROFILING;
+}
+
+/**
+ * 获取是否采样日志
+ */
+function isLoggingSampled(): boolean {
+  if (STATSIG_LOGGING_SAMPLED === undefined) {
+    // 延迟导入 configManager 避免循环依赖
+    const { configManager } = require('@modules/config');
+    // 采样率：100% 内部用户，0.5% 外部用户
+    const STATSIG_SAMPLE_RATE = 0.005;
+    STATSIG_LOGGING_SAMPLED =
+      configManager.env('USER_TYPE') === 'ant' ||
+      Math.random() < STATSIG_SAMPLE_RATE;
+  }
+  return STATSIG_LOGGING_SAMPLED;
+}
 
 // 启动阶段定义
 const PHASE_DEFINITIONS: Record<string, [string, string]> = {
@@ -93,7 +113,7 @@ export function profileCheckpoint(name: string): void {
   perf.mark(name);
 
   // 记录内存快照（仅在详细分析模式下）
-  if (DETAILED_PROFILING) {
+  if (isDetailedProfiling()) {
     memorySnapshots.push(process.memoryUsage());
   }
 }
@@ -107,7 +127,7 @@ export function profilePhaseStart(phase: string): void {
   perf.mark(`${phase}_start`);
 
   // 记录内存快照（仅在详细分析模式下）
-  if (DETAILED_PROFILING) {
+  if (isDetailedProfiling()) {
     memorySnapshots.push(process.memoryUsage());
   }
 }
@@ -136,7 +156,7 @@ export function profilePhaseEnd(phase: string): number {
   phaseTimes[phase] = duration;
 
   // 记录内存快照（仅在详细分析模式下）
-  if (DETAILED_PROFILING) {
+  if (isDetailedProfiling()) {
     memorySnapshots.push(process.memoryUsage());
   }
 
@@ -171,7 +191,7 @@ export async function profileMeasure<T>(
     const duration = performance.now() - startTime;
     phaseTimes[name] = duration;
 
-    if (DETAILED_PROFILING) {
+    if (isDetailedProfiling()) {
       memorySnapshots.push(process.memoryUsage());
     }
 
@@ -192,7 +212,7 @@ export async function profileMeasure<T>(
  * 仅在 DETAILED_PROFILING 启用时可用
  */
 export function profileReport(): string {
-  if (!DETAILED_PROFILING) {
+  if (!isDetailedProfiling()) {
     return '启动性能分析未启用';
   }
 
@@ -278,7 +298,7 @@ export function profileReport(): string {
   logForDebugging(report);
 
   // 写入文件（仅在详细分析模式下）
-  if (DETAILED_PROFILING) {
+  if (isDetailedProfiling()) {
     try {
       const logPath = getStartupPerfLogPath();
       const logDir = dirname(logPath);
@@ -304,7 +324,7 @@ export function profileReport(): string {
  * 检查是否启用了详细分析
  */
 export function isDetailedProfilingEnabled(): boolean {
-  return DETAILED_PROFILING;
+  return isDetailedProfiling();
 }
 
 /**
@@ -369,8 +389,8 @@ export function getPhaseSummary(): {
  * 仅在会话被采样时记录
  */
 export function logStartupPerf(): void {
-  // 仅在被采样时记录（在模块加载时决定）
-  if (!STATSIG_LOGGING_SAMPLED) return;
+  // 仅在被采样时记录
+  if (!isLoggingSampled()) return;
 
   const perf = getPerformance();
   const marks = perf.getEntriesByType('mark');

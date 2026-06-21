@@ -1,9 +1,8 @@
-﻿/**
+/**
  * 环境变量工具函数
  */
 
 import { resolvePyappHome } from '@modules/core';
-import { configManager } from '@modules/config';
 
 /**
  * 检查环境变量是否为真值
@@ -23,12 +22,11 @@ export function getEnv(name: string, defaultValue?: string): string {
 
 /**
  * 检查是否在开发模式
+ * 直接使用 process.env 避免循环依赖
  */
 export function isDevMode(): boolean {
-  return (
-    isEnvTruthy(configManager.env('NODE_ENV')) &&
-    configManager.env('NODE_ENV')?.toLowerCase() === 'development'
-  );
+  const nodeEnv = process.env.NODE_ENV;
+  return isEnvTruthy(nodeEnv) && nodeEnv?.toLowerCase() === 'development';
 }
 
 /**

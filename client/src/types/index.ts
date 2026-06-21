@@ -1,11 +1,10 @@
-/** 前端类型定义统一入口 — 从子模块 re-export，向后兼容 */
+/** 前端类型定义统一入口 — 从子模块 re-export,向后兼容 */
 
 // ─── API 响应类型 ───
 export type { ApiError, ApiResponse } from "./api";
 export { isApiResponse, unwrapApiResponse } from "./api";
 
-// ─── 核心业务类型 ───
-export type { Session } from "./session";
+// ─── 核心业务类型 ───export type { Session } from "./session";
 export type {
   Message,
   MessageBlock,
@@ -24,7 +23,7 @@ export type {
 export type {
   ModelInfo,
   ProviderInfo,
-  ProviderFormData,
+  ProviderData,
   ProviderPreset,
   ProviderCategory,
   EndpointLatency,
@@ -105,3 +104,14 @@ export type {
 
 // ─── 配置 ───
 export type { Config, BackendStatus } from "./config";
+
+// ─── 工作模块类型 ─
+export type {
+  Project,
+  ProjectNode,
+  ProjectNodeType,
+  ProjectPriority,
+  ProjectStatus,
+  WorkItemFilter,
+  ProjectViewMode,
+} from "./work";

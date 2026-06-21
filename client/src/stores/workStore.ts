@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 /** 工作界面内容视图类型 */
-export type ContentView = "welcome" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules";
+export type ContentView = "welcome" | "project" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules";
 
 /** 工作项生命周期状态 */
 export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";

@@ -1,4 +1,5 @@
 import { useWorkStore, type ContentView } from "../../stores/workStore";
+import { WorkView } from "./WorkBoardView";
 import { TeamView } from "./TeamView";
 import { CostView } from "./CostView";
 import { WorkflowTemplateView } from "./WorkflowTemplateView";
@@ -19,6 +20,7 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   { key: "welcome", label: "工作区", icon: "\u{1F3AF}" },
+  { key: "project", label: "项目", icon: "\u{1F4CA}" },
   { key: "editor", label: "编辑器", icon: "\u{1F527}" },
   { key: "council", label: "理事会", icon: "\u{1F3DB}\uFE0F" },
   { key: "intelligence", label: "智能", icon: "\u{1F9E0}" },
@@ -87,6 +89,8 @@ function ContentViewRenderer({ contentView }: { contentView: ContentView }) {
           </div>
         </div>
       );
+    case "project":
+      return <WorkBoardView projectId="default" />;
     case "team":
       return <TeamView />;
     case "cost":

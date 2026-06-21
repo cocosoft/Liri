@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenTelemetry  instrumentation 配置
  */
 
@@ -32,9 +32,9 @@ import { isEnvTruthy } from '../utils/envUtils.js';
 import { getProxyUrl, shouldBypassProxy } from '../utils/proxy.js';
 import { getCACertificates } from '../utils/caCerts.js';
 import { getMTLSConfig } from '../utils/mtls.js';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '../error/utils.js';
 import { logForDebugging } from '../utils/debug.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../error/types.js';
 import { configManager } from '@modules/config';
 
 const DEFAULT_METRICS_EXPORT_INTERVAL_MS = 60000;

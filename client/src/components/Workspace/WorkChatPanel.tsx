@@ -32,7 +32,7 @@ export default function WorkChatPanel({ className }: WorkChatPanelProps) {
       />
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         <ChatMessageList
           messages={messages}
           isStreaming={isStreaming}
@@ -42,7 +42,7 @@ export default function WorkChatPanel({ className }: WorkChatPanelProps) {
       </div>
 
       {/* 底部输入区 */}
-      <div className="border-t border-gray-200 dark:border-gray-700">
+      <div className="border-t border-gray-200 dark:border-gray-700 flex-shrink-0 min-h-[120px]">
         <ChatInput />
       </div>
     </div>

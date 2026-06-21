@@ -91,7 +91,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         *secret_guard = Some(secret.clone());
     }
 
-    let mut command = app_handle
+    let command = app_handle
         .shell()
         .sidecar("liri_coding")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?

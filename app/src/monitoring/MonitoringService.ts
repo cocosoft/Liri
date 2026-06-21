@@ -9,7 +9,7 @@ import { resolveLogsDir } from '@modules/core';
 import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { configManager } from '@modules/config';
-import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   AlertPresetLoader,

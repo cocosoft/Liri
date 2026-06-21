@@ -3,7 +3,7 @@
 
 import { getUIEnhancer } from '../ui/UIEnhancer';
 import { getToolManager } from '../tools/ToolManager';
-import { profileReport } from '../utils/startupProfiler';
+import { profileReport } from '../performance/StartupProfiler.js';
 import { SkillRegistry } from '../skills/SkillRegistry';
 import { BundledSkillLoader } from '../skills/loaders/sources/BundledSkillLoader';
 

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 //
 
 import React, { useState, useEffect } from 'react';
@@ -14,7 +14,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools/ToolManager';
-import { profileReport } from '@modules/utils/startupProfiler';
+import { profileReport } from '@modules/performance/StartupProfiler.js';
 import { CompanionSprite } from '@modules/buddy/CompanionSprite';
 import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
 import { TaskListV2 } from '@modules/components/TaskListV2';

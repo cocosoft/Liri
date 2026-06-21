@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 性能测试脚本
  * 用于测试优化后的系统性能
  */
@@ -14,7 +14,7 @@ import {
   generateMemoryOptimizationReport,
   getMemoryOptimizationSuggestions,
 } from './MemoryOptimizer';
-import { profileCheckpoint, profileReport } from '../utils/startupProfiler';
+import { profileCheckpoint, profileReport } from '../performance/StartupProfiler.js';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('test-performance');

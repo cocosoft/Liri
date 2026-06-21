@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -65,7 +65,7 @@ import { zodToJsonSchema } from '../utils/zodToJsonSchema';
 import { getDefaultAppState } from '../system/state/AppState.js';
 import { reviewCommand as review } from '../commands/builtin/review';
 import type { Command } from '../commands/types/index';
-import { profileCheckpoint } from '../utils/startupProfiler';
+import { profileCheckpoint } from '../performance/StartupProfiler.js';
 
 // 定义MCP命令列表
 const MCP_COMMANDS: Command[] = [review];

@@ -1,11 +1,11 @@
-﻿/**
+/**
  * 优化的工具管理器工具
  * 用于优化工具系统的加载和执行性能
  */
 
 import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
-import { profileCheckpoint } from '@modules/utils/startupProfiler.js';
+import { profileCheckpoint } from '@modules/performance/StartupProfiler.js';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 

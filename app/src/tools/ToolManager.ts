@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具管理模块
  * 融合 CC 源码的 EventEmitter、事件系统、初始化、启/禁用能力
  */
@@ -9,7 +9,7 @@ import { Tool, type ToolResult } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
 import { ToolRegistry, setToolRegistry } from './ToolRegistry';
-import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { optimizedExecuteTool } from './utils/OptimizedToolManagerUtils.js';
 import {
   isDeferredTool,

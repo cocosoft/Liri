@@ -1,11 +1,12 @@
 /**
- * 启动性能分析工具（兼容导出）
+ * 启动性能分析工具
  *
- * 实际实现已迁移至 performance/StartupProfiler。
- * 此文件保留作为兼容入口。
+ * 注意：此文件已重构，移除了对 performance/StartupProfiler.js 的 re-export
+ * 以避免循环依赖问题。
+ *
+ * 如需使用 performance/ 模块的功能，请直接导入：
+ * import { profileCheckpoint, profilePhaseStart, ... } from '../performance/StartupProfiler.js';
  */
-
-export * from '../performance/StartupProfiler.js';
 
 /**
  * 启动性能分析器类

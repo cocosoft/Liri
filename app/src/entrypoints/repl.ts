@@ -36,7 +36,7 @@ import { getLogger } from '../monitoring/logs/Logger.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';
-import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { LocalHTTPService } from '@modules/infrastructure/http/LocalHTTPService';

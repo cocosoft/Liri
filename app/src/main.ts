@@ -26,7 +26,7 @@ import {
   profilePhaseStart,
   profilePhaseEnd,
   getPhaseSummary,
-} from './utils/startupProfiler';
+} from './performance/StartupProfiler.js';
 import {
   getLogger,
   flush,

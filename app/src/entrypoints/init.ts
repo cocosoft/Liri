@@ -30,7 +30,7 @@ import { getExtensibilityService } from '@modules/core/extensibility/index.js';
 import {
   profileCheckpoint,
   profileReport,
-} from '@modules/utils/startupProfiler';
+} from '@modules/performance/StartupProfiler.js';
 // @ts-ignore
 import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =

@@ -192,7 +192,7 @@ pub fn run() {
                         }
                     }
                     "devtools" => {
-                        if let Some(webview) = app_handle.get_webview("main") {
+                        if let Some(webview) = app_handle.get_webview_window("main") {
                             if webview.is_devtools_open() {
                                 let _ = webview.close_devtools();
                             } else {

@@ -31,7 +31,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x]
 
     steps:
     - name: Checkout code
@@ -84,15 +84,26 @@ jobs:
     - name: Run tests (without coverage)
       run: bun test tests/
 
-    - name: Generate coverage report (JSON)
-      run: bun test --coverage --reporter=json tests/ > coverage.json 2>&1 || true
+    - name: Generate coverage report
+      run: bun test --coverage tests/ > coverage_output.txt 2>&1
 
     - name: Check coverage threshold (at least 60%)
       run: |
         node -e "
           const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('coverage.json', 'utf-8'));
-          const pct = report.total.lines.pct;
+          const output = fs.readFileSync('coverage_output.txt', 'utf-8');
+          const lines = output.split('\n').map(l => l.trim());
+          const allFilesLine = lines.find(l => l.startsWith('All files'));
+          if (!allFilesLine) {
+            console.log(output);
+            process.exit(1);
+          }
+          const parts = allFilesLine.split('|').map(s => s.trim());
+          const pct = parseFloat(parts[2]);
+          if (isNaN(pct)) {
+            console.log(output);
+            process.exit(1);
+          }
           console.log('Coverage: ' + pct + '%');
           if (pct < 60) {
             console.log('Error: Coverage ' + pct + '% is below threshold of 60%');

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { ConfigSchema, configSchema } from '../../../src/config/schema/configSchema.js';
+import { ConfigSchema, configSchema } from '../../../src/config/schema/ConfigSchema.js';
 
 describe('ConfigSchema', () => {
 

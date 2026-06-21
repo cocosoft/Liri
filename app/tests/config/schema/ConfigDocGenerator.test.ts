@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, spyOn, afterEach } from 'bun:test';
 import { ConfigDocGenerator } from '../../../src/config/schema/ConfigDocGenerator.js';
-import { ConfigSchema } from '../../../src/config/schema/configSchema.js';
+import { ConfigSchema } from '../../../src/config/schema/ConfigSchema.js';
 import { writeFileSync, existsSync, unlinkSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

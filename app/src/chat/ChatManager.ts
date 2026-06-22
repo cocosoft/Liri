@@ -105,7 +105,12 @@ import type {
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
 import { resolveProjectRoot } from '@modules/core';
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCounter.js';
 import { ContextCompressor } from '@modules/agent/ContextCompressor';
 
@@ -777,15 +782,12 @@ export class ChatManagerImpl implements ChatManager {
     // 获取该会话的已执行工具结果，少于 2 个时不压缩（无意义）
     const storedCalls = toolResultRegistry.listBySession(sessionId);
     if (storedCalls.length < 2) {
-      return [
-        ...currentRoundMessages,
-        assistantMsg,
-        ...toolResults,
-      ];
+      return [...currentRoundMessages, assistantMsg, ...toolResults];
     }
 
     // 生成压缩摘要
-    const compressedHistory = toolResultRegistry.getCompressedHistory(sessionId);
+    const compressedHistory =
+      toolResultRegistry.getCompressedHistory(sessionId);
 
     // 构建压缩后的消息列表：
     // 1. 保留非工具循环的上下文消息（system, 第一轮 user 等）
@@ -1194,7 +1196,9 @@ export class ChatManagerImpl implements ChatManager {
       isStreaming: false,
       sessionId: session.id,
     }).catch((err) => {
-      logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('用量记录失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     // 通知外部：本次 LLM 响应的词元用量
@@ -1554,7 +1558,9 @@ export class ChatManagerImpl implements ChatManager {
           isStreaming: false,
           sessionId: session.id,
         }).catch((err) => {
-          logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn('用量记录失败', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
 
         // 通知外部：本次工具结果 LLM 响应的词元用量
@@ -1623,11 +1629,9 @@ export class ChatManagerImpl implements ChatManager {
           // 注册表：进入下一轮
           toolResultRegistry.nextRound(session.id);
           // 压缩历史消息，避免上下文线性膨胀
-          const assistantMsgForCompress =
-            updatedMessages[currentRoundMessages.length] as Record<
-              string,
-              unknown
-            >;
+          const assistantMsgForCompress = updatedMessages[
+            currentRoundMessages.length
+          ] as Record<string, unknown>;
           const toolResultsForCompress = updatedMessages.slice(
             currentRoundMessages.length + 1
           ) as Record<string, unknown>[];
@@ -1806,7 +1810,9 @@ export class ChatManagerImpl implements ChatManager {
       isStreaming: false,
       sessionId: session.id,
     }).catch((err) => {
-      logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('用量记录失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     let currentMessages = [...apiMessages];
@@ -1999,7 +2005,9 @@ export class ChatManagerImpl implements ChatManager {
         isStreaming: false,
         sessionId: session.id,
       }).catch((err) => {
-        logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('用量记录失败', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       // 通知外部：本次工具结果 LLM 响应的词元用量
@@ -2049,8 +2057,9 @@ export class ChatManagerImpl implements ChatManager {
       if (toolResultResponse.tool_calls?.length) {
         // 注册表：进入下一轮
         toolResultRegistry.nextRound(session.id);
-        const assistantMsgForCompress =
-          updatedMessages[currentMessages.length] as Record<string, unknown>;
+        const assistantMsgForCompress = updatedMessages[
+          currentMessages.length
+        ] as Record<string, unknown>;
         const toolResultsForCompress = updatedMessages.slice(
           currentMessages.length + 1
         ) as Record<string, unknown>[];
@@ -2460,7 +2469,9 @@ export class ChatManagerImpl implements ChatManager {
       isStreaming: true,
       sessionId: session.id,
     }).catch((err) => {
-      logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('用量记录失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     // 通知外部：本次 LLM 响应的词元用量
@@ -2805,7 +2816,9 @@ export class ChatManagerImpl implements ChatManager {
           isStreaming: true,
           sessionId: session.id,
         }).catch((err) => {
-          logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn('用量记录失败', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
 
         // 通知外部：本次工具结果 LLM 响应的词元用量
@@ -2875,8 +2888,9 @@ export class ChatManagerImpl implements ChatManager {
         ) {
           // 注册表：进入下一轮
           toolResultRegistry.nextRound(session.id);
-          const assistantMsgForCompress =
-            updatedMessages[currentRoundMessages.length] as Record<string, unknown>;
+          const assistantMsgForCompress = updatedMessages[
+            currentRoundMessages.length
+          ] as Record<string, unknown>;
           const toolResultsForCompress = updatedMessages.slice(
             currentRoundMessages.length + 1
           ) as Record<string, unknown>[];
@@ -3115,7 +3129,9 @@ export class ChatManagerImpl implements ChatManager {
         isStreaming: false,
         sessionId: session.id,
       }).catch((err) => {
-        logger.warn('用量记录失败', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('用量记录失败', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       // 创建本轮 assistant 消息
@@ -3155,29 +3171,30 @@ export class ChatManagerImpl implements ChatManager {
       this._addAndPersistMessage(session.id, toolResultAssistantMsg);
 
       // 检查是否有新的工具调用
-        if (
-          toolResultResponse.tool_calls &&
-          toolResultResponse.tool_calls.length > 0
-        ) {
-          // 继续下一轮
-          // 注册表：进入下一轮
-          toolResultRegistry.nextRound(session.id);
-          const assistantMsgForCompress =
-            updatedMessages[currentRoundMessages.length] as Record<string, unknown>;
-          const toolResultsForCompress = updatedMessages.slice(
-            currentRoundMessages.length + 1
-          ) as Record<string, unknown>[];
-          currentRoundMessages = this._compressToolHistory(
-            currentRoundMessages,
-            session.id,
-            assistantMsgForCompress,
-            toolResultsForCompress
-          );
-          currentToolCalls = [...toolResultResponse.tool_calls];
-          newProcessedResults.length = 0; // 清空，重新累积
-          assistantMsg = toolResultAssistantMsg;
-          continue;
-        }
+      if (
+        toolResultResponse.tool_calls &&
+        toolResultResponse.tool_calls.length > 0
+      ) {
+        // 继续下一轮
+        // 注册表：进入下一轮
+        toolResultRegistry.nextRound(session.id);
+        const assistantMsgForCompress = updatedMessages[
+          currentRoundMessages.length
+        ] as Record<string, unknown>;
+        const toolResultsForCompress = updatedMessages.slice(
+          currentRoundMessages.length + 1
+        ) as Record<string, unknown>[];
+        currentRoundMessages = this._compressToolHistory(
+          currentRoundMessages,
+          session.id,
+          assistantMsgForCompress,
+          toolResultsForCompress
+        );
+        currentToolCalls = [...toolResultResponse.tool_calls];
+        newProcessedResults.length = 0; // 清空，重新累积
+        assistantMsg = toolResultAssistantMsg;
+        continue;
+      }
 
       // 没有更多工具调用，返回最终消息
       return toolResultAssistantMsg;
@@ -3329,7 +3346,10 @@ export class ChatManagerImpl implements ChatManager {
         handleError(error, {
           module: 'chat:ChatManager',
           action: 'executeTool',
-          context: { toolCallId: toolCall.id, toolName: normalizedToolCall.name },
+          context: {
+            toolCallId: toolCall.id,
+            toolName: normalizedToolCall.name,
+          },
         }).catch(() => {});
         return {
           toolCallId: toolCall.id,

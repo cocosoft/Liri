@@ -108,9 +108,7 @@ export class ToolResultRegistry {
   listBySession(sessionId: string): StoredToolCall[] {
     const sessionStore = this.store.get(sessionId);
     if (!sessionStore) return [];
-    return [...sessionStore.values()].sort(
-      (a, b) => a.timestamp - b.timestamp
-    );
+    return [...sessionStore.values()].sort((a, b) => a.timestamp - b.timestamp);
   }
 
   /**

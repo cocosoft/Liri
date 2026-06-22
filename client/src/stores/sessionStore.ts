@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Session } from "../types";
 import { sessionService } from "../services/sessionService";
-import { useChatStore } from "./chatStore";
+import { chatCoordinator, registerSessionOperations } from "./sessionChatCoordinator";
 
 // 会话切换互斥锁队列 — 防止快速切换导致竞态（P0-1/P1-7）
 // 使用队列机制替代简单的 300ms 超时，确保连续切换按序执行
@@ -78,7 +78,7 @@ export const useSessionStore = create<SessionStore>()(
         try {
           const session = await sessionService.create(title);
           console.debug("[sessionStore] Created session:", session.id, session.title);
-          useChatStore.getState().clearMessages();
+          chatCoordinator().clearMessages();
           let sessions = await sessionService.list();
           sessions = sessions.sort(
             (a, b) =>
@@ -123,9 +123,9 @@ export const useSessionStore = create<SessionStore>()(
 
     try {
       // 中止当前正在进行的流式请求，避免旧流数据污染新会话
-      useChatStore.getState().stopMessage();
+      chatCoordinator().stopMessage();
       // 先 flush 当前会话未持久化的 blocks，避免切走时丢失
-      await useChatStore.getState().flushPendingSaves();
+      await chatCoordinator().flushPendingSaves();
       if (_lastSwitchId !== id) return;
 
       const session = await sessionService.switch(id);
@@ -134,7 +134,7 @@ export const useSessionStore = create<SessionStore>()(
       const messages = await sessionService.getMessages(id);
       if (_lastSwitchId !== id) return;
 
-      useChatStore.getState().setMessages(messages);
+      chatCoordinator().setMessages(messages);
       set({ currentSession: session, isLoading: false });
     } catch (error) {
       if (_lastSwitchId === id) {
@@ -146,7 +146,7 @@ export const useSessionStore = create<SessionStore>()(
       const nextId = _switchQueue.shift();
       if (nextId) {
         setTimeout(() => {
-          useSessionStore.getState().switchSession(nextId);
+          get().switchSession(nextId);
         }, 0);
       }
     }
@@ -189,7 +189,7 @@ export const useSessionStore = create<SessionStore>()(
     set({ isLoading: true, error: null });
     try {
       await sessionService.clearAll();
-      useChatStore.getState().clearMessages();
+      chatCoordinator().clearMessages();
       set({ sessions: [], currentSession: null, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
@@ -206,3 +206,18 @@ export const useSessionStore = create<SessionStore>()(
     }),
   },
 ));
+
+// 注册 session 端操作供 chatStore 通过协调器访问
+registerSessionOperations({
+  getState: () => {
+    const state = useSessionStore.getState();
+    return { currentSession: state.currentSession, sessions: state.sessions };
+  },
+  renameSession: (id, title) => {
+    useSessionStore.getState().renameSession(id, title);
+  },
+});
+
+// 状态变更日志（仅开发环境）
+import { withStoreLogging } from "../utils/storeLogger";
+withStoreLogging(useSessionStore, "sessionStore", []);

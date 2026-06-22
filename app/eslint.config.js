@@ -43,7 +43,7 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'error',
       'no-debugger': 'error',
-      'module-registry/no-direct-module-import': 'warn',
+      'module-registry/no-direct-module-import': 'error',
       'no-restricted-imports': ['warn', {
         paths: [
           {

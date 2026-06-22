@@ -1,54 +1,27 @@
 /**
- * Council Store — Agent 理事会状态管理
+ * 向后兼容 — 已合并到 appStore
  *
- * 管理 Council 会话的辩论状态、发言记录和 SSE 流式订阅
+ * 原独立 Store 已合并到 appStore，此文件为薄封装层。
+ * 新代码请直接使用 useAppStore。
  */
-import { create } from "zustand";
+import { useAppStore } from "./appStore";
+import type { CouncilStatementUI, CouncilPhaseUI, ConsensusResultUI } from "./appStore";
 
-/** 从后端流式事件中提取的发言 */
-export interface CouncilStatementUI {
-  id: string;
-  agentId: string;
-  agentName: string;
-  round: number;
-  type: "position" | "rebuttal" | "supplement" | "final";
-  content: string;
-  keyPoints: string[];
-  timestamp: number;
-}
+export type { CouncilStatementUI, CouncilPhaseUI, ConsensusResultUI };
 
-/** Council 辩论阶段 */
-export type CouncilPhaseUI = "convening" | "debating" | "consensus" | "completed";
-
-/** 共识结果 */
-export type ConsensusResultUI = "unanimous" | "majority" | "deadlock";
-
-/** Council 状态 */
-interface CouncilState {
-  /** 是否正在辩论中 */
+/** Council 状态切片 */
+interface CouncilSlice {
   isActive: boolean;
-  /** 当前会话 ID */
   sessionId: string | null;
-  /** 当前阶段 */
   phase: CouncilPhaseUI;
-  /** 议题 */
   topic: string;
-  /** 当前轮次 */
   currentRound: number;
-  /** 所有发言记录 */
   statements: CouncilStatementUI[];
-  /** 共识结果 */
   result: ConsensusResultUI | null;
-  /** 最终方案 */
   finalProposal: string | null;
-  /** 少数派意见 */
   minorityOpinion: string | null;
-  /** 错误信息 */
   error: string | null;
-  /** EventSource 实例 */
   eventSource: EventSource | null;
-
-  /** 动作 */
   startCouncil: (sessionId: string, topic: string) => void;
   addStatement: (statement: CouncilStatementUI) => void;
   setPhase: (phase: CouncilPhaseUI) => void;
@@ -59,58 +32,69 @@ interface CouncilState {
   reset: () => void;
 }
 
-const initialState = {
-  isActive: false,
-  sessionId: null,
-  phase: "convening" as CouncilPhaseUI,
-  topic: "",
-  currentRound: 0,
-  statements: [] as CouncilStatementUI[],
-  result: null,
-  finalProposal: null,
-  minorityOpinion: null,
-  error: null,
-  eventSource: null,
+function councilSlice(s: any): CouncilSlice {
+  return {
+    isActive: s.councilIsActive,
+    sessionId: s.councilSessionId,
+    phase: s.councilPhase,
+    topic: s.councilTopic,
+    currentRound: s.councilCurrentRound,
+    statements: s.councilStatements,
+    result: s.councilResult,
+    finalProposal: s.councilFinalProposal,
+    minorityOpinion: s.councilMinorityOpinion,
+    error: s.councilError,
+    eventSource: s.councilEventSource,
+    startCouncil: s.startCouncil,
+    addStatement: s.addStatement,
+    setPhase: s.setCouncilPhase,
+    setRound: s.setCouncilRound,
+    setResult: s.setCouncilResult,
+    setError: s.setCouncilError,
+    setEventSource: s.setCouncilEventSource,
+    reset: s.resetCouncil,
+  };
+}
+
+export function useCouncilStore(): CouncilSlice;
+export function useCouncilStore<T>(selector: (slice: CouncilSlice) => T): T;
+export function useCouncilStore(selector?: any): any {
+  const isActive = useAppStore((s) => s.councilIsActive);
+  const sessionId = useAppStore((s) => s.councilSessionId);
+  const phase = useAppStore((s) => s.councilPhase);
+  const topic = useAppStore((s) => s.councilTopic);
+  const currentRound = useAppStore((s) => s.councilCurrentRound);
+  const statements = useAppStore((s) => s.councilStatements);
+  const result = useAppStore((s) => s.councilResult);
+  const finalProposal = useAppStore((s) => s.councilFinalProposal);
+  const minorityOpinion = useAppStore((s) => s.councilMinorityOpinion);
+  const error = useAppStore((s) => s.councilError);
+  const eventSource = useAppStore((s) => s.councilEventSource);
+  const startCouncil = useAppStore((s) => s.startCouncil);
+  const addStatement = useAppStore((s) => s.addStatement);
+  const setPhase = useAppStore((s) => s.setCouncilPhase);
+  const setRound = useAppStore((s) => s.setCouncilRound);
+  const setResult = useAppStore((s) => s.setCouncilResult);
+  const setError = useAppStore((s) => s.setCouncilError);
+  const setEventSource = useAppStore((s) => s.setCouncilEventSource);
+  const reset = useAppStore((s) => s.resetCouncil);
+  const slice: CouncilSlice = { isActive, sessionId, phase, topic, currentRound, statements, result, finalProposal, minorityOpinion, error, eventSource, startCouncil, addStatement, setPhase, setRound, setResult, setError, setEventSource, reset };
+  return selector ? selector(slice) : slice;
+}
+
+useCouncilStore.getState = () => councilSlice(useAppStore.getState());
+useCouncilStore.setState = (partial: Partial<CouncilSlice>) => {
+  useAppStore.setState({
+    ...(partial.isActive !== undefined && { councilIsActive: partial.isActive }),
+    ...(partial.sessionId !== undefined && { councilSessionId: partial.sessionId }),
+    ...(partial.phase !== undefined && { councilPhase: partial.phase }),
+    ...(partial.topic !== undefined && { councilTopic: partial.topic }),
+    ...(partial.currentRound !== undefined && { councilCurrentRound: partial.currentRound }),
+    ...(partial.statements !== undefined && { councilStatements: partial.statements }),
+    ...(partial.result !== undefined && { councilResult: partial.result }),
+    ...(partial.finalProposal !== undefined && { councilFinalProposal: partial.finalProposal }),
+    ...(partial.minorityOpinion !== undefined && { councilMinorityOpinion: partial.minorityOpinion }),
+    ...(partial.error !== undefined && { councilError: partial.error }),
+    ...(partial.eventSource !== undefined && { councilEventSource: partial.eventSource }),
+  } as any);
 };
-
-export const useCouncilStore = create<CouncilState>((set, get) => ({
-  ...initialState,
-
-  startCouncil: (sessionId, topic) =>
-    set({
-      isActive: true,
-      sessionId,
-      topic,
-      phase: "convening",
-      currentRound: 0,
-      statements: [],
-      result: null,
-      finalProposal: null,
-      minorityOpinion: null,
-      error: null,
-    }),
-
-  addStatement: (statement) =>
-    set((state) => ({
-      statements: [...state.statements, statement],
-    })),
-
-  setPhase: (phase) => set({ phase }),
-
-  setRound: (round) => set({ currentRound: round }),
-
-  setResult: (result, finalProposal, minorityOpinion) =>
-    set({ result, finalProposal, minorityOpinion }),
-
-  setError: (error) => set({ error, isActive: false }),
-
-  setEventSource: (es) => set({ eventSource: es }),
-
-  reset: () => {
-    const { eventSource } = get();
-    if (eventSource) {
-      eventSource.close();
-    }
-    set({ ...initialState });
-  },
-}));

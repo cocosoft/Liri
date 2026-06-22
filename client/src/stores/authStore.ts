@@ -1,184 +1,126 @@
-import { create } from "zustand";
-import { authService, type User, type ApiKey } from "../services/authService";
+/**
+ * Auth Store — 薄委托层
+ *
+ * 此文件保持向后兼容的导出接口（useAuthStore, useApiKeyStore），
+ * 内部状态和方法已合并到 appStore，此处仅提供基于 useAppStore 的封装。
+ *
+ * 消费方无需修改 import 路径即可继续使用。
+ */
 
-interface AuthStore {
+import { useAppStore } from "./appStore";
+import type { User, ApiKey } from "../services/authService";
+
+// ============================================================
+// useAuthStore — 认证状态委托
+// ============================================================
+
+interface AuthSlice {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-
   login: (username: string, password: string) => Promise<void>;
-  register: (
-    username: string,
-    password: string,
-    email?: string,
-  ) => Promise<void>;
+  register: (username: string, password: string, email?: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  user: authService.getStoredUser(),
-  token: authService.getStoredToken(),
-  isAuthenticated: authService.isAuthenticated(),
-  isLoading: false,
-  error: null,
+function authSlice(s: {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  authLoading: boolean;
+  authError: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string, email?: string) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
+  clearAuthError: () => void;
+}): AuthSlice {
+  return {
+    user: s.user,
+    token: s.token,
+    isAuthenticated: s.isAuthenticated,
+    isLoading: s.authLoading,
+    error: s.authError,
+    login: s.login,
+    register: s.register,
+    logout: s.logout,
+    checkAuth: s.checkAuth,
+    clearError: s.clearAuthError,
+  };
+}
 
-  login: async (username: string, password: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await authService.login({ username, password });
-      set({
-        user: response.user,
-        token: response.token,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "登录失败",
-        isLoading: false,
-      });
-      throw e;
-    }
-  },
+export function useAuthStore(): AuthSlice;
+export function useAuthStore<T>(selector: (slice: AuthSlice) => T): T;
+export function useAuthStore(selector?: any): any {
+  const user = useAppStore((s) => s.user);
+  const token = useAppStore((s) => s.token);
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const isLoading = useAppStore((s) => s.authLoading);
+  const error = useAppStore((s) => s.authError);
+  const login = useAppStore((s) => s.login);
+  const register = useAppStore((s) => s.register);
+  const logout = useAppStore((s) => s.logout);
+  const checkAuth = useAppStore((s) => s.checkAuth);
+  const clearError = useAppStore((s) => s.clearAuthError);
+  const slice = { user, token, isAuthenticated, isLoading, error, login, register, logout, checkAuth, clearError };
+  return selector ? selector(slice) : slice;
+}
 
-  register: async (username: string, password: string, email?: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await authService.register({
-        username,
-        password,
-        email,
-      });
-      set({
-        user: response.user,
-        token: response.token,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "注册失败",
-        isLoading: false,
-      });
-      throw e;
-    }
-  },
+useAuthStore.getState = () => authSlice(useAppStore.getState());
 
-  logout: async () => {
-    set({ isLoading: true });
-    try {
-      await authService.logout();
-    } finally {
-      set({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
-    }
-  },
+// ============================================================
+// useApiKeyStore — API Key 状态委托
+// ============================================================
 
-  checkAuth: async () => {
-    if (!authService.isAuthenticated()) {
-      set({ isAuthenticated: false, user: null });
-      return;
-    }
-    set({ isLoading: true });
-    try {
-      const user = await authService.getCurrentUser();
-      set({
-        user,
-        isAuthenticated: !!user,
-        isLoading: false,
-      });
-    } catch {
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
-    }
-  },
-
-  clearError: () => set({ error: null }),
-}));
-
-interface ApiKeyStore {
+interface ApiKeySlice {
   apiKeys: ApiKey[];
   isLoading: boolean;
   error: string | null;
-
   loadApiKeys: () => Promise<void>;
-  createApiKey: (
-    name: string,
-    permissions: string[],
-    expiresInDays?: number,
-  ) => Promise<string>;
+  createApiKey: (name: string, permissions: string[], expiresInDays?: number) => Promise<string>;
   deleteApiKey: (id: string) => Promise<void>;
 }
 
-export const useApiKeyStore = create<ApiKeyStore>((set) => ({
-  apiKeys: [],
-  isLoading: false,
-  error: null,
+function apiKeySlice(s: {
+  apiKeys: ApiKey[];
+  apiKeyLoading: boolean;
+  apiKeyError: string | null;
+  loadApiKeys: () => Promise<void>;
+  createApiKey: (name: string, permissions: string[], expiresInDays?: number) => Promise<string>;
+  deleteApiKey: (id: string) => Promise<void>;
+}): ApiKeySlice {
+  return {
+    apiKeys: s.apiKeys,
+    isLoading: s.apiKeyLoading,
+    error: s.apiKeyError,
+    loadApiKeys: s.loadApiKeys,
+    createApiKey: s.createApiKey,
+    deleteApiKey: s.deleteApiKey,
+  };
+}
 
-  loadApiKeys: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const apiKeys = await authService.listApiKeys();
-      set({ apiKeys, isLoading: false });
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "获取API密钥列表失败",
-        isLoading: false,
-      });
-    }
-  },
+export function useApiKeyStore(): ApiKeySlice;
+export function useApiKeyStore<T>(selector: (slice: ApiKeySlice) => T): T;
+export function useApiKeyStore(selector?: any): any {
+  const apiKeys = useAppStore((s) => s.apiKeys);
+  const isLoading = useAppStore((s) => s.apiKeyLoading);
+  const error = useAppStore((s) => s.apiKeyError);
+  const loadApiKeys = useAppStore((s) => s.loadApiKeys);
+  const createApiKey = useAppStore((s) => s.createApiKey);
+  const deleteApiKey = useAppStore((s) => s.deleteApiKey);
+  const slice = { apiKeys, isLoading, error, loadApiKeys, createApiKey, deleteApiKey };
+  return selector ? selector(slice) : slice;
+}
 
-  createApiKey: async (
-    name: string,
-    permissions: string[],
-    expiresInDays?: number,
-  ) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await authService.createApiKey(
-        name,
-        permissions,
-        expiresInDays,
-      );
-      set((state) => ({
-        apiKeys: [...state.apiKeys, { ...result, key: undefined } as ApiKey],
-        isLoading: false,
-      }));
-      return result.key;
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "创建API密钥失败",
-        isLoading: false,
-      });
-      throw e;
-    }
-  },
-
-  deleteApiKey: async (id: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      await authService.deleteApiKey(id);
-      set((state) => ({
-        apiKeys: state.apiKeys.filter((k) => k.id !== id),
-        isLoading: false,
-      }));
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "删除API密钥失败",
-        isLoading: false,
-      });
-      throw e;
-    }
-  },
-}));
+useApiKeyStore.getState = () => apiKeySlice({
+  apiKeys: useAppStore.getState().apiKeys,
+  apiKeyLoading: useAppStore.getState().apiKeyLoading,
+  apiKeyError: useAppStore.getState().apiKeyError,
+  loadApiKeys: useAppStore.getState().loadApiKeys,
+  createApiKey: useAppStore.getState().createApiKey,
+  deleteApiKey: useAppStore.getState().deleteApiKey,
+});

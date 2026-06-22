@@ -1,60 +1,56 @@
-import { create } from "zustand";
+/**
+ * 向后兼容 — 已合并到 appStore
+ *
+ * 原独立 Store 已合并到 appStore，此文件为薄封装层。
+ * 新代码请直接使用 useAppStore。
+ */
+import { useAppStore } from "./appStore";
 import type { KnowledgeItem } from "../types";
-import { knowledgeService } from "../services/knowledgeService";
 
-interface KnowledgeStore {
+export type { KnowledgeItem };
+
+/** Knowledge 相关状态切片 */
+interface KnowledgeSlice {
   items: KnowledgeItem[];
   isLoading: boolean;
   error: string | null;
   loadItems: () => Promise<void>;
-  createItem: (
-    item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">,
-  ) => Promise<void>;
+  createItem: (item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">) => Promise<void>;
   updateItem: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
 
-export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
-  items: [],
-  isLoading: false,
-  error: null,
+function knowledgeSlice(state: { knowledgeItems: KnowledgeItem[]; knowledgeLoading: boolean; knowledgeError: string | null; loadKnowledge: () => Promise<void>; createKnowledge: (item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">) => Promise<void>; updateKnowledge: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>; deleteKnowledge: (id: string) => Promise<void> }): KnowledgeSlice {
+  return {
+    items: state.knowledgeItems,
+    isLoading: state.knowledgeLoading,
+    error: state.knowledgeError,
+    loadItems: state.loadKnowledge,
+    createItem: state.createKnowledge,
+    updateItem: state.updateKnowledge,
+    deleteItem: state.deleteKnowledge,
+  };
+}
 
-  loadItems: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const items = await knowledgeService.list();
-      set({ items, isLoading: false });
-    } catch (e) {
-      set({ error: String(e), isLoading: false });
-    }
-  },
+export function useKnowledgeStore(): KnowledgeSlice;
+export function useKnowledgeStore<T>(selector: (slice: KnowledgeSlice) => T): T;
+export function useKnowledgeStore(selector?: any): any {
+  const items = useAppStore((s) => s.knowledgeItems);
+  const isLoading = useAppStore((s) => s.knowledgeLoading);
+  const error = useAppStore((s) => s.knowledgeError);
+  const loadItems = useAppStore((s) => s.loadKnowledge);
+  const createItem = useAppStore((s) => s.createKnowledge);
+  const updateItem = useAppStore((s) => s.updateKnowledge);
+  const deleteItem = useAppStore((s) => s.deleteKnowledge);
+  const slice = { items, isLoading, error, loadItems, createItem, updateItem, deleteItem };
+  return selector ? selector(slice) : slice;
+}
 
-  createItem: async (item) => {
-    try {
-      const created = await knowledgeService.create(item);
-      set({ items: [...get().items, created] });
-    } catch (e) {
-      set({ error: String(e) });
-    }
-  },
-
-  updateItem: async (id, updates) => {
-    try {
-      const updated = await knowledgeService.update(id, updates);
-      set({
-        items: get().items.map((i) => (i.id === id ? updated : i)),
-      });
-    } catch (e) {
-      set({ error: String(e) });
-    }
-  },
-
-  deleteItem: async (id: string) => {
-    try {
-      await knowledgeService.delete(id);
-      set({ items: get().items.filter((i) => i.id !== id) });
-    } catch (e) {
-      set({ error: String(e) });
-    }
-  },
-}));
+useKnowledgeStore.getState = () => knowledgeSlice(useAppStore.getState());
+useKnowledgeStore.setState = (partial: Partial<KnowledgeSlice>) => {
+  useAppStore.setState({
+    ...(partial.items !== undefined && { knowledgeItems: partial.items }),
+    ...(partial.isLoading !== undefined && { knowledgeLoading: partial.isLoading }),
+    ...(partial.error !== undefined && { knowledgeError: partial.error }),
+  } as any);
+};

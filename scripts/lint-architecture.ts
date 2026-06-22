@@ -820,6 +820,121 @@ class ArchitectureLinter {
         console.log(`\n[Message 模型] ${messageDefs.length} 个文件自定 Message 类型（规范来源: chat/types/message.ts）`);
     }
 
+    /** R05-013: 类型中心重复定义检测 — 检查模块本地类型是否已在 src/types/ 中定义 */
+    async checkTypeCenterDuplicates(): Promise<void> {
+        // Step 1: 收集类型中心已定义的所有公开类型名
+        const typeCenterTypes = new Set<string>();
+        const typeCenterDir = resolve(this.srcPath, 'types');
+        const typeCenterFiles = collectTsFiles(typeCenterDir);
+
+        for (const file of typeCenterFiles) {
+            const content = readFileSync(file, 'utf-8');
+            const patterns = [
+                /export\s+interface\s+(\w+)/g,
+                /export\s+type\s+(\w+)\s*=/g,
+                /export\s+class\s+(\w+)/g,
+            ];
+            for (const regex of patterns) {
+                const matches = [...content.matchAll(regex)];
+                for (const match of matches) {
+                    typeCenterTypes.add(match[1]);
+                }
+            }
+        }
+
+        if (typeCenterTypes.size === 0) {
+            console.log('\n[类型中心] src/types/ 为空，跳过 R05-013 检查');
+            return;
+        }
+
+        console.log(`\n[类型中心] 已收录 ${typeCenterTypes.size} 个公开类型`);
+
+        // 已知合法的同名类型（模块入口、子模块 index 等）
+        const knownSafePatterns = [
+            /channels[/\\][^/\\]+[/\\](config-schema|accounts|doctor|monitor|probe|runtime|channel\.runtime)\.ts$/,
+            /[/\\]index\.ts$/,
+        ];
+
+        // 已知例外：文件路径中包含这些片段的跳过（模块内私有类型，允许与类型中心同名）
+        const knownExceptions = [
+            // 工具模块内部的类型定义（不同类型的 ToolResult，各有差异）
+            'tools/types/ToolResult.ts',
+            'tools/types/ToolTypes.ts',
+            'chat/types/tool.ts',
+            'chat/types/ToolUseBlock.ts',
+            // 权限模块内部类型
+            'permission/types/PermissionContext.ts',
+            'security/permission/PermissionContext.ts',
+            'permission/Permission.ts',
+            'permission/PermissionChecker.ts',
+            // AI 层工具接口
+            'ai/interfaces/ToolExecutor.ts',
+            // 运行时 API 类型
+            'runtime/api/CoreAPI.ts',
+            // 核心内部类型（与类型中心概念不同）
+            'core/types.ts',
+            // 代理内部消息类型
+            'agent/TitleGenerator.ts',
+            'agent/utils/PermissionSyncManager.ts',
+            // 子代理消息（独立概念）
+            'subagent/SubAgentCommunicator.ts',
+            // 服务层消息
+            'services/compact/ContextEngine.ts',
+            // UI 组件消息
+            'ui/components/Messages.tsx',
+        ];
+
+        let conflictCount = 0;
+        const conflicts: Array<{ file: string; name: string }> = [];
+
+        for (const file of this.allFiles) {
+            // 跳过类型中心文件本身
+            if (file.startsWith(typeCenterDir)) continue;
+            // 跳过已知安全模式
+            if (knownSafePatterns.some(p => p.test(file))) continue;
+            // 跳过已知例外
+            const relFile = relative(this.srcPath, file).replace(/\\/g, '/');
+            if (knownExceptions.some(e => relFile.includes(e))) continue;
+
+            const content = readFileSync(file, 'utf-8');
+
+            // 检查 export interface / type / class 是否与类型中心冲突
+            const exportRegex = /export\s+(interface|type|class)\s+(\w+)/g;
+            const matches = [...content.matchAll(exportRegex)];
+            for (const match of matches) {
+                const name = match[2];
+                if (typeCenterTypes.has(name)) {
+                    conflictCount++;
+                    conflicts.push({ file: relFile, name });
+                }
+            }
+        }
+
+        if (conflictCount > 0) {
+            // 按类型名分组展示
+            const byType = new Map<string, string[]>();
+            for (const c of conflicts) {
+                if (!byType.has(c.name)) byType.set(c.name, []);
+                byType.get(c.name)!.push(c.file);
+            }
+
+            const details = [...byType.entries()]
+                .slice(0, 10)
+                .map(([name, files]) => `    ${name}: ${files.length} 处 — ${files.slice(0, 3).join(', ')}${files.length > 3 ? `... (共 ${files.length} 处)` : ''}`)
+                .join('\n');
+
+            this.violations.push({
+                ruleId: 'R05-013',
+                severity: 'warning',
+                file: conflicts[0].file,
+                message: `存在 ${conflictCount} 处类型定义与类型中心 src/types/ 冲突（${byType.size} 个类型名）`,
+                suggestion: `请考虑从 @modules/types 导入已有类型，而非重新定义:\n${details}\n  如需保留独立定义，请将文件加入 knownExceptions`,
+            });
+        }
+
+        console.log(`\n[类型中心冲突] ${conflictCount} 处冲突（${[...new Set(conflicts.map(c => c.name))].length} 个类型名）`);
+    }
+
     /** R05-012: config/env 门禁 — 检测 process.env 直接访问 */
     async checkConfigEnvAccess(): Promise<void> {
         // 白名单：允许直接访问的 process.env 变量
@@ -1442,6 +1557,7 @@ class ArchitectureLinter {
             this.checkConsoleBaseline(),
             this.checkBarrelFiles(),
             this.checkMessageModelImports(),
+            this.checkTypeCenterDuplicates(),
             this.checkConfigEnvAccess(),
             this.checkDuplicateDependencies(),
             this.checkTsconfigEslintConsistency(),

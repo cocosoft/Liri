@@ -1,39 +1,29 @@
-import { create } from "zustand";
+/**
+ * 向后兼容 — 已合并到 appStore
+ *
+ * 原独立 Store 已合并到 appStore，此文件为薄封装层。
+ * 新代码请直接使用 useAppStore。
+ */
+import { useAppStore } from "./appStore";
 import type { CronTask, ScheduleMode } from "../types";
-import { cronService } from "../services/cronService";
 
-interface CronSchedulerStatus {
-  running: boolean;
-  lastTickAt?: number;
-  activeJobs: number;
-  totalJobs: number;
-  uptimeMs: number;
-}
+export type { CronTask, ScheduleMode };
 
-interface CronStore {
+/** Cron 状态切片 */
+interface CronSlice {
   tasks: CronTask[];
   isLoading: boolean;
   error: string | null;
   saving: boolean;
-  schedulerStatus: CronSchedulerStatus | null;
+  schedulerStatus: { running: boolean; lastTickAt?: number; activeJobs: number; totalJobs: number; uptimeMs: number } | null;
   statusLoading: boolean;
-
   loadTasks: () => Promise<void>;
   loadStatus: () => Promise<void>;
   createTask: (task: {
-    name: string;
-    expression: string;
-    prompt?: string;
-    description?: string;
-    enabled?: boolean;
-    scheduleMode?: ScheduleMode;
-    silent?: boolean;
-    everyValue?: number;
-    everyUnit?: string;
-    atHour?: string;
-    atMinute?: string;
-    deliver?: string;
-    deliverTo?: string;
+    name: string; expression: string; prompt?: string; description?: string;
+    enabled?: boolean; scheduleMode?: ScheduleMode; silent?: boolean;
+    everyValue?: number; everyUnit?: string; atHour?: string; atMinute?: string;
+    deliver?: string; deliverTo?: string;
   }) => Promise<void>;
   updateTask: (id: string, updates: Partial<CronTask>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -41,108 +31,52 @@ interface CronStore {
   runTaskNow: (id: string) => Promise<void>;
 }
 
-export const useCronStore = create<CronStore>((set, get) => ({
-  tasks: [],
-  isLoading: false,
-  error: null,
-  saving: false,
-  schedulerStatus: null,
-  statusLoading: false,
+function cronSlice(s: any): CronSlice {
+  return {
+    tasks: s.cronTasks,
+    isLoading: s.cronLoading,
+    error: s.cronError,
+    saving: s.cronSaving,
+    schedulerStatus: s.cronSchedulerStatus,
+    statusLoading: s.cronStatusLoading,
+    loadTasks: s.loadCronTasks,
+    loadStatus: s.loadCronStatus,
+    createTask: s.createCronTask,
+    updateTask: s.updateCronTask,
+    deleteTask: s.deleteCronTask,
+    toggleTask: s.toggleCronTask,
+    runTaskNow: s.runCronTaskNow,
+  };
+}
 
-  loadTasks: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const tasks = await cronService.list();
-      set({ tasks, isLoading: false });
-    } catch (e) {
-      set({ error: String(e), isLoading: false });
-    }
-  },
+export function useCronStore(): CronSlice;
+export function useCronStore<T>(selector: (slice: CronSlice) => T): T;
+export function useCronStore(selector?: any): any {
+  const tasks = useAppStore((s) => s.cronTasks);
+  const isLoading = useAppStore((s) => s.cronLoading);
+  const error = useAppStore((s) => s.cronError);
+  const saving = useAppStore((s) => s.cronSaving);
+  const schedulerStatus = useAppStore((s) => s.cronSchedulerStatus);
+  const statusLoading = useAppStore((s) => s.cronStatusLoading);
+  const loadTasks = useAppStore((s) => s.loadCronTasks);
+  const loadStatus = useAppStore((s) => s.loadCronStatus);
+  const createTask = useAppStore((s) => s.createCronTask);
+  const updateTask = useAppStore((s) => s.updateCronTask);
+  const deleteTask = useAppStore((s) => s.deleteCronTask);
+  const toggleTask = useAppStore((s) => s.toggleCronTask);
+  const runTaskNow = useAppStore((s) => s.runCronTaskNow);
+  const slice: CronSlice = { tasks, isLoading, error, saving, schedulerStatus, statusLoading, loadTasks, loadStatus, createTask, updateTask, deleteTask, toggleTask, runTaskNow };
+  return selector ? selector(slice) : slice;
+}
 
-  loadStatus: async () => {
-    set({ statusLoading: true });
-    try {
-      const status = await cronService.getStatus();
-      set({ schedulerStatus: status, statusLoading: false });
-    } catch {
-      set({ schedulerStatus: null, statusLoading: false });
-    }
-  },
-
-  createTask: async (task) => {
-    set({ saving: true });
-    try {
-      const created = await cronService.create({
-        name: task.name,
-        expression: task.expression,
-        prompt: task.prompt,
-        description: task.description ?? "",
-        enabled: task.enabled ?? true,
-        scheduleMode: task.scheduleMode,
-        silent: task.silent,
-        everyValue: task.everyValue,
-        everyUnit: task.everyUnit,
-        atHour: task.atHour,
-        atMinute: task.atMinute,
-        deliver: task.deliver,
-        deliverTo: task.deliverTo,
-      } as any);
-      set({ tasks: [...get().tasks, created] });
-    } catch (e) {
-      set({ error: String(e) });
-    } finally {
-      set({ saving: false });
-    }
-  },
-
-  updateTask: async (id, updates) => {
-    set({ saving: true });
-    try {
-      const updated = await cronService.update(id, updates);
-      set({
-        tasks: get().tasks.map((t) => (t.id === id ? updated : t)),
-      });
-    } catch (e) {
-      set({ error: String(e) });
-    } finally {
-      set({ saving: false });
-    }
-  },
-
-  deleteTask: async (id) => {
-    set({ saving: true });
-    try {
-      await cronService.delete(id);
-      set({ tasks: get().tasks.filter((t) => t.id !== id) });
-    } catch (e) {
-      set({ error: String(e) });
-    } finally {
-      set({ saving: false });
-    }
-  },
-
-  toggleTask: async (id, enabled) => {
-    set({ saving: true });
-    try {
-      const updated = await cronService.toggle(id, enabled);
-      set({
-        tasks: get().tasks.map((t) => (t.id === id ? updated : t)),
-      });
-    } catch (e) {
-      set({ error: String(e) });
-    } finally {
-      set({ saving: false });
-    }
-  },
-
-  runTaskNow: async (id) => {
-    set({ saving: true });
-    try {
-      await cronService.runNow(id);
-    } catch (e) {
-      set({ error: String(e) });
-    } finally {
-      set({ saving: false });
-    }
-  },
-}));
+useCronStore.getState = () => cronSlice(useAppStore.getState());
+useCronStore.setState = (partial: Partial<CronSlice>) => {
+  useAppStore.setState({
+    ...(partial.tasks !== undefined && { cronTasks: partial.tasks }),
+    ...(partial.isLoading !== undefined && { cronLoading: partial.isLoading }),
+    ...(partial.error !== undefined && { cronError: partial.error }),
+    ...(partial.saving !== undefined && { cronSaving: partial.saving }),
+    ...(partial.schedulerStatus !== undefined && { cronSchedulerStatus: partial.schedulerStatus }),
+    ...(partial.statusLoading !== undefined && { cronStatusLoading: partial.statusLoading }),
+  } as any);
+};

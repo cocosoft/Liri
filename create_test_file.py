@@ -1,0 +1,85 @@
+import pathlib
+fpath = pathlib.Path('e:/PY/CODES/PY_APP/app/src/tools/utils/ToolUtils.ts')
+raw = fpath.read_bytes()
+text = raw.decode('utf-8')  # Decode as UTF-8
+lines = text.split('\n')
+
+# Write lines 15-51 to a test file (the ToolUtils class structure)
+# These are the non-comment structural lines
+with open('e:/PY/CODES/PY_APP/test_toolutils.ts', 'w', encoding='utf-8') as f:
+    # Write imports
+    f.write('import { Tool } from "./ToolUtils_types";\n')
+    f.write('import { ToolResult } from "./ToolUtils_types";\n')
+    f.write('import { ToolProgressData } from "./ToolUtils_types";\n')
+    f.write('import * as path from "path";\n')
+    f.write('\n')
+    f.write('export class ToolUtils {\n')
+    
+    # Write validateInput method with comments stripped
+    f.write('  static validateInput(\n')
+    f.write('    tool: Tool,\n')
+    f.write('    input: Record<string, unknown>\n')
+    f.write('  ): { valid: boolean; error: string | null } {\n')
+    f.write('    if (!tool.params) {\n')
+    f.write('      return { valid: true, error: null };\n')
+    f.write('    }\n')
+    f.write('    for (const param of tool.params) {\n')
+    f.write('      if (param.required && !(param.name in input)) {\n')
+    f.write('        return {\n')
+    f.write('          valid: false,\n')
+    f.write('          error: `Missing required parameter: ${param.name}`,\n')
+    f.write('        };\n')
+    f.write('      }\n')
+    f.write('      if (param.name in input) {\n')
+    f.write('        const value = input[param.name];\n')
+    f.write('        const type = param.type;\n')
+    f.write('        if (!this.isValidType(value, type)) {\n')
+    f.write('          return {\n')
+    f.write('            valid: false,\n')
+    f.write('            error: `Invalid type for parameter ${param.name}: expected ${type}`,\n')
+    f.write('          };\n')
+    f.write('        }\n')
+    f.write('      }\n')
+    f.write('    }\n')
+    f.write('    return { valid: true, error: null };\n')
+    f.write('  }\n')
+    
+    # Write isValidType
+    f.write('  static isValidType(value: unknown, type: string): boolean {\n')
+    f.write('    switch (type) {\n')
+    f.write("      case 'string':\n")
+    f.write("        return typeof value === 'string';\n")
+    f.write("      case 'number':\n")
+    f.write("        return typeof value === 'number' && !isNaN(value);\n")
+    f.write("      case 'boolean':\n")
+    f.write("        return typeof value === 'boolean';\n")
+    f.write('      default:\n')
+    f.write('        return true;\n')
+    f.write('    }\n')
+    f.write('  }\n')
+    
+    # Write other key methods (skeleton)
+    f.write('}\n')
+
+print("Created test_toolutils.ts")
+
+# Also create minimal type stubs
+with open('e:/PY/CODES/PY_APP/test_toolutils_types.ts', 'w', encoding='utf-8') as f:
+    f.write('export interface Tool {\n')
+    f.write('  params?: ToolParam[];\n')
+    f.write('}\n')
+    f.write('export interface ToolParam {\n')
+    f.write('  name: string;\n')
+    f.write('  required?: boolean;\n')
+    f.write('  type: string;\n')
+    f.write('}\n')
+    f.write('export interface ToolResult<T = unknown> {\n')
+    f.write('  data?: T;\n')
+    f.write('  error?: string;\n')
+    f.write('}\n')
+    f.write('export interface ToolProgressData {\n')
+    f.write('  progress: number;\n')
+    f.write('  message: string;\n')
+    f.write('}\n')
+
+print("Created test_toolutils_types.ts")

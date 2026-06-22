@@ -4,7 +4,7 @@ import type { ToolCall, TaskCardTask, ProgressData } from "../types";
 import { chatService } from "../services/chatService";
 import { httpLegacy as http } from "../services/httpClient";
 import { resolveFilePath } from "../services/filePathResolver";
-import { useSessionStore } from "./sessionStore";
+import { sessionCoordinator, registerChatOperations } from "./sessionChatCoordinator";
 import { useFeatureFlagStore } from "./featureFlags";
 
 /**
@@ -249,7 +249,7 @@ function shouldAutoRename(sessionId?: string): boolean {
     return false;
   }
 
-  const store = useSessionStore.getState();
+  const store = sessionCoordinator().getState();
 
   // 优先从 currentSession 查找
   if (store.currentSession?.id === sessionId) {
@@ -282,12 +282,12 @@ async function doAutoRename(
     );
 
     const finalTitle = title || userMessage.slice(0, 30) + (userMessage.length > 30 ? "…" : "");
-    useSessionStore.getState().renameSession(sessionId, finalTitle);
+    sessionCoordinator().renameSession(sessionId, finalTitle);
   } catch (_error) {
     // LLM 生成标题失败，用用户消息前30字符降级
     const fallbackTitle =
       userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
-    useSessionStore.getState().renameSession(sessionId, fallbackTitle);
+    sessionCoordinator().renameSession(sessionId, fallbackTitle);
   }
 }
 
@@ -1534,6 +1534,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 }));
+
+// 注册 chat 端操作供 sessionStore 通过协调器访问
+registerChatOperations({
+  clearMessages: () => useChatStore.getState().clearMessages(),
+  stopMessage: () => useChatStore.getState().stopMessage(),
+  flushPendingSaves: () => useChatStore.getState().flushPendingSaves(),
+  setMessages: (messages) => useChatStore.getState().setMessages(messages),
+});
+
+// 状态变更日志（仅开发环境）
+import { withStoreLogging } from "../utils/storeLogger";
+withStoreLogging(useChatStore, "chatStore", []);
 
 /**
  * 查找消息中最后一个 tool_call 的 id

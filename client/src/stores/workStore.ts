@@ -1,41 +1,20 @@
-import { create } from "zustand";
+/**
+ * 向后兼容 — 已合并到 appStore
+ *
+ * 原独立 Store 已合并到 appStore，此文件为薄封装层。
+ * 新代码请直接使用 useAppStore。
+ */
+import { useAppStore } from "./appStore";
+import type { ContentView, WorkItemStatus, WorkItem } from "./appStore";
 
-/** 工作界面内容视图类型 */
-export type ContentView = "welcome" | "project" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules" | "agent";
+export type { ContentView, WorkItemStatus, WorkItem };
 
-/** 工作项生命周期状态 */
-export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";
-
-/** 工作项 */
-export interface WorkItem {
-  id: string;
-  title: string;
-  status: WorkItemStatus;
-  description?: string;
-  type?: string;
-  workspaceId?: string;
-  sessionId?: string;
-  createdAt: number;
-  updatedAt?: number;
-  completedAt?: number;
-  tags?: string[];
-  priority?: number;
-}
-
-interface WorkStore {
-  /** Plan/Do 工作模式 */
+/** Work 状态切片 */
+interface WorkSlice {
   mode: "plan" | "do";
-
-  /** 当前活跃的工作项 */
   activeWorkItem: WorkItem | null;
-
-  /** 中间内容区视图 */
   contentView: ContentView;
-
-  /** 后端配置的可见 Tab 列表（undefined 时显示全部 Tab） */
   workTabs: string[] | undefined;
-
-  /** 动作 */
   setMode: (mode: "plan" | "do") => void;
   toggleMode: () => void;
   setActiveWorkItem: (item: WorkItem | null) => void;
@@ -43,36 +22,45 @@ interface WorkStore {
   setWorkTabs: (tabs: string[] | undefined) => void;
 }
 
-/**
- * 工作界面 UI 状态管理
- * 管理 Plan/Do 模式切换、内容视图路由、当前工作项
- * Phase 1-B 骨架阶段：仅本地状态，不依赖后端
- */
-export const useWorkStore = create<WorkStore>((set, get) => ({
-  mode: "plan",
-  activeWorkItem: null,
-  contentView: "welcome",
-  workTabs: undefined,
+function workSlice(state: {
+  workMode: "plan" | "do"; activeWorkItem: WorkItem | null; contentView: ContentView; workTabs: string[] | undefined;
+  setWorkMode: (mode: "plan" | "do") => void; toggleWorkMode: () => void; setActiveWorkItem: (item: WorkItem | null) => void;
+  setContentView: (view: ContentView) => void; setWorkTabs: (tabs: string[] | undefined) => void;
+}): WorkSlice {
+  return {
+    mode: state.workMode,
+    activeWorkItem: state.activeWorkItem,
+    contentView: state.contentView,
+    workTabs: state.workTabs,
+    setMode: state.setWorkMode,
+    toggleMode: state.toggleWorkMode,
+    setActiveWorkItem: state.setActiveWorkItem,
+    setContentView: state.setContentView,
+    setWorkTabs: state.setWorkTabs,
+  };
+}
 
-  setMode: (mode) => {
-    set({ mode });
-    // Plan 模式默认显示方案视图，Do 模式默认显示编辑器
-    if (mode === "plan") {
-      set({ contentView: "plan_schema" });
-    } else {
-      set({ contentView: "editor" });
-    }
-  },
+export function useWorkStore(): WorkSlice;
+export function useWorkStore<T>(selector: (slice: WorkSlice) => T): T;
+export function useWorkStore(selector?: any): any {
+  const mode = useAppStore((s) => s.workMode);
+  const activeWorkItem = useAppStore((s) => s.activeWorkItem);
+  const contentView = useAppStore((s) => s.contentView);
+  const workTabs = useAppStore((s) => s.workTabs);
+  const setMode = useAppStore((s) => s.setWorkMode);
+  const toggleMode = useAppStore((s) => s.toggleWorkMode);
+  const setActiveWorkItem = useAppStore((s) => s.setActiveWorkItem);
+  const setContentView = useAppStore((s) => s.setContentView);
+  const setWorkTabs = useAppStore((s) => s.setWorkTabs);
+  const slice: WorkSlice = { mode, activeWorkItem, contentView, workTabs, setMode, toggleMode, setActiveWorkItem, setContentView, setWorkTabs };
+  return selector ? selector(slice) : slice;
+}
 
-  toggleMode: () => {
-    const current = get().mode;
-    const next = current === "plan" ? "do" : "plan";
-    get().setMode(next);
-  },
-
-  setActiveWorkItem: (item) => set({ activeWorkItem: item }),
-
-  setContentView: (view) => set({ contentView: view }),
-
-  setWorkTabs: (tabs) => set({ workTabs: tabs }),
-}));
+useWorkStore.getState = () => workSlice(useAppStore.getState());
+useWorkStore.setState = (partial: Partial<WorkSlice>) => {
+  useAppStore.setState({
+    ...(partial.mode !== undefined && { workMode: partial.mode }),
+    ...(partial.contentView !== undefined && { contentView: partial.contentView }),
+    ...(partial.workTabs !== undefined && { workTabs: partial.workTabs }),
+  } as any);
+};

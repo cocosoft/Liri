@@ -1,11 +1,16 @@
-import { create } from "zustand";
-import {
-  voiceService,
-  type VoiceSettings,
-  type VoiceSession,
-} from "../services/voiceService";
+/**
+ * 向后兼容 — 已合并到 appStore
+ *
+ * 原独立 Store 已合并到 appStore，此文件为薄封装层。
+ * 新代码请直接使用 useAppStore。
+ */
+import { useAppStore } from "./appStore";
+import type { VoiceSettings, VoiceSession } from "../services/voiceService";
 
-interface VoiceStore {
+export type { VoiceSettings, VoiceSession };
+
+/** Voice 状态切片 */
+interface VoiceSlice {
   settings: VoiceSettings | null;
   sessions: VoiceSession[];
   currentSession: VoiceSession | null;
@@ -14,7 +19,6 @@ interface VoiceStore {
   isPlaying: boolean;
   error: string | null;
   audioLevel: number;
-
   loadSettings: () => Promise<void>;
   updateSettings: (settings: Partial<VoiceSettings>) => Promise<void>;
   startRecording: () => Promise<void>;
@@ -24,93 +28,58 @@ interface VoiceStore {
   clearError: () => void;
 }
 
-export const useVoiceStore = create<VoiceStore>((set, get) => ({
-  settings: null,
-  sessions: [],
-  currentSession: null,
-  isRecording: false,
-  isProcessing: false,
-  isPlaying: false,
-  error: null,
-  audioLevel: 0,
+function voiceSlice(s: any): VoiceSlice {
+  return {
+    settings: s.voiceSettings,
+    sessions: s.voiceSessions,
+    currentSession: s.voiceCurrentSession,
+    isRecording: s.voiceIsRecording,
+    isProcessing: s.voiceIsProcessing,
+    isPlaying: s.voiceIsPlaying,
+    error: s.voiceError,
+    audioLevel: s.audioLevel,
+    loadSettings: s.loadVoiceSettings,
+    updateSettings: s.updateVoiceSettings,
+    startRecording: s.startRecording,
+    stopRecording: s.stopRecording,
+    playResponse: s.playResponse,
+    stopPlayback: s.stopPlayback,
+    clearError: s.clearVoiceError,
+  };
+}
 
-  loadSettings: async () => {
-    try {
-      const settings = await voiceService.getSettings();
-      set({ settings, error: null });
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : "加载语音设置失败" });
-    }
-  },
+export function useVoiceStore(): VoiceSlice;
+export function useVoiceStore<T>(selector: (slice: VoiceSlice) => T): T;
+export function useVoiceStore(selector?: any): any {
+  const settings = useAppStore((s) => s.voiceSettings);
+  const sessions = useAppStore((s) => s.voiceSessions);
+  const currentSession = useAppStore((s) => s.voiceCurrentSession);
+  const isRecording = useAppStore((s) => s.voiceIsRecording);
+  const isProcessing = useAppStore((s) => s.voiceIsProcessing);
+  const isPlaying = useAppStore((s) => s.voiceIsPlaying);
+  const error = useAppStore((s) => s.voiceError);
+  const audioLevel = useAppStore((s) => s.audioLevel);
+  const loadSettings = useAppStore((s) => s.loadVoiceSettings);
+  const updateSettings = useAppStore((s) => s.updateVoiceSettings);
+  const startRecording = useAppStore((s) => s.startRecording);
+  const stopRecording = useAppStore((s) => s.stopRecording);
+  const playResponse = useAppStore((s) => s.playResponse);
+  const stopPlayback = useAppStore((s) => s.stopPlayback);
+  const clearError = useAppStore((s) => s.clearVoiceError);
+  const slice: VoiceSlice = { settings, sessions, currentSession, isRecording, isProcessing, isPlaying, error, audioLevel, loadSettings, updateSettings, startRecording, stopRecording, playResponse, stopPlayback, clearError };
+  return selector ? selector(slice) : slice;
+}
 
-  updateSettings: async (updates) => {
-    const { settings } = get();
-    if (!settings) return;
-
-    set({ isProcessing: true, error: null });
-    try {
-      const updated = await voiceService.updateSettings({
-        ...settings,
-        ...updates,
-      });
-      set({ settings: updated });
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : "更新语音设置失败" });
-    } finally {
-      set({ isProcessing: false });
-    }
-  },
-
-  startRecording: async () => {
-    set({ isRecording: true, error: null, audioLevel: 0 });
-    try {
-      const session = await voiceService.startSession();
-      set({ currentSession: session });
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "开始录音失败",
-        isRecording: false,
-      });
-    }
-  },
-
-  stopRecording: async () => {
-    const { currentSession } = get();
-    if (!currentSession) {
-      set({ isRecording: false });
-      return;
-    }
-
-    set({ isRecording: false, isProcessing: true });
-    try {
-      await voiceService.endSession(currentSession.id);
-      set({ currentSession: null });
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : "停止录音失败" });
-    } finally {
-      set({ isProcessing: false });
-    }
-  },
-
-  playResponse: async (audioUrl) => {
-    try {
-      set({ isPlaying: true });
-      const audio = new Audio(audioUrl);
-      audio.onended = () => set({ isPlaying: false });
-      audio.onerror = () => {
-        set({ isPlaying: false, error: "音频播放失败" });
-      };
-      await audio.play();
-    } catch (e) {
-      set({ isPlaying: false, error: "音频播放失败" });
-    }
-  },
-
-  stopPlayback: () => {
-    set({ isPlaying: false });
-  },
-
-  clearError: () => set({ error: null }),
-}));
-
-export { voiceService } from "../services/voiceService";
+useVoiceStore.getState = () => voiceSlice(useAppStore.getState());
+useVoiceStore.setState = (partial: Partial<VoiceSlice>) => {
+  useAppStore.setState({
+    ...(partial.settings !== undefined && { voiceSettings: partial.settings }),
+    ...(partial.sessions !== undefined && { voiceSessions: partial.sessions }),
+    ...(partial.currentSession !== undefined && { voiceCurrentSession: partial.currentSession }),
+    ...(partial.isRecording !== undefined && { voiceIsRecording: partial.isRecording }),
+    ...(partial.isProcessing !== undefined && { voiceIsProcessing: partial.isProcessing }),
+    ...(partial.isPlaying !== undefined && { voiceIsPlaying: partial.isPlaying }),
+    ...(partial.error !== undefined && { voiceError: partial.error }),
+    ...(partial.audioLevel !== undefined && { audioLevel: partial.audioLevel }),
+  } as any);
+};

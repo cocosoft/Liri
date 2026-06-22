@@ -46,3 +46,7 @@ export const useConfigStore = create<ConfigStore>()(
     },
   ),
 );
+
+// 状态变更日志（仅开发环境）
+import { withStoreLogging } from "../utils/storeLogger";
+withStoreLogging(useConfigStore, "configStore", []);

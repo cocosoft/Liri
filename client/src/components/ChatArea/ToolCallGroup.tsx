@@ -159,7 +159,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
 
   // variant === "card"（默认）
   return (
-    <div className="border border-gray-400/20 rounded-lg overflow-hidden mb-1.5">
+    <div className="border border-gray-400/20 rounded-lg overflow-hidden mb-0">
       <button
         onClick={handleToggle}
         className="flex items-center gap-1.5 px-2.5 py-1 w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"

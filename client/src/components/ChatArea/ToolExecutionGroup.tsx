@@ -3,7 +3,7 @@ import type { MessageBlock } from "../../types";
 import ToolCallGroup from "./ToolCallGroup";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { useChatStore } from "../../stores/chatStore";
-import { getToolDisplayName, getArgKeyLabel } from "../../utils/toolHumanSummary";
+import { getToolDisplayName, getToolHumanSummary } from "../../utils/toolHumanSummary";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import GroupStatusLine from "./GroupStatusLine";
 import BlockItem from "./BlockItem";
@@ -78,30 +78,11 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     }
   }, [status]);
 
-  /** 从 tool_call 块提取关键参数摘要 */
+  /** 从 tool_call 块提取人话摘要 */
   const summaryText = useMemo(() => {
     for (const block of blocks) {
-      if (block.type === "tool_call" && block.toolCall?.arguments) {
-        const args = block.toolCall.arguments as Record<string, unknown>;
-        const entries = Object.entries(args);
-        if (entries.length > 0) {
-          const preview = entries
-            .slice(0, 2)
-            .map(([k, v]) => {
-              const label = getArgKeyLabel(k);
-              const value =
-                typeof v === "string"
-                  ? v.length > 40
-                    ? v.substring(0, 40) + "..."
-                    : v
-                  : String(v);
-              return `${label}: ${value}`;
-            })
-            .join(", ");
-          return entries.length > 2
-            ? `${preview} 等${entries.length}项`
-            : preview;
-        }
+      if (block.type === "tool_call" && block.toolCall) {
+        return getToolHumanSummary(block.toolCall);
       }
     }
     return "";
@@ -187,7 +168,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   }, [blocks]);
 
   return (
-    <div className="border border-gray-400/20 rounded-[10px] overflow-hidden mb-2">
+    <div className="border border-gray-400/20 rounded-[10px] overflow-hidden mb-1">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="flex items-center gap-2 px-3 py-1.5 bg-gray-400/[0.05] w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"

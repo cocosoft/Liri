@@ -454,7 +454,7 @@ function AssistantMessage({
     store.addMessage(newMsg);
   });
   return (
-    <div className="text-sm break-words max-w-none space-y-3">
+    <div className="text-sm break-words max-w-none space-y-1">
       {renderedContent}
       {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器 */}
       {isStreaming && (

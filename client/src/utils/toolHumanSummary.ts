@@ -15,37 +15,76 @@ import type { ToolCall } from "../types";
 
 /** 工具名 → 中文显示名 */
 const TOOL_NAME_MAP: Record<string, string> = {
-  // 搜索类
+  // ---- 搜索类 ----
+  web_search: "网络搜索",
+  web_fetch: "网页获取",
   "web-search": "网络搜索",
   "web-fetch": "网页获取",
-  search: "搜索",
-  search_knowledge: "搜索知识库",
   grep: "文本搜索",
   glob: "文件搜索",
+  file_search: "文件搜索",
+  search_knowledge: "搜索知识库",
 
-  // 文件操作类
-  read: "读取文件",
-  write: "写入文件",
-  delete: "删除文件",
-  create: "创建文件",
-  update: "更新文件",
+  // ---- 文件操作类 ----
+  file_read: "读取文件",
+  file_write: "写入文件",
+  file_edit: "编辑文件",
+  file_delete: "删除文件",
+  file_create: "创建文件",
+  file_convert: "文件转换",
 
-  // 执行类
+  // ---- 执行类 ----
+  bash: "终端命令",
+  powershell: "PowerShell",
   execute: "执行命令",
   run: "运行",
-  bash: "终端命令",
   shell: "终端命令",
 
-  // 通用操作
+  // ---- 通用操作 ----
   fetch: "获取内容",
   list: "列出",
   query: "查询",
   build_index: "构建索引",
 
-  // 项目管理类
+  // ---- 任务与规划类 ----
   todo_write: "任务管理",
-  task: "任务操作",
   plan: "规划",
+  ask_user_question: "询问用户",
+  save_conversation: "保存会话",
+  brief: "生成摘要",
+  sessions: "会话管理",
+
+  // ---- 内容生成类 ----
+  image_generate: "生成图片",
+  image_analysis: "分析图片",
+  image_svg_generate: "生成 SVG 图片",
+  music_generate: "生成音乐",
+  video_generate: "生成视频",
+  tts: "文字转语音",
+  image: "图片处理",
+  canvas: "画布操作",
+
+  // ---- 系统工具类 ----
+  clipboard: "剪贴板",
+  computer_use: "电脑操作",
+  notebook: "笔记本",
+  channel: "发送消息",
+  channel_manager: "频道管理",
+  broadcast: "广播消息",
+  gateway: "网关",
+
+  // ---- MCP ----
+  mcp_resource: "MCP 资源",
+
+  // ---- 任务编排 ----
+  create_task_list: "创建任务列表",
+  view_tasks: "查看任务",
+  abort_task: "中止任务",
+  view_plan: "查看规划",
+  update_task_status: "更新任务状态",
+  get_task_list: "获取任务列表",
+  task_output: "任务输出",
+  task_stop: "停止任务",
 };
 
 /**
@@ -70,41 +109,107 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
     case "grep":
       return formatSummary("正在搜索代码", getArgStr(args, "pattern"));
     case "glob":
+    case "file_search":
       return formatSummary("正在搜索文件", getArgStr(args, "pattern"));
+    case "web_search":
     case "web-search":
       return formatSummary("正在网络搜索", getArgStr(args, "query"));
+    case "web_fetch":
     case "web-fetch":
       return formatSummary("正在获取网页", summarizeUrl(args));
-    case "search":
-      return formatSummary("正在搜索", getArgStr(args, "query"));
     case "search_knowledge":
       return formatSummary("正在搜索知识库", getArgStr(args, "query"));
 
     // ---- 文件操作类 ----
+    case "file_read":
     case "read":
       return formatSummary("正在读取", getArgStr(args, "file_path", "path"));
+    case "file_write":
     case "write":
       return formatSummary("正在写入", `${getArgStr(args, "file_path", "path")}${summarizeSize(args)}`);
+    case "file_edit":
+      return formatSummary("正在编辑", getArgStr(args, "file_path", "path"));
+    case "file_delete":
     case "delete":
       return formatSummary("正在删除", getArgStr(args, "file_path", "path"));
+    case "file_create":
     case "create":
       return formatSummary("正在创建", getArgStr(args, "file_path", "path") || getArgStr(args, "name"));
-    case "update":
-      return formatSummary("正在更新", getArgStr(args, "file_path", "path"));
+    case "file_convert":
+      return formatSummary("正在转换文件", getArgStr(args, "file_path", "path", "input"));
 
     // ---- 执行类 ----
     case "bash":
+    case "powershell":
     case "shell":
     case "execute":
       return formatSummary("正在执行命令", summarizeCommand(args));
     case "run":
       return formatSummary("正在运行", getArgStr(args, "command") || getArgStr(args, "script"));
 
-    // ---- 项目管理类 ----
+    // ---- 任务与规划类 ----
     case "todo_write":
       return summarizeTodoWrite(args);
-    case "task":
-      return formatSummary("正在操作任务", getArgStr(args, "action") || getArgStr(args, "name"));
+    case "plan":
+      return formatSummary("正在规划", getArgStr(args, "title") || getArgStr(args, "name"));
+    case "ask_user_question":
+      return formatSummary("正在询问用户", getArgStr(args, "question"));
+    case "save_conversation":
+      return formatSummary("正在保存会话", getArgStr(args, "title") || getArgStr(args, "name"));
+    case "brief":
+      return "正在生成会话摘要";
+    case "sessions":
+      return formatSummary("正在管理会话", getArgStr(args, "action"));
+
+    // ---- 内容生成类 ----
+    case "image_generate":
+    case "image":
+      return formatSummary("正在生成图片", getArgStr(args, "prompt"));
+    case "image_analysis":
+      return formatSummary("正在分析图片", getArgStr(args, "image_path", "path"));
+    case "image_svg_generate":
+      return formatSummary("正在生成 SVG", getArgStr(args, "prompt"));
+    case "music_generate":
+      return formatSummary("正在生成音乐", getArgStr(args, "prompt"));
+    case "video_generate":
+      return formatSummary("正在生成视频", getArgStr(args, "prompt"));
+    case "tts":
+      return formatSummary("正在合成语音", getArgStr(args, "text"));
+    case "canvas":
+      return formatSummary("正在操作画布", getArgStr(args, "action"));
+
+    // ---- 系统工具类 ----
+    case "clipboard":
+      return formatSummary("正在操作剪贴板", getArgStr(args, "action"));
+    case "computer_use":
+      return formatSummary("正在模拟操作", getArgStr(args, "action"));
+    case "notebook":
+      return formatSummary("正在编辑笔记本", getArgStr(args, "action"));
+    case "channel":
+    case "channel_manager":
+    case "broadcast":
+    case "gateway":
+      return formatSummary("正在发送消息", getArgStr(args, "content"));
+
+    // ---- 任务编排 ----
+    case "create_task_list":
+      return formatSummary("创建任务列表", getArgStr(args, "title"));
+    case "view_tasks":
+    case "get_task_list":
+      return "查看任务列表";
+    case "abort_task":
+    case "task_stop":
+      return formatSummary("正在停止任务", getArgStr(args, "task_id", "id"));
+    case "view_plan":
+      return "查看规划";
+    case "update_task_status":
+      return formatSummary("更新任务状态", getArgStr(args, "task_id", "id"));
+    case "task_output":
+      return formatSummary("获取任务输出", getArgStr(args, "task_id", "id"));
+
+    // ---- MCP ----
+    case "mcp_resource":
+      return formatSummary("正在访问 MCP 资源", getArgStr(args, "resource", "name"));
 
     // ---- 通用 ----
     case "fetch":

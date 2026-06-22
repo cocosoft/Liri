@@ -78,6 +78,13 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         format!("{}\\.pyapp", dirs::home_dir().unwrap_or_default().display())
     };
 
+    // 确保数据目录存在（首次安装时目录不存在会导致 sidecar 启动失败，Windows error 267）
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("Failed to create data directory '{}': {}", data_dir, e))?;
+    // 同时确保 data 子目录存在（LIRI_DATA_DIR 环境变量指向此处）
+    std::fs::create_dir_all(format!("{}/data", data_dir))
+        .map_err(|e| format!("Failed to create data subdirectory '{}/data': {}", data_dir, e))?;
+
     // 获取 Tauri 进程当前工作目录作为项目根目录
     // 开发模式下为项目源代码根目录，确保第一层路径（app/docs/、app/config/ 等）解析正确
     let project_root = std::env::current_dir()

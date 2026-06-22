@@ -28,16 +28,12 @@ const BuddyPage = lazy(() => import("../components/views/BuddyPage"));
 const SkillMarketPage = lazy(() => import("../components/views/SkillMarketPage"));
 const MCPMarketPage = lazy(() => import("../components/views/MCPMarketPage"));
 const ModelPage = lazy(() => import("../components/views/ModelPage"));
-const LoginPage = lazy(() => import("../components/views/LoginPage"));
 // routes/index.tsx 原有保留路由
 const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
 
 /** 完整路由表——App.tsx（33 条）与 routes/index.tsx 原路由取并集，同名路由 App.tsx 优先（含 AuthGuard） */
 export const routes: RouteObject[] = [
-  // 登录（无 AuthGuard）
-  { path: "/login", element: <LoginPage /> },
-
   // 首页
   { path: "/", element: <AuthGuard><HomePage /></AuthGuard> },
 

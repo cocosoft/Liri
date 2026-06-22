@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 [dependencies]
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+encoding_rs = "0.8"
 
 [dev-dependencies]
 

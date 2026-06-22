@@ -1,5 +1,8 @@
-﻿/**
+/**
  * FileWriteTool - 文件写入工具
+ *
+ * 编码说明：追加内容时使用 Rust 原生模块自动检测文件编码（UTF-8 / GBK / GB18030），
+ * 确保对中文编码文件正确处理。写入时统一采用 UTF-8 编码。
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,6 +13,47 @@ function resolveFilePath(filePath: string): string {
   return path.isAbsolute(filePath)
     ? path.resolve(filePath)
     : path.resolve(resolveOutputDir(), filePath);
+}
+
+// 懒初始化 Rust 原生模块，用于自动检测文件编码
+let nativeReadFile: ((filePath: string) => string) | null | undefined =
+  undefined;
+
+function lazyInitNativeRead(): ((filePath: string) => string) | null {
+  if (nativeReadFile === undefined) {
+    try {
+      const native = require('../../../native');
+      if (native && typeof native.readFileWithEncoding === 'function') {
+        nativeReadFile = (filePath: string): string => {
+          const result = native.readFileWithEncoding(filePath);
+          if (result.encoding === 'error') {
+            throw new Error(result.error || '编码检测失败');
+          }
+          return result.content;
+        };
+      } else {
+        nativeReadFile = null;
+      }
+    } catch {
+      nativeReadFile = null;
+    }
+  }
+  return nativeReadFile;
+}
+
+/**
+ * 使用 Rust 原生模块读取文件（自动检测编码），失败时回退到 UTF-8。
+ */
+function readFileWithEncoding(filePath: string): string {
+  const nativeRead = lazyInitNativeRead();
+  if (nativeRead) {
+    try {
+      return nativeRead(filePath);
+    } catch {
+      // 原生模块读取失败，回退到 UTF-8
+    }
+  }
+  return fs.readFileSync(filePath, 'utf-8');
 }
 
 export interface FileWriteInput {
@@ -138,7 +182,8 @@ export class FileWriteTool extends BaseTool {
 
       if (append) {
         const resolved = resolveFilePath(input.file_path as string);
-        const existingContent = fs.readFileSync(resolved, 'utf-8');
+        // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
+        const existingContent = readFileWithEncoding(resolved);
         writeFile({
           filePath: input.file_path as string,
           content: existingContent + (input.content as string),

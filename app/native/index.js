@@ -4,7 +4,9 @@ const os = require("os");
 
 function loadLibrary() {
   const isWindows = os.platform() === "win32";
-  const libName = isWindows ? "Liri_native.dll" : `libLiri_native.${suffix}`;
+  // 注意: DLL 名称由 Cargo.toml [package].name 决定 ("py-app-native" -> py_app_native.dll)
+  // 如果修改了 Cargo.toml 中的 name，这里需要同步更新
+  const libName = isWindows ? "py_app_native.dll" : `libpy_app_native.${suffix}`;
   const libPath = path.join(__dirname, "target", "release", libName);
 
   try {
@@ -32,6 +34,10 @@ function loadLibrary() {
       py_estimate_compression_ratio: {
         args: [FFIType.cstring],
         returns: FFIType.f64,
+      },
+      py_read_file_with_encoding: {
+        args: [FFIType.cstring],
+        returns: FFIType.ptr,
       },
       py_free_rust_string: {
         args: [FFIType.ptr],
@@ -89,6 +95,17 @@ function loadLibrary() {
 
       estimateCompressionRatio(messagesJson) {
         return symbols.py_estimate_compression_ratio(toBuffer(messagesJson));
+      },
+
+      /**
+       * 读取文件并自动检测编码（UTF-8 / GBK / GB18030）。
+       * @param {string} filePath - 文件路径
+       * @returns {{ encoding: string, content: string, error: string|null }}
+       */
+      readFileWithEncoding(filePath) {
+        const ptr = symbols.py_read_file_with_encoding(toBuffer(filePath));
+        const result = readCString(ptr);
+        return result ? JSON.parse(result) : { encoding: "error", content: "", error: "FFI 调用返回空" };
       },
     };
   } catch (err) {

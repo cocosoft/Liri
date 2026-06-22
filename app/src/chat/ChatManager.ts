@@ -3207,20 +3207,17 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 工具结果
    */
   async executeTool(toolCall: ToolCall): Promise<ToolResult> {
-    // 清理工具参数，防止XSS和隐藏字符攻击
-    const sanitizedArguments = recursivelySanitizeUnicode(
-      toolCall.arguments
-    ) as Record<string, unknown>;
-
+    // 工具参数由 LLM 生成，不需要 Unicode 清理（用户输入在进入 LLM 前已清理）
+    // 注意: 对工具参数做 NFKC 归一化会破坏文件路径中的全角字符（如 （）→()），导致文件找不到
     const normalizedToolCall = {
       id: toolCall.id,
       name: toolCall.name,
-      arguments: sanitizedArguments,
+      arguments: toolCall.arguments as Record<string, unknown>,
     };
 
     // 本地查询工具：直接从注册表返回，不经过工具注册表执行
     if (normalizedToolCall.name === 'get_tool_result') {
-      const targetId = sanitizedArguments.tool_call_id as string;
+      const targetId = normalizedToolCall.arguments.tool_call_id as string;
       const stored = toolResultRegistry.findByCallId(targetId);
       logger.info('LLM 查询工具结果', {
         toolCallId: toolCall.id,

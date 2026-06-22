@@ -1,9 +1,34 @@
-﻿/**
+/**
  * GrepTool - 代码搜索工具
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { handleError } from '@modules/error';
+
+// 懒初始化 Rust 原生模块，用于自动检测文件编码
+let nativeReadFile: ((filePath: string) => string) | null = null;
+
+function lazyInitNativeRead() {
+  if (nativeReadFile === undefined) {
+    try {
+      const native = require('../../../native');
+      if (native && typeof native.readFileWithEncoding === 'function') {
+        nativeReadFile = (filePath) => {
+          const result = native.readFileWithEncoding(filePath);
+          if (result.encoding === 'error') {
+            throw new Error(result.error || '编码检测失败');
+          }
+          return result.content;
+        };
+      } else {
+        nativeReadFile = null;
+      }
+    } catch {
+      nativeReadFile = null;
+    }
+  }
+  return nativeReadFile;
+}
 
 export type GrepOutputMode = 'content' | 'files_with_matches' | 'count';
 
@@ -183,8 +208,17 @@ function searchFile(
     // 跳过大小超过 1MB 的文件，避免处理过大文件导致性能问题
     if (stat.size > 1024 * 1024) return;
 
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n');
+    const nativeRead = lazyInitNativeRead();
+    let fileContent: string;
+    if (nativeRead) {
+      // 使用 Rust 原生模块自动检测编码（支持 UTF-8 / GBK / GB18030）
+      fileContent = nativeRead(filePath);
+    } else {
+      // 原生模块不可用时回退到 UTF-8 读取
+      fileContent = fs.readFileSync(filePath, 'utf-8');
+    }
+
+    const lines = fileContent.split('\n');
     const matches: string[] = [];
 
     // 逐行遍历文件内容，检查每行是否匹配正则表达式

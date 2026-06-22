@@ -10,10 +10,6 @@
  * 2. 消除压缩断裂 — tool_calls/tool 配对信息由本地存储保证，无需 LLM 上下文传递
  * 3. 提升可控性 — 敏感的工具结果不离开本地
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO });
-
 /** 存储的工具调用记录 */
 export interface StoredToolCall {
   /** 工具调用 ID（API 分配的 call_xxx 格式） */

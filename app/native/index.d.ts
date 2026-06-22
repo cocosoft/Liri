@@ -7,7 +7,15 @@ export interface NativeLib {
   analyzeBashCommand(command: string): string;
   compressMessages(messagesJson: string, contextJson: string): string;
   estimateCompressionRatio(messagesJson: string): number;
+  /** 读取文件并自动检测编码（UTF-8 / GBK / GB18030） */
+  readFileWithEncoding(filePath: string): FileReadResult;
   freeRustString(ptr: unknown): void;
+}
+
+export interface FileReadResult {
+  encoding: "utf-8" | "gbk" | "gb18030" | "error";
+  content: string;
+  error: string | null;
 }
 
 export interface SecurityResult {

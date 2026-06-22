@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FileReadTool - 文件读取工具
  */
 import * as fs from 'fs';
@@ -83,7 +83,28 @@ export function readFile(input: FileReadInput): FileReadResult {
     );
   }
 
-  const content = fs.readFileSync(resolved, 'utf-8');
+  let content: string;
+  try {
+    // 使用 Rust 原生模块自动检测文件编码（支持 UTF-8 / GBK / GB18030）
+    const native = require('../../../native');
+    const result = native.readFileWithEncoding(resolved);
+    if (result.encoding === 'error') {
+      throw new Error(result.error || '编码检测失败');
+    }
+    content = result.content;
+  } catch (e: any) {
+    // 若原生模块不可用或调用失败，回退到 UTF-8 读取
+    try {
+      content = fs.readFileSync(resolved, 'utf-8');
+    } catch {
+      throw new AppError(
+        `读取文件失败: ${e.message}`,
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.HIGH,
+        '100'
+      );
+    }
+  }
   const allLines = content.split('\n');
   const totalLines = allLines.length;
   const offset = input.offset ?? 1;

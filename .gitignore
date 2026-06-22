@@ -53,6 +53,7 @@ app/input.txt
 app/test_errors.txt
 app/test_output.txt
 app/coverage_full.txt
+app/coverage/
 app/.test_exports
 app/_temp_*
 app/_*_content.txt

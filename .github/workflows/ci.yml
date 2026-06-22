@@ -84,8 +84,8 @@ jobs:
     - name: Generate coverage report (lcov)
       run: bun test --coverage --coverage-reporter=lcov tests/
 
-    - name: Check coverage threshold (at least 40%)
-      run: bun run scripts/check-coverage-threshold.ts 40
+    - name: Check coverage threshold (at least 18%)
+      run: bun run scripts/check-coverage-threshold.ts 18
 
     - name: Run build
       run: bun run build

@@ -171,7 +171,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     <div className="border border-gray-400/20 rounded-[10px] overflow-hidden mb-1">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-gray-400/[0.05] w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"
+        className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-400/[0.05] w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"
       >
         {/* 状态图标 */}
         <span className="text-sm shrink-0 flex items-center">
@@ -217,7 +217,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
         {/* 状态徽章 */}
         <span
-          className="text-[11px] px-2.5 py-0.5 rounded-[10px] text-gray-900 font-semibold shrink-0"
+          className="text-[11px] px-2 py-0.5 rounded text-gray-900 font-semibold shrink-0"
           style={{
             background: statusConfig.color,
             opacity: blocks.some(b => b.isStreaming) ? 0.8 : 1,
@@ -241,12 +241,12 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           {innerCollapsed ? (
             <button
               onClick={() => setInnerCollapsed(false)}
-              className="block w-full px-3 py-1.5 bg-transparent text-gray-400 text-xs cursor-pointer text-left"
+              className="block w-full px-2.5 py-1 bg-transparent text-gray-400 text-xs cursor-pointer text-left"
             >
               📋 点击展开详情 ({blocks.length} 项)
             </button>
           ) : (
-            <div className="px-2.5 py-1.5 flex flex-col gap-0.5">
+            <div className="px-2 py-1 flex flex-col gap-0.5">
               {toolcallFlat ? (
                 // 扁平化模式：ToolCallGroup inline 行内展示，无嵌套卡片
                 filteredBlocks.map((block) => {

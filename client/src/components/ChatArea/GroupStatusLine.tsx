@@ -23,7 +23,7 @@ function GroupStatusLine({
       : "text-blue-400";
 
   return (
-    <div className="flex items-center gap-1.5 px-1 py-0.5 text-xs">
+    <div className="flex items-center gap-1 px-1 py-0.5 text-xs">
       <span className="text-[11px] shrink-0 w-3.5 text-center">
         {isRunning ? (
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />

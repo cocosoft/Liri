@@ -38,7 +38,7 @@ function formatArgumentsNatural(
       key === "file_path" || key === "path" || key === "filePath";
 
     return (
-      <div key={key} className="flex flex-wrap gap-1.5 items-baseline text-[10px] leading-relaxed">
+      <div key={key} className="flex flex-wrap gap-0.5 items-baseline text-[10px] leading-relaxed">
         <span className="text-[#7aa2f7] font-medium shrink-0">{label}:</span>
         {isFilePathKey && onPreviewFile && typeof value === "string" ? (
           <a
@@ -102,9 +102,9 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
   const detailContent = (
     <>
       {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
-        <div className="mb-1.5">
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-1">参数</div>
-          <div className="flex flex-col gap-1">
+        <div className="mb-0.5">
+          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">参数</div>
+          <div className="flex flex-col gap-0.5">
             {formatArgumentsNatural(
               toolCall.arguments as Record<string, unknown>,
               readFileToPreview,
@@ -114,11 +114,11 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
       )}
       {toolCall.result !== undefined && (
         <div>
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-1">结果</div>
+          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">结果</div>
           {typeof toolCall.result === "string" ? (
             <MarkdownRenderer content={toolCall.result} onPreviewFile={readFileToPreview} />
           ) : (
-            <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1.5 rounded max-h-[200px] overflow-y-auto">
+            <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
               {JSON.stringify(toolCall.result, null, 2)}
             </pre>
           )}
@@ -149,7 +149,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
           <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
         </button>
         {expanded && (
-          <div className="border-t border-gray-400/[0.1] px-3 py-2" style={{ background: "rgba(0,0,0,0.05)" }}>
+          <div className="border-t border-gray-400/[0.1] px-2.5 py-1" style={{ background: "rgba(0,0,0,0.05)" }}>
             {detailContent}
           </div>
         )}
@@ -162,7 +162,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
     <div className="border border-gray-400/20 rounded-lg overflow-hidden mb-0">
       <button
         onClick={handleToggle}
-        className="flex items-center gap-1.5 px-2.5 py-1 w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"
+        className="flex items-center gap-1 px-2 py-0.5 w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"
         style={{ background: "rgba(128, 128, 128, 0.05)", border: "none" }}
       >
         <span>{statusIcon}</span>
@@ -175,7 +175,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
           </span>
         )}
         <span
-          className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+          className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
           style={{ background: statusColor, color: "#1a1b26" }}
         >
           {isStreaming ? "running" : toolCall.status || "completed"}
@@ -183,7 +183,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
         <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
       </button>
       {expanded && (
-        <div className="px-2.5 py-1.5 border-t border-gray-400/10">
+        <div className="px-2 py-1 border-t border-gray-400/10">
           {detailContent}
         </div>
       )}

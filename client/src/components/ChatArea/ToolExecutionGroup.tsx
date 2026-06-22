@@ -13,13 +13,13 @@ interface ToolExecutionGroupProps {
 }
 
 function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [innerCollapsed, setInnerCollapsed] = useState(true);
-  const prevStreaming = useRef(false);
   const { readFileToPreview } = useChatStore();
   const toolcallFlat = useFeatureFlagStore((s) => s.flags.toolcall_flat);
 
   const isGroupStreaming = useMemo(() => blocks.some(b => b.isStreaming), [blocks]);
+  const [collapsed, setCollapsed] = useState(!isGroupStreaming);
+  const [innerCollapsed, setInnerCollapsed] = useState(true);
+  const prevStreaming = useRef(false);
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;

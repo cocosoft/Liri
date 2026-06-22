@@ -122,6 +122,8 @@ export const useSessionStore = create<SessionStore>()(
     set({ isLoading: true, error: null });
 
     try {
+      // 中止当前正在进行的流式请求，避免旧流数据污染新会话
+      useChatStore.getState().stopMessage();
       // 先 flush 当前会话未持久化的 blocks，避免切走时丢失
       await useChatStore.getState().flushPendingSaves();
       if (_lastSwitchId !== id) return;

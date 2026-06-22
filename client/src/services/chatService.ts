@@ -59,6 +59,7 @@ async function getTauriCore() {
     }
     return null;
   } catch {
+    // 非 Tauri 环境（浏览器运行）时无需警告
     return null;
   }
 }
@@ -276,7 +277,9 @@ export const chatService = {
                       typeof rawArgs === "string"
                         ? JSON.parse(rawArgs || "{}")
                         : rawArgs || {};
-                  } catch {}
+                  } catch {
+                    // JSON 解析失败使用空对象，不阻塞流
+                  }
                   yield {
                     type: "tool_call",
                     content: "",
@@ -325,7 +328,9 @@ export const chatService = {
                   content: "AI 服务返回错误，请检查 API 密钥和模型配置",
                 };
               }
-            } catch {}
+            } catch {
+              // streaming 解析异常跳过当前 chunk
+            }
           }
         }
       }
@@ -384,7 +389,8 @@ export const chatService = {
         },
       );
       return response;
-    } catch {
+    } catch (err) {
+      console.warn("[chatService] 提交回答失败", err);
       return { success: false };
     }
   },

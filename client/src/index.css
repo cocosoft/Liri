@@ -178,12 +178,40 @@ pre code.hljs {
   }
 }
 
+/* 流式光标：AI 消息仍在生成中时，末尾显示闪烁指示器 */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background-color: currentColor;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: streaming-blink 0.8s step-end infinite;
+}
+
+@keyframes streaming-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
   }
   to {
     opacity: 1;
+  }
+}
+
+/* 消息入场：从下方 8px 淡入滑入 */
+@keyframes message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -205,6 +233,10 @@ pre code.hljs {
 
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
+}
+
+.animate-message-enter {
+  animation: message-enter 0.25s ease-out;
 }
 
 .page-transition-enter {

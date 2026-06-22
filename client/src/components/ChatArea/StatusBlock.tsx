@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { STYLES } from "../../styles/animations";
 
 interface StatusBlockProps {
   content: string;
@@ -82,7 +83,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: "6px",
     borderRadius: "50%",
     background: "#e6c384",
-    animation: "pulse 1.5s ease-in-out infinite",
+    ...STYLES.pulseDot,
   },
   text: {
     flex: 1,

@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { MessageBlock } from "../../types";
-import ToolCallBlock from "./ToolCallBlock";
+import ToolCallGroup from "./ToolCallGroup";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { useChatStore } from "../../stores/chatStore";
+import { getToolDisplayName, getArgKeyLabel } from "../../utils/toolHumanSummary";
+import { useFeatureFlagStore } from "../../stores/featureFlags";
+import GroupStatusLine from "./GroupStatusLine";
+import BlockItem from "./BlockItem";
 
 interface ToolExecutionGroupProps {
   blocks: MessageBlock[];
@@ -13,6 +17,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const [innerCollapsed, setInnerCollapsed] = useState(true);
   const prevStreaming = useRef(false);
   const { readFileToPreview } = useChatStore();
+  const toolcallFlat = useFeatureFlagStore((s) => s.flags.toolcall_flat);
 
   const isGroupStreaming = useMemo(() => blocks.some(b => b.isStreaming), [blocks]);
 
@@ -29,31 +34,10 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const toolName = useMemo(() => {
     for (const block of blocks) {
       if (block.type === "tool_call" && block.toolCall?.name) {
-        const nameMap: Record<string, string> = {
-          "web-search": "\u{1F310} 网络搜索",
-          "web-fetch": "\u{1F4C4} 网页获取",
-          search: "\u{1F50D} 搜索",
-          fetch: "\u{1F4E5} 获取",
-          execute: "\u{26A1} 执行",
-          run: "\u{1F680} 运行",
-          bash: "\u{1F4BB} 终端命令",
-          shell: "\u{1F41A} Shell命令",
-          read: "\u{1F4D6} 读取",
-          write: "\u{1F4BE} 写入",
-          delete: "\u{1F5D1}\u{FE0F} 删除",
-          create: "\u{2728} 创建",
-          update: "\u{1F504} 更新",
-          list: "\u{1F4CB} 列出",
-          query: "\u{2753} 查询",
-          build_index: "\u{1F527} 构建索引",
-          search_knowledge: "\u{1F4DA} 搜索知识库",
-          glob: "\u{1F4C1} 文件搜索",
-          grep: "\u{1F50E} 文本搜索",
-        };
-        return nameMap[block.toolCall.name] || block.toolCall.name;
+        return getToolDisplayName(block.toolCall.name);
       }
     }
-    return "\u{1F527} 工具执行";
+    return "工具执行";
   }, [blocks]);
 
   const status = useMemo(() => {
@@ -104,20 +88,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           const preview = entries
             .slice(0, 2)
             .map(([k, v]) => {
-              const keyLabel: Record<string, string> = {
-                file_path: "文件路径",
-                url: "链接",
-                query: "查询",
-                pattern: "模式",
-                command: "命令",
-                path: "路径",
-                keywords: "关键词",
-                code: "代码",
-                language: "语言",
-                content: "内容",
-                output: "输出",
-              };
-              const label = keyLabel[k] || k;
+              const label = getArgKeyLabel(k);
               const value =
                 typeof v === "string"
                   ? v.length > 40
@@ -186,19 +157,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       }
     }
 
-    const nameLabel: Record<string, string> = {
-      read: "读取文件",
-      write: "写入文件",
-      grep: "搜索文本",
-      glob: "文件搜索",
-      "web-fetch": "获取网页",
-      "web-search": "搜索网络",
-      search: "搜索",
-      fetch: "获取",
-    };
-
     return {
-      label: nameLabel[primaryName] || primaryName,
+      label: getToolDisplayName(primaryName),
       total: primaryStat.total,
       completed: primaryStat.completed,
       running: primaryStat.running,
@@ -306,98 +266,53 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
             </button>
           ) : (
             <div className="px-2.5 py-1.5 flex flex-col gap-0.5">
-              {filteredBlocks.map((block) => (
-                <BlockItem
-                  key={block.id}
-                  block={block}
-                  onPreviewFile={readFileToPreview}
-                />
-              ))}
+              {toolcallFlat ? (
+                // 扁平化模式：ToolCallGroup inline 行内展示，无嵌套卡片
+                filteredBlocks.map((block) => {
+                  if (block.type === "tool_call" && block.toolCall) {
+                    return (
+                      <ToolCallGroup
+                        key={block.id}
+                        toolCall={block.toolCall}
+                        isStreaming={block.isStreaming}
+                        variant="inline"
+                      />
+                    );
+                  }
+                  if (block.type === "status") {
+                    return (
+                      <GroupStatusLine
+                        key={block.id}
+                        content={block.content}
+                        isStreaming={block.isStreaming}
+                      />
+                    );
+                  }
+                  return (
+                    <MarkdownRenderer
+                      key={block.id}
+                      content={block.content}
+                      isStreaming={block.isStreaming}
+                      onPreviewFile={readFileToPreview}
+                    />
+                  );
+                })
+              ) : (
+                // 旧版模式：BlockItem 嵌套卡片
+                filteredBlocks.map((block) => (
+                  <BlockItem
+                    key={block.id}
+                    block={block}
+                    onPreviewFile={readFileToPreview}
+                  />
+                ))
+              )}
             </div>
           )}
         </div>
       )}
     </div>
   );
-}
-
-/** 组内状态行 — 简洁行内文本，不产生独立卡片边框 */
-function GroupStatusLine({
-  content,
-  isStreaming,
-}: {
-  content: string;
-  isStreaming?: boolean;
-}) {
-  const isRunning = content.includes("Running");
-  const isCompleted = content.includes("completed") || content.includes("\u{2705}");
-
-  const textColor = isRunning
-    ? "text-amber-300"
-    : isCompleted
-      ? "text-green-400"
-      : "text-blue-400";
-
-  return (
-    <div className="flex items-center gap-1.5 px-1 py-0.5 text-xs">
-      <span className="text-[11px] shrink-0 w-3.5 text-center">
-        {isRunning ? (
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
-        ) : isCompleted ? (
-          "\u2713"
-        ) : (
-          "\u00B7"
-        )}
-      </span>
-      <span
-        className={`flex-1 text-left ${textColor} ${isRunning ? "italic" : ""}`}
-      >
-        {content}
-        {isStreaming && (
-          <span
-            className="ml-0.5"
-            style={{ animation: "blink 1s step-end infinite" }}
-          >
-            |
-          </span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-function BlockItem({
-  block,
-  onPreviewFile,
-}: {
-  block: MessageBlock;
-  onPreviewFile?: (path: string) => void;
-}) {
-  switch (block.type) {
-    case "status":
-      return (
-        <GroupStatusLine
-          content={block.content}
-          isStreaming={block.isStreaming ?? false}
-        />
-      );
-    case "tool_call":
-      return block.toolCall ? (
-        <ToolCallBlock
-          toolCall={block.toolCall}
-          isStreaming={block.isStreaming ?? false}
-        />
-      ) : null;
-    case "text":
-    default:
-      return (
-        <MarkdownRenderer
-          content={block.content}
-          isStreaming={block.isStreaming ?? false}
-          onPreviewFile={onPreviewFile}
-        />
-      );
-  }
 }
 
 export default ToolExecutionGroup;

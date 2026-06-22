@@ -5,6 +5,7 @@ import { chatService } from "../services/chatService";
 import { httpLegacy as http } from "../services/httpClient";
 import { resolveFilePath } from "../services/filePathResolver";
 import { useSessionStore } from "./sessionStore";
+import { useFeatureFlagStore } from "./featureFlags";
 
 /**
  * 从工具调用中提取文件路径
@@ -195,6 +196,10 @@ interface ChatStore {
   } | null;
   error: string | null;
   replyMessage: Message | null;
+  /** 待设置的回复引用 ID（streamMessage 中创建用户消息时读取） */
+  pendingReplyToId: string | null;
+  /** 正在编辑的消息（用户消息） */
+  editTarget: Message | null;
   /** 当前预览的文件 */
   previewFile: FilePreview | null;
   /** 当前会话中生成的文件列表 */
@@ -203,8 +208,14 @@ interface ChatStore {
   isUploading: boolean;
   /** 中止控制器：用于取消正在进行的流式请求 */
   abortController: AbortController | null;
+  /** 消息队列：流式输出中用户发送的新消息（放开输入限制后使用） */
+  messageQueue: Array<{ content: string; sessionId?: string }>;
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
+  /** 将消息加入队列（流式输出中不阻塞输入） */
+  enqueueMessage: (content: string, sessionId?: string) => void;
+  /** 消费队列中的下一条消息 */
+  dequeueAndSend: (sessionId?: string) => Promise<void>;
   streamMessage: (content: string, sessionId?: string, workMode?: "plan" | "do") => Promise<void>;
   /** 重新生成上一条 AI 消息 */
   regenerateMessage: (sessionId?: string) => Promise<void>;
@@ -213,6 +224,8 @@ interface ChatStore {
   clearMessages: () => void;
   setMessages: (messages: Message[]) => void;
   setReplyMessage: (message: Message | null) => void;
+  /** 设置待编辑消息 */
+  setEditTarget: (message: Message | null) => void;
   /** 取消当前流式请求 */
   stopMessage: () => void;
   /** 设置预览文件 */
@@ -489,6 +502,22 @@ class ChronologicalBlockBuilder {
   }
 
   /**
+   * 更新 todo 块中单个任务的状态
+   * 用于流式传输中实时反映任务进度变化
+   */
+  updateTodoTask(taskId: string, updates: Partial<{ status: TaskCardTask["status"]; result: string; durationMs: number }>): void {
+    const idx = this.blocks.findIndex(b =>
+      b.type === "todo" && b.taskCard
+    );
+    if (idx !== -1 && this.blocks[idx].taskCard) {
+      const tasks = this.blocks[idx].taskCard!.tasks.map(t =>
+        String(t.id) === String(taskId) ? { ...t, ...updates } : t
+      );
+      this.blocks[idx].taskCard = { ...this.blocks[idx].taskCard!, tasks };
+    }
+  }
+
+  /**
    * 添加或更新进度块
    * 流式传输中，同一次执行的进度块会被更新而非重复追加
    */
@@ -562,8 +591,8 @@ async function flushSaveBlocks(): Promise<void> {
           mid,
           blk as unknown as Array<Record<string, unknown>>,
         );
-      } catch {
-        // 保存失败不影响主流程
+      } catch (err) {
+        console.warn("[chatStore] 保存 blocks 到后端失败", err);
       }
     }
   } finally {
@@ -662,25 +691,41 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   executionPhase: null,
   error: null,
   replyMessage: null,
+  pendingReplyToId: null,
+  editTarget: null,
   previewFile: null,
   sessionFiles: [],
   isUploading: false,
   abortController: null,
+  messageQueue: [],
 
   addMessage: (message: Message) => {
     set({ messages: [...get().messages, message] });
   },
 
   sendMessage: async (content: string, sessionId?: string) => {
-    set({ isSending: true, isInputBlocked: true, error: null });
+    // 消息排队模式：流式输出中不阻塞，加入队列
+    const messageQueueEnabled = useFeatureFlagStore.getState().flags.message_queue;
+    if (messageQueueEnabled && get().isStreaming) {
+      get().enqueueMessage(content, sessionId);
+      return;
+    }
 
+    set({ isSending: true, isInputBlocked: !messageQueueEnabled, error: null });
+
+    const pendingReplyId = get().pendingReplyToId;
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content,
       timestamp: Date.now(),
       session_id: sessionId || "default",
+      replyToId: pendingReplyId || undefined,
     };
+    // 使用后清除
+    if (pendingReplyId) {
+      set({ pendingReplyToId: null });
+    }
 
     set({ messages: [...get().messages, userMessage] });
 
@@ -723,6 +768,34 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
+  /**
+   * 将消息加入队列，待当前流式任务完成后自动发送
+   * 仅在 message_queue Feature Flag 开启时由 sendMessage 自动调用
+   */
+  enqueueMessage: (content: string, sessionId?: string) => {
+    const currentQueue = get().messageQueue;
+    set({
+      messageQueue: [...currentQueue, { content, sessionId }],
+      // 排队后仍保持 isSending 状态，不阻塞输入
+    });
+  },
+
+  /**
+   * 消费队列中的下一条消息，自动发送
+   * 在流式输出结束后自动调用
+   */
+  dequeueAndSend: async (sessionId?: string) => {
+    const queue = get().messageQueue;
+    if (queue.length === 0) return;
+
+    const next = queue[0];
+    const remaining = queue.slice(1);
+    set({ messageQueue: remaining });
+
+    // 递归调用 sendMessage，如果队列中还有更多消息，sendMessage 会自动继续排队
+    await get().sendMessage(next.content, next.sessionId || sessionId);
+  },
+
   streamMessage: async (content: string, sessionId?: string, workMode?: "plan" | "do") => {
     // J1: 取消上一个未完成的流式请求
     const prevController = get().abortController;
@@ -732,7 +805,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     const abortController = new AbortController();
 
-    set({ isSending: true, isInputBlocked: true, isStreaming: true, error: null, abortController });
+    const messageQueueEnabled = useFeatureFlagStore.getState().flags.message_queue;
+
+    set({ isSending: true, isInputBlocked: !messageQueueEnabled, isStreaming: true, error: null, abortController });
+
+    // 编辑消息：如果存在 editTarget，截断其后的消息
+    const editTarget = get().editTarget;
+    if (editTarget) {
+      const editIndex = get().messages.findIndex((m) => m.id === editTarget.id);
+      if (editIndex >= 0) {
+        // 截断 editTarget 及其之后的所有消息
+        const truncated = get().messages.slice(0, editIndex);
+        set({ messages: truncated, editTarget: null });
+      } else {
+        set({ editTarget: null });
+      }
+    }
+
+    // 消息排队：流结束后自动消费队列
+    const tryDequeue = () => {
+      if (messageQueueEnabled && get().messageQueue.length > 0) {
+        get().dequeueAndSend(sessionId).catch(console.warn);
+      }
+    };
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -774,8 +869,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             mid,
             blk as unknown as Array<Record<string, unknown>>,
           );
-        } catch {
-          // 保存失败不影响主流程
+        } catch (err) {
+          console.warn("[chatStore] 防抖保存 blocks 到后端失败", err);
         }
       }
     };
@@ -796,11 +891,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }, 800);
     };
 
-    // J4: 批量 set 更新——使用微任务节流，避免每块都触发 re-render
+    // J4: 批量 set 更新——使用版本号机制，防止过期 rAF 覆盖最终状态
+    let batchVersion = 0;
     let batchPending = false;
     let latestMessages: Message[] | null = null;
 
-    const flushSet = (): void => {
+    const flushSet = (currentVersion: number): void => {
+      // 版本号检查：过期版本直接丢弃（流结束后旧 rAF 回调不覆盖最终状态）
+      if (currentVersion < batchVersion) {
+        batchPending = false;
+        return;
+      }
+
       if (latestMessages) {
         set({ messages: latestMessages });
         latestMessages = null;
@@ -907,6 +1009,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               );
               blockBuilder.addTodo({ title, tasks, status: "planning" });
               skipDefault = true;
+            } else if (args?.action === "update") {
+              // 实时更新单个任务状态：从 tool_call 参数中提取变更并应用到 todo block
+              const taskId = String(args.todoId ?? args.id ?? "");
+              if (taskId) {
+                const updates: Partial<{ status: TaskCardTask["status"]; result: string; durationMs: number }> = {};
+                if (args.status) updates.status = args.status as TaskCardTask["status"];
+                if (args.result) updates.result = args.result as string;
+                if (args.durationMs) updates.durationMs = args.durationMs as number;
+                blockBuilder.updateTodoTask(taskId, updates);
+              }
+              skipDefault = true;
             }
           }
           // ask_user_question 的 tool_call：跳过默认 tool_call 渲染块，
@@ -941,7 +1054,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // J4：批量更新——仅在无挂起 flush 时调度微任务
         if (!batchPending) {
           batchPending = true;
-          Promise.resolve().then(() => requestAnimationFrame(flushSet));
+          Promise.resolve().then(() => requestAnimationFrame(() => flushSet(++batchVersion)));
         }
 
         // J3：流式传输中实时防抖保存 blocks，使用闭包内局部变量避免竞态
@@ -967,27 +1080,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       blockBuilder.freezeAll();
       const finalBlocks = blockBuilder.getBlocks();
 
-      // 清除批处理状态，防止 pending 的 flushSet 用旧的 streaming blocks 覆盖最终状态
-      // 这是工具执行完成后无法收缩的根因：rAF flushSet 在最终 set() 之后执行，
-      // 用 isStreaming=true 的旧 blocks 覆盖了已冻结的 finalBlocks
-      if (latestMessages) {
-        latestMessages = null;
-      }
+      // 版本号递增：使 pending 的 rAF flushSet 全部失效，
+      // 旧版本的回调被丢弃，不再覆盖最终状态
+      batchVersion++;
+      latestMessages = null;
       batchPending = false;
 
       // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
       // 不等待 updateMessageBlocks 和 doAutoRename 完成
       set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
 
+      // 构建最终消息并写入 store
       const finalMessages = get().messages;
       const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
       if (finalMsgIdx !== -1) {
-        const newMessages = [...finalMessages];
-        newMessages[finalMsgIdx] = {
-          ...finalMessages[finalMsgIdx],
-          blocks: finalBlocks,
-        };
-        set({ messages: newMessages });
+        const msg = { ...finalMessages[finalMsgIdx], blocks: finalBlocks };
+        set({ messages: finalMessages.map((m) => (m.id === assistantId ? msg : m)) });
 
         addFilePathsFromBlocks(finalBlocks, (file) =>
           get().addSessionFile(file),
@@ -1017,12 +1125,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           finalMI !== -1 ? finalMsgs[finalMI].content : "";
         doAutoRename(sessionId!, content, assistantResponse).catch(console.warn);
       }
+
+      // 消息排队：自动消费队列中的下一条消息
+      tryDequeue();
     } catch (error) {
       if (!abortController.signal.aborted) {
         set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
       } else {
         set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
       }
+      // 消息排队：即使出错也消费队列
+      tryDequeue();
     }
   },
 
@@ -1035,10 +1148,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
    * 找到 AI 消息之前的最后一条用户消息，重新发送
    */
   regenerateMessage: async (sessionId?: string) => {
-    const { messages } = get();
+    const { messages, isStreaming } = get();
+
+    // 边界条件1：防止重复生成（流式输出中）
+    if (isStreaming) {
+      console.warn("[chatStore] regenerateMessage: 流式输出中，忽略重新生成请求");
+      return;
+    }
+
     if (messages.length < 2) return;
 
-    // 找到最后一条 assistant 消息
+    // 找到最后一条 user 消息
     let lastUserIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === "user") {
@@ -1051,9 +1171,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const userMsg = messages[lastUserIdx];
     const content = typeof userMsg.content === "string" ? userMsg.content : "";
 
-    // 移除最后一条 assistant 及之后的所有消息，然后重新发送
+    // 边界条件2：空消息不重新生成
+    if (!content.trim()) {
+      console.warn("[chatStore] regenerateMessage: 用户消息为空，跳过重新生成");
+      return;
+    }
+
+    // 边界条件3：中止当前流式请求，防止冲突
+    const prevController = get().abortController;
+    if (prevController) {
+      prevController.abort();
+    }
+
+    // 移除最后一条 assistant 及之后的所有消息（含可能的部分生成空消息），然后重新发送
     const truncated = messages.slice(0, lastUserIdx + 1);
-    set({ messages: truncated });
+    set({ messages: truncated, isStreaming: false, isSending: false, isInputBlocked: false, abortController: null });
 
     // 检测工作模式：若当前工作项活跃，传递 Plan/Do 模式到后端
     let workMode: "plan" | "do" | undefined;
@@ -1063,18 +1195,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       if (workState.activeWorkItem) {
         workMode = workState.mode;
       }
-    } catch {
-      // workStore 不可用时静默忽略
+    } catch (err) {
+      console.warn("[chatStore] workStore 不可用", err);
     }
 
-    await get().streamMessage(content, sessionId || userMsg.session_id, workMode);
+    try {
+      await get().streamMessage(content, sessionId || userMsg.session_id, workMode);
+    } catch (error) {
+      console.error("[chatStore] regenerateMessage: 重新生成失败", error);
+      set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false });
+    }
   },
 
   /**
    * 重试出错的请求：传入出错的 assistant 消息 ID，找到前置用户消息重新发送
    */
   retryFromError: async (assistantMsgId: string, sessionId?: string) => {
-    const { messages } = get();
+    const { messages, isStreaming } = get();
+
+    // 边界条件1：防止重复重试（流式输出中）
+    if (isStreaming) {
+      console.warn("[chatStore] retryFromError: 流式输出中，忽略重试请求");
+      return;
+    }
+
     const aiIdx = messages.findIndex((m) => m.id === assistantMsgId);
     if (aiIdx === -1) return;
 
@@ -1091,11 +1235,28 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const userMsg = messages[userMsgIdx];
     const content = typeof userMsg.content === "string" ? userMsg.content : "";
 
-    // 移除该用户消息及其之后的所有消息，然后重新发送
-    const truncated = messages.slice(0, userMsgIdx + 1);
-    set({ messages: truncated });
+    // 边界条件2：空消息不重试
+    if (!content.trim()) {
+      console.warn("[chatStore] retryFromError: 用户消息为空，跳过重试");
+      return;
+    }
 
-    await get().streamMessage(content, sessionId || userMsg.session_id);
+    // 边界条件3：中止当前流式请求，防止冲突
+    const prevController = get().abortController;
+    if (prevController) {
+      prevController.abort();
+    }
+
+    // 移除该用户消息及其之后的所有消息（含可能的部分生成空消息），然后重新发送
+    const truncated = messages.slice(0, userMsgIdx + 1);
+    set({ messages: truncated, isStreaming: false, isSending: false, isInputBlocked: false, abortController: null });
+
+    try {
+      await get().streamMessage(content, sessionId || userMsg.session_id);
+    } catch (error) {
+      console.error("[chatStore] retryFromError: 重试失败", error);
+      set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false });
+    }
   },
 
   /**
@@ -1106,11 +1267,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (controller) {
       controller.abort();
       set({ isStreaming: false, isSending: false, isInputBlocked: false, streamingStatus: "", abortController: null });
+      // 消息排队：停止后也消费队列
+      const messageQueueEnabled = useFeatureFlagStore.getState().flags.message_queue;
+      if (messageQueueEnabled && get().messageQueue.length > 0) {
+        get().dequeueAndSend().catch(console.warn);
+      }
     }
   },
 
   setReplyMessage: (replyMessage: Message | null) => {
     set({ replyMessage });
+  },
+
+  /** 设置待编辑消息 */
+  setEditTarget: (editTarget: Message | null) => {
+    set({ editTarget });
   },
 
   setPreviewFile: (file) => {
@@ -1393,8 +1564,8 @@ function normalizeToolCall(tc: unknown): ToolCall {
     let parsedArgs: Record<string, unknown> = {};
     try {
       parsedArgs = typeof rawArgs === "string" ? JSON.parse(rawArgs || "{}") : (rawArgs as Record<string, unknown>) || {};
-    } catch {
-      // JSON 解析失败，保留原始字符串
+    } catch (err) {
+      console.warn("[chatStore] tool_call 参数 JSON 解析失败", err);
       parsedArgs = { raw: rawArgs };
     }
     return {

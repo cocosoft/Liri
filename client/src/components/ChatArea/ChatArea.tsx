@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
+import ContextPanel from "./ContextPanel";
 
 function ChatArea() {
   const { messages, error, isStreaming } = useChatStore();
@@ -15,6 +17,31 @@ function ChatArea() {
     messageCount: messages.length,
     isStreaming,
   });
+
+  /** 是否显示"滚动到底"按钮 */
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  /** 检测容器是否远离底部，显示滚动按钮 */
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollToBottom(distanceFromBottom > 200);
+  }, [containerRef]);
+
+  /** 滚动到底部 */
+  const scrollToBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [containerRef]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [containerRef, handleScroll]);
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
@@ -57,62 +84,98 @@ function ChatArea() {
   }, [messages]);
 
   return (
-    <div className="flex-1 relative bg-gray-50 dark:bg-gray-900">
-      <div
-        ref={containerRef}
-        className="absolute inset-0 overflow-y-auto"
-      >
-        {/* 错误提示 */}
-        {displayError && (
-          <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-            <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
-              ⚠
-            </span>
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-red-700 dark:text-red-300 block">
-                {displayError}
+    <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex">
+      {/* 消息区域 */}
+      <div className="flex-1 relative min-w-0">
+        <div
+          ref={containerRef}
+          className="absolute inset-0 overflow-y-auto"
+        >
+          {/* 错误提示 */}
+          {displayError && (
+            <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+              <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+                ⚠
               </span>
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={() => useBackendStore.getState().checkStatus()}
-                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                >
-                  🔄 重试连接
-                </button>
-                <button
-                  onClick={() => navigator.clipboard.writeText(displayError)}
-                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                >
-                  📋 复制错误
-                </button>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm text-red-700 dark:text-red-300 block">
+                  {displayError}
+                </span>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => useBackendStore.getState().checkStatus()}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    🔄 重试连接
+                  </button>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(displayError)}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    📋 复制错误
+                  </button>
+                </div>
               </div>
+              <button
+                onClick={handleDismissError}
+                className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+                title="关闭"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={handleDismissError}
-              className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-              title="关闭"
-            >
-              ✕
-            </button>
-          </div>
+          )}
+
+          <ErrorBoundary
+            fallback={
+              <div className="flex items-center justify-center min-h-[400px] p-8">
+                <div className="text-center">
+                  <p className="text-gray-500 mb-4">消息列表加载出错，请刷新页面重试</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  >
+                    刷新页面
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <ChatMessageList
+              messages={messages}
+              isStreaming={isStreaming}
+              sessionUsage={sessionUsage}
+              hasSession={!!currentSession}
+              sessionTitle={currentSession?.title}
+              onCreateSession={handleCreateSession}
+            />
+          </ErrorBoundary>
+        </div>
+
+        {/* 滚动到底部按钮 */}
+        {showScrollToBottom && (
+          <button
+            onClick={scrollToBottom}
+            aria-label="滚动到底部"
+            className="absolute bottom-16 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            title="滚动到底部"
+          >
+            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
         )}
 
-        <ChatMessageList
+        {/* 轮次导航器 */}
+        <RoundNavigator
           messages={messages}
           isStreaming={isStreaming}
-          sessionUsage={sessionUsage}
-          hasSession={!!currentSession}
-          sessionTitle={currentSession?.title}
-          onCreateSession={handleCreateSession}
+          containerRef={containerRef}
         />
       </div>
 
-      {/* 轮次导航器 */}
-      <RoundNavigator
-        messages={messages}
-        isStreaming={isStreaming}
-        containerRef={containerRef}
-      />
+      {/* 上下文面板 */}
+      <ContextPanel />
     </div>
   );
 }

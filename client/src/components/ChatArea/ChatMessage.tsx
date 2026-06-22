@@ -1,25 +1,19 @@
-import React, { memo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { memo, useState, Suspense, useMemo } from "react";
 import type { Message, MessageBlock } from "../../types";
-import MarkdownRenderer from "./MarkdownRenderer";
-import ThinkingBlock from "./ThinkingBlock";
-import StatusBlock from "./StatusBlock";
-import ToolCallBlock from "./ToolCallBlock";
 import ToolExecutionGroup from "./ToolExecutionGroup";
 import ToolResultMessage from "./ToolResultMessage";
-import TaskCard from "./TaskCard";
-import QuestionBlock from "./QuestionBlock";
-import ProgressCard from "./ProgressCard";
-import DeliverableCard from "./DeliverableCard";
-import DiffBlock from "./DiffBlock";
+import BlockRenderer from "./BlockRenderer";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import { useChatStore } from "../../stores/chatStore";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useSessionStore } from "../../stores/sessionStore";
+
+const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
 
 interface ChatMessageProps {
   message: Message;
   isStreaming?: boolean;
+  hasReplies?: boolean;
   sessionUsage?: {
     inputTokens: number;
     outputTokens: number;
@@ -79,22 +73,30 @@ function getFullContent(message: Message): string {
 const ChatMessageMemo = memo(function ChatMessage({
   message,
   isStreaming,
+  hasReplies,
   sessionUsage,
 }: ChatMessageProps) {
   const setReplyMessage = useChatStore((s) => s.setReplyMessage);
+  const setEditTarget = useChatStore((s) => s.setEditTarget);
   const regenerateMessage = useChatStore((s) => s.regenerateMessage);
   const retryFromError = useChatStore((s) => s.retryFromError);
+  const messages = useChatStore((s) => s.messages);
+  const createSession = useSessionStore((s) => s.createSession);
+  const switchSession = useSessionStore((s) => s.switchSession);
+  const currentSession = useSessionStore((s) => s.currentSession);
   const [showActions, setShowActions] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saveTitle, setSaveTitle] = useState("");
-  const [saveBase, setSaveBase] = useState("default");
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
+  const [branching, setBranching] = useState(false);
   const configTheme = useConfigStore((s) => s.config.theme);
   const isDark = configTheme === "dark";
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
+
+  /** 查找被回复的原始消息 */
+  const replyTarget = useMemo(() => {
+    if (!message.replyToId) return null;
+    return messages.find((m) => m.id === message.replyToId) || null;
+  }, [message.replyToId, messages]);
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -132,40 +134,30 @@ const ChatMessageMemo = memo(function ChatMessage({
     setReplyMessage(message);
   };
 
-  const handleSaveToKnowledge = async () => {
-    if (!saveTitle.trim() || !message.content) return;
-    setSaveStatus("saving");
+  /** 创建分支：从当前消息处创建新会话并切换过去 */
+  const handleBranch = async () => {
+    if (branching) return;
+    setBranching(true);
+    setShowActions(false);
     try {
-      const content =
-        typeof message.content === "string" ? message.content : "";
-      const title = saveTitle.trim();
-      await knowledgeService.saveFromChat({
-        base: saveBase,
-        title,
-        content,
-      });
-      setSaveStatus("saved");
-      setTimeout(() => {
-        setShowSaveModal(false);
-        setSaveStatus("idle");
-        setSaveTitle("");
-      }, 1500);
-    } catch {
-      setSaveStatus("error");
+      const branchTitle = currentSession
+        ? `分支：${currentSession.title}`
+        : "新分支会话";
+      const session = await createSession(branchTitle);
+      await switchSession(session.id);
+    } catch (err) {
+      console.error("[ChatMessage] 创建分支失败", err);
+    } finally {
+      setBranching(false);
     }
   };
 
+  const handleSaveToKnowledge = async (title: string, base: string) => {
+    const content = typeof message.content === "string" ? message.content : "";
+    await knowledgeService.saveFromChat({ base, title, content });
+  };
+
   const openSaveModal = () => {
-    const firstLine =
-      typeof message.content === "string"
-        ? message.content
-            .split("\n")[0]
-            .replace(/^#+\s*/, "")
-            .slice(0, 50)
-        : "对话内容";
-    setSaveTitle(firstLine || "对话内容");
-    setSaveBase("default");
-    setSaveStatus("idle");
     setShowSaveModal(true);
     setShowActions(false);
   };
@@ -202,6 +194,12 @@ const ChatMessageMemo = memo(function ChatMessage({
           >
             {isUser ? "你" : "Liri"}
           </span>
+          {/* 被回复标记 */}
+          {hasReplies && (
+            <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+              有回复
+            </span>
+          )}
         </div>
 
         {/* 消息气泡 */}
@@ -212,6 +210,32 @@ const ChatMessageMemo = memo(function ChatMessage({
               : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
           }`}
         >
+          {/* 被回复的引用 */}
+          {replyTarget && (
+            <div
+              className={`mb-2 p-2 rounded-lg text-xs border-l-2 cursor-pointer ${
+                isUser
+                  ? "bg-blue-400/20 border-blue-300 text-blue-100"
+                  : "bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-500 text-gray-500 dark:text-gray-400"
+              }`}
+              onClick={() => {
+                const el = document.querySelector(`[data-msg-id="${replyTarget.id}"]`);
+                el?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              title="点击跳转到被回复的消息"
+            >
+              <div className="font-medium mb-0.5">
+                {replyTarget.role === "user" ? "👤 你" : "🤖 Liri"}
+              </div>
+              <div className="truncate">
+                {typeof replyTarget.content === "string"
+                  ? replyTarget.content.slice(0, 80) +
+                    (replyTarget.content.length > 80 ? "..." : "")
+                  : "[复杂内容]"}
+              </div>
+            </div>
+          )}
+
           {/* 消息内容 */}
           {isUser ? (
             <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
@@ -220,7 +244,7 @@ const ChatMessageMemo = memo(function ChatMessage({
           ) : isTool ? (
             <ToolResultMessage message={message} />
           ) : (
-            <AssistantMessage message={message} />
+            <AssistantMessage message={message} isStreaming={isStreaming} />
           )}
 
           {/* 消息底部：时间、Token 用量和预估成本 */}
@@ -302,6 +326,26 @@ const ChatMessageMemo = memo(function ChatMessage({
         )}
 
         {/* 操作按钮 */}
+        {showActions && isUser && !message.error && (
+          <div className="flex items-center gap-2 mt-2 opacity-70">
+            <button
+              onClick={() => {
+                setEditTarget(message);
+                setShowActions(false);
+              }}
+              className="px-3 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+            >
+              编辑
+            </button>
+            <button
+              onClick={handleBranch}
+              disabled={branching}
+              className="px-3 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors disabled:opacity-50"
+            >
+              {branching ? "分支中..." : "分支"}
+            </button>
+          </div>
+        )}
         {showActions && !isUser && !message.error && (
           <div className="flex items-center gap-2 mt-2 opacity-70">
             <button
@@ -326,90 +370,44 @@ const ChatMessageMemo = memo(function ChatMessage({
               保存到知识库
             </button>
             <button
+              onClick={handleContinue}
+              className="px-3 py-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
+            >
+              继续生成
+            </button>
+            <button
               onClick={handleRegenerate}
               className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             >
               重新生成
+            </button>
+            <button
+              onClick={handleBranch}
+              disabled={branching}
+              className="px-3 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors disabled:opacity-50"
+            >
+              {branching ? "分支中..." : "分支"}
             </button>
           </div>
         )}
 
         {/* 保存到知识库弹窗 */}
         {showSaveModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div
-              className={`w-96 p-5 rounded-xl shadow-xl ${
-                isDark
-                  ? "bg-gray-800 border border-gray-700"
-                  : "bg-white border border-gray-200"
-              }`}
-            >
-              <h3
-                className={`text-sm font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-              >
-                保存到知识库
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <label
-                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    标题
-                  </label>
-                  <input
-                    type="text"
-                    value={saveTitle}
-                    onChange={(e) => setSaveTitle(e.target.value)}
-                    placeholder="文档标题"
-                    className={`w-full px-3 py-2 border rounded-md text-sm ${
-                      isDark
-                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  />
-                </div>
-                <div>
-                  <label
-                    className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    知识库
-                  </label>
-                  <input
-                    type="text"
-                    value={saveBase}
-                    onChange={(e) => setSaveBase(e.target.value)}
-                    placeholder="知识库名称 (默认: default)"
-                    className={`w-full px-3 py-2 border rounded-md text-sm ${
-                      isDark
-                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  />
-                </div>
-                {saveStatus === "error" && (
-                  <p className="text-xs text-red-500">保存失败，请重试</p>
-                )}
-                {saveStatus === "saved" && (
-                  <p className="text-xs text-emerald-500">保存成功 ✓</p>
-                )}
-              </div>
-              <div className="flex items-center justify-end gap-2 mt-4">
-                <button
-                  onClick={() => setShowSaveModal(false)}
-                  className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleSaveToKnowledge}
-                  disabled={saveStatus === "saving" || !saveTitle.trim()}
-                  className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-md"
-                >
-                  {saveStatus === "saving" ? "保存中..." : "保存"}
-                </button>
-              </div>
-            </div>
-          </div>
+          <Suspense fallback={null}>
+            <SaveKnowledgeModal
+              isDark={isDark}
+              initialTitle={
+                typeof message.content === "string"
+                  ? message.content
+                      .split("\n")[0]
+                      .replace(/^#+\s*/, "")
+                      .slice(0, 50)
+                  : "对话内容"
+              }
+              onClose={() => setShowSaveModal(false)}
+              onSave={handleSaveToKnowledge}
+            />
+          </Suspense>
         )}
       </div>
     </div>
@@ -432,8 +430,10 @@ const ChatMessageMemo = memo(function ChatMessage({
 
 function AssistantMessage({
   message,
+  isStreaming,
 }: {
   message: Message;
+  isStreaming?: boolean;
 }) {
   // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
   const blocks =
@@ -456,6 +456,10 @@ function AssistantMessage({
   return (
     <div className="text-sm break-words max-w-none space-y-3">
       {renderedContent}
+      {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器 */}
+      {isStreaming && (
+        <span className="streaming-cursor" aria-hidden="true" />
+      )}
     </div>
   );
 }
@@ -563,87 +567,6 @@ function renderBlocksWithGroups(
   }
 
   return result;
-}
-
-interface BlockRendererProps {
-  block: MessageBlock;
-  sessionId?: string;
-  onQuestionResponse?: (content: string) => void;
-}
-
-function BlockRenderer({ block, sessionId, onQuestionResponse }: BlockRendererProps) {
-  const readFileToPreview = useChatStore((s) => s.readFileToPreview);
-  const navigate = useNavigate();
-  const backendReady = useWorkspaceStore((s) => s.backendReady);
-
-  /** 功能开关：VITE_FEATURE_WORK_MODULE=disabled 时隐藏工作模块入口 */
-  const workModuleEnabled = import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled";
-
-  /**
-   * 进入工作模式：从聊天界面跳转到工作界面
-   * Phase 1-B 骨架阶段：直接导航，后端 Workspace API 就绪后改为先创建 workspace session 再跳转
-   */
-  const handleEnterWorkMode = () => {
-    if (sessionId) {
-      navigate(`/workspace/${sessionId}/work`);
-    }
-  };
-  switch (block.type) {
-    case "thinking":
-      return (
-        <ThinkingBlock
-          content={block.content}
-          isStreaming={block.isStreaming ?? false}
-        />
-      );
-    case "status":
-      return (
-        <StatusBlock
-          content={block.content}
-          isStreaming={block.isStreaming ?? false}
-        />
-      );
-    case "tool_call":
-      return block.toolCall ? (
-        <ToolCallBlock
-          toolCall={block.toolCall}
-          isStreaming={block.isStreaming ?? false}
-        />
-      ) : null;
-    case "question":
-      return block.questionData ? (
-        <QuestionBlock
-          questionData={block.questionData}
-          sessionId={sessionId}
-          onResponse={onQuestionResponse}
-        />
-      ) : null;
-    case "task_decomposition":
-      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
-    case "todo":
-      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
-    case "progress":
-      return block.progressData ? <ProgressCard data={block.progressData} /> : null;
-    case "deliverable":
-      return block.deliverableData ? (
-        <DeliverableCard
-          data={block.deliverableData}
-          onEnterWorkMode={workModuleEnabled ? handleEnterWorkMode : undefined}
-          workModeReady={backendReady}
-        />
-      ) : null;
-    case "diff":
-      return block.diffData ? <DiffBlock data={block.diffData} /> : null;
-    case "text":
-    default:
-      return (
-        <MarkdownRenderer
-          content={block.content}
-          isStreaming={block.isStreaming ?? false}
-          onPreviewFile={readFileToPreview}
-        />
-      );
-  }
 }
 
 export default ChatMessageMemo;

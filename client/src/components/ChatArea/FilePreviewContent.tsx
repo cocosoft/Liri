@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import type { FilePreview } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import CodeBlock from "./CodeBlock";
+import FileTypeIcon from "./FileTypeIcon";
+import { formatFileSize } from "../../utils/formatFileSize";
 
 interface FilePreviewContentProps {
   file: FilePreview;
@@ -20,13 +22,6 @@ interface FilePreviewContentProps {
  */
 function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
   const [imageError, setImageError] = useState(false);
-
-  const formatBytes = useCallback((bytes?: number) => {
-    if (!bytes) return "";
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }, []);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -55,7 +50,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
             </span>
             {file.size && (
               <span className="text-xs text-gray-400 flex-shrink-0">
-                {formatBytes(file.size)}
+                {formatFileSize(file.size)}
               </span>
             )}
           </div>
@@ -97,7 +92,6 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
         <FileHeader
           file={file}
           onClose={handleClose}
-          formatBytes={formatBytes}
         />
         <div className="flex-1 flex items-center justify-center p-8 text-gray-400 dark:text-gray-500">
           <div className="text-center">
@@ -127,7 +121,6 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
         <FileHeader
           file={file}
           onClose={handleClose}
-          formatBytes={formatBytes}
         />
         <div className="flex-1 overflow-auto p-4">
           <pre className="text-sm font-mono leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
@@ -144,7 +137,6 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
         <FileHeader
           file={file}
           onClose={handleClose}
-          formatBytes={formatBytes}
         />
         <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
           <MarkdownRenderer content={file.content} />
@@ -159,7 +151,6 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
         <FileHeader
           file={file}
           onClose={handleClose}
-          formatBytes={formatBytes}
         />
         <div className="flex-1 overflow-auto p-4">
           <pre className="text-sm font-mono leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
@@ -177,7 +168,6 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
         <FileHeader
           file={file}
           onClose={handleClose}
-          formatBytes={formatBytes}
         />
         <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
           <MarkdownRenderer content={file.content} />
@@ -188,7 +178,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <FileHeader file={file} onClose={handleClose} formatBytes={formatBytes} />
+      <FileHeader file={file} onClose={handleClose} />
       <div className="flex-1 overflow-auto">
         <CodeBlock language={file.language || "text"} code={file.content} />
       </div>
@@ -199,10 +189,9 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
 interface FileHeaderProps {
   file: FilePreview;
   onClose: () => void;
-  formatBytes: (bytes?: number) => string;
 }
 
-function FileHeader({ file, onClose, formatBytes }: FileHeaderProps) {
+function FileHeader({ file, onClose }: FileHeaderProps) {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
       <div className="flex items-center gap-2 min-w-0">
@@ -212,7 +201,7 @@ function FileHeader({ file, onClose, formatBytes }: FileHeaderProps) {
         </span>
         {file.size && (
           <span className="text-xs text-gray-400 flex-shrink-0">
-            {formatBytes(file.size)}
+            {formatFileSize(file.size)}
           </span>
         )}
       </div>
@@ -237,148 +226,6 @@ function FileHeader({ file, onClose, formatBytes }: FileHeaderProps) {
       </button>
     </div>
   );
-}
-
-function FileTypeIcon({ type }: { type: string }) {
-  const icons: Record<string, React.ReactNode> = {
-    code: (
-      <svg
-        className="w-4 h-4 text-blue-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-        />
-      </svg>
-    ),
-    markdown: (
-      <svg
-        className="w-4 h-4 text-purple-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-    json: (
-      <svg
-        className="w-4 h-4 text-amber-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-    image: (
-      <svg
-        className="w-4 h-4 text-green-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-    yaml: (
-      <svg
-        className="w-4 h-4 text-cyan-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-    text: (
-      <svg
-        className="w-4 h-4 text-gray-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-    ),
-    pdf: (
-      <svg
-        className="w-4 h-4 text-red-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-    docx: (
-      <svg
-        className="w-4 h-4 text-blue-600"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-    pptx: (
-      <svg
-        className="w-4 h-4 text-orange-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-  };
-
-  return <span className="flex-shrink-0">{icons[type] || icons.text}</span>;
 }
 
 function PrettyJson({ content }: { content: string }) {

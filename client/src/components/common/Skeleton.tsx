@@ -68,4 +68,33 @@ function SkeletonTable({ rows = 5 }: { rows?: number }) {
   );
 }
 
-export { SkeletonPulse, SkeletonText, SkeletonCard, SkeletonTable };
+/**
+ * 消息气泡骨架屏：模拟聊天消息的加载状态
+ */
+function SkeletonMessageList({ count = 3 }: SkeletonProps) {
+  const layouts = [
+    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-3/4" },
+    { align: "justify-end", bg: "bg-blue-100 dark:bg-blue-900/30", width: "w-2/3" },
+    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-4/5" },
+  ];
+
+  return (
+    <div className="space-y-4 p-4">
+      {Array.from({ length: count }).map((_, i) => {
+        const layout = layouts[i % layouts.length];
+        return (
+          <div key={i} className={`flex ${layout.align}`}>
+            <div className={`${layout.width} p-3 rounded-lg space-y-2 ${layout.bg}`}>
+              <SkeletonPulse className={`h-3 ${i % 2 === 0 ? "w-1/3" : "w-1/4"}`} />
+              <SkeletonPulse className="h-3 w-full" />
+              {i % 2 === 0 && <SkeletonPulse className="h-3 w-2/3" />}
+              <SkeletonPulse className="h-2 w-12 ml-auto" />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export { SkeletonPulse, SkeletonText, SkeletonCard, SkeletonTable, SkeletonMessageList };

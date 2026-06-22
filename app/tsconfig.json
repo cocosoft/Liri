@@ -20,7 +20,7 @@
     "declaration": false,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "..",
     "baseUrl": "./src",
     "jsx": "react-jsx",
     "paths": {
@@ -144,7 +144,8 @@
       "@modules/components": ["components"],
       "@modules/components/*": ["components/*"],
       "@modules/workspace": ["workspace"],
-      "@modules/workspace/*": ["workspace/*"]
+      "@modules/workspace/*": ["workspace/*"],
+      "@shared/*": ["../../shared/*"]
     }
   },
   "include": ["src/**/*"],

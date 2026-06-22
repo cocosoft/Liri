@@ -13,6 +13,7 @@ const shortcutMap: Record<
   "toggle-settings": { key: ",", ctrl: true },
   "focus-input": { key: "i", ctrl: true },
   "show-help": { key: "/", ctrl: true },
+  "stop-generation": { key: "s", ctrl: true, shift: true },
 };
 
 export type ShortcutAction =
@@ -21,7 +22,8 @@ export type ShortcutAction =
   | "toggle-dashboard"
   | "toggle-settings"
   | "focus-input"
-  | "show-help";
+  | "show-help"
+  | "stop-generation";
 
 export function useKeyboard() {
   const { clearMessages } = useChatStore();
@@ -84,6 +86,13 @@ export function useKeyboard() {
       if (isCtrl && !e.shiftKey && key === shortcutMap["show-help"].key) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("toggle-shortcut-help"));
+        return;
+      }
+
+      // Ctrl+Shift+S：停止生成
+      if (isCtrl && e.shiftKey && key === shortcutMap["stop-generation"].key) {
+        e.preventDefault();
+        useChatStore.getState().stopMessage();
         return;
       }
     },

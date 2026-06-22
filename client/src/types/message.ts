@@ -8,6 +8,7 @@ export interface Message {
   blocks?: MessageBlock[];
   toolCallId?: string;
   error?: string;
+  replyToId?: string;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -101,4 +102,75 @@ export interface ToolCall {
   arguments: Record<string, unknown>;
   result?: unknown;
   status?: "running" | "completed" | "failed";
+}
+
+// ============================================================
+// 子组件 Props 接口 — 接口契约先行，组件拆分前定义
+// ============================================================
+
+/** MessageHeader 子组件 Props */
+export interface MessageHeaderProps {
+  role: "user" | "assistant" | "system" | "tool";
+  timestamp: number;
+  channel?: "web" | "terminal";
+  status?: "sending" | "sent" | "error";
+}
+
+/** MessageContent 子组件 Props */
+export interface MessageContentProps {
+  content: string;
+  blocks?: MessageBlock[];
+  isStreaming?: boolean;
+  messageId: string;
+}
+
+/** MessageActions 子组件 Props */
+export interface MessageActionsProps {
+  messageId: string;
+  role: "user" | "assistant" | "system" | "tool";
+  isStreaming?: boolean;
+  /** 是否为最后一条 AI 消息（控制"重新生成"按钮显示） */
+  isLastAiMessage?: boolean;
+  /** 消息是否被截断（控制"继续生成"按钮显示） */
+  isTruncated?: boolean;
+  finishReason?: "stop" | "length" | "max_tokens" | "tool_calls";
+}
+
+/** ToolCallInline 子组件 Props（扁平化后的工具调用展示） */
+export interface ToolCallInlineProps {
+  toolCall: ToolCall;
+  /** 点击展开详情的回调 */
+  onExpand?: (toolCall: ToolCall) => void;
+}
+
+/** ToolCallGroup 子组件 Props（扁平化后的工具执行组） */
+export interface ToolCallGroupProps {
+  blocks: MessageBlock[];
+  isStreaming?: boolean;
+  /** 组标题（如 "工具执行"） */
+  title?: string;
+}
+
+/** TaskCard 子组件 Props */
+export interface TaskCardProps {
+  data: TaskCardData;
+  isStreaming?: boolean;
+}
+
+/** InputComposer 子组件 Props */
+export interface InputComposerProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSend: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+  /** 是否正在流式输出（控制停止按钮显示） */
+  isStreaming?: boolean;
+  onStop?: () => void;
+}
+
+/** StreamIndicator 子组件 Props（流式光标指示器） */
+export interface StreamIndicatorProps {
+  /** 是否正在流式输出 */
+  active: boolean;
 }

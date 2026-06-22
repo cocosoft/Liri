@@ -66,7 +66,8 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
       const result = await workspaceService.getAgentModelBindings(workspaceId);
       setBindings(result.bindings);
       setAvailableModels(result.availableModels);
-    } catch {
+    } catch (err) {
+      console.warn("[AgentModelBindingConfig] 加载配置失败", err);
       setMessage({ type: "error", text: "加载配置失败" });
     } finally {
       setLoading(false);
@@ -87,7 +88,8 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
       await workspaceService.updateAgentModelBindings(workspaceId, { bindings });
       setMessage({ type: "success", text: "保存成功" });
       setTimeout(() => setMessage(null), 2000);
-    } catch {
+    } catch (err) {
+      console.warn("[AgentModelBindingConfig] 保存失败", err);
       setMessage({ type: "error", text: "保存失败" });
     } finally {
       setSaving(false);

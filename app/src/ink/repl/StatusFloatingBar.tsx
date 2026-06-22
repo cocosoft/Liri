@@ -8,25 +8,13 @@
 import React from 'react';
 import { Box, Text } from '../../ink';
 import type { StreamStats, StreamState } from './types';
+import { formatTokenSpeed, formatElapsed } from '@shared/utils';
 
 interface StatusFloatingBarProps {
   streamStats: StreamStats | null;
   streamState: StreamState;
   submitCount: number;
   modelName?: string;
-}
-
-function formatTokenSpeed(speed: number): string {
-  if (speed >= 1000) return `${(speed / 1000).toFixed(1)}k t/s`;
-  return `${speed} t/s`;
-}
-
-function formatElapsed(startTime: number): string {
-  const sec = Math.floor((Date.now() - startTime) / 1000);
-  if (sec < 60) return `${sec}s`;
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}m${s}s`;
 }
 
 export const StatusFloatingBar: React.FC<StatusFloatingBarProps> = ({

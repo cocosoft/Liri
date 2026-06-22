@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { workspaceService } from "../services/workspaceService";
+import type { WorkspaceListItem } from "../services/workspaceService";
 import { useWorkStore } from "./workStore";
 import type { WorkItem, WorkItemStatus } from "./workStore";
 
@@ -13,6 +14,9 @@ interface ExecutionPhaseData {
 interface WorkspaceStore {
   /** 当前工作空间 */
   currentWorkspace: { id: string; path: string; createdAt?: string; updatedAt?: string } | null;
+
+  /** 工作空间列表（用于切换） */
+  workspaces: WorkspaceListItem[];
 
   /** 工作项列表 */
   workItems: WorkItem[];
@@ -30,6 +34,9 @@ interface WorkspaceStore {
   error: string | null;
 
   // ─── 动作 ───
+
+  /** 获取工作空间列表 */
+  listWorkspaces: () => Promise<void>;
 
   /** 打开工作空间 */
   openWorkspace: (workspaceId: string) => Promise<void>;
@@ -69,11 +76,27 @@ interface WorkspaceStore {
  */
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   currentWorkspace: null,
+  workspaces: [],
   workItems: [],
   executionPhase: null,
   backendReady: false,
   isLoading: false,
   error: null,
+
+  /**
+   * 获取工作空间列表
+   */
+  listWorkspaces: async () => {
+    try {
+      const list = await workspaceService.listWorkspaces();
+      // 按更新时间降序排列
+      list.sort((a, b) => b.updatedAt - a.updatedAt);
+      set({ workspaces: list });
+    } catch (err) {
+      console.warn("[workspaceStore] 获取工作空间列表失败", err);
+      set({ workspaces: [] });
+    }
+  },
 
   /**
    * 打开工作空间：加载工作空间信息 + 工作项列表

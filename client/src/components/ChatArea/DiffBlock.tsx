@@ -37,14 +37,70 @@ const LINE_PREFIX: Record<string, string> = {
 };
 
 /**
+ * 格式化 diff 内容为可复制文本（不带行号和样式前缀）
+ */
+function formatRawDiff(lines: string[]): string {
+  return lines
+    .map((line) => {
+      const { type, content } = parseDiffLine(line);
+      // header 行保留原始内容（包含 @@），其余行去掉前缀字符
+      if (type === "header") return content;
+      if (type === "add" || type === "del") return content;
+      return content;
+    })
+    .join("\n");
+}
+
+/**
  * Diff 预览组件
- * 内嵌 diff 预览，支持展开/折叠、行号显示、语法高亮
+ * 内嵌 diff 预览，支持展开/折叠、行号显示、语法高亮、应用/拒绝操作
  */
 export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) {
   const { file, diff, stats } = data;
   const [isExpanded, setIsExpanded] = useState(!collapsible);
+  const [applying, setApplying] = useState(false);
+  const [rejected, setRejected] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const lines = diff.split("\n");
+
+  /** 接受 diff：复制 diff 内容到剪贴板 */
+  const handleApply = async () => {
+    setApplying(true);
+    try {
+      const rawDiffText = formatRawDiff(lines);
+      const formatted = `文件：${file}\n\n\`\`\`diff\n${rawDiffText}\n\`\`\``;
+      await navigator.clipboard.writeText(formatted);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("[DiffBlock] 复制失败", err);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  /** 拒绝 diff：折叠当前 diff 块 */
+  const handleReject = () => {
+    setRejected(true);
+  };
+
+  // 已拒绝：显示占位提示
+  if (rejected) {
+    return (
+      <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm opacity-60">
+        <div className="px-3 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-sm flex-shrink-0">{"\u{1F4C4}"}</span>
+            <span className="text-sm font-mono text-gray-500 dark:text-gray-400 line-through truncate">
+              {file}
+            </span>
+          </div>
+          <span className="text-xs text-gray-400 dark:text-gray-500">已拒绝</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
@@ -99,6 +155,30 @@ export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) 
           </pre>
         </div>
       )}
+
+      {/* 操作栏：接受 / 拒绝 */}
+      <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2">
+        <button
+          onClick={handleApply}
+          disabled={applying || copied}
+          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+            copied
+              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+              : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
+          } disabled:opacity-70`}
+        >
+          {copied ? "\u2713 已复制" : applying ? "复制中..." : "\u2713 接受"}
+        </button>
+        <button
+          onClick={handleReject}
+          className="px-3 py-1 text-xs font-medium rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+        >
+          {"\u2717 拒绝"}
+        </button>
+        <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">
+          接受将复制 diff 到剪贴板，可粘贴到编辑器中应用
+        </span>
+      </div>
     </div>
   );
 }

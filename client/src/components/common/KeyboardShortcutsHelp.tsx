@@ -13,6 +13,7 @@ const shortcuts: ShortcutEntry[] = [
   { keys: ["Ctrl", "I"], label: "聚焦输入框" },
   { keys: ["Ctrl", "/"], label: "显示快捷键帮助" },
   { keys: ["Esc"], label: "取消聚焦 / 关闭弹窗" },
+  { keys: ["Ctrl", "Shift", "S"], label: "停止生成" },
 ];
 
 function KeyboardShortcutsHelp() {

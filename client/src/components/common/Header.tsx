@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 import { DashboardIcon, DevIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
+import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
 /**
  * 页面顶部 Header
@@ -78,6 +79,9 @@ function Header() {
           <DevIcon size={16} />
           <span>终端</span>
         </button>
+
+        {/* 工作空间切换器 */}
+        <WorkspaceSwitcher />
 
         {/* 分隔线 */}
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />

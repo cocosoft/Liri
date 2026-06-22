@@ -117,6 +117,12 @@ function MenuButton({ item, isActive, onNavigate }: {
   );
 }
 
+/**
+ * 工作空间选择器：侧栏顶部图标按钮 + 下拉菜单
+ * 已迁移至 Header 右上角的 WorkspaceSwitcher 组件。
+ * 保留空壳避免 Sidebar 布局变化。
+ */
+
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const activeRoute = location.pathname.replace("/", "") || "home";

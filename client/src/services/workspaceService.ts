@@ -175,12 +175,27 @@ export interface CreateProjectWorkItemRequest {
  * 工作空间 API 服务
  * 对接 Phase 0 后端 Workspace Session API
  */
+/** 工作空间列表项（来自 GET /v1/workspaces） */
+export interface WorkspaceListItem {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export const workspaceService = {
+  /** 获取工作空间列表 */
+  async listWorkspaces(): Promise<WorkspaceListItem[]> {
+    return await http.get<WorkspaceListItem[]>("/v1/workspaces");
+  },
+
   /** 获取工作空间信息 */
   async getWorkspace(id: string): Promise<WorkspaceInfo | null> {
     try {
       return await http.get<WorkspaceInfo>(`/v1/workspaces/${id}`);
-    } catch {
+    } catch (err) {
+      console.warn("[workspaceService] 获取工作空间信息失败", err);
       return null;
     }
   },

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 上下文压缩器
  * 基于 AI 的智能上下文压缩，支持触发比例和保留比例精细控制
  */
@@ -163,22 +163,25 @@ export class ContextCompressor {
     const recent = messages.slice(-this.config.recentMessageCount);
 
     if (this.config.preserveRecentToolResults) {
-      const toolResultIds = new Set(
-        recent.filter((m) => m.role === 'tool').map((m) => m.id)
-      );
-      const assistantIds = new Set(
-        messages
-          .filter(
-            (m) =>
-              m.role === 'assistant' &&
-              m.metadata?.tool_call_id &&
-              toolResultIds.has(m.metadata.tool_call_id as string)
-          )
-          .map((m) => m.id)
+      // 收集 recent 中所有 tool 消息的 tool_call_id（从 metadata 中提取实际 API ID）
+      const toolResultCallIds = new Set(
+        recent
+          .filter((m) => m.role === 'tool')
+          .map((m) => m.metadata?.tool_call_id as string | undefined)
+          .filter((id): id is string => !!id)
       );
 
+      if (toolResultCallIds.size === 0) return recent;
+
+      // 查找其 tool_calls[].id 匹配上述 tool_call_id 的 assistant 消息
+      // 这些 assistant 消息虽不在 recent 窗口内，但其 tool 结果在 recent 中，必须一并保留
       const extraAssistant = messages.filter(
-        (m) => m.role === 'assistant' && assistantIds.has(m.id)
+        (m) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.metadata?.tool_calls) &&
+          (m.metadata!.tool_calls as Array<{ id?: string }>).some(
+            (tc) => tc.id && toolResultCallIds.has(tc.id)
+          )
       );
 
       return [...extraAssistant, ...recent];

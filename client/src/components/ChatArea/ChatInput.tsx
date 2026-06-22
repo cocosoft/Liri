@@ -1,11 +1,17 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useEffect, Suspense } from "react";
 import { useChatStore, inferFileType } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useAppStore } from "../../stores/appStore";
+import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
 import VoiceInputButton from "../VoiceInputButton";
+import FileAttachmentBar from "./FileAttachmentBar";
+import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
+import { useChatDraft } from "./useChatDraft";
 import type { Message } from "../../types";
+
+const EmojiPicker = React.lazy(() => import("./EmojiPicker"));
 
 interface FileAttachment {
   name: string;
@@ -13,584 +19,51 @@ interface FileAttachment {
   data: string;
 }
 
-interface SlashCommand {
-  key: string;
-  label: string;
-  description: string;
-  action: () => void;
-}
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
-
-const EMOJI_CATEGORIES = [
-  {
-    name: "笑脸",
-    icons: [
-      "😀",
-      "😃",
-      "😄",
-      "😁",
-      "😆",
-      "😅",
-      "🤣",
-      "😂",
-      "🙂",
-      "😊",
-      "😇",
-      "🥰",
-      "😍",
-      "🤩",
-      "😘",
-      "😗",
-      "😚",
-      "😙",
-      "🥲",
-      "😋",
-      "😛",
-      "😜",
-      "🤪",
-      "😝",
-      "🤑",
-      "🤗",
-      "🤭",
-      "🤫",
-      "🤔",
-      "🤐",
-      "🤨",
-      "😐",
-      "😑",
-      "😶",
-      "😏",
-      "😒",
-      "🙄",
-      "😬",
-      "🤥",
-      "😌",
-      "❤️",
-      "🧡",
-      "💛",
-      "💚",
-      "💙",
-      "💜",
-      "🖤",
-      "🤍",
-      "🤎",
-      "💔",
-    ],
-  },
-  {
-    name: "动物",
-    icons: [
-      "🐵",
-      "🐒",
-      "🦍",
-      "🦧",
-      "🐶",
-      "🐕",
-      "🦮",
-      "🐕‍🦺",
-      "🐩",
-      "🐺",
-      "🦊",
-      "🦝",
-      "🐱",
-      "🐈",
-      "🐈‍⬛",
-      "🦁",
-      "🐯",
-      "🐅",
-      "🐆",
-      "🐴",
-      "🫎",
-      "🦄",
-      "🐮",
-      "🐂",
-      "🐃",
-      "🐄",
-      "🐷",
-      "🐖",
-      "🐗",
-      "🐽",
-      "🐏",
-      "🐑",
-      "🐐",
-      "🦙",
-      "🦒",
-      "🐘",
-      "🦣",
-      "🦏",
-      "🦛",
-      "🐭",
-      "🐁",
-      "🐀",
-      "🐹",
-      "🐰",
-      "🐇",
-      "🐿️",
-      "🦫",
-      "🦔",
-      "🦇",
-      "🐻",
-      "🐻‍❄️",
-      "🐨",
-      "🐼",
-      "🦘",
-      "🦥",
-      "🦦",
-      "🦨",
-    ],
-  },
-  {
-    name: "食物",
-    icons: [
-      "🍇",
-      "🍈",
-      "🍉",
-      "🍊",
-      "🍋",
-      "🍌",
-      "🍍",
-      "🥭",
-      "🍎",
-      "🍏",
-      "🍐",
-      "🍑",
-      "🍒",
-      "🍓",
-      "🫐",
-      "🥝",
-      "🍅",
-      "🫒",
-      "🥑",
-      "🍆",
-      "🥔",
-      "🥕",
-      "🌽",
-      "🌶️",
-      "🫑",
-      "🥒",
-      "🥬",
-      "🥦",
-      "🧅",
-      "🧄",
-      "🥜",
-      "🌰",
-      "🫘",
-      "🍞",
-      "🥐",
-      "🥖",
-      "🫓",
-      "🧀",
-      "🍕",
-      "🍔",
-      "🍟",
-      "🌭",
-      "🍿",
-      "🧈",
-      "🥚",
-      "🍳",
-      "🥞",
-      "🧇",
-      "🍩",
-      "🍪",
-      "🎂",
-      "🍰",
-      "🧁",
-      "🍫",
-      "🍬",
-      "🍭",
-      "🍮",
-      "🍦",
-      "🍧",
-      "🍨",
-      "☕",
-      "🍵",
-      "🍶",
-      "🍾",
-      "🍷",
-      "🍸",
-      "🍹",
-      "🧋",
-      "🥤",
-      "🍼",
-    ],
-  },
-  {
-    name: "庆祝",
-    icons: [
-      "🎉",
-      "🎊",
-      "🎈",
-      "🎁",
-      "🎀",
-      "🏆",
-      "🎯",
-      "🎰",
-      "🎲",
-      "🎮",
-      "🎪",
-      "🎭",
-      "🎨",
-      "🎬",
-      "🎤",
-      "🎧",
-      "🎼",
-      "🎹",
-      "🎻",
-      "🥁",
-      "🎷",
-      "🎸",
-      "🎺",
-      "🎵",
-      "🎶",
-    ],
-  },
-  {
-    name: "旅行",
-    icons: [
-      "✈️",
-      "🚀",
-      "🚂",
-      "🚗",
-      "🚕",
-      "🚙",
-      "🚌",
-      "🚎",
-      "🏎️",
-      "🚓",
-      "🚑",
-      "🚒",
-      "🚐",
-      "🚚",
-      "🚛",
-      "🚜",
-      "⛵",
-      "🚢",
-      "🚤",
-      "🚣",
-      "🛶",
-      "🚲",
-      "🛵",
-      "🏍️",
-      "🛺",
-      "🚡",
-      "🚠",
-      "🚟",
-      "🚃",
-      "🚋",
-      "🚔",
-      "🚨",
-      "🛸",
-      "🚁",
-      "🛩️",
-      "🛫",
-      "🛬",
-    ],
-  },
-  {
-    name: "物品",
-    icons: [
-      "💎",
-      "👑",
-      "📱",
-      "📲",
-      "💻",
-      "⌨️",
-      "🖥️",
-      "🖨️",
-      "📡",
-      "🔌",
-      "💾",
-      "💿",
-      "📀",
-      "📺",
-      "📷",
-      "📸",
-      "📹",
-      "🎥",
-      "🎞️",
-      "📼",
-      "📟",
-      "📠",
-      "🔭",
-      "🔬",
-      "🧪",
-      "⚗️",
-      "🔩",
-      "⚙️",
-      "🛠️",
-      "🔧",
-      "🗡️",
-      "⚔️",
-      "🔫",
-      "💣",
-      "🏹",
-      "🛡️",
-      "🚦",
-      "🚧",
-      "⛔",
-      "🚫",
-      "⚠️",
-      "⛈️",
-      "🌡️",
-      "🔥",
-      "💧",
-      "🌊",
-      "🌈",
-      "⭐",
-      "🌙",
-      "☀️",
-      "⛅",
-      "❄️",
-      "🌨️",
-      "🌀",
-      "🌪️",
-      "🌟",
-      "✨",
-      "💫",
-      "⚡",
-      "💥",
-      "💢",
-      "💨",
-      "👁️",
-      "👀",
-      "👂",
-      "👃",
-      "👄",
-      "❣️",
-      "💕",
-      "💞",
-      "💓",
-      "💗",
-      "💖",
-      "💘",
-      "💝",
-      "💟",
-    ],
-  },
-];
-
-function EmojiPicker({
-  onSelect,
-  onClose,
-}: {
-  onSelect: (emoji: string) => void;
-  onClose: () => void;
-}) {
-  const [activeCategory, setActiveCategory] = useState(0);
-
-  return (
-    <>
-      <div className="fixed inset-0 z-10" onClick={onClose} />
-      <div className="absolute bottom-full left-0 mb-2 z-20 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
-        <div className="flex border-b border-gray-100 dark:border-gray-700">
-          {EMOJI_CATEGORIES.map((cat, idx) => (
-            <button
-              key={cat.name}
-              onClick={() => setActiveCategory(idx)}
-              className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                activeCategory === idx
-                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-        <div className="p-2 max-h-64 overflow-y-auto">
-          <div className="grid grid-cols-8 gap-1">
-            {EMOJI_CATEGORIES[activeCategory].icons.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => {
-                  onSelect(emoji);
-                  onClose();
-                }}
-                className="w-8 h-8 flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/**
- * 将 File 对象读取为 Base64 字符串
- */
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1]);
-    };
-    reader.onerror = () => reject(new Error(`读取文件失败: ${file.name}`));
-    reader.readAsDataURL(file);
-  });
-}
-
 function ChatInput() {
-  const [input, setInput] = useState("");
   const [showCommands, setShowCommands] = useState(false);
   const [commandIndex, setCommandIndex] = useState(0);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasShowingCommandsRef = useRef(false);
-  const { streamMessage, isSending, isStreaming, isUploading, clearMessages } = useChatStore();
+
+  const { streamMessage, isSending, isStreaming, isUploading, clearMessages, messageQueue, stopMessage } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
+  const messageQueueEnabled = useFeatureFlagStore((s) => s.flags.message_queue);
+
+  // 草稿持久化
+  const { input, setInput, setInputWithDraft, clearDraft } = useChatDraft(currentSession?.id);
+
+  // 回复/编辑状态同步
   const [replyMessage, setReplyMessage] = useState<Message | null>(null);
-  const replyMessageRef = useRef(replyMessage);
-  replyMessageRef.current = replyMessage;
+  const [editTarget, setEditTarget] = useState<Message | null>(null);
 
   useEffect(() => {
-    const unsubscribe = useChatStore.subscribe((state) => {
-      if (state.replyMessage !== replyMessageRef.current) {
+    const unsub = useChatStore.subscribe((state) => {
+      if (state.replyMessage !== replyMessage) {
         setReplyMessage(state.replyMessage);
-        if (state.replyMessage) {
-          const textarea = textareaRef.current;
-          if (textarea) textarea.focus();
+        if (state.replyMessage) textareaRef.current?.focus();
+      }
+    });
+    return unsub;
+  }, [replyMessage]);
+
+  useEffect(() => {
+    const unsub = useChatStore.subscribe((state) => {
+      if (state.editTarget !== editTarget) {
+        setEditTarget(state.editTarget);
+        if (state.editTarget) {
+          const c = typeof state.editTarget.content === "string" ? state.editTarget.content : "";
+          setInput(c);
+          textareaRef.current?.focus();
+          textareaRef.current?.setSelectionRange(c.length, c.length);
         }
       }
     });
-    return unsubscribe;
-  }, []);
-
-  const slashCommands: SlashCommand[] = [
-    {
-      key: "/dashboard",
-      label: "/dashboard",
-      description: "打开仪表盘",
-      action: () => setActivePage("dashboard"),
-    },
-    {
-      key: "/files",
-      label: "/files",
-      description: "打开文件浏览器",
-      action: () => setActivePage("files"),
-    },
-    {
-      key: "/knowledge",
-      label: "/knowledge",
-      description: "打开知识库",
-      action: () => setActivePage("knowledge"),
-    },
-    {
-      key: "/agent",
-      label: "/agent",
-      description: "打开 Agent 任务",
-      action: () => setActivePage("agent"),
-    },
-    {
-      key: "/clear",
-      label: "/clear",
-      description: "清空聊天消息",
-      action: () => {
-        clearMessages();
-        setInput("");
-      },
-    },
-    {
-      key: "/help",
-      label: "/help",
-      description: "显示可用命令",
-      action: () => setShowCommands(true),
-    },
-  ];
-
-  const filteredCommands = slashCommands.filter((cmd) =>
-    cmd.key.startsWith(input.toLowerCase()),
-  );
-
-  /**
-   * 处理文件选择
-   */
-  const handleFileSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (!files) return;
-
-      const newAttachments: FileAttachment[] = [];
-      for (const file of Array.from(files)) {
-        if (file.size > MAX_FILE_SIZE) {
-          alert(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
-          continue;
-        }
-        try {
-          const data = await readFileAsBase64(file);
-          newAttachments.push({ name: file.name, size: file.size, data });
-        } catch {
-          alert(`读取文件 "${file.name}" 失败`);
-        }
-      }
-      setAttachments((prev) => [...prev, ...newAttachments]);
-      e.target.value = "";
-    },
-    [],
-  );
-
-  /**
-   * 移除附件
-   */
-  const handleRemoveFile = useCallback((index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  /**
-   * 处理拖拽文件
-   */
-  const handleFileDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-
-    const processFiles = async () => {
-      const newAttachments: FileAttachment[] = [];
-      for (const file of files) {
-        if (file.size > MAX_FILE_SIZE) {
-          alert(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
-          continue;
-        }
-        try {
-          const data = await readFileAsBase64(file);
-          newAttachments.push({ name: file.name, size: file.size, data });
-        } catch {
-          alert(`读取文件 "${file.name}" 失败`);
-        }
-      }
-      setAttachments((prev) => [...prev, ...newAttachments]);
-    };
-    processFiles();
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  /**
-   * 格式化文件大小
-   */
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+    return unsub;
+  }, [editTarget, setInput]);
 
   /**
    * 插入 emoji 到输入框
@@ -617,13 +90,28 @@ function ChatInput() {
   const handleSubmit = async () => {
     const trimmed = input.trim();
 
-    // 流式传输中不重复发送
-    if (isStreaming) return;
+    // 流式传输中：消息排队模式下不阻塞，旧模式下阻止
+    if (isStreaming && !messageQueueEnabled) return;
 
-    const matched = slashCommands.find((cmd) => cmd.key === trimmed);
+    const matched = SLASH_COMMANDS.find((cmd) => cmd.key === trimmed);
     if (matched) {
-      matched.action();
+      // 命令由 ChatInput 执行（因为涉及 createSession、setActivePage 等 store 调用）
+      if (matched.key === "/clear") {
+        clearMessages();
+        setInput("");
+      } else if (matched.key === "/dashboard") {
+        setActivePage("dashboard");
+      } else if (matched.key === "/files") {
+        setActivePage("files");
+      } else if (matched.key === "/knowledge") {
+        setActivePage("knowledge");
+      } else if (matched.key === "/agent") {
+        setActivePage("agent");
+      } else if (matched.key === "/help") {
+        setShowCommands(true);
+      }
       setInput("");
+      setShowCommands(false);
       return;
     }
 
@@ -648,10 +136,8 @@ function ChatInput() {
         uploadedFiles.push({ name: file.name, path: result.path });
       }
 
-      // 上传完成后立即清除 isUploading，后续 stream 阶段由 chatStore 的 isSending/isStreaming 管理
       useChatStore.setState({ isUploading: false });
 
-      // 将上传的文件添加到会话文件列表，供 FilePreviewPanel 展示
       const addSessionFile = useChatStore.getState().addSessionFile;
       for (const f of uploadedFiles) {
         addSessionFile({
@@ -663,7 +149,11 @@ function ChatInput() {
       }
 
       let messageContent = trimmed;
+      // 设置回复引用 ID，streamMessage 中会读取并写入消息的 replyToId
       if (replyMessage) {
+        useChatStore.getState().setReplyMessage(null);
+        // 将当前回复传递给 store 的 pendingReplyToId 字段
+        useChatStore.setState({ pendingReplyToId: replyMessage.id });
         const replyContent =
           typeof replyMessage.content === "string"
             ? replyMessage.content.slice(0, 100) +
@@ -681,10 +171,11 @@ function ChatInput() {
       }
 
       if (messageContent) {
-        // 立即清空输入框，不等 AI 响应结束
         setInput("");
         setAttachments([]);
         setReplyMessage(null);
+        useChatStore.getState().setEditTarget(null);
+        clearDraft();
         await streamMessage(messageContent, sessionId);
       }
 
@@ -699,28 +190,28 @@ function ChatInput() {
     }
   };
 
+  /**
+   * 键盘事件处理
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (showCommands && filteredCommands.length > 0) {
+    if (showCommands) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setCommandIndex((i) => (i + 1) % filteredCommands.length);
+        setCommandIndex((i) => (i + 1) % SLASH_COMMANDS.length);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
         setCommandIndex(
-          (i) => (i - 1 + filteredCommands.length) % filteredCommands.length,
+          (i) => (i - 1 + SLASH_COMMANDS.length) % SLASH_COMMANDS.length,
         );
         return;
       }
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
-        const cmd = filteredCommands[commandIndex];
-        if (cmd) {
-          setInput(cmd.key + " ");
-          setCommandIndex(0);
-          setShowCommands(false);
-        }
+        setInput(SLASH_COMMANDS[commandIndex].key + " ");
+        setCommandIndex(0);
+        setShowCommands(false);
         return;
       }
     }
@@ -731,10 +222,12 @@ function ChatInput() {
       return;
     }
 
-    // 流式传输中 Enter 不重复发送，允许用户继续打字
+    // 流式传输中 Enter：消息排队模式下允许发送
     if (isStreaming && (e.key === "Enter" && !e.shiftKey)) {
-      e.preventDefault();
-      return;
+      if (!messageQueueEnabled) {
+        e.preventDefault();
+        return;
+      }
     }
 
     if (
@@ -746,11 +239,14 @@ function ChatInput() {
     }
   };
 
+  /**
+   * 输入框内容变化处理
+   */
   const handleInputChange = (value: string) => {
     const willShowCommands = value.startsWith("/") && value.indexOf(" ") === -1;
-    setInput(value);
+    setInputWithDraft(value);
     setShowCommands(willShowCommands);
-    // 仅在 / 首次触发时重置命令选中位置，后续输入时保持当前选择
+
     if (!wasShowingCommandsRef.current && willShowCommands) {
       setCommandIndex(0);
     }
@@ -759,143 +255,45 @@ function ChatInput() {
 
   return (
     <div
-      className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors flex-shrink-0 ${
-        isDragOver ? "ring-2 ring-blue-400 ring-inset" : ""
-      }`}
-      onDrop={handleFileDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
+      className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors flex-shrink-0`}
     >
       <div className="max-w-4xl mx-auto">
-        {/* 工具栏：文件上传 + 表情 */}
-        <div className="flex items-center gap-1 mb-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!currentSession || isSending || isUploading}
-            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors"
-            title="上传文件"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <button
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            disabled={!currentSession || isSending || isUploading}
-            className={`p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors ${
-              showEmojiPicker
-                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-500"
-                : ""
-            }`}
-            title="选择表情"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-              />
-            </svg>
-          </button>
-          <div className="flex-1" />
-        </div>
-
-        {/* 附件列表 */}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {attachments.map((file, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300"
-              >
-                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded flex items-center justify-center text-xs">
-                  📄
-                </span>
-                <span className="truncate max-w-[120px]">{file.name}</span>
-                <span className="text-blue-400 dark:text-blue-500 text-xs">
-                  ({formatFileSize(file.size)})
-                </span>
-                <button
-                  onClick={() => handleRemoveFile(i)}
-                  className="ml-1 p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
-                  title="移除"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        {/* 文件附件栏 */}
+        <FileAttachmentBar
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
+          disabled={!currentSession || (!messageQueueEnabled && isSending) || isUploading}
+        />
 
         {/* 输入框区域 */}
         <div className="relative">
-          {/* 命令提示 */}
-          {showCommands && filteredCommands.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl overflow-hidden">
-              <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                快捷命令
-              </div>
-              {filteredCommands.map((cmd, idx) => (
-                <button
-                  key={cmd.key}
-                  onClick={() => {
-                    setInput(cmd.key + " ");
-                    setShowCommands(false);
-                  }}
-                  onMouseEnter={() => setCommandIndex(idx)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
-                    idx === commandIndex
-                      ? "bg-blue-50 dark:bg-blue-900/30"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                  }`}
-                >
-                  <span className="font-mono text-blue-600 dark:text-blue-400 font-medium">
-                    {cmd.label}
-                  </span>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {cmd.description}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+          {/* 快捷命令菜单 */}
+          <SlashCommandMenu
+            input={input}
+            show={showCommands}
+            commandIndex={commandIndex}
+            onSelect={(cmd) => {
+              setInput(cmd.key + " ");
+              setShowCommands(false);
+            }}
+            onHover={setCommandIndex}
+          />
 
           {/* Emoji 选择器 */}
           {showEmojiPicker && (
-            <EmojiPicker
-              onSelect={handleEmojiSelect}
-              onClose={() => setShowEmojiPicker(false)}
-            />
+            <Suspense fallback={<div className="h-64 w-72" />}>
+              <EmojiPicker
+                onSelect={handleEmojiSelect}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            </Suspense>
           )}
 
           {/* 回复消息预览 */}
           {replyMessage && (
             <div className="mb-2 flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                回复 Liri:
+                {replyMessage.role === "user" ? "回复 你" : "回复 Liri"}:
               </span>
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
                 {typeof replyMessage.content === "string"
@@ -916,8 +314,33 @@ function ChatInput() {
               </button>
             </div>
           )}
-
-          {/* 输入框 */}
+          {/* 编辑消息预览 */}
+          {editTarget && (
+            <div className="mb-2 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                编辑消息:
+              </span>
+              <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
+                {typeof editTarget.content === "string"
+                  ? editTarget.content.length > 50
+                    ? editTarget.content.slice(0, 50) + "..."
+                    : editTarget.content
+                  : "[复杂内容]"}
+              </span>
+              <button
+                onClick={() => {
+                  setEditTarget(null);
+                  useChatStore.getState().setEditTarget(null);
+                  setInput("");
+                }}
+                className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
+                title="取消编辑"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {/* 输入框 + 发送按钮 */}
           <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-xl p-1.5">
             {/* 文本输入 */}
             <div className="flex-1 relative">
@@ -926,9 +349,12 @@ function ChatInput() {
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
+                aria-label="消息输入框"
                 placeholder={
                   currentSession
-                    ? "输入消息或 / 查看命令..."
+                    ? isStreaming && messageQueueEnabled
+                      ? "AI 正在回复中，你可以继续输入消息..."
+                      : "输入消息或 / 查看命令..."
                     : "请先选择或创建会话"
                 }
                 disabled={!currentSession}
@@ -941,93 +367,65 @@ function ChatInput() {
             {/* 右侧按钮 */}
             <div className="flex items-center gap-1">
               <VoiceInputButton isDark={config.theme === "dark"} />
-              <button
-                onClick={handleSubmit}
-                disabled={
-                  !currentSession ||
-                  isSending ||
-                  isUploading ||
-                  (!input.trim() && attachments.length === 0)
-                }
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
-              >
-                {isUploading ? (
-                  <>
-                    <svg
-                      className="animate-spin h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    <span>上传中</span>
-                  </>
-                ) : isSending ? (
-                  <>
-                    <svg
-                      className="animate-spin h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    <span>发送中</span>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                      />
-                    </svg>
-                    <span>发送</span>
-                  </>
-                )}
-              </button>
+              {isStreaming && !messageQueueEnabled ? (
+                <button
+                  onClick={() => stopMessage()}
+                  aria-label="停止生成"
+                  className="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" rx="2" />
+                  </svg>
+                  <span>停止</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  aria-label={isStreaming && messageQueueEnabled ? "排队发送消息" : "发送消息"}
+                  disabled={
+                    !currentSession ||
+                    (!messageQueueEnabled && isSending) ||
+                    isUploading ||
+                    (!input.trim() && attachments.length === 0)
+                  }
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>上传中</span>
+                    </>
+                  ) : isSending ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>{messageQueueEnabled && messageQueue.length > 0 ? `发送中 (${messageQueue.length} 排队)` : "发送中"}</span>
+                    </>
+                  ) : messageQueueEnabled && messageQueue.length > 0 ? (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span>发送 ({messageQueue.length + 1} 排队)</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span>发送</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
-
-        {/* 拖拽提示 */}
-        {isDragOver && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-blue-400 px-6 py-3 rounded-xl shadow-lg">
-              <span className="text-blue-500 font-medium">放开放置文件</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

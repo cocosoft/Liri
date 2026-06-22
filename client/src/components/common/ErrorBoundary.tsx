@@ -41,9 +41,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="flex items-center justify-center min-h-[400px] p-8">
+        <div className="flex items-center justify-center min-h-[400px] p-8" role="alert" aria-live="assertive">
           <div className="text-center max-w-md">
-            <div className="text-4xl mb-4">⚠️</div>
+            <div className="text-4xl mb-4" aria-hidden="true">⚠️</div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
               页面发生错误
             </h2>
@@ -54,12 +54,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <button
                 onClick={this.handleReset}
                 className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                aria-label="重试加载"
               >
                 重试
               </button>
               <button
                 onClick={this.handleRefresh}
                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                aria-label="刷新页面"
               >
                 刷新页面
               </button>

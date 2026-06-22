@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 import { HTTPClientError } from "../../services/httpClient";
+import { readFileAsBase64 } from "../../utils/fileUtils";
 
 interface FileUploadZoneProps {
   isDark: boolean;
@@ -59,19 +60,6 @@ function FileUploadZone({
   const textMuted = isDark ? "text-gray-400" : "text-gray-500";
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const bgHover = isDark ? "hover:bg-gray-700" : "hover:bg-gray-50";
-
-  function readFileAsBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.split(",")[1] || "";
-        resolve(base64);
-      };
-      reader.onerror = () => reject(new Error("文件读取失败"));
-      reader.readAsDataURL(file);
-    });
-  }
 
   async function handleFiles(files: FileList | File[]) {
     const fileArray = Array.from(files);

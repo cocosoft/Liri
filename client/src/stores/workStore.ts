@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 /** 工作界面内容视图类型 */
-export type ContentView = "welcome" | "project" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules";
+export type ContentView = "welcome" | "project" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules" | "agent";
 
 /** 工作项生命周期状态 */
 export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";
@@ -32,11 +32,15 @@ interface WorkStore {
   /** 中间内容区视图 */
   contentView: ContentView;
 
+  /** 后端配置的可见 Tab 列表（undefined 时显示全部 Tab） */
+  workTabs: string[] | undefined;
+
   /** 动作 */
   setMode: (mode: "plan" | "do") => void;
   toggleMode: () => void;
   setActiveWorkItem: (item: WorkItem | null) => void;
   setContentView: (view: ContentView) => void;
+  setWorkTabs: (tabs: string[] | undefined) => void;
 }
 
 /**
@@ -48,6 +52,7 @@ export const useWorkStore = create<WorkStore>((set, get) => ({
   mode: "plan",
   activeWorkItem: null,
   contentView: "welcome",
+  workTabs: undefined,
 
   setMode: (mode) => {
     set({ mode });
@@ -68,4 +73,6 @@ export const useWorkStore = create<WorkStore>((set, get) => ({
   setActiveWorkItem: (item) => set({ activeWorkItem: item }),
 
   setContentView: (view) => set({ contentView: view }),
+
+  setWorkTabs: (tabs) => set({ workTabs: tabs }),
 }));

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
 import ConfirmDialog from "../common/ConfirmDialog";
+import SessionContextMenu from "./SessionContextMenu";
+import SessionListItem from "./SessionListItem";
 
 /**
  * 会话来源渠道 → 显示名称映射
@@ -52,16 +54,33 @@ function SessionHistorySidebar() {
     togglePin,
     pinnedSessionIds,
   } = useSessionStore();
-  const [isExpanded, setIsExpanded] = useState(true);
+
+  // 从 localStorage 恢复折叠状态，默认展开
+  const [isExpanded, setIsExpanded] = useState(() => {
+    const saved = localStorage.getItem("sidebar_expanded");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  // 折叠状态变更时持久化
+  const toggleSidebar = useCallback(() => {
+    setIsExpanded((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar_expanded", String(next));
+      return next;
+    });
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 窄屏（< 1024px）自动折叠侧栏
+  // 窄屏（< 1024px）自动折叠侧栏（不覆盖用户手动设置）
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 1023px)");
     const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      setIsExpanded(!e.matches);
+      if (e.matches) {
+        setIsExpanded(false);
+        localStorage.setItem("sidebar_expanded", "false");
+      }
     };
     handleChange(mediaQuery);
     mediaQuery.addEventListener("change", handleChange);
@@ -259,29 +278,12 @@ function SessionHistorySidebar() {
     setShowClearConfirm(false);
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString("zh-CN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-    if (diffDays === 1) return "昨天";
-    if (diffDays < 7) return `${diffDays}天前`;
-    return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-  };
-
   if (!isExpanded) {
     return (
       <div className="group bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-12 hover:w-60">
         <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-center group-hover:justify-between group-hover:px-3">
           <button
-            onClick={() => setIsExpanded(true)}
+            onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
             title="展开会话历史"
           >
@@ -357,7 +359,7 @@ function SessionHistorySidebar() {
             </svg>
           </button>
           <button
-            onClick={() => setIsExpanded(false)}
+            onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
             title="收起侧边栏"
           >
@@ -403,76 +405,24 @@ function SessionHistorySidebar() {
         ) : (
           <div style={{ height: virtualList.total * ESTIMATED_ITEM_HEIGHT, position: "relative" }}>
             <div style={{ transform: `translateY(${virtualList.offsetY}px)` }}>
-              {virtualList.visibleItems.map((session) => {
-                const isActive = currentSession?.id === session.id;
-                return (
-                  <div
-                    key={session.id}
-                    onContextMenu={(e) => handleContextMenu(e, session.id)}
-                    className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors group ${
-                      isActive
-                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400"
-                    }`}
-                  >
-                    <button
-                      onClick={() => handleSwitchSession(session.id)}
-                      onDoubleClick={() =>
-                        handleDoubleClick(session.id, session.title)
-                      }
-                      className="flex-1 flex items-center gap-2 truncate text-left min-w-0"
-                    >
-                      {editingId === session.id ? (
-                        <input
-                          type="text"
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onBlur={handleRenameBlur}
-                          onKeyDown={handleRenameKeyDown}
-                          autoFocus
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-white dark:bg-gray-700 border border-blue-300 dark:border-blue-600 rounded px-1 py-0.5 text-sm w-full outline-none"
-                        />
-                      ) : (
-                        <div className="flex-1 min-w-0">
-                          <div className="truncate">
-                            {session.title || "未命名会话"}
-                          </div>
-                          <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                            {session.source ? (
-                              <span className="font-medium text-gray-400 dark:text-gray-500 mr-1">{getSourceLabel(session.source)}</span>
-                            ) : null}
-                            {formatTime(session.updatedAt)}
-                            {(session.roundCount ?? Math.ceil(session.messageCount / 2)) > 0 &&
-                              ` · ${session.roundCount ?? Math.ceil(session.messageCount / 2)} 轮对话`}
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                    {editingId !== session.id && (
-                      <button
-                        onClick={(e) => handleDeleteSession(e, session.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0"
-                        title="删除会话"
-                      >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+              {virtualList.visibleItems.map((session) => (
+                <SessionListItem
+                  key={session.id}
+                  session={session}
+                  isActive={currentSession?.id === session.id}
+                  isEditing={editingId === session.id}
+                  editTitle={editTitle}
+                  pinned={isPinned(session.id)}
+                  getSourceLabel={getSourceLabel}
+                  onSwitch={handleSwitchSession}
+                  onDoubleClick={handleDoubleClick}
+                  onEditTitleChange={setEditTitle}
+                  onEditBlur={handleRenameBlur}
+                  onEditKeyDown={handleRenameKeyDown}
+                  onDelete={handleDeleteSession}
+                  onContextMenu={handleContextMenu}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -526,44 +476,16 @@ function SessionHistorySidebar() {
 
       {/* 右键上下文菜单 */}
       {contextMenu && (
-        <div
-          className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[160px]"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => handleRenameFromMenu(contextMenu.sessionId)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            ✏️ 重命名
-          </button>
-          <button
-            onClick={() => handleCopyIdFromMenu(contextMenu.sessionId)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            📋 复制会话 ID
-          </button>
-          <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-          <button
-            onClick={() => handleExportSession(contextMenu.sessionId, "json")}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            📤 导出 JSON
-          </button>
-          <button
-            onClick={() => handleExportSession(contextMenu.sessionId, "md")}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            📝 导出 Markdown
-          </button>
-          <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-          <button
-            onClick={() => handlePinSession(contextMenu.sessionId)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            {isPinned(contextMenu.sessionId) ? "📌 取消固定" : "📌 固定到顶部"}
-          </button>
-        </div>
+        <SessionContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          sessionId={contextMenu.sessionId}
+          isPinned={isPinned(contextMenu.sessionId)}
+          onRename={handleRenameFromMenu}
+          onCopyId={handleCopyIdFromMenu}
+          onExport={handleExportSession}
+          onTogglePin={handlePinSession}
+        />
       )}
     </div>
   );

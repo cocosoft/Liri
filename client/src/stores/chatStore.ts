@@ -6,6 +6,7 @@ import { httpLegacy as http } from "../services/httpClient";
 import { resolveFilePath } from "../services/filePathResolver";
 import { sessionCoordinator, registerChatOperations } from "./sessionChatCoordinator";
 import { useFeatureFlagStore } from "./featureFlags";
+import { playWarningSound, playCompletionSound } from "../services/SoundService";
 
 /**
  * 从工具调用中提取文件路径
@@ -188,6 +189,8 @@ interface ChatStore {
   isStreaming: boolean;
   /** 流式响应实时状态文本，用于 ChatInput 状态栏显示 */
   streamingStatus: string;
+  /** 是否有待用户回答的 question 块（用于控制完成提示音是否需要播放） */
+  hasPendingQuestion: boolean;
   /** 执行阶段追踪数据，由后端 ExecutionPhaseTracker 通过流式事件推送 */
   executionPhase: {
     phase: "analyzing" | "designing" | "implementing" | "verifying" | "presenting" | null;
@@ -698,6 +701,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isUploading: false,
   abortController: null,
   messageQueue: [],
+  hasPendingQuestion: false,
 
   addMessage: (message: Message) => {
     set({ messages: [...get().messages, message] });
@@ -1038,6 +1042,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         } else if (chunk.type === "question" && chunk.questionData) {
           blockBuilder.addQuestion(chunk.questionData);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+          // 标记有待用户回答的 question
+          get().hasPendingQuestion || set({ hasPendingQuestion: true });
+          // 需要用户关注时播放警示音
+          playWarningSound();
         } else if (chunk.type === "todo" && chunk.todoData) {
           blockBuilder.addTodo(chunk.todoData);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
@@ -1085,6 +1093,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       batchVersion++;
       latestMessages = null;
       batchPending = false;
+
+      // 检查最终 blocks 中是否有 question 块，更新 hasPendingQuestion
+      const hasQuestion = finalBlocks.some((b) => b.type === "question");
+      set({ hasPendingQuestion: hasQuestion });
+
+      // 流完成提示音（仅当无待回答 question 时播放）
+      if (!hasQuestion) {
+        playCompletionSound();
+      }
 
       // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
       // 不等待 updateMessageBlocks 和 doAutoRename 完成
@@ -1520,6 +1537,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
     }
 
+    // 检测是否有待用户回答的 question 块
+    const hasQuestion = enhancedMessages.some(
+      (m) => m.blocks?.some((b) => b.type === "question"),
+    );
+
     if (sessionFilesList.length > 0) {
       const currentFiles = get().sessionFiles;
       const merged = [...currentFiles];
@@ -1528,9 +1550,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           merged.push(file);
         }
       }
-      set({ messages: enhancedMessages, sessionFiles: merged });
+      set({ messages: enhancedMessages, sessionFiles: merged, hasPendingQuestion: hasQuestion });
     } else {
-      set({ messages: enhancedMessages });
+      set({ messages: enhancedMessages, hasPendingQuestion: hasQuestion });
     }
   },
 }));
@@ -1595,6 +1617,11 @@ function normalizeToolCall(tc: unknown): ToolCall {
  * 对标流式 ChronologicalBlockBuilder 的输出结构，分配 groupId 确保分组正确
  */
 function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
+  // 守卫：如果消息已有 blocks，直接返回，不再重建
+  if (msg.blocks && msg.blocks.length > 0) {
+    return msg.blocks.map((b) => ({ ...b, isStreaming: false }));
+  }
+
   const newBlocks: MessageBlock[] = [];
   const rawToolCalls = msg.tool_calls || [];
   // 统一规范化 tool_calls 格式

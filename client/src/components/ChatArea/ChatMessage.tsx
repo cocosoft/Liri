@@ -452,6 +452,8 @@ function AssistantMessage({
     };
     const store = useChatStore.getState();
     store.addMessage(newMsg);
+    // 用户已回答 question，清除待回答标记
+    useChatStore.setState({ hasPendingQuestion: false });
   });
   return (
     <div className="text-sm break-words max-w-none space-y-1">

@@ -20,6 +20,16 @@ interface NotificationsPanelProps {
   onUpdate: (updates: Partial<NotificationsConfig>) => void;
 }
 
+/** 请求浏览器通知权限（仅当未决定时） */
+function requestNotificationPermission(): void {
+  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission();
+  } else if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+    // 使用 alert 作为兜底，告知用户手动开启
+    alert("通知已被浏览器阻止，请在浏览器设置中允许本网站的通知");
+  }
+}
+
 function NotificationsPanel({
   isDark,
   notifications,
@@ -77,7 +87,10 @@ function NotificationsPanel({
           <ToggleConfig
             isDark={isDark}
             checked={notifications.taskCompleteEnabled}
-            onChange={(checked) => onUpdate({ taskCompleteEnabled: checked })}
+            onChange={(checked) => {
+              onUpdate({ taskCompleteEnabled: checked });
+              if (checked) requestNotificationPermission();
+            }}
           />
         </ConfigItem>
 
@@ -89,7 +102,10 @@ function NotificationsPanel({
           <ToggleConfig
             isDark={isDark}
             checked={notifications.inputNeededEnabled}
-            onChange={(checked) => onUpdate({ inputNeededEnabled: checked })}
+            onChange={(checked) => {
+              onUpdate({ inputNeededEnabled: checked });
+              if (checked) requestNotificationPermission();
+            }}
           />
         </ConfigItem>
 

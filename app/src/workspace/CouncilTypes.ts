@@ -102,6 +102,10 @@ export interface CouncilStreamEvent {
   phase?: CouncilPhase;
   /** 当前轮次 */
   round?: number;
+  /** Agent ID（agent_joined 事件时有值） */
+  agentId?: string;
+  /** Agent 名称（agent_joined 事件时有值） */
+  agentName?: string;
   /** 发言（statement 事件时有值） */
   statement?: CouncilStatement;
   /** 共识结果 */

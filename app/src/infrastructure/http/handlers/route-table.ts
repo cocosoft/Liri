@@ -1838,26 +1838,26 @@ export async function dispatchRoute(
 
   // ---- Agent Roles ----
   if (method === 'GET' && url === '/v1/agent-roles') {
-    await handleListAgentRoles(ctx, req, res);
+    await handleListAgentRoles(handlerCtx, req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/agent-roles\/([^/]+)$/)) {
     const agentId = url.match(/^\/v1\/agent-roles\/([^/]+)$/)![1];
-    await handleGetAgentRole(ctx, req, res, agentId);
+    await handleGetAgentRole(handlerCtx, req, res, agentId);
     return true;
   }
   if (method === 'POST' && url === '/v1/agent-roles') {
-    await handleCreateAgentRole(ctx, req, res);
+    await handleCreateAgentRole(handlerCtx, req, res);
     return true;
   }
   if (method === 'PUT' && url.match(/^\/v1\/agent-roles\/([^/]+)$/)) {
     const agentId = url.match(/^\/v1\/agent-roles\/([^/]+)$/)![1];
-    await handleUpdateAgentRole(ctx, req, res, agentId);
+    await handleUpdateAgentRole(handlerCtx, req, res, agentId);
     return true;
   }
   if (method === 'DELETE' && url.match(/^\/v1\/agent-roles\/([^/]+)$/)) {
     const agentId = url.match(/^\/v1\/agent-roles\/([^/]+)$/)![1];
-    await handleDeleteAgentRole(ctx, req, res, agentId);
+    await handleDeleteAgentRole(handlerCtx, req, res, agentId);
     return true;
   }
 

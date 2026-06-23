@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -167,7 +167,7 @@ async function handleNormalChat(
           choices: [
             {
               index: 0,
-              message: { role: 'assistant', content: null },
+              message: { role: 'assistant', content: response.content },
               finish_reason: 'pending_interaction',
             },
           ],

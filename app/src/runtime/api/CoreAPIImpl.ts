@@ -67,6 +67,7 @@ import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { getToolManager } from '@modules/tools/ToolManager';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
+import { broadcastEvent } from '@modules/infrastructure/http/handlers/handler-utils';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
 import { recordCost } from '@modules/cost/CostMonitor.js';
@@ -338,7 +339,7 @@ export class CoreAPIImpl implements CoreAPI {
           questionId: pendingInteraction.questionId,
         });
         return {
-          content: '',
+          content: pendingInteraction.question,
           sessionId: message.sessionId || request.sessionId || '',
           messageId: message.id,
           finishReason: 'pending_interaction',
@@ -352,6 +353,11 @@ export class CoreAPIImpl implements CoreAPI {
           : message.content
               .map((block) => ('value' in block ? block.value : ''))
               .join('');
+
+      // 非流式路径也触发自动标题生成（fire-and-forget，不阻塞响应）
+      if (content && request.sessionId) {
+        this.autoGenerateTitle(request.sessionId, request.content, content);
+      }
 
       return {
         content,
@@ -910,6 +916,9 @@ export class CoreAPIImpl implements CoreAPI {
         context: { sessionId },
       });
     }
+
+    // 广播事件通知前端更新左侧会话列表
+    broadcastEvent('session:renamed', { id: sessionId, title });
   }
 
   async generateSessionTitle(

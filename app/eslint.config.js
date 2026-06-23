@@ -104,7 +104,7 @@ export default [
     }
   },
   {
-    files: ['src/modules/**', 'src/tools/**'],
+    files: ['src/modules/**', 'src/tools/**', 'src/runtime/**'],
     rules: {
       'module-registry/no-direct-module-import': 'off'
     }

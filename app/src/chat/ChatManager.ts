@@ -139,6 +139,12 @@ interface InteractionSavedState {
  */
 export class ChatManagerImpl implements ChatManager {
   /**
+   * 工具结果最大字符数，超过此长度的工具结果将被截断
+   * 防止大的工具执行结果在后续轮次中主导 LLM 上下文
+   */
+  private static readonly TOOL_RESULT_MAX_LENGTH = 2000;
+
+  /**
    * 消息服务
    */
   private messageService: MessageService;
@@ -643,7 +649,8 @@ export class ChatManagerImpl implements ChatManager {
    */
   private async _truncateApiMessages(
     apiMessages: Record<string, unknown>[],
-    maxContextTokens: number
+    maxContextTokens: number,
+    sessionId?: string
   ): Promise<void> {
     if (maxContextTokens <= 0) return;
 
@@ -723,17 +730,25 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     // 循环截断：可能一次截断不足以降到安全线以下
+    // Layer 3: 短 user 消息（通常是决策消息，如"方案B"、"C"）优先保留
+    const SHORT_USER_MSG_THRESHOLD = 200;
     let currentTokens = estimatedTokens;
     let dropCount = 0;
     const toDrop = new Set<number>();
 
     for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
       if (currentTokens <= SAFE_LIMIT) break;
+
+      // Layer 3: 短 user 消息是关键决策，跳过不删
+      const msg = nonSystemMessages[i] as Record<string, unknown>;
+      const isShortUserMsg =
+        msg.role === 'user' &&
+        typeof msg.content === 'string' &&
+        msg.content.length < SHORT_USER_MSG_THRESHOLD;
+      if (isShortUserMsg) continue;
+
       const msgTokens = roughTokenCountForMessages([
-        nonSystemMessages[i] as {
-          content?: string | unknown;
-          role?: string;
-        },
+        msg as { content?: string | unknown; role?: string },
       ]);
       currentTokens -= msgTokens;
       toDrop.add(i);
@@ -757,6 +772,25 @@ export class ChatManagerImpl implements ChatManager {
 
     // 截断后重新 sanitize，修复可能被破坏的 tool/tool_calls 配对
     this._sanitizeApiMessages(apiMessages);
+
+    // ── Layer 2: 注入跨轮对话摘要 ──
+    // 摘要必须在截断之后注入，确保即使上下文逼近上限也能保留决策信息
+    if (sessionId) {
+      const session = this._chatSessions.get(sessionId);
+      if (session?.metadata?.contextSummary) {
+        const summaryContent = session.metadata.contextSummary as string;
+        const insertIdx =
+          apiMessages.length > 0 && apiMessages[0].role === 'system' ? 1 : 0;
+        apiMessages.splice(insertIdx, 0, {
+          role: 'system',
+          content: `[跨轮决策摘要 — 以下为之前对话中用户已做出的关键决策]\n${summaryContent}`,
+        });
+        logger.debug('跨轮对话摘要已注入 LLM 请求', {
+          sessionId,
+          summaryLength: summaryContent.length,
+        });
+      }
+    }
   }
 
   /**
@@ -814,6 +848,41 @@ export class ChatManagerImpl implements ChatManager {
     preservedMessages.push(assistantMsg, ...toolResults);
 
     return preservedMessages;
+  }
+
+  /**
+   * 跨轮对话摘要持久化
+   * 在每个对话轮次完成后，从最近的 user 消息中提取关键决策，
+   * 保存到会话元数据中。此摘要会在下一轮 LLM 请求时被注入，
+   * 防止早期决策被后续长上下文挤走。
+   */
+  private _persistTurnSummary(session: ChatSession): void {
+    if (!session || session.messages.length < 3) return;
+
+    // 取最近 4 轮 user 消息（短消息通常是决策，如"方案B"）
+    const userMessages = session.messages
+      .filter((m) => m.role === 'user')
+      .slice(-4);
+    if (userMessages.length === 0) return;
+
+    const decisionPoints = userMessages
+      .map((m) => {
+        const content = typeof m.content === 'string' ? m.content : '';
+        if (content.length < 200) return `用户选择: ${content}`;
+        const firstLine = content.split('\n')[0].slice(0, 100);
+        return `用户意图: ${firstLine}...`;
+      })
+      .join('\n');
+
+    session.metadata = {
+      ...session.metadata,
+      contextSummary: `此前对话决策摘要:\n${decisionPoints}`,
+    };
+
+    logger.debug('跨轮对话摘要已更新', {
+      sessionId: session.id,
+      summaryLength: decisionPoints.length,
+    });
   }
 
   /**
@@ -1017,12 +1086,26 @@ export class ChatManagerImpl implements ChatManager {
 
     // 准备消息列表（用于API调用）
     let apiMessages = messages.map((msg) => {
+      // 对工具结果消息，若内容过大则截断，避免旧数据主导 LLM 上下文
+      let content =
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content);
+
+      if (
+        msg.role === 'tool' &&
+        typeof content === 'string' &&
+        content.length > ChatManagerImpl.TOOL_RESULT_MAX_LENGTH
+      ) {
+        const sizeKB = Math.round(content.length / 1024);
+        content =
+          `[工具结果已截断，原始大小 ${sizeKB}KB，仅保留前 ${ChatManagerImpl.TOOL_RESULT_MAX_LENGTH} 字符]\n` +
+          content.slice(0, ChatManagerImpl.TOOL_RESULT_MAX_LENGTH);
+      }
+
       const chatMessage: Record<string, unknown> = {
         role: msg.role,
-        content:
-          typeof msg.content === 'string'
-            ? msg.content
-            : JSON.stringify(msg.content),
+        content,
       };
 
       // 对于工具结果消息，确保添加 tool_call_id
@@ -1166,7 +1249,7 @@ export class ChatManagerImpl implements ChatManager {
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     // ─────────────────────────────────────────────────────────
     const maxCtx = this._resolveMaxContextTokens(options?.model);
-    await this._truncateApiMessages(apiMessages, maxCtx);
+    await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     // 通知进度：开始 LLM 分析
     options?.onProgress?.({ stage: 'analyzing', message: '正在分析问题...' });
@@ -1671,6 +1754,9 @@ export class ChatManagerImpl implements ChatManager {
     // 通知会话状态变化为空闲状态（使用 finish 回到 IDLE，允许下一轮 start）
     this.getSessionMachine(session.id).finish('sendMessage完成');
 
+    // 跨轮对话摘要：保存关键决策
+    this._persistTurnSummary(session);
+
     // 检查是否需要触发 Council 辩论
     const shouldTriggerCouncil =
       session.metadata?.is_ultraplan_mode ||
@@ -1822,7 +1908,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     const maxCtx = this._resolveMaxContextTokens(options?.model);
-    await this._truncateApiMessages(apiMessages, maxCtx);
+    await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     // 通知进度：开始 LLM 分析
     options?.onProgress?.({
@@ -2343,12 +2429,26 @@ export class ChatManagerImpl implements ChatManager {
     // 准备消息列表（用于API调用）
     const messages = session.messages;
     let apiMessages = messages.map((msg) => {
+      // 对工具结果消息，若内容过大则截断，避免旧数据主导 LLM 上下文
+      let content =
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content);
+
+      if (
+        msg.role === 'tool' &&
+        typeof content === 'string' &&
+        content.length > ChatManagerImpl.TOOL_RESULT_MAX_LENGTH
+      ) {
+        const sizeKB = Math.round(content.length / 1024);
+        content =
+          `[工具结果已截断，原始大小 ${sizeKB}KB，仅保留前 ${ChatManagerImpl.TOOL_RESULT_MAX_LENGTH} 字符]\n` +
+          content.slice(0, ChatManagerImpl.TOOL_RESULT_MAX_LENGTH);
+      }
+
       const chatMessage: Record<string, unknown> = {
         role: msg.role,
-        content:
-          typeof msg.content === 'string'
-            ? msg.content
-            : JSON.stringify(msg.content),
+        content,
       };
 
       // 对于工具结果消息，确保添加 tool_call_id
@@ -2467,7 +2567,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     const maxCtx = this._resolveMaxContextTokens(options?.model);
-    await this._truncateApiMessages(apiMessages, maxCtx);
+    await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     const gen = activeClient.streamMessage(
       apiMessages as unknown as ChatMessage[],
@@ -2953,6 +3053,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 通知会话状态变化为空闲状态
     this.getSessionMachine(session.id).finish('工具执行完成');
+
+    // 跨轮对话摘要：保存关键决策
+    this._persistTurnSummary(session);
 
     options?.onComplete?.(assistantMessage);
     return assistantMessage;

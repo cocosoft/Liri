@@ -11,6 +11,7 @@ import {
   notifyFileChanged,
 } from './handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 export async function handleListKnowledge(
   req: http.IncomingMessage,
@@ -483,7 +484,7 @@ export async function handleKnowledgeUpload(
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
 
-    const safeName = filename.replace(/[\\/:*?"<>|]/g, '_');
+    const safeName = sanitizeFileName(filename);
     const ext = extname(filename).toLowerCase();
 
     const baseDir = join(knowledgeRoot, baseName);

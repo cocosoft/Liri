@@ -7,6 +7,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, dirname } from 'path';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 import {
   resolveAttachmentsDir,
   resolveDataSubDir,
@@ -221,53 +222,21 @@ export class AttachmentManager {
   }
 
   /**
-   * 清理文件名，移除特殊字符并限制长度
-   * @param filename 原始文件名
-   * @returns 清理后的文件名
-   */
-  private sanitizeFilename(filename: string): string {
-    // 分离文件名和扩展名
-    const extIndex = filename.lastIndexOf('.');
-    let namePart = filename;
-    let extension = '';
-
-    if (extIndex !== -1) {
-      namePart = filename.substring(0, extIndex);
-      extension = filename.substring(extIndex);
-    }
-
-    // 移除特殊字符，保留字母、数字和基本符号
-    // 将中文替换为拼音首字母或简单标识
-    const sanitizedName = namePart
-      .replace(/[\u4e00-\u9fa5]/g, (char) => {
-        // 简单处理：中文替换为 'CN' 标记
-        return 'CN';
-      })
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/[\s]+/g, '_')
-      .replace(/_{2,}/g, '_')
-      .replace(/^_|_$/g, '');
-
-    // 限制文件名部分长度（总长度限制留给外部处理）
-    const maxNameLength = 32;
-    const truncatedName =
-      sanitizedName.length > maxNameLength
-        ? sanitizedName.substring(0, maxNameLength)
-        : sanitizedName;
-
-    return `${truncatedName}${extension}`;
-  }
-
-  /**
    * 生成安全的文件名
+   *
+   * 使用统一工具 sanitizeFileName @see fileNaming.ts 清理文件名主体（保留中文等 Unicode 字符）。
+   * 先分离扩展名，再对文件名主体进行清理，最后追加扩展名，避免重复扩展名问题。
+   *
    * @param originalName 原始文件名
-   * @returns 安全的文件名（仅包含ASCII字符，长度可控）
+   * @returns 安全的文件名（保留中文等 Unicode 字符，长度可控）
    */
   private generateSafeFilename(originalName: string): string {
-    // 获取扩展名
+    // 分离文件名和扩展名
     const extIndex = originalName.lastIndexOf('.');
     const extension =
       extIndex !== -1 ? originalName.substring(extIndex).toLowerCase() : '';
+    const nameWithoutExt =
+      extIndex !== -1 ? originalName.substring(0, extIndex) : originalName;
 
     // 使用时间戳 + 随机字符串作为基础文件名
     const timestamp = Date.now().toString(36);
@@ -280,10 +249,10 @@ export class AttachmentManager {
     // 计算可用长度（减去基础名称和扩展名）
     const availableLength = maxTotalLength - baseName.length - extension.length;
 
-    // 如果有可用空间，添加简化的原始文件名
+    // 如果有可用空间，添加清理后的原始文件名主体（不含扩展名）
     let safeName = baseName;
     if (availableLength > 0) {
-      const sanitized = this.sanitizeFilename(originalName);
+      const sanitized = sanitizeFileName(nameWithoutExt);
       const namePart = sanitized.substring(
         0,
         Math.min(availableLength, sanitized.length)

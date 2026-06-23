@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,10 +22,6 @@
  * 错误处理模块索引
  * 统一导出所有错误处理相关功能
  */
-
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'error:index' });
 
 // 错误类型
 export * from './types';
@@ -93,12 +89,16 @@ export type { HandleErrorOptions } from './handleError';
  * 初始化错误处理系统
  */
 export function initializeErrorSystem(): void {
-  logger.info('错误处理系统初始化完成');
+  // 有意使用 console 避免与 monitoring 的循环依赖
+  // eslint-disable-next-line no-console
+  console.info('[ErrorSystem] 错误处理系统初始化完成');
 }
 
 /**
  * 关闭错误处理系统
  */
 export function shutdownErrorSystem(): void {
-  logger.info('错误处理系统已关闭');
+  // 有意使用 console 避免与 monitoring 的循环依赖
+  // eslint-disable-next-line no-console
+  console.info('[ErrorSystem] 错误处理系统已关闭');
 }

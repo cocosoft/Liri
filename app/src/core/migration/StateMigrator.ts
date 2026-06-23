@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 状态迁移工具
  * 用于将现有模块状态迁移到新的AppState中
  */
@@ -10,7 +10,13 @@ import {
 } from '@modules/state/AppStateStore.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+let _logger: Logger | null = null;
+function getLogger(): Logger {
+  if (!_logger) {
+    _logger = new Logger({ level: LogLevel.INFO });
+  }
+  return _logger;
+}
 
 /**
  * 状态迁移选项
@@ -100,13 +106,13 @@ export class StateMigrator {
           break;
 
         default:
-          logger.warning(`Unknown module: ${moduleName}`);
+          getLogger().warning(`Unknown module: ${moduleName}`);
           return false;
       }
 
       // 验证状态
       if (options.validate && !this.validateState(newState)) {
-        logger.error('Invalid state after migration');
+        getLogger().error('Invalid state after migration');
         return false;
       }
 
@@ -114,7 +120,7 @@ export class StateMigrator {
       store.replaceState(newState);
       return true;
     } catch (error) {
-      logger.error(`Error migrating ${moduleName} state:`, { error });
+      getLogger().error(`Error migrating ${moduleName} state:`, { error });
       return false;
     }
   }
@@ -164,7 +170,7 @@ export class StateMigrator {
 
       // 验证状态
       if (options.validate && !this.validateState(newState)) {
-        logger.error('Invalid state after batch migration');
+        getLogger().error('Invalid state after batch migration');
         return false;
       }
 
@@ -172,7 +178,7 @@ export class StateMigrator {
       store.replaceState(newState);
       return true;
     } catch (error) {
-      logger.error('Error in batch state migration:', { error });
+      getLogger().error('Error in batch state migration:', { error });
       return false;
     }
   }
@@ -220,7 +226,7 @@ export class StateMigrator {
 
       // 验证状态
       if (options.validate && !this.validateState(state)) {
-        logger.error('Invalid state to import');
+        getLogger().error('Invalid state to import');
         return false;
       }
 
@@ -228,7 +234,7 @@ export class StateMigrator {
       store.replaceState(state);
       return true;
     } catch (error) {
-      logger.error('Error importing state:', { error });
+      getLogger().error('Error importing state:', { error });
       return false;
     }
   }

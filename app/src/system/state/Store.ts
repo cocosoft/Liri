@@ -1,11 +1,17 @@
-﻿/**
+/**
  * 轻量级状态管理
  * 提供简单的状态管理，支持订阅/取消订阅、中间件、选择器等功能
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+let _logger: Logger | null = null;
+function getLogger(): Logger {
+  if (!_logger) {
+    _logger = new Logger({ level: LogLevel.INFO });
+  }
+  return _logger;
+}
 
 export type Listener<T> = (state: T) => void;
 export type OnChange<T> = (args: { newState: T; oldState: T }) => void;
@@ -131,7 +137,7 @@ export function createPersistedStore<T>(
       state = JSON.parse(storedState) as T;
     }
   } catch (error) {
-    logger.error(`Failed to parse persisted state for key "${key}":`, {
+    getLogger().error(`Failed to parse persisted state for key "${key}":`, {
       error,
     });
   }
@@ -140,7 +146,7 @@ export function createPersistedStore<T>(
     try {
       localStorage.setItem(key, JSON.stringify(args.newState));
     } catch (error) {
-      logger.error(`Failed to persist state for key "${key}":`, { error });
+      getLogger().error(`Failed to persist state for key "${key}":`, { error });
     }
 
     if (onChange) {
@@ -179,9 +185,9 @@ export function createLoggingMiddleware<T>(
   prefix: string = 'Store'
 ): StoreMiddleware<T> {
   return (next) => (updater) => {
-    logger.debug(`${prefix}: Updating state...`);
+    getLogger().debug(`${prefix}: Updating state...`);
     next(updater);
-    logger.debug(`${prefix}: State updated`);
+    getLogger().debug(`${prefix}: State updated`);
   };
 }
 

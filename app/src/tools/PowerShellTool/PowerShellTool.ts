@@ -24,6 +24,18 @@ import {
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
+import { DELETION_RULES } from '../../security/patterns/dangerousCommands';
+
+/** PowerShell 删除命令别名（来源：dangerousCommands.ts DELETION_RULES） */
+const POWERSHELL_DELETION_ALIASES = [
+  'remove-item',
+  'ri',
+  'rm',
+  'del',
+  'erase',
+  'rd',
+  'rrmdir',
+];
 
 /**
  * PowerShell 输入模式
@@ -418,6 +430,37 @@ export class PowerShellSecurityAnalyzer {
 
   constructor() {
     this.dangerousPatterns = [
+      // P0 紧急新增：Remove-Item 别名全覆盖
+      {
+        name: 'recursive_deletion',
+        pattern: new RegExp(
+          `(?:${POWERSHELL_DELETION_ALIASES.join('|')})\\s+.*(?:-recurse|/s|-r|recurse)`,
+          'i'
+        ),
+        riskLevel: 'high',
+        behavior: 'ask',
+        message: '检测到递归删除操作，请确认目标和范围',
+      },
+      {
+        name: 'bulk_deletion',
+        pattern: new RegExp(
+          `(?:${POWERSHELL_DELETION_ALIASES.join('|')})\\s+.*(?:-recurse|/s|-r|/f|-force|force|recurse)`,
+          'i'
+        ),
+        riskLevel: 'high',
+        behavior: 'ask',
+        message: '检测到批量删除操作，请确认目标和范围',
+      },
+      {
+        name: 'remove_item_generic',
+        pattern: new RegExp(
+          `(?:${POWERSHELL_DELETION_ALIASES.join('|')})\\s+`,
+          'i'
+        ),
+        riskLevel: 'medium',
+        behavior: 'ask',
+        message: '检测到文件删除操作，请确认目标和范围',
+      },
       {
         name: 'registry_deletion',
         pattern: /remove-item\s+[-/]?(?:path|literalpath)\s+['"]?hklm:/i,

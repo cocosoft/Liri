@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 状态迁移管理器
  * 参考CC源码的状态管理模式，提供版本化的状态迁移机制
  * 包括：迁移注册、版本检查、迁移执行、回滚支持
@@ -7,7 +7,13 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'StateMigrator' });
+let _logger: Logger | null = null;
+function getLogger(): Logger {
+  if (!_logger) {
+    _logger = new Logger({ module: 'StateMigrator' });
+  }
+  return _logger;
+}
 
 /**
  * 迁移函数类型
@@ -114,7 +120,7 @@ export class StateMigrator {
 
     this.migrations.set(migration.version, migration);
     this.targetVersion = Math.max(this.targetVersion, migration.version);
-    logger.debug(
+    getLogger().debug(
       `Registered migration v${migration.version}: ${migration.description}`
     );
   }
@@ -165,7 +171,7 @@ export class StateMigrator {
     const toVersion = this.targetVersion;
 
     if (fromVersion >= toVersion) {
-      logger.info(
+      getLogger().info(
         `No migration needed (current: v${fromVersion}, target: v${toVersion})`
       );
       return {
@@ -176,7 +182,7 @@ export class StateMigrator {
       };
     }
 
-    logger.info(`Starting migration: v${fromVersion} -> v${toVersion}`);
+    getLogger().info(`Starting migration: v${fromVersion} -> v${toVersion}`);
     let currentState = state;
 
     // 确保migrationHistory存在
@@ -198,7 +204,7 @@ export class StateMigrator {
           );
         }
 
-        logger.info(
+        getLogger().info(
           `Executing migration v${version}: ${migration.description}`
         );
 
@@ -213,9 +219,9 @@ export class StateMigrator {
             success: true,
           });
 
-          logger.info(`Migration v${version} completed successfully`);
+          getLogger().info(`Migration v${version} completed successfully`);
         } catch (error) {
-          logger.error(`Migration v${version} failed:`, error as Error);
+          getLogger().error(`Migration v${version} failed:`, error as Error);
 
           // 记录失败的迁移
           migrationHistory.push({
@@ -227,12 +233,12 @@ export class StateMigrator {
 
           // 尝试回滚
           if (migration.rollback) {
-            logger.info(`Attempting rollback for v${version}`);
+            getLogger().info(`Attempting rollback for v${version}`);
             try {
               currentState = await migration.rollback(currentState);
-              logger.info(`Rollback v${version} completed`);
+              getLogger().info(`Rollback v${version} completed`);
             } catch (rollbackError) {
-              logger.error(
+              getLogger().error(
                 `Rollback v${version} failed:`,
                 rollbackError as Error
               );
@@ -258,7 +264,7 @@ export class StateMigrator {
         stateMetadata.updatedAt = Date.now();
       }
 
-      logger.info(`Migration completed: v${fromVersion} -> v${toVersion}`);
+      getLogger().info(`Migration completed: v${fromVersion} -> v${toVersion}`);
 
       return {
         success: true,
@@ -267,7 +273,7 @@ export class StateMigrator {
         state: currentState,
       };
     } catch (error) {
-      logger.error('Migration process failed:', error as Error);
+      getLogger().error('Migration process failed:', error as Error);
       return {
         success: false,
         fromVersion,

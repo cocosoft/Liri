@@ -1,11 +1,17 @@
-﻿/**
+/**
  * 事件系统
  * 基于发布-订阅模式的事件驱动通信机制
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+let _logger: Logger | null = null;
+function getLogger(): Logger {
+  if (!_logger) {
+    _logger = new Logger({ level: LogLevel.INFO });
+  }
+  return _logger;
+}
 
 /**
  * 事件监听器接口
@@ -93,16 +99,19 @@ export class EventBusImpl implements EventBus {
 
         if (result instanceof Promise) {
           result.catch((error) => {
-            logger.error(
+            getLogger().error(
               `[EventBus] Error in async event listener for "${event}":`,
               { error }
             );
           });
         }
       } catch (error) {
-        logger.error(`[EventBus] Error in event listener for "${event}":`, {
-          error,
-        });
+        getLogger().error(
+          `[EventBus] Error in event listener for "${event}":`,
+          {
+            error,
+          }
+        );
       }
     }
   }

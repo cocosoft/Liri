@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 应用状态存储实现
  * 参考CC源码 cc_code/backend/state/store.ts 实现
  */
@@ -14,7 +14,13 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+let _logger: Logger | null = null;
+function getLogger(): Logger {
+  if (!_logger) {
+    _logger = new Logger({ level: LogLevel.INFO });
+  }
+  return _logger;
+}
 
 /**
  * 状态变更回调
@@ -48,7 +54,7 @@ export function createAppStateStore(
       try {
         listener(newState);
       } catch (error) {
-        logger.error('Error in state listener:', { error });
+        getLogger().error('Error in state listener:', { error });
       }
     }
   };

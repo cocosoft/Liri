@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PYAppStateStore - 集中式状态管理增强接口
  * 在 AppStateStore 基础上提供：
  * 1. 选择性键路径订阅 (on/off)
@@ -10,7 +10,13 @@
 import type { AppState, AppStateStore } from './AppState';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+let _logger: Logger | null = null;
+function getLogger(): Logger {
+  if (!_logger) {
+    _logger = new Logger({ level: LogLevel.INFO });
+  }
+  return _logger;
+}
 
 /**
  * 状态变更事件
@@ -217,7 +223,10 @@ export function createPYAppStateStore(
         try {
           listener(event);
         } catch (error) {
-          logger.error('Key path listener error', { path: event.path, error });
+          getLogger().error('Key path listener error', {
+            path: event.path,
+            error,
+          });
         }
       }
     }
@@ -232,7 +241,7 @@ export function createPYAppStateStore(
           try {
             listener(event);
           } catch (error) {
-            logger.error('Parent key path listener error', {
+            getLogger().error('Parent key path listener error', {
               path: parentPath,
               error,
             });

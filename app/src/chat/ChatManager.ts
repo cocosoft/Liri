@@ -22,6 +22,7 @@
 import crypto from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { repairModelJson } from '@modules/utils/json';
+import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -1670,12 +1671,52 @@ export class ChatManagerImpl implements ChatManager {
     // 通知会话状态变化为空闲状态（使用 finish 回到 IDLE，允许下一轮 start）
     this.getSessionMachine(session.id).finish('sendMessage完成');
 
+    // 检查是否需要触发 Council 辩论
+    const shouldTriggerCouncil =
+      session.metadata?.is_ultraplan_mode ||
+      containsComplexKeywords(content) ||
+      options?.metadata?.councilTriggeredManually;
+
+    if (shouldTriggerCouncil) {
+      // 异步启动 Council 辩论（不阻塞主流程）
+      this.triggerCouncilDebate(
+        session.metadata?.workspaceId || 'default',
+        content,
+        session.metadata?.context || ''
+      ).catch((err) => {
+        logger.error('Council 辩论执行失败', { error: String(err) });
+      });
+
+      // 将辩论通知追加到 AI 回复末尾
+      assistantMessage.content += `\n\n> 🏛️ 理事会正在讨论此议题，请切换到"理事会"标签页查看辩论过程。`;
+    }
+
     return assistantMessage;
   }
 
   /**
    * 响应后自动提取记忆
    */
+
+  /**
+   * 触发 Council 辩论（异步，不阻塞主流程）
+   */
+  private async triggerCouncilDebate(
+    workspaceId: string,
+    topic: string,
+    context: string
+  ): Promise<void> {
+    const { getCouncilEngine } =
+      await import('@modules/workspace/CouncilEngine');
+    const { CouncilOrchestrator } =
+      await import('@modules/workspace/CouncilOrchestrator');
+
+    const engine = getCouncilEngine();
+    const orchestrator = new CouncilOrchestrator(engine);
+
+    await orchestrator.startCouncil(workspaceId, topic, context);
+  }
+
   private async extractMemoryFromChat(
     userContent: string,
     assistantContent: string,

@@ -27,6 +27,8 @@ export interface CouncilAgentRole {
   expertise: string[];
   /** 在 Council 中的发言权重（0-1，默认 1） */
   weight: number;
+  /** 自定义 system prompt（可选，为空时使用内置默认 prompt） */
+  systemPrompt?: string;
 }
 
 /** 单轮辩论中的一条发言 */

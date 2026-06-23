@@ -20,6 +20,9 @@ import type {
   CouncilStreamEvent,
   ConsensusResult,
 } from './CouncilTypes.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'CouncilEngine', level: LogLevel.INFO });
 
 /** Council 配置 */
 export interface CouncilConfig {
@@ -58,6 +61,13 @@ export class CouncilEngine {
   private emit: CouncilEventEmitter;
 
   constructor(emit: CouncilEventEmitter) {
+    this.emit = emit;
+  }
+
+  /**
+   * 公开 setter，供 handler 初始化时绑定 SSE 连接池
+   */
+  public setEmitter(emit: CouncilEventEmitter): void {
     this.emit = emit;
   }
 
@@ -134,9 +144,11 @@ export class CouncilEngine {
     try {
       // 阶段 1：召集 Agent（通知所有 Agent 加入）
       session.phase = 'convening';
-      for (const _agent of session.agents) {
+      for (const agent of session.agents) {
         this.emit({
           type: 'agent_joined',
+          agentId: agent.agentId,
+          agentName: agent.name,
           sessionId,
           phase: session.phase,
           timestamp: Date.now(),
@@ -165,39 +177,74 @@ export class CouncilEngine {
               ? 'final' // 最后一轮：总结
               : 'rebuttal'; // 中间轮：反驳
 
-        // 每个 Agent 依次发言
+        // 每个 Agent 依次发言（逐 Agent try/catch，失败时跳过该 Agent 继续下一轮）
         for (const agent of session.agents) {
-          const response = await statementCallback(
-            agent.agentId,
-            agent.name,
-            round,
-            statementType,
-            session.topic,
-            session.context,
-            session.statements
-          );
+          try {
+            const response = await statementCallback(
+              agent.agentId,
+              agent.name,
+              round,
+              statementType,
+              session.topic,
+              session.context,
+              session.statements
+            );
 
-          const statement: CouncilStatement = {
-            id: randomUUID(),
-            agentId: agent.agentId,
-            agentName: agent.name,
-            round,
-            type: statementType,
-            content: response.content,
-            keyPoints: response.keyPoints,
-            timestamp: Date.now(),
-          };
+            const statement: CouncilStatement = {
+              id: randomUUID(),
+              agentId: agent.agentId,
+              agentName: agent.name,
+              round,
+              type: statementType,
+              content: response.content,
+              keyPoints: response.keyPoints,
+              timestamp: Date.now(),
+            };
 
-          session.statements.push(statement);
+            session.statements.push(statement);
 
-          this.emit({
-            type: 'statement',
-            sessionId,
-            phase: session.phase,
-            round,
-            statement,
-            timestamp: Date.now(),
-          });
+            this.emit({
+              type: 'statement',
+              sessionId,
+              phase: session.phase,
+              round,
+              statement,
+              timestamp: Date.now(),
+            });
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            logger.warn(
+              `Agent ${agent.name}（${agent.agentId}）在第 ${round} 轮发言失败，跳过`,
+              {
+                error: errorMsg,
+              }
+            );
+
+            // 添加占位 statement，标记该 Agent 本轮未参与
+            const placeholder: CouncilStatement = {
+              id: randomUUID(),
+              agentId: agent.agentId,
+              agentName: agent.name,
+              round,
+              type: statementType,
+              content: `[${agent.name} 本轮发言失败，已跳过]`,
+              keyPoints: [],
+              timestamp: Date.now(),
+            };
+
+            session.statements.push(placeholder);
+
+            this.emit({
+              type: 'statement',
+              sessionId,
+              phase: session.phase,
+              round,
+              statement: placeholder,
+              timestamp: Date.now(),
+            });
+
+            // 继续下一个 Agent，不中断整个辩论
+          }
         }
 
         this.emit({
@@ -273,4 +320,28 @@ export class CouncilEngine {
   removeSession(sessionId: string): void {
     this.activeSessions.delete(sessionId);
   }
+}
+
+// ============================================================
+// 全局单例
+// ============================================================
+
+let _defaultEngine: CouncilEngine | null = null;
+
+/**
+ * 获取 CouncilEngine 全局单例
+ * emit 回调由 handler 初始化时通过 setCouncilEmitter() 重设
+ */
+export function getCouncilEngine(): CouncilEngine {
+  if (!_defaultEngine) {
+    _defaultEngine = new CouncilEngine(() => {});
+  }
+  return _defaultEngine;
+}
+
+/**
+ * 设置 emit 回调（在 handler 初始化时调用，绑定 SSE 连接池）
+ */
+export function setCouncilEmitter(emit: CouncilEventEmitter): void {
+  getCouncilEngine().setEmitter(emit);
 }

@@ -17,6 +17,7 @@ interface CouncilSlice {
   topic: string;
   currentRound: number;
   statements: CouncilStatementUI[];
+  joinedAgents: { agentId: string; agentName: string }[];
   result: ConsensusResultUI | null;
   finalProposal: string | null;
   minorityOpinion: string | null;
@@ -24,6 +25,7 @@ interface CouncilSlice {
   eventSource: EventSource | null;
   startCouncil: (sessionId: string, topic: string) => void;
   addStatement: (statement: CouncilStatementUI) => void;
+  addAgentJoined: (agentId: string, agentName: string) => void;
   setPhase: (phase: CouncilPhaseUI) => void;
   setRound: (round: number) => void;
   setResult: (result: ConsensusResultUI, finalProposal: string, minorityOpinion: string | null) => void;
@@ -40,6 +42,7 @@ function councilSlice(s: any): CouncilSlice {
     topic: s.councilTopic,
     currentRound: s.councilCurrentRound,
     statements: s.councilStatements,
+    joinedAgents: s.councilJoinedAgents,
     result: s.councilResult,
     finalProposal: s.councilFinalProposal,
     minorityOpinion: s.councilMinorityOpinion,
@@ -47,6 +50,7 @@ function councilSlice(s: any): CouncilSlice {
     eventSource: s.councilEventSource,
     startCouncil: s.startCouncil,
     addStatement: s.addStatement,
+    addAgentJoined: s.addAgentJoined,
     setPhase: s.setCouncilPhase,
     setRound: s.setCouncilRound,
     setResult: s.setCouncilResult,
@@ -65,6 +69,7 @@ export function useCouncilStore(selector?: any): any {
   const topic = useAppStore((s) => s.councilTopic);
   const currentRound = useAppStore((s) => s.councilCurrentRound);
   const statements = useAppStore((s) => s.councilStatements);
+  const joinedAgents = useAppStore((s) => s.councilJoinedAgents);
   const result = useAppStore((s) => s.councilResult);
   const finalProposal = useAppStore((s) => s.councilFinalProposal);
   const minorityOpinion = useAppStore((s) => s.councilMinorityOpinion);
@@ -72,13 +77,14 @@ export function useCouncilStore(selector?: any): any {
   const eventSource = useAppStore((s) => s.councilEventSource);
   const startCouncil = useAppStore((s) => s.startCouncil);
   const addStatement = useAppStore((s) => s.addStatement);
+  const addAgentJoined = useAppStore((s) => s.addAgentJoined);
   const setPhase = useAppStore((s) => s.setCouncilPhase);
   const setRound = useAppStore((s) => s.setCouncilRound);
   const setResult = useAppStore((s) => s.setCouncilResult);
   const setError = useAppStore((s) => s.setCouncilError);
   const setEventSource = useAppStore((s) => s.setCouncilEventSource);
   const reset = useAppStore((s) => s.resetCouncil);
-  const slice: CouncilSlice = { isActive, sessionId, phase, topic, currentRound, statements, result, finalProposal, minorityOpinion, error, eventSource, startCouncil, addStatement, setPhase, setRound, setResult, setError, setEventSource, reset };
+  const slice: CouncilSlice = { isActive, sessionId, phase, topic, currentRound, statements, joinedAgents, result, finalProposal, minorityOpinion, error, eventSource, startCouncil, addStatement, addAgentJoined, setPhase, setRound, setResult, setError, setEventSource, reset };
   return selector ? selector(slice) : slice;
 }
 
@@ -91,6 +97,7 @@ useCouncilStore.setState = (partial: Partial<CouncilSlice>) => {
     ...(partial.topic !== undefined && { councilTopic: partial.topic }),
     ...(partial.currentRound !== undefined && { councilCurrentRound: partial.currentRound }),
     ...(partial.statements !== undefined && { councilStatements: partial.statements }),
+    ...(partial.joinedAgents !== undefined && { councilJoinedAgents: partial.joinedAgents }),
     ...(partial.result !== undefined && { councilResult: partial.result }),
     ...(partial.finalProposal !== undefined && { councilFinalProposal: partial.finalProposal }),
     ...(partial.minorityOpinion !== undefined && { councilMinorityOpinion: partial.minorityOpinion }),

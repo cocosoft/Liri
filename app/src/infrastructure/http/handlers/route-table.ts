@@ -49,6 +49,15 @@ import {
 // Channel plugin handlers（直接函数调用）
 import { handleUninstallChannelPlugin } from './channel-plugin-handlers';
 
+// Agent role handlers（直接函数调用）
+import {
+  handleListAgentRoles,
+  handleGetAgentRole,
+  handleCreateAgentRole,
+  handleUpdateAgentRole,
+  handleDeleteAgentRole,
+} from './agent-role-handlers';
+
 // Auth handlers（直接函数调用）
 import {
   handleAuthLogin,
@@ -1824,6 +1833,31 @@ export async function dispatchRoute(
   }
   if (method === 'GET' && url === '/api/file/preview') {
     await self['handleFilePreview'](req, res);
+    return true;
+  }
+
+  // ---- Agent Roles ----
+  if (method === 'GET' && url === '/v1/agent-roles') {
+    await handleListAgentRoles(ctx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/agent-roles\/([^/]+)$/)) {
+    const agentId = url.match(/^\/v1\/agent-roles\/([^/]+)$/)![1];
+    await handleGetAgentRole(ctx, req, res, agentId);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/agent-roles') {
+    await handleCreateAgentRole(ctx, req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/agent-roles\/([^/]+)$/)) {
+    const agentId = url.match(/^\/v1\/agent-roles\/([^/]+)$/)![1];
+    await handleUpdateAgentRole(ctx, req, res, agentId);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/agent-roles\/([^/]+)$/)) {
+    const agentId = url.match(/^\/v1\/agent-roles\/([^/]+)$/)![1];
+    await handleDeleteAgentRole(ctx, req, res, agentId);
     return true;
   }
 

@@ -13,34 +13,28 @@ import type http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
-import { CouncilEngine } from '@modules/workspace/CouncilEngine';
+import {
+  getCouncilEngine,
+  setCouncilEmitter,
+} from '@modules/workspace/CouncilEngine';
 import type { CouncilStreamEvent } from '@modules/workspace/CouncilTypes';
+import { CouncilOrchestrator } from '@modules/workspace/CouncilOrchestrator';
 
 const logger = new Logger({ module: 'CouncilHandlers', level: LogLevel.INFO });
-
-/** 全局 CouncilEngine 实例 */
-let councilEngine: CouncilEngine | null = null;
 
 /** SSE 客户端连接池 */
 const sseClients = new Map<string, Set<http.ServerResponse>>();
 
-/** 获取或创建 CouncilEngine 实例 */
-function getCouncilEngine(): CouncilEngine {
-  if (!councilEngine) {
-    // 全局事件发射器：广播到所有 SSE 客户端
-    const emit = (event: CouncilStreamEvent) => {
-      const clients = sseClients.get(event.sessionId);
-      if (clients) {
-        const data = `data: ${JSON.stringify(event)}\n\n`;
-        for (const res of clients) {
-          res.write(data);
-        }
-      }
-    };
-    councilEngine = new CouncilEngine(emit);
+// 初始化：绑定 emit 回调到 SSE 连接池
+setCouncilEmitter((event: CouncilStreamEvent) => {
+  const clients = sseClients.get(event.sessionId);
+  if (clients) {
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    for (const res of clients) {
+      res.write(data);
+    }
   }
-  return councilEngine;
-}
+});
 
 /** 注册 SSE 客户端 */
 function registerSSEClient(sessionId: string, res: http.ServerResponse): void {
@@ -101,13 +95,20 @@ export async function handleCreateCouncil(
       maxRounds: maxRounds ?? 3,
     });
 
+    // 第 1 步：立即返回 sessionId（不等待辩论完成）
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         sessionId: session.sessionId,
-        message: 'Council 会话已创建，请通过 SSE 端点订阅辩论过程',
+        status: 'debating',
       })
     );
+
+    // 第 2 步：异步执行辩论（不阻塞 HTTP 响应）
+    const orchestrator = new CouncilOrchestrator(engine);
+    orchestrator.runDebate(session.sessionId).catch((err) => {
+      logger.error('Council 辩论执行失败', { error: String(err) });
+    });
   } catch (err) {
     logger.error('创建 Council 会话失败', { error: String(err) });
     if (!res.headersSent) {
@@ -283,6 +284,23 @@ export async function handleSubmitStatement(
     };
 
     session.statements.push(statement);
+
+    // 发射 SSE 事件，确保前端 SSE 客户端能收到手动注入的发言
+    const emit = (getCouncilEngine() as any).emit;
+    if (typeof emit === 'function') {
+      try {
+        emit({
+          type: 'statement',
+          sessionId,
+          phase: session.phase,
+          round,
+          statement,
+          timestamp: Date.now(),
+        });
+      } catch {
+        // emit 失败不阻塞请求
+      }
+    }
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(statement));

@@ -72,10 +72,16 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     let port_str = current_port.to_string();
 
     // 确定数据目录，优先使用配置的目录，否则使用用户目录下的 .pyapp
+    // 使用 Tauri path API（通过 SHGetKnownFolderPath，不依赖环境变量）
     let data_dir = if !config.data_dir.is_empty() {
         config.data_dir.clone()
     } else {
-        format!("{}\\.pyapp", dirs::home_dir().unwrap_or_default().display())
+        let home = app_handle
+            .path()
+            .home_dir()
+            .map(|p| p.display().to_string())
+            .map_err(|e| format!("Failed to resolve home directory: {}", e))?;
+        format!("{}\\.pyapp", home)
     };
 
     // 确保数据目录存在（首次安装时目录不存在会导致 sidecar 启动失败，Windows error 267）

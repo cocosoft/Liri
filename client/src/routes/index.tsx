@@ -15,6 +15,7 @@ const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
 const SkillPage = lazy(() => import("../components/views/SkillPage"));
 const AgentPage = lazy(() => import("../components/views/AgentPage"));
 const AgentAdvancedPage = lazy(() => import("../components/views/AgentAdvancedPage"));
+const CouncilAgentRolesPage = lazy(() => import("../components/views/CouncilAgentRolesPage"));
 const CronPage = lazy(() => import("../components/views/CronPage"));
 const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
@@ -65,6 +66,7 @@ export const routes: RouteObject[] = [
   // Agent 管理
   { path: "/agent", element: <AuthGuard><AgentPage /></AuthGuard> },
   { path: "/agent/advanced", element: <AuthGuard><AgentAdvancedPage /></AuthGuard> },
+  { path: "/agent/roles", element: <AuthGuard><CouncilAgentRolesPage /></AuthGuard> },
 
   // 定时任务
   { path: "/cron", element: <AuthGuard><CronPage /></AuthGuard> },

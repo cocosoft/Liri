@@ -9,14 +9,17 @@
  */
 import React, { useEffect, useRef } from "react";
 import { useCouncilStore } from "../../stores/councilStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 import type { CouncilStatementUI, CouncilPhaseUI } from "../../stores/councilStore";
 
 /** 阶段标签映射 */
 const PHASE_LABELS: Record<CouncilPhaseUI, string> = {
+  idle: "等待中",
   convening: "召集专家中...",
   debating: "辩论中",
   consensus: "达成共识中...",
   completed: "已完成",
+  error: "出错",
 };
 
 /** 发言类型标签 */
@@ -113,20 +116,79 @@ const ConsensusResult: React.FC = () => {
 };
 
 /** 空状态 */
-const EmptyState: React.FC = () => (
-  <div className="flex items-center justify-center h-full">
-    <div className="text-center">
-      <div className="text-4xl mb-3">{"\u{1F3DB}\uFE0F"}</div>
-      <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">
-        Agent 理事会
-      </h3>
-      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1 max-w-sm">
-        AI 在 Plan 模式下遇到复杂决策时，会自动召集专家 Agent 进行辩论。
-        你可以在这里查看辩论过程。
-      </p>
+const EmptyState: React.FC = () => {
+  const handleCreateManualCouncil = async () => {
+    const topic = prompt("请输入需要讨论的议题：");
+    if (!topic) return;
+
+    try {
+      const { useAppStore } = await import("../../stores/appStore");
+      const { workspaceService } = await import("../../services/workspaceService");
+      const { httpLegacy } = await import("../../services/httpClient");
+
+      const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id || 'default';
+
+      // 从 API 加载启用的 Agent 角色，失败时使用硬编码默认值
+      let agents: Array<{ agentId: string; name: string; expertise: string[]; weight: number }>;
+      try {
+        const roles = await httpLegacy.get<any[]>("/v1/agent-roles");
+        const enabledRoles = roles.filter((r) => r.enabled !== false);
+        if (enabledRoles.length > 0) {
+          agents = enabledRoles.map((r) => ({
+            agentId: r.agentId,
+            name: r.name,
+            expertise: r.expertise || [],
+            weight: r.weight ?? 1.0,
+          }));
+        } else {
+          throw new Error("无可用角色");
+        }
+      } catch {
+        // 回退到硬编码默认值
+        agents = [
+          { agentId: "architect", name: "架构师", expertise: ["系统架构", "技术选型"], weight: 5 },
+          { agentId: "security", name: "安全专家", expertise: ["安全审计", "漏洞分析"], weight: 5 },
+          { agentId: "performance", name: "性能专家", expertise: ["性能优化", "并发处理"], weight: 4 },
+          { agentId: "frontend", name: "前端专家", expertise: ["前端架构", "UI/UX"], weight: 4 },
+          { agentId: "backend", name: "后端专家", expertise: ["后端开发", "API设计"], weight: 4 },
+        ];
+      }
+
+      const result = await workspaceService.createCouncil(workspaceId, {
+        topic,
+        context: "",
+        agents,
+      });
+
+      const sessionId = result.sessionId;
+      useAppStore.getState().startCouncil(sessionId, topic);
+    } catch (err) {
+      console.error("手动创建 Council 失败", err);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center">
+        <div className="text-4xl mb-3">{"\u{1F3DB}\uFE0F"}</div>
+        <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">
+          Agent 理事会
+        </h3>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1 max-w-sm">
+          AI 在 UltraPlan 模式下遇到复杂决策时，会自动召集专家 Agent 进行辩论。
+          你可以在这里查看辩论过程，或手动发起一次理事会讨论。
+        </p>
+
+        <button
+          onClick={handleCreateManualCouncil}
+          className="mt-4 px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+        >
+          手动创建理事会讨论
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /**
  * CouncilView 主组件
@@ -147,6 +209,13 @@ export const CouncilView: React.FC = () => {
     }
   }, [statements]);
 
+  // 组件卸载时清理 SSE 连接
+  useEffect(() => {
+    return () => {
+      useCouncilStore.getState().reset();
+    };
+  }, []);
+
   if (!isActive) {
     return <EmptyState />;
   }
@@ -161,11 +230,15 @@ export const CouncilView: React.FC = () => {
         <div className="flex items-center gap-2 mt-1">
           <span
             className={`inline-block w-2 h-2 rounded-full ${
-              phase === "completed"
-                ? "bg-green-500"
-                : phase === "debating"
-                  ? "bg-blue-500 animate-pulse"
-                  : "bg-yellow-500 animate-pulse"
+              phase === "idle"
+                ? "bg-gray-400"
+                : phase === "completed"
+                  ? "bg-green-500"
+                  : phase === "debating"
+                    ? "bg-blue-500 animate-pulse"
+                    : phase === "error"
+                      ? "bg-red-500"
+                      : "bg-yellow-500 animate-pulse"
             }`}
           />
           <span className="text-xs text-gray-500 dark:text-gray-400">

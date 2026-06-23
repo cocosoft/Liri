@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon } from "../../assets/icons";
+import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon } from "../../assets/icons";
 
 interface MenuItem {
   id: string;
@@ -29,6 +29,7 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
   { id: "files", label: "文件", icon: FileIcon, path: "/files" },
   { id: "mcp", label: "MCP", icon: McpIcon, path: "/market/mcp" },
   { id: "channels", label: "频道", icon: ChannelIcon, path: "/channels" },
+  { id: "council-roles", label: "理事会", icon: CouncilIcon, path: "/agent/roles" },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [

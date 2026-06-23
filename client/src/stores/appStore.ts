@@ -8,6 +8,7 @@ import { cronService } from "../services/cronService";
 import { buddyService } from "../services/buddyService";
 import { voiceService, type VoiceSettings, type VoiceSession } from "../services/voiceService";
 import { chatService } from "../services/chatService";
+import { useWorkspaceStore } from "./workspaceStore";
 import type {
   UsageSummary,
   DailyUsageStats,
@@ -97,7 +98,7 @@ export interface CouncilStatementUI {
 }
 
 /** Council 辩论阶段 */
-export type CouncilPhaseUI = "convening" | "debating" | "consensus" | "completed";
+export type CouncilPhaseUI = "idle" | "convening" | "debating" | "consensus" | "completed" | "error";
 
 /** 共识结果 */
 export type ConsensusResultUI = "unanimous" | "majority" | "deadlock";
@@ -219,13 +220,16 @@ export interface AppStore {
   councilTopic: string;
   councilCurrentRound: number;
   councilStatements: CouncilStatementUI[];
+  councilJoinedAgents: { agentId: string; agentName: string }[];
   councilResult: ConsensusResultUI | null;
   councilFinalProposal: string | null;
   councilMinorityOpinion: string | null;
   councilError: string | null;
   councilEventSource: EventSource | null;
+  councilNotification: { active: boolean; sessionId: string | null; topic: string | null };
   startCouncil: (sessionId: string, topic: string) => void;
   addStatement: (statement: CouncilStatementUI) => void;
+  addAgentJoined: (agentId: string, agentName: string) => void;
   setCouncilPhase: (phase: CouncilPhaseUI) => void;
   setCouncilRound: (round: number) => void;
   setCouncilResult: (result: ConsensusResultUI, finalProposal: string, minorityOpinion: string | null) => void;
@@ -682,17 +686,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ---- Council ----
   councilIsActive: false,
   councilSessionId: null,
-  councilPhase: "convening",
+  councilPhase: "idle",
   councilTopic: "",
   councilCurrentRound: 0,
   councilStatements: [],
+  councilJoinedAgents: [],
   councilResult: null,
   councilFinalProposal: null,
   councilMinorityOpinion: null,
   councilError: null,
   councilEventSource: null,
+  councilNotification: { active: false, sessionId: null, topic: null },
 
-  startCouncil: (sessionId, topic) =>
+  startCouncil: (sessionId, topic) => {
+    // 先清理旧连接
+    const prev = get().councilEventSource;
+    if (prev) {
+      prev.close();
+    }
+
     set({
       councilIsActive: true,
       councilSessionId: sessionId,
@@ -700,14 +712,100 @@ export const useAppStore = create<AppStore>((set, get) => ({
       councilPhase: "convening",
       councilCurrentRound: 0,
       councilStatements: [],
+      councilJoinedAgents: [],
       councilResult: null,
       councilFinalProposal: null,
       councilMinorityOpinion: null,
       councilError: null,
-    }),
+      councilNotification: { active: true, sessionId, topic },
+    });
+
+    // 使用 workspaceStore 获取当前 workspace ID
+    const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id || 'default';
+    const API_BASE = ''; // 相对路径，使用同源 SSE
+
+    const es = new EventSource(
+      `${API_BASE}/v1/workspaces/${workspaceId}/council/${sessionId}/stream`
+    );
+
+    es.addEventListener("council_started", () => {
+      set({ councilPhase: "convening" });
+    });
+
+    es.addEventListener("agent_joined", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set((state) => ({
+        councilJoinedAgents: [
+          ...(state.councilJoinedAgents || []),
+          { agentId: data.agentId, agentName: data.agentName },
+        ],
+      }));
+    });
+
+    es.addEventListener("statement", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      get().addStatement(data.statement);
+    });
+
+    es.addEventListener("round_started", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set({ councilPhase: "debating", councilCurrentRound: data.round });
+    });
+
+    es.addEventListener("consensus_reached", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set({
+        councilPhase: "consensus",
+        councilResult: data.result,
+        councilFinalProposal: data.finalProposal,
+        councilMinorityOpinion: data.minorityOpinion,
+      });
+    });
+
+    es.addEventListener("council_completed", () => {
+      set({
+        councilPhase: "completed",
+        councilNotification: { active: false, sessionId: null, topic: null },
+      });
+
+      // 弹 toast 通知（如果用户不在理事会 Tab）
+      const { contentView, addToast } = get();
+      if (contentView !== "council") {
+        addToast("info", `🏛️ 理事会已达成共识："${get().councilTopic}"`, 5000);
+      }
+
+      es.close();
+      set({ councilEventSource: null });
+    });
+
+    es.addEventListener("council_error", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set({
+        councilPhase: "error",
+        councilError: data.error,
+        councilNotification: { active: false, sessionId: null, topic: null },
+      });
+      es.close();
+      set({ councilEventSource: null });
+    });
+
+    es.addEventListener("error", () => {
+      // SSE 连接异常，不改变状态，浏览器会自动重连
+    });
+
+    set({ councilEventSource: es });
+  },
 
   addStatement: (statement) =>
     set((state) => ({ councilStatements: [...state.councilStatements, statement] })),
+
+  addAgentJoined: (agentId, agentName) =>
+    set((state) => ({
+      councilJoinedAgents: [
+        ...(state.councilJoinedAgents || []),
+        { agentId, agentName },
+      ],
+    })),
 
   setCouncilPhase: (phase) => set({ councilPhase: phase }),
 
@@ -728,15 +826,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({
       councilIsActive: false,
       councilSessionId: null,
-      councilPhase: "convening",
+      councilPhase: "idle",
       councilTopic: "",
       councilCurrentRound: 0,
       councilStatements: [],
+      councilJoinedAgents: [],
       councilResult: null,
       councilFinalProposal: null,
       councilMinorityOpinion: null,
       councilError: null,
       councilEventSource: null,
+      councilNotification: { active: false, sessionId: null, topic: null },
     });
   },
 

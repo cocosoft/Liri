@@ -4,6 +4,20 @@
  */
 
 import { logger } from '../utils/log.js';
+import { join, dirname } from 'path';
+import { homedir, tmpdir } from 'os';
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  renameSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  accessSync,
+  constants,
+} from 'fs';
 
 /**
  * 审计事件类型
@@ -101,6 +115,111 @@ export enum AuditEventSeverity {
   CRITICAL = 'critical',
 }
 
+// ─── P3-03: 安全审计日志增强 ─────────────────────────────────
+
+/**
+ * 安全决策结果
+ */
+export type SecurityAuditDecision =
+  | 'approved' // 用户批准
+  | 'rejected' // 用户拒绝
+  | 'auto_allowed' // 自动放行
+  | 'auto_denied' // 自动拒绝
+  | 'timeout_denied'; // 超时自动拒绝
+
+/**
+ * 命令执行时的会话上下文
+ */
+export interface SessionContext {
+  /** 会话 ID */
+  sessionId: string;
+  /** 任务描述 */
+  taskDescription: string;
+  /** 当前权限模式 */
+  currentMode: 'auto' | 'normal' | 'allow_all' | 'deny_all';
+}
+
+/**
+ * 审计日志配置
+ */
+export interface SecurityAuditLogConfig {
+  /** 日志文件路径 */
+  logFilePath: string;
+  /** 单个日志文件最大字节数，默认 10MB */
+  maxFileSize: number;
+  /** 保留的轮转文件数，默认 10 */
+  maxBackupFiles: number;
+}
+
+/** 默认审计日志配置 */
+export const DEFAULT_AUDIT_LOG_CONFIG: SecurityAuditLogConfig = {
+  logFilePath: join(homedir(), '.trae', 'security-audit.log'),
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  maxBackupFiles: 10,
+};
+
+/**
+ * 获取审计日志文件路径（带 fallback）
+ * 主路径不可写时回退到系统临时目录
+ */
+export function getAuditLogPath(): string {
+  const primaryPath = join(homedir(), '.trae', 'security-audit.log');
+  try {
+    const dir = dirname(primaryPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    accessSync(dir, constants.W_OK);
+    return primaryPath;
+  } catch {
+    const fallbackPath = join(tmpdir(), '.trae', 'security-audit.log');
+    const fallbackDir = dirname(fallbackPath);
+    if (!existsSync(fallbackDir)) {
+      mkdirSync(fallbackDir, { recursive: true });
+    }
+    logger.warn('主日志路径不可写，使用系统临时目录', {
+      primaryPath,
+      fallbackPath,
+    });
+    return fallbackPath;
+  }
+}
+
+/**
+ * 轮转日志文件
+ * 当文件超过最大大小时自动轮转
+ */
+export function rotateLogFile(
+  config: SecurityAuditLogConfig = DEFAULT_AUDIT_LOG_CONFIG
+): void {
+  const { logFilePath, maxFileSize, maxBackupFiles } = config;
+
+  if (!existsSync(logFilePath)) return;
+
+  const stat = statSync(logFilePath);
+  if (stat.size < maxFileSize) return;
+
+  // 删除最旧的备份文件
+  const oldestBackup = `${logFilePath}.${maxBackupFiles}`;
+  if (existsSync(oldestBackup)) {
+    rmSync(oldestBackup);
+  }
+
+  // 依次轮转：.9 → .10, .8 → .9, ..., .1 → .2
+  for (let i = maxBackupFiles - 1; i >= 1; i--) {
+    const src = `${logFilePath}.${i}`;
+    const dst = `${logFilePath}.${i + 1}`;
+    if (existsSync(src)) {
+      renameSync(src, dst);
+    }
+  }
+
+  // 当前文件 → .1
+  renameSync(logFilePath, `${logFilePath}.1`);
+}
+
+// ─── 审计事件类型 ────────────────────────────────────────────
+
 /**
  * 审计事件
  */
@@ -157,6 +276,14 @@ export interface AuditEvent {
    * 自定义数据
    */
   data?: Record<string, unknown>;
+  /** P3-03: 用户原始命令 */
+  originalCommand?: string;
+  /** P3-03: 截断的命令预览 */
+  truncatedResult?: string;
+  /** P3-03: 会话上下文 */
+  sessionContext?: SessionContext;
+  /** P3-03: 决策结果 */
+  decision?: SecurityAuditDecision;
   /**
    * IP地址
    */
@@ -461,6 +588,91 @@ export class SecurityAudit {
       operation,
       data: { trustLevel, workspacePath, command },
     });
+  }
+
+  // ─── P3-03: 命令执行审计 ────────────────────────────────────
+
+  /** 审计日志配置 */
+  private auditLogConfig: SecurityAuditLogConfig = DEFAULT_AUDIT_LOG_CONFIG;
+
+  /**
+   * 设置审计日志配置
+   */
+  setAuditLogConfig(config: Partial<SecurityAuditLogConfig>): void {
+    this.auditLogConfig = { ...this.auditLogConfig, ...config };
+  }
+
+  /**
+   * 记录命令执行事件（P3-03 增强）
+   * 包含原始命令、会话上下文、决策结果等字段
+   */
+  logCommandExecution(params: {
+    command: string;
+    matchedRules: string[];
+    behavior: 'allow' | 'ask' | 'deny';
+    decision: SecurityAuditDecision;
+    riskLevel: string;
+    userId?: string;
+    sessionContext?: SessionContext;
+  }): string {
+    const truncated =
+      params.command.length > 120
+        ? params.command.substring(0, 120) + '...'
+        : params.command;
+
+    const eventId = this.logEvent({
+      type: AuditEventType.DANGEROUS_COMMAND_DETECTED,
+      severity:
+        params.behavior === 'deny'
+          ? AuditEventSeverity.CRITICAL
+          : params.behavior === 'ask'
+            ? AuditEventSeverity.WARNING
+            : AuditEventSeverity.INFO,
+      description: `[${params.decision}] ${params.behavior === 'deny' ? '已拒绝' : params.behavior === 'ask' ? '待确认' : '已放行'}: ${truncated}`,
+      userId: params.userId,
+      operation: 'command_execution',
+      originalCommand: params.command,
+      truncatedResult: truncated,
+      sessionContext: params.sessionContext,
+      decision: params.decision,
+      data: {
+        matchedRules: params.matchedRules,
+        behavior: params.behavior,
+        riskLevel: params.riskLevel,
+      },
+    });
+
+    // 写入 JSON lines 日志文件
+    this.writeAuditLogFile({
+      id: eventId,
+      timestamp: new Date().toISOString(),
+      command: params.command,
+      truncatedResult: truncated,
+      matchedRules: params.matchedRules,
+      behavior: params.behavior,
+      decision: params.decision,
+      riskLevel: params.riskLevel,
+      sessionContext: params.sessionContext,
+    });
+
+    return eventId;
+  }
+
+  /**
+   * 写入 JSON lines 格式审计日志文件
+   * 自动轮转，10MB 上限，保留 10 个备份
+   */
+  private writeAuditLogFile(entry: Record<string, unknown>): void {
+    try {
+      // 检查并轮转
+      rotateLogFile(this.auditLogConfig);
+
+      // 追加写入
+      const logLine = JSON.stringify(entry) + '\n';
+      writeFileSync(this.auditLogConfig.logFilePath, logLine, { flag: 'a' });
+    } catch (error) {
+      logger.warn('审计日志文件写入失败', { error: String(error) });
+    }
   }
 
   /**

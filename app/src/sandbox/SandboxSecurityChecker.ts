@@ -4,9 +4,10 @@
  */
 
 import { SandboxExecuteOptions, SandboxConfig } from './SandboxTypes';
+import { DELETION_RULES } from '../security/patterns/dangerousCommands';
 
 /**
- * 安全检查结果
+ * 沙箱安全检查器安全检查结果
  */
 export interface SecurityCheckResult {
   /** 是否通过检查 */
@@ -51,6 +52,14 @@ export class SandboxSecurityChecker {
    * 危险命令模式列表
    */
   private readonly dangerousCommands = new Set([
+    // P1 统一来源：DELETION_RULES（dangerousCommands.ts）PowerShell 删除别名
+    'remove-item',
+    'ri',
+    'rm',
+    'del',
+    'erase',
+    'rd',
+    'rrmdir',
     // 文件系统破坏命令
     'rm -rf',
     'rm -fr',

@@ -23,6 +23,7 @@ const WorkPageLayout = lazy(() => import("../components/Workspace/WorkPageLayout
 const ChannelsPage = lazy(() => import("../components/views/ChannelsPage"));
 const SettingsPage = lazy(() => import("../components/views/SettingsPage"));
 const PermissionPage = lazy(() => import("../components/views/PermissionPage"));
+const SecurityDashboard = lazy(() => import("../components/views/SecurityDashboard"));
 const UserPage = lazy(() => import("../components/views/UserPage"));
 const HelpPage = lazy(() => import("../components/views/HelpPage"));
 const BuddyPage = lazy(() => import("../components/views/BuddyPage"));
@@ -93,6 +94,9 @@ export const routes: RouteObject[] = [
 
   // 权限管理
   { path: "/permissions", element: <AuthGuard><PermissionPage /></AuthGuard> },
+
+  // 安全仪表盘
+  { path: "/security", element: <AuthGuard><SecurityDashboard /></AuthGuard> },
 
   // 用户管理
   { path: "/user", element: <AuthGuard><UserPage /></AuthGuard> },

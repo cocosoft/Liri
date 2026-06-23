@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 自动模式分类器
  * 用于自动判断工具使用是否安全
  */
@@ -564,6 +564,14 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    * 危险命令模式列表
    */
   private readonly dangerousCommandPatterns = [
+    // P0 紧急新增：Remove-Item 别名全覆盖
+    'remove-item',
+    'ri ',
+    'del ',
+    'erase ',
+    'rd ',
+    'rmdir ',
+    // 原始模式列表
     'rm -rf',
     'rm -fr',
     'rm -rf /',

@@ -58,6 +58,12 @@ import {
   handleDeleteAgentRole,
 } from './agent-role-handlers';
 
+// Security handlers（直接函数调用）
+import {
+  handleSecurityDashboard,
+  handleQueryAuditLogs,
+} from './security-handlers';
+
 // Auth handlers（直接函数调用）
 import {
   handleAuthLogin,
@@ -1483,6 +1489,16 @@ export async function dispatchRoute(
   // ---- Analytics ----
   if (method === 'GET' && url === '/v1/analytics/dashboard') {
     await self['handleAnalyticsDashboard'](req, res);
+    return true;
+  }
+
+  // ---- Security ----
+  if (method === 'GET' && url === '/v1/security/dashboard') {
+    await handleSecurityDashboard(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/security/audit-logs') {
+    await handleQueryAuditLogs(handlerCtx, req, res);
     return true;
   }
 

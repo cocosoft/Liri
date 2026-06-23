@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
  */
@@ -25,6 +25,8 @@ import {
   PermissionRuleSource,
   createPermissionRule,
 } from './types/PermissionRule';
+import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
+import type { SecurityAuditEvent } from '@modules/security';
 import {
   ToolPermissionContext,
   getAllowRules,
@@ -170,55 +172,79 @@ export class PermissionManager {
       permissionContext
     );
     if (hookDecision) {
+      let decision: PermissionDecision;
       if (hookDecision.behavior === 'allow') {
-        return createAllowDecision(
+        decision = createAllowDecision(
           hookDecision.message || 'Allowed by permission hook'
         );
       } else if (hookDecision.behavior === 'deny') {
         this.denialTracker.trackDenial(toolName);
-        return createDenyDecision(
+        decision = createDenyDecision(
           hookDecision.message || 'Denied by permission hook'
         );
-      } else if (hookDecision.behavior === 'ask') {
-        return createAskDecision(
+      } else {
+        decision = createAskDecision(
           hookDecision.message || 'Ask requested by permission hook'
         );
       }
+      this.auditDecision(decision, toolName, input);
+      return decision;
     }
 
     // 2. 检查沙箱自动允许
     if (this.sandboxIntegrationService.canAutoAllowInSandbox(toolName, input)) {
-      return createAllowDecision('Auto-allowed in sandbox');
+      const decision = createAllowDecision('Auto-allowed in sandbox');
+      this.auditDecision(decision, toolName, input);
+      return decision;
     }
 
     // 3. 根据权限模式执行不同的检查逻辑
+    let decision: PermissionDecision;
     switch (this.mode) {
       case PermissionMode.BYPASS:
-        return this.handleBypassPermissions();
+        decision = this.handleBypassPermissions();
+        break;
       case PermissionMode.DONT_ASK:
-        return this.handleDontAsk(toolOrName, input, permissionContext);
+        decision = await this.handleDontAsk(
+          toolOrName,
+          input,
+          permissionContext
+        );
+        break;
       case PermissionMode.ASK:
-        return this.handleAsk(toolOrName, input, permissionContext);
+        decision = await this.handleAsk(toolOrName, input, permissionContext);
+        break;
       case PermissionMode.ALWAYS_ASK:
-        return this.handleAlwaysAsk(toolOrName, input, permissionContext);
+        decision = await this.handleAlwaysAsk(
+          toolOrName,
+          input,
+          permissionContext
+        );
+        break;
       case PermissionMode.PLAN:
-        return this.handlePlan(toolOrName, input, permissionContext);
+        decision = await this.handlePlan(toolOrName, input, permissionContext);
+        break;
       case PermissionMode.AUTO:
-        return this.handleAuto(
+        decision = await this.handleAuto(
           toolOrName,
           input,
           permissionContext,
           ruleContext
         );
+        break;
       case PermissionMode.DEFAULT:
       default:
-        return this.handleDefault(
+        decision = await this.handleDefault(
           toolOrName,
           input,
           permissionContext,
           ruleContext
         );
+        break;
     }
+
+    this.auditDecision(decision, toolName, input);
+    return decision;
   }
 
   /**
@@ -243,6 +269,51 @@ export class PermissionManager {
     };
 
     return await this.permissionHookService.executeHooks(hookContext);
+  }
+
+  /**
+   * 审计权限决策：将每次权限决策记录到安全审计日志
+   * @param decision 权限决策
+   * @param toolName 工具名称
+   * @param input 工具输入
+   */
+  private auditDecision(
+    decision: PermissionDecision,
+    toolName: string,
+    input: Record<string, unknown>
+  ): void {
+    try {
+      const command = (input.command as string) || toolName;
+      const event: SecurityAuditEvent = {
+        timestamp: new Date(),
+        command,
+        originalCommand: command,
+        truncatedResult: truncateCommand(command),
+        sessionContext: {
+          sessionId: 'permission-manager',
+          taskDescription: decision.reason,
+          currentMode: 'auto',
+        },
+        matchedRules: decision.rule ? [String(decision.rule)] : [],
+        behavior:
+          decision.type === PermissionDecisionType.ALLOW
+            ? 'allow'
+            : decision.type === PermissionDecisionType.DENY
+              ? 'deny'
+              : 'ask',
+        decision:
+          decision.type === PermissionDecisionType.ALLOW
+            ? 'auto_allowed'
+            : decision.type === PermissionDecisionType.DENY
+              ? 'auto_denied'
+              : 'pending',
+        riskLevel:
+          decision.type === PermissionDecisionType.DENY ? 'high' : 'medium',
+      };
+      logSecurityAuditEvent(event);
+    } catch {
+      // 审计日志异常不应影响主流程
+    }
   }
 
   /**

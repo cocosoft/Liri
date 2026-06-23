@@ -50,6 +50,20 @@ export {
   securityIntegrationService,
 } from './SecurityIntegration';
 
+// ==================== 安全审计日志 ====================
+export {
+  logSecurityAuditEvent,
+  queryAuditLogs,
+  getAuditLogStats,
+  clearAuditLogs,
+  truncateCommand,
+} from './SecurityAuditLogger';
+export type {
+  SecurityAuditEvent,
+  AuditSessionContext,
+  AuditLogFilter,
+} from './SecurityAuditLogger';
+
 // ==================== 向后兼容导出（@deprecated — 请使用门面 API 替代） ====================
 // Bash 安全分析
 export { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
@@ -134,6 +148,58 @@ export {
   sanitizeSecrets,
 } from './scanner/secret';
 export type { MemorySecretMatch } from './scanner/secret';
+
+// ==================== 回滚模块 ====================
+export type { RollbackPermissionCheckFn } from './rollback';
+
+export type {
+  FileChange,
+  FileChangeType,
+  FileStat,
+  ScanStatus,
+  SnapshotStatus,
+  RoundSnapshot,
+  UndoResult,
+  TimelineEntry,
+  StorageUsage,
+  SnapshotCleanupPolicy,
+  UndoGuardState,
+  RedoConflict,
+  WalEntry,
+  SessionIndexEntry,
+  InjectStrategy,
+  FileOperation,
+  RedoResult,
+} from './rollback';
+export {
+  FileOperationTracker,
+  createRoundSnapshot,
+  loadSnapshot,
+  deleteRoundSnapshot,
+  listSessionSnapshots,
+  updateSessionIndex,
+  getTotalSnapshotSize,
+  cleanupInterruptedRounds,
+  cleanupRoundTempFiles,
+  enforceSnapshotQuota,
+  onApplicationStart,
+  executeUndo,
+  previewUndo,
+  detectRedoConflicts,
+  recoverFromCrash,
+  detectUserModifications,
+  findDependentRounds,
+  cleanupOrphanFiles,
+  executeRedo,
+  canRedo,
+  generateUndoContext,
+  generateDetailedUndoContext,
+  shouldInjectContext,
+  RollbackIntegration,
+  xxHash,
+  encodeFilePath,
+  xxHashBuffer,
+} from './rollback';
 
 // ==================== 类型导出 ====================
 export type {

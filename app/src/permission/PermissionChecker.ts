@@ -12,6 +12,34 @@ import {
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 超时自动拒绝配置
+ */
+export interface AskTimeoutConfig {
+  enabled: boolean;
+  timeoutMs: number;
+  notifyUserOnTimeout: boolean;
+}
+
+/** 默认超时配置 */
+const DEFAULT_ASK_TIMEOUT: AskTimeoutConfig = {
+  enabled: true,
+  timeoutMs: 30000,
+  notifyUserOnTimeout: true,
+};
+
+/**
+ * 带有超时的 ASK 决策
+ */
+export interface AskDecisionWithTimeout {
+  decision: PermissionDecision;
+  timeoutConfig?: AskTimeoutConfig;
+  createdAt: number;
+}
 
 /**
  * 工具接口
@@ -51,11 +79,66 @@ export class PermissionChecker {
   private ruleManager: RuleManager;
 
   /**
+   * 超时配置
+   */
+  private askTimeout: AskTimeoutConfig;
+
+  /**
    * 构造函数
    * @param ruleManager 规则管理器
+   * @param askTimeout 超时配置（可选）
    */
-  constructor(ruleManager: RuleManager) {
+  constructor(
+    ruleManager: RuleManager,
+    askTimeout?: Partial<AskTimeoutConfig>
+  ) {
     this.ruleManager = ruleManager;
+    this.askTimeout = { ...DEFAULT_ASK_TIMEOUT, ...askTimeout };
+  }
+
+  /**
+   * 创建带有超时追踪的 ASK 决策
+   * @param message 提示消息
+   * @returns 带有超时元数据的 ASK 决策
+   */
+  createAskDecisionWithTimeout(message: string): AskDecisionWithTimeout {
+    return {
+      decision: createAskDecision(message),
+      timeoutConfig: this.askTimeout,
+      createdAt: Date.now(),
+    };
+  }
+
+  /**
+   * 检查 ASK 决策是否已超时
+   * @param askWithTimeout 带有超时的 ASK 决策
+   * @returns 是否已超时
+   */
+  static isAskTimedOut(askWithTimeout: AskDecisionWithTimeout): boolean {
+    if (!askWithTimeout.timeoutConfig?.enabled) {
+      return false;
+    }
+    return (
+      Date.now() - askWithTimeout.createdAt >=
+      askWithTimeout.timeoutConfig.timeoutMs
+    );
+  }
+
+  /**
+   * 将超时的 ASK 决策转换为 DENY 决策
+   * @param askWithTimeout 带有超时的 ASK 决策
+   * @returns DENY 决策
+   */
+  static timeoutToDeny(
+    askWithTimeout: AskDecisionWithTimeout
+  ): PermissionDecision {
+    if (askWithTimeout.timeoutConfig?.notifyUserOnTimeout) {
+      logger.warn('安全确认超时，操作已自动拒绝', {
+        timeoutMs: askWithTimeout.timeoutConfig?.timeoutMs,
+        createdAt: new Date(askWithTimeout.createdAt).toISOString(),
+      });
+    }
+    return createDenyDecision('安全确认超时，操作已自动拒绝');
   }
 
   /**
@@ -259,7 +342,9 @@ export class PermissionChecker {
 
       for (const dangerousCommand of dangerousCommands) {
         if (command.includes(dangerousCommand)) {
-          return createAskDecision('Dangerous Bash command detected');
+          return this.createAskDecisionWithTimeout(
+            'Dangerous Bash command detected'
+          ).decision;
         }
       }
     }
@@ -270,7 +355,9 @@ export class PermissionChecker {
 
       // 检查路径是否包含..
       if (path.includes('..')) {
-        return createAskDecision('Potentially unsafe path detected');
+        return this.createAskDecisionWithTimeout(
+          'Potentially unsafe path detected'
+        ).decision;
       }
 
       // 检查路径是否为绝对路径
@@ -279,7 +366,8 @@ export class PermissionChecker {
         path.startsWith('\\') ||
         (path.length >= 2 && path[1] === ':')
       ) {
-        return createAskDecision('Absolute path detected');
+        return this.createAskDecisionWithTimeout('Absolute path detected')
+          .decision;
       }
     }
 

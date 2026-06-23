@@ -3,11 +3,16 @@
  * 检测命令中是否包含危险或被排除的命令
  */
 import { BashPermissionRule } from '../SandboxTypes';
-
 /**
  * 常见的危险命令模式
  */
 const DANGEROUS_PATTERNS: string[] = [
+  // P0 紧急新增：Remove-Item 别名全覆盖
+  'remove-item',
+  'ri ',
+  'rd ',
+  'rmdir ',
+  // 原始模式列表
   'rm -rf',
   'rm -rf /',
   'rm -rf *',

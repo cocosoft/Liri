@@ -116,6 +116,10 @@ import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCou
 import { ContextCompressor } from '@modules/agent/ContextCompressor';
 
 import { TaskStatus } from '@modules/tasks/types';
+
+import { RollbackIntegration } from '@modules/security';
+import type { FileOperation } from '@modules/security';
+import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
 
@@ -237,6 +241,11 @@ export class ChatManagerImpl implements ChatManager {
    * 查询引擎配置
    */
   private queryEngineConfig: QueryEngineConfig | undefined;
+
+  /**
+   * 回滚集成（按会话 ID 索引）
+   */
+  private rollbackIntegrations: Map<string, RollbackIntegration> = new Map();
 
   /**
    * 压缩服务
@@ -473,6 +482,15 @@ export class ChatManagerImpl implements ChatManager {
     this.llmClient?.initialize();
     await this.sessionGateway.initialize();
     await this._loadSessionsFromGateway();
+
+    // 启动回滚系统：清理中断轮次 + 配额管理
+    await RollbackIntegration.onAppStart().catch((err) => {
+      logger.warn('回滚系统初始化失败', { error: String(err) });
+      handleError(err, {
+        module: 'chat:ChatManager',
+        action: 'rollback:onAppStart',
+      }).catch(() => {});
+    });
   }
 
   private async _loadSessionsFromGateway(): Promise<void> {
@@ -1354,7 +1372,18 @@ export class ChatManagerImpl implements ChatManager {
       let roundAssistantMsg = assistantMessage;
 
       // 注册表：进入工具循环第一轮
-      toolResultRegistry.nextRound(session.id);
+      const rollbackRoundId = toolResultRegistry.nextRound(session.id);
+
+      // 回滚：开始轮次追踪
+      await this._startRollbackRound(session.id, rollbackRoundId).catch(
+        (err) => {
+          logger.warn('回滚轮次启动失败', { error: String(err) });
+          handleError(err, {
+            module: 'chat:ChatManager',
+            action: 'rollback:startRound',
+          }).catch(() => {});
+        }
+      );
 
       while (currentToolCalls.length > 0) {
         const processedResults: Array<{
@@ -1733,6 +1762,15 @@ export class ChatManagerImpl implements ChatManager {
           currentToolCalls = [];
         }
       }
+
+      // 回滚：结束轮次追踪并创建快照
+      await this._endRollbackRound(session.id, content).catch((err) => {
+        logger.warn('回滚轮次结束失败', { error: String(err) });
+        handleError(err, {
+          module: 'chat:ChatManager',
+          action: 'rollback:endRound',
+        }).catch(() => {});
+      });
     }
 
     // 检测是否存在 create_task_list 工具调用，进入计划编排模式
@@ -1973,7 +2011,17 @@ export class ChatManagerImpl implements ChatManager {
     this._addAndPersistMessage(session.id, assistantMsg);
 
     // 工具调用循环
-    toolResultRegistry.nextRound(session.id);
+    const rollbackRoundId = toolResultRegistry.nextRound(session.id);
+
+    // 回滚：开始轮次追踪
+    await this._startRollbackRound(session.id, rollbackRoundId).catch((err) => {
+      logger.warn('回滚轮次启动失败', { error: String(err) });
+      handleError(err, {
+        module: 'chat:ChatManager',
+        action: 'rollback:startRound',
+      }).catch(() => {});
+    });
+
     while (currentCalls.length > 0) {
       const processedResults: Array<{
         normalizedToolCall: {
@@ -2201,6 +2249,16 @@ export class ChatManagerImpl implements ChatManager {
         currentCalls = [];
       }
     }
+
+    // 回滚：结束轮次追踪并创建快照
+    await this._endRollbackRound(session.id, content).catch((err) => {
+      logger.warn('回滚轮次结束失败', { error: String(err) });
+      handleError(err, {
+        module: 'chat:ChatManager',
+        action: 'rollback:endRound',
+      }).catch(() => {});
+    });
+
     // 通知进度：处理完成
     options?.onProgress?.({ stage: 'completed', message: '处理完成' });
   }
@@ -2700,7 +2758,18 @@ export class ChatManagerImpl implements ChatManager {
       let roundAccumulatedContent = accumulatedContent;
 
       // 注册表：进入工具循环第一轮
-      toolResultRegistry.nextRound(session.id);
+      const rollbackRoundId = toolResultRegistry.nextRound(session.id);
+
+      // 回滚：开始轮次追踪
+      await this._startRollbackRound(session.id, rollbackRoundId).catch(
+        (err) => {
+          logger.warn('回滚轮次启动失败', { error: String(err) });
+          handleError(err, {
+            module: 'chat:ChatManager',
+            action: 'rollback:startRound',
+          }).catch(() => {});
+        }
+      );
 
       while (currentToolCalls.length > 0) {
         const processedResults: Array<{
@@ -3049,6 +3118,15 @@ export class ChatManagerImpl implements ChatManager {
           currentToolCalls = [];
         }
       }
+
+      // 回滚：结束轮次追踪并创建快照
+      await this._endRollbackRound(session.id, content).catch((err) => {
+        logger.warn('回滚轮次结束失败', { error: String(err) });
+        handleError(err, {
+          module: 'chat:ChatManager',
+          action: 'rollback:endRound',
+        }).catch(() => {});
+      });
     }
 
     // 通知会话状态变化为空闲状态
@@ -3346,6 +3424,68 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 获取或创建回滚集成实例
+   * @param sessionId 会话 ID
+   * @returns 回滚集成实例
+   */
+  private _getRollbackIntegration(sessionId: string): RollbackIntegration {
+    let integration = this.rollbackIntegrations.get(sessionId);
+    if (!integration) {
+      integration = new RollbackIntegration(sessionId);
+
+      // 连接撤消/重做权限控制
+      // 将 undo_round / redo_round 作为虚拟工具名，复用 PermissionManager
+      if (this.permissionManager) {
+        const pm = this.permissionManager as {
+          checkPermissionForTool: (
+            name: string,
+            args: Record<string, unknown>
+          ) => Promise<{ allowed: boolean; reason?: string }>;
+        };
+        integration.setPermissionChecker(async (action, roundId) => {
+          const result = await pm.checkPermissionForTool(
+            action === 'undo' ? 'undo_round' : 'redo_round',
+            { sessionId, roundId }
+          );
+          return { allowed: result.allowed, reason: result.reason };
+        });
+      }
+
+      this.rollbackIntegrations.set(sessionId, integration);
+    }
+    return integration;
+  }
+
+  /**
+   * 开始回滚轮次追踪
+   * @param sessionId 会话 ID
+   * @param roundId 轮次编号
+   */
+  private async _startRollbackRound(
+    sessionId: string,
+    roundId: number
+  ): Promise<void> {
+    const integration = this._getRollbackIntegration(sessionId);
+    const scanPaths = [resolveProjectRoot()];
+    await integration.onRoundStart(sessionId, roundId, scanPaths);
+  }
+
+  /**
+   * 结束回滚轮次追踪并创建快照
+   * @param sessionId 会话 ID
+   * @param messageSummary 用户消息摘要
+   */
+  private async _endRollbackRound(
+    sessionId: string,
+    messageSummary: string
+  ): Promise<void> {
+    const integration = this.rollbackIntegrations.get(sessionId);
+    if (integration) {
+      await integration.onRoundEnd(messageSummary);
+    }
+  }
+
+  /**
    * 执行工具
    * @param toolCall 工具调用
    * @returns 工具结果
@@ -3418,6 +3558,33 @@ export class ChatManagerImpl implements ChatManager {
           result: null,
           error: `Permission denied: ${permissionResult.reason || 'Tool execution not allowed'}`,
         };
+      }
+    }
+
+    // 回滚：拦截文件工具操作（Write / Edit）
+    // 在工具执行前记录文件的"操作前状态"
+    if (
+      normalizedToolCall.name === FILE_WRITE_TOOL_NAME ||
+      normalizedToolCall.name === FILE_EDIT_TOOL_NAME
+    ) {
+      const filePath = normalizedToolCall.arguments?.file_path as
+        | string
+        | undefined;
+      if (filePath && toolCall.sessionId) {
+        const integration = this.rollbackIntegrations.get(toolCall.sessionId);
+        if (integration) {
+          const op: FileOperation = {
+            path: filePath,
+            type: 'modified',
+          };
+          integration.onToolBeforeExecute(op).catch((err) => {
+            logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
+            handleError(err, {
+              module: 'chat:ChatManager',
+              action: 'rollback:onToolBeforeExecute',
+            }).catch(() => {});
+          });
+        }
       }
     }
 

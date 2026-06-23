@@ -7,7 +7,7 @@ import { join, resolve, normalize } from 'path';
 import { handleError } from '@modules/error';
 import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
-import { ALL_UNIFIED_RULES } from '../security/patterns/dangerousCommands';
+import { ALL_UNIFIED_RULES, type UnifiedRulePlatform } from '../security/patterns/dangerousCommands';
 
 const PROTECTED_PATHS = [
   '/etc',
@@ -188,7 +188,7 @@ export function checkDangerousCommand(
 ): { isDangerous: boolean; reason: string; behavior?: 'ask' | 'deny' } {
   // 使用 ALL_UNIFIED_RULES（dangerousCommands.ts）进行危险命令检测
   const toolLower = toolName.toLowerCase();
-  let platform: string;
+  let platform: UnifiedRulePlatform;
   if (toolLower === 'bash') {
     platform = 'bash';
   } else if (toolLower === 'cmd' || toolLower === 'cmd.exe') {

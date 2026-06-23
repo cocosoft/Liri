@@ -7,7 +7,10 @@ import { join, resolve, normalize } from 'path';
 import { handleError } from '@modules/error';
 import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
-import { ALL_UNIFIED_RULES, type UnifiedRulePlatform } from '../security/patterns/dangerousCommands';
+import {
+  ALL_UNIFIED_RULES,
+  type UnifiedRulePlatform,
+} from '../security/patterns/dangerousCommands';
 
 const PROTECTED_PATHS = [
   '/etc',

@@ -2857,6 +2857,11 @@ export class ChatManagerImpl implements ChatManager {
                 multiSelect: toolArgs.multiSelect as boolean | undefined,
               },
             };
+            logger.info('[ChatManager] Yielding question chunk', {
+              questionId,
+              question: (toolArgs.question as string)?.slice(0, 40),
+              optionsCount: (toolArgs.options as Array<unknown>)?.length,
+            });
             yield questionChunk;
 
             // 阻塞等待用户输入

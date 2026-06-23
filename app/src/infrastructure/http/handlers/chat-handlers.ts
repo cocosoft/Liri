@@ -413,6 +413,11 @@ async function handleStreamingChat(
           break;
         case 'question':
           if (chunk.questionData) {
+            logger.info('[SSE] Writing question chunk', {
+              questionId: chunk.questionData.questionId,
+              question: chunk.questionData.question?.slice(0, 40),
+              options: chunk.questionData.options?.length,
+            });
             res.write(
               `data: ${JSON.stringify({
                 id: responseId,

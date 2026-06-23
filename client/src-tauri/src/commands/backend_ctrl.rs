@@ -22,6 +22,7 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use tracing::info;
 

@@ -306,6 +306,11 @@ export const chatService = {
                   },
                 };
               } else if (pyappType === "question" && chunk.__pyapp_question) {
+                console.log("[chatService:parse] 解析到 question chunk", {
+                  questionId: chunk.__pyapp_question.questionId,
+                  question: chunk.__pyapp_question.question?.slice(0, 40),
+                  options: chunk.__pyapp_question.options?.length,
+                });
                 yield {
                   type: "question",
                   content: "",

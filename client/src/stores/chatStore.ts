@@ -903,11 +903,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const flushSet = (currentVersion: number): void => {
       // 版本号检查：过期版本直接丢弃（流结束后旧 rAF 回调不覆盖最终状态）
       if (currentVersion < batchVersion) {
+        console.log("[chatStore:flushSet] 版本过期丢弃", { currentVersion, batchVersion });
         batchPending = false;
         return;
       }
 
       if (latestMessages) {
+        const questionCount = latestMessages.reduce((cnt, m) => {
+          return cnt + (m.blocks?.filter((b) => b.type === "question").length ?? 0);
+        }, 0);
+        console.log("[chatStore:flushSet] 更新 store", {
+          version: currentVersion,
+          batchVersion,
+          msgCount: latestMessages.length,
+          questionBlocks: questionCount,
+        });
         set({ messages: latestMessages });
         latestMessages = null;
       }
@@ -945,7 +955,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const current = get().messages;
         const msgIdx = current.findIndex((m) => m.id === assistantId);
 
-        if (msgIdx === -1) return;
+        if (msgIdx === -1) {
+          console.warn("[chatStore] processChunk: 未找到对应的 assistant 消息（assistantId=%s），跳过 chunk", assistantId);
+          return;
+        }
 
         const msg = current[msgIdx];
         let updatedMsg: Message;
@@ -1040,8 +1053,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "question" && chunk.questionData) {
+          console.log("[chatStore:question] 收到 question chunk", {
+            questionId: chunk.questionData.questionId,
+            q: chunk.questionData.question?.slice(0, 40),
+            optCnt: chunk.questionData.options?.length,
+            blocksBefore: blockBuilder.getBlocks().length,
+          });
           blockBuilder.addQuestion(chunk.questionData);
-          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+          const newBlocks = blockBuilder.getBlocks();
+          console.log("[chatStore:question] addQuestion 后 block count:", newBlocks.length, {
+            questionBlocks: newBlocks.filter((b) => b.type === "question").length,
+          });
+          updatedMsg = { ...msg, blocks: newBlocks };
           // 标记有待用户回答的 question
           get().hasPendingQuestion || set({ hasPendingQuestion: true });
           // 需要用户关注时播放警示音

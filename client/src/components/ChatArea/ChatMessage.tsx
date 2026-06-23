@@ -455,14 +455,54 @@ function AssistantMessage({
     // 用户已回答 question，清除待回答标记
     useChatStore.setState({ hasPendingQuestion: false });
   });
+
   return (
     <div className="text-sm break-words max-w-none space-y-1">
+      {/* DEBUG: blocks 调试信息 */}
+      {process.env.NODE_ENV === "development" && (
+        <DebugBlockInfo blocks={blocks} messageId={message.id} />
+      )}
       {renderedContent}
       {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器 */}
       {isStreaming && (
         <span className="streaming-cursor" aria-hidden="true" />
       )}
     </div>
+  );
+}
+
+/** 调试组件：显示 block 结构信息 */
+function DebugBlockInfo({ blocks, messageId }: { blocks: MessageBlock[]; messageId: string }) {
+  return (
+    <details className="mb-2 border border-red-400/30 rounded bg-red-50/30 dark:bg-red-950/20 p-2 text-xs">
+      <summary className="cursor-pointer text-red-500 font-medium">
+        🐛 Debug: {blocks.length} blocks
+      </summary>
+      <div className="mt-1 font-mono space-y-0.5 text-gray-600 dark:text-gray-400">
+        <div className="text-[10px] text-gray-400">msgId: {messageId.slice(0, 8)}...</div>
+        {blocks.map((b, i) => (
+          <div key={b.id} className="border-l-2 border-red-300 pl-2 py-0.5">
+            <span className="font-semibold text-red-500">[{i}]</span>{" "}
+            <span className="text-blue-500">{b.type}</span>
+            {b.type === "question" && b.questionData ? (
+              <span className="text-emerald-500">
+                {" "}questionId={b.questionData.questionId.slice(0, 8)}
+                {" "}options={b.questionData.options?.length}
+                {" "}header="{b.questionData.header}"
+              </span>
+            ) : b.type === "status" ? (
+              <span className="text-amber-500" title={b.content}>
+                {" "}status="{b.content.slice(0, 50)}{b.content.length > 50 ? "..." : ""}"
+              </span>
+            ) : null}
+            <span className="text-gray-400">
+              {" "}isStreaming={String(b.isStreaming)}
+              {" "}groupId={b.groupId?.slice(0, 8) ?? "none"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

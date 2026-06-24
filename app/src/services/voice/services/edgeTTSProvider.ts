@@ -477,6 +477,11 @@ export class EdgeTTSProvider implements TTSProvider {
   readonly name = 'edge';
   private config: EdgeTTSConfig;
   private wsConnection: WsConnection | null = null;
+  /** 心跳定时器 */
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  /** 历史响应延迟记录（最后 100 次），用于自适应超时 */
+  private responseLatencies: number[] = [];
+  private readonly MAX_LATENCIES = 100;
 
   constructor(config?: EdgeTTSConfig) {
     this.config = {
@@ -485,6 +490,55 @@ export class EdgeTTSProvider implements TTSProvider {
       pitch: '+0Hz',
       ...config,
     };
+  }
+
+  /**
+   * 计算自适应超时
+   * 基于历史 P99 延迟 × 3，默认 20s，上限 60s
+   */
+  private calculateTimeout(): number {
+    if (this.responseLatencies.length < 10) return 20_000; // 默认 20s
+    const sorted = [...this.responseLatencies].sort((a, b) => a - b);
+    const p99 = sorted[Math.floor(sorted.length * 0.99)];
+    return Math.min(Math.max(p99 * 3, 10_000), 60_000); // P99 × 3, 下限 10s, 上限 60s
+  }
+
+  /**
+   * 记录响应延迟
+   */
+  private recordLatency(ms: number): void {
+    this.responseLatencies.push(ms);
+    if (this.responseLatencies.length > this.MAX_LATENCIES) {
+      this.responseLatencies.shift();
+    }
+  }
+
+  /**
+   * 启动 WebSocket 心跳保活（每 15s 发送 PING）
+   */
+  private startHeartbeat(conn: WsConnection): void {
+    this.stopHeartbeat();
+    this.pingInterval = setInterval(() => {
+      try {
+        if (conn.socket && !conn.socket.destroyed) {
+          sendWsFrame(conn, WsOpcode.PING, Buffer.alloc(0));
+        } else {
+          this.stopHeartbeat();
+        }
+      } catch {
+        this.stopHeartbeat();
+      }
+    }, 15_000);
+  }
+
+  /**
+   * 停止心跳
+   */
+  private stopHeartbeat(): void {
+    if (this.pingInterval !== null) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
   }
 
   /**
@@ -557,7 +611,7 @@ export class EdgeTTSProvider implements TTSProvider {
           };
         }
       }
-    );
+    )();
   }
 
   /**
@@ -618,10 +672,11 @@ export class EdgeTTSProvider implements TTSProvider {
    * 停止合成
    */
   stop(): void {
+    this.stopHeartbeat();
     if (this.wsConnection) {
       try {
         sendWsFrame(this.wsConnection, WsOpcode.CLOSE, Buffer.alloc(0));
-        this.wsConnection.socket.end();
+        this.wsConnection.socket.destroy();
       } catch {
         // 忽略关闭错误
       }
@@ -633,28 +688,45 @@ export class EdgeTTSProvider implements TTSProvider {
    * 执行 Edge TTS 合成
    *
    * 流程：
-   * 1. WebSocket 连接
+   * 1. WebSocket 连接 + 心跳保活
    * 2. 发送 synthesis.context
    * 3. 发送 SSML
    * 4. 接收音频二进制数据
    * 5. 等待 turn.end 信号
+   * 6. 记录响应延迟
+   *
+   * 使用自适应超时（基于历史 P99 延迟），默认 20s，上限 60s。
    */
   private async synthesize(text: string, voice: string): Promise<Buffer> {
     const audioChunks: Buffer[] = [];
     const ssml = buildSsml(text, voice, this.config.rate!, this.config.pitch!);
+    const startTime = Date.now();
 
     return new Promise((resolve, reject) => {
+      const timeoutMs = this.calculateTimeout();
+
       const timeout = setTimeout(() => {
-        reject(new Error('Edge TTS 合成超时'));
-      }, 30000);
+        this.stopHeartbeat();
+        if (this.wsConnection) {
+          try {
+            this.wsConnection.socket.destroy();
+          } catch {
+            // 忽略清理错误
+          }
+          this.wsConnection = null;
+        }
+        reject(new Error(`Edge TTS 合成超时（${timeoutMs}ms）`));
+      }, timeoutMs);
 
       wsHandshake(EDGE_TTS_HOST, EDGE_TTS_PATH, 443)
         .then((conn) => {
           this.wsConnection = conn;
+          this.startHeartbeat(conn);
 
           let metadataReceived = false;
 
           conn.onClose = () => {
+            this.stopHeartbeat();
             clearTimeout(timeout);
             if (this.wsConnection === conn) {
               this.wsConnection = null;
@@ -662,6 +734,7 @@ export class EdgeTTSProvider implements TTSProvider {
           };
 
           conn.onError = (error) => {
+            this.stopHeartbeat();
             clearTimeout(timeout);
             reject(error);
           };
@@ -677,7 +750,9 @@ export class EdgeTTSProvider implements TTSProvider {
               if (text.includes('Path:')) {
                 // turn.end 或 metadata 文本帧
                 if (text.includes('turn.end')) {
+                  this.stopHeartbeat();
                   clearTimeout(timeout);
+                  this.recordLatency(Date.now() - startTime);
                   conn.socket.end();
                   resolve(Buffer.concat(audioChunks));
                 }
@@ -691,7 +766,9 @@ export class EdgeTTSProvider implements TTSProvider {
               if (firstByte < 128) {
                 const text = data.toString('utf8');
                 if (text.includes('turn.end')) {
+                  this.stopHeartbeat();
                   clearTimeout(timeout);
+                  this.recordLatency(Date.now() - startTime);
                   conn.socket.end();
                   resolve(Buffer.concat(audioChunks));
                 }
@@ -709,6 +786,7 @@ export class EdgeTTSProvider implements TTSProvider {
           sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(ssml, 'utf8'));
         })
         .catch((error) => {
+          this.stopHeartbeat();
           clearTimeout(timeout);
           reject(error);
         });

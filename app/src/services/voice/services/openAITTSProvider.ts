@@ -143,7 +143,7 @@ export class OpenAITTSProvider implements TTSProvider {
           };
         }
       }
-    );
+    )();
   }
 
   /**

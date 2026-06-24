@@ -227,7 +227,7 @@ export class CloudSTTProvider implements STTProvider {
           };
         }
       }
-    );
+    )();
   }
 
   /**

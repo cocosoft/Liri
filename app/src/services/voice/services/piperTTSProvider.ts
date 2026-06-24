@@ -35,6 +35,17 @@ import type {
 
 const logger = new Logger({ level: LogLevel.INFO });
 
+/** Piper 模型索引条目（方案 19） */
+export interface ModelIndexEntry {
+  id: string;
+  name: string;
+  language: string;
+  gender: string;
+  fileSize: number;
+  sampleRate: number;
+  filePath: string;
+}
+
 /** 内置知名 Piper 模型语音定义 */
 const PIPER_VOICES: TTSVoice[] = [
   {
@@ -404,7 +415,75 @@ export class PiperTTSProvider implements TTSProvider {
           }
         }
       }
+    )();
+  }
+
+  /**
+   * preloadDefaultModel — 预加载默认模型（方案 14）
+   *
+   * 在后台预热默认语音模型（合成极短文本并丢弃输出），
+   * 使后续首次合成不必等待模型加载时间。
+   * 在应用启动或 Provider 初始化时调用一次即可。
+   */
+  async preloadDefaultModel(): Promise<void> {
+    const modelFile = join(
+      this.config.modelDir,
+      `${this.config.defaultVoice}.onnx`
     );
+    if (!existsSync(modelFile)) {
+      logger.warn('PiperTTS · 预加载失败：模型文件不存在', {
+        model: this.config.defaultVoice,
+        path: modelFile,
+      });
+      return;
+    }
+
+    const tempFile = join(
+      tmpdir(),
+      `piper_preload_${randomUUID().replace(/-/g, '').slice(0, 8)}.wav`
+    );
+
+    try {
+      logger.info('PiperTTS · 开始预加载模型', {
+        model: this.config.defaultVoice,
+      });
+
+      // 合成极短文本以触发模型加载
+      await this.runPiper(' ', modelFile, tempFile, 1.0);
+
+      logger.info('PiperTTS · 模型预加载完成', {
+        model: this.config.defaultVoice,
+      });
+    } catch (error) {
+      logger.warn('PiperTTS · 模型预加载失败（不影响后续使用）', {
+        model: this.config.defaultVoice,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      try {
+        if (existsSync(tempFile)) unlinkSync(tempFile);
+      } catch {
+        // 忽略
+      }
+    }
+  }
+
+  /**
+   * keepAlive — 保持模型常驻（方案 14）
+   *
+   * 定期执行空合成以保持模型在内存中，避免因空闲被系统换出。
+   * 调用者需管理定时器，并在 Provider 销毁时清除。
+   *
+   * @returns 一个清除函数，调用后停止 keepAlive
+   */
+  keepAlive(intervalMs: number = 60000): () => void {
+    const timer = setInterval(async () => {
+      await this.preloadDefaultModel();
+    }, intervalMs);
+
+    return () => {
+      clearInterval(timer);
+    };
   }
 
   /**
@@ -474,6 +553,53 @@ export class PiperTTSProvider implements TTSProvider {
       this.abortController.abort();
       this.abortController = null;
     }
+  }
+
+  /**
+   * buildModelIndex — 扫描模型目录构建索引（方案 19）
+   *
+   * 扫描模型目录下所有 .onnx 文件，与内置语音定义匹配后返回索引列表。
+   * 可用于 UI 展示可用模型列表、文件大小等信息。
+   *
+   * @returns 模型索引条目列表
+   */
+  buildModelIndex(): ModelIndexEntry[] {
+    const dir = this.config.modelDir;
+    if (!existsSync(dir)) {
+      logger.warn('PiperTTS · 模型目录不存在，无法构建索引', { path: dir });
+      return [];
+    }
+
+    const fs = require('fs');
+    const entries: ModelIndexEntry[] = [];
+
+    try {
+      const files: string[] = fs.readdirSync(dir);
+      for (const file of files) {
+        if (!file.endsWith('.onnx')) continue;
+
+        const modelId = file.replace('.onnx', '');
+        const known = PIPER_VOICES.find((v) => v.id === modelId);
+        const stat = require('fs').statSync(require('path').join(dir, file));
+
+        entries.push({
+          id: modelId,
+          name: known?.name || modelId,
+          language: known?.language || 'unknown',
+          gender: known?.gender || 'unknown',
+          fileSize: stat.size,
+          sampleRate: 22050,
+          filePath: require('path').join(dir, file),
+        });
+      }
+    } catch (error) {
+      logger.error('PiperTTS · 构建模型索引失败', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+
+    return entries;
   }
 
   /**

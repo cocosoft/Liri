@@ -426,7 +426,7 @@ export class LocalSTTProvider implements STTProvider {
           }
         }
       }
-    );
+    )();
   }
 
   /**

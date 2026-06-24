@@ -180,7 +180,7 @@ export class CommandTTSProvider implements TTSProvider {
               name: '默认语音',
               language: 'en-US',
               gender: 'female',
-            },
+            } as const,
           };
         } catch (error) {
           const errorMsg =
@@ -197,7 +197,7 @@ export class CommandTTSProvider implements TTSProvider {
           };
         }
       }
-    );
+    )();
   }
 
   /**

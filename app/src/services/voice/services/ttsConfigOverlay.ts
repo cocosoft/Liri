@@ -10,7 +10,11 @@
  * 高层级配置会覆盖低层级中的同名属性。
  */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { TTSSpeakOptions } from './ttsProvider';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * TTS 全局默认配置
@@ -62,6 +66,7 @@ export class TTSConfigOverlay {
    */
   updateGlobal(config: Partial<TTSGlobalConfig>): void {
     this.globalConfig = { ...this.globalConfig, ...config };
+    logger.debug('TTSConfigOverlay · 更新全局配置', { config });
   }
 
   /**

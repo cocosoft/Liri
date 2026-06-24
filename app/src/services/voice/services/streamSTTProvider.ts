@@ -348,7 +348,7 @@ export class StreamSTTProvider implements STTProvider {
           };
         }
       }
-    );
+    )();
   }
 
   /**

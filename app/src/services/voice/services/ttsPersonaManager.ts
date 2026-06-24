@@ -9,13 +9,26 @@
  *   - 语言
  *
  * 人设支持 CRUD 操作，并可绑定到 Agent，通过 TTSConfigOverlay 生效。
+ *
+ * 方案 20：支持多工作区 TTS 上下文隔离。
+ * 每个工作区绑定独立的 TTS 上下文（currentPersonaId、volume、rate），
+ * 工作区切换时自动加载对应上下文，工作区销毁时自动清理。
  */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getDefaultConfigOverlay } from './ttsConfigOverlay';
 
-/**
- * TTS 人设
- */
+const logger = new Logger({ level: LogLevel.INFO });
+
+/** TTS 上下文（方案 20：多工作区隔离） */
+export interface TTSContext {
+  currentPersonaId: string | null;
+  volume: number;
+  rate: number;
+}
+
+/** TTS 人设 */
 export interface TTSPersona {
   /** 人设唯一标识 */
   id: string;
@@ -91,6 +104,12 @@ export class TTSPersonaManager {
 
     TTSPersonaManager.personas.set(id, persona);
 
+    logger.info('TTSPersonaManager · 创建人设', {
+      id,
+      name: options.name,
+      provider: options.provider,
+    });
+
     return { ...persona };
   }
 
@@ -104,6 +123,7 @@ export class TTSPersonaManager {
   static update(id: string, partial: Partial<CreatePersonaOptions>): boolean {
     const existing = TTSPersonaManager.personas.get(id);
     if (!existing) {
+      logger.warn('TTSPersonaManager · 更新人设失败：不存在', { id });
       return false;
     }
 
@@ -114,6 +134,8 @@ export class TTSPersonaManager {
     };
 
     TTSPersonaManager.personas.set(id, updated);
+
+    logger.info('TTSPersonaManager · 更新人设', { id, name: updated.name });
 
     return true;
   }
@@ -128,6 +150,7 @@ export class TTSPersonaManager {
   static delete(id: string): boolean {
     const existed = TTSPersonaManager.personas.has(id);
     if (!existed) {
+      logger.warn('TTSPersonaManager · 删除人设失败：不存在', { id });
       return false;
     }
 
@@ -139,6 +162,8 @@ export class TTSPersonaManager {
         TTSPersonaManager.bindings.delete(agentId);
       }
     }
+
+    logger.info('TTSPersonaManager · 删除人设', { id });
 
     return true;
   }
@@ -152,10 +177,20 @@ export class TTSPersonaManager {
   static bindToAgent(agentId: string, personaId: string): boolean {
     const persona = TTSPersonaManager.personas.get(personaId);
     if (!persona) {
+      logger.warn('TTSPersonaManager · 绑定 Agent 失败：人设不存在', {
+        agentId,
+        personaId,
+      });
       return false;
     }
 
     TTSPersonaManager.bindings.set(agentId, personaId);
+
+    logger.info('TTSPersonaManager · 绑定 Agent', {
+      agentId,
+      personaId,
+      personaName: persona.name,
+    });
 
     return true;
   }
@@ -165,6 +200,7 @@ export class TTSPersonaManager {
    */
   static unbindFromAgent(agentId: string): void {
     TTSPersonaManager.bindings.delete(agentId);
+    logger.info('TTSPersonaManager · 解除 Agent 绑定', { agentId });
   }
 
   /**
@@ -207,26 +243,98 @@ export class TTSPersonaManager {
   static applyPersonaToOverlay(agentId: string): boolean {
     const persona = TTSPersonaManager.getPersonaForAgent(agentId);
     if (!persona) {
+      logger.warn('TTSPersonaManager · 应用人设失败：Agent 未绑定', {
+        agentId,
+      });
       return false;
     }
 
-    const overlay = getDefaultConfigOverlay();
+    try {
+      const overlay = getDefaultConfigOverlay();
 
-    overlay.setProviderDefaults(persona.provider, {
-      voice: persona.voice,
-      speed: persona.speed,
-      language: persona.language,
-    });
+      overlay.setProviderDefaults(persona.provider, {
+        voice: persona.voice,
+        speed: persona.speed,
+        language: persona.language,
+      });
 
-    return true;
+      logger.info('TTSPersonaManager · 应用人设到配置覆盖', {
+        agentId,
+        personaId: persona.id,
+        provider: persona.provider,
+      });
+
+      return true;
+    } catch (error) {
+      void handleError(error, {
+        module: 'services:voice:ttsPersonaManager',
+        action: 'applyPersonaToOverlay',
+        context: { agentId, personaId: persona.id },
+      });
+      return false;
+    }
   }
 
   /**
    * 清空所有人设和绑定关系（主要用于测试）
    */
   static reset(): void {
+    const count = TTSPersonaManager.personas.size;
+    const bindCount = TTSPersonaManager.bindings.size;
     TTSPersonaManager.personas.clear();
     TTSPersonaManager.bindings.clear();
     TTSPersonaManager.nextId = 1;
+    logger.info('TTSPersonaManager · 重置', {
+      personaCount: count,
+      bindingCount: bindCount,
+    });
+  }
+
+  // ===========================================================
+  // 多工作区 TTS 上下文隔离（方案 20）
+  // ===========================================================
+
+  /** 工作区 → TTS 上下文映射 */
+  private static personaContexts = new Map<string, TTSContext>();
+
+  /**
+   * getContext — 获取指定工作区的 TTS 上下文（方案 20）
+   *
+   * 如果该工作区尚无上下文，自动创建默认上下文。
+   *
+   * @param workspaceId 工作区 ID
+   * @returns 该工作区的 TTS 上下文
+   */
+  static getContext(workspaceId: string): TTSContext {
+    let context = TTSPersonaManager.personaContexts.get(workspaceId);
+    if (!context) {
+      context = {
+        currentPersonaId: null,
+        volume: 1.0,
+        rate: 1.0,
+      };
+      TTSPersonaManager.personaContexts.set(workspaceId, context);
+    }
+    return context;
+  }
+
+  /**
+   * removeContext — 销毁工作区时清理 TTS 上下文（方案 20）
+   *
+   * @param workspaceId 工作区 ID
+   */
+  static removeContext(workspaceId: string): void {
+    TTSPersonaManager.personaContexts.delete(workspaceId);
+    logger.debug('TTSPersonaManager · 移除 TTS 上下文', { workspaceId });
+  }
+
+  /**
+   * setContext — 设置指定工作区的 TTS 上下文（方案 20）
+   *
+   * @param workspaceId 工作区 ID
+   * @param context TTS 上下文
+   */
+  static setContext(workspaceId: string, context: TTSContext): void {
+    TTSPersonaManager.personaContexts.set(workspaceId, context);
   }
 }

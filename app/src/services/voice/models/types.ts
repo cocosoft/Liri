@@ -223,6 +223,11 @@ export type VoiceEventType =
   | 'stop'
   | 'data'
   | 'error'
+  | 'progress'
+  | 'queue_drained'
+  | 'playback:end'
+  | 'playback:error'
+  | 'config:tts:changed'
   | 'volumeChange';
 
 /**
@@ -238,3 +243,16 @@ export interface VoiceEvent {
  * 语音事件监听器
  */
 export type VoiceEventListener = (event: VoiceEvent) => void;
+
+// ===================================================================
+// Provider 健康状态（方案 24）
+// ===================================================================
+
+/** Provider 健康状态（方案 24：自动故障转移） */
+export interface ProviderHealth {
+  providerName: string;
+  circuitState: 'closed' | 'open' | 'half_open';
+  failureRate: number;
+  avgLatency: number;
+  score: number;
+}

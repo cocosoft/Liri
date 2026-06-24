@@ -13,6 +13,8 @@
  * ```
  */
 
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   TTSVoice,
   TTSSpeakOptions,
@@ -28,6 +30,8 @@ export type {
 
 import { EdgeTTSProvider } from './edgeTTSProvider';
 export { EdgeTTSProvider };
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * TTS 提供者注册表
@@ -101,12 +105,46 @@ export class TTSRegistry {
   ): Promise<TTSSpeakResult> {
     const provider = TTSRegistry.getProvider(providerName);
     if (!provider) {
-      return {
-        success: false,
-        error: `No TTS provider available${providerName ? `: "${providerName}" not found` : ''}`,
-      };
+      const error = `TTSRegistry · Provider 不可用${providerName ? `: "${providerName}" 未注册` : '（无默认 Provider）'}`;
+      logger.error(error, { providerName });
+      return { success: false, error };
     }
-    return provider.speak(options);
+
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.registry.tts.speak',
+        attributes: {
+          provider: providerName ?? provider.name,
+          textLength: options.text.length,
+        },
+      },
+      async () => {
+        try {
+          const result = await provider.speak(options);
+          if (!result.success) {
+            logger.warn('TTSRegistry · 合成失败', {
+              provider: provider.name,
+              error: result.error,
+            });
+          }
+          return result;
+        } catch (error) {
+          void handleError(error, {
+            module: 'services:voice:ttsRegistry',
+            action: 'speak',
+            context: {
+              provider: provider.name,
+              textLength: options.text.length,
+            },
+          });
+          return {
+            success: false,
+            error: `TTS 合成失败: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      }
+    )();
   }
 
   /**
@@ -118,19 +156,47 @@ export class TTSRegistry {
   ): Promise<TTSSpeakResult> {
     const provider = TTSRegistry.getProvider(providerName);
     if (!provider) {
-      return {
-        success: false,
-        error: `No TTS provider available${providerName ? `: "${providerName}" not found` : ''}`,
-      };
+      const error = `TTSRegistry · 保存 Provider 不可用${providerName ? `: "${providerName}" 未注册` : '（无默认 Provider）'}`;
+      logger.error(error, { providerName });
+      return { success: false, error };
     }
-    if (!provider.save) {
-      // Fallback: speak 后保存结果
-      return provider.speak(options).then((r) => ({
-        ...r,
-        filePath: options.filename,
-      }));
-    }
-    return provider.save(options);
+
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.registry.tts.save',
+        attributes: {
+          provider: provider.name,
+          filename: options.filename,
+          textLength: options.text.length,
+        },
+      },
+      async () => {
+        try {
+          if (provider.save) {
+            return await provider.save(options);
+          }
+          // Fallback: speak 后保存结果
+          const result = await provider.speak(options);
+          if (result.success && result.audioData) {
+            const { writeFile } = await import('fs/promises');
+            await writeFile(options.filename, result.audioData);
+            return { ...result, filePath: options.filename };
+          }
+          return result;
+        } catch (error) {
+          void handleError(error, {
+            module: 'services:voice:ttsRegistry',
+            action: 'save',
+            context: { provider: provider.name, filename: options.filename },
+          });
+          return {
+            success: false,
+            error: `TTS 保存失败: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      }
+    )();
   }
 
   /**

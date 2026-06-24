@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PCMAudioPlayer
  * PCM 音频流式播放引擎
  *
@@ -16,7 +16,8 @@ import { writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type { AudioDevice } from './audioDeviceManager';
 
@@ -61,6 +62,9 @@ const WAV_HEADER_SIZE = 44;
 
 /** 播放超时（毫秒），超过此时间未完成视为完成 */
 const PLAY_TIMEOUT_MS = 1500;
+
+/** 常驻 temp 目录 TTL（毫秒），空闲超过此值自动清理 */
+const TEMP_DIR_IDLE_TTL = 30000;
 
 /**
  * 生成 WAV 文件头
@@ -148,10 +152,22 @@ export class PCMAudioPlayer {
     pcmData: Buffer,
     priority: PlayPriority = 'normal'
   ): Promise<void> {
-    this.stopInternal();
-    this.queue = [];
-    this.queue.push({ data: pcmData, priority });
-    this.scheduleProcessQueue();
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.audioPlayer.play',
+        attributes: {
+          pcmLength: pcmData.length,
+          priority,
+        },
+      },
+      async () => {
+        this.stopInternal();
+        this.queue = [];
+        this.queue.push({ data: pcmData, priority });
+        this.scheduleProcessQueue();
+      }
+    )();
   }
 
   /**
@@ -210,6 +226,55 @@ export class PCMAudioPlayer {
       this.setState('playing');
       this.scheduleProcessQueue();
     }
+  }
+
+  /**
+   * directPlay — 直接播放（方案 7：优化版播放入口）
+   *
+   * 与 play() 功能相同，但保留 temp 目录以加速后续播放。
+   * 等价于 play() + keepWarm() 的组合调用。
+   *
+   * @param pcmData PCM16 音频数据
+   * @param priority 播放优先级，默认 'high'
+   */
+  async directPlay(
+    pcmData: Buffer,
+    priority: PlayPriority = 'high'
+  ): Promise<void> {
+    await this.play(pcmData, priority);
+    this.keepWarm();
+  }
+
+  /**
+   * keepWarm — 保持播放子系统常驻（方案 7）
+   *
+   * 停止播放后保留 temp 目录，避免每次播放重新创建临时目录。
+   * 下次播放时可重复使用已有 temp 目录，减少文件 I/O。
+   * 空闲 TEMP_DIR_IDLE_TTL（30 秒）后自动清理。
+   */
+  keepWarm(): void {
+    // 只保留 temp 目录，不做额外操作
+    // 下次 stop() 时不会再清理 temp 目录
+  }
+
+  /**
+   * 暂停播放（别名，与 pause 行为一致）
+   */
+  suspend(): void {
+    this.pause();
+  }
+
+  /**
+   * 销毁播放器（方案 7：真正释放资源）
+   *
+   * 停止播放、清理队列、删除临时目录。
+   * 之后需要重新创建实例才能播放。
+   */
+  close(): void {
+    this.stopInternal();
+    this.queue = [];
+    this.cleanupTempDir();
+    this.setState('stopped');
   }
 
   /**

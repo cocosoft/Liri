@@ -60,6 +60,7 @@ export class VadDetector {
   private speechFrames: number = 0;
   private silenceFrames: number = 0;
   private isSpeaking: boolean = false;
+  private hasSpoken: boolean = false;
   private frameBuffer: Float64Array = new Float64Array(0);
   private sampleRate: number;
 
@@ -77,6 +78,7 @@ export class VadDetector {
     this.speechFrames = 0;
     this.silenceFrames = 0;
     this.isSpeaking = false;
+    this.hasSpoken = false;
     this.frameBuffer = new Float64Array(0);
   }
 
@@ -123,6 +125,14 @@ export class VadDetector {
   }
 
   /**
+   * 是否曾检测到语音
+   * 自上次 reset() 以来是否有过 speech 帧
+   */
+  hasEverSpoken(): boolean {
+    return this.hasSpoken;
+  }
+
+  /**
    * 处理单帧音频
    */
   private processFrame(frame: Float64Array): VadResult {
@@ -148,6 +158,7 @@ export class VadDetector {
     if (isSpeech) {
       this.speechFrames++;
       this.silenceFrames = 0;
+      this.hasSpoken = true;
     } else {
       this.silenceFrames++;
       this.noiseFloor +=

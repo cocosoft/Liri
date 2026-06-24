@@ -1,6 +1,19 @@
 import { httpLegacy as http } from "./httpClient";
 
-export type VoiceProvider = "gemini" | "openai" | "webapi";
+/** STT 提供者类型，值由后端 STTRegistry 动态注册 */
+export type VoiceProvider = string;
+
+/** STT 语段详情 */
+export interface STTSegment {
+  /** 语段文本 */
+  text: string;
+  /** 起始时间（秒） */
+  start: number;
+  /** 结束时间（秒） */
+  end: number;
+  /** 置信度 */
+  confidence: number;
+}
 
 export interface STTResult {
   text: string;
@@ -8,6 +21,8 @@ export interface STTResult {
   isFinal: boolean;
   duration?: number;
   language?: string;
+  /** 各语段详细结果 */
+  segments?: STTSegment[];
   timing: {
     elapsed: number;
     unit: string;
@@ -169,7 +184,10 @@ const voiceService = {
 
   /**
    * STT 语音转录
-   * 将音频数据发送到后端进行语音识别
+   * 优先使用二进制（FormData）上传，规避 base64 编解码开销；
+   * 不支持时回退到 JSON + base64。
+   * 离线时抛出友好提示而非原始网络异常。
+   *
    * @param audioBlob 音频 Blob 数据
    * @param options 转录选项
    */
@@ -181,29 +199,57 @@ const voiceService = {
       keyterms?: string[];
     },
   ): Promise<STTResult> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+    // L15: 离线检测 — 网络不可用时给出友好提示
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return Promise.reject(
+        new Error("网络不可用，语音识别暂不可用，请连接网络后重试"),
+      );
+    }
 
-      reader.onload = async () => {
-        try {
-          const base64 = (reader.result as string).split(",")[1];
+    // L4/L5: 优先使用二进制传输（FormData / multipart）
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.wav");
+      if (options?.providerId) formData.append("providerId", options.providerId);
+      if (options?.language) formData.append("language", options.language);
+      if (options?.keyterms) {
+        formData.append("keyterms", JSON.stringify(options.keyterms));
+      }
 
-          const response = await http.post<STTResult>("/v1/voice/transcribe", {
-            audioData: base64,
-            providerId: options?.providerId,
-            language: options?.language,
-            keyterms: options?.keyterms,
-          });
+      const response = await fetch("/v1/voice/transcribe", {
+        method: "POST",
+        body: formData,
+      });
 
-          resolve(response);
-        } catch (err) {
-          reject(err);
-        }
-      };
+      if (!response.ok) {
+        throw new Error(`服务器响应异常 (${response.status})`);
+      }
 
-      reader.onerror = () => reject(new Error("读取音频文件失败"));
-      reader.readAsDataURL(audioBlob);
-    });
+      return await response.json();
+    } catch {
+      // 降级：二进制传输失败时回退到 JSON + base64
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = async () => {
+          try {
+            const base64 = (reader.result as string).split(",")[1];
+            const result = await http.post<STTResult>("/v1/voice/transcribe", {
+              audioData: base64,
+              providerId: options?.providerId,
+              language: options?.language,
+              keyterms: options?.keyterms,
+            });
+            resolve(result);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        reader.onerror = () => reject(new Error("读取音频文件失败"));
+        reader.readAsDataURL(audioBlob);
+      });
+    }
   },
 };
 

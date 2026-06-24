@@ -14,6 +14,6 @@ export type {
   RecordingOptions,
   RecordingResult,
   RecordingStateHandler,
-} from './voice/models/types';
+} from './voice/index';
 
 export default voiceService;

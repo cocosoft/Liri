@@ -7,12 +7,15 @@ import voiceService from './voice/index';
 
 export type {
   VoiceServiceConfig,
-  VoiceInputResult,
   VoiceOutputOptions,
   VoiceEventType,
   VoiceEvent,
   VoiceEventListener,
-} from './voice/models/types';
+} from './voice/index';
+
+/** @deprecated 已统一为 STTResult */
+import type { STTResult } from './voice/models/types';
+export type VoiceInputResult = STTResult;
 
 export {
   VoiceService,

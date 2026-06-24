@@ -411,7 +411,7 @@ export class VoiceServiceBridge {
 
     this.service = {
       tts: TTSRegistry,
-      stt: STTRegistry,
+      stt: STTRegistry.getDefaultInstance(),
       recorder: voiceService,
       vad: new VadDetector(),
       environment: new EnvironmentDetector(),

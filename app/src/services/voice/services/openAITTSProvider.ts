@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenAITTSProvider
  * OpenAI TTS 提供者
  * 通过 OpenAI TTS API 合成语音，支持多种语音和格式
@@ -10,7 +10,8 @@ import { createWriteStream, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   TTSProvider,
   TTSVoice,
@@ -87,6 +88,10 @@ export class OpenAITTSProvider implements TTSProvider {
     const voiceId = options.voice || 'alloy';
     const voice = OPENAI_VOICES.find((v) => v.id === voiceId);
 
+    if (!options.text) {
+      return { success: false, error: '合成文本不能为空' };
+    }
+
     const body = {
       model: this.config.model,
       input: options.text,
@@ -95,33 +100,50 @@ export class OpenAITTSProvider implements TTSProvider {
       speed: options.speed ?? 1.0,
     };
 
-    try {
-      const audioBuffer = await this.makeRequest(body);
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.openai.tts.speak',
+        attributes: { voice: voiceId, textLength: options.text.length },
+      },
+      async () => {
+        try {
+          const audioBuffer = await this.makeRequest(body);
 
-      const durationEstimate = this.estimateDuration(
-        options.text,
-        options.speed
-      );
+          const durationEstimate = this.estimateDuration(
+            options.text,
+            options.speed
+          );
 
-      logger.info('OpenAI TTS 合成成功', {
-        voice: voiceId,
-        textLength: options.text.length,
-        durationEstimate,
-      });
+          logger.info('OpenAI TTS 合成成功', {
+            voice: voiceId,
+            textLength: options.text.length,
+            durationEstimate,
+          });
 
-      return {
-        success: true,
-        audioDurationSec: durationEstimate,
-        voice,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('OpenAI TTS 合成失败', { error: errorMsg });
-      return {
-        success: false,
-        error: `OpenAI TTS 合成失败: ${errorMsg}`,
-      };
-    }
+          return {
+            success: true,
+            audioDurationSec: durationEstimate,
+            voice,
+            audioData: audioBuffer,
+            audioFormat: this.config.format,
+          };
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          logger.error('OpenAI TTS 合成失败', { error: errorMsg });
+          void handleError(error, {
+            module: 'services:voice:openaiTTS',
+            action: 'speak',
+            context: { voice: options.voice, textLength: options.text.length },
+          });
+          return {
+            success: false,
+            error: `OpenAI TTS 合成失败: ${errorMsg}`,
+          };
+        }
+      }
+    );
   }
 
   /**
@@ -167,6 +189,11 @@ export class OpenAITTSProvider implements TTSProvider {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('OpenAI TTS 保存失败', { error: errorMsg });
+      void handleError(error, {
+        module: 'services:voice:openaiTTS',
+        action: 'save',
+        context: { voice: options.voice, filePath: options.filename },
+      });
       return {
         success: false,
         error: `OpenAI TTS 保存失败: ${errorMsg}`,

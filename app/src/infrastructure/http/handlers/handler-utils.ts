@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -197,4 +197,133 @@ export function readRequestBody(req: http.IncomingMessage): Promise<string> {
       reject(err);
     });
   });
+}
+
+/**
+ * 读取 HTTP 请求体并返回原始 Buffer（用于二进制/multipart 解析）
+ *
+ * @param req - HTTP 请求对象
+ * @returns 请求体 Buffer
+ */
+export function readRawBody(req: http.IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+
+    req.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/** multipart/form-data 解析结果 */
+export interface MultipartParsedPart {
+  /** 字段名称（Content-Disposition name） */
+  name: string;
+  /** 字段值（文件时为 Buffer，文本时为 string） */
+  data: string | Buffer;
+  /** 文件名（文件字段可选） */
+  filename?: string;
+  /** Content-Type（文件字段可选） */
+  contentType?: string;
+}
+
+/**
+ * 简单 multipart/form-data 解析器（无需第三方依赖）
+ *
+ * 从原始请求体和 Content-Type header 中提取 boundary，
+ * 解析出所有表单字段。仅支持单层 flat 结构，不处理嵌套。
+ *
+ * @param body - 原始请求体 Buffer
+ * @param contentType - Content-Type header 值（含 boundary）
+ * @returns 解析出的字段列表
+ */
+export function parseMultipartBody(
+  body: Buffer,
+  contentType: string
+): MultipartParsedPart[] {
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  if (!boundaryMatch) {
+    throw new Error('无法从 Content-Type 中提取 multipart boundary');
+  }
+
+  const boundary = boundaryMatch[1] || boundaryMatch[2];
+  const boundaryDelimiter = Buffer.from(`--${boundary}`);
+  const endDelimiter = Buffer.from(`--${boundary}--`);
+
+  const parts: MultipartParsedPart[] = [];
+  let searchStart = 0;
+
+  while (searchStart < body.length) {
+    // 查找下一个 boundary
+    const partStart = body.indexOf(boundaryDelimiter, searchStart);
+    if (partStart === -1) break;
+
+    // 跳过 boundary 行和结尾的 CRLF
+    const headerStart = body.indexOf(Buffer.from('\r\n'), partStart) + 2;
+    if (headerStart < 2) break;
+
+    // 查找头部结束（空行：\r\n\r\n）
+    const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), headerStart);
+    if (headerEnd === -1) break;
+
+    // 提取头部文本
+    const headerSection = body
+      .subarray(headerStart, headerEnd)
+      .toString('utf-8');
+
+    // 解析 Content-Disposition
+    const nameMatch = /name="([^"]*)"/.exec(headerSection);
+    const filenameMatch = /filename="([^"]*)"/.exec(headerSection);
+    const contentTypeMatch = /^Content-Type:\s*(\S+)/im.exec(headerSection);
+
+    // 数据从 headerEnd + 4（跳过 \r\n\r\n）开始
+    const dataStart = headerEnd + 4;
+
+    // 查找下一个 boundary 来确定结束
+    const nextBoundary = body.indexOf(boundaryDelimiter, dataStart);
+    if (nextBoundary === -1) break;
+
+    // 数据结束处：减去末尾的 \r\n
+    let dataEnd = nextBoundary;
+    if (
+      dataEnd > 2 &&
+      body[dataEnd - 2] === 0x0d &&
+      body[dataEnd - 1] === 0x0a
+    ) {
+      dataEnd -= 2;
+    }
+
+    const rawData = body.subarray(dataStart, dataEnd);
+
+    const part: MultipartParsedPart = {
+      name: nameMatch ? nameMatch[1] : '',
+      data: contentTypeMatch ? rawData : rawData.toString('utf-8'),
+    };
+
+    if (filenameMatch) part.filename = filenameMatch[1];
+    if (contentTypeMatch) part.contentType = contentTypeMatch[1];
+
+    parts.push(part);
+
+    // 检查是否是结束 boundary
+    if (
+      body
+        .subarray(nextBoundary, nextBoundary + endDelimiter.length)
+        .equals(endDelimiter)
+    ) {
+      break;
+    }
+
+    searchStart = nextBoundary;
+  }
+
+  return parts;
 }

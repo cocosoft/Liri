@@ -26,27 +26,12 @@
 // ===================================================================
 // 录音/依赖检查
 // ===================================================================
-
-/**
- * 录音可用性状态
- */
-export interface RecordingAvailability {
-  available: boolean;
-  reason: string | null;
-}
-
-/**
- * 录音可用性（含录音方法，来自 voice.ts）
- */
-export interface VoiceAvailability {
-  available: boolean;
-  method: string | null;
-  missing: string[];
-  installCommand: string | null;
-}
+// 录音类型
+// ===================================================================
 
 /**
  * 语音依赖检查结果
+ * 统一替代 RecordingAvailability 和 VoiceAvailability
  */
 export interface VoiceDependencies {
   available: boolean;
@@ -54,6 +39,8 @@ export interface VoiceDependencies {
   installCommand: string | null;
   /** 可用的录音方法（sox / arecord / powershell） */
   method: string | null;
+  /** 不可用的原因说明（仅 available=false 时有效） */
+  reason?: string | null;
 }
 
 /**
@@ -90,23 +77,6 @@ export type RecordingStateHandler = (state: string) => void;
 // ===================================================================
 // 语音识别/合成
 // ===================================================================
-
-/**
- * 语音识别结果
- */
-export interface SpeechRecognitionResult {
-  text: string;
-  confidence: number;
-}
-
-/**
- * 语音输入结果（来自 VoiceService.ts）
- */
-export interface VoiceInputResult {
-  text: string;
-  confidence: number;
-  duration: number;
-}
 
 // ===================================================================
 // STT（语音转文字）类型
@@ -169,6 +139,8 @@ export interface STTResult {
   provider?: string;
   /** 各语段详细结果 */
   segments?: STTSegment[];
+  /** 错误信息：当转录失败时携带错误详情，调用方可据此区分"未检测到语音" 和"服务不可用" */
+  error?: { code: string; message: string };
 }
 
 /**
@@ -235,6 +207,8 @@ export interface VoiceServiceConfig {
   sttModel?: string;
   /** STT 关键词列表 */
   sttKeyterms?: string[];
+  /** 隐私保护：转录后立即释放音频 Buffer（默认关闭） */
+  burnAfterTranscribe?: boolean;
 }
 
 // ===================================================================

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PiperTTSProvider
  * Piper 本地离线 TTS 提供者
  *
@@ -24,7 +24,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { randomUUID } from 'crypto';
 import { existsSync, unlinkSync, readFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   TTSProvider,
@@ -356,41 +356,55 @@ export class PiperTTSProvider implements TTSProvider {
       `piper_${randomUUID().replace(/-/g, '').slice(0, 12)}.wav`
     );
 
-    try {
-      await this.runPiper(options.text, modelFile, tempFile, options.speed);
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.piper.tts.speak',
+        attributes: { voice: voiceId, textLength: options.text.length },
+      },
+      async () => {
+        try {
+          await this.runPiper(options.text, modelFile, tempFile, options.speed);
 
-      await playWavFile(tempFile);
+          await playWavFile(tempFile);
 
-      const durationEstimate = this.estimateDuration(
-        options.text,
-        options.speed
-      );
+          const durationEstimate = this.estimateDuration(
+            options.text,
+            options.speed
+          );
 
-      logger.info('Piper TTS 播放成功', {
-        voice: voiceId,
-        textLength: options.text.length,
-        durationEstimate,
-      });
+          logger.info('Piper TTS 播放成功', {
+            voice: voiceId,
+            textLength: options.text.length,
+            durationEstimate,
+          });
 
-      return {
-        success: true,
-        audioDurationSec: durationEstimate,
-        voice,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('Piper TTS 播放失败', { error: errorMsg });
-      return {
-        success: false,
-        error: `Piper TTS 播放失败: ${errorMsg}`,
-      };
-    } finally {
-      try {
-        if (existsSync(tempFile)) unlinkSync(tempFile);
-      } catch {
-        // 忽略临时文件清理错误
+          return {
+            success: true,
+            audioDurationSec: durationEstimate,
+            voice,
+          };
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          logger.error('Piper TTS 播放失败', { error: errorMsg });
+          void handleError(error, {
+            module: 'services:voice:piperTTS',
+            action: 'speak',
+          });
+          return {
+            success: false,
+            error: `Piper TTS 播放失败: ${errorMsg}`,
+          };
+        } finally {
+          try {
+            if (existsSync(tempFile)) unlinkSync(tempFile);
+          } catch {
+            // 忽略临时文件清理错误
+          }
+        }
       }
-    }
+    );
   }
 
   /**

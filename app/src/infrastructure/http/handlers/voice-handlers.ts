@@ -7,33 +7,111 @@
 
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { sendError, readRequestBody } from './handler-utils';
+import {
+  sendError,
+  readRequestBody,
+  readRawBody,
+  parseMultipartBody,
+} from './handler-utils';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
+// ========== 语音会话内存存储 ==========
+
+/** 语音会话信息 */
+interface VoiceSessionInfo {
+  id: string;
+  startedAt: number;
+  endedAt: number | null;
+  duration: number | null;
+  transcript: string;
+  responseAudioUrl: string | null;
+  status: 'active' | 'completed' | 'failed';
+}
+
+/** 语音会话内存存储（进程级，服务重启后重置） */
+const voiceSessions = new Map<string, VoiceSessionInfo>();
 
 // ========== STT / Voice Handlers ==========
 
 /**
  * 处理语音转文字请求 POST /v1/voice/transcribe
+ *
+ * 同时支持：
+ * - JSON + base64（Content-Type: application/json）：{ audioData (base64), ... }
+ * - multipart/form-data（Content-Type: multipart/form-data）：audio 文件 + 文本字段
  */
 export async function handleSTTTranscribe(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const body = await readRequestBody(req);
-    const { audioData, providerId, language, keyterms } = JSON.parse(body);
+    const contentType = req.headers['content-type'] || '';
+    const isMultipart = contentType.startsWith('multipart/form-data');
 
-    if (!audioData) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: { message: 'audioData 是必需的（base64 编码的音频数据）' },
-        })
-      );
-      return;
+    let audioBuffer: Buffer;
+    let providerId: string | undefined;
+    let language: string | undefined;
+    let keyterms: string[] | undefined;
+
+    if (isMultipart) {
+      // L4/L5: 二进制传输模式 — 解析 multipart/form-data
+      const rawBody = await readRawBody(req);
+      const parts = parseMultipartBody(rawBody, contentType);
+
+      const audioPart = parts.find((p) => p.name === 'audio');
+      if (!audioPart || !Buffer.isBuffer(audioPart.data)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: '缺少 audio 文件字段' } }));
+        return;
+      }
+      audioBuffer = audioPart.data;
+
+      const providerField = parts.find((p) => p.name === 'providerId');
+      if (providerField && typeof providerField.data === 'string') {
+        providerId = providerField.data;
+      }
+
+      const langField = parts.find((p) => p.name === 'language');
+      if (langField && typeof langField.data === 'string') {
+        language = langField.data;
+      }
+
+      const keytermsField = parts.find((p) => p.name === 'keyterms');
+      if (keytermsField && typeof keytermsField.data === 'string') {
+        try {
+          keyterms = JSON.parse(keytermsField.data);
+        } catch {
+          keyterms = [keytermsField.data];
+        }
+      }
+    } else {
+      // 兼容模式：JSON + base64
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body);
+
+      if (!parsed.audioData) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'audioData 是必需的（base64 编码的音频数据）' },
+          })
+        );
+        return;
+      }
+
+      audioBuffer = Buffer.from(parsed.audioData, 'base64');
+      providerId = parsed.providerId;
+      language = parsed.language;
+      keyterms = parsed.keyterms
+        ? Array.isArray(parsed.keyterms)
+          ? parsed.keyterms
+          : [parsed.keyterms]
+        : undefined;
     }
-
-    const audioBuffer = Buffer.from(audioData, 'base64');
 
     if (audioBuffer.length === 0) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -115,6 +193,7 @@ export async function handleSTTTranscribe(
         isFinal: result.isFinal,
         duration: result.duration,
         language: result.language,
+        segments: result.segments,
         timing: {
           elapsed,
           unit: 'ms',
@@ -131,6 +210,8 @@ export async function handleSTTTranscribe(
       })
     );
   } catch (err) {
+    logger.error('STT 转写失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'stt_transcribe' });
     sendError(res, err);
   }
 }
@@ -166,6 +247,8 @@ export async function handleGetVoiceSettings(
       })
     );
   } catch (err) {
+    logger.error('获取语音设置失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'get_settings' });
     sendError(res, err);
   }
 }
@@ -191,6 +274,8 @@ export async function handleUpdateVoiceSettings(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, config: settings.config }));
   } catch (err) {
+    logger.error('更新语音设置失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'update_settings' });
     sendError(res, err);
   }
 }
@@ -203,21 +288,22 @@ export async function handleStartVoiceSession(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const sessionId = `voice-${Date.now()}-${randomUUID()}`;
+    const session: VoiceSessionInfo = {
+      id: `voice-${Date.now()}-${randomUUID()}`,
+      startedAt: Date.now(),
+      endedAt: null,
+      duration: null,
+      transcript: '',
+      responseAudioUrl: null,
+      status: 'active',
+    };
+    voiceSessions.set(session.id, session);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        id: sessionId,
-        startedAt: Date.now(),
-        endedAt: null,
-        duration: null,
-        transcript: '',
-        responseAudioUrl: null,
-        status: 'active',
-      })
-    );
+    res.end(JSON.stringify(session));
   } catch (err) {
+    logger.error('开始语音会话失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'start_session' });
     sendError(res, err);
   }
 }
@@ -231,19 +317,29 @@ export async function handleEndVoiceSession(
   sessionId: string
 ): Promise<void> {
   try {
+    const session = voiceSessions.get(sessionId);
+    if (!session) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `会话 ${sessionId} 不存在` } })
+      );
+      return;
+    }
+
+    session.endedAt = Date.now();
+    session.duration = session.endedAt - session.startedAt;
+    session.status = 'completed';
+    voiceSessions.set(sessionId, session);
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        id: sessionId,
-        startedAt: Date.now() - 60000,
-        endedAt: Date.now(),
-        duration: 60000,
-        transcript: '',
-        responseAudioUrl: null,
-        status: 'completed',
-      })
-    );
+    res.end(JSON.stringify(session));
   } catch (err) {
+    logger.error('结束语音会话失败', { error: String(err), sessionId });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'end_session',
+      context: { sessionId },
+    });
     sendError(res, err);
   }
 }
@@ -256,14 +352,15 @@ export async function handleListVoiceSessions(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        sessions: [],
-        total: 0,
-      })
+    const sessions = Array.from(voiceSessions.values()).sort(
+      (a, b) => b.startedAt - a.startedAt
     );
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ sessions, total: sessions.length }));
   } catch (err) {
+    logger.error('列出语音会话失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'list_sessions' });
     sendError(res, err);
   }
 }
@@ -277,19 +374,24 @@ export async function handleGetVoiceSession(
   sessionId: string
 ): Promise<void> {
   try {
+    const session = voiceSessions.get(sessionId);
+    if (!session) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `会话 ${sessionId} 不存在` } })
+      );
+      return;
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        id: sessionId,
-        startedAt: Date.now() - 60000,
-        endedAt: null,
-        duration: null,
-        transcript: '',
-        responseAudioUrl: null,
-        status: 'active',
-      })
-    );
+    res.end(JSON.stringify(session));
   } catch (err) {
+    logger.error('获取语音会话详情失败', { error: String(err), sessionId });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'get_session',
+      context: { sessionId },
+    });
     sendError(res, err);
   }
 }
@@ -310,6 +412,8 @@ export async function handleVoiceUpload(
       })
     );
   } catch (err) {
+    logger.error('上传音频失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'upload_audio' });
     sendError(res, err);
   }
 }
@@ -326,6 +430,8 @@ export async function handleVoiceStream(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Audio streaming not implemented' }));
   } catch (err) {
+    logger.error('获取音频流失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'stream_audio' });
     sendError(res, err);
   }
 }
@@ -368,21 +474,44 @@ export async function handleTTSSynthesize(
       );
     }
   } catch (err) {
+    logger.error('TTS 合成失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'tts_synthesize' });
     sendError(res, err);
   }
 }
 
 /**
  * 处理列出语音提供商请求 GET /v1/voice/providers
+ * 从 STTRegistry 动态获取已注册的 STT 提供者列表
  */
 export async function handleListVoiceProviders(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
+    const { STTRegistry } =
+      await import('../../../services/voice/services/sttRegistry');
+
+    // 自动注册默认 STT 提供者（如尚未注册）
+    if (STTRegistry.getAllProviders().length === 0) {
+      const { LocalSTTProvider } =
+        await import('../../../services/voice/services/localSTTProvider');
+      STTRegistry.register(new LocalSTTProvider());
+
+      const openAIApiKey = configManager.env('OPENAI_API_KEY');
+      if (openAIApiKey) {
+        const { CloudSTTProvider } =
+          await import('../../../services/voice/services/cloudSTTProvider');
+        STTRegistry.register(new CloudSTTProvider({ apiKey: openAIApiKey }));
+      }
+    }
+
+    const providerIds = STTRegistry.getProviderIds();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(['gemini', 'openai', 'webapi']));
+    res.end(JSON.stringify(providerIds));
   } catch (err) {
+    logger.error('列出语音提供商失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'list_providers' });
     sendError(res, err);
   }
 }
@@ -408,6 +537,8 @@ export async function handleListVoices(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(voices));
   } catch (err) {
+    logger.error('列出语音列表失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'list_voices' });
     sendError(res, err);
   }
 }
@@ -424,6 +555,8 @@ export async function handleTestWakeWord(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ detected: false }));
   } catch (err) {
+    logger.error('测试唤醒词失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'test_wakeword' });
     sendError(res, err);
   }
 }

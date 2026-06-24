@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CommandTTSProvider
  * 自定义命令 TTS 提供者
  * 使用系统自带的命令行工具合成语音
@@ -12,7 +12,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { unlinkSync, writeFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type {
   TTSProvider,
@@ -151,32 +152,52 @@ export class CommandTTSProvider implements TTSProvider {
       };
     }
 
-    try {
-      await this.playText(backend, options.text, options.voice, options.speed);
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.command.tts.speak',
+        attributes: { backend, textLength: options.text.length },
+      },
+      async () => {
+        try {
+          await this.playText(
+            backend,
+            options.text,
+            options.voice,
+            options.speed
+          );
 
-      const durationEstimate = this.estimateDuration(
-        options.text,
-        options.speed
-      );
+          const durationEstimate = this.estimateDuration(
+            options.text,
+            options.speed
+          );
 
-      return {
-        success: true,
-        audioDurationSec: durationEstimate,
-        voice: {
-          id: 'default',
-          name: '默认语音',
-          language: 'en-US',
-          gender: 'female',
-        },
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('Command TTS 播放失败', { error: errorMsg, backend });
-      return {
-        success: false,
-        error: `TTS 播放失败: ${errorMsg}`,
-      };
-    }
+          return {
+            success: true,
+            audioDurationSec: durationEstimate,
+            voice: {
+              id: 'default',
+              name: '默认语音',
+              language: 'en-US',
+              gender: 'female',
+            },
+          };
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          logger.error('Command TTS 播放失败', { error: errorMsg, backend });
+          void handleError(error, {
+            module: 'services:voice:commandTTS',
+            action: 'speak',
+            context: { backend, textLength: options.text.length },
+          });
+          return {
+            success: false,
+            error: `TTS 播放失败: ${errorMsg}`,
+          };
+        }
+      }
+    );
   }
 
   /**
@@ -216,6 +237,11 @@ export class CommandTTSProvider implements TTSProvider {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('Command TTS 保存失败', { error: errorMsg, backend });
+      void handleError(error, {
+        module: 'services:voice:commandTTS',
+        action: 'save',
+        context: { backend, filePath: options.filename },
+      });
       return {
         success: false,
         error: `TTS 保存失败: ${errorMsg}`,

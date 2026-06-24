@@ -191,3 +191,4 @@ output/
 client/app/
 client/data/
 client/e2e/
+.trae/rules/

@@ -27,6 +27,8 @@ export interface TTSSpeakResult {
   audioDurationSec?: number;
   /** 音频二进制数据 */
   audioData?: Buffer;
+  /** 音频格式（如 'wav', 'mp3', 'opus'），用于构造临时文件扩展名 */
+  audioFormat?: string;
   /** 音频文件路径，仅 save 动作返回 */
   filePath?: string;
   /** 语音信息 */

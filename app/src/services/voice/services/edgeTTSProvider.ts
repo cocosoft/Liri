@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EdgeTTSProvider
  * Edge TTS 提供者
  *
@@ -11,7 +11,7 @@
 import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID } from 'crypto';
 import { writeFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   TTSProvider,
@@ -516,37 +516,48 @@ export class EdgeTTSProvider implements TTSProvider {
       return { success: false, error: `不支持的语音: "${voiceId}"` };
     }
 
-    try {
-      const audioBuffer = await this.synthesize(options.text, voiceId);
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.edge.tts.speak',
+        attributes: { voice: voiceId, textLength: options.text.length },
+      },
+      async () => {
+        try {
+          const audioBuffer = await this.synthesize(options.text, voiceId);
 
-      const durationEstimate = this.estimateDuration(
-        options.text,
-        options.speed
-      );
+          const durationEstimate = this.estimateDuration(
+            options.text,
+            options.speed
+          );
 
-      logger.info('Edge TTS 合成成功', {
-        voice: voiceId,
-        textLength: options.text.length,
-        durationEstimate,
-      });
+          logger.info('Edge TTS 合成成功', {
+            voice: voiceId,
+            textLength: options.text.length,
+            durationEstimate,
+          });
 
-      return {
-        success: true,
-        audioDurationSec: durationEstimate,
-        voice,
-        audioData: audioBuffer,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      void handleError(error, {
-        module: 'services:voice:edgeTTS',
-        action: 'speak',
-      });
-      return {
-        success: false,
-        error: `Edge TTS 合成失败: ${errorMsg}`,
-      };
-    }
+          return {
+            success: true,
+            audioDurationSec: durationEstimate,
+            voice,
+            audioData: audioBuffer,
+            audioFormat: 'mp3',
+          };
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          void handleError(error, {
+            module: 'services:voice:edgeTTS',
+            action: 'speak',
+          });
+          return {
+            success: false,
+            error: `Edge TTS 合成失败: ${errorMsg}`,
+          };
+        }
+      }
+    );
   }
 
   /**

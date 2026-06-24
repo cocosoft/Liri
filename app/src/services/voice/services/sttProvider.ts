@@ -28,8 +28,8 @@ import type {
 export interface STTStreamConnection {
   /** 发送音频块 */
   send(chunk: Buffer): void;
-  /** 标记音频结束 */
-  finalize(): void;
+  /** 标记音频结束，返回最终转录文字 */
+  finalize(): Promise<string>;
   /** 关闭连接 */
   close(): void;
   /** 是否已连接 */
@@ -56,6 +56,12 @@ export interface STTProvider {
   readonly supportsStreaming: boolean;
   /** 是否支持关键词增强 */
   readonly supportsKeyterms: boolean;
+
+  /**
+   * 热更新配置，不中断正在进行的转录
+   * @param config 部分配置项
+   */
+  updateConfig?(config: Record<string, unknown>): void;
 
   /**
    * 检查提供者是否可用

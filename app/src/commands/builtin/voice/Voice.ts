@@ -8,8 +8,11 @@
  */
 
 import { configManager } from '@modules/config/ConfigManager.js';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { CommandContext } from '@modules/commands';
 import voiceService from '@modules/services/voice';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 语音命令实现
@@ -84,11 +87,14 @@ const voiceCommand = {
           '"。\n用法: /voice [enable|disable|status|help]',
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('语音命令执行失败', {
+        error: errorMsg,
+        subcommand: args.trim().toLowerCase(),
+      });
       return {
         success: false,
-        message:
-          '操作失败: ' +
-          (error instanceof Error ? error.message : String(error)),
+        message: '操作失败: ' + errorMsg,
       };
     }
   },

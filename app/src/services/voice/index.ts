@@ -25,14 +25,10 @@
 
 import { VoiceService, createVoiceService } from './services/voiceService';
 import type {
-  RecordingAvailability,
-  VoiceAvailability,
   VoiceDependencies,
   RecordingOptions,
   RecordingResult,
   RecordingStateHandler,
-  SpeechRecognitionResult,
-  VoiceInputResult,
   VoiceOutputOptions,
   VoiceServiceConfig,
   VoiceEventType,
@@ -48,14 +44,10 @@ import type {
 
 // 导出语音相关类型
 export type {
-  RecordingAvailability,
-  VoiceAvailability,
   VoiceDependencies,
   RecordingOptions,
   RecordingResult,
   RecordingStateHandler,
-  SpeechRecognitionResult,
-  VoiceInputResult,
   VoiceOutputOptions,
   VoiceServiceConfig,
   VoiceEventType,
@@ -68,6 +60,15 @@ export type {
   STTTranscribeOptions,
   STTStreamOptions,
 };
+
+/** @deprecated 已合并至 VoiceDependencies */
+export type RecordingAvailability = VoiceDependencies;
+/** @deprecated 已合并至 VoiceDependencies */
+export type VoiceAvailability = VoiceDependencies;
+/** @deprecated 已统一为 STTResult */
+export type SpeechRecognitionResult = STTResult;
+/** @deprecated 已统一为 STTResult */
+export type VoiceInputResult = STTResult;
 
 // 导出语音服务类
 export { VoiceService, createVoiceService };

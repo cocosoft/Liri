@@ -80,17 +80,13 @@ export class SwarmCoordinator {
     }
 
     if (discoveredCount > 0) {
-      logger.info(
-        `从 AgentRegistry 发现并添加了 ${discoveredCount} 个 Agent`
-      );
+      logger.info(`从 AgentRegistry 发现并添加了 ${discoveredCount} 个 Agent`);
     }
 
     // 3. 检查可用 Agent 数量，若无则创建默认 Worker
     const agentCount = this.swarmManager.size();
     if (agentCount === 0) {
-      logger.warn(
-        'AgentRegistry 无可用 Agent，创建默认 Worker'
-      );
+      logger.warn('AgentRegistry 无可用 Agent，创建默认 Worker');
       this.swarmManager.createAgent('default_worker');
     }
 

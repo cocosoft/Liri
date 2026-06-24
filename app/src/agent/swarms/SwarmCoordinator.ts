@@ -18,6 +18,9 @@ import { AgentSwarmManager } from './AgentSwarmManager';
 import { ResultAggregator, AggregationStrategy } from '../moa/ResultAggregator';
 import type { ScheduledTaskResult } from '../moa/ParallelAgentScheduler';
 import { getAgentRegistry } from '../registry/AgentRegistry.js';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('SwarmCoordinator');
 
 export class SwarmCoordinator {
   private swarmManager: AgentSwarmManager;
@@ -77,16 +80,16 @@ export class SwarmCoordinator {
     }
 
     if (discoveredCount > 0) {
-      console.log(
-        `[SwarmCoordinator] 从 AgentRegistry 发现并添加了 ${discoveredCount} 个 Agent`
+      logger.info(
+        `从 AgentRegistry 发现并添加了 ${discoveredCount} 个 Agent`
       );
     }
 
     // 3. 检查可用 Agent 数量，若无则创建默认 Worker
     const agentCount = this.swarmManager.size();
     if (agentCount === 0) {
-      console.warn(
-        '[SwarmCoordinator] AgentRegistry 无可用 Agent，创建默认 Worker'
+      logger.warn(
+        'AgentRegistry 无可用 Agent，创建默认 Worker'
       );
       this.swarmManager.createAgent('default_worker');
     }

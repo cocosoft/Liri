@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('analytics');
 
 /**
  * 分析服务 - 负责事件追踪、会话管理等
@@ -289,7 +292,7 @@ export class AnalyticsService {
         try {
           handler(data);
         } catch (err) {
-          console.error(`事件处理器执行失败 [${event}]:`, err);
+          logger.error(`事件处理器执行失败 [${event}]`, err as Error);
         }
       }
     }

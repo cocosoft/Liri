@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 内存快照服务
  * 用于在应用启动和运行过程中捕获内存使用情况
  */
@@ -204,7 +204,7 @@ export class MemorySnapshotService {
       fs.writeFileSync(filePath, JSON.stringify(snapshotData, null, 2));
     } catch (error) {
       // 忽略错误
-      console.error('写入内存快照失败:', error);
+      logger.error('写入内存快照失败', error as Error);
     }
   }
 

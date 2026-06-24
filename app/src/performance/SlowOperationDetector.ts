@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 慢操作检测服务
  * 用于检测和记录执行时间超过阈值的操作
@@ -234,7 +234,7 @@ export class SlowOperationDetector {
       );
     } catch (error) {
       // 忽略错误
-      console.error('写入慢操作日志失败:', error);
+      logger.error('写入慢操作日志失败', error);
     }
   }
 

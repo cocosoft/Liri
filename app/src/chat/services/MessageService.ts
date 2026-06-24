@@ -464,10 +464,19 @@ export class MessageServiceImpl implements MessageService {
       metadata?: Record<string, unknown>;
     }
   ): Message {
+    // 把 error 显式注入 content，确保 LLM 看到工具失败原因
+    // （避免 LLM 把"空 result"误判为成功，默默切换方案）
+    const resultJson = JSON.stringify(toolResult.result);
+    const hasError = !!toolResult.error;
+    const errorPrefix = hasError
+      ? `⚠️ 工具执行失败: ${toolResult.error}\n\n请基于此错误调整后续方案，不要默默切换为其他工具。\n\n---\n\n`
+      : '';
+    const value = hasError ? errorPrefix + resultJson : resultJson;
+
     const content: ContentBlock[] = [
       {
         type: ContentBlockType.TOOL_RESULT,
-        value: JSON.stringify(toolResult.result),
+        value,
         toolCallId: toolResult.toolCallId,
       },
     ];

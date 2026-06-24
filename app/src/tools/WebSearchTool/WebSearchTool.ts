@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebSearch 工具
  *
  * 提供网络搜索功能
@@ -37,8 +37,8 @@ const WebSearchInputSchema = z.strictObject({
   language: z
     .string()
     .optional()
-    .default('en-US')
-    .describe('语言代码（如 "en-US", "zh-CN"）'),
+    .default('zh-CN')
+    .describe('语言代码（如 "zh-CN", "en-US"），默认中文'),
   safeSearch: z
     .boolean()
     .optional()
@@ -79,9 +79,9 @@ export class WebSearchTool extends BaseTool {
     {
       name: 'language',
       type: 'string',
-      description: 'Language code for results (e.g., "en-US", "zh-CN")',
+      description: 'Language code for results (e.g., "zh-CN", "en-US")',
       required: false,
-      default: 'en-US',
+      default: 'zh-CN',
     },
     {
       name: 'safeSearch',

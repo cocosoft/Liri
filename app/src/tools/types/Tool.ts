@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具接口定义
  * 参考CC_CODE的Tool接口设计，适应backend现有架构
  */
@@ -54,6 +54,17 @@ export interface ToolParam {
   example?: unknown;
   minimum?: number;
   maximum?: number;
+  /** 数组元素 schema（当 type === 'array' 时使用） */
+  items?: {
+    type: string;
+    description?: string;
+    properties?: Record<string, ToolParam>;
+    required?: string[];
+  };
+  /** 数组最小长度（当 type === 'array' 时使用） */
+  minLength?: number;
+  /** 数组最大长度（当 type === 'array' 时使用） */
+  maxLength?: number;
 }
 
 /**

@@ -60,10 +60,35 @@ export interface TaskOutputProgress {
 export interface AgentToolProgress {
   type: 'agent_tool';
   agentName: string;
+  /** 子 Agent ID */
+  agentId?: string;
   action: string;
   message: string;
   isRunning: boolean;
   isComplete: boolean;
+  /** 当前轮次 */
+  turn?: number;
+  /** 最大轮次 */
+  maxTurns?: number;
+  /** 当前工具调用名称 */
+  toolName?: string;
+  /** 当前工具调用 ID */
+  toolUseId?: string;
+  /** 并行子 Agent 列表（council 模式） */
+  subAgents?: SubAgentProgress[];
+}
+
+/** 子 Agent 进度快照 */
+export interface SubAgentProgress {
+  agentId: string;
+  agentName: string;
+  status: 'running' | 'completed' | 'failed';
+  /** 最新消息 */
+  lastMessage: string;
+  /** 当前轮次 */
+  turn?: number;
+  /** 当前工具调用 */
+  toolName?: string;
 }
 
 /**
@@ -177,15 +202,29 @@ export function createAgentToolProgress(
   action: string,
   message: string = '',
   isRunning: boolean = true,
-  isComplete: boolean = false
+  isComplete: boolean = false,
+  extra?: {
+    agentId?: string;
+    turn?: number;
+    maxTurns?: number;
+    toolName?: string;
+    toolUseId?: string;
+    subAgents?: SubAgentProgress[];
+  }
 ): AgentToolProgress {
   return {
     type: 'agent_tool',
     agentName,
+    agentId: extra?.agentId,
     action,
     message,
     isRunning,
     isComplete,
+    turn: extra?.turn,
+    maxTurns: extra?.maxTurns,
+    toolName: extra?.toolName,
+    toolUseId: extra?.toolUseId,
+    subAgents: extra?.subAgents,
   };
 }
 

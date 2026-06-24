@@ -472,7 +472,52 @@ export class ChatManagerImpl implements ChatManager {
       sessionContext,
       mode: 'conversation',
     });
-    return prompt;
+
+    // 注入当前会话目标，防止上下文截断后 LLM 丢失当前任务
+    const currentGoal = this._extractCurrentGoal(session, currentMessage);
+    if (currentGoal) {
+      return (
+        prompt +
+        `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
+        `\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **合并提问**：使用 ask_user_question 工具时，尽量一次问完所有必要信息（最多 4 个选项），避免多轮重复问同一类信息。\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题。做完后直接输出结果即可。`
+      );
+    }
+    return (
+      prompt +
+      `\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **合并提问**：使用 ask_user_question 工具时，尽量一次问完所有必要信息（最多 4 个选项），避免多轮重复问同一类信息。\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题。做完后直接输出结果即可。`
+    );
+  }
+
+  /**
+   * 从会话中提取当前对话目标（最近一条实质性用户消息）
+   * 过滤掉短回答、BUG 报告等非任务描述消息
+   */
+  private _extractCurrentGoal(
+    session: ChatSession,
+    currentMessage?: string
+  ): string | null {
+    // 优先使用当前消息（如果足够长）
+    const candidate = currentMessage?.trim();
+    if (candidate && candidate.length > 30) {
+      return candidate;
+    }
+
+    // 回溯最近的用户消息，找到最近的实质性消息
+    const userMessages = session.messages
+      .filter((m) => m.role === 'user')
+      .slice(-8);
+
+    for (let i = userMessages.length - 1; i >= 0; i--) {
+      const rawContent = userMessages[i].content;
+      const content = typeof rawContent === 'string' ? rawContent.trim() : '';
+      // 跳过短消息（< 30 字符的通常是选择、确认、BUG 报告等）
+      if (content.length < 30) continue;
+      // 跳过纯 BUG 报告
+      if (/^(出?BUG|又出BUG|报错|又有BUG|出问题了)/.test(content)) continue;
+      return content;
+    }
+
+    return null;
   }
 
   /**
@@ -2823,6 +2868,39 @@ export class ChatManagerImpl implements ChatManager {
             const toolArgs = toolCall.arguments as Record<string, unknown>;
             const questionId = `q_${Date.now()}_${(toolCall.id || '').slice(0, 8)}`;
 
+            // 校验并兜底 options（防止 LLM 漏传或全空 label）
+            const rawOptions =
+              (toolArgs.options as Array<{
+                label?: string;
+                description?: string;
+              }>) || [];
+            const validatedOptions = rawOptions
+              .filter((opt) => opt.label && String(opt.label).trim().length > 0)
+              .slice(0, 4)
+              .map((opt) => ({
+                label: String(opt.label).trim(),
+                description: opt.description
+                  ? String(opt.description).trim()
+                  : '',
+              }));
+
+            let finalOptions = validatedOptions;
+            if (validatedOptions.length < 2) {
+              // LLM 调用错误：options 不足 2 项，自动兜底两个安全选项
+              logger.warn(
+                '[ChatManager] ask_user_question options 数量不足，自动兜底',
+                {
+                  questionId,
+                  rawCount: rawOptions.length,
+                  validCount: validatedOptions.length,
+                }
+              );
+              finalOptions = [
+                { label: '继续', description: '使用当前方案继续推进' },
+                { label: '重新提问', description: '换个方式重新询问' },
+              ];
+            }
+
             // 创建待处理交互 Promise
             const interactionPromise = new Promise<string[]>((resolve) => {
               this._pendingInteraction = {
@@ -2848,19 +2926,17 @@ export class ChatManagerImpl implements ChatManager {
               },
               questionData: {
                 questionId,
-                question: toolArgs.question as string,
-                header: toolArgs.header as string,
-                options: (toolArgs.options || []) as Array<{
-                  label: string;
-                  description: string;
-                }>,
+                question: (toolArgs.question as string) || '',
+                header: (toolArgs.header as string) || '请选择',
+                options: finalOptions,
                 multiSelect: toolArgs.multiSelect as boolean | undefined,
               },
             };
             logger.info('[ChatManager] Yielding question chunk', {
               questionId,
               question: (toolArgs.question as string)?.slice(0, 40),
-              optionsCount: (toolArgs.options as Array<unknown>)?.length,
+              optionsCount: finalOptions.length,
+              wasFallback: validatedOptions.length < 2,
             });
             yield questionChunk;
 

@@ -61,7 +61,8 @@ import { createToolResult } from '../types/ToolResult';
 
 export class AskUserQuestionTool extends BaseTool {
   name = 'ask_user_question';
-  description = 'Ask the user a question with multiple choice options';
+  override description =
+    '向用户提出一个多选题，提供 2-4 个选项。**严禁**将所有选项内容直接写进 question 文本中，每个选项的具体文字必须作为独立对象的 label 字段传入。question 字段只能是简洁的问题标题（如"请选择参与方式"），选项细节放在 options 数组中。系统会在选项末尾自动添加"其它"选项，允许用户输入自由文本。';
 
   override tags = [ToolTag.AI];
 
@@ -69,25 +70,52 @@ export class AskUserQuestionTool extends BaseTool {
     {
       name: 'question',
       type: 'string',
-      description: 'The question to ask the user',
+      description:
+        '简洁的问题描述（10-50 字）。仅作为问题标题，不要包含任何选项内容。',
       required: true,
+      minLength: 2,
+      maxLength: 200,
     },
     {
       name: 'header',
       type: 'string',
-      description: 'Short label displayed as a chip/tag',
+      description: '显示在面板顶部的简短分类标签（不超过 12 字）',
       required: true,
+      minLength: 1,
+      maxLength: 12,
     },
     {
       name: 'options',
       type: 'array',
-      description: 'The available choices (2-4 options)',
+      description:
+        '选项数组，恰好 2-4 个项。每个项必须包含 label（选项文字，1-20 字）和可选的 description（补充说明）',
       required: true,
+      minLength: 2,
+      maxLength: 4,
+      items: {
+        type: 'object',
+        description: '单个选项的配置',
+        properties: {
+          label: {
+            name: 'label',
+            type: 'string',
+            description:
+              '选项显示文字（1-20 字）。所有选项的 label 必须各不相同。',
+            required: true,
+          },
+          description: {
+            name: 'description',
+            type: 'string',
+            description: '选项的补充说明（可选，最多 80 字）',
+            required: false,
+          },
+        },
+      },
     },
     {
       name: 'multiSelect',
       type: 'boolean',
-      description: 'Allow multiple selections',
+      description: '是否允许多选。默认 false（单选）',
       required: false,
     },
   ];

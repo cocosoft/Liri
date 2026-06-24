@@ -204,11 +204,50 @@ export class ToolRegistry {
 
       if (info.params) {
         for (const param of info.params) {
-          schema.input_schema.properties[param.name] = {
+          const paramSchema: Record<string, unknown> = {
             type: param.type,
             description: param.description,
             default: param.default,
           };
+
+          // 数组类型：透传 items 内部结构和长度约束
+          if (param.type === 'array') {
+            if (param.items) {
+              const itemsSchema: Record<string, unknown> = {
+                type: param.items.type,
+              };
+              if (param.items.description) {
+                itemsSchema.description = param.items.description;
+              }
+              if (
+                param.items.properties &&
+                Object.keys(param.items.properties).length > 0
+              ) {
+                const properties: Record<string, unknown> = {};
+                const required: string[] = [];
+                for (const [key, subParam] of Object.entries(
+                  param.items.properties
+                )) {
+                  properties[key] = {
+                    type: subParam.type,
+                    description: subParam.description,
+                  };
+                  if (subParam.required) required.push(key);
+                }
+                itemsSchema.properties = properties;
+                if (required.length > 0) itemsSchema.required = required;
+              }
+              paramSchema.items = itemsSchema;
+            }
+            if (typeof param.minLength === 'number') {
+              paramSchema.minLength = param.minLength;
+            }
+            if (typeof param.maxLength === 'number') {
+              paramSchema.maxLength = param.maxLength;
+            }
+          }
+
+          schema.input_schema.properties[param.name] = paramSchema;
 
           if (param.required) {
             schema.input_schema.required?.push(param.name);

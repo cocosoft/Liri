@@ -26,10 +26,16 @@ export class ToolLazyWrapper implements Tool {
 
   private loader: LazyModuleLoader<Tool>;
   private metadata: ToolInfo;
+  private _requiresUserInteraction: boolean;
 
-  constructor(metadata: ToolInfo, loader: LazyModuleLoader<Tool>) {
+  constructor(
+    metadata: ToolInfo,
+    loader: LazyModuleLoader<Tool>,
+    requiresUserInteraction?: boolean
+  ) {
     this.metadata = metadata;
     this.loader = loader;
+    this._requiresUserInteraction = requiresUserInteraction ?? false;
 
     this.name = metadata.name;
     this.description = metadata.description;
@@ -40,6 +46,10 @@ export class ToolLazyWrapper implements Tool {
     this.shouldDefer = metadata.deferred;
     this.alwaysLoad = metadata.alwaysLoad;
     this.maxResultSizeChars = metadata.maxResultSizeChars;
+  }
+
+  requiresUserInteraction?(): boolean {
+    return this._requiresUserInteraction;
   }
 
   getInfo(): ToolInfo {

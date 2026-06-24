@@ -178,6 +178,13 @@ export class ToolManager extends EventEmitter {
         if (!tool) continue;
 
         const metadata = tool.getInfo();
+
+        // 预先评估 requiresUserInteraction 标志，避免懒加载后无法同步获取
+        const requiresUserInteraction =
+          typeof tool.requiresUserInteraction === 'function'
+            ? tool.requiresUserInteraction()
+            : false;
+
         const lazyLoader = new LazyModuleLoader<Tool>(() => {
           const instance = loader(this.factory);
           if (!instance) {
@@ -191,7 +198,11 @@ export class ToolManager extends EventEmitter {
           return instance;
         });
 
-        const wrapper = new ToolLazyWrapper(metadata, lazyLoader);
+        const wrapper = new ToolLazyWrapper(
+          metadata,
+          lazyLoader,
+          requiresUserInteraction
+        );
         this.registry.registerTool(wrapper);
       } catch (error) {
         // 单个工具加载失败不阻塞其他工具

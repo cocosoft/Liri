@@ -220,6 +220,10 @@ export {
   ToolCallBatch,
   // ContextCompressor
   ContextCompressor,
+  // AgentRegistry
+  AgentRegistry,
+  getAgentRegistry,
+  agentRegistry,
 };
 export type { TrajectoryEntry, ConversationMessage } from './trajectory';
 export type {
@@ -232,6 +236,10 @@ export type {
   ContextCompressionConfig,
   CompressionResult,
 } from './ContextCompressor';
+export type {
+  AgentDefinition,
+  DiscoverCriteria,
+} from './registry/AgentRegistry';
 import { StrategySelector } from './StrategySelector';
 import {
   TaskComplexity,
@@ -252,6 +260,16 @@ import type {
   ContextCompressionConfig,
   CompressionResult,
 } from './ContextCompressor';
+
+import {
+  AgentRegistry,
+  getAgentRegistry,
+  agentRegistry,
+} from './registry/AgentRegistry';
+import type {
+  AgentDefinition,
+  DiscoverCriteria,
+} from './registry/AgentRegistry';
 
 const agentService = createAgentService();
 export default agentService;

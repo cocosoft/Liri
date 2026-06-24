@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,14 +20,15 @@
 // SOFTWARE.
 /**
  * Agent Internal Events
- * 对标OpenClaw agents/internal-events.ts
- * Agent内部事件系统
+ * 事件系统桥接模块，统一事件总线到 @modules/core/events/EventBus
  *
- * @deprecated 请使用 @modules/core/events/EventBus 作为统一事件总线。
- *   本模块实现了独立的 InternalEventBus（自建 Map 管理订阅），
- *   与 core/events/EventBus 发布-订阅体系功能重叠。
- *   新的事件处理应基于 @modules/core/events/EventBus。
- *   此模块将在未来版本中移除。
+ * 新代码请直接使用 globalEventBus（从本模块或直接从 @modules/core/events/EventBus 导入）：
+ *   import { globalEventBus } from './events';
+ *   globalEventBus.publish('agent:execute:start', { taskId });
+ *   globalEventBus.subscribe('agent:execute:start', (data) => { ... });
+ *
+ * InternalEventBus 保留为桥接包装器，保持与 agent.ts 等旧调用方
+ * 的构造参数类型兼容，将在未来版本中移除。
  */
 
 import type {
@@ -39,9 +40,19 @@ import type {
 } from './types';
 import { AgentEventType } from './types';
 import { getLogger } from '@modules/monitoring';
+import {
+  globalEventBus,
+  EventBusImpl,
+  type EventListener,
+} from '@modules/core/events/EventBus';
 
 const logger = getLogger('agent-events');
 
+// ========== 统一事件总线桥接导出 ==========
+// 新代码应直接使用 globalEventBus
+export { globalEventBus, EventBusImpl } from '@modules/core/events/EventBus';
+
+// ========== Agent 事件类型导出（保持向后兼容） ==========
 export {
   AgentEventType,
   type EventPriority,
@@ -53,22 +64,24 @@ export {
 export { SSEEncoder } from './SSEEncoder';
 export type { SSEFrame } from './SSEEncoder';
 
+/**
+ * InternalEventBus 桥接包装器
+ *
+ * @deprecated 请使用 globalEventBus（EventBusImpl）替代。
+ *   本类保留仅为兼容旧调用方（如 agent.ts 构造参数类型）。
+ *   所有操作委托给 globalEventBus。
+ */
 export class InternalEventBus {
-  private subscriptions: Map<string, EventSubscription[]> = new Map();
-  private history: AgentEvent[] = [];
-  private stats: EventStats;
   private maxHistorySize: number;
 
   constructor(maxHistorySize: number = 1000) {
     this.maxHistorySize = maxHistorySize;
-    this.stats = {
-      totalEmitted: 0,
-      totalHandled: 0,
-      activeSubscriptions: 0,
-      eventsByType: {},
-    };
   }
 
+  /**
+   * 订阅事件
+   * @deprecated 使用 globalEventBus.subscribe() 替代
+   */
   subscribe(
     type: string,
     handler: EventHandler,
@@ -76,28 +89,28 @@ export class InternalEventBus {
   ): string {
     const id = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    const subscription: EventSubscription = {
-      id,
-      type,
-      handler,
-      priority: options?.priority ?? 'normal',
-      once: options?.once ?? false,
+    const wrappedHandler: EventListener = (data: unknown) => {
+      return handler(data as AgentEvent);
     };
 
-    const existing = this.subscriptions.get(type) ?? [];
-    existing.push(subscription);
-    this.subscriptions.set(type, existing);
+    const sub = options?.once
+      ? globalEventBus.once(type, wrappedHandler)
+      : globalEventBus.subscribe(type, wrappedHandler);
 
-    if (type !== '*') {
-      const wildcard = this.subscriptions.get('*') ?? [];
-      this.stats.activeSubscriptions = this.countAllSubscriptions();
-    }
-
-    this.stats.activeSubscriptions = this.countAllSubscriptions();
+    // Store subscription ref for unsubscribe by id
+    this.subRefs.set(id, sub);
 
     return id;
   }
 
+  /** 订阅引用映射 (id → EventSubscription) */
+  private subRefs: Map<string, ReturnType<typeof globalEventBus.subscribe>> =
+    new Map();
+
+  /**
+   * 订阅一次事件
+   * @deprecated 使用 globalEventBus.once() 替代
+   */
   subscribeOnce(
     type: string,
     handler: EventHandler,
@@ -106,19 +119,24 @@ export class InternalEventBus {
     return this.subscribe(type, handler, { priority, once: true });
   }
 
+  /**
+   * 取消订阅
+   * @deprecated 使用 subscription.unsubscribe() 替代
+   */
   unsubscribe(id: string): boolean {
-    for (const [, subs] of this.subscriptions) {
-      const index = subs.findIndex((s) => s.id === id);
-      if (index !== -1) {
-        subs.splice(index, 1);
-        this.stats.activeSubscriptions = this.countAllSubscriptions();
-        return true;
-      }
+    const sub = this.subRefs.get(id);
+    if (sub) {
+      sub.unsubscribe();
+      this.subRefs.delete(id);
+      return true;
     }
-
     return false;
   }
 
+  /**
+   * 发射事件
+   * 委托给 globalEventBus.publish()
+   */
   async emit(
     type: string,
     data?: unknown,
@@ -134,49 +152,15 @@ export class InternalEventBus {
       timestamp: Date.now(),
     };
 
-    this.stats.totalEmitted++;
-    this.stats.eventsByType[type] = (this.stats.eventsByType[type] ?? 0) + 1;
-
-    this.addToHistory(event);
-
-    const handlers = [
-      ...(this.subscriptions.get(type) ?? []),
-      ...(this.subscriptions.get('*') ?? []),
-    ];
-
-    handlers.sort((a, b) => {
-      const priorityOrder: Record<EventPriority, number> = {
-        high: 3,
-        normal: 2,
-        low: 1,
-      };
-      return (
-        (priorityOrder[b.priority] ?? 0) - (priorityOrder[a.priority] ?? 0)
-      );
-    });
-
-    const toRemove: string[] = [];
-
-    for (const sub of handlers) {
-      try {
-        await sub.handler(event);
-        this.stats.totalHandled++;
-
-        if (sub.once) {
-          toRemove.push(sub.id);
-        }
-      } catch (error) {
-        logger.error('Event handler error', { type, error: String(error) });
-      }
-    }
-
-    for (const id of toRemove) {
-      this.unsubscribe(id);
-    }
+    globalEventBus.publish(type, event);
 
     return event;
   }
 
+  /**
+   * 异步发射事件（emit 的别名）
+   * @deprecated 使用 emit() 或 globalEventBus.publish() 替代
+   */
   async emitAsync(
     type: string,
     data?: unknown,
@@ -185,71 +169,96 @@ export class InternalEventBus {
     return this.emit(type, data, options);
   }
 
+  /**
+   * 获取历史记录
+   * @deprecated 使用 globalEventBus.getHistory() 替代
+   */
   getHistory(filter?: {
     type?: string;
     source?: string;
     limit?: number;
   }): AgentEvent[] {
-    let result = [...this.history];
+    const history = globalEventBus.getHistory({
+      event: filter?.type,
+      limit: filter?.limit,
+    });
 
-    if (filter?.type) {
-      result = result.filter((e) => e.type === filter.type);
-    }
+    let result = history.map(
+      (entry): AgentEvent => ({
+        id: '',
+        type: entry.event,
+        source: 'history',
+        data: entry.data,
+        priority: 'normal',
+        timestamp: entry.timestamp,
+      })
+    );
 
     if (filter?.source) {
       result = result.filter((e) => e.source === filter.source);
     }
 
-    result.reverse();
-
-    if (filter?.limit && filter.limit > 0) {
-      result = result.slice(0, filter.limit);
-    }
-
     return result;
   }
 
+  /**
+   * 清空历史记录
+   * @deprecated 使用 globalEventBus.clearHistory() 替代
+   */
   clearHistory(): void {
-    this.history = [];
+    globalEventBus.clearHistory();
   }
 
+  /**
+   * 获取统计信息
+   */
   getStats(): EventStats {
-    return { ...this.stats };
+    const eventNames = globalEventBus.getEventNames();
+    const eventsByType: Record<string, number> = {};
+    let totalSubs = 0;
+
+    for (const name of eventNames) {
+      if (name === '*') continue;
+      const count = globalEventBus.listenerCount(name);
+      eventsByType[name] = count;
+      totalSubs += count;
+    }
+
+    return {
+      totalEmitted: 0,
+      totalHandled: 0,
+      activeSubscriptions: totalSubs,
+      eventsByType,
+    };
   }
 
+  /**
+   * 检查是否有订阅者
+   * @deprecated 使用 globalEventBus.hasListeners() 替代
+   */
   hasSubscribers(type: string): boolean {
-    const direct = this.subscriptions.get(type);
-    const wildcard = this.subscriptions.get('*');
-
     return (
-      (direct !== undefined && direct.length > 0) ||
-      (wildcard !== undefined && wildcard.length > 0)
+      globalEventBus.hasListeners(type) || globalEventBus.hasListeners('*')
     );
   }
 
+  /**
+   * 获取订阅者数量
+   * @deprecated 使用 globalEventBus.listenerCount() 替代
+   */
   subscriberCount(type: string): number {
-    const direct = this.subscriptions.get(type)?.length ?? 0;
-    const wildcard = this.subscriptions.get('*')?.length ?? 0;
-    return direct + wildcard;
-  }
-
-  private addToHistory(event: AgentEvent): void {
-    this.history.push(event);
-
-    if (this.history.length > this.maxHistorySize) {
-      this.history.splice(0, this.history.length - this.maxHistorySize);
-    }
-  }
-
-  private countAllSubscriptions(): number {
-    let count = 0;
-    for (const subs of this.subscriptions.values()) {
-      count += subs.length;
-    }
-    return count;
+    return (
+      globalEventBus.listenerCount(type) + globalEventBus.listenerCount('*')
+    );
   }
 }
 
+/**
+ * 创建 InternalEventBus 实例
+ *
+ * @deprecated 请直接使用全局 globalEventBus 实例。
+ *   本函数保留仅为兼容旧调用方。
+ */
 export function createEventBus(maxHistorySize?: number): InternalEventBus {
   return new InternalEventBus(maxHistorySize);
 }

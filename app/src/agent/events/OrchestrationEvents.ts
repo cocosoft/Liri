@@ -25,6 +25,34 @@ export const OrchestrationEventType = {
   ORCH_END: 'orch:dag:end',
   /** 编排出错 */
   ORCH_ERROR: 'orch:dag:error',
+  /** 任务步骤开始 */
+  ORCH_STEP_START: 'orch:dag:step:start',
+  /** 任务步骤增量输出 */
+  ORCH_STEP_DELTA: 'orch:dag:step:delta',
+  /** 任务步骤完成 */
+  ORCH_STEP_COMPLETED: 'orch:dag:step:completed',
+
+  // ========== PLAN 计划执行 ==========
+
+  /** 计划开始执行 */
+  PLAN_START: 'orch:plan:start',
+  /** 计划步骤开始 */
+  PLAN_STEP_START: 'orch:plan:step:start',
+  /** 计划步骤完成 */
+  PLAN_STEP_COMPLETED: 'orch:plan:step:completed',
+  /** 计划进度更新 */
+  PLAN_PROGRESS: 'orch:plan:progress',
+  /** 计划完成 */
+  PLAN_COMPLETED: 'orch:plan:completed',
+
+  // ========== Agent Chain 链式调用 ==========
+
+  /** 链式调用开始 */
+  CHAIN_START: 'orch:chain:start',
+  /** 链式调用步骤事件 */
+  CHAIN_STEP: 'orch:chain:step',
+  /** 链式调用完成 */
+  CHAIN_END: 'orch:chain:end',
 
   // ========== Rule Check Gate ==========
 
@@ -43,6 +71,12 @@ export const OrchestrationEventType = {
 
   /** Council 辩论开始 */
   COUNCIL_START: 'orch:council:start',
+  /** Council 辩论回合开始 */
+  COUNCIL_ROUND_START: 'orch:council:round:start',
+  /** Council Agent 开始发言 */
+  COUNCIL_AGENT_SPEAKING: 'orch:council:agent:speaking',
+  /** Council Agent 发言内容（单条完整内容） */
+  COUNCIL_AGENT_DELTA: 'orch:council:agent:delta',
   /** Council 辩论回合 */
   COUNCIL_ROUND: 'orch:council:round',
   /** Council 辩论结束 */
@@ -65,6 +99,22 @@ export const OrchestrationEventType = {
   CONTEXT_LAYER_LOAD: 'orch:context:layer:load',
   /** 规则注入 */
   CONTEXT_RULE_INJECT: 'orch:context:rule:inject',
+
+  // ========== 并行执行（方案 7） ==========
+
+  /** 并行执行开始 */
+  PARALLEL_START: 'orch:parallel:start',
+  /** 并行子任务开始 */
+  PARALLEL_TASK_START: 'orch:parallel:task:start',
+  /** 并行子任务完成 */
+  PARALLEL_TASK_COMPLETE: 'orch:parallel:task:complete',
+  /** 并行执行完成 */
+  PARALLEL_END: 'orch:parallel:end',
+
+  // ========== Token 追踪（方案 0c） ==========
+
+  /** Token 使用量上报 */
+  TOKEN_USAGE: 'orch:token:usage',
 } as const;
 
 export type OrchestrationEventTypeValue =
@@ -158,6 +208,44 @@ export interface CouncilRoundData {
   confidence: number;
 }
 
+/** Council 辩论回合开始事件数据 */
+export interface CouncilRoundStartData {
+  /** 回合编号 */
+  round: number;
+  /** 总回合数 */
+  totalRounds: number;
+  /** session ID */
+  sessionId: string;
+}
+
+/** Council Agent 开始发言事件数据 */
+export interface CouncilAgentSpeakingData {
+  /** Agent ID */
+  agentId: string;
+  /** Agent 名称 */
+  agentName: string;
+  /** 回合编号 */
+  round: number;
+  /** session ID */
+  sessionId: string;
+}
+
+/** Council Agent 发言内容增量事件数据 */
+export interface CouncilAgentDeltaData {
+  /** Agent ID */
+  agentId: string;
+  /** Agent 名称 */
+  agentName: string;
+  /** 内容块（完整发言或增量块） */
+  content: string;
+  /** 回合编号 */
+  round: number;
+  /** 是否该 Agent 发言结束 */
+  isFinal: boolean;
+  /** session ID */
+  sessionId: string;
+}
+
 /** Council 辩论结束数据 */
 export interface CouncilEndData {
   /** 总回合数 */
@@ -216,6 +304,56 @@ export interface SwarmDispatchData {
   }>;
 }
 
+// ========== 并行执行事件数据（方案 7） ==========
+
+/** 并行执行开始事件数据 */
+export interface ParallelStartData {
+  /** 总任务数 */
+  totalTasks: number;
+  /** 任务描述列表 */
+  tasks: Array<{
+    description: string;
+    agentType?: string;
+    name?: string;
+  }>;
+}
+
+/** 并行子任务开始事件数据 */
+export interface ParallelTaskStartData {
+  /** Agent ID */
+  agentId: string;
+  /** 任务名称 */
+  taskName: string;
+  /** 任务描述 */
+  description: string;
+}
+
+/** 并行子任务完成事件数据 */
+export interface ParallelTaskCompleteData {
+  /** Agent ID */
+  agentId: string;
+  /** 任务名称 */
+  taskName: string;
+  /** 是否成功 */
+  success: boolean;
+  /** 输出内容 */
+  output?: string;
+  /** 错误信息 */
+  error?: string;
+  /** 耗时 */
+  durationMs: number;
+}
+
+/** 并行执行完成事件数据 */
+export interface ParallelEndData {
+  /** 总任务数 */
+  totalTasks: number;
+  /** 成功任务数 */
+  completedTasks: number;
+  /** 失败任务数 */
+  failedTasks: number;
+}
+
 /** 上下文层加载数据 */
 export interface ContextLayerData {
   /** 层级编号 */
@@ -230,6 +368,134 @@ export interface ContextLayerData {
   knowledgeCount?: number;
   /** 注入的工具数 */
   toolsCount?: number;
+}
+
+/** DAG 步骤开始事件数据 */
+export interface OrchStepStartData {
+  /** 任务 ID */
+  taskId: string;
+  /** 步骤名称 */
+  stepName: string;
+  /** 依赖的步骤名列表 */
+  dependsOn?: string[];
+}
+
+/** DAG 步骤增量输出事件数据 */
+export interface OrchStepDeltaData {
+  /** 任务 ID */
+  taskId: string;
+  /** 步骤名称 */
+  stepName: string;
+  /** 增量输出内容 */
+  output: string;
+}
+
+/** DAG 步骤完成事件数据 */
+export interface OrchStepCompletedData {
+  /** 任务 ID */
+  taskId: string;
+  /** 步骤名称 */
+  stepName: string;
+  /** 耗时（毫秒） */
+  duration: number;
+  /** 状态 */
+  status: 'success' | 'failed';
+}
+
+/** 计划开始执行事件数据 */
+export interface PlanStartData {
+  /** 计划 ID */
+  planId: string;
+  /** 计划描述 */
+  description: string;
+  /** 总步骤数 */
+  totalSteps: number;
+}
+
+/** 计划步骤开始事件数据 */
+export interface PlanStepStartData {
+  /** 计划 ID */
+  planId: string;
+  /** 步骤索引 */
+  stepIndex: number;
+  /** 步骤名称 */
+  stepName: string;
+  /** 步骤描述 */
+  description: string;
+}
+
+/** 计划步骤完成事件数据 */
+export interface PlanStepCompletedData {
+  /** 计划 ID */
+  planId: string;
+  /** 步骤索引 */
+  stepIndex: number;
+  /** 执行结果摘要 */
+  result?: string;
+}
+
+/** 计划进度更新事件数据 */
+export interface PlanProgressData {
+  /** 计划 ID */
+  planId: string;
+  /** 已完成步骤数 */
+  completedSteps: number;
+  /** 总步骤数 */
+  totalSteps: number;
+  /** 进度百分比 (0-100) */
+  percentage: number;
+}
+
+/** Agent Chain 链式调用开始事件数据 */
+export interface ChainStartData {
+  /** 链 ID */
+  chainId: string;
+  /** 链名称 */
+  chainName: string;
+  /** 总步骤数 */
+  totalSteps: number;
+  /** 输入内容 */
+  input: string;
+}
+
+/** Agent Chain 步骤事件数据 */
+export interface ChainStepData {
+  /** 链 ID */
+  chainId: string;
+  /** 步骤索引（从 1 开始） */
+  stepIndex: number;
+  /** 总步骤数 */
+  totalSteps: number;
+  /** 步骤名称 */
+  stepName: string;
+  /** 步骤状态 */
+  status: 'running' | 'completed' | 'failed' | 'skipped' | 'aborted';
+  /** 输出内容 */
+  output?: string;
+  /** 错误信息 */
+  error?: string;
+  /** 耗时（毫秒） */
+  durationMs?: number;
+}
+
+/** Agent Chain 链式调用完成事件数据 */
+export interface ChainEndData {
+  /** 链 ID */
+  chainId: string;
+  /** 链名称 */
+  chainName: string;
+  /** 最终状态 */
+  status: 'completed' | 'failed' | 'aborted';
+  /** 总耗时（毫秒） */
+  totalDurationMs: number;
+  /** 总 Token 用量 */
+  totalTokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  /** 错误信息 */
+  error?: string;
 }
 
 /** 编排状态枚举 */

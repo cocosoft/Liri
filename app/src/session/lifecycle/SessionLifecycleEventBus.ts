@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SessionLifecycleEventBus — 会话生命周期事件总线
  *
  * 继承自 EventBusImpl，添加类型安全的事件类型、通配符支持与事件历史。
@@ -9,8 +9,11 @@
  *   3. 事件历史记录
  */
 
-import { EventBusImpl } from '@modules/core';
-import type { EventSubscription } from '@modules/core';
+import {
+  EventBusImpl,
+  type EventSubscription,
+  type EventListener as CoreEventListener,
+} from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import type {
   SessionLifecycleEvent,
@@ -74,25 +77,23 @@ export class SessionLifecycleEventBus extends EventBusImpl {
   /**
    * 订阅特定类型事件或通配符 '*' 事件
    */
-  on(type: SessionEventType | '*', handler: EventHandler): Subscription {
+  override on<T = any>(
+    event: string,
+    listener: CoreEventListener<T>
+  ): EventSubscription {
+    const type = event as SessionEventType | '*';
+
     if (type === '*') {
+      const handler = listener as unknown as EventHandler;
       this.wildcardHandlers.add(handler);
       return {
-        type,
-        handler,
         unsubscribe: () => {
           this.wildcardHandlers.delete(handler);
         },
       };
     }
 
-    const sub = super.subscribe(type, handler as any);
-
-    return {
-      type,
-      handler,
-      unsubscribe: () => sub.unsubscribe(),
-    };
+    return super.subscribe(type, listener);
   }
 
   /**
@@ -117,7 +118,32 @@ export class SessionLifecycleEventBus extends EventBusImpl {
   /**
    * 获取事件历史
    */
-  getHistory(filter?: SessionEventType): SessionLifecycleEvent[] {
+  override getHistory(filter?: {
+    event?: string;
+    limit?: number;
+  }): import('@modules/core/events/EventBus').HistoryEntry[] {
+    let result = [...this.history];
+
+    if (filter?.event) {
+      result = result.filter((e) => e.type === filter.event);
+    }
+
+    if (filter?.limit && filter.limit > 0) {
+      result = result.slice(0, filter.limit);
+    }
+
+    return result.map((e) => ({
+      event: e.type,
+      data: e,
+      timestamp: e.timestamp,
+    }));
+  }
+
+  /**
+   * 获取原始 SessionLifecycleEvent 历史
+   * 当需要访问 SessionLifecycleEvent 特有字段时使用
+   */
+  getSessionHistory(filter?: SessionEventType): SessionLifecycleEvent[] {
     if (filter) {
       return this.history.filter((e) => e.type === filter);
     }
@@ -127,7 +153,7 @@ export class SessionLifecycleEventBus extends EventBusImpl {
   /**
    * 清空事件历史
    */
-  clearHistory(): void {
+  override clearHistory(): void {
     this.history = [];
   }
 

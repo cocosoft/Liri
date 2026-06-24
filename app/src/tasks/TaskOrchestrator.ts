@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TaskOrchestrator - 任务计划编排器
  *
  * 职责：
@@ -27,6 +27,10 @@ import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';
 import type { ReviewDecision } from './PlanReview';
+
+import { globalEventBus } from '../core/events/EventBus.js';
+import { OrchestrationEventType as OrchEvent } from '../agent/events/OrchestrationEvents.js';
+import type { PlanProgressData } from '../agent/events/OrchestrationEvents.js';
 
 export interface PlanStep {
   id: string;
@@ -188,6 +192,18 @@ export class TaskOrchestrator {
 
     this.plans.set(planId, plan);
     this.savePlan(plan);
+
+    // 发射计划开始事件
+    try {
+      globalEventBus.publish(OrchEvent.PLAN_START, {
+        planId,
+        description,
+        totalSteps: steps.length,
+      });
+    } catch {
+      // EventBus 发射失败不阻塞主流程
+    }
+
     return plan;
   }
 
@@ -276,6 +292,19 @@ export class TaskOrchestrator {
       }
 
       this.savePlan(plan);
+
+      // 发射步骤开始事件
+      try {
+        globalEventBus.publish(OrchEvent.PLAN_STEP_START, {
+          planId: plan.id,
+          stepIndex: plan.steps.indexOf(step),
+          stepName: step.description,
+          description: step.description,
+        });
+      } catch {
+        // EventBus 发射失败不阻塞
+      }
+
       return step;
     }
     return undefined;
@@ -310,6 +339,26 @@ export class TaskOrchestrator {
       }
 
       this.savePlan(plan);
+
+      // 发射步骤完成事件
+      try {
+        globalEventBus.publish(OrchEvent.PLAN_STEP_COMPLETED, {
+          planId: plan.id,
+          stepIndex: plan.steps.indexOf(step),
+          result,
+        });
+      } catch {
+        // EventBus 发射失败不阻塞
+      }
+
+      // 发射进度更新事件
+      this.emitPlanProgress(plan);
+
+      // 检查是否所有步骤都已完成并发射完成事件
+      if (allDone) {
+        this.emitPlanCompleted(plan);
+      }
+
       return step;
     }
     return undefined;
@@ -344,6 +393,26 @@ export class TaskOrchestrator {
       }
 
       this.savePlan(plan);
+
+      // 发射步骤完成事件（失败）
+      try {
+        globalEventBus.publish(OrchEvent.PLAN_STEP_COMPLETED, {
+          planId: plan.id,
+          stepIndex: plan.steps.indexOf(step),
+          result: error,
+        });
+      } catch {
+        // EventBus 发射失败不阻塞
+      }
+
+      // 发射进度更新事件
+      this.emitPlanProgress(plan);
+
+      // 检查是否所有步骤都已完成并发射完成事件
+      if (allDone) {
+        this.emitPlanCompleted(plan);
+      }
+
       return step;
     }
     return undefined;
@@ -371,6 +440,47 @@ export class TaskOrchestrator {
       plan.status = 'aborted';
       plan.completedAt = new Date().toISOString();
       this.savePlan(plan);
+
+      // 发射计划完成事件（中断）
+      this.emitPlanCompleted(plan);
+    }
+  }
+
+  /**
+   * 发射计划进度事件
+   */
+  private emitPlanProgress(plan: Plan): void {
+    try {
+      const progress = this.getPlanProgress(plan.id);
+      if (!progress) return;
+
+      const payload: PlanProgressData = {
+        planId: plan.id,
+        completedSteps: progress.completed,
+        totalSteps: progress.total,
+        percentage: progress.percent,
+      };
+      globalEventBus.publish(OrchEvent.PLAN_PROGRESS, payload);
+    } catch {
+      // EventBus 发射失败不阻塞
+    }
+  }
+
+  /**
+   * 发射计划完成事件
+   */
+  private emitPlanCompleted(plan: Plan): void {
+    try {
+      globalEventBus.publish(OrchEvent.PLAN_COMPLETED, {
+        planId: plan.id,
+        totalSteps: plan.steps.length,
+        completedSteps: plan.steps.filter((s) => s.status === 'completed')
+          .length,
+        failedSteps: plan.steps.filter((s) => s.status === 'failed').length,
+        status: plan.status,
+      });
+    } catch {
+      // EventBus 发射失败不阻塞
     }
   }
 

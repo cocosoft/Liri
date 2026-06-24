@@ -119,6 +119,7 @@ import {
 import {
   handleOrchestrationStream,
   handleGetOrchestrationSnapshot,
+  handleGetOrchestrationHistory,
   handleGetSwarmStatus,
   handleGetAgentModelBindings,
   handleUpdateAgentModelBindings,
@@ -1234,6 +1235,21 @@ export class LocalHTTPService {
     itemId: string
   ): Promise<void> {
     return handleGetOrchestrationSnapshot(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      itemId
+    );
+  }
+
+  private async handleGetOrchestrationHistory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    itemId: string
+  ): Promise<void> {
+    return handleGetOrchestrationHistory(
       this._handlerCtx,
       req,
       res,

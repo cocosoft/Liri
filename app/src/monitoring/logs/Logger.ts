@@ -7,6 +7,39 @@ import { logFilter } from './filter/LogFilter.js';
 export { LogLevel } from './types.js';
 export type { StructuredLogEntry, LogSource } from './types.js';
 
+// ========== LogHandler 机制（方案 11：OTLP 日志导出） ==========
+
+/**
+ * 日志处理器
+ * Logger 每次写入日志时回调所有已注册的处理器。
+ * 用于将日志桥接到 OTel、外部存储等服务。
+ */
+export type LogHandler = (entry: StructuredLogEntry) => void;
+
+/** 全局日志处理器列表 */
+const logHandlers: LogHandler[] = [];
+
+/**
+ * 注册日志处理器
+ * @param handler 处理器回调
+ * @returns 取消注册的函数
+ */
+export function addLogHandler(handler: LogHandler): () => void {
+  logHandlers.push(handler);
+  return () => {
+    const idx = logHandlers.indexOf(handler);
+    if (idx >= 0) logHandlers.splice(idx, 1);
+  };
+}
+
+/**
+ * 移除日志处理器
+ */
+export function removeLogHandler(handler: LogHandler): void {
+  const idx = logHandlers.indexOf(handler);
+  if (idx >= 0) logHandlers.splice(idx, 1);
+}
+
 const LOG_LEVEL_PRIORITY: Record<string, number> = {
   [LogLevel.DEBUG]: 0,
   [LogLevel.INFO]: 1,
@@ -252,6 +285,15 @@ export class Logger {
     appendLogEntry(logEntry);
 
     this.writeToOutputs(sanitized, level);
+
+    // 通知全局日志处理器（如 OTelLoggerAdapter）
+    for (const handler of logHandlers) {
+      try {
+        handler(logEntry);
+      } catch {
+        // 处理器异常不中断主流程
+      }
+    }
   }
 
   /**

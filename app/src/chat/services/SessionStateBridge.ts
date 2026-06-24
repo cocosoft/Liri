@@ -5,13 +5,13 @@
 
 import type { SessionLifecycleEventBus } from '@modules/session/lifecycle/SessionLifecycleEventBus';
 import type { SessionLifecycleEvent } from '@modules/session/lifecycle/SessionLifecycleEvent';
-import type { Subscription } from '@modules/session/lifecycle/SessionLifecycleEventBus';
+import type { EventSubscription } from '@modules/core';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 
 export class SessionStateBridge {
   private eventBus: SessionLifecycleEventBus;
   private sessionMachines: Map<string, SessionStateMachine> = new Map();
-  private subscriptions: Subscription[] = [];
+  private subscriptions: EventSubscription[] = [];
   private connected = false;
 
   constructor(eventBus: SessionLifecycleEventBus) {

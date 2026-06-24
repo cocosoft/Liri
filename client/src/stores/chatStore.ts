@@ -478,6 +478,8 @@ class ChronologicalBlockBuilder {
       },
       groupId: this.currentGroupId,
     });
+    // 标记自上次文本后有新 block，使后续文本创建新 text block（排在 question 之后）
+    this.hasToolCallSinceLastText = true;
   }
 
   /** 添加或更新 todo 块 */

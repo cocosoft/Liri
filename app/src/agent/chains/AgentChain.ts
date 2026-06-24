@@ -24,6 +24,15 @@ import {
   ChainExecutionMode,
 } from './types';
 
+import { globalEventBus } from '../../core/events/EventBus.js';
+import { OrchestrationEventType } from '../events/OrchestrationEvents.js';
+import { getAgentRegistry } from '../registry/AgentRegistry.js';
+import type {
+  ChainStartData,
+  ChainStepData,
+  ChainEndData,
+} from '../events/OrchestrationEvents.js';
+
 /**
  * 模拟 Agent 执行函数
  * 在真实环境中应替换为实际的 Agent 调用
@@ -175,6 +184,19 @@ export class AgentChain extends EventEmitter {
     const totalSteps = chain.steps.length;
     const defaultTimeout = chain.defaultTimeoutMs ?? 60000;
 
+    // 发射链开始事件
+    try {
+      const startData: ChainStartData = {
+        chainId: chain.id,
+        chainName: chain.name,
+        totalSteps,
+        input: request.input,
+      };
+      globalEventBus.publish(OrchestrationEventType.CHAIN_START, startData);
+    } catch {
+      // EventBus 发射失败不阻塞主流程
+    }
+
     for (let i = 0; i < chain.steps.length; i++) {
       if (signal.aborted) {
         chainStatus = 'aborted';
@@ -237,6 +259,21 @@ export class AgentChain extends EventEmitter {
       message: `Chain ${chain.name}: ${chainStatus}`,
     });
 
+    // 发射链完成事件
+    try {
+      const endData: ChainEndData = {
+        chainId: chain.id,
+        chainName: chain.name,
+        status: chainStatus,
+        totalDurationMs,
+        totalTokenUsage,
+        error: chainError,
+      };
+      globalEventBus.publish(OrchestrationEventType.CHAIN_END, endData);
+    } catch {
+      // EventBus 发射失败不阻塞主流程
+    }
+
     return {
       chainId: chain.id,
       chainName: chain.name,
@@ -282,9 +319,17 @@ export class AgentChain extends EventEmitter {
     const startTime = Date.now();
     const timeout = step.timeoutMs || defaultTimeout;
     const maxRetries = step.onError === 'retry' ? step.retryCount || 2 : 0;
+
+    // 从 AgentRegistry 查找 Agent 定义，获取系统提示词
+    const registry = getAgentRegistry();
+    const agentDef = registry.getAgent(step.agentType);
+
+    // 优先使用 step.systemPrompt，其次使用 AgentRegistry 中注册的 systemPrompt
     const systemPrompt = step.systemPrompt
       ? this.resolveTemplate(step.systemPrompt, input, request)
-      : undefined;
+      : agentDef?.systemPrompt
+        ? this.resolveTemplate(agentDef.systemPrompt, input, request)
+        : undefined;
 
     let stepInput = input;
     if (step.inputTransform) {
@@ -490,10 +535,40 @@ export class AgentChain extends EventEmitter {
   }
 
   /**
-   * 发送进度事件
+   * 发送进度事件（同时桥接到 globalEventBus）
    */
   private emitProgress(event: ChainProgressEvent): void {
+    // 保持向后兼容：仍通过 EventEmitter 发射
     this.emit('progress', event);
+
+    // 桥接到全局编排事件总线
+    try {
+      // 步骤级事件 → CHAIN_STEP
+      if (
+        event.type === 'step_start' ||
+        event.type === 'step_complete' ||
+        event.type === 'step_fail'
+      ) {
+        const stepData: ChainStepData = {
+          chainId: event.chainId,
+          stepIndex: event.currentStep,
+          totalSteps: event.totalSteps,
+          stepName: event.stepResult?.stepName ?? '',
+          status:
+            event.type === 'step_start'
+              ? 'running'
+              : event.type === 'step_complete'
+                ? 'completed'
+                : 'failed',
+          output: event.stepResult?.output,
+          error: event.stepResult?.error,
+          durationMs: event.stepResult?.durationMs,
+        };
+        globalEventBus.publish(OrchestrationEventType.CHAIN_STEP, stepData);
+      }
+    } catch {
+      // EventBus 发射失败不阻塞主流程
+    }
   }
 
   /**

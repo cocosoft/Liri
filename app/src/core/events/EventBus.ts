@@ -44,14 +44,36 @@ export interface EventBus {
 }
 
 /**
+ * 事件历史条目
+ */
+export interface HistoryEntry {
+  event: string;
+  data: unknown;
+  timestamp: number;
+}
+
+/**
  * 事件系统类
  */
 export class EventBusImpl implements EventBus {
   private listeners: Map<string, Set<EventListener>> = new Map();
   private eventLogger?: (message: string) => void;
+  #historyEnabled: boolean;
+  #maxHistorySize: number;
+  #historyStore: HistoryEntry[] = [];
 
-  constructor(eventLogger?: (message: string) => void) {
+  constructor(
+    eventLogger?: (message: string) => void,
+    options?: {
+      /** 是否启用事件历史记录 */
+      historyEnabled?: boolean;
+      /** 最大历史记录条数 */
+      maxHistorySize?: number;
+    }
+  ) {
     this.eventLogger = eventLogger;
+    this.#historyEnabled = options?.historyEnabled ?? false;
+    this.#maxHistorySize = options?.maxHistorySize ?? 1000;
   }
 
   /**
@@ -80,38 +102,84 @@ export class EventBusImpl implements EventBus {
   }
 
   /**
+   * 订阅事件（subscribe 的别名，兼容 InternalEventBus 调用方）
+   * @param event 事件名称
+   * @param listener 事件监听器
+   * @returns 订阅对象
+   */
+  on<T = any>(event: string, listener: EventListener<T>): EventSubscription {
+    return this.subscribe(event, listener);
+  }
+
+  /**
+   * 记录事件到历史
+   */
+  private recordHistory(event: string, data: unknown): void {
+    if (!this.#historyEnabled) return;
+
+    this.#historyStore.push({ event, data, timestamp: Date.now() });
+
+    if (this.#historyStore.length > this.#maxHistorySize) {
+      this.#historyStore.splice(
+        0,
+        this.#historyStore.length - this.#maxHistorySize
+      );
+    }
+  }
+
+  /**
+   * 执行单个监听器并处理错误
+   */
+  private async executeListener(
+    listener: EventListener,
+    event: string,
+    data: unknown
+  ): Promise<void> {
+    try {
+      const result = listener(data);
+
+      if (result instanceof Promise) {
+        await result;
+      }
+    } catch (error) {
+      getLogger().error(`[EventBus] Error in event listener for "${event}":`, {
+        error: String(error),
+      });
+    }
+  }
+
+  /**
    * 发布事件
    * @param event 事件名称
    * @param data 事件数据
    */
   publish<T = any>(event: string, data?: T): void {
-    const eventListeners = this.listeners.get(event);
-
-    if (!eventListeners || eventListeners.size === 0) {
-      return;
-    }
+    this.recordHistory(event, data);
 
     this.eventLogger?.(`[EventBus] Publishing event: ${event}`);
 
-    for (const listener of eventListeners) {
-      try {
-        const result = listener(data);
+    // 获取精确匹配的监听器和通配符(*)监听器
+    const eventListeners = this.listeners.get(event);
+    const wildcardListeners = this.listeners.get('*');
 
-        if (result instanceof Promise) {
-          result.catch((error) => {
-            getLogger().error(
-              `[EventBus] Error in async event listener for "${event}":`,
-              { error }
-            );
-          });
-        }
-      } catch (error) {
-        getLogger().error(
-          `[EventBus] Error in event listener for "${event}":`,
-          {
-            error,
-          }
-        );
+    if (
+      (!eventListeners || eventListeners.size === 0) &&
+      (!wildcardListeners || wildcardListeners.size === 0)
+    ) {
+      return;
+    }
+
+    // 先执行精确匹配的监听器
+    if (eventListeners && eventListeners.size > 0) {
+      for (const listener of eventListeners) {
+        this.executeListener(listener, event, data);
+      }
+    }
+
+    // 再执行通配符监听器
+    if (wildcardListeners && wildcardListeners.size > 0) {
+      for (const listener of wildcardListeners) {
+        this.executeListener(listener, event, data);
       }
     }
   }
@@ -198,6 +266,34 @@ export class EventBusImpl implements EventBus {
    */
   getEventNames(): string[] {
     return Array.from(this.listeners.keys());
+  }
+
+  /**
+   * 获取事件历史记录
+   * @param filter 可选的过滤条件
+   * @returns 历史记录数组
+   */
+  getHistory(filter?: { event?: string; limit?: number }): HistoryEntry[] {
+    let result = this.#historyEnabled ? [...this.#historyStore] : [];
+
+    if (filter?.event) {
+      result = result.filter((e) => e.event === filter.event);
+    }
+
+    result.reverse();
+
+    if (filter?.limit && filter.limit > 0) {
+      result = result.slice(0, filter.limit);
+    }
+
+    return result;
+  }
+
+  /**
+   * 清空事件历史记录
+   */
+  clearHistory(): void {
+    this.#historyStore = [];
   }
 }
 

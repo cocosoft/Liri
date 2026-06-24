@@ -10,6 +10,7 @@
  */
 
 import type http from 'node:http';
+import { join } from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -17,6 +18,12 @@ import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createLiriConfigManager } from '@modules/workspace/LiriConfigManager';
 import { resolveWorkspacePath } from './workspaces-handlers';
 import type { OrchestrationSnapshot } from '@modules/agent/events/OrchestrationEvents';
+import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
+import { AgentEventType } from '@modules/agent/events/types';
+import { globalEventBus } from '../../../core/events/EventBus.js';
+import type { EventSubscription } from '../../../core/events/EventBus.js';
+import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
+import type { OrchestrationHistoryQueryResult } from './OrchestrationHistoryAdapter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -82,14 +89,94 @@ export async function handleOrchestrationStream(
       });
     }, 15000);
 
+    // 启动编排历史适配器（首次 SSE 连接时初始化）
+    getOrchestrationHistoryAdapter().start(manager.dir);
+
+    // ── 订阅所有编排事件，推模式转发到 SSE ──
+
+    // 所有需要订阅的事件类型列表
+    const allEventTypes: string[] = [
+      // Council 辩论（7 种）
+      OrchestrationEventType.COUNCIL_START,
+      OrchestrationEventType.COUNCIL_ROUND_START,
+      OrchestrationEventType.COUNCIL_AGENT_SPEAKING,
+      OrchestrationEventType.COUNCIL_AGENT_DELTA,
+      OrchestrationEventType.COUNCIL_END,
+      OrchestrationEventType.COUNCIL_ROUND,
+      OrchestrationEventType.COUNCIL_DETAIL,
+
+      // DAG 编排（8 种）
+      OrchestrationEventType.ORCH_START,
+      OrchestrationEventType.ORCH_TASK_START,
+      OrchestrationEventType.ORCH_TASK_PROGRESS,
+      OrchestrationEventType.ORCH_TASK_END,
+      OrchestrationEventType.ORCH_STEP_START,
+      OrchestrationEventType.ORCH_STEP_DELTA,
+      OrchestrationEventType.ORCH_STEP_COMPLETED,
+      OrchestrationEventType.ORCH_END,
+
+      // Plan 计划执行（5 种）
+      OrchestrationEventType.PLAN_START,
+      OrchestrationEventType.PLAN_STEP_START,
+      OrchestrationEventType.PLAN_STEP_COMPLETED,
+      OrchestrationEventType.PLAN_PROGRESS,
+      OrchestrationEventType.PLAN_COMPLETED,
+
+      // Agent Chain 链式调用（3 种）
+      OrchestrationEventType.CHAIN_START,
+      OrchestrationEventType.CHAIN_STEP,
+      OrchestrationEventType.CHAIN_END,
+
+      // Swarm 群组（3 种）
+      OrchestrationEventType.SWARM_DISPATCH,
+      OrchestrationEventType.SWARM_AGENT_STATUS,
+      OrchestrationEventType.SWARM_COMPLETE,
+
+      // 并行执行 / 方案 7（4 种）
+      OrchestrationEventType.PARALLEL_START,
+      OrchestrationEventType.PARALLEL_TASK_START,
+      OrchestrationEventType.PARALLEL_TASK_COMPLETE,
+      OrchestrationEventType.PARALLEL_END,
+
+      // SubAgent 引擎（6 种，使用 AgentEventType）
+      AgentEventType.THINKING_START,
+      AgentEventType.THINKING_DELTA,
+      AgentEventType.THINKING_END,
+      AgentEventType.TOOL_CALL_START,
+      AgentEventType.TOOL_CALL_DELTA,
+      AgentEventType.TOOL_CALL_END,
+    ];
+    const subscriptions: EventSubscription[] = [];
+
+    for (const event of allEventTypes) {
+      const sub = globalEventBus.subscribe(event, (data: unknown) => {
+        // OrchestrationEventType 以 orch: 开头，AgentEventType 以 agent: 开头
+        // 统一去掉 orch: 前缀后作为 SSE 事件名
+        const sseEvent = event.startsWith('orch:') ? event.slice(5) : event;
+        sendSSE(res, sseEvent, {
+          event,
+          data,
+          timestamp: Date.now(),
+        });
+      });
+      subscriptions.push(sub);
+    }
+
     // 监听客户端断开
     req.on('close', () => {
       clearInterval(heartbeat);
+      // 清理所有订阅
+      for (const sub of subscriptions) {
+        sub.unsubscribe();
+      }
       logger.debug('编排流式连接关闭', { workItemId: itemId });
     });
 
     req.on('error', () => {
       clearInterval(heartbeat);
+      for (const sub of subscriptions) {
+        sub.unsubscribe();
+      }
     });
   } catch (err) {
     await handleError(err, {
@@ -316,6 +403,77 @@ export async function handleUpdateAgentModelBindings(
       res.end(
         JSON.stringify({
           error: { message: 'Failed to update agent model bindings' },
+        })
+      );
+    }
+  }
+}
+
+/**
+ * 获取编排历史
+ * GET /v1/workspaces/:id/items/:itemId/orchestration/history?since=2026-01-01T00:00:00Z&limit=100
+ *
+ * 返回持久化的编排事件历史，供前端时间线回放使用。
+ * since 参数为 ISO 8601 时间戳，可选，用于增量拉取。
+ * limit 参数控制最大返回条数，默认 100。
+ */
+export async function handleGetOrchestrationHistory(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  workspaceId: string,
+  itemId: string
+): Promise<void> {
+  try {
+    // 解析查询参数
+    const urlObj = new URL(
+      req.url || '',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const sinceParam = urlObj.searchParams.get('since');
+    const limitParam = urlObj.searchParams.get('limit');
+
+    const sinceMs = sinceParam ? new Date(sinceParam).getTime() : undefined;
+    const limit = limitParam
+      ? Math.min(Math.max(parseInt(limitParam, 10) || 100, 1), 1000)
+      : 100;
+
+    // 解析工作区路径
+    const wsPath = await resolveWorkspacePath(workspaceId);
+
+    if (!wsPath) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
+      return;
+    }
+
+    const manager = createLiriConfigManager(wsPath);
+    const store = createWorkItemStore(manager.dir, manager);
+    const item = store.get(itemId);
+
+    if (!item) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Work item not found' } }));
+      return;
+    }
+
+    // 查询历史
+    const adapter = getOrchestrationHistoryAdapter();
+    const itemDir = join(manager.dir, 'workitems');
+    const result = adapter.query(itemDir, itemId, sinceMs, limit);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'orchestration_history',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to get orchestration history' },
         })
       );
     }

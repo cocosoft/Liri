@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DAG 任务编排执行器
  *
  * 对标 Hermes agent_loop.py 的多任务并行编排模式：
@@ -14,6 +14,14 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+
+import { globalEventBus } from '../../core/events/EventBus.js';
+import { OrchestrationEventType } from '../events/OrchestrationEvents.js';
+import type {
+  OrchStepStartData,
+  OrchStepDeltaData,
+  OrchStepCompletedData,
+} from '../events/OrchestrationEvents.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -191,21 +199,77 @@ export class DagTaskExecutor {
     // 按拓扑层级分层执行
     const layers = this.buildLayers(sorted);
 
-    for (const layer of layers) {
+    // 发射 DAG 开始事件
+    try {
+      globalEventBus.publish(OrchestrationEventType.ORCH_START, {
+        workItemId: '',
+        tasks: sorted.map((id) => ({
+          id,
+          name: this.tasks.get(id)?.def.name ?? id,
+          dependsOn: this.tasks.get(id)?.def.dependsOn ?? [],
+        })),
+        layers,
+        totalTasks: this.tasks.size,
+      });
+    } catch {
+      // EventBus 发射失败不阻塞主流程
+    }
+
+    for (let layerIdx = 0; layerIdx < layers.length; layerIdx++) {
+      const layer = layers[layerIdx];
       const layerPromises = layer.map((taskId) => {
         const entry = this.tasks.get(taskId)!;
+
+        // 发射任务开始事件
+        try {
+          globalEventBus.publish(OrchestrationEventType.ORCH_TASK_START, {
+            taskId: entry.def.id,
+            taskName: entry.def.name,
+            layer: layerIdx,
+            parallelCount: layer.length,
+          });
+        } catch {
+          // EventBus 发射失败不阻塞
+        }
+
         return this.executeWithTimeout(entry, results);
       });
 
       const layerResults = await Promise.all(layerPromises);
       for (const result of layerResults) {
         results.set(result.taskId, result);
+
+        // 发射任务完成事件
+        try {
+          globalEventBus.publish(OrchestrationEventType.ORCH_TASK_END, {
+            taskId: result.taskId,
+            taskName: this.tasks.get(result.taskId)?.def.name ?? result.taskId,
+            success: result.success,
+            content: result.content,
+            error: result.error,
+            durationMs: result.durationMs,
+          });
+        } catch {
+          // EventBus 发射失败不阻塞
+        }
       }
     }
 
     const successCount = Array.from(results.values()).filter(
       (r) => r.success
     ).length;
+
+    // 发射 DAG 完成事件
+    try {
+      globalEventBus.publish(OrchestrationEventType.ORCH_END, {
+        totalTasks: this.tasks.size,
+        successCount,
+        failureCount: this.tasks.size - successCount,
+        totalDurationMs: Date.now() - overallStart,
+      });
+    } catch {
+      // EventBus 发射失败不阻塞
+    }
 
     logger.info('DAG 编排执行完成', {
       totalTasks: this.tasks.size,
@@ -326,6 +390,21 @@ export class DagTaskExecutor {
       results,
     };
 
+    // 发射步骤开始事件
+    const stepStartData: OrchStepStartData = {
+      taskId: entry.def.id,
+      stepName: entry.def.name,
+      dependsOn: entry.def.dependsOn,
+    };
+    try {
+      globalEventBus.publish(
+        OrchestrationEventType.ORCH_STEP_START,
+        stepStartData
+      );
+    } catch {
+      // EventBus 发射失败不阻塞
+    }
+
     try {
       const executeTask = entry.executor(context);
 
@@ -349,6 +428,37 @@ export class DagTaskExecutor {
         content = await executeTask;
       }
 
+      // 发射步骤增量输出事件
+      const deltaData: OrchStepDeltaData = {
+        taskId: entry.def.id,
+        stepName: entry.def.name,
+        output: content,
+      };
+      try {
+        globalEventBus.publish(
+          OrchestrationEventType.ORCH_STEP_DELTA,
+          deltaData
+        );
+      } catch {
+        // EventBus 发射失败不阻塞
+      }
+
+      // 发射步骤完成事件
+      const stepCompletedData: OrchStepCompletedData = {
+        taskId: entry.def.id,
+        stepName: entry.def.name,
+        duration: Date.now() - startTime,
+        status: 'success',
+      };
+      try {
+        globalEventBus.publish(
+          OrchestrationEventType.ORCH_STEP_COMPLETED,
+          stepCompletedData
+        );
+      } catch {
+        // EventBus 发射失败不阻塞
+      }
+
       logger.debug('DAG 任务完成', {
         taskId: entry.def.id,
         taskName: entry.def.name,
@@ -365,6 +475,22 @@ export class DagTaskExecutor {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      // 发射步骤完成事件（失败）
+      const stepCompletedData: OrchStepCompletedData = {
+        taskId: entry.def.id,
+        stepName: entry.def.name,
+        duration: Date.now() - startTime,
+        status: 'failed',
+      };
+      try {
+        globalEventBus.publish(
+          OrchestrationEventType.ORCH_STEP_COMPLETED,
+          stepCompletedData
+        );
+      } catch {
+        // EventBus 发射失败不阻塞
+      }
 
       logger.warn('DAG 任务失败', {
         taskId: entry.def.id,

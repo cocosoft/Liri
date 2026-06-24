@@ -876,6 +876,16 @@ export async function dispatchRoute(
   }
   if (
     method === 'GET' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration\/history$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration\/history$/
+    )!;
+    await self['handleGetOrchestrationHistory'](req, res, match[1], match[2]);
+    return true;
+  }
+  if (
+    method === 'GET' &&
     url.match(/^\/v1\/workspaces\/(.+)\/items\/(.+)\/orchestration$/)
   ) {
     const match = url.match(

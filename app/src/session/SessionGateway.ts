@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 统一会话网关
  * 整合所有Session相关模块，提供统一入口
  */
@@ -71,6 +71,7 @@ import type { SessionSource } from './key/SessionSource.js';
 import {
   SessionLifecycleEventBus,
   createSessionLifecycleEvent,
+  SessionLifecycleEvent,
 } from './lifecycle/index.js';
 import { SessionStore } from './SessionStore.js';
 import type { SessionStoreOptions } from './SessionStore.js';
@@ -391,7 +392,7 @@ export class SessionGateway {
     this.startFTSIndexPersistence();
 
     if (this.eventBus) {
-      this.eventBus.on('message:created', (event) => {
+      this.eventBus.on('message:created', (event: SessionLifecycleEvent) => {
         const { messageId, type, role, content, sessionKey } =
           event.metadata ?? {};
         if (messageId && typeof content === 'string') {
@@ -412,7 +413,7 @@ export class SessionGateway {
         }
       });
 
-      this.eventBus.on('session:deleted', (event) => {
+      this.eventBus.on('session:deleted', (event: SessionLifecycleEvent) => {
         const sessionId = event.sessionId;
         this.storage.getMessages(sessionId).then((messages) => {
           const engine = getFTS5SearchEngine();

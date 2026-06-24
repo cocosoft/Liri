@@ -1,10 +1,10 @@
-﻿/**
+/**
  * Agent 遥测
  * 每轮记录 turnCount/tokens/toolCalls/duration
- * 对齐 OpenClaw agents/harness/v2.ts diagnostic-events
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelMetrics } from '../monitoring/otel/OTelMetrics.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -106,6 +106,32 @@ export class AgentTelemetry {
     logger.debug(
       `Turn #${current.turnNumber}: ${current.inputTokens} in / ${current.outputTokens} out, ${current.toolCalls} tools, ${current.durationMs}ms`
     );
+
+    // 推送 OTel 指标（方案 9：AgentTelemetry → OTel Metrics）
+    try {
+      const otel = getOTelMetrics();
+      const attrs: Record<string, string | number | boolean> = {
+        modelName: current.modelName,
+        status: current.status,
+        sessionId: current.sessionId,
+      };
+
+      otel.recordHistogram('agent.turn.duration', current.durationMs, attrs);
+      otel.recordHistogram('agent.turn.input_tokens', current.inputTokens, {
+        modelName: current.modelName,
+      });
+      otel.recordHistogram('agent.turn.output_tokens', current.outputTokens, {
+        modelName: current.modelName,
+      });
+
+      if (current.toolCalls > 0) {
+        otel.incrementCounter('agent.turn.tool_calls', current.toolCalls, {
+          modelName: current.modelName,
+        });
+      }
+    } catch {
+      // OTel 不可用时不中断主流程
+    }
   }
 
   getSessionMetrics(sessionId: string): SessionMetrics | null {

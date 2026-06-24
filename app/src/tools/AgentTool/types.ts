@@ -38,6 +38,24 @@ export type AgentType =
 /**
  * Agent输入参数
  */
+/**
+ * 子任务定义（用于方案 7 并行执行）
+ */
+export interface SubTask {
+  /** 任务标识 */
+  id?: string;
+  /** 任务描述 */
+  description: string;
+  /** 任务提示词 */
+  prompt: string;
+  /** Agent类型覆盖 */
+  subagent_type?: AgentType;
+  /** Agent名称 */
+  name?: string;
+  /** 模型覆盖 */
+  model?: 'sonnet' | 'opus' | 'haiku';
+}
+
 export interface AgentInput {
   /** 任务描述 */
   description: string;
@@ -59,6 +77,8 @@ export interface AgentInput {
   cwd?: string;
   /** 隔离模式 */
   isolation?: 'worktree';
+  /** 并行子任务列表（非空时触发方案7并行执行） */
+  tasks?: SubTask[];
 }
 
 /**

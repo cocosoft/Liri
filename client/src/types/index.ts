@@ -116,3 +116,29 @@ export type {
   WorkItemFilter,
   ProjectViewMode,
 } from "./work";
+
+// ─── 编排时间线 ───
+export type {
+  TimelineEvent,
+  TimelineEventType,
+  SSETimelineEvent,
+  OrchestrationHistoryResponse,
+  CouncilStartData,
+  CouncilEndData,
+  CouncilAgentSpeakingData,
+  CouncilRoundData,
+  DagTaskStartData,
+  DagTaskProgressData,
+  DagTaskEndData,
+  SwarmDispatchData,
+  SwarmAgentStatusData,
+  ChainStartData,
+  ChainStepData,
+  PlanStepStartData,
+  PlanStepCompletedData,
+  AgentThinkingStartData,
+  AgentThinkingDeltaData,
+  AgentThinkingEndData,
+  AgentToolCallStartData,
+  AgentToolCallEndData,
+} from "./orchestration";

@@ -17,6 +17,9 @@ import type { AIProvider } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { modelRouter } from '@modules/ai';
 
+import { globalEventBus } from '../../core/events/EventBus.js';
+import { AgentEventType } from '../../agent/events/types.js';
+
 /**
  * 子代理进度事件类型
  */
@@ -154,6 +157,18 @@ export class SubAgentEngine {
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
 
+    // 发射 Agent 开始执行事件
+    try {
+      globalEventBus.publish(AgentEventType.EXECUTE_START, {
+        agentId,
+        turn: 0,
+        maxTurns,
+        message: `子代理 ${agentId} 开始执行`,
+      });
+    } catch {
+      // EventBus 发射失败不阻塞主流程
+    }
+
     try {
       const agentModel = modelRouter.resolve('agent');
       let llmClient = agentModel
@@ -170,6 +185,20 @@ export class SubAgentEngine {
 
       for (let turn = 0; turn < maxTurns; turn++) {
         if (abortController.signal.aborted) {
+          // 发射执行结束事件（被中断）
+          try {
+            globalEventBus.publish(AgentEventType.EXECUTE_END, {
+              agentId,
+              completed: false,
+              toolCallCount,
+              turnsUsed: turn,
+              durationMs: Date.now() - startTime,
+              error: 'Execution aborted by user',
+            });
+          } catch {
+            // EventBus 发射失败不阻塞主流程
+          }
+
           return this.buildResult(agentId, startTime, {
             completed: false,
             output: '子代理执行被中断',
@@ -182,6 +211,17 @@ export class SubAgentEngine {
             },
             error: 'Execution aborted by user',
           });
+        }
+
+        // 发射思考开始事件
+        try {
+          globalEventBus.publish(AgentEventType.THINKING_START, {
+            agentId,
+            turn,
+            message: `子代理第 ${turn + 1}/${maxTurns} 轮思考`,
+          });
+        } catch {
+          // EventBus 发射失败不阻塞主流程
         }
 
         onProgress?.({
@@ -204,6 +244,29 @@ export class SubAgentEngine {
           totalCompletionTokens += response.usage.completion_tokens || 0;
         }
 
+        // 发射思考增量事件（将 LLM 响应内容作为思考块推送）
+        try {
+          if (response.content) {
+            globalEventBus.publish(AgentEventType.THINKING_DELTA, {
+              agentId,
+              content: response.content,
+              turn,
+            });
+          }
+        } catch {
+          // EventBus 发射失败不阻塞主流程
+        }
+
+        // 发射思考结束事件
+        try {
+          globalEventBus.publish(AgentEventType.THINKING_END, {
+            agentId,
+            turn,
+          });
+        } catch {
+          // EventBus 发射失败不阻塞主流程
+        }
+
         if (response.tool_calls && response.tool_calls.length > 0) {
           const assistantMsg: ChatMessage = {
             role: 'assistant',
@@ -223,6 +286,18 @@ export class SubAgentEngine {
             if (abortController.signal.aborted) break;
 
             toolCallCount++;
+            // 发射工具调用开始事件
+            try {
+              globalEventBus.publish(AgentEventType.TOOL_CALL_START, {
+                agentId,
+                toolName: toolCall.name,
+                toolUseId: toolCall.id,
+                turn,
+              });
+            } catch {
+              // EventBus 发射失败不阻塞主流程
+            }
+
             onProgress?.({
               agentId,
               type: 'tool_use',
@@ -247,6 +322,35 @@ export class SubAgentEngine {
               tool_call_id: toolCall.id,
             });
 
+            // 发射工具调用增量事件
+            try {
+              globalEventBus.publish(AgentEventType.TOOL_CALL_DELTA, {
+                agentId,
+                toolName: toolCall.name,
+                toolUseId: toolCall.id,
+                content:
+                  typeof toolResult === 'string'
+                    ? toolResult
+                    : JSON.stringify(toolResult),
+                turn,
+              });
+            } catch {
+              // EventBus 发射失败不阻塞主流程
+            }
+
+            // 发射工具调用结束事件
+            try {
+              globalEventBus.publish(AgentEventType.TOOL_CALL_END, {
+                agentId,
+                toolName: toolCall.name,
+                toolUseId: toolCall.id,
+                status: 'completed',
+                turn,
+              });
+            } catch {
+              // EventBus 发射失败不阻塞主流程
+            }
+
             onProgress?.({
               agentId,
               type: 'tool_result',
@@ -269,6 +373,19 @@ export class SubAgentEngine {
             message: '子代理任务完成',
           });
 
+          // 发射执行结束事件
+          try {
+            globalEventBus.publish(AgentEventType.EXECUTE_END, {
+              agentId,
+              completed: true,
+              toolCallCount,
+              turnsUsed: turn + 1,
+              durationMs,
+            });
+          } catch {
+            // EventBus 发射失败不阻塞主流程
+          }
+
           return {
             agentId,
             completed: true,
@@ -287,6 +404,20 @@ export class SubAgentEngine {
 
       this.activeAgents.delete(agentId);
 
+      // 发射执行结束事件（达到最大轮次）
+      try {
+        globalEventBus.publish(AgentEventType.EXECUTE_END, {
+          agentId,
+          completed: false,
+          toolCallCount,
+          turnsUsed: maxTurns,
+          durationMs: Date.now() - startTime,
+          error: `Max turns (${maxTurns}) reached without completion`,
+        });
+      } catch {
+        // EventBus 发射失败不阻塞主流程
+      }
+
       return this.buildResult(agentId, startTime, {
         completed: false,
         output: '子代理执行达到最大轮次限制',
@@ -304,6 +435,17 @@ export class SubAgentEngine {
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      // 发射执行错误事件
+      try {
+        globalEventBus.publish(AgentEventType.EXECUTE_ERROR, {
+          agentId,
+          error: errorMessage,
+          toolCallCount,
+        });
+      } catch {
+        // EventBus 发射失败不阻塞主流程
+      }
 
       onProgress?.({
         agentId,

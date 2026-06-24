@@ -5,7 +5,8 @@
  */
 
 import { trace } from '@opentelemetry/api';
-import { LogLevel } from '../logs/Logger.js';
+import { LogLevel, addLogHandler } from '../logs/Logger.js';
+import type { LogHandler } from '../logs/Logger.js';
 import { StructuredLogger } from '../logs/StructuredLogger.js';
 import type { StructuredLogEntry } from '../logs/LogMemory.js';
 import { logConfigManager } from '../logs/config/LogConfig.js';
@@ -221,4 +222,42 @@ export function createOTelLoggerAdapter(
 ): OTelLoggerAdapter {
   otelLoggerAdapter = new OTelLoggerAdapter(otelTracing, config);
   return otelLoggerAdapter;
+}
+
+// ========== LogHandler 桥接（方案 11：Logger → OTel 日志导出） ==========
+
+/**
+ * 创建 OTel LogHandler：将 Logger 的日志条目标准化后桥接到 OTelLoggerAdapter
+ *
+ * @param adapter OTelLoggerAdapter 实例
+ * @returns LogHandler 回调，可直接传入 addLogHandler()
+ */
+export function createOTelLogHandler(adapter: OTelLoggerAdapter): LogHandler {
+  return (entry: StructuredLogEntry) => {
+    const errorObj = entry.error
+      ? Object.assign(new Error(entry.error.message), {
+          name: entry.error.name,
+          stack: entry.error.stack,
+        })
+      : undefined;
+
+    adapter.structured(
+      entry.level,
+      `[${entry.module}] ${entry.message}`,
+      entry.data,
+      errorObj
+    );
+  };
+}
+
+/**
+ * 注册 OTel LogHandler 到全局 Logger
+ * 返回取消注册函数，用于在 shutdown 时清理
+ *
+ * @param adapter OTelLoggerAdapter 实例
+ * @returns 取消注册函数
+ */
+export function registerOTelLogHandler(adapter: OTelLoggerAdapter): () => void {
+  const handler = createOTelLogHandler(adapter);
+  return addLogHandler(handler);
 }

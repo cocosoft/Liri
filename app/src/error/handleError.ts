@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,6 +21,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '../monitoring/otel/OTelTracing.js';
 
 /**
  * 统一错误处理选项
@@ -176,12 +177,40 @@ export async function handleError(
     ...options.context,
   });
 
-  // 4. EventBus publish 不在 handleError 内做
+  // 4. OTel Span 错误记录（方案 10：handleError → Span + 采样率）
+  //    仅 CRITICAL/HIGH 记录 exception + 设 ERROR 状态
+  //    MEDIUM 仅记录 exception，不改变 span 状态
+  //    LOW 跳过不记录
+  try {
+    const tracing = getOTelTracing();
+    const activeSpan = tracing.getActiveSpan();
+    if (activeSpan && appError.severity !== ErrorSeverity.LOW) {
+      const recordErr =
+        error instanceof Error ? error : new Error(appError.message);
+      if (
+        appError.severity === ErrorSeverity.CRITICAL ||
+        appError.severity === ErrorSeverity.HIGH
+      ) {
+        tracing.recordError(activeSpan, recordErr);
+      } else {
+        // MEDIUM: 仅记录 exception 事件，不改变 span 状态
+        activeSpan.addEvent('exception', {
+          'exception.message': appError.message,
+          'exception.type': appError.code || appError.name,
+          'exception.severity': appError.severity,
+        });
+      }
+    }
+  } catch {
+    // OTel 不可用时不中断主流程
+  }
+
+  // 5. EventBus publish 不在 handleError 内做
   //    原因：①消除对 core/events 的硬依赖 ②避免循环依赖
   //    替代：setupEventBridges 可订阅 handleError 的内存追踪记录后转发
   //    参见 channels/events/setupEventBridges.ts
 
-  // 5. 可选重新抛出
+  // 6. 可选重新抛出
   if (options.rethrow) {
     throw appError;
   }

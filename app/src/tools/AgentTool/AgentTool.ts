@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AgentTool - 创建子代理执行任务
  *
  * 功能:
@@ -37,6 +37,7 @@ import {
   buildChildMessage,
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
+import { ParallelOrchestrator } from './ParallelOrchestrator';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { modelRouter } from '@modules/ai';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
@@ -616,6 +617,64 @@ export class AgentTool implements Tool {
     });
 
     try {
+      // ========== 方案 7：并行执行 ==========
+      // 当 LLM 传入 tasks 数组时，路由到 ParallelOrchestrator 并行执行
+      if (agentInput.tasks && agentInput.tasks.length > 0) {
+        logger.info('Parallel execution started', {
+          agentId,
+          taskCount: agentInput.tasks.length,
+        });
+
+        const orchestrator = new ParallelOrchestrator();
+        const taskResults = await orchestrator.executeAll(
+          agentInput.tasks,
+          undefined,
+          agentInput.model
+        );
+
+        this.activeAgents.get(agentId)!.status = 'completed';
+
+        // 汇总结果为 JSON 字符串
+        const aggregatedOutput = taskResults
+          .map(
+            (r) =>
+              `[${r.success ? 'OK' : 'FAIL'}] ${r.name}: ${r.success ? r.output.substring(0, 500) : r.error}`
+          )
+          .join('\n---\n');
+
+        onProgress?.({
+          toolUseID: agentId,
+          data: {
+            type: 'agent_tool',
+            agentName: agentInput.name || agentId,
+            action: 'complete',
+            message: `Parallel execution completed: ${taskResults.filter((r) => r.success).length}/${taskResults.length} tasks succeeded`,
+            isRunning: false,
+            isComplete: true,
+          },
+        });
+
+        return {
+          status: ToolExecutionStatus.SUCCESS,
+          result: aggregatedOutput,
+          error: undefined,
+          executionTime: Date.now() - startTime,
+          output: aggregatedOutput,
+          errorOutput: '',
+          progress: [],
+          metadata: {
+            agentId,
+            agentType: effectiveType,
+            completed: true,
+            parallelTaskCount: taskResults.length,
+            parallelSuccessCount: taskResults.filter((r) => r.success).length,
+          },
+          executionId: agentId,
+          toolName: this.name,
+          timestamp: Date.now(),
+        };
+      }
+
       const builtInAgent = this.getBuiltInAgent(effectiveType);
       let systemPrompt =
         builtInAgent?.systemPrompt ||

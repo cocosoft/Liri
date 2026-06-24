@@ -57,11 +57,15 @@ export class MoARouter {
       .filter((name) => this.adapters.has(name))
       .map((name) => this.adapters.get(name)!);
 
-    const individualResults: Array<{
-      model: string;
-      response: string;
-      tokensUsed?: number;
-    }> = [];
+    // 使用 Map 避免并发写入竞态
+    const resultsMap = new Map<
+      string,
+      {
+        model: string;
+        response: string;
+        tokensUsed?: number;
+      }
+    >();
 
     const parallelQueries = selectedAdapters.map(async (adapter) => {
       try {
@@ -70,19 +74,22 @@ export class MoARouter {
           request.systemPrompt,
           request.maxTokens
         );
-        individualResults.push({
+        resultsMap.set(adapter.name, {
           model: adapter.name,
           response,
         });
       } catch (err) {
-        individualResults.push({
+        resultsMap.set(adapter.name, {
           model: adapter.name,
           response: `[Error: ${err instanceof Error ? err.message : 'Unknown error'}]`,
         });
       }
     });
 
-    await Promise.all(parallelQueries);
+    // 使用 Promise.allSettled 确保所有任务完成，不因单个失败而中断
+    await Promise.allSettled(parallelQueries);
+
+    const individualResults = Array.from(resultsMap.values());
 
     const aggregatorAdapter = this.adapters.get(request.aggregatorModel);
     let aggregated = '';

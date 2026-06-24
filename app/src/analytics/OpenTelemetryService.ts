@@ -1,6 +1,34 @@
-﻿/**
+/**
  * 分析系统
  * 实现简单的事件追踪和性能监控
+ *
+ * @deprecated 已由 monitoring/otel/ 模块取代
+ *   ┌──────────────────────┬──────────────────────────────────┐
+ *   │ 旧 API               │ 新 API                           │
+ *   ├──────────────────────┼──────────────────────────────────┤
+ *   │ createRootSpan()     │ OTelTracing.createSpan()         │
+ *   │ createChildSpan()    │ OTelTracing.createSpan()         │
+ *   │ runWithTrace()       │ OTelTracing.runWithSpan()        │
+ *   │ runWithChildTrace()  │ OTelTracing.runWithSpan()        │
+ *   │ endSpan()            │ span.end()                       │
+ *   │ addEvent()           │ span.addEvent()                  │
+ *   │ getActiveContext()   │ OTelTracing.getActiveSpan()      │
+ *   │ recordMetric()       │ OTelMetrics.recordHistogram()    │
+ *   │ incrementMetric()    │ OTelMetrics.incrementCounter()   │
+ *   └──────────────────────┴──────────────────────────────────┘
+ *   获取方式：
+ *   - import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing'
+ *   - import { getOTelMetrics } from '@modules/monitoring/otel/OTelMetrics'
+ *
+ *   迁移步骤：
+ *   1. 在目标文件中 import getOTelTracing / getOTelMetrics
+ *   2. 替换 createRootSpan → OTelTracing.createSpan，传递 activeSpan() 实现嵌套
+ *   3. 替换 runWithTrace → runWithSpan
+ *   4. 替换 recordMetric → recordHistogram / incrementCounter
+ *   5. 删除本文件引用
+ *
+ *   本模块保留仅用于向后兼容，新代码禁止使用。
+ *   计划移除批次：P3 — 预计 v9.0 完成全部迁移后删除此文件。
  */
 
 import { AsyncLocalStorage } from 'async_hooks';

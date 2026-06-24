@@ -62,7 +62,11 @@ import { createToolResult } from '../types/ToolResult';
 export class AskUserQuestionTool extends BaseTool {
   name = 'ask_user_question';
   override description =
-    '向用户提出一个多选题，提供 2-4 个选项。**严禁**将所有选项内容直接写进 question 文本中，每个选项的具体文字必须作为独立对象的 label 字段传入。question 字段只能是简洁的问题标题（如"请选择参与方式"），选项细节放在 options 数组中。系统会在选项末尾自动添加"其它"选项，允许用户输入自由文本。';
+    '向用户提出一个封闭式多选题（提供 2-4 个固定选项）。**此工具仅适用于选项可以穷举的问题（如"选择技术栈"、"选择模式"）**，不适用于开放性问题（如"你的目标是什么？"、"有什么想法？"）。' +
+    '对于开放性问题，请直接在正文中以自然语言提问，让用户自由回答，不要调用此工具。' +
+    '**严禁**将所有选项内容直接写进 question 文本中，每个选项的具体文字必须作为独立对象的 label 字段传入。' +
+    'question 字段只能是简洁的问题标题（如"请选择参与方式"），选项细节放在 options 数组中。' +
+    '系统会在选项末尾自动添加"其它"选项，允许用户输入自由文本。';
 
   override tags = [ToolTag.AI];
 

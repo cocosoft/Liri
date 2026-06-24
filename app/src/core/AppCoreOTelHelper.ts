@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenTelemetry 观测系统初始化
  * 从 AppCore.ts 提取，集中管理遥测初始化逻辑。
  *
@@ -51,6 +51,25 @@ export async function initializeOTelSystem(): Promise<void> {
       await import('@modules/monitoring/tracing/SessionTracing.js');
 
     getSessionTracing();
+
+    // 初始化 EventBus ↔ OTel Span 桥接
+    const { initEventBusOTelBridge } =
+      await import('./events/EventBusOTelBridge.js');
+    initEventBusOTelBridge();
+    logger.info('EventBus ↔ OTel Span 桥接初始化完成');
+
+    // 初始化 TokenTracker（Token 成本追踪和预算控制）
+    const { getTokenTracker } = await import('./events/TokenTracker.js');
+    getTokenTracker();
+    logger.info('TokenTracker 初始化完成');
+
+    // 初始化 OrchestrationMetrics（后端编排指标统计）
+    const { getOrchestrationMetrics } =
+      await import('./events/OrchestrationMetrics.js');
+    const orchMetrics = getOrchestrationMetrics();
+    // 对接 OTel Metrics，使编排指标通过 OTel 导出
+    orchMetrics.setOTelMetrics(otelMetrics);
+    logger.info('OrchestrationMetrics 初始化完成');
 
     logger.info('OTel 桥接组件初始化完成');
 

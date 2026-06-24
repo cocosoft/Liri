@@ -24,6 +24,8 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import aiService from '@modules/ai';
 import type { AIMessage } from '@modules/ai';
 import { getAgentRoleStore } from './AgentRoleStore.js';
+import { getAgentRegistry } from '../agent/registry/AgentRegistry.js';
+import type { AgentDefinition } from '../agent/registry/AgentRegistry.js';
 
 const logger = new Logger({
   module: 'CouncilOrchestrator',
@@ -67,6 +69,29 @@ const DEFAULT_AGENTS: CouncilAgentRole[] = [
     weight: 1.0,
   },
 ];
+
+// ============================================================
+// 将默认 Agent 注册到 AgentRegistry（启动时引导）
+// ============================================================
+
+function bootstrapAgentRegistry(): void {
+  const registry = getAgentRegistry();
+  const existing = registry.discoverAgents();
+  if (existing.length > 0) return; // 已有注册，跳过引导
+
+  registry.registerAgents(
+    DEFAULT_AGENTS.map((a) => ({
+      agentId: a.agentId,
+      name: a.name,
+      role: a.agentId,
+      expertise: a.expertise,
+      weight: a.weight,
+      systemPrompt: a.systemPrompt,
+      priority: a.weight >= 1.0 ? 8 : 6,
+    }))
+  );
+}
+bootstrapAgentRegistry();
 
 // ============================================================
 // 简易缓存（Map 实现，最大 15 条）
@@ -142,7 +167,7 @@ const ROLE_PROMPTS: Record<string, string> = {
 - 服务发现和负载均衡`,
 };
 
-/** Consensus 判定 system prompt */
+/** 共识判定 system prompt */
 const CONSENSUS_SYSTEM_PROMPT = `你是一位技术决策主持人。根据以下多位专家的辩论发言，做出共识判定。
 
 判定规则：
@@ -254,28 +279,36 @@ export class CouncilOrchestrator {
   }
 
   /**
-   * 从数据库加载启用的 Agent 角色，无数据时使用硬编码默认值
+   * 从数据库加载启用的 Agent 角色，无数据时尝试 AgentRegistry，最后回退到硬编码默认值
    */
   private async loadAgents(): Promise<CouncilAgentRole[]> {
     try {
       const store = getAgentRoleStore();
       const rows = await store.listEnabled();
 
-      if (rows.length === 0) {
-        return DEFAULT_AGENTS;
+      if (rows.length > 0) {
+        return rows.map((row) => ({
+          agentId: row.agentId,
+          name: row.name,
+          expertise: row.expertise,
+          weight: row.weight,
+          systemPrompt: row.systemPrompt,
+        }));
       }
-
-      return rows.map((row) => ({
-        agentId: row.agentId,
-        name: row.name,
-        expertise: row.expertise,
-        weight: row.weight,
-        systemPrompt: row.systemPrompt, // 传入 systemPrompt 供 buildRolePrompt 使用
-      }));
     } catch {
-      logger.warn('从数据库加载 Agent 角色失败，使用硬编码默认值');
-      return DEFAULT_AGENTS;
+      logger.warn('从数据库加载 Agent 角色失败');
     }
+
+    // 数据库无数据或无配置 → 尝试 AgentRegistry
+    const registry = getAgentRegistry();
+    const registered = registry.discoverAgents();
+    if (registered.length > 0) {
+      return registered.map(toCouncilAgentRole);
+    }
+
+    // 最后回退到硬编码默认值
+    logger.warn('AgentRegistry 为空，使用硬编码默认 Agent 列表');
+    return DEFAULT_AGENTS;
   }
 
   /**
@@ -588,4 +621,17 @@ export class CouncilOrchestrator {
     const normalized = topic.trim().slice(0, 100);
     return `${normalized}::${topic.length}`;
   }
+}
+
+/**
+ * 将 AgentDefinition 适配为 CouncilAgentRole
+ */
+function toCouncilAgentRole(def: AgentDefinition): CouncilAgentRole {
+  return {
+    agentId: def.agentId,
+    name: def.name,
+    expertise: def.expertise,
+    weight: def.weight,
+    systemPrompt: def.systemPrompt,
+  };
 }

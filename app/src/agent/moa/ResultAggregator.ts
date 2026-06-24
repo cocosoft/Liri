@@ -1,6 +1,9 @@
-﻿/**
+/**
  * 多 Agent 输出聚合器
  * 支持投票聚合、加权聚合、最佳选择三种模式
+ *
+ * P2 可选增强：
+ * - 当关键词重叠率在 0.3-0.6 模糊区间时，可配置 LLM 判断器做二次确认
  */
 
 import { Logger } from '@modules/monitoring';
@@ -22,6 +25,31 @@ export enum AggregationStrategy {
   BEST_SELECTION = 'best_selection',
 }
 
+// ========== P2 增强：LLM 共识判断类型（可选） ==========
+
+/**
+ * LLM 共识判断结果
+ */
+export interface LLMConsensusResult {
+  /** LLM 判定是否达成共识 */
+  hasConsensus: boolean;
+  /** LLM 置信度（0~1） */
+  confidence: number;
+  /** LLM 简短解释（可选） */
+  explanation?: string;
+}
+
+/**
+ * LLM 共识判断回调
+ * 当关键词重叠率在 0.3-0.6 模糊区间时，调用此回调做二次确认
+ *
+ * @param results 各 Agent 的有效输出结果
+ * @returns 共识判断结果
+ */
+export type LLMConsensusJudge = (
+  results: ScheduledTaskResult[]
+) => Promise<LLMConsensusResult>;
+
 /**
  * 聚合配置
  */
@@ -37,6 +65,13 @@ export interface AggregationConfig {
 
   /** 最少有效结果数，不足时视为聚合失败 */
   minValidResults?: number;
+
+  /**
+   * LLM 共识判断器（P2 可选）
+   * 当关键词重叠率在 0.3-0.6 模糊区间时调用，替代纯关键词判断
+   * 不配置时纯用关键词重叠率
+   */
+  llmJudge?: LLMConsensusJudge;
 }
 
 /**
@@ -172,13 +207,52 @@ export class ResultAggregator {
     }
 
     const consensusRate = this.calculateConsensus(validResults);
-    const duration = Date.now() - startTime;
+
+    // P2 增强：当关键词重叠率在 0.3-0.6 模糊区间时，用 LLM 做二次判断
+    let finalConsensusRate = consensusRate;
+    if (consensusRate >= 0.3 && consensusRate < 0.6 && cfg.llmJudge) {
+      try {
+        logger.info('关键词重叠率模糊，触发 LLM 共识判断', {
+          consensusRate: consensusRate.toFixed(2),
+          validResults: validResults.length,
+        });
+        const llmResult = await cfg.llmJudge(validResults);
+        if (llmResult.hasConsensus) {
+          // LLM 确认有共识，上调置信度
+          finalConsensusRate = Math.max(
+            consensusRate,
+            0.7 + llmResult.confidence * 0.2
+          );
+          logger.info('LLM 判定有共识', {
+            from: consensusRate.toFixed(2),
+            to: finalConsensusRate.toFixed(2),
+            confidence: llmResult.confidence.toFixed(2),
+            explanation: llmResult.explanation,
+          });
+        } else {
+          // LLM 认为无共识，下调置信度
+          finalConsensusRate = Math.min(consensusRate, 0.25);
+          logger.info('LLM 判定无共识', {
+            from: consensusRate.toFixed(2),
+            to: finalConsensusRate.toFixed(2),
+            confidence: llmResult.confidence.toFixed(2),
+            explanation: llmResult.explanation,
+          });
+        }
+      } catch (err) {
+        // LLM 调用失败时，回退到关键词重叠率，不中断主流程
+        logger.warn('LLM 共识判断失败，回退到关键词重叠率', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
     logger.info('结果聚合完成', {
       strategy: cfg.strategy,
       validResults: validResults.length,
       totalResults: results.length,
-      consensusRate: consensusRate.toFixed(2),
+      consensusRate: finalConsensusRate.toFixed(2),
+      llmEnhanced: consensusRate !== finalConsensusRate,
     });
 
     return {
@@ -187,8 +261,8 @@ export class ResultAggregator {
       stats: {
         totalResults: results.length,
         validResults: validResults.length,
-        consensusRate,
-        aggregationDurationMs: duration,
+        consensusRate: finalConsensusRate,
+        aggregationDurationMs: Date.now() - startTime,
       },
       individualResults: results,
       success: true,
@@ -207,7 +281,9 @@ export class ResultAggregator {
     const voteCount = new Map<string, { count: number; original: string }>();
 
     for (const r of results) {
-      const normalized = this.normalizeContent(r.content);
+      // 使用关键词集合作为标准化 key 进行比较
+      const keyPoints = this.extractKeyPoints(r.content);
+      const normalized = [...keyPoints].sort().join('|');
       const existing = voteCount.get(normalized);
       if (existing) {
         existing.count++;
@@ -283,26 +359,156 @@ export class ResultAggregator {
   }
 
   /**
-   * 计算共识率
-   * 基于结果内容的相似度估算一致程度
+   * 计算共识率（关键词重叠率 / Jaccard 相似度）
+   *
+   * 将每个结果按标点/换行拆分为关键词块集合，
+   * 计算所有集合的交集大小 / 并集大小。
+   * 0.0 = 完全无共识，1.0 = 完全一致。
+   *
+   * 为什么不用 embedding 语义相似度：
+   * - 需要额外 embedding API 调用（成本 + 延迟）
+   * - 不同语言结果难以直接比较
+   * - 短文本相似度计算不稳定
+   * - 关键词重叠在 80% 场景下已足够实用
    */
   private calculateConsensus(results: ScheduledTaskResult[]): number {
     if (results.length <= 1) return 1.0;
 
-    const normalized = results.map((r) => this.normalizeContent(r.content));
-    const unique = new Set(normalized);
+    // 提取每个结果的关键词集合
+    const allKeyPoints = results.map((r) => this.extractKeyPoints(r.content));
 
-    // 完全一致 = 1.0，全部不同 = 0.0
-    return 1.0 - (unique.size - 1) / (normalized.length - 1);
+    // 计算交集 (Jaccard: intersection / union)
+    const intersection = allKeyPoints.reduce(
+      (acc, set) => new Set([...acc].filter((k) => set.has(k))),
+      allKeyPoints[0]
+    );
+    const union = new Set(allKeyPoints.flatMap((set) => [...set]));
+
+    return union.size === 0 ? 0 : intersection.size / union.size;
   }
 
   /**
-   * 标准化内容用于比较
+   * 从文本中提取关键词块集合
+   * 按标点符号、换行、空格拆分，过滤停用词和短词
    */
-  private normalizeContent(content: string): string {
-    return content
-      .toLowerCase()
-      .replace(/[^\w\u4e00-\u9fff]/g, '')
-      .trim();
+  private extractKeyPoints(content: string): Set<string> {
+    // 按中英文标点、换行、空格拆分
+    const rawTokens = content
+      .split(/[，,。.！!？?；;：:\n\r\s]+/)
+      .filter(Boolean);
+
+    // 过滤停用词（常见无意义词）和过短的词
+    const stopWords = new Set([
+      '的',
+      '了',
+      '是',
+      '在',
+      '我',
+      '有',
+      '和',
+      '就',
+      '不',
+      '人',
+      '都',
+      '一',
+      '一个',
+      '上',
+      '也',
+      '很',
+      '到',
+      '说',
+      '要',
+      '去',
+      '你',
+      '会',
+      '着',
+      '没有',
+      '看',
+      '好',
+      '自己',
+      '这',
+      '他',
+      '她',
+      '它',
+      '们',
+      '那',
+      '什么',
+      '怎么',
+      '如何',
+      '为',
+      '对',
+      '与',
+      'the',
+      'a',
+      'an',
+      'is',
+      'are',
+      'was',
+      'were',
+      'be',
+      'been',
+      'being',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'may',
+      'might',
+      'can',
+      'shall',
+      'to',
+      'of',
+      'in',
+      'for',
+      'on',
+      'with',
+      'at',
+      'by',
+      'from',
+      'as',
+      'into',
+      'through',
+      'during',
+      'before',
+      'after',
+      'and',
+      'or',
+      'but',
+      'not',
+      'no',
+      'if',
+      'so',
+      'than',
+      'that',
+      'this',
+      'these',
+      'those',
+      'it',
+      'its',
+      'we',
+      'our',
+      'you',
+      'your',
+      'they',
+      'them',
+      'their',
+      'he',
+      'him',
+      'his',
+      'she',
+      'her',
+    ]);
+
+    const keyPoints = rawTokens
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length >= 2 && !stopWords.has(t));
+
+    return new Set(keyPoints);
   }
 }

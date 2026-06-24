@@ -1,6 +1,13 @@
 /**
  * Span上下文管理
  * 基于AsyncLocalStorage实现跨异步操作的上下文传递
+ *
+ * @deprecated 已由 @opentelemetry/api 的 context API 取代
+ *   - 使用 context.with() / context.active() 替代 AsyncLocalStorage
+ *   - 使用 OTelTracing.getActiveSpan() 替代 getCurrentContext()
+ *   - import { context, trace } from '@opentelemetry/api'
+ *   本模块保留仅用于向后兼容，新代码禁止使用。
+ *   计划移除批次：P3 — 预计 v9.0 完成全部迁移后删除此文件。
  */
 
 import { AsyncLocalStorage } from 'async_hooks';

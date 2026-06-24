@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 并行 Agent 调度器
  * 同时调度多个 Agent 执行，收集结果，支持超时控制和并发限制
  */
@@ -7,6 +7,44 @@ import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger();
+
+/**
+ * 信号量 — 控制最大并发数
+ */
+class Semaphore {
+  private current = 0;
+  private queue: Array<() => void> = [];
+
+  constructor(private maxConcurrency: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.current < this.maxConcurrency) {
+      this.current++;
+      return;
+    }
+    return new Promise<void>((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  release(): void {
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    } else {
+      this.current = Math.max(0, this.current - 1);
+    }
+  }
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.release();
+    }
+  }
+}
 
 /**
  * 调度的 Agent 任务
@@ -35,6 +73,9 @@ export interface ScheduledAgentTask {
 
   /** 预估成本（美元，可选，用于预算控制） */
   estimatedCost?: number;
+
+  /** 优先级（数值越大优先级越高，可选，默认 0） */
+  priority?: number;
 }
 
 /**
@@ -112,6 +153,7 @@ export interface AgentExecutor {
 export class ParallelAgentScheduler {
   private executor: AgentExecutor;
   private defaultTimeoutMs: number;
+  private semaphore: Semaphore;
   private maxConcurrency: number;
 
   /**
@@ -126,6 +168,7 @@ export class ParallelAgentScheduler {
   ) {
     this.executor = executor;
     this.defaultTimeoutMs = defaultTimeoutMs;
+    this.semaphore = new Semaphore(maxConcurrency);
     this.maxConcurrency = maxConcurrency;
   }
 
@@ -133,6 +176,7 @@ export class ParallelAgentScheduler {
    * 设置最大并发数
    */
   setMaxConcurrency(concurrency: number): void {
+    this.semaphore = new Semaphore(concurrency);
     this.maxConcurrency = concurrency;
   }
 
@@ -144,7 +188,7 @@ export class ParallelAgentScheduler {
   }
 
   /**
-   * 并行执行多个 Agent 任务
+   * 并行执行多个 Agent 任务（按优先级排序，信号量控制并发）
    * @param tasks 任务列表
    * @returns 并行调度执行结果
    */
@@ -152,15 +196,25 @@ export class ParallelAgentScheduler {
     tasks: ScheduledAgentTask[]
   ): Promise<ParallelScheduleResult> {
     const startTime = Date.now();
-    const results: ScheduledTaskResult[] = [];
 
-    // 分批执行以控制并发
-    for (let i = 0; i < tasks.length; i += this.maxConcurrency) {
-      const batch = tasks.slice(i, i + this.maxConcurrency);
-      const batchResults = await Promise.all(
-        batch.map((task) => this.executeSingle(task))
-      );
-      results.push(...batchResults);
+    // 按优先级降序排序（数值越大优先级越高）
+    const sorted = [...tasks].sort(
+      (a, b) => (b.priority || 0) - (a.priority || 0)
+    );
+
+    // 信号量控制并发 + Promise.allSettled 确保不因个别失败中断
+    const settledResults = await Promise.allSettled(
+      sorted.map((task) =>
+        this.semaphore.execute(() => this.executeSingle(task))
+      )
+    );
+
+    const results: ScheduledTaskResult[] = [];
+    for (const settled of settledResults) {
+      if (settled.status === 'fulfilled') {
+        results.push(settled.value);
+      }
+      // settled 为 rejected 理论上不会发生（executeSingle 内部 catch 所有异常）
     }
 
     const completedCount = results.filter(

@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * OpenTelemetry 追踪系统
  */
@@ -70,15 +70,23 @@ export class OTelTracing {
    * 开始一个Span
    * @param name Span名称
    * @param attributes Span属性
+   * @param parentSpan 父Span（可选，用于建立父子关系）
    * @returns Span
    */
   startSpan(
     name: string,
-    attributes?: Record<string, string | number | boolean>
+    attributes?: Record<string, string | number | boolean>,
+    parentSpan?: Span
   ): Span {
-    const span = this.tracer.startSpan(name, {
-      attributes,
-    });
+    let span: Span;
+
+    if (parentSpan) {
+      // 通过 Context 建立父子关系
+      const parentCtx = trace.setSpan(context.active(), parentSpan);
+      span = this.tracer.startSpan(name, { attributes }, parentCtx);
+    } else {
+      span = this.tracer.startSpan(name, { attributes });
+    }
 
     const spanId = span.spanContext().spanId;
     this.activeSpans.set(spanId, span);

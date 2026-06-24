@@ -20,6 +20,13 @@ import type {
   CouncilStreamEvent,
   ConsensusResult,
 } from './CouncilTypes.js';
+import { globalEventBus } from '../core/events/EventBus.js';
+import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
+import type {
+  CouncilRoundStartData,
+  CouncilAgentSpeakingData,
+  CouncilAgentDeltaData,
+} from '../agent/events/OrchestrationEvents.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'CouncilEngine', level: LogLevel.INFO });
@@ -169,6 +176,17 @@ export class CouncilEngine {
           timestamp: Date.now(),
         });
 
+        // 发布辩论回合开始事件
+        const roundStartData: CouncilRoundStartData = {
+          round,
+          totalRounds: session.maxRounds,
+          sessionId,
+        };
+        globalEventBus.publish(
+          OrchestrationEventType.COUNCIL_ROUND_START,
+          roundStartData
+        );
+
         // 确定本轮发言类型
         const statementType: CouncilStatement['type'] =
           round === 1
@@ -179,6 +197,18 @@ export class CouncilEngine {
 
         // 每个 Agent 依次发言（逐 Agent try/catch，失败时跳过该 Agent 继续下一轮）
         for (const agent of session.agents) {
+          // 发布 Agent 开始发言事件
+          const speakingData: CouncilAgentSpeakingData = {
+            agentId: agent.agentId,
+            agentName: agent.name,
+            round,
+            sessionId,
+          };
+          globalEventBus.publish(
+            OrchestrationEventType.COUNCIL_AGENT_SPEAKING,
+            speakingData
+          );
+
           try {
             const response = await statementCallback(
               agent.agentId,
@@ -211,6 +241,20 @@ export class CouncilEngine {
               statement,
               timestamp: Date.now(),
             });
+
+            // 发布 Agent 发言完整内容事件
+            const deltaData: CouncilAgentDeltaData = {
+              agentId: agent.agentId,
+              agentName: agent.name,
+              content: response.content,
+              round,
+              isFinal: true,
+              sessionId,
+            };
+            globalEventBus.publish(
+              OrchestrationEventType.COUNCIL_AGENT_DELTA,
+              deltaData
+            );
           } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             logger.warn(
@@ -242,6 +286,20 @@ export class CouncilEngine {
               statement: placeholder,
               timestamp: Date.now(),
             });
+
+            // 发布 Agent 发言失败事件
+            const errorDelta: CouncilAgentDeltaData = {
+              agentId: agent.agentId,
+              agentName: agent.name,
+              content: `[${agent.name} 本轮发言失败，已跳过]`,
+              round,
+              isFinal: true,
+              sessionId,
+            };
+            globalEventBus.publish(
+              OrchestrationEventType.COUNCIL_AGENT_DELTA,
+              errorDelta
+            );
 
             // 继续下一个 Agent，不中断整个辩论
           }

@@ -239,6 +239,7 @@ function playWavFile(filePath: string): Promise<void> {
  */
 export class PiperTTSProvider implements TTSProvider {
   readonly name = 'piper';
+  readonly supportedFormats = ['wav'];
 
   private config: Required<PiperTTSConfig>;
   private voices: TTSVoice[];

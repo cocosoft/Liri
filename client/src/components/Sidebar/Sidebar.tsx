@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon } from "../../assets/icons";
+import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon, WaveformIcon } from "../../assets/icons";
 
 interface MenuItem {
   id: string;
@@ -20,6 +20,7 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "coding", label: "开发", icon: DevIcon, path: "/dev/terminal" },
   { id: "cron", label: "定时", icon: CronIcon, path: "/cron" },
   { id: "knowledge", label: "知识库", icon: KnowledgeIcon, path: "/knowledge" },
+  { id: "tts", label: "语音合成", icon: WaveformIcon, path: "/tts" },
 ];
 
 /** 管理折叠：模型/技能/MCP/频道/文件 */

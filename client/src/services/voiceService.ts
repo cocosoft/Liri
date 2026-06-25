@@ -251,6 +251,94 @@ const voiceService = {
       });
     }
   },
+
+  // ═══════════════════════════════════════════
+  // TTS 合成相关方法
+  // ═══════════════════════════════════════════
+
+  /**
+   * 获取 TTS 提供商列表
+   * 底层调用 GET /v1/voice/providers，由后端返回已注册的语音提供商 ID 列表。
+   */
+  async getTTSProviders(): Promise<string[]> {
+    const response = await http.get<string[]>("/v1/voice/providers");
+    return response;
+  },
+
+  /**
+   * 获取 TTS 提供商详细信息列表
+   * 底层调用 GET /v1/tts/providers，返回含 supportedFormats 的详情。
+   */
+  async getTTSProvidersDetail(): Promise<
+    Array<{ name: string; supportedFormats: string[] }>
+  > {
+    const response = await http.get<
+      Array<{ name: string; supportedFormats: string[] }>
+    >("/v1/tts/providers");
+    return response;
+  },
+
+  /**
+   * 获取 TTS 健康状态
+   * 底层调用 GET /v1/tts/health。
+   */
+  async getTTSHealth(): Promise<{
+    status: string;
+    providers: string[];
+    providerDetails: Array<{ name: string; supportedFormats: string[] }>;
+  }> {
+    const response = await http.get<{
+      status: string;
+      providers: string[];
+      providerDetails: Array<{ name: string; supportedFormats: string[] }>;
+    }>("/v1/tts/health");
+    return response;
+  },
+
+  /**
+   * 保存指定提供商的配置信息
+   *
+   * @param provider 提供商 ID（如 "openai"、"piper"）
+   * @param config   Provider 专用配置对象
+   */
+  async saveProviderConfig(
+    provider: string,
+    config: Record<string, unknown>,
+  ): Promise<void> {
+    await http.post(`/v1/tts/providers/${provider}/config`, config);
+  },
+
+  /**
+   * 合成语音（含格式选择）
+   * 在基础 synthesizeSpeech 上扩展 format 参数；后端当前可能忽略 format。
+   *
+   * @param text    待合成文本
+   * @param options 合成选项（voiceId / format 等）
+   */
+  async synthesizeWithFormat(
+    text: string,
+    options?: { voiceId?: string; format?: string },
+  ): Promise<string> {
+    const response = await http.post<{ audioUrl: string }>("/v1/voice/tts", {
+      text,
+      voiceId: options?.voiceId,
+      format: options?.format,
+    });
+    return response.audioUrl;
+  },
+
+  /**
+   * 检测 TTS 服务健康状态
+   * 后端应返回 { status: "ok" } 或 { status: "error", message: string }。
+   * 后端尚未实现此端点时返回 "unavailable"。
+   */
+  async checkTTSHealth(): Promise<{ status: string; message?: string }> {
+    try {
+      return await http.get("/v1/voice/health");
+    } catch {
+      return { status: "unavailable", message: "健康检测端点未实现" };
+    }
+  },
 };
 
 export { voiceService };

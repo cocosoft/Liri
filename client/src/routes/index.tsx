@@ -30,6 +30,7 @@ const BuddyPage = lazy(() => import("../components/views/BuddyPage"));
 const SkillMarketPage = lazy(() => import("../components/views/SkillMarketPage"));
 const MCPMarketPage = lazy(() => import("../components/views/MCPMarketPage"));
 const ModelPage = lazy(() => import("../components/views/ModelPage"));
+const TTSPage = lazy(() => import("../components/views/TTSPage"));
 // routes/index.tsx 原有保留路由
 const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
@@ -53,6 +54,9 @@ export const routes: RouteObject[] = [
 
   // 知识库
   { path: "/knowledge", element: <AuthGuard><KnowledgePage /></AuthGuard> },
+
+  // TTS 语音合成
+  { path: "/tts", element: <AuthGuard><TTSPage /></AuthGuard> },
 
   // 开发者工具
   { path: "/dev", element: <Navigate to="/dev/terminal" replace /> },

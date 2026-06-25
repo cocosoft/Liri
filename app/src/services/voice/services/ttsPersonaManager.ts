@@ -44,6 +44,8 @@ export interface TTSPersona {
   speed: number;
   /** 语言代码 */
   language: string;
+  /** 音频格式（如 'mp3', 'wav'），可选 */
+  format?: string;
 }
 
 /**
@@ -67,6 +69,9 @@ export class TTSPersonaManager {
   /** Agent → 人设绑定关系 */
   private static bindings: Map<string, string> = new Map();
 
+  /** 默认人设 ID */
+  private static defaultPersonaId: string | null = null;
+
   /** ID 计数器 */
   private static nextId: number = 1;
 
@@ -75,6 +80,19 @@ export class TTSPersonaManager {
    */
   static list(): TTSPersona[] {
     return Array.from(TTSPersonaManager.personas.values());
+  }
+
+  /**
+   * 列出人设详情列表（含绑定 Agent 和默认状态）
+   */
+  static listDetail(): Array<
+    TTSPersona & { isActive: boolean; boundAgentIds: string[] }
+  > {
+    return Array.from(TTSPersonaManager.personas.values()).map((persona) => ({
+      ...persona,
+      isActive: persona.id === TTSPersonaManager.defaultPersonaId,
+      boundAgentIds: TTSPersonaManager.getAgentBindings(persona.id),
+    }));
   }
 
   /**
@@ -100,6 +118,7 @@ export class TTSPersonaManager {
       voice: options.voice,
       speed: options.speed,
       language: options.language,
+      format: options.format,
     };
 
     TTSPersonaManager.personas.set(id, persona);
@@ -229,6 +248,53 @@ export class TTSPersonaManager {
     return Array.from(TTSPersonaManager.bindings.entries()).map(
       ([agentId, personaId]) => ({ agentId, personaId })
     );
+  }
+
+  /**
+   * 获取人设的绑定 Agent 列表
+   */
+  static getAgentBindings(personaId: string): string[] {
+    const agents: string[] = [];
+    for (const [agentId, pid] of TTSPersonaManager.bindings) {
+      if (pid === personaId) {
+        agents.push(agentId);
+      }
+    }
+    return agents;
+  }
+
+  /**
+   * 设为默认人设
+   */
+  static setDefault(personaId: string | null): boolean {
+    if (personaId === null) {
+      TTSPersonaManager.defaultPersonaId = null;
+      return true;
+    }
+    const persona = TTSPersonaManager.personas.get(personaId);
+    if (!persona) {
+      logger.warn('TTSPersonaManager · 设置默认人设失败：不存在', {
+        personaId,
+      });
+      return false;
+    }
+    TTSPersonaManager.defaultPersonaId = personaId;
+    return true;
+  }
+
+  /**
+   * 获取默认人设 ID
+   */
+  static getDefaultId(): string | null {
+    return TTSPersonaManager.defaultPersonaId;
+  }
+
+  /**
+   * 获取默认人设
+   */
+  static getDefault(): TTSPersona | undefined {
+    if (!TTSPersonaManager.defaultPersonaId) return undefined;
+    return TTSPersonaManager.personas.get(TTSPersonaManager.defaultPersonaId);
   }
 
   /**

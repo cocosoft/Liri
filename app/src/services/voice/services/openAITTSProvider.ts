@@ -55,6 +55,7 @@ export interface OpenAITTSConfig {
  */
 export class OpenAITTSProvider implements TTSProvider {
   readonly name = 'openai';
+  readonly supportedFormats = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
 
   private config: OpenAITTSConfig;
   private abortController: AbortController | null = null;
@@ -92,11 +93,13 @@ export class OpenAITTSProvider implements TTSProvider {
       return { success: false, error: '合成文本不能为空' };
     }
 
+    const format = options.format ?? this.config.format;
+
     const body = {
       model: this.config.model,
       input: options.text,
       voice: voiceId,
-      response_format: this.config.format,
+      response_format: format,
       speed: options.speed ?? 1.0,
     };
 
@@ -126,7 +129,7 @@ export class OpenAITTSProvider implements TTSProvider {
             audioDurationSec: durationEstimate,
             voice,
             audioData: audioBuffer,
-            audioFormat: this.config.format,
+            audioFormat: format,
           };
         } catch (error) {
           const errorMsg =
@@ -155,11 +158,13 @@ export class OpenAITTSProvider implements TTSProvider {
     const voiceId = options.voice || 'alloy';
     const voice = OPENAI_VOICES.find((v) => v.id === voiceId);
 
+    const format = options.format ?? this.config.format;
+
     const body = {
       model: this.config.model,
       input: options.text,
       voice: voiceId,
-      response_format: this.config.format,
+      response_format: format,
       speed: options.speed ?? 1.0,
     };
 

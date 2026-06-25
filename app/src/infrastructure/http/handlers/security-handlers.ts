@@ -87,6 +87,7 @@ export async function handleQueryAuditLogs(
     );
     const sessionId = url.searchParams.get('sessionId') || undefined;
     const riskLevel = url.searchParams.get('riskLevel') || undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const decision = (url.searchParams.get('decision') as any) || undefined;
     const limitStr = url.searchParams.get('limit');
     const limit = limitStr ? parseInt(limitStr, 10) : undefined;

@@ -224,7 +224,7 @@ export async function handleGetVoiceSettings(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { createVoiceService } = await import('@modules/services/voice');
+    const { createVoiceService } = await import('../../../services/voice');
     const voiceService = createVoiceService();
     const config = voiceService.getConfig();
 
@@ -264,7 +264,7 @@ export async function handleUpdateVoiceSettings(
     const body = await readRequestBody(req);
     const settings = JSON.parse(body);
 
-    const { createVoiceService } = await import('@modules/services/voice');
+    const { createVoiceService } = await import('../../../services/voice');
     const voiceService = createVoiceService();
     voiceService.updateConfig({
       language:
@@ -438,6 +438,12 @@ export async function handleVoiceStream(
 
 /**
  * 处理TTS语音合成请求 POST /v1/voice/tts
+ *
+ * 请求体参数：
+ *   - text: 合成文本（必需）
+ *   - voiceId: 语音 ID（可选）
+ *   - provider: TTS 提供者名称（可选，默认使用默认提供者）
+ *   - format: 音频格式（可选，如 'mp3', 'wav', 'opus'，仅对支持多格式的 Provider 生效）
  */
 export async function handleTTSSynthesize(
   req: http.IncomingMessage,
@@ -445,26 +451,31 @@ export async function handleTTSSynthesize(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { text, voiceId } = JSON.parse(body);
+    const { text, voiceId, provider, format } = JSON.parse(body);
 
     const { TTSRegistry, EdgeTTSProvider } =
-      await import('@modules/services/voice/services/ttsProvider');
+      await import('../../../services/voice/services/ttsProvider');
 
     if (TTSRegistry.getProviderNames().length === 0) {
       TTSRegistry.register(new EdgeTTSProvider(), true);
     }
 
-    const result = await TTSRegistry.speak({
-      text,
-      voice: voiceId || 'zh-CN-XiaoxiaoNeural',
-    });
+    const result = await TTSRegistry.speak(
+      {
+        text,
+        voice: voiceId || 'zh-CN-XiaoxiaoNeural',
+        format,
+      },
+      provider
+    );
 
     if (result.success && result.audioData) {
+      const audioFormat = result.audioFormat || 'mp3';
       const audioBase64 = result.audioData.toString('base64');
-      const audioUrl = `data:audio/mp3;base64,${audioBase64}`;
+      const audioUrl = `data:audio/${audioFormat};base64,${audioBase64}`;
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ audioUrl }));
+      res.end(JSON.stringify({ audioUrl, audioFormat }));
     } else {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
@@ -518,6 +529,9 @@ export async function handleListVoiceProviders(
 
 /**
  * 处理列出语音列表请求 GET /v1/voice/voices
+ *
+ * 支持查询参数：
+ *   - provider: 指定 TTS 提供者名称（可选，默认使用默认提供者）
  */
 export async function handleListVoices(
   req: http.IncomingMessage,
@@ -525,13 +539,19 @@ export async function handleListVoices(
 ): Promise<void> {
   try {
     const { TTSRegistry, EdgeTTSProvider } =
-      await import('@modules/services/voice/services/ttsProvider');
+      await import('../../../services/voice/services/ttsProvider');
 
     if (TTSRegistry.getProviderNames().length === 0) {
       TTSRegistry.register(new EdgeTTSProvider(), true);
     }
 
-    const ttsProvider = TTSRegistry.getProvider();
+    // 解析 provider 查询参数
+    const queryStr = req.url?.includes('?')
+      ? new URL(req.url, 'http://localhost').searchParams
+      : null;
+    const providerName = queryStr?.get('provider') || undefined;
+
+    const ttsProvider = TTSRegistry.getProvider(providerName);
     const voices = ttsProvider ? ttsProvider.getVoices() : [];
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -557,6 +577,494 @@ export async function handleTestWakeWord(
   } catch (err) {
     logger.error('测试唤醒词失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'test_wakeword' });
+    sendError(res, err);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// TTS Provider 管理
+// ═════════════════════════════════════════════════════════════════
+
+/**
+ * 处理列出 TTS 提供者列表 GET /v1/tts/providers
+ *
+ * 返回所有已注册 TTS 提供者的名称和其支持的音频格式。
+ */
+export async function handleListTTSProviders(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSRegistry, EdgeTTSProvider } =
+      await import('../../../services/voice/services/ttsProvider');
+
+    if (TTSRegistry.getProviderNames().length === 0) {
+      TTSRegistry.register(new EdgeTTSProvider(), true);
+    }
+
+    const providers = TTSRegistry.getProvidersInfo();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(providers));
+  } catch (err) {
+    logger.error('列出 TTS 提供者失败', { error: String(err) });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'list_tts_providers',
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理保存 TTS 提供者配置 POST /v1/tts/providers/:name/config
+ */
+export async function handleSaveProviderConfig(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  providerName: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const config = JSON.parse(body);
+
+    const { TTSRegistry } =
+      await import('../../../services/voice/services/ttsProvider');
+
+    const provider = TTSRegistry.getProvider(providerName);
+    if (!provider) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: `Provider "${providerName}" 未注册` },
+        })
+      );
+      return;
+    }
+
+    // 如果 provider 有 updateConfig 方法，调用之
+    if (
+      typeof (provider as unknown as Record<string, unknown>).updateConfig ===
+      'function'
+    ) {
+      (
+        provider as unknown as Record<
+          string,
+          (config: Record<string, unknown>) => void
+        >
+      ).updateConfig(config);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    logger.error('保存 TTS 提供者配置失败', {
+      error: String(err),
+      providerName,
+    });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'save_provider_config',
+    });
+    sendError(res, err);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// TTS Persona CRUD
+// ═════════════════════════════════════════════════════════════════
+
+/**
+ * 处理列出人设列表 GET /v1/tts/personas
+ */
+export async function handleListPersonas(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const personas = TTSPersonaManager.listDetail();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(personas));
+  } catch (err) {
+    logger.error('列出人设失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'list_personas' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理创建人设 POST /v1/tts/personas
+ */
+export async function handleCreatePersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const options = JSON.parse(body);
+
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const persona = TTSPersonaManager.create(options);
+
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(persona));
+  } catch (err) {
+    logger.error('创建人设失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'create_persona' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理获取单个人设 GET /v1/tts/personas/:id
+ */
+export async function handleGetPersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  personaId: string
+): Promise<void> {
+  try {
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const persona = TTSPersonaManager.get(personaId);
+    if (!persona) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `人设 "${personaId}" 不存在` } })
+      );
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(persona));
+  } catch (err) {
+    logger.error('获取人设失败', { error: String(err), personaId });
+    void handleError(err, { module: 'http:voice', action: 'get_persona' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理更新人设 PUT /v1/tts/personas/:id
+ */
+export async function handleUpdatePersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  personaId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const partial = JSON.parse(body);
+
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const success = TTSPersonaManager.update(personaId, partial);
+    if (!success) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `人设 "${personaId}" 不存在` } })
+      );
+      return;
+    }
+
+    const updated = TTSPersonaManager.get(personaId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updated));
+  } catch (err) {
+    logger.error('更新人设失败', { error: String(err), personaId });
+    void handleError(err, { module: 'http:voice', action: 'update_persona' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理删除人设 DELETE /v1/tts/personas/:id
+ */
+export async function handleDeletePersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  personaId: string
+): Promise<void> {
+  try {
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const success = TTSPersonaManager.delete(personaId);
+    if (!success) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `人设 "${personaId}" 不存在` } })
+      );
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    logger.error('删除人设失败', { error: String(err), personaId });
+    void handleError(err, { module: 'http:voice', action: 'delete_persona' });
+    sendError(res, err);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// TTS Additional Endpoints
+// ═════════════════════════════════════════════════════════════════
+
+/**
+ * 处理 TTS 合成别名 POST /v1/tts/synthesize
+ * 与 /v1/voice/tts 相同逻辑，提供更语义化的路径
+ */
+export async function handleTTSSynthesizeAlias(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  await handleTTSSynthesize(req, res);
+}
+
+/**
+ * 停止当前 TTS 合成 POST /v1/tts/stop
+ */
+export async function handleTTSStop(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSRegistry } =
+      await import('../../../services/voice/services/ttsProvider');
+
+    TTSRegistry.stopAll();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    logger.error('停止 TTS 合成失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'tts_stop' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * TTS 健康检测 GET /v1/tts/health
+ * 返回各 Provider 状态、熔断器状态
+ */
+export async function handleTTSHealth(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSRegistry, EdgeTTSProvider } =
+      await import('../../../services/voice/services/ttsProvider');
+
+    if (TTSRegistry.getProviderNames().length === 0) {
+      TTSRegistry.register(new EdgeTTSProvider(), true);
+    }
+
+    const providerNames = TTSRegistry.getProviderNames();
+    const providerInfos = TTSRegistry.getProvidersInfo();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        providers: providerNames,
+        providerDetails: providerInfos,
+      })
+    );
+  } catch (err) {
+    logger.error('TTS 健康检测失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'tts_health' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 获取默认人设 GET /v1/tts/personas/default
+ */
+export async function handleGetDefaultPersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const defaultPersona = TTSPersonaManager.getDefault();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(defaultPersona ?? null));
+  } catch (err) {
+    logger.error('获取默认人设失败', { error: String(err) });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'get_default_persona',
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 列出所有人设绑定关系 GET /v1/tts/personas/bindings
+ *
+ * 返回按 personaId 分组的数据格式，与前端 TTSPersonaManager 期望一致：
+ *   [{ personaId: string, agents: [{ agentId: string, agentName: string }] }]
+ */
+export async function handleListPersonaBindings(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const flatBindings = TTSPersonaManager.listBindings();
+
+    // 将扁平绑定关系按 personaId 分组
+    const grouped = new Map<
+      string,
+      Array<{ agentId: string; agentName: string }>
+    >();
+    for (const { agentId, personaId } of flatBindings) {
+      if (!grouped.has(personaId)) {
+        grouped.set(personaId, []);
+      }
+      grouped.get(personaId)!.push({ agentId, agentName: agentId });
+    }
+
+    const result = Array.from(grouped.entries()).map(([personaId, agents]) => ({
+      personaId,
+      agents,
+    }));
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    logger.error('列出人设绑定关系失败', { error: String(err) });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'list_persona_bindings',
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 设为默认人设 PUT /v1/tts/personas/:id/default
+ */
+export async function handleSetDefaultPersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  personaId: string
+): Promise<void> {
+  try {
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const body = await readRequestBody(req);
+    const { setDefault } = JSON.parse(body);
+    // setDefault: true 设为默认，false 取消默认
+
+    if (setDefault === false) {
+      TTSPersonaManager.setDefault(null);
+    } else {
+      const success = TTSPersonaManager.setDefault(personaId);
+      if (!success) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `人设 "${personaId}" 不存在` } })
+        );
+        return;
+      }
+    }
+
+    const updated = TTSPersonaManager.get(personaId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updated));
+  } catch (err) {
+    logger.error('设置默认人设失败', { error: String(err), personaId });
+    void handleError(err, {
+      module: 'http:voice',
+      action: 'set_default_persona',
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 人设绑定到 Agent PUT /v1/tts/personas/:id/bind
+ */
+export async function handleBindPersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  personaId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { agentId } = JSON.parse(body);
+
+    if (!agentId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '缺少必填字段 agentId' } }));
+      return;
+    }
+
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    const success = TTSPersonaManager.bindToAgent(agentId, personaId);
+    if (!success) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `人设 "${personaId}" 不存在` } })
+      );
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, agentId, personaId }));
+  } catch (err) {
+    logger.error('绑定人设到 Agent 失败', { error: String(err), personaId });
+    void handleError(err, { module: 'http:voice', action: 'bind_persona' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 人设取消绑定 Agent DELETE /v1/tts/personas/:id/bind
+ */
+export async function handleUnbindPersona(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  personaId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { agentId } = JSON.parse(body);
+
+    if (!agentId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '缺少必填字段 agentId' } }));
+      return;
+    }
+
+    const { TTSPersonaManager } =
+      await import('../../../services/voice/services/ttsPersonaManager');
+
+    TTSPersonaManager.unbindFromAgent(agentId);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, agentId, personaId }));
+  } catch (err) {
+    logger.error('取消人设绑定失败', { error: String(err), personaId });
+    void handleError(err, { module: 'http:voice', action: 'unbind_persona' });
     sendError(res, err);
   }
 }

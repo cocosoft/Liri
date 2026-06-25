@@ -407,4 +407,25 @@ export const CouncilIcon = ({ className = '', size = 24, color = 'currentColor' 
   </svg>
 );
 
+/** 语音波形图标 — 用于 TTS 页面导航 */
+export const WaveformIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M3 12h2v4H3z" />
+    <path d="M7 8h2v10H7z" />
+    <path d="M11 4h2v18h-2z" />
+    <path d="M15 8h2v10h-2z" />
+    <path d="M19 12h2v4h-2z" />
+  </svg>
+);
+
 export type { BaseIconProps };

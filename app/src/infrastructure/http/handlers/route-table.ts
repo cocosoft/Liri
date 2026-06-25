@@ -22,6 +22,21 @@ import {
   handleListVoiceProviders,
   handleListVoices,
   handleTestWakeWord,
+  handleListTTSProviders,
+  handleSaveProviderConfig,
+  handleListPersonas,
+  handleCreatePersona,
+  handleGetPersona,
+  handleUpdatePersona,
+  handleDeletePersona,
+  handleTTSSynthesizeAlias,
+  handleTTSStop,
+  handleTTSHealth,
+  handleSetDefaultPersona,
+  handleGetDefaultPersona,
+  handleListPersonaBindings,
+  handleBindPersona,
+  handleUnbindPersona,
 } from './voice-handlers';
 
 // Cron handlers（直接函数调用，部分需要 broadcastEvent 回调）
@@ -480,6 +495,112 @@ export async function dispatchRoute(
       req,
       res,
       url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)![1]
+    );
+    return true;
+  }
+
+  // ---- TTS Providers ----
+  if (method === 'GET' && url === '/v1/tts/providers') {
+    await handleListTTSProviders(req, res);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/tts\/providers\/([^/]+)\/config$/)
+  ) {
+    await handleSaveProviderConfig(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/providers\/([^/]+)\/config$/)![1]
+    );
+    return true;
+  }
+
+  // ---- TTS Personas ----
+  if (method === 'GET' && url === '/v1/tts/personas') {
+    await handleListPersonas(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/tts/personas') {
+    await handleCreatePersona(req, res);
+    return true;
+  }
+
+  // 特定路径必须在泛匹配 /v1/tts/personas/([^/]+) 之前检查，避免被泛匹配拦截
+  if (method === 'GET' && url === '/v1/tts/personas/default') {
+    await handleGetDefaultPersona(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/tts/personas/bindings') {
+    await handleListPersonaBindings(req, res);
+    return true;
+  }
+
+  if (method === 'GET' && url.match(/^\/v1\/tts\/personas\/([^/]+)$/)) {
+    await handleGetPersona(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/personas\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/tts\/personas\/([^/]+)$/)) {
+    await handleUpdatePersona(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/personas\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/tts\/personas\/([^/]+)$/)) {
+    await handleDeletePersona(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/personas\/([^/]+)$/)![1]
+    );
+    return true;
+  }
+
+  // ---- TTS Additional Endpoints ----
+  if (method === 'POST' && url === '/v1/tts/synthesize') {
+    await handleTTSSynthesizeAlias(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/tts/stop') {
+    await handleTTSStop(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/tts/health') {
+    await handleTTSHealth(req, res);
+    return true;
+  }
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/tts\/personas\/([^/]+)\/default$/)
+  ) {
+    await handleSetDefaultPersona(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/personas\/([^/]+)\/default$/)![1]
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/tts\/personas\/([^/]+)\/bind$/)) {
+    await handleBindPersona(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/personas\/([^/]+)\/bind$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/tts\/personas\/([^/]+)\/bind$/)
+  ) {
+    await handleUnbindPersona(
+      req,
+      res,
+      url.match(/^\/v1\/tts\/personas\/([^/]+)\/bind$/)![1]
     );
     return true;
   }

@@ -39,6 +39,7 @@ export type AppPage =
   | "settings"
   | "buddy"
   | "plans"
+  | "tts"
   | "semantic"
   | "workspace"
   | "tasks";
@@ -314,6 +315,14 @@ export interface AppStore {
   playResponse: (audioUrl: string) => Promise<void>;
   stopPlayback: () => void;
   clearVoiceError: () => void;
+
+  // ---- TTS ----
+  ttsProviders: string[];
+  ttsVoices: { id: string; name: string; language: string }[];
+  ttsHealth: { status: string; message?: string };
+  loadTTSProviders: () => Promise<void>;
+  loadTTSVoices: (provider: string) => Promise<void>;
+  checkTTSHealth: () => Promise<void>;
 }
 
 // ============================================================
@@ -1059,6 +1068,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   voiceError: null,
   audioLevel: 0,
 
+  // ---- TTS ----
+  ttsProviders: [],
+  ttsVoices: [],
+  ttsHealth: { status: "unknown" },
+
   loadVoiceSettings: async () => {
     try {
       const settings = await voiceService.getSettings();
@@ -1121,6 +1135,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
   stopPlayback: () => { set({ voiceIsPlaying: false }); },
 
   clearVoiceError: () => set({ voiceError: null }),
+
+  // ---- TTS Actions ----
+  loadTTSProviders: async () => {
+    try {
+      const providers = await voiceService.getTTSProviders();
+      set({ ttsProviders: providers });
+    } catch {
+      // 后端未就绪时保持空列表
+    }
+  },
+
+  loadTTSVoices: async (provider) => {
+    try {
+      const voices = await voiceService.getVoices(provider);
+      set({ ttsVoices: voices });
+    } catch {
+      // 后端未就绪时保持空列表
+    }
+  },
+
+  checkTTSHealth: async () => {
+    const health = await voiceService.checkTTSHealth();
+    set({ ttsHealth: health });
+  },
 }));
 
 // ============================================================

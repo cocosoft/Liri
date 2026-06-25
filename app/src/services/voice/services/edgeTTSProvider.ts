@@ -9,7 +9,7 @@
  */
 
 import { connect as tlsConnect, TLSSocket } from 'tls';
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomUUID, randomBytes } from 'crypto';
 import { writeFileSync } from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -25,7 +25,12 @@ const logger = new Logger({ level: LogLevel.INFO });
 /** Edge TTS WebSocket 端点 */
 const EDGE_TTS_HOST = 'speech.platform.bing.com';
 const EDGE_TTS_PATH =
-  '/consumer/speech/synthesize/readaloud/edge/v1?TrustedClient=bing';
+  '/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+
+/** Chromium 版本，用于 User-Agent 和 Sec-MS-GEC-Version */
+const CHROMIUM_FULL_VERSION = '143.0.3650.75';
+const CHROMIUM_MAJOR_VERSION = '143';
+const SEC_MS_GEC_VERSION = `1-${CHROMIUM_FULL_VERSION}`;
 
 /** 支持的语音列表 */
 const EDGE_VOICES: TTSVoice[] = [
@@ -171,7 +176,8 @@ const enum WsOpcode {
 /** WebSocket 连接状态 */
 interface WsConnection {
   socket: TLSSocket;
-  onData: (data: Buffer) => void;
+  onText: (data: Buffer) => void;
+  onBinary: (data: Buffer) => void;
   onClose: () => void;
   onError: (error: Error) => void;
 }
@@ -193,6 +199,62 @@ function computeWsAccept(key: string): string {
     .update(key + GUID)
     .digest();
   return hash.toString('base64');
+}
+
+/**
+ * 生成 Sec-MS-GEC DRM 令牌
+ * 基于当前时间（对齐到5分钟）和 TrustedClientToken 的 SHA256 哈希
+ */
+function generateSecMsGec(): string {
+  const WIN_EPOCH = 11_644_473_600; // Windows 文件时间纪元（1601-01-01）到 Unix 纪元（1970-01-01）的秒数
+
+  // 获取当前 Unix 时间戳（秒）
+  let ticks = Math.floor(Date.now() / 1000);
+  // 转换为 Windows 文件时间
+  ticks += WIN_EPOCH;
+  // 向下取整到最近的 5 分钟
+  ticks -= ticks % 300;
+  // 转换为 100 纳秒间隔
+  ticks *= 10_000_000;
+
+  const hash = createHash('sha256')
+    .update(`${ticks}6A5AA1D4EAFF4E9FB37E23D68491D6F4`)
+    .digest('hex')
+    .toUpperCase();
+
+  return hash;
+}
+
+/**
+ * 生成 muid Cookie 值（16 字节随机 hex，大写）
+ */
+function generateMuid(): string {
+  return randomBytes(16).toString('hex').toUpperCase();
+}
+
+/**
+ * 生成 JavaScript 风格日期字符串
+ * 格式示例: "Thu Jun 25 2026 02:10:30 GMT+0000 (Coordinated Universal Time)"
+ */
+function dateToString(): string {
+  const d = new Date();
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const fmt = (n: number) => String(n).padStart(2, '0');
+  return `${days[d.getUTCDay()]} ${months[d.getUTCMonth()]} ${fmt(d.getUTCDate())} ${d.getUTCFullYear()} ${fmt(d.getUTCHours())}:${fmt(d.getUTCMinutes())}:${fmt(d.getUTCSeconds())} GMT+0000 (Coordinated Universal Time)`;
 }
 
 /**
@@ -245,6 +307,7 @@ function wsHandshake(
 ): Promise<WsConnection> {
   return new Promise((resolve, reject) => {
     const key = generateWsKey();
+    const muid = generateMuid();
     const socket = tlsConnect(port, host, { servername: host });
 
     const handshake = [
@@ -252,10 +315,15 @@ function wsHandshake(
       `Host: ${host}:${port}`,
       `Upgrade: websocket`,
       `Connection: Upgrade`,
+      `Pragma: no-cache`,
+      `Cache-Control: no-cache`,
       `Sec-WebSocket-Key: ${key}`,
       `Sec-WebSocket-Version: 13`,
-      `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36`,
-      `Origin: https://${host}`,
+      `Accept-Encoding: gzip, deflate, br, zstd`,
+      `Accept-Language: en-US,en;q=0.9`,
+      `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
+      `Origin: chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold`,
+      `Cookie: muid=${muid};`,
       '',
       '',
     ].join('\r\n');
@@ -274,11 +342,30 @@ function wsHandshake(
       const headers = responseBuffer.slice(0, headerEnd);
       handshakeComplete = true;
 
+      // 检查 HTTP 状态行
+      const statusLine = headers.split('\r\n')[0] || '';
+      const statusMatch = statusLine.match(/HTTP\/\d+\.\d+\s+(\d+)/);
+      const httpStatus = statusMatch ? parseInt(statusMatch[1], 10) : 0;
+
+      // 只有 101 Switching Protocols 才是成功的 WebSocket 握手
+      if (httpStatus !== 101) {
+        socket.destroy();
+        const reason = headers.split('\r\n').slice(0, 3).join(' | ');
+        reject(
+          new Error(
+            `WebSocket 握手失败: 服务器返回 ${httpStatus}（预期 101），原始响应: ${reason}`
+          )
+        );
+        return;
+      }
+
       // 验证 accept key
       const acceptMatch = headers.match(/Sec-WebSocket-Accept:\s*(\S+)/i);
       if (!acceptMatch) {
         socket.destroy();
-        reject(new Error('WebSocket 握手失败: 缺少 Sec-WebSocket-Accept'));
+        reject(
+          new Error(`WebSocket 握手失败: 101 响应中缺少 Sec-WebSocket-Accept`)
+        );
         return;
       }
 
@@ -291,7 +378,8 @@ function wsHandshake(
 
       const conn: WsConnection = {
         socket,
-        onData: () => {},
+        onText: () => {},
+        onBinary: () => {},
         onClose: () => {},
         onError: () => {},
       };
@@ -380,11 +468,11 @@ function processWsFrames(
     // 处理操作码
     switch (opcode) {
       case WsOpcode.TEXT:
-        conn.onData(payload);
+        conn.onText(payload);
         break;
 
       case WsOpcode.BINARY:
-        conn.onData(payload);
+        conn.onBinary(payload);
         break;
 
       case WsOpcode.CLOSE:
@@ -407,19 +495,79 @@ function processWsFrames(
 }
 
 /**
+ * 从 Edge TTS 二进制帧中提取纯音频数据
+ *
+ * Edge TTS 的二进制帧格式如下：
+ *   [2字节 header_length (Big Endian)][header 文本][\r\n][音频数据]
+ *
+ * 参考 Python edge-tts 库的 ChunkDecoder。
+ *
+ * @param data 二进制帧负载
+ * @returns 纯音频数据，如果格式不正确则返回 null
+ */
+/**
+ * 从 Edge TTS 二进制帧中提取纯音频数据
+ *
+ * Edge TTS 二进制帧格式（已通过实际抓包验证）：
+ *   [2字节 headerLength Big Endian][header 文本 (\r\n 分隔)][\r\n][MP3 音频数据]
+ *
+ * 其中 headerLength 包含前2字节自身。
+ * 示例（音频帧）：
+ *   bytes[0:2] = headerLength = 128
+ *   bytes[0:128] = header 文本（含 Path:audio）
+ *   bytes[128:130] = \r\n 分隔
+ *   bytes[130:] = MP3 音频数据（以 0xFF 0xF3 开头）
+ *
+ * 参考 Python edge-tts 库的 get_headers_and_data 函数。
+ *
+ * @param data 二进制帧负载
+ * @returns 纯音频数据，如果不是音频帧则返回 null
+ */
+function extractAudioFromBinaryFrame(data: Buffer): Buffer | null {
+  if (data.length < 4) return null;
+
+  const headerLength = data.readUInt16BE(0);
+
+  // 验证 headerLength 的合理性（必须包含长度字段自身 + 至少 \r\n 分隔）
+  if (
+    headerLength > 2 &&
+    headerLength < data.length &&
+    headerLength + 2 <= data.length
+  ) {
+    // headerLength 包含前2字节自身：data[0:headerLength] 为完整 header 文本
+    // data[headerLength:headerLength+2] 为 \r\n 分隔
+    // data[headerLength+2:] 为 MP3 音频数据
+    const headerText = data.slice(0, headerLength);
+    if (headerText.includes('Path:audio')) {
+      return data.slice(headerLength + 2);
+    }
+    // turn.start/end 等非音频帧，跳过
+    return null;
+  }
+
+  // 裸 MP3 流（无 header，极少数情况）
+  if (data[0] === 0xff && (data[1] & 0xe0) === 0xe0) {
+    return data;
+  }
+
+  return null;
+}
+
+/**
  * 生成合成上下文 SSML
  */
 function buildSsml(
   text: string,
   voice: string,
   rate: string = '+0%',
-  pitch: string = '+0Hz'
+  pitch: string = '+0Hz',
+  volume: string = '+0%'
 ): string {
   return [
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US">',
-    `<voice name="${voice}">`,
-    `<prosody rate="${rate}" pitch="${pitch}">`,
-    `<s>${escapeXml(text)}</s>`,
+    "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>",
+    `<voice name='${voice}'>`,
+    `<prosody rate='${rate}' pitch='${pitch}' volume='${volume}'>`,
+    escapeXml(text),
     '</prosody>',
     '</voice>',
     '</speak>',
@@ -439,26 +587,57 @@ function escapeXml(text: string): string {
 }
 
 /**
- * 构建 synthesis context
+ * 构建 synthesis context（含请求头）
+ * 格式与 edge-tts Python 库一致
  */
 function buildContext(voice: string): string {
-  const context = {
-    synthesis: {
-      audio: {
-        metadataoptions: {
-          sentenceBoundaryEnabled: false,
-          wordBoundaryEnabled: false,
-        },
-        outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
-      },
-      request: {
-        connection: {
-          type: 'Upgrade',
+  const timestamp = dateToString();
+  const payload = JSON.stringify({
+    context: {
+      synthesis: {
+        audio: {
+          metadataoptions: {
+            sentenceBoundaryEnabled: false,
+            wordBoundaryEnabled: false,
+          },
+          outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
         },
       },
     },
-  };
-  return JSON.stringify(context);
+  });
+  return [
+    `X-Timestamp:${timestamp}`,
+    'Content-Type:application/json; charset=utf-8',
+    'Path:speech.config',
+    '',
+    '',
+    payload,
+  ].join('\r\n');
+}
+
+/**
+ * 构建 SSML 文本帧（含请求头）
+ * 格式与 edge-tts Python 库一致
+ */
+function buildSsmlPayload(
+  text: string,
+  voice: string,
+  rate: string = '+0%',
+  pitch: string = '+0Hz',
+  volume: string = '+0%'
+): string {
+  const requestId = randomUUID();
+  const timestamp = dateToString();
+  const ssml = buildSsml(text, voice, rate, pitch, volume);
+  return [
+    `X-RequestId:${requestId}`,
+    'Content-Type:application/ssml+xml',
+    `X-Timestamp:${timestamp}Z`, // 尾随 Z 是微软 Edge 的 bug，必须保留以匹配
+    'Path:ssml',
+    '',
+    '',
+    ssml,
+  ].join('\r\n');
 }
 
 /** Edge TTS 配置 */
@@ -475,6 +654,7 @@ export interface EdgeTTSConfig {
  */
 export class EdgeTTSProvider implements TTSProvider {
   readonly name = 'edge';
+  readonly supportedFormats = ['mp3'];
   private config: EdgeTTSConfig;
   private wsConnection: WsConnection | null = null;
   /** 心跳定时器 */
@@ -520,12 +700,16 @@ export class EdgeTTSProvider implements TTSProvider {
     this.stopHeartbeat();
     this.pingInterval = setInterval(() => {
       try {
-        if (conn.socket && !conn.socket.destroyed) {
+        if (conn.socket && conn.socket.writable) {
           sendWsFrame(conn, WsOpcode.PING, Buffer.alloc(0));
         } else {
           this.stopHeartbeat();
         }
-      } catch {
+      } catch (error) {
+        void handleError(error, {
+          module: 'services:voice:edgeTTS',
+          action: 'heartbeat',
+        });
         this.stopHeartbeat();
       }
     }, 15_000);
@@ -677,8 +861,11 @@ export class EdgeTTSProvider implements TTSProvider {
       try {
         sendWsFrame(this.wsConnection, WsOpcode.CLOSE, Buffer.alloc(0));
         this.wsConnection.socket.destroy();
-      } catch {
-        // 忽略关闭错误
+      } catch (error) {
+        void handleError(error, {
+          module: 'services:voice:edgeTTS',
+          action: 'stop',
+        });
       }
       this.wsConnection = null;
     }
@@ -699,7 +886,6 @@ export class EdgeTTSProvider implements TTSProvider {
    */
   private async synthesize(text: string, voice: string): Promise<Buffer> {
     const audioChunks: Buffer[] = [];
-    const ssml = buildSsml(text, voice, this.config.rate!, this.config.pitch!);
     const startTime = Date.now();
 
     return new Promise((resolve, reject) => {
@@ -710,20 +896,26 @@ export class EdgeTTSProvider implements TTSProvider {
         if (this.wsConnection) {
           try {
             this.wsConnection.socket.destroy();
-          } catch {
-            // 忽略清理错误
+          } catch (error) {
+            void handleError(error, {
+              module: 'services:voice:edgeTTS',
+              action: 'synthesize:timeout',
+            });
           }
           this.wsConnection = null;
         }
         reject(new Error(`Edge TTS 合成超时（${timeoutMs}ms）`));
       }, timeoutMs);
 
-      wsHandshake(EDGE_TTS_HOST, EDGE_TTS_PATH, 443)
+      // 构建带动态参数的完整路径
+      const connectionId = randomUUID().replace(/-/g, '');
+      const secMsGec = generateSecMsGec();
+      const wsPath = `${EDGE_TTS_PATH}&ConnectionId=${connectionId}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
+
+      wsHandshake(EDGE_TTS_HOST, wsPath, 443)
         .then((conn) => {
           this.wsConnection = conn;
           this.startHeartbeat(conn);
-
-          let metadataReceived = false;
 
           conn.onClose = () => {
             this.stopHeartbeat();
@@ -736,58 +928,69 @@ export class EdgeTTSProvider implements TTSProvider {
           conn.onError = (error) => {
             this.stopHeartbeat();
             clearTimeout(timeout);
+            void handleError(error, {
+              module: 'services:voice:edgeTTS',
+              action: 'synthesize:wsOnError',
+            });
             reject(error);
           };
 
-          conn.onData = (data: Buffer) => {
-            // 检查是否为文本帧（JSON 元数据）
-            if (!metadataReceived) {
-              const text = data.toString('utf8');
-              if (text.includes('Context')) {
-                metadataReceived = true;
-                return;
-              }
-              if (text.includes('Path:')) {
-                // turn.end 或 metadata 文本帧
-                if (text.includes('turn.end')) {
-                  this.stopHeartbeat();
-                  clearTimeout(timeout);
-                  this.recordLatency(Date.now() - startTime);
-                  conn.socket.end();
-                  resolve(Buffer.concat(audioChunks));
-                }
-                return;
-              }
-              // 可能是音频二进制数据
-              audioChunks.push(data);
+          // 文本帧处理：等待 turn.end 信号
+          conn.onText = (data: Buffer) => {
+            const payload = data.toString('utf8');
+
+            // turn.end 表示合成结束，聚合所有音频块并返回
+            if (payload.includes('turn.end')) {
+              const totalBytes = audioChunks.reduce(
+                (sum, c) => sum + c.length,
+                0
+              );
+              logger.info('Edge TTS 合成完成', {
+                audioChunks: audioChunks.length,
+                totalBytes,
+                duration: Date.now() - startTime,
+              });
+              this.stopHeartbeat();
+              clearTimeout(timeout);
+              this.recordLatency(Date.now() - startTime);
+              conn.socket.end();
+              resolve(Buffer.concat(audioChunks));
+            }
+            // 其他文本帧（Context 确认、turn.start、WordBoundary）正常忽略
+          };
+
+          // 二进制帧处理：提取音频数据
+          conn.onBinary = (data: Buffer) => {
+            const audioData = extractAudioFromBinaryFrame(data);
+
+            if (audioData && audioData.length > 0) {
+              audioChunks.push(audioData);
             } else {
-              // 检查是否文本帧
-              const firstByte = data[0];
-              if (firstByte < 128) {
-                const text = data.toString('utf8');
-                if (text.includes('turn.end')) {
-                  this.stopHeartbeat();
-                  clearTimeout(timeout);
-                  this.recordLatency(Date.now() - startTime);
-                  conn.socket.end();
-                  resolve(Buffer.concat(audioChunks));
-                }
-                return;
-              }
-              audioChunks.push(data);
+              // 非音频帧（turn.start/end 的响应帧），正常跳过
+              logger.debug('跳过非音频二进制帧', { length: data.length });
             }
           };
 
-          // 发送 synthesis context (JSON text frame)
-          const contextJson = buildContext(voice);
-          sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(contextJson, 'utf8'));
+          // 发送 synthesis context（含请求头的文本帧）
+          const contextPayload = buildContext(voice);
+          sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(contextPayload, 'utf8'));
 
-          // 发送 SSML (text frame)
-          sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(ssml, 'utf8'));
+          // 发送 SSML（含请求头的文本帧）
+          const ssmlPayload = buildSsmlPayload(
+            text,
+            voice,
+            this.config.rate,
+            this.config.pitch
+          );
+          sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(ssmlPayload, 'utf8'));
         })
         .catch((error) => {
           this.stopHeartbeat();
           clearTimeout(timeout);
+          void handleError(error, {
+            module: 'services:voice:edgeTTS',
+            action: 'synthesize:wsHandshake',
+          });
           reject(error);
         });
     });

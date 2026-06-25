@@ -116,6 +116,7 @@ function getAvailableVoices(): TTSVoice[] {
  */
 export class CommandTTSProvider implements TTSProvider {
   readonly name = 'command';
+  readonly supportedFormats = ['wav'];
 
   /**
    * 获取系统可用的 TTS 命令类型

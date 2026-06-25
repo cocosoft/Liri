@@ -399,8 +399,10 @@ export class CouncilOrchestrator {
     const messages: AIMessage[] = [];
 
     if (systemPrompt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages.push({ role: 'system' as any, content: systemPrompt });
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages.push({ role: 'user' as any, content: userPrompt });
 
     const response = await aiService.generate(messages, undefined, {

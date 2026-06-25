@@ -17,6 +17,8 @@ export interface TTSSpeakOptions {
   voice?: string;
   language?: string;
   speed?: number;
+  /** 音频格式（如 'mp3', 'wav', 'opus'），仅对支持多格式的 Provider 生效 */
+  format?: string;
 }
 
 /** TTS 合成结果 */
@@ -41,6 +43,8 @@ export interface TTSSpeakResult {
 export interface TTSProvider {
   /** 提供者名称 */
   readonly name: string;
+  /** 支持的音频格式列表 */
+  readonly supportedFormats: string[];
   /** 获取支持的语音列表 */
   getVoices(): TTSVoice[];
   /** 合成语音 */

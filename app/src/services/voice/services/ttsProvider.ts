@@ -86,6 +86,29 @@ export class TTSRegistry {
   }
 
   /**
+   * 获取所有已注册的提供者详细信息（含支持的格式）
+   */
+  static getProvidersInfo(): Array<{
+    name: string;
+    supportedFormats: string[];
+  }> {
+    return Array.from(TTSRegistry.providers.entries()).map(
+      ([name, provider]) => ({
+        name,
+        supportedFormats: provider.supportedFormats,
+      })
+    );
+  }
+
+  /**
+   * 获取指定提供者支持的音频格式
+   */
+  static getSupportedFormats(providerName: string): string[] | undefined {
+    const provider = TTSRegistry.providers.get(providerName);
+    return provider?.supportedFormats;
+  }
+
+  /**
    * 获取所有提供者的语音列表（按提供者分组）
    */
   static getAllVoices(): Map<string, TTSVoice[]> {

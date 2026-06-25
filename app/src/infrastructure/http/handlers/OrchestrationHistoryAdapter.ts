@@ -9,13 +9,7 @@
  * { "eventId": "uuid", "eventType": "orch:*", "payload": {}, "timestamp": 1234567890 }
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  appendFileSync,
-  readFileSync,
-  readdirSync,
-} from 'fs';
+import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { globalEventBus } from '../../../core/events/EventBus.js';

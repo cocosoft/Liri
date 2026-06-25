@@ -23,7 +23,6 @@ import { AgentEventType } from '@modules/agent/events/types';
 import { globalEventBus } from '../../../core/events/EventBus.js';
 import type { EventSubscription } from '../../../core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
-import type { OrchestrationHistoryQueryResult } from './OrchestrationHistoryAdapter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

@@ -247,15 +247,8 @@ export class PersonaService {
   async close(): Promise<void> {
     if (!this.db) return;
 
-    await new Promise<void>((resolve, reject) => {
-      this.db!.close((err: Error | null) => {
-        if (err) reject(err);
-        else {
-          this.db = null;
-          resolve();
-        }
-      });
-    });
+    this.db.close();
+    this.db = null;
 
     logger.info('PersonaService · 数据库连接已关闭');
   }

@@ -88,6 +88,7 @@ const DEFAULT_SERVERS: LanguageServerRegistration[] = [
 export class LSPServerConfigRegistry {
   private registrations: Map<string, LanguageServerRegistration> = new Map();
   private extensionIndex: Map<string, string> = new Map();
+  private _cachedLanguages: string[] | null = null;
 
   constructor(defaults: LanguageServerRegistration[] = DEFAULT_SERVERS) {
     for (const reg of defaults) {
@@ -102,6 +103,8 @@ export class LSPServerConfigRegistry {
     for (const ext of registration.extensions) {
       this.extensionIndex.set(ext.toLowerCase(), key);
     }
+
+    this._cachedLanguages = null;
   }
 
   unregister(language: string): boolean {
@@ -113,6 +116,7 @@ export class LSPServerConfigRegistry {
     }
 
     this.registrations.delete(language);
+    this._cachedLanguages = null;
     return true;
   }
 
@@ -141,7 +145,9 @@ export class LSPServerConfigRegistry {
   }
 
   getAllLanguages(): string[] {
-    return Array.from(this.registrations.keys());
+    if (this._cachedLanguages) return this._cachedLanguages;
+    this._cachedLanguages = Array.from(this.registrations.keys());
+    return this._cachedLanguages;
   }
 
   getAllRegistrations(): LanguageServerRegistration[] {

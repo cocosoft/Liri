@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 系统健康检查服务
  * 提供系统资源检测和健康状态评估功能
  */
@@ -12,7 +12,7 @@ import { join } from 'path';
 import { createRequire } from 'module';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { configManager } from '@modules/config';
-import { getSystemCpuPercent } from '@modules/monitoring';
+import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
 
 const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
@@ -245,29 +245,12 @@ export class SystemHealthChecker extends EventEmitter {
    * 获取Windows磁盘信息
    */
   private async getWindowsDiskInfo(): Promise<{ total: number; free: number }> {
-    try {
-      const { stdout } = await (execAsync as any)(
-        'wmic logicaldisk get size,freespace',
-        {
-          shell: true,
-        }
-      );
-      const lines = stdout.trim().split('\n').slice(1);
-      let total = 0;
-      let free = 0;
-
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 2) {
-          free += parseInt(parts[0]) || 0;
-          total += parseInt(parts[1]) || 0;
-        }
-      }
-
-      return { total, free };
-    } catch {
-      return { total: 0, free: 0 };
-    }
+    // 委托给统一的 SystemMetricsCollector，消除重复的 wmic 调用
+    const disk = getDiskInfo();
+    return {
+      total: Math.round(disk.totalGB * 1024 * 1024 * 1024),
+      free: Math.round(disk.freeGB * 1024 * 1024 * 1024),
+    };
   }
 
   /**

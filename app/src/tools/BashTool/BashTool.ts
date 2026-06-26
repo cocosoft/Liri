@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bash工具
  * 用于执行Bash命令
  */
@@ -343,7 +343,12 @@ export class BashTool {
         const inputRecord = input as Record<string, unknown>;
         const command = inputRecord.command as string;
         const timeout = (inputRecord.timeout as number) || 30000;
-        const cwd = (inputRecord.cwd as string) || process.cwd();
+        // 方案 C：优先使用显式 cwd，其次使用工作空间路径，最后回退到 process.cwd()
+        const workspacePath = (
+          await import('@modules/sandbox/SandboxConfigBuilder')
+        ).SandboxConfigBuilder.defaultWorkspacePath;
+        const cwd =
+          (inputRecord.cwd as string) || workspacePath || process.cwd();
         const env = (inputRecord.env as Record<string, string>) || process.env;
 
         try {

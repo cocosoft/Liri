@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { HomeIcon, ChatIcon, TaskIcon, DevIcon, CronIcon, KnowledgeIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon, WaveformIcon } from "../../assets/icons";
+import { HomeIcon, ChatIcon, KnowledgeIcon, ImageIcon, VideoIcon, TranslateIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon } from "../../assets/icons";
 
 interface MenuItem {
   id: string;
@@ -16,11 +15,10 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "home", label: "首页", icon: HomeIcon, path: "/" },
   { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
-  { id: "tasks", label: "工作", icon: TaskIcon, path: "/tasks" },
-  { id: "coding", label: "开发", icon: DevIcon, path: "/dev/terminal" },
-  { id: "cron", label: "定时", icon: CronIcon, path: "/cron" },
+  { id: "image", label: "图像", icon: ImageIcon, path: "/image" },
+  { id: "video", label: "视频", icon: VideoIcon, path: "/video" },
+  { id: "translate", label: "翻译", icon: TranslateIcon, path: "/translate" },
   { id: "knowledge", label: "知识库", icon: KnowledgeIcon, path: "/knowledge" },
-  { id: "tts", label: "语音合成", icon: WaveformIcon, path: "/tts" },
 ];
 
 /** 管理折叠：模型/技能/MCP/频道/文件 */
@@ -47,26 +45,12 @@ function MenuButton({ item, isActive, onNavigate }: {
   const setActivePage = useAppStore((s) => s.setActivePage);
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
-  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const isDark = config.theme === "dark";
 
-  /** 获取实际导航路径，"工作"按钮根据当前工作空间动态决定 */
-  const getActualPath = (): string | undefined => {
-    if (item.id === "tasks") {
-      // 有当前工作空间时跳到对应工作界面，否则用 "default" 占位
-      return currentWorkspace?.id
-        ? `/workspace/${currentWorkspace.id}/work`
-        : "/workspace/default/work";
-    }
-    return item.path;
-  };
-
   const handleClick = () => {
-    const actualPath = getActualPath();
+    const actualPath = item.path;
     if (actualPath) {
-      if (actualPath.startsWith("/workspace/")) {
-        setActivePage("workspace");
-      } else if (actualPath === "/") {
+      if (actualPath === "/") {
         setActivePage("home");
       } else {
         const pageId = actualPath.replace("/", "") || "chat";
@@ -132,17 +116,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   /** 判断当前路由是否匹配菜单项 */
   const isActive = (item: MenuItem) => {
-    // "工作"按钮：匹配 /tasks、/work、/workspace/* 路由
-    if (item.id === "tasks") {
-      return activeRoute === "tasks" || activeRoute === "work" || activeRoute.startsWith("workspace/");
-    }
     const normalizedPath = (item.path || "").replace("/", "") || "home";
     return (
       activeRoute === normalizedPath ||
-      activeRoute.startsWith(normalizedPath + "/") ||
-      // 开发工具子路由
-      (normalizedPath.startsWith("dev/") &&
-       activeRoute.startsWith("dev/"))
+      activeRoute.startsWith(normalizedPath + "/")
     );
   };
 
@@ -216,35 +193,22 @@ function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeRoute = location.pathname.replace("/", "") || "home";
-  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
 
   const items: MenuItem[] = [
     { id: "home", label: "首页", icon: HomeIcon, path: "/" },
     { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
-    { id: "tasks", label: "工作", icon: TaskIcon, path: "/tasks" },
-    { id: "cron", label: "定时", icon: CronIcon, path: "/cron" },
     { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
   ];
-
-  /** "工作"按钮实际导航路径，与桌面端逻辑一致 */
-  const getTasksPath = (): string => {
-    return currentWorkspace?.id
-      ? `/workspace/${currentWorkspace.id}/work`
-      : "/workspace/default/work";
-  };
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-around py-1 z-50 safe-area-bottom">
       {items.map((item) => {
-        const isActive = item.id === "tasks"
-          ? activeRoute === "tasks" || activeRoute.startsWith("workspace/")
-          : activeRoute === (item.path?.replace("/", "") || "home");
+        const isActive = activeRoute === (item.path?.replace("/", "") || "home");
         const IconComponent = item.icon;
-        const actualPath = item.id === "tasks" ? getTasksPath() : item.path!;
         return (
           <button
             key={item.id}
-            onClick={() => { navigate(actualPath); }}
+            onClick={() => { navigate(item.path!); }}
             className={`flex flex-col items-center px-2 py-1 min-w-0 ${
               isActive ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
             }`}

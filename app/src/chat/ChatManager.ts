@@ -20,7 +20,9 @@
 // SOFTWARE.
 
 import crypto from 'node:crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { repairModelJson } from '@modules/utils/json';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 
@@ -147,6 +149,42 @@ export class ChatManagerImpl implements ChatManager {
    * 防止大的工具执行结果在后续轮次中主导 LLM 上下文
    */
   private static readonly TOOL_RESULT_MAX_LENGTH = 2000;
+
+  /**
+   * 截断工具结果，保留前后关键信息
+   * 策略：前 500 字符（上下文） + 后 1500 字符（file_path 等关键信息）
+   * 并在截断提示中列出工具结果中包含的文件路径，避免路径幻觉（BUG #9）
+   */
+  private static truncateToolResult(
+    content: string,
+    maxLen: number = ChatManagerImpl.TOOL_RESULT_MAX_LENGTH
+  ): string {
+    const sizeKB = Math.round(content.length / 1024);
+    if (content.length <= maxLen) return content;
+
+    const headLen = 500;
+    const tailLen = maxLen - headLen;
+    const omitted = content.length - headLen - tailLen;
+
+    // 从原始内容中提取文件路径（优先保留，减少路径幻觉）
+    const filePathRegex =
+      /[a-zA-Z]:\\(?:[^\\\n\r]+\\)*[^\\\n\r]*\.[a-zA-Z0-9]+|\/(?:[^/\n\r]+\/)*[^/\n\r]*\.[a-zA-Z0-9]+/g;
+    const matchedPaths = content.match(filePathRegex);
+    const uniquePaths = matchedPaths
+      ? [...new Set(matchedPaths)].slice(0, 5).join('\n  ')
+      : '';
+
+    const header = uniquePaths
+      ? `[工具结果已截断，原始大小 ${sizeKB}KB，保留首尾关键信息]\n涉及的路径:\n  ${uniquePaths}\n`
+      : `[工具结果已截断，原始大小 ${sizeKB}KB，保留首尾关键信息]\n`;
+
+    return (
+      header +
+      content.slice(0, headLen) +
+      `\n\n... [中间省略 ${omitted} 字符] ...\n\n` +
+      content.slice(content.length - tailLen)
+    );
+  }
 
   /**
    * 消息服务
@@ -318,7 +356,11 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string | null | undefined
   ): ChatSession | undefined {
     if (!sessionId) return undefined;
-    return this._chatSessions.get(sessionId);
+    const session = this._chatSessions.get(sessionId);
+    if (!session) {
+      logger.warn('缓存未命中', { sessionId });
+    }
+    return session;
   }
 
   /**
@@ -543,66 +585,79 @@ export class ChatManagerImpl implements ChatManager {
       const storedSessions = await this.sessionGateway.listSessions();
       for (const stored of storedSessions) {
         if (this._chatSessions.has(stored.id)) continue;
-        const storedMessages = await this.sessionGateway.getMessages(stored.id);
-        const messages: Message[] = storedMessages.map((m) => {
-          let content: string;
-          if (typeof m.content === 'string') {
-            content = m.content;
-          } else if (Array.isArray(m.content)) {
-            const textBlocks = m.content.filter((b) => b.type === 'text');
-            if (textBlocks.length > 0) {
-              content = textBlocks
-                .map((b) => (b as { type: 'text'; text: string }).text)
-                .join('');
+        try {
+          const storedMessages = await this.sessionGateway.getMessages(
+            stored.id
+          );
+          const messages: Message[] = storedMessages.map((m) => {
+            let content: string;
+            if (typeof m.content === 'string') {
+              content = m.content;
+            } else if (Array.isArray(m.content)) {
+              const textBlocks = m.content.filter((b) => b.type === 'text');
+              if (textBlocks.length > 0) {
+                content = textBlocks
+                  .map((b) => (b as { type: 'text'; text: string }).text)
+                  .join('');
+              } else {
+                const toolResultBlock = m.content.find(
+                  (b) => b.type === 'tool_result'
+                );
+                content = toolResultBlock
+                  ? (
+                      toolResultBlock as {
+                        type: 'tool_result';
+                        content: string;
+                      }
+                    ).content || ''
+                  : '';
+              }
             } else {
-              const toolResultBlock = m.content.find(
-                (b) => b.type === 'tool_result'
-              );
-              content = toolResultBlock
-                ? (toolResultBlock as { type: 'tool_result'; content: string })
-                    .content || ''
-                : '';
+              content = '';
             }
-          } else {
-            content = '';
+            return {
+              id: m.id,
+              role: m.role,
+              content,
+              createdAt: new Date(m.timestamp),
+              updatedAt: new Date(m.timestamp),
+              sessionId: stored.id,
+              toolCallId: m.metadata?.toolCallId,
+              metadata: m.metadata as Record<string, unknown> | undefined,
+              blocks: m.blocks as unknown as
+                | Record<string, unknown>[]
+                | undefined,
+              tool_calls: m.metadata?.tool_calls,
+            } as Message;
+          });
+          // 按消息 ID 去重（保留最后一份，它包含 blocks）
+          const dedupMap = new Map<string, Message>();
+          for (const msg of messages) {
+            dedupMap.set(msg.id, msg);
           }
-
-          return {
-            id: m.id,
-            role: m.role,
-            content,
-            createdAt: new Date(m.timestamp),
-            updatedAt: new Date(m.timestamp),
+          const dedupedMessages = Array.from(dedupMap.values());
+          const chatSession: ChatSession = {
+            id: stored.id,
+            title: stored.title,
+            state: this._mapSessionStatusToState(stored.status),
+            metadata: {
+              title: stored.title || '',
+              ...stored.metadata,
+              totalMessages: dedupedMessages.length,
+              lastActivityAt: new Date(stored.lastActivityAt),
+            },
+            messages: dedupedMessages,
+            createdAt: new Date(stored.createdAt),
+            updatedAt: new Date(stored.updatedAt),
+          };
+          this._chatSessions.set(stored.id, chatSession);
+        } catch (e) {
+          logger.warn('加载单个会话失败，跳过', {
             sessionId: stored.id,
-            toolCallId: m.metadata?.toolCallId,
-            metadata: m.metadata as Record<string, unknown> | undefined,
-            blocks: m.blocks as unknown as
-              | Record<string, unknown>[]
-              | undefined,
-            tool_calls: m.metadata?.tool_calls,
-          } as Message;
-        });
-        // 按消息 ID 去重（保留最后一份，它包含 blocks）
-        const dedupMap = new Map<string, Message>();
-        for (const msg of messages) {
-          dedupMap.set(msg.id, msg);
+            error: String(e),
+          });
+          continue;
         }
-        const dedupedMessages = Array.from(dedupMap.values());
-        const chatSession: ChatSession = {
-          id: stored.id,
-          title: stored.title,
-          state: this._mapSessionStatusToState(stored.status),
-          metadata: {
-            title: stored.title || '',
-            ...stored.metadata,
-            totalMessages: dedupedMessages.length,
-            lastActivityAt: new Date(stored.lastActivityAt),
-          },
-          messages: dedupedMessages,
-          createdAt: new Date(stored.createdAt),
-          updatedAt: new Date(stored.updatedAt),
-        };
-        this._chatSessions.set(stored.id, chatSession);
       }
     } catch (e) {
       logger.error('Failed to load sessions from gateway', {
@@ -717,7 +772,7 @@ export class ChatManagerImpl implements ChatManager {
   ): Promise<void> {
     if (maxContextTokens <= 0) return;
 
-    const RESPONSE_BUFFER_TOKENS = 50_000;
+    const RESPONSE_BUFFER_TOKENS = Math.round(maxContextTokens * 0.15);
     const SAFE_LIMIT = maxContextTokens - RESPONSE_BUFFER_TOKENS;
 
     const estimatedTokens = roughTokenCountForMessages(
@@ -784,7 +839,11 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     // 保护系统消息和最近的 N 条消息，移除中间的旧消息
-    const protectedCount = 20;
+    // N = 总消息数 × 30%，下限 20，上限 100（修复 BUG #10 protectedCount 动态化）
+    const protectedCount = Math.max(
+      20,
+      Math.min(100, Math.round(nonSystemMessages.length * 0.3))
+    );
     const systemMsg = apiMessages.find(
       (m: Record<string, unknown>) => m.role === 'system'
     );
@@ -1020,18 +1079,10 @@ export class ChatManagerImpl implements ChatManager {
     // 检查是否是命令
     if (content.startsWith('/')) {
       // 先获取或创建会话，以便将历史消息传入命令上下文
-      const cmdSession = options?.sessionId
-        ? this._getLocalSession(options.sessionId) ||
-          this.createSession({
-            title: 'New Session',
-            id: options.sessionId,
-            metadata: options?.metadata,
-          })
-        : this._getLocalSession(this._currentSessionId) ||
-          this.createSession({
-            title: 'New Session',
-            metadata: options?.metadata,
-          });
+      const cmdSessionId = options?.sessionId || this._currentSessionId;
+      const cmdSession = cmdSessionId
+        ? await this._getOrLoadSession(cmdSessionId, options?.metadata)
+        : undefined;
 
       const parts = content.slice(1).split(' ');
       const [commandName, ...args] = parts;
@@ -1061,40 +1112,28 @@ export class ChatManagerImpl implements ChatManager {
       );
 
       // 添加到会话
-      const session = options?.sessionId
-        ? this._getLocalSession(options.sessionId) ||
-          this.createSession({
-            title: 'New Session',
-            id: options.sessionId,
-            metadata: options?.metadata,
-          })
-        : this._getLocalSession(this._currentSessionId) ||
-          this.createSession({
-            title: 'New Session',
-            metadata: options?.metadata,
-          });
+      const resultSession = cmdSessionId
+        ? await this._getOrLoadSession(cmdSessionId, options?.metadata)
+        : undefined;
 
-      if (session) {
-        this._addAndPersistMessage(session.id, commandMessage);
+      if (resultSession) {
+        this._addAndPersistMessage(resultSession.id, commandMessage);
       }
 
       return commandMessage;
     }
 
-    // 获取或创建会话
-    const session = options?.sessionId
-      ? this._getLocalSession(options.sessionId) ||
-        this.createSession({
-          title: 'New Session',
-          id: options.sessionId,
-          metadata: options?.metadata,
-        })
-      : this._getLocalSession(this._currentSessionId) ||
-        this.createSession({
-          title: 'New Session',
-          metadata: options?.metadata,
-        });
-
+    // 获取或创建会话（统一 Gateway 降级加载）
+    const sessionId = options?.sessionId || this._currentSessionId;
+    if (!sessionId) {
+      throw new AppError(
+        'No session id provided',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    const session = await this._getOrLoadSession(sessionId, options?.metadata);
     if (!session) {
       throw new AppError(
         'No session found or created',
@@ -1160,10 +1199,7 @@ export class ChatManagerImpl implements ChatManager {
         typeof content === 'string' &&
         content.length > ChatManagerImpl.TOOL_RESULT_MAX_LENGTH
       ) {
-        const sizeKB = Math.round(content.length / 1024);
-        content =
-          `[工具结果已截断，原始大小 ${sizeKB}KB，仅保留前 ${ChatManagerImpl.TOOL_RESULT_MAX_LENGTH} 字符]\n` +
-          content.slice(0, ChatManagerImpl.TOOL_RESULT_MAX_LENGTH);
+        content = ChatManagerImpl.truncateToolResult(content);
       }
 
       const chatMessage: Record<string, unknown> = {
@@ -2478,20 +2514,17 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
-    // 获取或创建会话
-    const session = options?.sessionId
-      ? this._getLocalSession(options.sessionId) ||
-        this.createSession({
-          title: 'New Session',
-          id: options.sessionId,
-          metadata: options?.metadata,
-        })
-      : this._getLocalSession(this._currentSessionId) ||
-        this.createSession({
-          title: 'New Session',
-          metadata: options?.metadata,
-        });
-
+    // 获取或创建会话（统一 Gateway 降级加载）
+    const sessionId = options?.sessionId || this._currentSessionId;
+    if (!sessionId) {
+      throw new AppError(
+        'No session id provided',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    const session = await this._getOrLoadSession(sessionId, options?.metadata);
     if (!session) {
       throw new AppError(
         'No session found or created',
@@ -2543,10 +2576,7 @@ export class ChatManagerImpl implements ChatManager {
         typeof content === 'string' &&
         content.length > ChatManagerImpl.TOOL_RESULT_MAX_LENGTH
       ) {
-        const sizeKB = Math.round(content.length / 1024);
-        content =
-          `[工具结果已截断，原始大小 ${sizeKB}KB，仅保留前 ${ChatManagerImpl.TOOL_RESULT_MAX_LENGTH} 字符]\n` +
-          content.slice(0, ChatManagerImpl.TOOL_RESULT_MAX_LENGTH);
+        content = ChatManagerImpl.truncateToolResult(content);
       }
 
       const chatMessage: Record<string, unknown> = {
@@ -2750,6 +2780,8 @@ export class ChatManagerImpl implements ChatManager {
         sessionId: session.id,
       }
     );
+    // 传播 finishReason 到消息对象（修复 BUG #10 L3）
+    assistantMessage.finishReason = finalResponse?.finishReason || 'stop';
 
     // 添加助手消息到会话
     // 将 tool_calls 附加到存储的助手消息上，确保后续重建 apiMessages 时格式正确
@@ -3149,6 +3181,9 @@ export class ChatManagerImpl implements ChatManager {
               sessionId: session.id,
             }
           );
+        // 传播 finishReason 到消息对象（修复 BUG #10 L3）
+        toolResultAssistantMessage.finishReason =
+          toolResultResponse?.finishReason || 'stop';
 
         // 将 tool_calls 附加到存储的助手消息上，支持递归调用
         if (
@@ -3826,12 +3861,183 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 确保会话已加载（内存缓存 → Gateway 降级 → 创建新会话）
+   */
+  private async _ensureSessionLoaded(sessionId: string): Promise<ChatSession> {
+    // Step 1: 内存缓存命中
+    const cached = this._chatSessions.get(sessionId);
+    if (cached) {
+      return cached;
+    }
+
+    // Step 2: 尝试从 Gateway（持久化存储）加载
+    try {
+      const storedSession = await this.sessionGateway.getSession(sessionId);
+      if (storedSession) {
+        const storedMessages = await this.sessionGateway.getMessages(sessionId);
+        const messages: Message[] = (storedMessages || []).map((m) => {
+          let content: string;
+          if (typeof m.content === 'string') {
+            content = m.content;
+          } else if (Array.isArray(m.content)) {
+            const textBlocks = m.content.filter((b) => b.type === 'text');
+            content =
+              textBlocks.length > 0
+                ? textBlocks
+                    .map((b) => (b as { type: 'text'; text: string }).text)
+                    .join('')
+                : '';
+          } else {
+            content = '';
+          }
+          return {
+            id: m.id,
+            role: m.role,
+            content,
+            createdAt: new Date(m.timestamp),
+            updatedAt: new Date(m.timestamp),
+            sessionId: storedSession.id,
+            toolCallId: m.metadata?.toolCallId,
+            metadata: m.metadata as Record<string, unknown> | undefined,
+            blocks: m.blocks as unknown as
+              | Record<string, unknown>[]
+              | undefined,
+            tool_calls: m.metadata?.tool_calls,
+          } as Message;
+        });
+        const chatSession: ChatSession = {
+          id: storedSession.id,
+          title: storedSession.title,
+          state: this._mapSessionStatusToState(storedSession.status),
+          metadata: {
+            title: storedSession.title || '',
+            ...storedSession.metadata,
+            totalMessages: messages.length,
+            lastActivityAt: new Date(storedSession.lastActivityAt),
+          },
+          messages,
+          createdAt: new Date(storedSession.createdAt),
+          updatedAt: new Date(storedSession.updatedAt),
+        };
+        this._chatSessions.set(storedSession.id, chatSession);
+        logger.info('从 Gateway 降级加载会话成功', { sessionId });
+        return chatSession;
+      }
+    } catch (e) {
+      logger.warn('Gateway 降级加载失败，将创建新会话', {
+        sessionId,
+        error: String(e),
+      });
+    }
+
+    // Step 3: Gateway 也未找到 → 创建新会话
+    logger.warn('会话未找到，创建新会话', { sessionId });
+    return this.createSession({
+      title: 'New Session',
+      id: sessionId,
+    });
+  }
+
+  /**
+   * 统一获取或加载会话（替代 _getLocalSession || createSession 模式）
+   */
+  private async _getOrLoadSession(
+    sessionId: string,
+    metadata?: Record<string, unknown>
+  ): Promise<ChatSession> {
+    const cached = this._chatSessions.get(sessionId);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const storedSession = await this.sessionGateway.getSession(sessionId);
+      if (storedSession) {
+        const storedMessages = await this.sessionGateway.getMessages(sessionId);
+        const messages: Message[] = (storedMessages || []).map((m) => {
+          let content: string;
+          if (typeof m.content === 'string') {
+            content = m.content;
+          } else if (Array.isArray(m.content)) {
+            const textBlocks = m.content.filter((b) => b.type === 'text');
+            content =
+              textBlocks.length > 0
+                ? textBlocks
+                    .map((b) => (b as { type: 'text'; text: string }).text)
+                    .join('')
+                : '';
+          } else {
+            content = '';
+          }
+          return {
+            id: m.id,
+            role: m.role,
+            content,
+            createdAt: new Date(m.timestamp),
+            updatedAt: new Date(m.timestamp),
+            sessionId: storedSession.id,
+            toolCallId: m.metadata?.toolCallId,
+            metadata: m.metadata as Record<string, unknown> | undefined,
+            blocks: m.blocks as unknown as
+              | Record<string, unknown>[]
+              | undefined,
+            tool_calls: m.metadata?.tool_calls,
+          } as Message;
+        });
+        const chatSession: ChatSession = {
+          id: storedSession.id,
+          title: storedSession.title,
+          state: this._mapSessionStatusToState(storedSession.status),
+          metadata: {
+            title: storedSession.title || '',
+            ...storedSession.metadata,
+            totalMessages: messages.length,
+            lastActivityAt: new Date(storedSession.lastActivityAt),
+          },
+          messages,
+          createdAt: new Date(storedSession.createdAt),
+          updatedAt: new Date(storedSession.updatedAt),
+        };
+        this._chatSessions.set(storedSession.id, chatSession);
+        return chatSession;
+      }
+    } catch (e) {
+      logger.warn('Gateway 加载失败，将创建新会话', {
+        sessionId,
+        error: String(e),
+      });
+    }
+
+    return this.createSession({
+      title: 'New Session',
+      id: sessionId,
+      metadata,
+    });
+  }
+
+  /**
    * 切换会话
    * @param sessionId 会话ID
    */
-  switchSession(sessionId: string): void {
-    if (this._chatSessions.has(sessionId)) {
+  async switchSession(sessionId: string): Promise<void> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ChatManager.switchSession', {
+      'session.id': sessionId,
+    });
+    try {
+      await this._ensureSessionLoaded(sessionId);
       this._currentSessionId = sessionId;
+      logger.info('会话切换成功', { sessionId });
+      otel.endSpan(span);
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'chat:ChatManager',
+        action: 'switchSession',
+        context: { sessionId },
+        rethrow: false,
+      });
     }
   }
 

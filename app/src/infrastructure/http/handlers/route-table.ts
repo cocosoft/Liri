@@ -198,6 +198,14 @@ export async function dispatchRoute(
     );
     return true;
   }
+  if (method === 'PATCH' && url.match(/^\/v1\/sessions\/(.+)\/meta$/)) {
+    await self['handleUpdateSessionMeta'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/meta$/)![1]
+    );
+    return true;
+  }
   if (method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
     await self['handleDeleteSession'](
       req,

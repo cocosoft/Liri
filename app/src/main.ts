@@ -456,12 +456,14 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
 
   const httpPort = parseHttpPortFromArgs(options.args) || 7890;
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
+  const httpOnly = options.args?.includes('--http-only') || false;
 
   // 解析 --trust-level 参数（场景选择联动）
   const trustLevelArg = parseTrustLevelFromArgs(options.args);
 
   // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
-  const { startHTTPServer } = await import('./entrypoints/repl');
+  // 从独立 http-server 模块导入，避免与 repl.ts 的静态 import 链形成循环依赖
+  const { startHTTPServer } = await import('./entrypoints/http-server');
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
   try {
     httpService = await startHTTPServer(httpPort);
@@ -471,6 +473,22 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     logger.warning('HTTP 服务启动失败，引导期间前端不可用', {
       error: String(e),
     });
+  }
+
+  // --http-only 模式：仅启动 HTTP 服务，不进入 REPL
+  if (httpOnly) {
+    logger.info('HTTP-only 模式，HTTP 服务已在运行，等待信号退出');
+    // 保持进程存活，直到收到 SIGINT/SIGTERM
+    await new Promise<void>((resolve) => {
+      const onSignal = () => {
+        process.removeListener('SIGINT', onSignal);
+        process.removeListener('SIGTERM', onSignal);
+        resolve();
+      };
+      process.on('SIGINT', onSignal);
+      process.on('SIGTERM', onSignal);
+    });
+    return;
   }
 
   await checkFirstRunAndOnboard();
@@ -507,7 +525,9 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   await launchRepl({
     httpPort,
     useLegacyRepl,
-    preStartedHttp: httpService ?? undefined,
+    preStartedHttp: httpService as
+      | import('./entrypoints/http-server').LocalHTTPService
+      | undefined,
     trustLevel: trustLevelArg,
   });
 }

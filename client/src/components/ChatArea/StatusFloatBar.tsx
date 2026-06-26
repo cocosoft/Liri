@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import type { TaskCardData } from "../../types";
 
@@ -139,11 +139,36 @@ export default function StatusFloatBar() {
   const [showTaskPanel, setShowTaskPanel] = useState(false);
 
   const isActive = isSending || isStreaming || isUploading;
+  const [fadingOut, setFadingOut] = useState(false);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 从消息中提取最新的 TaskCard
+  // isActive 从 true → false 时触发渐隐动画，2秒后真正隐藏
+  useEffect(() => {
+    if (!isActive && !fadingOut) {
+      setFadingOut(true);
+      fadeTimerRef.current = setTimeout(() => {
+        setFadingOut(false);
+      }, 2000);
+    } else if (isActive && fadingOut) {
+      // 活跃状态恢复时立即取消渐隐
+      setFadingOut(false);
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
+    };
+  }, [isActive, fadingOut]);
+
+  // 从消息中提取最新的 TaskCard（必须放在所有 return 之前，遵守 Hooks 规则）
   const taskCard = useMemo(() => findLatestTaskCard(messages), [messages]);
 
-  if (!isActive) return null;
+  if (!isActive && !fadingOut) return null;
 
   /**
    * 根据当前状态生成显示文本
@@ -165,7 +190,7 @@ export default function StatusFloatBar() {
   return (
     <>
       <div
-        className="px-4 pb-0"
+        className={`px-4 pb-0 transition-opacity duration-1000 ease-in-out ${fadingOut ? 'opacity-0' : 'opacity-100'}`}
         onClick={() => setShowTaskPanel(!showTaskPanel)}
       >
         <div className="max-w-4xl mx-auto">

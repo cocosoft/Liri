@@ -117,6 +117,8 @@ export interface ChatStreamChunk {
   diffData?: DiffBlockData;
   /** 工作模式（Plan/Do） */
   mode?: 'plan' | 'do';
+  /** 仅当 type='done' 时存在：模型的终止原因 */
+  finishReason?: string;
 }
 
 /** 执行阶段数据 */
@@ -324,6 +326,17 @@ export interface CoreAPI {
 
   /** 重命名会话 */
   renameSession(sessionId: string, title: string): Promise<void>;
+
+  /** 更新会话元数据（模型绑定、工作空间、任务分工等） */
+  updateSessionMeta(
+    sessionId: string,
+    meta: {
+      model?: string;
+      workspaceId?: string;
+      providerId?: string;
+      tasksOverride?: Record<string, string>;
+    }
+  ): Promise<void>;
 
   /** 生成会话标题 */
   generateSessionTitle(

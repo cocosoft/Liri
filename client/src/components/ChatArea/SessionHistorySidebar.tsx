@@ -172,9 +172,10 @@ function SessionHistorySidebar() {
 
   const filteredSessions = useMemo(() => {
     let result = sessions;
+
     if (debouncedQuery.trim()) {
       const lower = debouncedQuery.toLowerCase();
-      result = sessions.filter(
+      result = result.filter(
         (s) =>
           s.title.toLowerCase().includes(lower) ||
           s.id.toLowerCase().includes(lower),

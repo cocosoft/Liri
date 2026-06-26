@@ -223,6 +223,7 @@ export async function handleCreateWorkItem(
       type = 'task',
       tags,
       priority,
+      sessionId,
     } = JSON.parse(body || '{}');
 
     if (!title) {
@@ -248,6 +249,7 @@ export async function handleCreateWorkItem(
       type,
       tags,
       priority,
+      sessionId,
     });
 
     logger.info(`工作项已创建: ${title}`, { workspaceId, itemId: item.id });

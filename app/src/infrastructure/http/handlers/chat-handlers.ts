@@ -33,6 +33,7 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
+import { SandboxConfigBuilder } from '@modules/sandbox/SandboxConfigBuilder';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -46,6 +47,7 @@ interface ChatCompletionRequest {
   top_p?: number;
   stream?: boolean;
   session_id?: string;
+  workspace_path?: string; // 方案 C：工作空间路径，用于工具执行默认 cwd
 }
 
 interface ChatCompletionResponse {
@@ -111,6 +113,11 @@ export async function handleChatCompletions(
     return;
   }
 
+  // 方案 C：将请求中的工作空间路径注入沙箱配置构建器，作为工具默认 cwd
+  if (request.workspace_path) {
+    SandboxConfigBuilder.defaultWorkspacePath = request.workspace_path;
+  }
+
   if (request.stream) {
     return handleStreamingChat(res, request);
   }
@@ -147,6 +154,9 @@ async function handleNormalChat(
       content: userMessage.content,
       stream: false,
       sessionId: request.session_id,
+      metadata: request.workspace_path
+        ? { workspacePath: request.workspace_path }
+        : undefined,
     };
 
     const response = await coreAPI.chat(chatRequest);
@@ -296,6 +306,9 @@ async function handleStreamingChat(
       content: userMessage.content,
       stream: true,
       sessionId: request.session_id,
+      metadata: request.workspace_path
+        ? { workspacePath: request.workspace_path }
+        : undefined,
     };
 
     const generator = coreAPI.chatStream(chatRequest);
@@ -310,14 +323,12 @@ async function handleStreamingChat(
           cacheCreationInputTokens?: number;
         }
       | undefined;
+    let chunkFinishReason: string | undefined;
 
     while (!result.done) {
       const chunk = result.value as ChatStreamChunk;
 
       switch (chunk.type) {
-        case 'done':
-          if (chunk.usage) streamUsage = chunk.usage;
-          break;
         case 'text':
           if (chunk.content) {
             res.write(
@@ -450,12 +461,22 @@ async function handleStreamingChat(
             );
           }
           break;
+        case 'done':
+          // 从 done chunk 捕获实际的 finishReason，替换后续硬编码
+          if (chunk.finishReason) {
+            chunkFinishReason = chunk.finishReason;
+          }
+          if (chunk.usage) {
+            streamUsage = chunk.usage;
+          }
+          break;
       }
 
       result = await generator.next();
     }
 
-    // 发送 usage 和 done
+    // 发送 usage 和 done（使用捕获的 finishReason 而非硬编码 'stop'）
+    const finalFinishReason = chunkFinishReason || 'stop';
     if (streamUsage) {
       res.write(
         `data: ${JSON.stringify({
@@ -472,7 +493,7 @@ async function handleStreamingChat(
             cache_read_input_tokens: streamUsage.cacheReadInputTokens,
             cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
           },
-          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
         })}\n\n`
       );
     } else {
@@ -482,7 +503,7 @@ async function handleStreamingChat(
           object: 'chat.completion.chunk',
           created,
           model,
-          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
         })}\n\n`
       );
     }

@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
-import { DashboardIcon, DevIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
-import WorkspaceSwitcher from "./WorkspaceSwitcher";
+import { DashboardIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
 
 /**
  * 页面顶部 Header
- * 右侧放置全局性快捷入口：仪表盘、终端、用户中心、帮助中心、更新检查
+ * 右侧放置全局性快捷入口：仪表盘、用户中心、帮助中心、更新检查
  */
 function Header() {
   const navigate = useNavigate();
@@ -70,18 +69,10 @@ function Header() {
           <span>仪表盘</span>
         </button>
 
-        {/* 终端 */}
-        <button
-          onClick={() => navigate("/dev")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
-          title="开发者工具"
-        >
-          <DevIcon size={16} />
-          <span>终端</span>
-        </button>
-
-        {/* 工作空间切换器 */}
-        <WorkspaceSwitcher />
+        {/* 只读显示当前应用名称 */}
+        <span className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 dark:text-gray-500 text-sm select-none">
+          当前应用：Liri
+        </span>
 
         {/* 分隔线 */}
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />

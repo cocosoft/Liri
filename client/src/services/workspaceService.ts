@@ -28,6 +28,7 @@ export interface CreateWorkspaceRequest {
 export interface CreateWorkItemRequest {
   title: string;
   description?: string;
+  sessionId?: string;
 }
 
 /** 创建会话请求 */

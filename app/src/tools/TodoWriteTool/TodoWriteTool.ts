@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TodoWriteTool - 待办事项管理工具
  *
  * 提供任务清单管理功能
@@ -757,11 +757,36 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
             });
           }
 
+          // 补偿：todo_id 不存在时自动匹配该会话中最近被操作的任务
+          // （防止上下文切换/丢失后 AI 用了错误的 todo_id，修复 BUG #11 todo 补偿）
+          const sessionTodos = todoManager.getTodos(session_id as string);
+          const latestTodo = sessionTodos[sessionTodos.length - 1];
+          if (latestTodo) {
+            Object.assign(latestTodo, updates, { updatedAt: new Date() });
+            todoManager.setTodos(session_id as string, sessionTodos);
+
+            const fallbackAllTodos = todoManager.getTodos(session_id as string);
+            const fallbackTodoData = this._buildTodoData(fallbackAllTodos);
+
+            return createToolResult(
+              `Note: todo_id "${todo_id}" not found, auto-matched to latest todo "${latestTodo.id}".\nUpdated todo:\n  ID: ${latestTodo.id}\n  Content: ${latestTodo.content}\n  Status: ${latestTodo.status}`,
+              {
+                newMessages: [
+                  {
+                    role: 'system',
+                    content: `Autofixed: "${todo_id}" → "${latestTodo.id}"`,
+                  },
+                ],
+                metadata: { _todoData: fallbackTodoData },
+              }
+            );
+          }
+
           return createToolResult(null, {
             newMessages: [
               {
                 role: 'system',
-                content: `Error: Todo not found: ${todo_id}`,
+                content: `Error: Todo not found: ${todo_id}，且该会话无可用 todo 自动匹配`,
               },
             ],
             errorLevel: ErrorLevel.RECOVERABLE,

@@ -75,6 +75,7 @@ import {
   handleSwitchSession,
   handleRenameSession,
   handleGenerateTitle,
+  handleUpdateSessionMeta,
 } from './handlers/session-handlers';
 import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
 import {
@@ -688,6 +689,17 @@ export class LocalHTTPService {
     sessionId: string
   ): Promise<void> {
     return handleGenerateTitle(this._handlerCtx, req, res, sessionId);
+  }
+
+  /**
+   * PATCH /v1/sessions/:id/meta — 更新会话元数据
+   */
+  private async handleUpdateSessionMeta(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleUpdateSessionMeta(this._handlerCtx, req, res, sessionId);
   }
 
   // ========== Tools Handlers (extracted to handlers/tools-handlers.ts) ==========

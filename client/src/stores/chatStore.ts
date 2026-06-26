@@ -7,6 +7,9 @@ import { resolveFilePath } from "../services/filePathResolver";
 import { sessionCoordinator, registerChatOperations } from "./sessionChatCoordinator";
 import { useFeatureFlagStore } from "./featureFlags";
 import { playWarningSound, playCompletionSound } from "../services/SoundService";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("chatStore");
 
 /**
  * 从工具调用中提取文件路径
@@ -484,6 +487,13 @@ class ChronologicalBlockBuilder {
 
   /** 添加或更新 todo 块 */
   addTodo(todoData: import("../types/index").TaskCardData): void {
+    // 归一化：后端可能发送 phase 而非 status（修复 BUG #11 R2）
+    const raw = todoData as unknown as { phase?: string };
+    const normalized: import("../types/index").TaskCardData = {
+      ...todoData,
+      status: raw.phase || todoData.status || 'planning',
+    };
+
     // 先按标题精确匹配
     let idx = this.blocks.findIndex(
       (b) => b.type === "todo" && b.content === todoData.title,
@@ -493,14 +503,14 @@ class ChronologicalBlockBuilder {
       idx = this.blocks.findIndex((b) => b.type === "todo");
     }
     if (idx !== -1) {
-      this.blocks[idx].taskCard = todoData;
+      this.blocks[idx].taskCard = normalized;
       return;
     }
     this.blocks.push({
       id: generateBlockId(),
       type: "todo",
       content: todoData.title,
-      taskCard: todoData,
+      taskCard: normalized,
       isStreaming: false,
       groupId: this.currentGroupId,
     });
@@ -546,10 +556,14 @@ class ChronologicalBlockBuilder {
     });
   }
 
-  /** 冻结所有块 */
+  /** 冻结所有块（流式结束或中断时调用） */
   freezeAll(): void {
     for (const block of this.blocks) {
       block.isStreaming = false;
+      // R1: 对 todo 块最终化其整体状态（修复 BUG #11）
+      if (block.type === 'todo' && block.taskCard) {
+        block.taskCard.status = 'done';
+      }
     }
     this.activeTextBlock = null;
     this.activeThinkingBlock = null;
@@ -597,7 +611,7 @@ async function flushSaveBlocks(): Promise<void> {
           blk as unknown as Array<Record<string, unknown>>,
         );
       } catch (err) {
-        console.warn("[chatStore] 保存 blocks 到后端失败", err);
+        logger.warn("保存 blocks 到后端失败", err);
       }
     }
   } finally {
@@ -767,7 +781,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // 再执行自动重命名（不阻塞 UI 状态）
       if (shouldAutoRename(sessionId)) {
-        doAutoRename(sessionId!, content, (response as Message).content).catch(console.warn);
+        doAutoRename(sessionId!, content, (response as Message).content).catch(
+          (e) => logger.warn("自动重命名失败", e),
+        );
       }
     } catch (error) {
       set({ error: String(error), isSending: false, isInputBlocked: false });
@@ -831,7 +847,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // 消息排队：流结束后自动消费队列
     const tryDequeue = () => {
       if (messageQueueEnabled && get().messageQueue.length > 0) {
-        get().dequeueAndSend(sessionId).catch(console.warn);
+        get().dequeueAndSend(sessionId).catch(
+          (e) => logger.warn("消息队列消费失败", e),
+        );
       }
     };
 
@@ -876,7 +894,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             blk as unknown as Array<Record<string, unknown>>,
           );
         } catch (err) {
-          console.warn("[chatStore] 防抖保存 blocks 到后端失败", err);
+          logger.warn("防抖保存 blocks 到后端失败", err);
         }
       }
     };
@@ -885,16 +903,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       sid: string,
       mid: string,
       blk: MessageBlock[],
+      immediate: boolean = false,
     ): void => {
       pendingSaveSessionId = sid;
       pendingSaveMessageId = mid;
       pendingSaveBlocks = blk;
+      if (immediate) {
+        // 关键节点即时落盘：tool_call 完成 / finish_reason 到达 / 截断
+        // 确保切走时不丢失，符合"先落盘再渲染"原则（方案 C）
+        if (saveBlocksTimer) clearTimeout(saveBlocksTimer);
+        saveBlocksTimer = null;
+        flushSaveBlocksLocal();
+        return;
+      }
       if (saveBlocksTimer) {
         clearTimeout(saveBlocksTimer);
       }
       saveBlocksTimer = setTimeout(() => {
         flushSaveBlocksLocal();
-      }, 800);
+      }, 200); // 200ms 防抖，比 800ms 更及时
     };
 
     // J4: 批量 set 更新——使用版本号机制，防止过期 rAF 覆盖最终状态
@@ -905,7 +932,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const flushSet = (currentVersion: number): void => {
       // 版本号检查：过期版本直接丢弃（流结束后旧 rAF 回调不覆盖最终状态）
       if (currentVersion < batchVersion) {
-        console.log("[chatStore:flushSet] 版本过期丢弃", { currentVersion, batchVersion });
+        logger.debug("flushSet: 版本过期丢弃", { currentVersion, batchVersion });
         batchPending = false;
         return;
       }
@@ -914,7 +941,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const questionCount = latestMessages.reduce((cnt, m) => {
           return cnt + (m.blocks?.filter((b) => b.type === "question").length ?? 0);
         }, 0);
-        console.log("[chatStore:flushSet] 更新 store", {
+        logger.debug("flushSet: 更新 store", {
           version: currentVersion,
           batchVersion,
           msgCount: latestMessages.length,
@@ -958,7 +985,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const msgIdx = current.findIndex((m) => m.id === assistantId);
 
         if (msgIdx === -1) {
-          console.warn("[chatStore] processChunk: 未找到对应的 assistant 消息（assistantId=%s），跳过 chunk", assistantId);
+          logger.warn("processChunk: 未找到对应的 assistant 消息（assistantId=%s），跳过 chunk", assistantId);
           return;
         }
 
@@ -1054,8 +1081,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           // 避免流式传输中同步 setState 导致无限重渲染
 
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+
+          // 关键节点即时落盘：tool_call 完成时立即持久化 blocks
+          // 防止切换会话时该 tool_call 结果丢失（方案 C）
+          if (chunk.toolCall.status === 'completed' || chunk.toolCall.status === 'failed') {
+            if (sessionId) {
+              debouncedSaveBlocksLocal(sessionId, assistantId, blockBuilder.getBlocks(), true);
+            }
+          }
         } else if (chunk.type === "question" && chunk.questionData) {
-          console.log("[chatStore:question] 收到 question chunk", {
+          logger.debug("收到 question chunk", {
             questionId: chunk.questionData.questionId,
             q: chunk.questionData.question?.slice(0, 40),
             optCnt: chunk.questionData.options?.length,
@@ -1063,7 +1098,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           });
           blockBuilder.addQuestion(chunk.questionData);
           const newBlocks = blockBuilder.getBlocks();
-          console.log("[chatStore:question] addQuestion 后 block count:", newBlocks.length, {
+          logger.debug("addQuestion 后 block count:", newBlocks.length, {
             questionBlocks: newBlocks.filter((b) => b.type === "question").length,
           });
           updatedMsg = { ...msg, blocks: newBlocks };
@@ -1074,8 +1109,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         } else if (chunk.type === "todo" && chunk.todoData) {
           blockBuilder.addTodo(chunk.todoData);
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-        } else if (chunk.type === "usage" && chunk.usage) {
-          updatedMsg = { ...msg, usage: chunk.usage };
+        } else if (chunk.type === "usage") {
+          // L5: 检测截断信号 finishReason='length'（修复 BUG #10）
+          if (chunk.finishReason === 'length') {
+            const truncatedSuffix = '\n\n> ⚠️ **AI 输出已被截断**（max_tokens 限制），请考虑分步提问或增大 max_tokens 设置。';
+            blockBuilder.addText(truncatedSuffix, false);
+            // 关键节点即时落盘：截断时立即持久化，确保截断前的 blocks 不丢失（方案 C）
+            if (sessionId) {
+              debouncedSaveBlocksLocal(sessionId, assistantId, blockBuilder.getBlocks(), true);
+            }
+          }
+          // 仅当 chunk.usage 非空时更新 usage，避免 standalone finish_reason 覆盖已有数据（BUG #10 L2）
+          const usageUpdate = chunk.usage ? { usage: chunk.usage } : {};
+          updatedMsg = { ...msg, ...usageUpdate, blocks: blockBuilder.getBlocks() };
         } else {
           updatedMsg = msg;
         }
@@ -1130,7 +1176,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
       // 不等待 updateMessageBlocks 和 doAutoRename 完成
-      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
+      // 保留 executionPhase 用于 StatusFloatBar 渐隐动画，下轮流会在 execution_phase chunk 中覆盖
+      set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
 
       // 构建最终消息并写入 store
       const finalMessages = get().messages;
@@ -1152,7 +1199,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               finalBlocks as unknown as Array<Record<string, unknown>>,
             );
           } catch (error) {
-            console.warn("[chatStore] Failed to update message blocks:", error);
+            logger.warn("Failed to update message blocks:", error);
           }
         }
       }
@@ -1165,16 +1212,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         );
         const assistantResponse =
           finalMI !== -1 ? finalMsgs[finalMI].content : "";
-        doAutoRename(sessionId!, content, assistantResponse).catch(console.warn);
+        doAutoRename(sessionId!, content, assistantResponse).catch(
+          (e) => logger.warn("流结束时自动重命名失败", e),
+        );
       }
 
       // 消息排队：自动消费队列中的下一条消息
       tryDequeue();
     } catch (error) {
       if (!abortController.signal.aborted) {
-        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
+        set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
       } else {
-        set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", executionPhase: null, abortController: null });
+        set({ isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
       }
       // 消息排队：即使出错也消费队列
       tryDequeue();
@@ -1194,7 +1243,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // 边界条件1：防止重复生成（流式输出中）
     if (isStreaming) {
-      console.warn("[chatStore] regenerateMessage: 流式输出中，忽略重新生成请求");
+      logger.warn("regenerateMessage: 流式输出中，忽略重新生成请求");
       return;
     }
 
@@ -1215,7 +1264,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // 边界条件2：空消息不重新生成
     if (!content.trim()) {
-      console.warn("[chatStore] regenerateMessage: 用户消息为空，跳过重新生成");
+      logger.warn("regenerateMessage: 用户消息为空，跳过重新生成");
       return;
     }
 
@@ -1238,13 +1287,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         workMode = workState.mode;
       }
     } catch (err) {
-      console.warn("[chatStore] workStore 不可用", err);
+      logger.warn("workStore 不可用", err);
     }
 
     try {
       await get().streamMessage(content, sessionId || userMsg.session_id, workMode);
     } catch (error) {
-      console.error("[chatStore] regenerateMessage: 重新生成失败", error);
+      logger.error("regenerateMessage: 重新生成失败", error);
       set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false });
     }
   },
@@ -1257,7 +1306,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // 边界条件1：防止重复重试（流式输出中）
     if (isStreaming) {
-      console.warn("[chatStore] retryFromError: 流式输出中，忽略重试请求");
+      logger.warn("retryFromError: 流式输出中，忽略重试请求");
       return;
     }
 
@@ -1279,7 +1328,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // 边界条件2：空消息不重试
     if (!content.trim()) {
-      console.warn("[chatStore] retryFromError: 用户消息为空，跳过重试");
+      logger.warn("retryFromError: 用户消息为空，跳过重试");
       return;
     }
 
@@ -1296,7 +1345,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       await get().streamMessage(content, sessionId || userMsg.session_id);
     } catch (error) {
-      console.error("[chatStore] retryFromError: 重试失败", error);
+      logger.error("retryFromError: 重试失败", error);
       set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false });
     }
   },
@@ -1312,7 +1361,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // 消息排队：停止后也消费队列
       const messageQueueEnabled = useFeatureFlagStore.getState().flags.message_queue;
       if (messageQueueEnabled && get().messageQueue.length > 0) {
-        get().dequeueAndSend().catch(console.warn);
+        get().dequeueAndSend().catch(
+          (e) => logger.warn("停止后消息队列消费失败", e),
+        );
       }
     }
   },
@@ -1334,15 +1385,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const current = get().sessionFiles;
     const exists = current.some((f) => f.path === file.path);
     if (!exists) {
-      console.debug(
-        "[addSessionFile] adding:",
-        file.path,
-        "total after:",
-        current.length + 1,
-      );
+      logger.debug("addSessionFile: adding:", file.path, "total after:", current.length + 1);
       set({ sessionFiles: [...current, file] });
     } else {
-      console.debug("[addSessionFile] already exists:", file.path);
+      logger.debug("addSessionFile: already exists:", file.path);
     }
   },
 
@@ -1416,7 +1462,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       set({ previewFile: filePreview });
     } catch (err) {
-      console.error("读取文件失败:", err);
+      logger.error("读取文件失败:", err);
       set({
         previewFile: {
           path: filePath,
@@ -1436,7 +1482,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   flushPendingSaves: async (): Promise<void> => {
     if (hasPendingSave) {
       hasPendingSave = false;
-      await flushSaveBlocks();
+      // 超时保护：最多等待 3 秒，防止 HTTP 挂起阻塞会话切换（方案 C）
+      const timeout = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('flushPendingSaves 超时')), 3000)
+      );
+      await Promise.race([flushSaveBlocks(), timeout]).catch((err) => {
+        logger.warn('flushPendingSaves 超时或失败', { error: String(err) });
+        // 超时后重置锁，让会话切换继续
+        _saveIsFlushing = false;
+      });
     }
   },
 
@@ -1624,7 +1678,7 @@ function normalizeToolCall(tc: unknown): ToolCall {
     try {
       parsedArgs = typeof rawArgs === "string" ? JSON.parse(rawArgs || "{}") : (rawArgs as Record<string, unknown>) || {};
     } catch (err) {
-      console.warn("[chatStore] tool_call 参数 JSON 解析失败", err);
+      logger.warn("tool_call 参数 JSON 解析失败", err);
       parsedArgs = { raw: rawArgs };
     }
     return {

@@ -309,6 +309,11 @@ export function buildPlatformContext(platform: string): string {
   return parts.join('\n\n');
 }
 
+/**
+ * 构建环境提示信息（注入系统提示，用于让 AI 了解运行环境）
+ * 返回的信息包含 OS、Shell 等，末尾附加文件路径约束。
+ * 注意：故意不注入 CWD，避免 AI 产生文件路径幻觉（BUG #9）。
+ */
 export function buildEnvironmentHints(): string {
   const hints: string[] = [];
 
@@ -316,13 +321,28 @@ export function buildEnvironmentHints(): string {
   hints.push(
     `Shell: ${process.env['SHELL'] || process.env['ComSpec'] || 'unknown'}`
   );
-  hints.push(`CWD: ${process.cwd()}`);
   hints.push(`Date: ${new Date().toISOString()}`);
 
   const username = process.env['USER'] || process.env['USERNAME'];
   if (username) {
     hints.push(`User: ${username}`);
   }
+
+  // === 文件路径约束（修复 BUG #9：AI 乱编文件路径）===
+  hints.push('');
+  hints.push('--- HARD CONSTRAINT: FILE PATHS ---');
+  hints.push(
+    '1. Only use file paths that have been confirmed via tool calls (read_file, write_file, glob, list_directory).'
+  );
+  hints.push(
+    '2. Do NOT invent, guess, or assume file paths. If you are unsure, use search_codebase or glob to find the correct path.'
+  );
+  hints.push(
+    '3. All paths must be absolute paths. Use the OS-appropriate path separators (\\ for Windows, / for macOS/Linux).'
+  );
+  hints.push(
+    '4. If a tool call fails because a path does not exist, report the error to the user. Do not silently try alternative made-up paths.'
+  );
 
   return hints.join('\n');
 }

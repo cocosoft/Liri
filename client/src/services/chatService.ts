@@ -1,9 +1,45 @@
 import type { Message, BackendStatus, ToolCall } from "../types";
 import { getBackendBaseUrl, getBackendPort, setApiSecret } from "./backendUrl";
 import { useConfigStore } from "../stores/configStore";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("chatService");
 
 function getModelFromConfig(): string {
   return (useConfigStore.getState().config.model as string) || "pyapp-default";
+}
+
+/**
+ * 获取当前工作空间路径，用于注入工具执行默认 cwd
+ */
+async function getWorkspacePath(): Promise<string | undefined> {
+  try {
+    const { useSessionStore } = await import("../stores/sessionStore");
+    return useSessionStore.getState().currentSession?.workspacePath;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 发消息前检查会话绑定的模型与后端当前模型是否一致
+ * 不一致时先同步模型，确保消息发送使用正确的模型
+ */
+async function ensureSessionModelSync(sessionId?: string): Promise<void> {
+  if (!sessionId) return;
+  try {
+    const { useSessionStore } = await import("../stores/sessionStore");
+    const session = useSessionStore.getState().currentSession;
+    if (!session?.modelId) return; // 会话未绑定模型，使用全局默认
+
+    const { modelSwitchService } = await import("./modelSwitchService");
+    const current = await modelSwitchService.getCurrent();
+    if (current.modelId !== session.modelId) {
+      await modelSwitchService.switch(session.modelId);
+    }
+  } catch {
+    // 模型同步失败不阻断消息发送，使用当前模型
+  }
 }
 
 export interface QuestionOption {
@@ -43,6 +79,8 @@ export interface StreamChunk {
     cacheReadTokens?: number;
     cacheCreationTokens?: number;
   };
+  /** 来自后端的终止原因（'stop' | 'length' | 'error'），仅 usage 或 done 类型时存在 */
+  finishReason?: string;
 }
 
 async function getTauriCore() {
@@ -154,12 +192,19 @@ export const chatService = {
     content: string,
     sessionId?: string,
   ): Promise<Message & { pendingInteraction?: QuestionData }> => {
+    // 发消息前确保会话绑定的模型与后端一致
+    await ensureSessionModelSync(sessionId);
+
+    // 获取当前工作空间路径，注入工具默认 cwd
+    const workspacePath = await getWorkspacePath();
+
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
       messages: [{ role: "user", content }],
-      max_tokens: 2000,
+      max_tokens: 4096,
     };
     if (sessionId) body.session_id = sessionId;
+    if (workspacePath) body.workspace_path = workspacePath;
 
     const response = await fetchJSON<
       {
@@ -203,13 +248,20 @@ export const chatService = {
     signal?: AbortSignal,
     options?: { workMode?: "plan" | "do" },
   ): AsyncGenerator<StreamChunk, void, unknown> {
+    // 发消息前确保会话绑定的模型与后端一致
+    await ensureSessionModelSync(sessionId);
+
+    // 获取当前工作空间路径，注入工具默认 cwd
+    const workspacePath = await getWorkspacePath();
+
     const body: Record<string, unknown> = {
       model: getModelFromConfig(),
       messages: [{ role: "user", content }],
-      max_tokens: 2000,
+      max_tokens: 8192,
       stream: true,
     };
     if (sessionId) body.session_id = sessionId;
+    if (workspacePath) body.workspace_path = workspacePath;
     if (options?.workMode) body.work_mode = options.workMode;
 
     const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
@@ -304,9 +356,23 @@ export const chatService = {
                     cacheCreationTokens:
                       chunk.usage.cache_creation_input_tokens,
                   },
+                  finishReason: chunk.choices?.[0]?.finish_reason || undefined,
+                };
+              } else if (chunk.choices?.[0]?.finish_reason === "error") {
+                // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
+                yield {
+                  type: "error",
+                  content: "AI 服务返回错误，请检查 API 密钥和模型配置",
+                };
+              } else if (chunk.choices?.[0]?.finish_reason) {
+                // 无 usage 时的独立 finish_reason 信号（修复 BUG #10）
+                yield {
+                  type: "usage",
+                  content: "",
+                  finishReason: chunk.choices[0].finish_reason,
                 };
               } else if (pyappType === "question" && chunk.__pyapp_question) {
-                console.log("[chatService:parse] 解析到 question chunk", {
+                logger.debug("解析到 question chunk", {
                   questionId: chunk.__pyapp_question.questionId,
                   question: chunk.__pyapp_question.question?.slice(0, 40),
                   options: chunk.__pyapp_question.options?.length,
@@ -326,11 +392,6 @@ export const chatService = {
                 yield {
                   type: "text",
                   content: chunk.choices[0].delta.content,
-                };
-              } else if (chunk.choices?.[0]?.finish_reason === "error") {
-                yield {
-                  type: "error",
-                  content: "AI 服务返回错误，请检查 API 密钥和模型配置",
                 };
               }
             } catch {
@@ -395,7 +456,7 @@ export const chatService = {
       );
       return response;
     } catch (err) {
-      console.warn("[chatService] 提交回答失败", err);
+      logger.warn("提交回答失败", err);
       return { success: false };
     }
   },

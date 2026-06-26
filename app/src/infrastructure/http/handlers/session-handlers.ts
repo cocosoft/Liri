@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,7 +22,13 @@
 import type http from 'node:http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+
+const logger = new Logger({
+  module: 'infra:http:session-handlers',
+  level: LogLevel.INFO,
+});
 
 // ========== Session Handlers ==========
 
@@ -59,9 +65,17 @@ export async function handleCreateSession(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const { title } = JSON.parse(body);
+    const data = JSON.parse(body);
+    const { title, model, workspaceId, workspace_path } = data;
     const coreAPI = getCoreAPI();
-    const session = await coreAPI.createSession({ title });
+
+    // 将 model、workspaceId 和 workspacePath 存入 session metadata
+    const metadata: Record<string, unknown> = {};
+    if (model) metadata.model = model;
+    if (workspaceId) metadata.workspaceId = workspaceId;
+    if (workspace_path) metadata.workspacePath = workspace_path;
+
+    const session = await coreAPI.createSession({ title, metadata });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
     ctx.broadcastEvent('session:created', { id: session?.id });
@@ -268,8 +282,18 @@ export async function handleSwitchSession(
     const coreAPI = getCoreAPI();
     await coreAPI.switchSession(sessionId);
     const session = await coreAPI.getSession(sessionId);
+    if (!session) {
+      logger.warn('会话切换后 getSession 返回 undefined', { sessionId });
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Session not found', type: 'not_found' },
+        })
+      );
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(session ?? { success: true }));
+    res.end(JSON.stringify(session));
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {
@@ -337,6 +361,44 @@ export async function handleGenerateTitle(
       await coreAPI.renameSession(sessionId, title);
       ctx.broadcastEvent('session:renamed', { id: sessionId, title });
     }
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * 处理更新会话元数据请求
+ * PATCH /v1/sessions/:id/meta
+ */
+export async function handleUpdateSessionMeta(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const data = JSON.parse(body);
+    const coreAPI = getCoreAPI();
+
+    await coreAPI.updateSessionMeta(sessionId, {
+      model: data.model,
+      workspaceId: data.workspace_id,
+      providerId: data.provider_id,
+      tasksOverride: data.tasks_override,
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    ctx.broadcastEvent('session:meta_updated', { id: sessionId, ...data });
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

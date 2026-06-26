@@ -67,7 +67,7 @@ import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { getToolManager } from '@modules/tools/ToolManager';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
-import { broadcastEvent } from '@modules/infrastructure/http/handlers/handler-utils';
+
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
 import { recordCost } from '@modules/cost/CostMonitor.js';
@@ -606,11 +606,15 @@ export class CoreAPIImpl implements CoreAPI {
       } as ChatStreamChunk;
     }
 
+    // 从 finalMessage 提取实际的 finishReason，而非硬编码 'stop'
+    const actualFinishReason = finalMessage?.finishReason || 'stop';
+
     yield {
       type: 'done',
       content: '',
       sessionId: finalSessionId,
       usage: capturedUsage,
+      finishReason: actualFinishReason,
     } as ChatStreamChunk;
 
     if (fullContent && finalSessionId) {
@@ -621,7 +625,7 @@ export class CoreAPIImpl implements CoreAPI {
       content: fullContent,
       sessionId: finalSessionId,
       messageId: finalMessageId,
-      finishReason: 'stop',
+      finishReason: actualFinishReason,
     };
   }
 
@@ -918,7 +922,62 @@ export class CoreAPIImpl implements CoreAPI {
     }
 
     // 广播事件通知前端更新左侧会话列表
+    const { broadcastEvent } =
+      await import('@modules/infrastructure/http/handlers/handler-utils');
     broadcastEvent('session:renamed', { id: sessionId, title });
+  }
+
+  /**
+   * 更新会话元数据（模型绑定、工作空间等）
+   */
+  async updateSessionMeta(
+    sessionId: string,
+    meta: {
+      model?: string;
+      workspaceId?: string;
+      providerId?: string;
+      tasksOverride?: Record<string, string>;
+    }
+  ): Promise<void> {
+    // 1. 更新内存中的会话 metadata
+    const session = this.chatManager
+      .getSessions()
+      .find((s) => s.id === sessionId);
+    if (session) {
+      if (meta.model !== undefined) session.metadata.model = meta.model;
+      if (meta.workspaceId !== undefined)
+        session.metadata.workspaceId = meta.workspaceId;
+      if (meta.providerId !== undefined)
+        session.metadata.providerId = meta.providerId;
+      if (meta.tasksOverride !== undefined)
+        session.metadata.tasksOverride = meta.tasksOverride;
+      session.updatedAt = new Date();
+    }
+
+    // 2. 持久化到存储
+    try {
+      const gateway = this.chatManager.getSessionGateway();
+      if (gateway) {
+        const storedSession = await gateway.getSession(sessionId);
+        if (storedSession) {
+          if (meta.model !== undefined)
+            storedSession.metadata.model = meta.model;
+          if (meta.workspaceId !== undefined)
+            storedSession.metadata.workspaceId = meta.workspaceId;
+          if (meta.providerId !== undefined)
+            storedSession.metadata.providerId = meta.providerId;
+          if (meta.tasksOverride !== undefined)
+            storedSession.metadata.tasksOverride = meta.tasksOverride;
+          await gateway.updateSession(storedSession);
+        }
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'runtime:api',
+        action: 'update_session_meta',
+        context: { sessionId },
+      });
+    }
   }
 
   async generateSessionTitle(

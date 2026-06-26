@@ -6,12 +6,26 @@ import { FSAccessRule, SandboxPermissions } from './SandboxTypes';
  */
 export class SandboxConfigBuilder {
   /**
+   * 工作空间路径（方案 C）：当工具未指定 cwd 时，使用此路径作为默认工作目录
+   * 在请求处理开始时由 handleChatCompletions 设置
+   */
+  static defaultWorkspacePath: string | null = null;
+
+  /**
+   * 计算有效的 cwd：优先使用显式传入的 cwd，其次使用工作空间路径，最后使用 process.cwd()
+   */
+  static resolveCwd(cwd?: string): string | undefined {
+    return cwd || SandboxConfigBuilder.defaultWorkspacePath || undefined;
+  }
+
+  /**
    * 根据工具类型生成 SandboxPermissions
    * @param toolType 工具类型标识（如 'read', 'write', 'terminal', 'network', 'execute'）
-   * @param cwd 当前工作目录（可选）
+   * @param cwd 当前工作目录（可选，未提供时使用 defaultWorkspacePath）
    * @returns 对应的沙箱权限配置
    */
   static fromToolType(toolType: string, cwd?: string): SandboxPermissions {
+    const effectiveCwd = SandboxConfigBuilder.resolveCwd(cwd);
     const lowerType = toolType.toLowerCase();
 
     if (
@@ -19,7 +33,7 @@ export class SandboxConfigBuilder {
       lowerType === 'readfile' ||
       lowerType === 'file_read'
     ) {
-      return SandboxConfigBuilder.readTool(cwd);
+      return SandboxConfigBuilder.readTool(effectiveCwd);
     }
     if (
       lowerType === 'write' ||
@@ -27,14 +41,14 @@ export class SandboxConfigBuilder {
       lowerType === 'file_write' ||
       lowerType === 'edit'
     ) {
-      return SandboxConfigBuilder.writeTool(cwd);
+      return SandboxConfigBuilder.writeTool(effectiveCwd);
     }
     if (
       lowerType === 'terminal' ||
       lowerType === 'bash' ||
       lowerType === 'execute'
     ) {
-      return SandboxConfigBuilder.terminalTool(cwd);
+      return SandboxConfigBuilder.terminalTool(effectiveCwd);
     }
     if (
       lowerType === 'network' ||
@@ -49,7 +63,7 @@ export class SandboxConfigBuilder {
       lowerType === 'grep' ||
       lowerType === 'glob'
     ) {
-      return SandboxConfigBuilder.searchTool(cwd);
+      return SandboxConfigBuilder.searchTool(effectiveCwd);
     }
 
     return SandboxConfigBuilder.defaultTool();

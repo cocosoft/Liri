@@ -428,4 +428,45 @@ export const WaveformIcon = ({ className = '', size = 24, color = 'currentColor'
   </svg>
 );
 
+/**
+ * 视频图标 — 用于视频页面导航
+ */
+export const VideoIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <polygon points="23 7 16 12 23 17 23 7" />
+    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+  </svg>
+);
+
+/**
+ * 翻译图标 — 用于翻译页面导航
+ */
+export const TranslateIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+    <path d="M2 17l10 5 10-5" />
+    <path d="M2 12l10 5 10-5" />
+  </svg>
+);
+
 export type { BaseIconProps };

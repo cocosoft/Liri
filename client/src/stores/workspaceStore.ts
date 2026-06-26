@@ -131,7 +131,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     if (!ws) return;
 
     set({ isLoading: true, error: null });
-    const item = await workspaceService.createWorkItem(ws.id, { title });
+    // 绑定当前会话 ID
+    let sessionId: string | undefined;
+    try {
+      const { useSessionStore } = await import("./sessionStore");
+      sessionId = useSessionStore.getState().currentSession?.id;
+    } catch {
+      // 静默降级
+    }
+
+    const item = await workspaceService.createWorkItem(ws.id, { title, sessionId });
     set((s) => ({
       workItems: [...s.workItems, item],
       isLoading: false,
@@ -209,9 +218,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     console.log(`[workspaceStore] Plan/Do 模式切换为: ${mode}`);
   },
 
-  /**
-   * 重置工作空间状态
-   */
+  /** 重置状态 */
   reset: () => {
     set({
       currentWorkspace: null,
@@ -220,5 +227,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       isLoading: false,
       error: null,
     });
+  },
+
+  /**
+   * 清除工作空间过滤（重置为"所有会话"）
+   */
+  clearWorkspaceFilter: () => {
+    set({ currentWorkspace: null });
   },
 }));

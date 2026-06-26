@@ -438,18 +438,11 @@ export class MonitoringService {
     };
 
     try {
-      if (process.platform === 'win32') {
-        // Windows 系统
-        const { execSync } = require('child_process');
-        const output = execSync('wmic logicaldisk get size,freespace,caption', {
-          encoding: 'utf8',
-        });
-        // 解析输出
-      } else {
-        // Unix 系统
+      if (process.platform !== 'win32') {
+        // Unix 系统：获取磁盘信息
         const { execSync } = require('child_process');
         const output = execSync('df -k', { encoding: 'utf8' });
-        // 解析输出
+        // 解析输出（暂未实现）
       }
     } catch (error) {
       // 忽略错误

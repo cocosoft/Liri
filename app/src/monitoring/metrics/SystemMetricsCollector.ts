@@ -6,10 +6,7 @@
  */
 
 import os from 'node:os';
-import { execSync, exec } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execAsync = promisify(exec);
+import { execSync } from 'node:child_process';
 
 // ── CPU 计算器（进程级） ──────────────────────────────────────────
 
@@ -20,6 +17,15 @@ const execAsync = promisify(exec);
 const cpuState = {
   prevUsage: null as NodeJS.CpuUsage | null,
   prevTime: 0,
+};
+
+/**
+ * 系统级 CPU 差值计算的状态存储
+ * 基于两次 os.cpus() 采样之间的差值计算系统级 CPU 使用率
+ */
+const systemCpuState = {
+  prevIdle: 0,
+  prevTotal: 0,
 };
 
 /**
@@ -64,65 +70,45 @@ export function resetCpuState(): void {
 /**
  * 获取系统级 CPU 使用率（0~100）
  *
- * - Windows: 通过 wmic cpu get loadpercentage 获取整体 CPU 使用率
- * - Unix:   通过 loadavg 1 分钟负载 / 核心数 计算
- *
- * 注意：Windows 的 wmic 可能已被弃用，未来可能需要切换到
- *       Get-CimInstance 或 PowerShell 命令。
+ * 跨平台实现，通过 os.cpus() 两次采样之间的空闲/总时间差值计算。
+ * 首次调用返回 0（需要两次采样才能计算差值）。
  */
 export function getSystemCpuPercent(): number {
-  if (process.platform === 'win32') {
-    try {
-      const output = execSync('wmic cpu get loadpercentage /value', {
-        encoding: 'utf8',
-        timeout: 3000,
-      });
-      const match = output.match(/LoadPercentage=(\d+)/);
-      if (match && match[1]) {
-        return Math.min(parseFloat(match[1]), 100);
-      }
-    } catch {
-      // 降级到进程级 CPU
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+
+  for (const cpu of cpus) {
+    for (const type in cpu.times) {
+      total += cpu.times[type as keyof typeof cpu.times];
     }
-  } else {
-    const loadAvg = os.loadavg();
-    const cpuCount = os.cpus().length;
-    if (cpuCount > 0) {
-      const usage = (loadAvg[0] / cpuCount) * 100;
-      return Math.min(Math.round(usage * 10) / 10, 100);
-    }
+    idle += cpu.times.idle;
   }
 
-  return 0;
+  if (systemCpuState.prevTotal === 0) {
+    systemCpuState.prevIdle = idle;
+    systemCpuState.prevTotal = total;
+    return 0;
+  }
+
+  const idleDelta = idle - systemCpuState.prevIdle;
+  const totalDelta = total - systemCpuState.prevTotal;
+
+  systemCpuState.prevIdle = idle;
+  systemCpuState.prevTotal = total;
+
+  if (totalDelta === 0) return 0;
+
+  return Math.min(Math.round((1 - idleDelta / totalDelta) * 1000) / 10, 100);
 }
 
 /**
  * 异步获取系统级 CPU 使用率（0~100）
  *
- * 使用异步 exec 替代 execSync，避免阻塞事件循环。
+ * os.cpus() 是同步 API，直接委托给同步方法，无需 shell 调用。
  */
 export async function getSystemCpuPercentAsync(): Promise<number> {
-  if (process.platform === 'win32') {
-    try {
-      const { stdout } = await execAsync('wmic cpu get loadpercentage /value', {
-        timeout: 3000,
-      });
-      const match = stdout.match(/LoadPercentage=(\d+)/);
-      if (match && match[1]) {
-        return Math.min(parseFloat(match[1]), 100);
-      }
-    } catch {
-      // 降级到进程级 CPU
-    }
-  } else {
-    const loadAvg = os.loadavg();
-    const cpuCount = os.cpus().length;
-    if (cpuCount > 0) {
-      const usage = (loadAvg[0] / cpuCount) * 100;
-      return Math.min(Math.round(usage * 10) / 10, 100);
-    }
-  }
-  return 0;
+  return getSystemCpuPercent();
 }
 
 // ── 内存采集 ──────────────────────────────────────────────────────
@@ -211,21 +197,17 @@ export function getDiskInfo(): DiskInfo {
 
   try {
     if (process.platform === 'win32') {
-      // 使用 PowerShell 替代 wmic，输出 JSON 避免列顺序和编码问题
+      // 使用 wmic CSV 格式输出，避免 PowerShell 调用
       const output = execSync(
-        'powershell -NoProfile -Command "' +
-          'Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ' +
-          'Select-Object Size,FreeSpace | ConvertTo-Json"',
+        'wmic logicaldisk where DriveType=3 get Size,FreeSpace /format:csv',
         { encoding: 'utf8', timeout: 5000 }
       );
-      const trimmed = output.trim();
-      if (trimmed) {
-        // ConvertTo-Json 可能返回单个对象或数组
-        const parsed = JSON.parse(trimmed);
-        const disks = Array.isArray(parsed) ? parsed : [parsed];
-        for (const disk of disks) {
-          const size = parseFloat(disk.Size);
-          const free = parseFloat(disk.FreeSpace);
+      const lines = output.trim().split('\n').slice(1); // 跳过 CSV 表头
+      for (const line of lines) {
+        const parts = line.split(',').map((s) => s.trim());
+        if (parts.length >= 3) {
+          const size = parseFloat(parts[1]);
+          const free = parseFloat(parts[2]);
           if (!isNaN(size) && !isNaN(free) && size > 0) {
             totalBytes += size;
             freeBytes += free;
@@ -270,67 +252,10 @@ export function getDiskInfo(): DiskInfo {
 /**
  * 异步收集磁盘信息
  *
- * 使用异步 exec 替代 execSync，避免阻塞事件循环。
- * - Windows: 通过 PowerShell Get-CimInstance（结构化 JSON 解析，列顺序安全）
- * - Unix:    通过 df -k
+ * wmic / df 均为毫秒级操作，直接委托给同步方法，无需独立异步实现。
  */
 export async function getDiskInfoAsync(): Promise<DiskInfo> {
-  let totalBytes = 0;
-  let freeBytes = 0;
-
-  try {
-    if (process.platform === 'win32') {
-      const { stdout } = await execAsync(
-        'powershell -NoProfile -Command "' +
-          'Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ' +
-          'Select-Object Size,FreeSpace | ConvertTo-Json"',
-        { timeout: 5000 }
-      );
-      const trimmed = stdout.trim();
-      if (trimmed) {
-        const parsed = JSON.parse(trimmed);
-        const disks = Array.isArray(parsed) ? parsed : [parsed];
-        for (const disk of disks) {
-          const size = parseFloat(disk.Size);
-          const free = parseFloat(disk.FreeSpace);
-          if (!isNaN(size) && !isNaN(free) && size > 0) {
-            totalBytes += size;
-            freeBytes += free;
-          }
-        }
-      }
-    } else {
-      const { stdout } = await execAsync('df -k --total 2>/dev/null || df -k', {
-        timeout: 3000,
-      });
-      const lines = stdout.trim().split('\n').slice(1);
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 4 && parts[0] !== 'total') {
-          const total = parseFloat(parts[1]) * 1024;
-          const available = parseFloat(parts[3]) * 1024;
-          if (!isNaN(total) && !isNaN(available) && total > 0) {
-            totalBytes += total;
-            freeBytes += available;
-          }
-        }
-      }
-    }
-  } catch {
-    // 磁盘信息不可用时静默处理
-  }
-
-  const usedBytes = totalBytes - freeBytes;
-  const percent =
-    totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
-  const gb = 1024 * 1024 * 1024;
-
-  return {
-    totalGB: Math.round((totalBytes / gb) * 100) / 100,
-    freeGB: Math.round((freeBytes / gb) * 100) / 100,
-    usedGB: Math.round((usedBytes / gb) * 100) / 100,
-    percent,
-  };
+  return getDiskInfo();
 }
 
 // ── 聚合接口 ──────────────────────────────────────────────────────

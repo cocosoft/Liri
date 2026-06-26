@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { modelService } from "../../services/modelService";
 import { balanceService } from "../../services/balanceService";
+import { useSessionStore } from "../../stores/sessionStore";
 import type { ModelInfo, BalanceRecord } from "../../types";
 
 interface ModelSwitcherProps {
@@ -27,6 +28,9 @@ function getProviderColor(provider: string): string {
 function ModelSwitcher({ onClose }: ModelSwitcherProps) {
   const navigate = useNavigate();
   const { currentModelId, switchModel, tasks } = useModelSwitchStore();
+  // 读取当前会话的任务分工覆盖（用于"按任务"视图区分全局/会话级配置）
+  const currentSession = useSessionStore((s) => s.currentSession);
+  const sessionTasks = currentSession?.tasksOverride;
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupBy, setGroupBy] = useState<"provider" | "task">("provider");
@@ -64,6 +68,29 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
   const handleSwitch = useCallback(
     async (modelId: string) => {
       await switchModel(modelId);
+
+      // 【写回路径】将模型选择绑定到当前会话
+      try {
+        // 动态 import 避免循环依赖
+        const { useSessionStore } = await import("../../stores/sessionStore");
+        const { sessionService } = await import("../../services/sessionService");
+        const sessionState = useSessionStore.getState();
+        const currentSession = sessionState.currentSession;
+        if (currentSession) {
+          // 更新本地会话缓存
+          useSessionStore.setState({
+            currentSession: { ...currentSession, modelId },
+            sessions: sessionState.sessions.map((s) =>
+              s.id === currentSession.id ? { ...s, modelId } : s
+            ),
+          });
+          // 尝试持久化到后端（PATCH API 不存在时静默降级）
+          await sessionService.updateSessionMeta(currentSession.id, { modelId });
+        }
+      } catch {
+        // 静默降级
+      }
+
       onClose();
     },
     [switchModel, onClose],
@@ -135,10 +162,12 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
           {groupBy === "task" ? (
             <div className="space-y-1">
               {Object.entries(taskLabels).map(([type, label]) => {
-                const modelId = (tasks as Record<string, string | undefined>)[
-                  type
-                ];
-                const model = models.find((m) => m.id === modelId);
+                // 优先使用会话级覆盖，无覆盖时使用全局配置
+                const sessionModelId = (sessionTasks as Record<string, string | undefined> | undefined)?.[type];
+                const globalModelId = (tasks as Record<string, string | undefined>)[type];
+                const effectiveModelId = sessionModelId || globalModelId;
+                const model = models.find((m) => m.id === effectiveModelId);
+                const isSessionOverride = !!sessionModelId;
                 return (
                   <div
                     key={type}
@@ -151,6 +180,11 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
                           className={`text-xs ${getProviderColor(model.provider)}`}
                         >
                           {model.name || model.id}
+                        </span>
+                      )}
+                      {isSessionOverride && (
+                        <span className="text-[10px] text-blue-500 font-medium border border-blue-200 dark:border-blue-700 rounded px-1">
+                          会话
                         </span>
                       )}
                     </div>

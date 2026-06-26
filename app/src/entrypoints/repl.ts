@@ -39,7 +39,6 @@ import { getUIEnhancer } from '../ui/UIEnhancer.js';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
-import { LocalHTTPService } from '@modules/infrastructure/http/LocalHTTPService';
 import { getConfig, configManager } from '../config/index.js';
 import { modelRouter } from '../ai/modelRouter.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
@@ -59,10 +58,14 @@ const logger = getLogger('repl');
 export async function startHTTPServer(
   port: number,
   host: string = '127.0.0.1'
-): Promise<LocalHTTPService> {
+): Promise<
+  import('@modules/infrastructure/http/LocalHTTPService').LocalHTTPService
+> {
   process.stderr.write(
     `DEBUG: startHTTPServer 开始, port=${port}, host=${host}\n`
   );
+  const { LocalHTTPService } =
+    await import('@modules/infrastructure/http/LocalHTTPService');
   const service = new LocalHTTPService({ host, port });
   await service.start();
   process.stderr.write('DEBUG: startHTTPServer 完成, HTTP 服务已启动\n');
@@ -79,7 +82,7 @@ export interface REPLConfig {
   httpPort?: number;
   useLegacyRepl?: boolean;
   /** 已预先启动的 HTTP 服务实例（避免重复启动） */
-  preStartedHttp?: LocalHTTPService;
+  preStartedHttp?: import('@modules/infrastructure/http/LocalHTTPService').LocalHTTPService;
   /** 场景信任级别（chat/work/development），CLI --trust-level 参数传入 */
   trustLevel?: string;
 }
@@ -265,7 +268,9 @@ export async function launchRepl(
   }
 
   // 启动 LocalHTTPService（如果配置了 httpPort，或使用预启动实例）
-  let localHTTPService: LocalHTTPService | null = null;
+  let localHTTPService:
+    | import('@modules/infrastructure/http/LocalHTTPService').LocalHTTPService
+    | null = null;
   if (finalConfig.preStartedHttp) {
     localHTTPService = finalConfig.preStartedHttp;
     ui.showInfo(
@@ -274,6 +279,8 @@ export async function launchRepl(
   } else if (finalConfig.httpPort) {
     try {
       profileCheckpoint('repl_http_service_start');
+      const { LocalHTTPService } =
+        await import('@modules/infrastructure/http/LocalHTTPService');
       localHTTPService = new LocalHTTPService({
         host: '127.0.0.1',
         port: finalConfig.httpPort,

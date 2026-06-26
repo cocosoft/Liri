@@ -25,5 +25,4 @@ export const logger = new Logger({
   level: LogLevel.INFO,
 });
 
-export { LocalHTTPService } from './http';
-export type { LocalHTTPConfig } from './http';
+// LocalHTTPService 改用直接路径导入: import { LocalHTTPService } from '@modules/infrastructure/http/LocalHTTPService'

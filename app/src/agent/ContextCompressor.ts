@@ -32,7 +32,7 @@ export const DEFAULT_COMPRESSION_CONFIG: ContextCompressionConfig = {
   triggerRatio: 0.8,
   reserveRatio: 0.5,
   compressionPrompt:
-    '请总结以上对话的核心内容，保留关键决策、工具调用结果和用户需求，去除冗余细节：',
+    '请总结以上对话的核心内容。必须保留：(1)用户个人信息（姓名、背景、经历、偏好）；(2)关键决策与用户需求；(3)工具调用结果。去除冗余细节：',
   maxTokens: 128000,
   preserveSystemMessages: true,
   preserveRecentToolResults: true,

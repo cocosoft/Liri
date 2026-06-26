@@ -41,33 +41,88 @@ import { handleError } from '@modules/error';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
+ * 信号量队列统计
+ */
+interface SemaphoreStats {
+  /** Provider 标识 */
+  providerId: string;
+  /** 最大并发数 */
+  maxConcurrent: number;
+  /** 当前活跃数 */
+  active: number;
+  /** 当前排队数 */
+  queued: number;
+  /** 最大队列长度配置 */
+  maxQueueLength: number;
+  /** 请求超时时间（毫秒） */
+  acquireTimeoutMs: number;
+  /** 历史峰值排队长度 */
+  peakQueued: number;
+  /** 累计入队总数 */
+  totalEnqueued: number;
+  /** 累计超时总数 */
+  totalTimedOut: number;
+  /** 累计服务总数 */
+  totalServed: number;
+}
+
+/**
  * 信号量，控制每 Provider 的并发转录数
  *
  * active < max → 立即执行
  * active >= max → FIFO 排队等待
- * 队列满 → acquire() 抛异常
+ * 队列满或超时 → acquire() 抛异常
+ *
+ * @example
+ *   const sem = new ProviderSemaphore(3, 20, 15000);
+ *   await sem.acquire();
+ *   try { // 转录
+ *   } finally { sem.release(); }
  */
 class ProviderSemaphore {
-  private max: number;
+  /** 排队条目 */
   private queue: Array<{
     resolve: () => void;
     reject: (err: Error) => void;
+    enqueuedAt: number;
+    timer?: ReturnType<typeof setTimeout>;
   }> = [];
   private active: number = 0;
-  private maxQueue: number;
+  private readonly max: number;
+  private readonly maxQueue: number;
+  private readonly acquireTimeoutMs: number;
 
-  constructor(max: number, maxQueueLength: number = 10) {
+  /** 统计 */
+  private peakQueued: number = 0;
+  private totalEnqueued: number = 0;
+  private totalTimedOut: number = 0;
+  private totalServed: number = 0;
+
+  /**
+   * @param max 最大并发数
+   * @param maxQueueLength 最大队列长度，默认 20
+   * @param acquireTimeoutMs 排队获取许可超时（毫秒），默认 30000
+   */
+  constructor(
+    max: number,
+    maxQueueLength: number = 20,
+    acquireTimeoutMs: number = 30000
+  ) {
     this.max = max;
     this.maxQueue = maxQueueLength;
+    this.acquireTimeoutMs = acquireTimeoutMs;
   }
 
   /**
    * 获取执行许可
+   *
    * - 未达上限 → 立即返回
-   * - 已达上限但队未满 → 排队等待
-   * - 队已满 → 抛出错误
+   * - 已达上限但队未满 → 排队等待（可配置超时）
+   * - 队已满或超时 → 抛出错误
+   *
+   * @param timeoutMs 可选，覆盖默认超时（毫秒）
    */
-  async acquire(): Promise<void> {
+  async acquire(timeoutMs?: number): Promise<void> {
     if (this.active < this.max) {
       this.active++;
       return;
@@ -79,23 +134,91 @@ class ProviderSemaphore {
       );
     }
 
+    // 排队
+    const timeout = timeoutMs ?? this.acquireTimeoutMs;
+    this.totalEnqueued++;
+
     return new Promise<void>((resolve, reject) => {
-      this.queue.push({ resolve, reject });
+      const entry: {
+        resolve: () => void;
+        reject: (err: Error) => void;
+        enqueuedAt: number;
+        timer?: ReturnType<typeof setTimeout>;
+      } = {
+        resolve: () => {
+          this.totalServed++;
+          resolve();
+        },
+        reject: (err: Error) => {
+          reject(err);
+        },
+        enqueuedAt: Date.now(),
+      };
+
+      if (timeout > 0) {
+        entry.timer = setTimeout(() => {
+          // 从队列中移除自己（可能已在队列中间）
+          const idx = this.queue.indexOf(entry);
+          if (idx !== -1) {
+            this.queue.splice(idx, 1);
+          }
+          this.totalTimedOut++;
+          reject(
+            new Error(
+              `转录排队超时（${timeout}ms），当前活跃 ${this.active}，排队 ${this.queue.length}`
+            )
+          );
+        }, timeout);
+      }
+
+      this.queue.push(entry);
+      this.peakQueued = Math.max(this.peakQueued, this.queue.length);
     });
   }
 
   /**
    * 释放执行许可
-   * 有排队 → 唤醒下一个，active 不变
+   *
+   * 有排队 → 唤醒下一个排队者（自动清理已超时的条目），active 不变
    * 无排队 → active--
    */
   release(): void {
-    if (this.queue.length > 0) {
-      const next = this.queue.shift()!;
+    // 跳过队列首部已超时的条目
+    while (this.queue.length > 0) {
+      const next = this.queue[0];
+      if (next.timer) {
+        // 定时器未触发 → 该条目仍有效
+        clearTimeout(next.timer);
+        next.timer = undefined;
+      }
+      // 如果条目已被 reject（超时），它的 timer 已经触发且从队列移除
+      // 但可能存在极短窗口内的残留，用 shift 确认
+      this.queue.shift()!;
       next.resolve();
-    } else {
-      this.active--;
+      return;
     }
+
+    this.active--;
+  }
+
+  /**
+   * 获取队列统计
+   *
+   * @param providerId Provider 标识，用于返回信息
+   */
+  getStats(providerId: string): SemaphoreStats {
+    return {
+      providerId,
+      maxConcurrent: this.max,
+      active: this.active,
+      queued: this.queue.length,
+      maxQueueLength: this.maxQueue,
+      acquireTimeoutMs: this.acquireTimeoutMs,
+      peakQueued: this.peakQueued,
+      totalEnqueued: this.totalEnqueued,
+      totalTimedOut: this.totalTimedOut,
+      totalServed: this.totalServed,
+    };
   }
 }
 
@@ -324,6 +447,16 @@ interface ProviderHealthConfig {
   recoveryThreshold: number;
   retryIntervalMs: number;
 }
+/** Provider 信号量配置 */
+interface SemaphoreConfig {
+  /** 最大并发数 */
+  max: number;
+  /** 最大队列长度，默认 20 */
+  maxQueue: number;
+  /** 排队获取许可超时（毫秒），默认 30000 */
+  acquireTimeoutMs: number;
+}
+
 export class STTRegistry {
   /** 实例级别：提供者映射表 */
   private providers: Map<string, STTProvider> = new Map();
@@ -359,11 +492,11 @@ export class STTRegistry {
   private degradedProviderIds: Set<string> = new Set();
   /** 并发控制信号量表 */
   private semaphores: Map<string, ProviderSemaphore> = new Map();
-  /** 并发限制配置：provider id → 最大并发数 */
-  private concurrencyLimits: Record<string, number> = {
-    local: 1,
-    cloud: 3,
-    stream: 1,
+  /** Provider 信号量配置 */
+  private semaphoreConfigs: Record<string, SemaphoreConfig> = {
+    local: { max: 1, maxQueue: 10, acquireTimeoutMs: 30000 },
+    cloud: { max: 3, maxQueue: 20, acquireTimeoutMs: 60000 },
+    stream: { max: 1, maxQueue: 5, acquireTimeoutMs: 30000 },
   };
 
   /**
@@ -374,12 +507,41 @@ export class STTRegistry {
   }
 
   /**
-   * 配置指定提供者的最大并发数
+   * 配置指定提供者的最大并发数（向后兼容）
+   *
    * @param providerType 提供者类型关键字（如 'local', 'cloud', 'stream'）
    * @param max 最大并发数
    */
   static setConcurrencyLimit(providerType: string, max: number): void {
-    STTRegistry.defaultInstance.concurrencyLimits[providerType] = max;
+    STTRegistry.defaultInstance.setConcurrencyLimitInstance(providerType, max);
+  }
+
+  /**
+   * 配置指定提供者的信号量（队列长度 + 超时）
+   *
+   * @param providerType 提供者类型关键字
+   * @param maxQueue 最大队列长度
+   * @param acquireTimeoutMs 排队获取许可超时（毫秒），0 为不超时
+   */
+  static setQueueConfig(
+    providerType: string,
+    maxQueue: number,
+    acquireTimeoutMs: number
+  ): void {
+    STTRegistry.defaultInstance.setQueueConfigInstance(
+      providerType,
+      maxQueue,
+      acquireTimeoutMs
+    );
+  }
+
+  /**
+   * 获取所有 Provider 的队列统计
+   *
+   * @returns 信号量统计数组
+   */
+  static getQueueStats(): SemaphoreStats[] {
+    return STTRegistry.defaultInstance.getQueueStatsInstance();
   }
 
   /**
@@ -710,6 +872,36 @@ export class STTRegistry {
   }
 
   /**
+   * Promise 超时包装
+   *
+   * @param promise 原始 Promise
+   * @param ms 超时毫秒
+   * @param message 超时错误消息
+   * @returns 原始 Promise 结果，超时则抛出 TimeoutError
+   */
+  private withTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    message: string
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(message));
+      }, ms);
+
+      promise
+        .then((val) => {
+          clearTimeout(timer);
+          resolve(val);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
+  /**
    * 在当前实例执行文件级转录
    */
   private async transcribeInstance(
@@ -753,7 +945,7 @@ export class STTRegistry {
       let semAcquired = false;
       const semaphore = this.getOrCreateSemaphore(provider.id);
       try {
-        await semaphore.acquire();
+        await semaphore.acquire(options?.timeout);
         semAcquired = true;
       } catch (semaError) {
         lastError =
@@ -767,7 +959,17 @@ export class STTRegistry {
       }
 
       try {
-        result = await provider.transcribe(audioData, options);
+        // 请求级超时
+        const timeout = options?.timeout ?? 0;
+        if (timeout > 0) {
+          result = await this.withTimeout(
+            provider.transcribe(audioData, options),
+            timeout,
+            `Provider ${provider.id} 转录超时（${timeout}ms）`
+          );
+        } else {
+          result = await provider.transcribe(audioData, options);
+        }
 
         // 转录成功 → 记录恢复，写入缓存
         this.recordProviderSuccess(provider.id);
@@ -930,25 +1132,109 @@ export class STTRegistry {
 
   /**
    * 获取或创建指定提供者的信号量
-   * 根据 provider.id 匹配 concurrencyLimits 中的关键字配置最大并发数
+   *
+   * 根据 provider.id 匹配 semaphoreConfigs 中的关键字配置：
+   *   - max：最大并发数
+   *   - maxQueue：最大队列长度
+   *   - acquireTimeoutMs：排队超时
    */
   private getOrCreateSemaphore(providerId: string): ProviderSemaphore {
     let existing = this.semaphores.get(providerId);
     if (existing) return existing;
 
-    // 根据 providerId 匹配关键字确定最大并发数
+    // 根据 providerId 匹配关键字确定配置
     const idLower = providerId.toLowerCase();
-    let maxConcurrent = 1; // 默认值
-    for (const [key, limit] of Object.entries(this.concurrencyLimits)) {
+    let config: SemaphoreConfig = {
+      max: 1,
+      maxQueue: 20,
+      acquireTimeoutMs: 30000,
+    };
+    for (const [key, cfg] of Object.entries(this.semaphoreConfigs)) {
       if (idLower.includes(key)) {
-        maxConcurrent = limit;
+        config = cfg;
         break;
       }
     }
 
-    existing = new ProviderSemaphore(maxConcurrent);
+    existing = new ProviderSemaphore(
+      config.max,
+      config.maxQueue,
+      config.acquireTimeoutMs
+    );
     this.semaphores.set(providerId, existing);
     return existing;
+  }
+
+  /**
+   * 设置实例级别并发限制（向后兼容）
+   */
+  private setConcurrencyLimitInstance(providerType: string, max: number): void {
+    const existing = this.semaphoreConfigs[providerType];
+    if (existing) {
+      existing.max = max;
+    } else {
+      this.semaphoreConfigs[providerType] = {
+        max,
+        maxQueue: 20,
+        acquireTimeoutMs: 30000,
+      };
+    }
+    // 重置信号量，下次使用新配置
+    this.semaphores.delete(providerType);
+  }
+
+  /**
+   * 设置实例级别队列配置
+   */
+  private setQueueConfigInstance(
+    providerType: string,
+    maxQueue: number,
+    acquireTimeoutMs: number
+  ): void {
+    const existing = this.semaphoreConfigs[providerType];
+    if (existing) {
+      existing.maxQueue = maxQueue;
+      existing.acquireTimeoutMs = acquireTimeoutMs;
+    } else {
+      this.semaphoreConfigs[providerType] = {
+        max: 1,
+        maxQueue,
+        acquireTimeoutMs,
+      };
+    }
+    // 重置信号量，下次使用新配置
+    this.semaphores.delete(providerType);
+  }
+
+  /**
+   * 获取实例级别所有信号量统计
+   */
+  private getQueueStatsInstance(): SemaphoreStats[] {
+    const stats: SemaphoreStats[] = [];
+
+    for (const [providerId, sem] of this.semaphores) {
+      stats.push(sem.getStats(providerId));
+    }
+
+    // 补充已配置但尚未创建信号量的 Provider
+    for (const [key] of Object.entries(this.semaphoreConfigs)) {
+      if (!this.semaphores.has(key)) {
+        stats.push({
+          providerId: key,
+          maxConcurrent: this.semaphoreConfigs[key].max,
+          active: 0,
+          queued: 0,
+          maxQueueLength: this.semaphoreConfigs[key].maxQueue,
+          acquireTimeoutMs: this.semaphoreConfigs[key].acquireTimeoutMs,
+          peakQueued: 0,
+          totalEnqueued: 0,
+          totalTimedOut: 0,
+          totalServed: 0,
+        });
+      }
+    }
+
+    return stats;
   }
 
   // ========== 健康自愈实例方法 ==========

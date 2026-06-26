@@ -1,8 +1,10 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
+import { useAppStore } from "../../stores/appStore";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
+import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
@@ -51,12 +53,45 @@ function ChatArea() {
     createSession("新会话");
   };
 
+  // ---- 自动 TTS 播放 ----
+  const voiceSettings = useAppStore((s) => s.voiceSettings);
+  const playResponse = useAppStore((s) => s.playResponse);
+  const lastPlayedMsgRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // 流式传输结束，且最后一条消息是助手消息 → 自动 TTS
+    if (
+      !isStreaming &&
+      messages.length > 0 &&
+      voiceSettings?.config?.autoPlayTTS
+    ) {
+      const lastMsg = messages[messages.length - 1];
+      const content =
+        typeof lastMsg.content === "string" ? lastMsg.content : "";
+      if (
+        lastMsg.role === "assistant" &&
+        content.trim() &&
+        lastMsg.id !== lastPlayedMsgRef.current
+      ) {
+        lastPlayedMsgRef.current = lastMsg.id;
+        voiceService
+          .synthesizeSpeech(content)
+          .then((audioUrl) => playResponse(audioUrl))
+          .catch((err) =>
+            console.warn("自动 TTS 播放失败:", err),
+          );
+      }
+    }
+  }, [messages.length, isStreaming, voiceSettings?.config?.autoPlayTTS, playResponse]);
+
   const displayError =
     error &&
     !backendRunning &&
     (error.includes("fetch") ||
       error.includes("connect") ||
-      error.includes("NetworkError"))
+      error.includes("NetworkError") ||
+      error.includes("typo") ||
+      error.includes("url or port"))
       ? '后端服务未运行。请点击左侧侧边栏底部的 "未连接" 按钮查看启动说明。'
       : error;
 

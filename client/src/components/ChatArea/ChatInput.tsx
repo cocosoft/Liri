@@ -5,7 +5,7 @@ import { useConfigStore } from "../../stores/configStore";
 import { useAppStore } from "../../stores/appStore";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
-import VoiceInputButton from "../VoiceInputButton";
+import VoiceInputButton, { type VoiceInputHandle } from "../VoiceInputButton";
 import FileAttachmentBar from "./FileAttachmentBar";
 import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
 import { useChatDraft } from "./useChatDraft";
@@ -26,12 +26,14 @@ function ChatInput() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasShowingCommandsRef = useRef(false);
+  const voiceBtnRef = useRef<VoiceInputHandle>(null);
 
   const { streamMessage, isSending, isStreaming, isUploading, clearMessages, messageQueue, stopMessage } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const messageQueueEnabled = useFeatureFlagStore((s) => s.flags.message_queue);
+  const voiceIsRecording = useAppStore((s) => s.voiceIsRecording);
 
   // 草稿持久化
   const { input, setInput, setInputWithDraft, clearDraft } = useChatDraft(currentSession?.id);
@@ -191,6 +193,35 @@ function ChatInput() {
   };
 
   /**
+   * 语音转录后自动发送消息
+   */
+  const handleVoiceSubmit = async (text: string) => {
+    if (!text.trim()) return;
+
+    let sessionId = currentSession?.id;
+    if (!sessionId) {
+      const newSession = await createSession("新会话");
+      sessionId = newSession.id;
+    }
+
+    setInput("");
+    clearDraft();
+    await streamMessage(text.trim(), sessionId);
+  };
+
+  /**
+   * 键盘松开事件处理 — 检测 PTT 松手停止录音
+   */
+  const handleKeyUp = (e: React.KeyboardEvent) => {
+    // PTT 松手：Ctrl+Space 松开时停止录音
+    if (e.key === " " || e.key === "Control") {
+      if (voiceBtnRef.current && voiceIsRecording) {
+        voiceBtnRef.current.stop();
+      }
+    }
+  };
+
+  /**
    * 键盘事件处理
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -214,6 +245,15 @@ function ChatInput() {
         setShowCommands(false);
         return;
       }
+    }
+
+    // PTT 快捷键：按住 Ctrl+Space 说话，松手停止（仅输入框为空时生效）
+    if (e.key === " " && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      e.preventDefault();
+      if (!e.repeat && voiceBtnRef.current && !voiceIsRecording) {
+        voiceBtnRef.current.start();
+      }
+      return;
     }
 
     if (e.key === "Escape") {
@@ -349,6 +389,7 @@ function ChatInput() {
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onKeyUp={handleKeyUp}
                 aria-label="消息输入框"
                 placeholder={
                   currentSession
@@ -366,7 +407,17 @@ function ChatInput() {
 
             {/* 右侧按钮 */}
             <div className="flex items-center gap-1">
-              <VoiceInputButton isDark={config.theme === "dark"} />
+              <VoiceInputButton
+                ref={voiceBtnRef}
+                isDark={config.theme === "dark"}
+                autoSubmit
+                onShouldSubmit={handleVoiceSubmit}
+                onTranscribed={(text) => {
+                  setInputWithDraft(text);
+                  // 填入文字后自动聚焦到输入框
+                  textareaRef.current?.focus();
+                }}
+              />
               {isStreaming && !messageQueueEnabled ? (
                 <button
                   onClick={() => stopMessage()}

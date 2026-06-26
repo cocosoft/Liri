@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useVoiceStore } from "../../stores/voiceStore";
 import type { VoiceProvider } from "../../services/voiceService";
 
@@ -12,10 +12,69 @@ const PROVIDER_LABELS: Record<VoiceProvider, string> = {
   webapi: "系统默认",
 };
 
+const DEFAULT_TRIGGERS = ["小鸟小鸟", "Hi Liri"];
+
+/** 唤醒词状态机：idle → listening → triggered → recording → idle */
+type WakeWordStatus = 'idle' | 'listening' | 'triggered' | 'recording';
+
+/** 从现有 store 字段推导当前唤醒状态 */
+function getWakeWordStatus(
+  enabled: boolean,
+  listening: boolean,
+  triggered: string | null,
+  isRecording: boolean,
+  isProcessing: boolean,
+): WakeWordStatus {
+  if (!enabled) return 'idle';
+  if (isRecording || isProcessing) return 'recording';
+  if (triggered) return 'triggered';
+  if (listening) return 'listening';
+  return 'idle';
+}
+
 function VoiceSettings({ isDark }: VoiceSettingsProps) {
-  const { settings, isProcessing, error, loadSettings, updateSettings } =
-    useVoiceStore();
+  const {
+    settings,
+    isProcessing,
+    error,
+    loadSettings,
+    updateSettings,
+    wakeWordEnabled,
+    wakeWordTriggers,
+    wakeWordListening,
+    wakeWordTriggered,
+    isRecording,
+    toggleWakeWord,
+    setWakeWordTriggers,
+  } = useVoiceStore();
+
+  /** 当前唤醒状态机状态 */
+  const wakeWordStatus = getWakeWordStatus(
+    wakeWordEnabled,
+    wakeWordListening,
+    wakeWordTriggered,
+    isRecording,
+    isProcessing,
+  );
   const [localConfig, setLocalConfig] = useState(settings?.config);
+  const [newTrigger, setNewTrigger] = useState("");
+
+  /** 添加新唤醒词，更新 store */
+  const addTrigger = useCallback(() => {
+    const trimmed = newTrigger.trim();
+    if (!trimmed) return;
+    if (!wakeWordTriggers.includes(trimmed)) {
+      setWakeWordTriggers([...wakeWordTriggers, trimmed]);
+    }
+    setNewTrigger("");
+  }, [newTrigger, wakeWordTriggers, setWakeWordTriggers]);
+
+  /** 初始化默认唤醒词列表 */
+  useEffect(() => {
+    if (wakeWordTriggers.length === 0) {
+      setWakeWordTriggers(DEFAULT_TRIGGERS);
+    }
+  }, [wakeWordTriggers.length, setWakeWordTriggers]);
 
   useEffect(() => {
     if (!settings) {
@@ -167,18 +226,13 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
             <p
               className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              启用后可通过语音唤醒词激活语音输入
+              启用后可通过唤醒词激活语音输入
             </p>
           </div>
           <button
-            onClick={() =>
-              setLocalConfig({
-                ...localConfig,
-                wakeWordEnabled: !localConfig.wakeWordEnabled,
-              })
-            }
+            onClick={toggleWakeWord}
             className={`relative w-12 h-6 rounded-full transition-colors ${
-              localConfig.wakeWordEnabled
+              wakeWordEnabled
                 ? "bg-blue-500"
                 : isDark
                   ? "bg-gray-600"
@@ -187,32 +241,109 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
           >
             <span
               className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                localConfig.wakeWordEnabled ? "left-7" : "left-1"
+                wakeWordEnabled ? "left-7" : "left-1"
               }`}
             />
           </button>
         </div>
 
-        {localConfig.wakeWordEnabled && (
-          <div>
-            <label
-              className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
-            >
-              唤醒词
-            </label>
-            <input
-              type="text"
-              value={localConfig.wakeWord}
-              onChange={(e) =>
-                setLocalConfig({ ...localConfig, wakeWord: e.target.value })
-              }
-              placeholder="例如：嘿，助手"
-              className={`w-full px-3 py-2 rounded-lg border ${
-                isDark
-                  ? "bg-gray-800 border-gray-700 text-white"
-                  : "bg-white border-gray-300 text-gray-900"
-              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-            />
+        {wakeWordEnabled && (
+          <div className="space-y-3 border-l-2 border-blue-400 pl-4">
+            {/* 唤醒状态机指示器：idle → listening → triggered → recording → idle */}
+            {wakeWordStatus === 'listening' && (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                <span className={`text-xs ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+                  正在监听唤醒词...
+                </span>
+              </div>
+            )}
+            {wakeWordStatus === 'triggered' && (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
+                <span className={`text-xs font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                  已触发：{wakeWordTriggered}
+                </span>
+              </div>
+            )}
+            {wakeWordStatus === 'recording' && (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                  语音输入已激活{wakeWordTriggered ? `（唤醒词：${wakeWordTriggered}）` : ''}
+                </span>
+              </div>
+            )}
+            {wakeWordStatus === 'idle' && (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-400" />
+                <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  唤醒监听未启动
+                </span>
+              </div>
+            )}
+
+            {/* 唤醒词列表 */}
+            <div>
+              <label
+                className={`block text-xs font-medium mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+              >
+                唤醒词列表
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {wakeWordTriggers.map((trigger, i) => (
+                  <span
+                    key={i}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs ${
+                      isDark
+                        ? "bg-gray-700 text-gray-200"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {trigger}
+                    <button
+                      onClick={() => {
+                        const next = wakeWordTriggers.filter((_, j) => j !== i);
+                        setWakeWordTriggers(next);
+                      }}
+                      className="ml-0.5 hover:text-red-500"
+                      title="移除"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTrigger}
+                  onChange={(e) => setNewTrigger(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newTrigger.trim()) {
+                      addTrigger();
+                    }
+                  }}
+                  placeholder="输入新唤醒词，回车添加"
+                  className={`flex-1 px-3 py-1.5 text-sm rounded-lg border ${
+                    isDark
+                      ? "bg-gray-800 border-gray-700 text-white"
+                      : "bg-white border-gray-300 text-gray-900"
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                />
+                <button
+                  onClick={addTrigger}
+                  disabled={!newTrigger.trim()}
+                  className={`px-3 py-1.5 text-sm rounded-lg font-medium ${
+                    isDark
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  } disabled:opacity-50`}
+                >
+                  添加
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

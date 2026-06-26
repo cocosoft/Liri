@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebChannel — WebSocket 通道适配器（遗留版）
  * 使用 Node.js 内置 http + crypto 模块实现 RFC 6455 WebSocket 服务器
  * 无需第三方依赖
@@ -34,6 +34,7 @@ import type {
 } from './ChannelPlugin';
 import { handleError } from '@modules/error';
 import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
+import { handleWakeUpgrade } from '../../voice/WakeWebSocketServer';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -45,6 +46,9 @@ const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 /** 语音 WebSocket 端点路径 */
 const VOICE_WS_PATH = '/voice';
+
+/** 唤醒词 WebSocket 端点路径 */
+const WAKE_WS_PATH = '/wake';
 
 /** WebSocket 通道配置 */
 export interface WebChannelConfig extends ChannelConfig {
@@ -136,6 +140,11 @@ export class WebChannel implements ChannelPlugin {
 
         if (url === VOICE_WS_PATH) {
           handleVoiceUpgrade(req, res);
+          return;
+        }
+
+        if (url === WAKE_WS_PATH) {
+          handleWakeUpgrade(req, res);
           return;
         }
 

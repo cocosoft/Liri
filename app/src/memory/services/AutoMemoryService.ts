@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 自动记忆服务
  * 负责自动识别和创建记忆
  */
@@ -28,6 +28,7 @@ export enum AutoMemoryTriggerType {
   IMPORTANT_INFORMATION = 'important_information',
   PROJECT_CONTEXT = 'project_context',
   EXPLICIT_REQUEST = 'explicit_request',
+  USER_FACT = 'user_fact',
 }
 
 /**
@@ -278,6 +279,14 @@ export class AutoMemoryService {
           results.push(requestResult);
         }
       }
+
+      // 检查用户个人信息声明（姓名、年龄、经历等事实性陈述）
+      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.USER_FACT)) {
+        const factResult = this.detectUserFact(message);
+        if (factResult) {
+          results.push(factResult);
+        }
+      }
     }
 
     // 去重和排序
@@ -483,6 +492,63 @@ export class AutoMemoryService {
       confidence: 0.7,
       trigger: AutoMemoryTriggerType.IMPORTANT_INFORMATION,
       tags: ['important', 'reference', 'critical'],
+    };
+  }
+
+  /**
+   * 检测用户个人信息声明（姓名、经历、联系信息等事实性陈述）
+   * 匹配模式如："姓名：彭云"、"我叫xxx"、"邮箱：xx@xx.com"、"2005年-2008年创业"
+   */
+  private detectUserFact(message: {
+    role: string;
+    content: string;
+    timestamp: Date;
+  }): MemoryExtractionResult | null {
+    // 仅处理用户消息
+    if (message.role !== 'user') {
+      return null;
+    }
+
+    const text = message.content;
+
+    // 个人信息声明模式
+    const personalFactPatterns = [
+      /姓名[：:]\s*\S+/,
+      /我叫\s*\S+/,
+      /我是\s*\S+/,
+      /邮箱[：:]\s*\S+/,
+      /电话[：:]\s*\S+/,
+      /手机[：:]\s*\S+/,
+      /github[：:]\s*\S+/i,
+      /微信[：:]\s*\S+/,
+      /城市[：:]\s*\S+/,
+      /学历[：:]\s*\S+/,
+      /学校[：:]\s*\S+/,
+      /专业[：:]\s*\S+/,
+      /公司[：:]\s*\S+/,
+      /职位[：:]\s*\S+/,
+      /毕业[：:]\s*\S+/,
+      /\d{4}\s*年\s*[-~至到]\s*/,
+      /\d{4}\s*[-~至到]\s*\d{4}\s*年/,
+      /创业/,
+      /工作经历/,
+      /求职意向[：:]\s*\S+/,
+      /技术栈[：:]/,
+      /擅长[：:]/,
+    ];
+
+    const matched = personalFactPatterns.some((p) => p.test(text));
+    if (!matched) {
+      return null;
+    }
+
+    return {
+      content: text,
+      title: '用户信息',
+      type: MemoryType.USER_FACT,
+      confidence: 0.85,
+      trigger: AutoMemoryTriggerType.USER_FACT,
+      tags: ['user_info', 'personal', 'fact'],
     };
   }
 

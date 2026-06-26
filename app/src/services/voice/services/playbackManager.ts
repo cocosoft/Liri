@@ -26,6 +26,7 @@ import {
   AudioFormatConverter,
   isFFmpegAvailable,
 } from './audioFormatConverter';
+import { decodeWav } from './audioPipeline';
 
 const logger = new Logger({});
 
@@ -125,7 +126,13 @@ export class PlaybackManager {
     audioFormat?: string
   ): Promise<Buffer> {
     if (audioFormat === 'wav' || audioFormat === 'pcm') {
-      // WAV 格式：去掉 44 字节 WAV 头，取出 PCM16 数据
+      // WAV 格式：使用 decodeWav 解析头部并提取 PCM 数据
+      const decoded = decodeWav(audioData);
+      if (decoded) {
+        return decoded.pcmData;
+      }
+      // 无法解析 WAV 头部时，回退到直接剥离 44 字节
+      logger.warn('PlaybackManager · decodeWav 失败，使用固定偏移剥离 WAV 头');
       return this.stripWavHeader(audioData);
     }
 

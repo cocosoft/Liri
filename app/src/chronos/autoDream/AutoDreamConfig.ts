@@ -13,8 +13,8 @@ interface AutoDreamConfig {
 
 const DEFAULT_CONFIG: AutoDreamConfig = {
   enabled: true,
-  minHours: 24,
-  minSessions: 5,
+  minHours: 4, // 原 24 小时，降低以更快生成梦境
+  minSessions: 2, // 原 5 个会话，降低门槛
 };
 
 let cachedConfig: AutoDreamConfig | null = null;

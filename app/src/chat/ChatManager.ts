@@ -119,7 +119,7 @@ import { ContextCompressor } from '@modules/agent/ContextCompressor';
 
 import { TaskStatus } from '@modules/tasks/types';
 
-import { RollbackIntegration } from '@modules/security';
+import { RollbackIntegration, SensitiveErrorType } from '@modules/security';
 import type { FileOperation } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
@@ -521,12 +521,12 @@ export class ChatManagerImpl implements ChatManager {
       return (
         prompt +
         `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
-        `\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`
+        `\n\n## 上下文保持规则\n你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若对话历史已被压缩，可在系统提示词的"记忆上下文"段落中查找用户信息。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`
       );
     }
     return (
       prompt +
-      `\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`
+      `\n\n## 上下文保持规则\n你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若对话历史已被压缩，可在系统提示词的"记忆上下文"段落中查找用户信息。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`
     );
   }
 
@@ -1065,15 +1065,18 @@ export class ChatManagerImpl implements ChatManager {
     // 清理用户输入，防止XSS和隐藏字符攻击
     content = recursivelySanitizeUnicode(content) as string;
 
-    // 验证输入安全性
+    // 验证输入安全性 — 检测到敏感数据时脱敏后继续，而非阻断
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
-      throw new AppError(
-        validationResult.error || 'Invalid input',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
+      logger.warn('用户输入包含敏感数据，已自动脱敏处理', {
+        module: 'chat:manager',
+        action: 'sendMessage',
+      });
+      content = securityService.sanitize(content);
+      securityService.logSecurityError({
+        type: SensitiveErrorType.SENSITIVE_DATA_DETECTED,
+        message: '用户输入包含敏感数据，已自动脱敏处理',
+      });
     }
 
     // 检查是否是命令
@@ -2503,15 +2506,18 @@ export class ChatManagerImpl implements ChatManager {
     // 清理用户输入，防止XSS和隐藏字符攻击
     content = recursivelySanitizeUnicode(content) as string;
 
-    // 验证输入安全性
+    // 验证输入安全性 — 检测到敏感数据时脱敏后继续，而非阻断
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
-      throw new AppError(
-        validationResult.error || 'Invalid input',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
+      logger.warn('用户输入包含敏感数据，已自动脱敏处理', {
+        module: 'chat:manager',
+        action: 'streamMessage',
+      });
+      content = securityService.sanitize(content);
+      securityService.logSecurityError({
+        type: SensitiveErrorType.SENSITIVE_DATA_DETECTED,
+        message: '用户输入包含敏感数据，已自动脱敏处理',
+      });
     }
 
     // 获取或创建会话（统一 Gateway 降级加载）

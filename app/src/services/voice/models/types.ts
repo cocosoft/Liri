@@ -127,41 +127,9 @@ export interface STTStreamOptions {
   utteranceEndMs?: number;
 }
 
-/**
- * STT 转录结果
- */
-export interface STTResult {
-  /** 转录文本 */
-  text: string;
-  /** 置信度（0-1） */
-  confidence: number;
-  /** 是否为最终结果（流式场景） */
-  isFinal: boolean;
-  /** 音频时长（秒） */
-  duration?: number;
-  /** 语言代码 */
-  language?: string;
-  /** 提供者名称 */
-  provider?: string;
-  /** 各语段详细结果 */
-  segments?: STTSegment[];
-  /** 错误信息：当转录失败时携带错误详情，调用方可据此区分"未检测到语音" 和"服务不可用" */
-  error?: { code: string; message: string };
-}
-
-/**
- * STT 语段详情
- */
-export interface STTSegment {
-  /** 语段文本 */
-  text: string;
-  /** 起始时间（秒） */
-  start: number;
-  /** 结束时间（秒） */
-  end: number;
-  /** 置信度 */
-  confidence: number;
-}
+// STTResult 和 STTSegment 已在 shared/types/voice-types.ts 中统一定义
+// 此处 re-export 以保持后端内部导入路径兼容
+export type { STTResult, STTSegment } from '@shared/types';
 
 /**
  * STT 配置

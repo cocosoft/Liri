@@ -116,3 +116,14 @@ export interface SharedModelInfo {
   provider: string;
   capabilities: string[];
 }
+
+// ============================================================
+// 语音 (Voice) 相关类型
+// ============================================================
+
+export type {
+  STTSegment,
+  STTResult,
+  ProviderInfo,
+  VoiceSession,
+} from './voice-types';

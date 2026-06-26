@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VoiceSession
  * 语音会话生命周期管理
  * 桥接 WebSocket 连接 ↔ Provider Adapter ↔ VoiceToolBridge
@@ -142,10 +142,19 @@ export class VoiceSession {
     return this.toolBridge;
   }
 
-  /** 设置内部状态并更新事件总线 */
+  /** 设置内部状态并更新事件总线，同时通过 WebSocket 推送状态变更 */
   private setState(state: VoiceSessionState): void {
+    const previous = this._state;
     this._state = state;
     this.eventBus.setState(state);
+
+    // P2-2: 通过 WebSocket 向前端推送状态变更事件
+    this.connection.send({
+      type: 'session.state_change',
+      state,
+      previous,
+      timestamp: Date.now(),
+    });
   }
 
   /** 设置 WebSocket 连接的消息/关闭/错误处理器 */
@@ -218,6 +227,11 @@ export class VoiceSession {
 
       case 'tool.result':
         this.handleToolResult(event);
+        break;
+
+      // P2-2: 心跳响应 — 前端 ping 请求，后端立即回应 pong
+      case 'ping':
+        this.connection.send({ type: 'pong', timestamp: Date.now() });
         break;
     }
   }

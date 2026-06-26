@@ -64,6 +64,12 @@ export interface VoiceToolResultEvent {
   output: string;
 }
 
+/** P2-2: 心跳请求事件（前端 → 后端） */
+export interface VoicePingEvent {
+  type: 'ping';
+  timestamp: number;
+}
+
 export type VoiceClientEvent =
   | VoiceSessionConfigEvent
   | VoiceAudioAppendEvent
@@ -71,7 +77,8 @@ export type VoiceClientEvent =
   | VoiceFrameAppendEvent
   | VoiceResponseCreateEvent
   | VoiceResponseCancelEvent
-  | VoiceToolResultEvent;
+  | VoiceToolResultEvent
+  | VoicePingEvent;
 
 /** ========== Server → Client (15 types) ========== */
 
@@ -155,6 +162,20 @@ export interface VoiceErrorEvent {
   message: string;
 }
 
+/** P2-2: 会话状态变更事件（后端 → 前端推送） */
+export interface VoiceSessionStateChangeEvent {
+  type: 'session.state_change';
+  state: VoiceSessionState;
+  previous: VoiceSessionState;
+  timestamp: number;
+}
+
+/** P2-2: 心跳响应事件 */
+export interface VoicePongEvent {
+  type: 'pong';
+  timestamp: number;
+}
+
 export type VoiceServerEvent =
   | VoiceSessionReadyEvent
   | VoiceAudioDeltaEvent
@@ -170,7 +191,9 @@ export type VoiceServerEvent =
   | VoiceSessionRotatedEvent
   | VoiceUsageMetricsEvent
   | VoiceLatencyMetricsEvent
-  | VoiceErrorEvent;
+  | VoiceErrorEvent
+  | VoiceSessionStateChangeEvent
+  | VoicePongEvent;
 
 /** ========== Session 生命周期状态 ========== */
 

@@ -110,7 +110,7 @@ export type {
 } from './services/environmentDetector';
 
 // 导出 TTS 提供者系统
-export { TTSRegistry } from './services/ttsProvider';
+export { TTSRegistry, TTSQueuePriority } from './services/ttsProvider';
 export { EdgeTTSProvider } from './services/edgeTTSProvider';
 export type {
   TTSProvider,

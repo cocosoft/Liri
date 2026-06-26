@@ -45,6 +45,38 @@ export interface WsUrlBuilder {
 }
 
 /**
+ * 流式转录消息解析器接口
+ *
+ * 不同 STT 服务商的 WebSocket 消息格式不同（JSON/text/二进制等），
+ * 通过此接口将协议相关解析逻辑从连接管理中解耦。
+ *
+ * 实现示例：Anthropic 使用 JSON {type, data}，Deepgram 使用 JSON {channel, alternatives}，
+ * Azure 使用 JSON {type, DisplayText}。
+ */
+export interface StreamMessageParser {
+  /** 服务商名称，用于日志和调试 */
+  readonly name: string;
+  /**
+   * 解析 WebSocket 消息
+   * @param raw 原始消息文本
+   * @returns 解析结果，如果不是转录相关消息返回 null
+   */
+  parse(raw: string): ParsedStreamMessage | null;
+}
+
+/** 解析后的流式消息 */
+export interface ParsedStreamMessage {
+  /** 消息类别 */
+  kind: 'transcript' | 'endpoint' | 'error';
+  /** 转录文本（仅 kind=transcript 时有值） */
+  text?: string;
+  /** 错误描述（仅 kind=error 时有值） */
+  errorMessage?: string;
+  /** 错误码（仅 kind=error 时有值） */
+  errorCode?: string;
+}
+
+/**
  * Anthropic voice_stream URL 构建策略
  * 构建 wss://api.anthropic.com/api/ws/speech_to_text/voice_stream 端点
  */
@@ -123,7 +155,7 @@ function createWebSocket(url: string, options?: WebSocketOptions): WebSocket {
   }
 }
 
-/** voice_stream 协议消息类型 */
+/** voice_stream 协议旧消息类型（保留向后兼容，逐步迁移到解析器） */
 interface TranscriptTextMessage {
   type: 'TranscriptText';
   data: string;
@@ -139,11 +171,56 @@ interface TranscriptErrorMessage {
   description?: string;
 }
 
-type StreamMessage =
+type LegacyStreamMessage =
   | TranscriptTextMessage
   | TranscriptEndpointMessage
   | TranscriptErrorMessage
   | { type: 'error'; message?: string };
+
+/**
+ * Anthropic voice_stream 消息解析器
+ *
+ * Anthropic 协议使用 JSON 格式：
+ *   TranscriptText:  { type: "TranscriptText", data: "文本" }
+ *   TranscriptEndpoint: { type: "TranscriptEndpoint" }
+ *   TranscriptError:  { type: "TranscriptError", error_code, description }
+ *   错误消息:         { type: "error", message }
+ */
+export class AnthropicStreamMessageParser implements StreamMessageParser {
+  readonly name = 'anthropic';
+
+  parse(raw: string): ParsedStreamMessage | null {
+    let msg: Record<string, unknown>;
+    try {
+      msg = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+
+    switch (msg.type) {
+      case 'TranscriptText':
+        return {
+          kind: 'transcript',
+          text: String(msg.data || ''),
+        };
+      case 'TranscriptEndpoint':
+        return { kind: 'endpoint' };
+      case 'TranscriptError':
+        return {
+          kind: 'error',
+          errorMessage: String(msg.description || msg.error_code || '转录错误'),
+          errorCode: String(msg.error_code || 'TRANSCRIPT_ERROR'),
+        };
+      case 'error':
+        return {
+          kind: 'error',
+          errorMessage: String(msg.message || JSON.stringify(msg)),
+        };
+      default:
+        return null;
+    }
+  }
+}
 
 /** StreamSTTProvider 配置项 */
 export interface StreamSTTConfig {
@@ -155,6 +232,8 @@ export interface StreamSTTConfig {
   wsUrl?: string;
   /** 自定义 WebSocket URL 构建策略（默认 AnthropicWsUrlBuilder） */
   urlBuilder?: WsUrlBuilder;
+  /** 自定义消息解析器（默认 AnthropicStreamMessageParser） */
+  messageParser?: StreamMessageParser;
   /** 自定义请求头 */
   headers?: Record<string, string>;
   /** 音频编码格式 */
@@ -193,6 +272,7 @@ export class StreamSTTProvider implements STTProvider {
   private config: StreamSTTConfig;
   private activeConnection: StreamSTTConnectionImpl | null = null;
   private _urlBuilder: WsUrlBuilder;
+  private _messageParser: StreamMessageParser;
 
   /** 可用性缓存 TTL（毫秒） */
   private static readonly AVAILABILITY_TTL = 60_000;
@@ -210,6 +290,8 @@ export class StreamSTTProvider implements STTProvider {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this._urlBuilder =
       config.urlBuilder || new AnthropicWsUrlBuilder(this.config);
+    this._messageParser =
+      config.messageParser || new AnthropicStreamMessageParser();
   }
 
   /**
@@ -427,7 +509,12 @@ export class StreamSTTProvider implements STTProvider {
     const wsUrl = this.buildWsUrl(options);
     const headers = this.buildHeaders();
 
-    return new StreamSTTConnectionImpl(wsUrl, headers, options || {});
+    return new StreamSTTConnectionImpl(
+      wsUrl,
+      headers,
+      options || {},
+      this._messageParser
+    );
   }
 
   /**
@@ -483,7 +570,8 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
   constructor(
     private wsUrl: string,
     private headers: Record<string, string>,
-    private options: STTStreamOptions
+    private options: STTStreamOptions,
+    private messageParser: StreamMessageParser
   ) {
     this.connect();
   }
@@ -517,24 +605,21 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
         typeof event.data === 'string'
           ? event.data
           : new TextDecoder().decode(event.data as BufferSource);
-      let msg: StreamMessage;
 
-      try {
-        msg = JSON.parse(raw) as StreamMessage;
-      } catch {
-        return;
-      }
+      // 通过注入的消息解析器处理不同供应商协议
+      const parsed = this.messageParser.parse(raw);
+      if (!parsed) return;
 
-      switch (msg.type) {
-        case 'TranscriptText': {
-          const transcript = msg.data || '';
+      switch (parsed.kind) {
+        case 'transcript': {
+          const transcript = parsed.text || '';
           if (transcript) {
             this.lastTranscriptText = transcript;
             this.emitTranscript(transcript, false);
           }
           break;
         }
-        case 'TranscriptEndpoint': {
+        case 'endpoint': {
           const finalText = this.lastTranscriptText;
           this.lastTranscriptText = '';
           if (finalText) {
@@ -545,17 +630,10 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
           }
           break;
         }
-        case 'TranscriptError': {
-          const desc = msg.description || msg.error_code || '转录错误';
+        case 'error': {
+          const desc = parsed.errorMessage || '转录错误';
           if (!this.finalizing) {
             this.emitError(new Error(desc));
-          }
-          break;
-        }
-        case 'error': {
-          const detail = msg.message || JSON.stringify(msg);
-          if (!this.finalizing) {
-            this.emitError(new Error(detail));
           }
           break;
         }

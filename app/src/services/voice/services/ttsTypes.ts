@@ -11,6 +11,18 @@ export interface TTSVoice {
   gender: 'male' | 'female';
 }
 
+/** TTS 优先级（数字越小优先级越高） */
+export enum TTSQueuePriority {
+  /** 即时反馈（按钮音效、提示音） */
+  IMMEDIATE = 0,
+  /** 短文本回复（< 100 字符） */
+  SHORT = 1,
+  /** 正常 AI 回复 */
+  NORMAL = 2,
+  /** 长文本合成 */
+  BATCH = 3,
+}
+
 /** TTS 合成选项 */
 export interface TTSSpeakOptions {
   text: string;
@@ -19,6 +31,8 @@ export interface TTSSpeakOptions {
   speed?: number;
   /** 音频格式（如 'mp3', 'wav', 'opus'），仅对支持多格式的 Provider 生效 */
   format?: string;
+  /** 队列优先级（仅启用 TTS 队列时生效） */
+  priority?: TTSQueuePriority;
 }
 
 /** TTS 合成结果 */
@@ -55,4 +69,16 @@ export interface TTSProvider {
   ): Promise<TTSSpeakResult>;
   /** 停止合成 */
   stop?(): void;
+  /** 流式合成（可选），边合成边回调音频块 */
+  createStream?(options: TTSSpeakOptions): TTSStream;
+}
+
+/** 流式 TTS 合成接口 */
+export interface TTSStream {
+  /** 音频块回调（isLast=true 表示最后一块） */
+  onData(callback: (chunk: Buffer, isLast: boolean) => void): void;
+  /** 错误回调 */
+  onError(callback: (error: Error) => void): void;
+  /** 取消流式合成 */
+  cancel(): void;
 }

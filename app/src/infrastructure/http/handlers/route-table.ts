@@ -22,6 +22,9 @@ import {
   handleListVoiceProviders,
   handleListVoices,
   handleTestWakeWord,
+  handleWakeStart,
+  handleWakeStop,
+  handleWakeStatus,
   handleListTTSProviders,
   handleSaveProviderConfig,
   handleListPersonas,
@@ -504,6 +507,18 @@ export async function dispatchRoute(
       res,
       url.match(/^\/v1\/voice\/wakeword\/(.+)\/test$/)![1]
     );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/voice/wake/start') {
+    await handleWakeStart(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/voice/wake/stop') {
+    await handleWakeStop(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/voice/wake/status') {
+    await handleWakeStatus(req, res);
     return true;
   }
 

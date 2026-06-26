@@ -11,10 +11,18 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   clearScreen: false,
+  optimizeDeps: {
+    entries: ['src/**/*.{ts,tsx,js,jsx}'],
+  },
   server: {
     host: true,
     port: 1420,
     strictPort: true,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 1420,
+    },
     watch: {
       ignored: ['**/src-tauri/**'],
     },

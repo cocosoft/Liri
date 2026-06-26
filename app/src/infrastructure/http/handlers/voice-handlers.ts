@@ -565,18 +565,118 @@ export async function handleListVoices(
 
 /**
  * 处理测试唤醒词请求 POST /v1/voice/wakeword/:id/test
+ *
+ * 使用请求体中的音频数据，通过 STT + detectWakeWord 检测指定唤醒词
  */
 export async function handleTestWakeWord(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  _wakeWordId: string
+  wakeWordId: string
 ): Promise<void> {
   try {
+    const audioBuffer = await readRawBody(req);
+
+    if (!audioBuffer || audioBuffer.length < 100) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ detected: false, reason: '音频数据不足' }));
+      return;
+    }
+
+    const { STTRegistry } =
+      await import('../../../services/voice/services/sttRegistry');
+    const { detectWakeWord } = await import('../../../voice/VoiceWakeManager');
+
+    // 使用该唤醒词作为 keyterms 进行 STT 转写
+    const result = await STTRegistry.transcribe(audioBuffer, {
+      keyterms: [wakeWordId],
+    });
+
+    // 文本级唤醒词检测
+    const detection = await detectWakeWord(result.text ?? '', [wakeWordId]);
+
+    logger.info('唤醒词测试完成', {
+      wakeWordId,
+      transcript: result.text?.slice(0, 80),
+      detected: detection.detected,
+    });
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ detected: false }));
+    res.end(
+      JSON.stringify({
+        detected: detection.detected,
+        matchedTrigger: detection.matchedTrigger,
+        transcript: result.text?.slice(0, 200),
+        confidence: result.confidence,
+      })
+    );
   } catch (err) {
     logger.error('测试唤醒词失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'test_wakeword' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理启动唤醒监听请求 POST /v1/voice/wake/start
+ */
+export async function handleWakeStart(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { startWakeListening } =
+      await import('../../../voice/VoiceWakeManager');
+    await startWakeListening();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, status: 'listening' }));
+  } catch (err) {
+    logger.error('启动唤醒监听失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'wake_start' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理停止唤醒监听请求 POST /v1/voice/wake/stop
+ */
+export async function handleWakeStop(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { stopWakeListening } =
+      await import('../../../voice/VoiceWakeManager');
+    await stopWakeListening();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, status: 'idle' }));
+  } catch (err) {
+    logger.error('停止唤醒监听失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'wake_stop' });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理查询唤醒监听状态请求 GET /v1/voice/wake/status
+ */
+export async function handleWakeStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { isWakeListening, loadVoiceWakeConfig } =
+      await import('../../../voice/VoiceWakeManager');
+    const config = await loadVoiceWakeConfig();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        listening: isWakeListening(),
+        triggers: config.triggers,
+      })
+    );
+  } catch (err) {
+    logger.error('查询唤醒状态失败', { error: String(err) });
+    void handleError(err, { module: 'http:voice', action: 'wake_status' });
     sendError(res, err);
   }
 }

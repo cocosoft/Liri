@@ -1,41 +1,15 @@
 import { httpLegacy as http } from "./httpClient";
 
+// STTResult、STTSegment、VoiceSession 来自共享类型定义
+import type { STTResult, STTSegment, VoiceSession } from "@shared/types";
+
+// 保持向后兼容：原有从 voiceService 导入这些类型的地方仍可正常工作
+export type { STTResult, STTSegment, VoiceSession };
+
 /** STT 提供者类型，值由后端 STTRegistry 动态注册 */
 export type VoiceProvider = string;
 
-/** STT 语段详情 */
-export interface STTSegment {
-  /** 语段文本 */
-  text: string;
-  /** 起始时间（秒） */
-  start: number;
-  /** 结束时间（秒） */
-  end: number;
-  /** 置信度 */
-  confidence: number;
-}
-
-export interface STTResult {
-  text: string;
-  confidence: number;
-  isFinal: boolean;
-  duration?: number;
-  language?: string;
-  /** 各语段详细结果 */
-  segments?: STTSegment[];
-  timing: {
-    elapsed: number;
-    unit: string;
-  };
-  provider: {
-    id: string;
-    name: string;
-    type: string;
-    available?: boolean;
-  } | null;
-  status?: string;
-}
-
+/** 前端 UI 语音状态 */
 export interface VoiceState {
   isRecording: boolean;
   isProcessing: boolean;
@@ -44,6 +18,7 @@ export interface VoiceState {
   error: string | null;
 }
 
+/** 前端音频配置 */
 export interface AudioConfig {
   provider: VoiceProvider;
   inputDeviceId?: string;
@@ -56,6 +31,7 @@ export interface AudioConfig {
   outputLanguage: string;
 }
 
+/** 唤醒词配置 */
 export interface WakeWord {
   id: string;
   phrase: string;
@@ -63,20 +39,281 @@ export interface WakeWord {
   enabled: boolean;
 }
 
-export interface VoiceSession {
-  id: string;
-  startedAt: number;
-  endedAt: number | null;
-  duration: number | null;
-  transcript: string;
-  responseAudioUrl: string | null;
-  status: "active" | "completed" | "failed";
-}
-
+/** 前端语音设置（含配置、唤醒词、快捷键） */
 export interface VoiceSettings {
   config: AudioConfig;
   wakeWords: WakeWord[];
   hotkeys: Record<string, string>;
+}
+
+// ============================================================
+// P2-2: WebSocket 连接管理 + 心跳检测
+// ============================================================
+
+/** 前端 WebSocket 连接实例 */
+let voiceWs: WebSocket | null = null;
+
+/** 心跳定时器句柄 */
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+/** 连续未收到 pong 的次数 */
+let missedPongs = 0;
+
+/** 心跳间隔（毫秒） */
+const HEARTBEAT_INTERVAL_MS = 30000;
+
+/** 最大允许连续未收到 pong 的次数 */
+const MAX_MISSED_PONGS = 2;
+
+/** 状态变更回调 */
+let onStateChangeCb: ((state: string, previous: string) => void) | null = null;
+
+/** 连接断开回调 */
+let onDisconnectCb: (() => void) | null = null;
+
+// ============================================================
+// P2-4: 唤醒词 WebSocket 连接管理
+// ============================================================
+
+/** 唤醒词 WebSocket 连接实例 */
+let wakeWs: WebSocket | null = null;
+
+/** 唤醒词 WebSocket 重连定时器 */
+let wakeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 唤醒词检测回调 */
+let onWakeWordDetectedCb: ((data: { matchedTrigger: string | null; remainingText: string | null }) => void) | null = null;
+
+/** 唤醒 WS 连接断开回调 */
+let onWakeDisconnectCb: (() => void) | null = null;
+
+/** 唤醒 WS 是否已主动断开 */
+let wakeDisconnectRequested = false;
+
+/** 重连延迟基数（毫秒） */
+const WAKE_RECONNECT_BASE_MS = 2000;
+
+/** 重连最大延迟（毫秒） */
+const WAKE_RECONNECT_MAX_MS = 30000;
+
+/** 重连指数退避计数器 */
+let wakeReconnectAttempt = 0;
+
+/**
+ * 注册唤醒词检测回调
+ * 当后端检测到唤醒词时通过 WebSocket 推送，此回调被触发
+ */
+export function onWakeWordDetected(
+  cb: (data: { matchedTrigger: string | null; remainingText: string | null }) => void
+): void {
+  onWakeWordDetectedCb = cb;
+}
+
+/**
+ * 注册唤醒 WS 连接断开回调
+ */
+export function onWakeDisconnect(cb: () => void): void {
+  onWakeDisconnectCb = cb;
+}
+
+/**
+ * 建立唤醒词 WebSocket 连接到后端的 /wake 端点
+ * 连接成功后自动监听 wakeword_detected 事件
+ * 断开时自动重连（指数退避）
+ */
+export function connectWakeWordWebSocket(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // 如果已有连接，先关闭（但不设为主动断开，让重连逻辑继续生效）
+    disconnectWakeWordWebSocket(false);
+
+    wakeDisconnectRequested = false;
+    wakeReconnectAttempt = 0;
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${window.location.host}/wake`;
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      wakeWs = ws;
+      wakeReconnectAttempt = 0;
+      resolve();
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        // 处理唤醒词检测事件
+        if (data.type === "wakeword_detected") {
+          onWakeWordDetectedCb?.({
+            matchedTrigger: data.data?.matchedTrigger ?? null,
+            remainingText: data.data?.remainingText ?? null,
+          });
+          return;
+        }
+
+        // 服务端 ping → 回复 pong
+        if (data.type === "ping") {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+          }
+          return;
+        }
+      } catch {
+        // 非 JSON 消息忽略
+      }
+    };
+
+    ws.onclose = () => {
+      wakeWs = null;
+
+      if (wakeDisconnectRequested) {
+        return;
+      }
+
+      // 自动重连（指数退避）
+      const delay = Math.min(
+        WAKE_RECONNECT_BASE_MS * Math.pow(2, wakeReconnectAttempt),
+        WAKE_RECONNECT_MAX_MS
+      );
+      wakeReconnectAttempt++;
+
+      wakeReconnectTimer = setTimeout(() => {
+        if (!wakeDisconnectRequested) {
+          connectWakeWordWebSocket().catch(() => {
+            // 重连失败由 onclose 再次触发
+          });
+        }
+      }, delay);
+    };
+
+    ws.onerror = () => {
+      // onerror 后会有 onclose，由 onclose 处理重连
+      reject(new Error("唤醒 WS 连接失败"));
+    };
+  });
+}
+
+/**
+ * 断开唤醒词 WebSocket 连接
+ * @param requested 是否为主动断开（主动断开不触发重连）
+ */
+export function disconnectWakeWordWebSocket(requested: boolean = true): void {
+  if (requested) {
+    wakeDisconnectRequested = true;
+  }
+
+  if (wakeReconnectTimer) {
+    clearTimeout(wakeReconnectTimer);
+    wakeReconnectTimer = null;
+  }
+
+  if (wakeWs) {
+    wakeWs.onclose = null;
+    wakeWs.close(1000, "normal closure");
+    wakeWs = null;
+  }
+}
+
+/**
+ * 注册状态变更回调
+ * 当后端 VoiceSession 状态变更时通过 WebSocket 推送，此回调被触发
+ */
+export function onVoiceStateChange(
+  cb: (state: string, previous: string) => void
+): void {
+  onStateChangeCb = cb;
+}
+
+/**
+ * 注册连接断开回调
+ * 心跳超时或 WebSocket 断开时触发
+ */
+export function onVoiceDisconnect(cb: () => void): void {
+  onDisconnectCb = cb;
+}
+
+/**
+ * 建立前端 WebSocket 连接到后端的 /voice 端点
+ * 连接成功后自动启动心跳定时器
+ */
+export function connectVoiceWebSocket(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // 如果已有连接，先关闭
+    disconnectVoiceWebSocket();
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${window.location.host}/voice`;
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      voiceWs = ws;
+      missedPongs = 0;
+
+      // 启动心跳：每 30s 发送 ping
+      heartbeatTimer = setInterval(() => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+
+        ws.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
+        missedPongs++;
+
+        // 连续两次未收到 pong → 连接已失效
+        if (missedPongs >= MAX_MISSED_PONGS) {
+          onDisconnectCb?.();
+          disconnectVoiceWebSocket();
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+
+      resolve();
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        // P2-2: 心跳响应 — 重置计数器
+        if (data.type === "pong") {
+          missedPongs = 0;
+          return;
+        }
+
+        // P2-2: 状态变更事件 — 分发到注册的回调
+        if (data.type === "session.state_change") {
+          onStateChangeCb?.(data.state, data.previous);
+          return;
+        }
+      } catch {
+        // 非 JSON 消息（如二进制帧）忽略
+      }
+    };
+
+    ws.onclose = () => {
+      disconnectVoiceWebSocket();
+      onDisconnectCb?.();
+    };
+
+    ws.onerror = () => {
+      reject(new Error("WebSocket 连接失败"));
+    };
+  });
+}
+
+/**
+ * 断开 WebSocket 连接并清理心跳定时器
+ */
+export function disconnectVoiceWebSocket(): void {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+
+  if (voiceWs) {
+    voiceWs.onclose = null; // 防止递归触发
+    voiceWs.close(1000, "normal closure");
+    voiceWs = null;
+  }
+
+  missedPongs = 0;
 }
 
 const voiceService = {

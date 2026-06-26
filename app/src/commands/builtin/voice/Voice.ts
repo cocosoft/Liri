@@ -10,7 +10,7 @@
 import { configManager } from '@modules/config/ConfigManager.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { CommandContext } from '@modules/commands';
-import voiceService from '@modules/services/voice';
+import { createVoiceServiceBridge } from '../../../voice/VoiceServiceBridge';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -104,7 +104,8 @@ const voiceCommand = {
  * 处理 status 子命令
  */
 async function handleStatus(isEnabled: boolean) {
-  const deps = await voiceService.checkVoiceDependencies();
+  const bridge = createVoiceServiceBridge();
+  const deps = await bridge.service.recorder.checkVoiceDependencies();
   const statusLines = [
     '语音模式状态',
     '==============',
@@ -164,7 +165,9 @@ async function handleEnable(config: any) {
     };
   }
 
-  const availability = await voiceService.checkRecordingAvailability();
+  const bridge = createVoiceServiceBridge();
+  const availability =
+    await bridge.service.recorder.checkRecordingAvailability();
   if (!availability.available) {
     return {
       success: false,
@@ -174,7 +177,7 @@ async function handleEnable(config: any) {
     };
   }
 
-  const deps = await voiceService.checkVoiceDependencies();
+  const deps = await bridge.service.recorder.checkVoiceDependencies();
   if (!deps.available) {
     return {
       success: false,

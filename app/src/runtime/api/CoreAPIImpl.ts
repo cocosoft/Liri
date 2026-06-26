@@ -394,6 +394,7 @@ export class CoreAPIImpl implements CoreAPI {
           cacheCreationTokens?: number;
         }
       | undefined;
+    let finalMessage: UnifiedMessage | undefined;
 
     yield {
       type: 'status',
@@ -581,7 +582,7 @@ export class CoreAPIImpl implements CoreAPI {
         yield pendingEvents.shift()!;
       }
 
-      const finalMessage = result.value;
+      finalMessage = result.value;
       if (finalMessage) {
         finalSessionId = finalMessage.sessionId || finalSessionId;
         finalMessageId = finalMessage.id;

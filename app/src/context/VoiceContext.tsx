@@ -16,7 +16,10 @@ import {
   useEffect,
   type ReactNode,
 } from 'react';
-import voiceService from '@modules/services/voice';
+import { createVoiceServiceBridge } from '../voice/VoiceServiceBridge';
+
+// VoiceService 实例通过 Bridge 获取（双轨统一入口）
+const getVoiceRecorder = () => createVoiceServiceBridge().service.recorder;
 
 export type VoiceState = 'idle' | 'listening' | 'speaking' | 'processing';
 
@@ -53,19 +56,19 @@ export const VoiceProvider = ({ children }: { children: ReactNode }) => {
       setState('idle');
     };
 
-    voiceService.addEventListener('start', handleStart);
-    voiceService.addEventListener('stop', handleStop);
-    voiceService.addEventListener('error', handleError);
+    getVoiceRecorder().addEventListener('start', handleStart);
+    getVoiceRecorder().addEventListener('stop', handleStop);
+    getVoiceRecorder().addEventListener('error', handleError);
 
     return () => {
-      voiceService.removeEventListener('start', handleStart);
-      voiceService.removeEventListener('stop', handleStop);
-      voiceService.removeEventListener('error', handleError);
+      getVoiceRecorder().removeEventListener('start', handleStart);
+      getVoiceRecorder().removeEventListener('stop', handleStop);
+      getVoiceRecorder().removeEventListener('error', handleError);
     };
   }, []);
 
   const startListening = useCallback(() => {
-    voiceService.startRecording(
+    getVoiceRecorder().startRecording(
       () => {
         // onData: 实时音频数据回调（当前无需处理，留作电平表扩展）
       },
@@ -78,19 +81,21 @@ export const VoiceProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const stopListening = useCallback(() => {
-    voiceService.stopRecording();
+    getVoiceRecorder().stopRecording();
     setState('processing');
   }, []);
 
   const startSpeaking = useCallback((text: string) => {
     setState('speaking');
-    voiceService.speak({ text }).catch(() => {
-      setState('idle');
-    });
+    getVoiceRecorder()
+      .speak({ text })
+      .catch(() => {
+        setState('idle');
+      });
   }, []);
 
   const stopSpeaking = useCallback(() => {
-    voiceService.stopSpeaking();
+    getVoiceRecorder().stopSpeaking();
     setState('idle');
   }, []);
 

@@ -55,8 +55,21 @@ export {
   detectWakeWord,
   defaultVoiceWakeTriggers,
   sanitizeTriggers,
+  startWakeListening,
+  stopWakeListening,
+  isWakeListening,
+  feedWakeAudio,
+  onWake,
+  resetWakeManager,
 } from './VoiceWakeManager';
 export type { VoiceWakeConfig, WakeDetectionResult } from './VoiceWakeManager';
+
+export { WakeWordEngine } from './WakeWordEngine';
+export type {
+  WakeWordResult,
+  WakeWordEngineConfig,
+  WakeWordEngineStatus,
+} from './WakeWordEngine';
 
 export type {
   VoiceClientEvent,

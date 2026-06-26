@@ -6,7 +6,27 @@ import { knowledgeService } from "../services/knowledgeService";
 import { modelService } from "../services/modelService";
 import { cronService } from "../services/cronService";
 import { buddyService } from "../services/buddyService";
-import { voiceService, type VoiceSettings, type VoiceSession } from "../services/voiceService";
+import {
+  voiceService,
+  connectVoiceWebSocket,
+  disconnectVoiceWebSocket,
+  onVoiceStateChange,
+  onVoiceDisconnect,
+  connectWakeWordWebSocket,
+  disconnectWakeWordWebSocket,
+  onWakeWordDetected,
+  onWakeDisconnect,
+  type VoiceSettings,
+  type VoiceSession,
+} from "../services/voiceService";
+
+/** 字幕条目 */
+export interface SubtitleEntry {
+  text: string;
+  timestamp: number;
+  isFinal: boolean;
+  confidence?: number;
+}
 import { chatService } from "../services/chatService";
 import { useWorkspaceStore } from "./workspaceStore";
 import type {
@@ -303,18 +323,40 @@ export interface AppStore {
   voiceSettings: VoiceSettings | null;
   voiceSessions: VoiceSession[];
   voiceCurrentSession: VoiceSession | null;
+  voiceSessionState: string;
+  voiceWsConnected: boolean;
   voiceIsRecording: boolean;
   voiceIsProcessing: boolean;
   voiceIsPlaying: boolean;
   voiceError: string | null;
   audioLevel: number;
+  micStatus: { status: string; audioLevel: number } | null;
   loadVoiceSettings: () => Promise<void>;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => Promise<void>;
+  connectVoiceWebSocket: () => Promise<void>;
+  disconnectVoiceWebSocket: () => void;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
   playResponse: (audioUrl: string) => Promise<void>;
   stopPlayback: () => void;
   clearVoiceError: () => void;
+
+  // ---- Subtitle ----
+  interimText: string;
+  finalText: string;
+  subtitleHistory: SubtitleEntry[];
+  subtitleStatus: "idle" | "listening" | "processing" | "done";
+
+  // ---- Wake Word ----
+  wakeWordEnabled: boolean;
+  wakeWordTriggers: string[];
+  wakeWordListening: boolean;
+  wakeWordTriggered: string | null;
+  wakeWsConnected: boolean;
+  toggleWakeWord: () => Promise<void>;
+  setWakeWordTriggers: (triggers: string[]) => Promise<void>;
+  connectWakeWordWebSocket: () => Promise<void>;
+  disconnectWakeWordWebSocket: () => void;
 
   // ---- TTS ----
   ttsProviders: string[];
@@ -1062,11 +1104,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
   voiceSettings: null,
   voiceSessions: [],
   voiceCurrentSession: null,
+  voiceSessionState: "idle",
+  voiceWsConnected: false,
   voiceIsRecording: false,
   voiceIsProcessing: false,
   voiceIsPlaying: false,
   voiceError: null,
   audioLevel: 0,
+  micStatus: null,
+
+  // ---- Subtitle ----
+  interimText: "",
+  finalText: "",
+  subtitleHistory: [],
+  subtitleStatus: "idle",
+
+  // ---- Wake Word ----
+  wakeWordEnabled: false,
+  wakeWordTriggers: [],
+  wakeWordListening: false,
+  wakeWordTriggered: null,
+  wakeWsConnected: false,
 
   // ---- TTS ----
   ttsProviders: [],
@@ -1096,11 +1154,55 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  connectVoiceWebSocket: async () => {
+    // 注册状态变更回调
+    onVoiceStateChange((state, _previous) => {
+      set({ voiceSessionState: state });
+
+      // 状态变为 disconnected/error 时自动清理录音状态
+      if (state === "disconnected" || state === "error") {
+        set({
+          voiceIsRecording: false,
+          voiceIsProcessing: false,
+          voiceCurrentSession: null,
+        });
+      }
+    });
+
+    // 注册断开回调 — 心跳超时或 WS 断开时自动重置
+    onVoiceDisconnect(() => {
+      set({
+        voiceWsConnected: false,
+        voiceSessionState: "idle",
+        voiceIsRecording: false,
+        voiceIsProcessing: false,
+        voiceCurrentSession: null,
+      });
+    });
+
+    try {
+      await connectVoiceWebSocket();
+      set({ voiceWsConnected: true, voiceSessionState: "connected" });
+    } catch {
+      set({ voiceWsConnected: false });
+    }
+  },
+
+  disconnectVoiceWebSocket: () => {
+    disconnectVoiceWebSocket();
+    set({ voiceWsConnected: false, voiceSessionState: "idle" });
+  },
+
   startRecording: async () => {
     set({ voiceIsRecording: true, voiceError: null, audioLevel: 0 });
     try {
+      // P2-2: 先建立 WebSocket 连接（自动连接 /voice 端点）
+      if (!get().voiceWsConnected) {
+        await get().connectVoiceWebSocket();
+      }
+
       const session = await voiceService.startSession();
-      set({ voiceCurrentSession: session });
+      set({ voiceCurrentSession: session, voiceSessionState: "active" });
     } catch (e) {
       set({ voiceError: e instanceof Error ? e.message : "开始录音失败", voiceIsRecording: false });
     }
@@ -1113,10 +1215,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       await voiceService.endSession(voiceCurrentSession.id);
       set({ voiceCurrentSession: null });
+
+      // P2-2: 断开 WebSocket 连接
+      get().disconnectVoiceWebSocket();
     } catch (e) {
       set({ voiceError: e instanceof Error ? e.message : "停止录音失败" });
     } finally {
       set({ voiceIsProcessing: false });
+
+      // P2-4-6: 唤醒词录音结束后，复位监听状态以继续循环
+      const { wakeWordEnabled } = get();
+      if (wakeWordEnabled) {
+        set({ wakeWordListening: true, wakeWordTriggered: null });
+      }
     }
   },
 
@@ -1135,6 +1246,82 @@ export const useAppStore = create<AppStore>((set, get) => ({
   stopPlayback: () => { set({ voiceIsPlaying: false }); },
 
   clearVoiceError: () => set({ voiceError: null }),
+
+  // ---- Wake Word Actions ----
+  toggleWakeWord: async () => {
+    const { wakeWordEnabled } = get();
+    const newEnabled = !wakeWordEnabled;
+    set({ wakeWordEnabled: newEnabled });
+
+    if (newEnabled) {
+      try {
+        const res = await fetch('/v1/voice/wake/start', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          set({ wakeWordListening: data.status === 'listening' });
+
+          // 连接唤醒词 WS，监听 wakeword_detected 事件
+          await get().connectWakeWordWebSocket();
+        }
+      } catch {
+        set({ wakeWordEnabled: false, wakeWordListening: false });
+      }
+    } else {
+      try {
+        await fetch('/v1/voice/wake/stop', { method: 'POST' });
+      } catch { /* ignore */ }
+      get().disconnectWakeWordWebSocket();
+      set({ wakeWordListening: false, wakeWordTriggered: null });
+    }
+  },
+
+  setWakeWordTriggers: async (triggers) => {
+    set({ wakeWordTriggers: triggers });
+    try {
+      await fetch('/v1/voice/wake/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggers }),
+      });
+    } catch { /* 后端暂未就绪 */ }
+  },
+
+  connectWakeWordWebSocket: async () => {
+    // 注册唤醒词检测回调
+    onWakeWordDetected((data) => {
+      const store = get();
+
+      // 更新触发状态
+      set({
+        wakeWordTriggered: data.matchedTrigger,
+        wakeWordListening: false,
+      });
+
+      // 如果当前不在录音中，自动开始录音
+      if (!store.voiceIsRecording && !store.voiceIsProcessing) {
+        store.startRecording().catch(() => {
+          // 录音失败不阻塞唤醒
+        });
+      }
+    });
+
+    // 注册断开回调
+    onWakeDisconnect(() => {
+      set({ wakeWsConnected: false });
+    });
+
+    try {
+      await connectWakeWordWebSocket();
+      set({ wakeWsConnected: true });
+    } catch {
+      set({ wakeWsConnected: false });
+    }
+  },
+
+  disconnectWakeWordWebSocket: () => {
+    disconnectWakeWordWebSocket(true);
+    set({ wakeWsConnected: false });
+  },
 
   // ---- TTS Actions ----
   loadTTSProviders: async () => {

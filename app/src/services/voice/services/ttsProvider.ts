@@ -23,12 +23,14 @@ import type {
   TTSSpeakResult,
   TTSProvider,
 } from './ttsTypes';
+import { TTSQueuePriority } from './ttsTypes';
 export type {
   TTSVoice,
   TTSSpeakOptions,
   TTSSpeakResult,
   TTSProvider,
 } from './ttsTypes';
+export { TTSQueuePriority } from './ttsTypes';
 
 import { EdgeTTSProvider } from './edgeTTSProvider';
 export { EdgeTTSProvider };
@@ -167,6 +169,185 @@ class TTSCache {
   }
 }
 
+// ===========================================================
+// TTS 优先级队列
+// ===========================================================
+
+/**
+ * TTS 队列配置
+ */
+interface TTSQueueConfig {
+  /** 是否启用队列（默认 false，保持向后兼容） */
+  enabled: boolean;
+  /** 队列处理并发数（默认 1，串行处理） */
+  concurrency: number;
+}
+
+/** TTS 队列条目 */
+interface TTSQueueItem {
+  /** 合成选项 */
+  options: TTSSpeakOptions;
+  /** 提供者名称 */
+  providerName?: string;
+  /** 是否跳过缓存 */
+  skipCache: boolean;
+  /** 完成回调 */
+  resolve: (result: TTSSpeakResult) => void;
+  /** 失败回调 */
+  reject: (error: Error) => void;
+}
+
+/**
+ * TTS 优先级队列
+ *
+ * 按优先级（数字越小优先级越高）出队，同优先级 FIFO。
+ * 支持可配置并发数，默认串行处理。
+ */
+class TTSPriorityQueue {
+  /** 按优先级分组的队列（Map<priority, TTSQueueItem[]>） */
+  private queues: Map<number, TTSQueueItem[]> = new Map();
+  /** 当前活跃处理数 */
+  private active: number = 0;
+  /** 配置 */
+  private config: TTSQueueConfig;
+
+  /** 累计入队数 */
+  private totalEnqueued: number = 0;
+  /** 累计完成数 */
+  private totalProcessed: number = 0;
+  /** 累计失败数 */
+  private totalFailed: number = 0;
+
+  constructor(config?: Partial<TTSQueueConfig>) {
+    this.config = {
+      enabled: false,
+      concurrency: 1,
+      ...config,
+    };
+  }
+
+  /**
+   * 更新配置
+   */
+  configure(config: Partial<TTSQueueConfig>): void {
+    Object.assign(this.config, config);
+  }
+
+  /**
+   * 获取当前配置
+   */
+  getConfig(): TTSQueueConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * 入队
+   *
+   * @param item 队列条目
+   */
+  enqueue(item: TTSQueueItem): void {
+    const priority = item.options.priority ?? TTSQueuePriority.NORMAL;
+    const queue = this.queues.get(priority);
+    if (queue) {
+      queue.push(item);
+    } else {
+      this.queues.set(priority, [item]);
+    }
+    this.totalEnqueued++;
+    this.processNext();
+  }
+
+  /**
+   * 处理下一个条目
+   */
+  private processNext(): void {
+    while (this.active < this.config.concurrency) {
+      const item = this.dequeue();
+      if (!item) break;
+
+      this.active++;
+      this.processItem(item);
+    }
+  }
+
+  /**
+   * 出队 — 取优先级最高的第一个条目
+   */
+  private dequeue(): TTSQueueItem | undefined {
+    const priorities = Array.from(this.queues.keys()).sort((a, b) => a - b);
+    for (const p of priorities) {
+      const queue = this.queues.get(p)!;
+      if (queue.length > 0) {
+        return queue.shift();
+      }
+      // 空队列清理
+      this.queues.delete(p);
+    }
+    return undefined;
+  }
+
+  /**
+   * 处理单个条目
+   */
+  private async processItem(item: TTSQueueItem): Promise<void> {
+    try {
+      const result = await TTSRegistry.speakInternal(
+        item.options,
+        item.providerName,
+        item.skipCache
+      );
+      item.resolve(result);
+      this.totalProcessed++;
+    } catch (error) {
+      item.reject(error instanceof Error ? error : new Error(String(error)));
+      this.totalFailed++;
+    } finally {
+      this.active--;
+      this.processNext();
+    }
+  }
+
+  /**
+   * 获取队列统计
+   */
+  getStats(): {
+    enabled: boolean;
+    queued: number;
+    active: number;
+    totalEnqueued: number;
+    totalProcessed: number;
+    totalFailed: number;
+  } {
+    let queued = 0;
+    for (const queue of this.queues.values()) {
+      queued += queue.length;
+    }
+    return {
+      enabled: this.config.enabled,
+      queued,
+      active: this.active,
+      totalEnqueued: this.totalEnqueued,
+      totalProcessed: this.totalProcessed,
+      totalFailed: this.totalFailed,
+    };
+  }
+
+  /**
+   * 清空队列（拒绝所有等待中的条目）
+   */
+  clear(): void {
+    for (const queue of this.queues.values()) {
+      for (const item of queue) {
+        item.reject(new Error('TTS 队列已清空'));
+      }
+    }
+    this.queues.clear();
+  }
+}
+
+/** 默认 TTS 队列实例 */
+const ttsQueue = new TTSPriorityQueue();
+
 /**
  * 文本分片配置
  */
@@ -264,6 +445,66 @@ function isSilentSegment(
   if (count === 0) return true;
   const rms = Math.sqrt(sumSq / count);
   return rms < threshold;
+}
+
+/**
+ * 从 WAV 头中提取采样率
+ *
+ * @param wavBuffer 完整 WAV 文件 Buffer
+ * @returns 采样率（Hz），非 WAV 格式返回默认 24000
+ */
+function getSampleRateFromWav(wavBuffer: Buffer): number {
+  if (wavBuffer.length < WAV_HEADER_SIZE) return 24000;
+  const headerId = wavBuffer.toString('ascii', 0, 4);
+  if (headerId !== 'RIFF') return 24000;
+  return wavBuffer.readUInt32LE(24);
+}
+
+/**
+ * 对 PCM16 音频进行线性插值重采样
+ *
+ * 将源采样率的音频线性插值到目标采样率。
+ * 采用线性插值在质量与计算开销之间取得平衡。
+ *
+ * @param pcmData PCM16 s16le 原始音频数据（不含 WAV 头）
+ * @param sourceRate 源采样率（Hz）
+ * @param targetRate 目标采样率（Hz）
+ * @returns 重采样后的 PCM16 Buffer
+ */
+function resampleToTargetRate(
+  pcmData: Buffer,
+  sourceRate: number,
+  targetRate: number
+): Buffer {
+  if (sourceRate === targetRate || sourceRate <= 0 || targetRate <= 0) {
+    return pcmData;
+  }
+
+  const sourceLength = Math.floor(pcmData.length / 2);
+  if (sourceLength <= 1) return pcmData;
+
+  const targetLength = Math.round(sourceLength * (targetRate / sourceRate));
+  const out = Buffer.alloc(targetLength * 2);
+  const ratio = sourceRate / targetRate;
+
+  for (let i = 0; i < targetLength; i++) {
+    const srcPos = i * ratio;
+    const srcIndex = Math.floor(srcPos);
+    const frac = srcPos - srcIndex;
+
+    if (srcIndex >= sourceLength - 1) {
+      // 边界：直接复制最后一个样本
+      out.writeInt16LE(pcmData.readInt16LE((sourceLength - 1) * 2), i * 2);
+    } else {
+      // 线性插值
+      const s0 = pcmData.readInt16LE(srcIndex * 2);
+      const s1 = pcmData.readInt16LE((srcIndex + 1) * 2);
+      const sample = Math.round(s0 + (s1 - s0) * frac);
+      out.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), i * 2);
+    }
+  }
+
+  return out;
 }
 
 /**
@@ -403,30 +644,104 @@ class ChunkedSynthesizer {
   /**
    * 语义边界修补
    *
+   * 边界修复的最大回退字符数，防止过度修剪导致分片过小。
+   * 原文超过此长度的边界元素将被保留在当前片，由后续分片自然承接。
+   */
+  private static readonly MAX_BOUNDARY_BACKTRACK = 100;
+
+  /**
+   * 语义边界修补
+   *
    * 规则：
-   *   - 括号配对：如果 chunk 左括号不配对，补充到下一个右括号后
-   *   - 引号不跨片：如果 chunk 以引号开始但不在开引号处，前移
+   *   - 括号配对：左括号必须与右括号在同一片
+   *   - 引号不跨片：成对引号不跨片截断
    *   - 数字+单位不拆分：如 "100 美元" 不跨片
    *   - 英文单词不截断：如果末尾是单词中间，回退到最近空格
+   *
+   * 所有回退操作限制在 MAX_BOUNDARY_BACKTRACK 字符内。
    */
   private repairBoundary(chunk: string): string {
+    // 如果 chunk 很短，无需边界修复
+    if (chunk.length <= 1) return chunk;
+
     // 英文单词不截断
     const trailingWord = chunk.match(/[a-zA-Z]+$/);
     if (trailingWord) {
       const wordStart = chunk.lastIndexOf(trailingWord[0]);
       if (wordStart > 0) {
-        return chunk.slice(0, wordStart).trimEnd();
+        const tailLength = chunk.length - wordStart;
+        if (tailLength <= ChunkedSynthesizer.MAX_BOUNDARY_BACKTRACK) {
+          return chunk.slice(0, wordStart).trimEnd();
+        }
       }
     }
 
-    // 括号修补
-    const openParens = (chunk.match(/[（(]/g) || []).length;
-    const closeParens = (chunk.match(/[）)]/g) || []).length;
-    if (openParens > closeParens) {
-      // 不修补，保留原样（后续 chunk 会继续）
+    // 数字+单位不拆分
+    // 如 "100 美元" — "100" 不截断，"3.14%" 不截断
+    const trailingNumber = chunk.match(/\d[\d,.]*$/);
+    if (trailingNumber) {
+      const numStart = chunk.lastIndexOf(trailingNumber[0]);
+      if (numStart > 0) {
+        const tailLength = chunk.length - numStart;
+        if (tailLength <= ChunkedSynthesizer.MAX_BOUNDARY_BACKTRACK) {
+          return chunk.slice(0, numStart).trimEnd();
+        }
+      }
+    }
+
+    // 成对引号不跨片
+    const quotePairs: [string, string][] = [
+      ['「', '」'],
+      ['『', '』'],
+      ['"', '"'],
+      ['"', '"'],
+      ["'", "'"],
+    ];
+    for (const [open, close] of quotePairs) {
+      const openCount = this.countChar(chunk, open);
+      const closeCount = this.countChar(chunk, close);
+      if (openCount > closeCount) {
+        const lastOpen = chunk.lastIndexOf(open);
+        if (lastOpen > 0) {
+          const tailLength = chunk.length - lastOpen;
+          if (tailLength <= ChunkedSynthesizer.MAX_BOUNDARY_BACKTRACK) {
+            return chunk.slice(0, lastOpen).trimEnd();
+          }
+        }
+      }
+    }
+
+    // 括号未闭合 — 左括号多于右括号时回退
+    const bracketPairs: [string, string][] = [
+      ['（', '）'],
+      ['(', ')'],
+    ];
+    for (const [open, close] of bracketPairs) {
+      const openCount = this.countChar(chunk, open);
+      const closeCount = this.countChar(chunk, close);
+      if (openCount > closeCount) {
+        const lastOpen = chunk.lastIndexOf(open);
+        if (lastOpen > 0) {
+          const tailLength = chunk.length - lastOpen;
+          if (tailLength <= ChunkedSynthesizer.MAX_BOUNDARY_BACKTRACK) {
+            return chunk.slice(0, lastOpen).trimEnd();
+          }
+        }
+      }
     }
 
     return chunk;
+  }
+
+  /**
+   * 统计字符串中指定字符的出现次数
+   */
+  private countChar(str: string, char: string): number {
+    let count = 0;
+    for (let i = 0; i < str.length; i++) {
+      if (str[i] === char) count++;
+    }
+    return count;
   }
 
   /**
@@ -495,9 +810,19 @@ class ChunkedSynthesizer {
 
     for (const result of results) {
       if (!result.success || !result.audioData) continue;
+
+      // 提取 PCM 数据
       const pcm = extractPCMFromWav(result.audioData);
-      pcmChunks.push(pcm);
-      totalPcmLen += pcm.length;
+
+      // 从 WAV 头提取源采样率，若不匹配则重采样
+      const sourceRate = getSampleRateFromWav(result.audioData);
+      const resampled =
+        sourceRate !== sampleRate
+          ? resampleToTargetRate(pcm, sourceRate, sampleRate)
+          : pcm;
+
+      pcmChunks.push(resampled);
+      totalPcmLen += resampled.length;
     }
 
     if (pcmChunks.length === 0) return null;
@@ -631,11 +956,34 @@ export class TTSRegistry {
   }
 
   /**
-   * 合成语音
+   * 合成语音（外部入口）
    *
+   * 如果 TTS 队列已启用，则走队列调度；否则直接合成。
    * 短文本（≤ maxChunkSize 字）使用缓存，长文本自动走分片合成。
    */
   static async speak(
+    options: TTSSpeakOptions,
+    providerName?: string,
+    skipCache: boolean = false
+  ): Promise<TTSSpeakResult> {
+    // 队列启用 → 入队等待调度
+    if (ttsQueue.getConfig().enabled) {
+      return new Promise<TTSSpeakResult>((resolve, reject) => {
+        ttsQueue.enqueue({ options, providerName, skipCache, resolve, reject });
+      });
+    }
+
+    // 队列未启用 → 直接合成（原有行为）
+    return TTSRegistry.speakInternal(options, providerName, skipCache);
+  }
+
+  /**
+   * 合成语音（内部实现）
+   *
+   * 不涉及队列调度，直接执行合成逻辑。
+   * 供 speak() 和 TTSPriorityQueue.processItem() 共用。
+   */
+  static async speakInternal(
     options: TTSSpeakOptions,
     providerName?: string,
     skipCache: boolean = false
@@ -889,6 +1237,37 @@ export class TTSRegistry {
     for (const provider of TTSRegistry.providers.values()) {
       provider.stop?.();
     }
+  }
+
+  /**
+   * 配置 TTS 优先级队列
+   *
+   * 启用队列后，speak() 请求会按优先级排队调度，避免并发合成过多。
+   * 默认关闭（向后兼容），开启后串行处理（concurrency=1）。
+   *
+   * @param config 队列配置
+   */
+  static configureQueue(config: Partial<TTSQueueConfig>): void {
+    ttsQueue.configure(config);
+    logger.info('TTSRegistry · 队列配置已更新', {
+      enabled: ttsQueue.getConfig().enabled,
+      concurrency: ttsQueue.getConfig().concurrency,
+    });
+  }
+
+  /**
+   * 获取 TTS 队列统计
+   */
+  static getQueueStats(): ReturnType<typeof ttsQueue.getStats> {
+    return ttsQueue.getStats();
+  }
+
+  /**
+   * 清空 TTS 队列
+   */
+  static clearQueue(): void {
+    ttsQueue.clear();
+    logger.info('TTSRegistry · 队列已清空');
   }
 
   /**

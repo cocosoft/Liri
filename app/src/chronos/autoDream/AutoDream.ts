@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AutoDream主逻辑模块
  * 自动内存整合的核心逻辑
  */
@@ -266,10 +266,8 @@ export async function initAutoDream(): Promise<void> {
       return;
     }
 
-    const currentSession = context?.sessionId;
-    if (currentSession) {
-      sessionIds = sessionIds.filter((id) => id !== currentSession);
-    }
+    // 不再排除当前会话 — 用户正在聊的内容也应参与梦境整合
+    // 原逻辑: sessionIds.filter(id => id !== currentSession)
 
     if (!force && sessionIds.length < cfg.minSessions) {
       logger.info('跳过自动整合（会话数不足）', {

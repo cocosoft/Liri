@@ -818,7 +818,7 @@ function STTTestPage() {
                   </div>
                 </div>
 
-                {result.provider && (
+                {result.provider && typeof result.provider !== 'string' && (
                   <div
                     className={`mt-3 p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >

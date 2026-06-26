@@ -3,12 +3,11 @@
  * Edge TTS 提供者
  *
  * 通过 Microsoft Edge 浏览器免费 TTS WebSocket API 合成语音。
- * 无需 API Key，使用原生 tls 和 crypto 模块实现 WebSocket 客户端。
+ * 无需 API Key。WebSocket 传输层已提取到 edgeTTSTransport.ts。
  *
  * 参考产品: edge-tts Python 库
  */
 
-import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { writeFileSync } from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
@@ -18,9 +17,18 @@ import type {
   TTSVoice,
   TTSSpeakOptions,
   TTSSpeakResult,
+  TTSStream,
 } from './ttsTypes';
+import {
+  WsOpcode,
+  sendWsFrame,
+  wsConnect,
+  startHeartbeat as startWsHeartbeat,
+  closeConnection,
+  type WsConnection,
+} from './edgeTTSTransport';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'voice:edgeTTS' });
 
 /** Edge TTS WebSocket 端点 */
 const EDGE_TTS_HOST = 'speech.platform.bing.com';
@@ -163,66 +171,20 @@ const EDGE_VOICES: TTSVoice[] = [
   },
 ];
 
-/** WebSocket 操作码 */
-const enum WsOpcode {
-  CONTINUATION = 0x0,
-  TEXT = 0x1,
-  BINARY = 0x2,
-  CLOSE = 0x8,
-  PING = 0x9,
-  PONG = 0xa,
-}
-
-/** WebSocket 连接状态 */
-interface WsConnection {
-  socket: TLSSocket;
-  onText: (data: Buffer) => void;
-  onBinary: (data: Buffer) => void;
-  onClose: () => void;
-  onError: (error: Error) => void;
-}
-
-/**
- * 生成 WebSocket 握手 key
- */
-function generateWsKey(): string {
-  const key = randomUUID().replace(/-/g, '').slice(0, 16);
-  return Buffer.from(key).toString('base64');
-}
-
-/**
- * 计算 WebSocket 握手 accept
- */
-function computeWsAccept(key: string): string {
-  const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-  const hash = createHash('sha1')
-    .update(key + GUID)
-    .digest();
-  return hash.toString('base64');
-}
-
 /**
  * 生成 Sec-MS-GEC DRM 令牌
  * 基于当前时间（对齐到5分钟）和 TrustedClientToken 的 SHA256 哈希
  */
 function generateSecMsGec(): string {
-  const WIN_EPOCH = 11_644_473_600; // Windows 文件时间纪元（1601-01-01）到 Unix 纪元（1970-01-01）的秒数
-
-  // 获取当前 Unix 时间戳（秒）
-  let ticks = Math.floor(Date.now() / 1000);
-  // 转换为 Windows 文件时间
-  ticks += WIN_EPOCH;
-  // 向下取整到最近的 5 分钟
+  const WIN_EPOCH = 11_644_473_600;
+  let ticks = Math.floor(Date.now() / 1000) + WIN_EPOCH;
   ticks -= ticks % 300;
-  // 转换为 100 纳秒间隔
   ticks *= 10_000_000;
 
-  const hash = createHash('sha256')
+  return createHash('sha256')
     .update(`${ticks}6A5AA1D4EAFF4E9FB37E23D68491D6F4`)
     .digest('hex')
     .toUpperCase();
-
-  return hash;
 }
 
 /**
@@ -234,7 +196,6 @@ function generateMuid(): string {
 
 /**
  * 生成 JavaScript 风格日期字符串
- * 格式示例: "Thu Jun 25 2026 02:10:30 GMT+0000 (Coordinated Universal Time)"
  */
 function dateToString(): string {
   const d = new Date();
@@ -255,243 +216,6 @@ function dateToString(): string {
   ];
   const fmt = (n: number) => String(n).padStart(2, '0');
   return `${days[d.getUTCDay()]} ${months[d.getUTCMonth()]} ${fmt(d.getUTCDate())} ${d.getUTCFullYear()} ${fmt(d.getUTCHours())}:${fmt(d.getUTCMinutes())}:${fmt(d.getUTCSeconds())} GMT+0000 (Coordinated Universal Time)`;
-}
-
-/**
- * 发送 WebSocket 帧
- */
-function sendWsFrame(
-  conn: WsConnection,
-  opcode: number,
-  payload: Buffer
-): void {
-  const maskKey = Buffer.from(
-    randomUUID().replace(/-/g, '').slice(0, 4),
-    'utf8'
-  );
-  const payloadLength = payload.length;
-
-  let header: Buffer;
-
-  if (payloadLength < 126) {
-    header = Buffer.alloc(2);
-    header[0] = 0x80 | opcode;
-    header[1] = 0x80 | payloadLength;
-  } else if (payloadLength < 65536) {
-    header = Buffer.alloc(4);
-    header[0] = 0x80 | opcode;
-    header[1] = 0x80 | 126;
-    header.writeUInt16BE(payloadLength, 2);
-  } else {
-    header = Buffer.alloc(10);
-    header[0] = 0x80 | opcode;
-    header[1] = 0x80 | 127;
-    header.writeBigUInt64BE(BigInt(payloadLength), 2);
-  }
-
-  const maskedPayload = Buffer.alloc(payloadLength);
-  for (let i = 0; i < payloadLength; i++) {
-    maskedPayload[i] = payload[i] ^ maskKey[i % 4];
-  }
-
-  conn.socket.write(Buffer.concat([header, maskKey, maskedPayload]));
-}
-
-/**
- * 执行 WebSocket 握手
- */
-function wsHandshake(
-  host: string,
-  path: string,
-  port: number
-): Promise<WsConnection> {
-  return new Promise((resolve, reject) => {
-    const key = generateWsKey();
-    const muid = generateMuid();
-    const socket = tlsConnect(port, host, { servername: host });
-
-    const handshake = [
-      `GET ${path} HTTP/1.1`,
-      `Host: ${host}:${port}`,
-      `Upgrade: websocket`,
-      `Connection: Upgrade`,
-      `Pragma: no-cache`,
-      `Cache-Control: no-cache`,
-      `Sec-WebSocket-Key: ${key}`,
-      `Sec-WebSocket-Version: 13`,
-      `Accept-Encoding: gzip, deflate, br, zstd`,
-      `Accept-Language: en-US,en;q=0.9`,
-      `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
-      `Origin: chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold`,
-      `Cookie: muid=${muid};`,
-      '',
-      '',
-    ].join('\r\n');
-
-    let handshakeComplete = false;
-    let responseBuffer = '';
-
-    socket.on('data', (data) => {
-      if (handshakeComplete) return;
-
-      responseBuffer += data.toString();
-
-      const headerEnd = responseBuffer.indexOf('\r\n\r\n');
-      if (headerEnd === -1) return;
-
-      const headers = responseBuffer.slice(0, headerEnd);
-      handshakeComplete = true;
-
-      // 检查 HTTP 状态行
-      const statusLine = headers.split('\r\n')[0] || '';
-      const statusMatch = statusLine.match(/HTTP\/\d+\.\d+\s+(\d+)/);
-      const httpStatus = statusMatch ? parseInt(statusMatch[1], 10) : 0;
-
-      // 只有 101 Switching Protocols 才是成功的 WebSocket 握手
-      if (httpStatus !== 101) {
-        socket.destroy();
-        const reason = headers.split('\r\n').slice(0, 3).join(' | ');
-        reject(
-          new Error(
-            `WebSocket 握手失败: 服务器返回 ${httpStatus}（预期 101），原始响应: ${reason}`
-          )
-        );
-        return;
-      }
-
-      // 验证 accept key
-      const acceptMatch = headers.match(/Sec-WebSocket-Accept:\s*(\S+)/i);
-      if (!acceptMatch) {
-        socket.destroy();
-        reject(
-          new Error(`WebSocket 握手失败: 101 响应中缺少 Sec-WebSocket-Accept`)
-        );
-        return;
-      }
-
-      const expectedAccept = computeWsAccept(key);
-      if (acceptMatch[1] !== expectedAccept) {
-        socket.destroy();
-        reject(new Error('WebSocket 握手失败: Sec-WebSocket-Accept 不匹配'));
-        return;
-      }
-
-      const conn: WsConnection = {
-        socket,
-        onText: () => {},
-        onBinary: () => {},
-        onClose: () => {},
-        onError: () => {},
-      };
-
-      // 设置帧解析
-      let frameBuffer: Buffer = Buffer.from(
-        responseBuffer.slice(headerEnd + 4)
-      );
-
-      socket.on('data', (frameData) => {
-        frameBuffer = Buffer.concat([frameBuffer, frameData]);
-        processWsFrames(conn, frameBuffer, (remaining) => {
-          frameBuffer = remaining;
-        });
-      });
-
-      socket.on('close', () => {
-        conn.onClose();
-      });
-
-      socket.on('error', (error) => {
-        conn.onError(error);
-      });
-
-      resolve(conn);
-    });
-
-    socket.on('error', reject);
-    socket.write(handshake);
-  });
-}
-
-/**
- * 处理 WebSocket 帧
- */
-function processWsFrames(
-  conn: WsConnection,
-  buffer: Buffer,
-  onConsumed: (remaining: Buffer) => void
-): void {
-  let offset = 0;
-
-  while (offset < buffer.length) {
-    if (buffer.length - offset < 2) break;
-
-    const firstByte = buffer[offset];
-    const secondByte = buffer[offset + 1];
-    const opcode = firstByte & 0x0f;
-    const masked = (secondByte & 0x80) !== 0;
-    let payloadLength = secondByte & 0x7f;
-    let headerLen = 2;
-
-    if (payloadLength === 126) {
-      if (buffer.length - offset < 4) break;
-      payloadLength = buffer.readUInt16BE(offset + 2);
-      headerLen = 4;
-    } else if (payloadLength === 127) {
-      if (buffer.length - offset < 10) break;
-      payloadLength = Number(buffer.readBigUInt64BE(offset + 2));
-      headerLen = 10;
-    }
-
-    const maskLen = masked ? 4 : 0;
-    const totalLen = headerLen + maskLen + payloadLength;
-
-    if (buffer.length - offset < totalLen) break;
-
-    let maskKey: Buffer | null = null;
-    let payloadStart = offset + headerLen;
-
-    if (masked) {
-      maskKey = buffer.slice(payloadStart, payloadStart + 4);
-      payloadStart += 4;
-    }
-
-    let payload = Buffer.from(
-      buffer.slice(payloadStart, payloadStart + payloadLength)
-    );
-
-    if (maskKey) {
-      for (let i = 0; i < payload.length; i++) {
-        payload[i] = payload[i] ^ maskKey[i % 4];
-      }
-    }
-
-    // 处理操作码
-    switch (opcode) {
-      case WsOpcode.TEXT:
-        conn.onText(payload);
-        break;
-
-      case WsOpcode.BINARY:
-        conn.onBinary(payload);
-        break;
-
-      case WsOpcode.CLOSE:
-        conn.socket.end();
-        return;
-
-      case WsOpcode.PING:
-        sendWsFrame(conn, WsOpcode.PONG, Buffer.alloc(0));
-        break;
-
-      case WsOpcode.PONG:
-        // 忽略 pong
-        break;
-    }
-
-    offset += totalLen;
-  }
-
-  onConsumed(buffer.slice(offset));
 }
 
 /**
@@ -695,24 +419,11 @@ export class EdgeTTSProvider implements TTSProvider {
 
   /**
    * 启动 WebSocket 心跳保活（每 15s 发送 PING）
+   * 委托给 edgeTTSTransport.startHeartbeat
    */
   private startHeartbeat(conn: WsConnection): void {
     this.stopHeartbeat();
-    this.pingInterval = setInterval(() => {
-      try {
-        if (conn.socket && conn.socket.writable) {
-          sendWsFrame(conn, WsOpcode.PING, Buffer.alloc(0));
-        } else {
-          this.stopHeartbeat();
-        }
-      } catch (error) {
-        void handleError(error, {
-          module: 'services:voice:edgeTTS',
-          action: 'heartbeat',
-        });
-        this.stopHeartbeat();
-      }
-    }, 15_000);
+    this.pingInterval = startWsHeartbeat(conn);
   }
 
   /**
@@ -858,15 +569,7 @@ export class EdgeTTSProvider implements TTSProvider {
   stop(): void {
     this.stopHeartbeat();
     if (this.wsConnection) {
-      try {
-        sendWsFrame(this.wsConnection, WsOpcode.CLOSE, Buffer.alloc(0));
-        this.wsConnection.socket.destroy();
-      } catch (error) {
-        void handleError(error, {
-          module: 'services:voice:edgeTTS',
-          action: 'stop',
-        });
-      }
+      closeConnection(this.wsConnection);
       this.wsConnection = null;
     }
   }
@@ -911,8 +614,16 @@ export class EdgeTTSProvider implements TTSProvider {
       const connectionId = randomUUID().replace(/-/g, '');
       const secMsGec = generateSecMsGec();
       const wsPath = `${EDGE_TTS_PATH}&ConnectionId=${connectionId}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
+      const muid = generateMuid();
 
-      wsHandshake(EDGE_TTS_HOST, wsPath, 443)
+      wsConnect({
+        host: EDGE_TTS_HOST,
+        path: wsPath,
+        port: 443,
+        userAgent: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
+        origin: 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
+        cookie: `muid=${muid};`,
+      })
         .then((conn) => {
           this.wsConnection = conn;
           this.startHeartbeat(conn);
@@ -994,6 +705,111 @@ export class EdgeTTSProvider implements TTSProvider {
           reject(error);
         });
     });
+  }
+
+  /**
+   * 创建流式 TTS 合成
+   *
+   * Edge TTS 的 WebSocket 协议本身支持流式返回音频，
+   * 此方法在接收到每个音频块时立即回调，无需等待全部合成完成。
+   *
+   * 流程：连接 → 发送 context + SSML → 逐块回调 onData → turn.end 标记完成
+   */
+  createStream(options: TTSSpeakOptions): TTSStream {
+    const voiceId = options.voice || this.config.voice!;
+    let conn: WsConnection | null = null;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
+    let isCancelled = false;
+
+    const dataCallbacks: Array<(chunk: Buffer, isLast: boolean) => void> = [];
+    const errorCallbacks: Array<(error: Error) => void> = [];
+
+    const stream: TTSStream = {
+      onData(cb) {
+        dataCallbacks.push(cb);
+      },
+      onError(cb) {
+        errorCallbacks.push(cb);
+      },
+      cancel() {
+        isCancelled = true;
+        if (pingInterval) clearInterval(pingInterval);
+        if (conn) {
+          closeConnection(conn);
+          conn = null;
+        }
+      },
+    };
+
+    const connectionId = randomUUID().replace(/-/g, '');
+    const secMsGec = generateSecMsGec();
+    const wsPath = `${EDGE_TTS_PATH}&ConnectionId=${connectionId}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
+    const muid = generateMuid();
+
+    wsConnect({
+      host: EDGE_TTS_HOST,
+      path: wsPath,
+      port: 443,
+      userAgent: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
+      origin: 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
+      cookie: `muid=${muid};`,
+    })
+      .then((c) => {
+        if (isCancelled) {
+          closeConnection(c);
+          return;
+        }
+
+        conn = c;
+        pingInterval = startWsHeartbeat(c);
+
+        c.onError = (error) => {
+          if (pingInterval) clearInterval(pingInterval);
+          errorCallbacks.forEach((cb) => cb(error));
+        };
+
+        c.onClose = () => {
+          if (pingInterval) clearInterval(pingInterval);
+        };
+
+        // 文本帧：检测 turn.end
+        c.onText = (data) => {
+          const payload = data.toString('utf8');
+          if (payload.includes('turn.end')) {
+            // 最后一个空块标记完成
+            dataCallbacks.forEach((cb) => cb(Buffer.alloc(0), true));
+            if (pingInterval) clearInterval(pingInterval);
+            c.socket.end();
+          }
+        };
+
+        // 二进制帧：提取音频数据
+        c.onBinary = (data) => {
+          if (isCancelled) return;
+          const audioData = extractAudioFromBinaryFrame(data);
+          if (audioData && audioData.length > 0) {
+            dataCallbacks.forEach((cb) => cb(audioData, false));
+          }
+        };
+
+        // 发送 synthesis context
+        const contextPayload = buildContext(voiceId);
+        sendWsFrame(c, WsOpcode.TEXT, Buffer.from(contextPayload, 'utf8'));
+
+        // 发送 SSML
+        const ssmlPayload = buildSsmlPayload(
+          options.text,
+          voiceId,
+          this.config.rate,
+          this.config.pitch
+        );
+        sendWsFrame(c, WsOpcode.TEXT, Buffer.from(ssmlPayload, 'utf8'));
+      })
+      .catch((error) => {
+        errorCallbacks.forEach((cb) => cb(error));
+      });
+
+    return stream;
   }
 
   /**

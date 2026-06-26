@@ -55,8 +55,8 @@ export interface DreamRecord {
 
 /** 默认调度器配置 */
 export const DEFAULT_DREAM_SCHEDULER_CONFIG: DreamSchedulerConfig = {
-  idleThresholdMs: 15 * 60 * 1000, // 15 分钟
-  minIntervalMs: 6 * 60 * 60 * 1000, // 6 小时
+  idleThresholdMs: 5 * 60 * 1000, // 5 分钟（原 15 分钟，放宽松以更快触发）
+  minIntervalMs: 1 * 60 * 60 * 1000, // 1 小时（原 6 小时）
   cronTrigger: '0 2 * * *',
   idleCheckIntervalMs: 60_000, // 每分钟检查一次
 };

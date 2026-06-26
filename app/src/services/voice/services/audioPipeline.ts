@@ -18,6 +18,7 @@ import { readFile } from 'fs/promises';
 import { Readable } from 'stream';
 import { handleError } from '@modules/error';
 import { Logger, getOTelTracing } from '@modules/monitoring';
+import { isFFmpegAvailable } from './audioFormatConverter';
 
 const logger = new Logger({});
 
@@ -100,6 +101,117 @@ function parseWavHeader(buffer: Buffer): AudioFormatDesc | null {
     offset += 8 + chunkSize;
   }
   return null;
+}
+
+// ===========================================================
+// 纯 JS WAV 编解码（ffmpeg fallback）
+// ===========================================================
+
+/**
+ * 纯 JS WAV 解码：从 WAV Buffer 中提取 PCM 数据
+ *
+ * 解析 WAV 文件头，提取 fmt 块信息（采样率、声道数、位深），
+ * 定位 data 块并返回裸 PCM 数据。
+ *
+ * 仅支持 PCM 格式 WAV（不支持压缩格式如 ADPCM、MP3-in-WAV）。
+ *
+ * @param wavData 完整 WAV 文件 Buffer
+ * @returns PCM 数据与格式信息，或 null（解析失败/非 PCM 格式）
+ */
+export function decodeWav(wavData: Buffer): {
+  pcmData: Buffer;
+  sampleRate: number;
+  channels: number;
+  bitsPerSample: number;
+} | null {
+  if (
+    wavData.length < 44 ||
+    wavData.toString('ascii', 0, 4) !== 'RIFF' ||
+    wavData.toString('ascii', 8, 12) !== 'WAVE'
+  ) {
+    return null;
+  }
+
+  let audioFormat = 0;
+  let channels = 0;
+  let sampleRate = 0;
+  let bitsPerSample = 0;
+  let pcmStart = 0;
+  let pcmSize = 0;
+
+  let offset = 12;
+  while (offset + 8 <= wavData.length) {
+    const chunkId = wavData.toString('ascii', offset, offset + 4);
+    const chunkSize = wavData.readUInt32LE(offset + 4);
+
+    if (chunkId === 'fmt ') {
+      if (offset + 16 > wavData.length) return null;
+      audioFormat = wavData.readUInt16LE(offset + 8);
+      channels = wavData.readUInt16LE(offset + 10);
+      sampleRate = wavData.readUInt32LE(offset + 12);
+      bitsPerSample = wavData.readUInt16LE(offset + 22);
+    } else if (chunkId === 'data') {
+      pcmStart = offset + 8;
+      pcmSize = chunkSize;
+    }
+
+    offset += 8 + chunkSize;
+  }
+
+  // 仅支持 PCM 格式（audioFormat === 1）
+  if (audioFormat !== 1 || channels === 0 || pcmSize === 0) {
+    return null;
+  }
+
+  const pcmData = wavData.subarray(pcmStart, pcmStart + pcmSize);
+
+  return { pcmData, sampleRate, channels, bitsPerSample };
+}
+
+/**
+ * 纯 JS WAV 编码：将 PCM 数据包装为 WAV 格式
+ *
+ * 生成标准的 RIFF/WAVE 文件头，包含 fmt 块和 data 块。
+ * 输出为 PCM 编码的 WAV（audioFormat = 1）。
+ *
+ * 适用范围：仅 PCM ↔ WAV 互转。MP3、OGG、WebM 等其他格式仍依赖 ffmpeg。
+ *
+ * @param pcmData 裸 PCM 数据（Buffer）
+ * @param sampleRate 采样率（Hz），如 16000、44100
+ * @param channels 声道数（1=单声道，2=立体声）
+ * @param bitsPerSample 位深（8 或 16）
+ * @returns 完整 WAV 文件 Buffer
+ */
+function encodeWav(
+  pcmData: Buffer,
+  sampleRate: number,
+  channels: number,
+  bitsPerSample: number
+): Buffer {
+  const header = Buffer.alloc(44);
+  const dataSize = pcmData.length;
+  const fileSize = 36 + dataSize;
+  const byteRate = sampleRate * channels * (bitsPerSample / 8);
+  const blockAlign = channels * (bitsPerSample / 8);
+
+  // RIFF header
+  header.write('RIFF', 0);
+  header.writeUInt32LE(fileSize, 4);
+  header.write('WAVE', 8);
+  // fmt chunk
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16); // chunk size (PCM = 16)
+  header.writeUInt16LE(1, 20); // audio format (PCM = 1)
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  // data chunk
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmData]);
 }
 
 /**
@@ -464,14 +576,23 @@ export class AudioPipeline {
   /**
    * 使用 ffmpeg 子进程管道转换音频格式
    *
+   * 当 ffmpeg 不可用时，自动降级到纯 JS WAV 编解码：
+   *   - s16le ← WAV：decodeWav 剥离 WAV 头
+   *   - WAV ← s16le：encodeWav 添加 WAV 头
+   *   其他组合（需重采样或编解码非 WAV 格式）则抛出明确错误。
+   *
    * @param opts 转换目标参数
    * @returns 转换后的音频 Buffer
    */
-  private ffmpegConvert(opts: {
+  private async ffmpegConvert(opts: {
     outputFormat: string;
     sampleRate: number;
     channels: number;
   }): Promise<Buffer> {
+    if (!isFFmpegAvailable()) {
+      return this.tryJSWavFallback(opts);
+    }
+
     return new Promise((resolve, reject) => {
       const args = [
         '-i',
@@ -519,6 +640,72 @@ export class AudioPipeline {
       proc.stdin?.write(this.data);
       proc.stdin?.end();
     });
+  }
+
+  /**
+   * 纯 JS WAV 编解码回退
+   *
+   * 当 ffmpeg 不可用时，尝试用纯 JS 处理 PCM ↔ WAV 互转。
+   * 仅支持以下场景（无需重采样/声道混音）：
+   *   - WAV → s16le：输入为 WAV 格式，提取 PCM 数据
+   *   - s16le → WAV：输入为 PCM16 格式，包装为 WAV
+   *
+   * @param opts 转换目标参数
+   * @returns 转换后的音频 Buffer
+   */
+  private tryJSWavFallback(opts: {
+    outputFormat: string;
+    sampleRate: number;
+    channels: number;
+  }): Buffer {
+    const targetIsPcm = opts.outputFormat === 's16le';
+    const targetIsWav = opts.outputFormat === 'wav';
+
+    if (targetIsPcm && this.inputFormat.format === 'wav') {
+      // WAV → PCM16：解码 WAV 提取裸数据
+      const decoded = decodeWav(this.data);
+      if (decoded) {
+        if (
+          decoded.sampleRate === opts.sampleRate &&
+          decoded.channels === opts.channels &&
+          decoded.bitsPerSample === 16
+        ) {
+          logger.info('JS WAV fallback · WAV → PCM16 解码成功', {
+            sampleRate: decoded.sampleRate,
+            channels: decoded.channels,
+            size: decoded.pcmData.length,
+          });
+          return decoded.pcmData;
+        }
+
+        // 采样率或声道不匹配时，无法用纯 JS 处理
+        logger.warn(
+          'JS WAV fallback · 输入 WAV 参数与目标不匹配，需要 ffmpeg 重采样',
+          {
+            input: {
+              sampleRate: decoded.sampleRate,
+              channels: decoded.channels,
+            },
+            target: { sampleRate: opts.sampleRate, channels: opts.channels },
+          }
+        );
+      }
+    } else if (targetIsWav && this.inputFormat.format === 'pcm_s16le') {
+      // PCM16 → WAV：包装为 WAV 格式
+      logger.info('JS WAV fallback · PCM16 → WAV 编码成功', {
+        sampleRate: this.inputFormat.sampleRate,
+        channels: this.inputFormat.channels,
+        size: this.data.length,
+      });
+      return encodeWav(this.data, opts.sampleRate, opts.channels, 16);
+    }
+
+    throw new Error(
+      'ffmpeg 不可用且无法通过纯 JS 编解码完成转换。' +
+        'JS fallback 仅支持 PCM ↔ WAV 互转（需采样率和声道数一致），' +
+        `当前输入格式: ${this.inputFormat.format}，目标: ${opts.outputFormat}。` +
+        '请安装 ffmpeg 或确保音频已是目标格式。'
+    );
   }
 }
 

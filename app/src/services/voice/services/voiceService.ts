@@ -39,6 +39,8 @@ import {
   isFFmpegAvailable,
   getFormatInfo,
 } from './audioFormatConverter';
+import { AudioPipeline } from './audioPipeline';
+import type { AudioPreprocessOptions } from './audioPipeline';
 import { pcm16BufferToSamples } from './audioUtils';
 import type { AudioFormat } from './audioFormatConverter';
 import { Recorder, type RecordingMethod } from './recorder';
@@ -907,6 +909,8 @@ export class VoiceService {
    * 语音识别（将音频转换为文本）
    *
    * 通过 STTRegistry 选择可用的 STT 提供者执行转录。
+   * 在转录前对音频进行前处理（噪声门控、音量归一化、静音裁剪），
+   * 以提高识别准确率。前处理失败时自动降级为原始音频。
    * options 为空时使用默认语言和关键词配置。
    * 若识别结果为空文本，返回 null。
    *
@@ -917,7 +921,27 @@ export class VoiceService {
     audioData: Buffer,
     options?: STTTranscribeOptions
   ): Promise<STTResult | null> {
-    const result: STTResult = await STTRegistry.transcribe(audioData, {
+    // STT 音频前处理：噪声门控 + 音量归一化 + 静音裁剪
+    let processedAudio = audioData;
+    try {
+      const pipeline = AudioPipeline.fromBuffer(audioData);
+      const sttBuffer = await pipeline.preprocessForSTT();
+      processedAudio = sttBuffer.data;
+      logger.info('STT 音频前处理完成', {
+        inputSize: audioData.length,
+        outputSize: processedAudio.length,
+      });
+    } catch (preprocessError) {
+      logger.warn('STT 音频前处理失败，使用原始音频', {
+        error:
+          preprocessError instanceof Error
+            ? preprocessError.message
+            : String(preprocessError),
+      });
+      // 前处理失败不影响主路径 — CS03 回退最小化
+    }
+
+    const result: STTResult = await STTRegistry.transcribe(processedAudio, {
       ...options,
       language:
         options?.language || this.config.sttLanguage || this.config.language,

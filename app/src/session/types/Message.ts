@@ -140,6 +140,8 @@ export interface UnifiedMessage {
   timestamp: number;
   metadata?: MessageMetadata;
   blocks?: FrontendMessageBlock[];
+  /** 流式响应结束原因 */
+  finishReason?: string;
 }
 
 /**

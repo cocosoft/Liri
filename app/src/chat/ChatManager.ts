@@ -22,7 +22,6 @@
 import crypto from 'node:crypto';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
 import { repairModelJson } from '@modules/utils/json';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 
@@ -839,16 +838,16 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     // 保护系统消息和最近的 N 条消息，移除中间的旧消息
-    // N = 总消息数 × 30%，下限 20，上限 100（修复 BUG #10 protectedCount 动态化）
-    const protectedCount = Math.max(
-      20,
-      Math.min(100, Math.round(nonSystemMessages.length * 0.3))
-    );
     const systemMsg = apiMessages.find(
       (m: Record<string, unknown>) => m.role === 'system'
     );
     const nonSystemMessages = apiMessages.filter(
       (m: Record<string, unknown>) => m.role !== 'system'
+    );
+    // N = 总消息数 × 30%，下限 20，上限 100（修复 BUG #10 protectedCount 动态化）
+    const protectedCount = Math.max(
+      20,
+      Math.min(100, Math.round(nonSystemMessages.length * 0.3))
     );
 
     // 循环截断：可能一次截断不足以降到安全线以下

@@ -14,6 +14,10 @@ export interface SessionMetadata {
   title: string;
   tags: string[];
   mode: string;
+  model?: string;
+  workspaceId?: string;
+  providerId?: string;
+  tasksOverride?: unknown;
   worktreeState?: any;
   prLink?: PrLink;
   tokenUsage?: {

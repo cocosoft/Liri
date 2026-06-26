@@ -54,6 +54,7 @@ import type { ChatManager } from '@modules/chat/ChatManager';
 import { createChatManager } from '@modules/chat/ChatManager';
 import type { SessionManager } from '@modules/chat/types/session';
 import type { UnifiedMessage } from '@modules/session/types/Message';
+import type { Message } from '@modules/chat/types/message';
 import type { ToolManager } from '@modules/tools/core/ToolManager';
 import { globalToolManager } from '@modules/tools/core/ToolManager';
 import type { Coordinator } from '@modules/core';
@@ -394,7 +395,7 @@ export class CoreAPIImpl implements CoreAPI {
           cacheCreationTokens?: number;
         }
       | undefined;
-    let finalMessage: UnifiedMessage | undefined;
+    let finalMessage: Message | undefined;
 
     yield {
       type: 'status',

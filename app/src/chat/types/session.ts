@@ -82,6 +82,21 @@ export interface SessionMetadata {
   totalCost?: number;
 
   /**
+   * 工作空间 ID
+   */
+  workspaceId?: string;
+
+  /**
+   * 供应商 ID
+   */
+  providerId?: string;
+
+  /**
+   * 任务覆盖配置
+   */
+  tasksOverride?: unknown;
+
+  /**
    * 自定义元数据
    */
   [key: string]: any;

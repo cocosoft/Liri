@@ -541,6 +541,11 @@ export interface Message {
    * 消息子类型（用于扩展消息分类，如 'away_summary'、'compact_boundary' 等）
    */
   subtype?: string;
+
+  /**
+   * 流式响应结束原因（'stop' | 'length' | 'error'），仅助手消息
+   */
+  finishReason?: string;
 }
 
 /**

@@ -332,10 +332,10 @@ export function handleWakeUpgrade(
 
   wakeClients.set(clientId, client);
 
-  let dataBuffer = Buffer.alloc(0);
+  let dataBuffer: Buffer = Buffer.alloc(0);
 
   rawSocket.on('data', (data: Buffer) => {
-    dataBuffer = Buffer.concat([dataBuffer, data]);
+    dataBuffer = Buffer.concat([dataBuffer, data]) as Buffer;
     dataBuffer = handleClientFrame(client, dataBuffer);
   });
 

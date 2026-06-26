@@ -26,7 +26,7 @@ export interface VoiceWakeConfig {
 // ========== 默认配置 ==========
 
 /** 默认唤醒词列表（中文 + 英文） */
-const DEFAULT_TRIGGERS: string[] = ['小鸟小鸟', 'Hi Liri'];
+const DEFAULT_TRIGGERS: string[] = ['小鸟小鸟', 'Hi Liri', 'pyapp'];
 
 // ========== 持久化 ==========
 

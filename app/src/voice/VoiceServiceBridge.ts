@@ -87,7 +87,8 @@ import type {
   VoiceToolDeclaration,
 } from './types';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
-import type { VoiceWakeConfig, WakeDetectionResult } from './VoiceWakeManager';
+import type { VoiceWakeConfig } from './VoiceWakeManager';
+import type { WakeDetectionResult } from './types';
 import type { AudioBufferStats, AudioChunk } from './AudioPipeline';
 /** 桥接配置 */
 export interface VoiceBridgeConfig {

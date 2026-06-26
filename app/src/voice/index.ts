@@ -62,7 +62,8 @@ export {
   onWake,
   resetWakeManager,
 } from './VoiceWakeManager';
-export type { VoiceWakeConfig, WakeDetectionResult } from './VoiceWakeManager';
+export type { VoiceWakeConfig } from './VoiceWakeManager';
+export type { WakeDetectionResult } from './types';
 
 export { WakeWordEngine } from './WakeWordEngine';
 export type {

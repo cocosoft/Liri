@@ -11,7 +11,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';
-import type { WakeDetectionResult } from './VoiceWakeManager';
+import type { WakeDetectionResult } from './types';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'voice:wake-ws' });
 

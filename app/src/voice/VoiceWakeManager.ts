@@ -12,6 +12,7 @@ import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 import { WakeWordEngine } from './WakeWordEngine';
 import type { WakeWordResult } from './WakeWordEngine';
+import type { WakeDetectionResult } from './types';
 import { broadcastWakeEvent } from './WakeWebSocketServer';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -20,16 +21,6 @@ const logger = new Logger({ level: LogLevel.INFO });
 export interface VoiceWakeConfig {
   triggers: string[];
   updatedAtMs: number;
-}
-
-/** 唤醒检测结果 */
-export interface WakeDetectionResult {
-  /** 是否检测到唤醒 */
-  detected: boolean;
-  /** 匹配的唤醒词 */
-  matchedTrigger: string | null;
-  /** 去除唤醒词后的剩余文本 */
-  remainingText: string | null;
 }
 
 // ========== 默认配置 ==========

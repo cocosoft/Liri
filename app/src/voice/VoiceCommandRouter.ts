@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VoiceCommandRouter
  * 语音命令路由
  * 将语音唤醒 + 转录文本映射到具体命令/工具执行
@@ -6,7 +6,7 @@
  */
 
 import { detectWakeWord } from './VoiceWakeManager';
-import type { WakeDetectionResult } from './VoiceWakeManager';
+import type { WakeDetectionResult } from './types';
 import { VoiceToolBridge } from './VoiceToolBridge';
 import type {
   ToolExecutorDelegate,

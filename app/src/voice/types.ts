@@ -307,3 +307,15 @@ export type UpgradeHandler = (
   req: IncomingMessage,
   res: ServerResponse
 ) => VoiceConnection | null;
+
+/** ========== 唤醒词检测 ========== */
+
+/** 唤醒检测结果 */
+export interface WakeDetectionResult {
+  /** 是否检测到唤醒 */
+  detected: boolean;
+  /** 匹配的唤醒词 */
+  matchedTrigger: string | null;
+  /** 去除唤醒词后的剩余文本 */
+  remainingText: string | null;
+}

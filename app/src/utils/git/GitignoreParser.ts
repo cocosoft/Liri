@@ -21,12 +21,15 @@ export interface IgnoreRule {
 
 const GLOBAL_GITIGNORE_BASE =
   process.platform === 'win32'
-    ? join(
-        configManager.env('USERPROFILE') || 'C:\\Users\\Default',
-        '.config',
-        'git',
-        'ignore'
-      )
+    ? (() => {
+        const userProfile = configManager.env('USERPROFILE');
+        if (userProfile && userProfile !== 'C:\\Users\\Default') {
+          return join(userProfile, '.config', 'git', 'ignore');
+        }
+        // 回退：使用项目目录而非 C:\Users\Default（不可写的系统保护目录）
+        const { resolveProjectRoot } = require('@modules/core');
+        return join(resolveProjectRoot(), '.config', 'git', 'ignore');
+      })()
     : join(configManager.env('HOME') || '/root', '.config', 'git', 'ignore');
 
 function getGlobalGitignorePath(): string {

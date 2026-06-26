@@ -220,8 +220,25 @@ const PROJECT_DIRS = ['app'];
 // ── 策略 5: 设置额外环境变量辅助路径解析 ──
 // 确保各模块的路径解析函数 fallback 到正确的项目根
 process.env.LIRI_PROJECT_DIR = projectRoot;
-process.env.LIRI_HOME = join(os.homedir(), '.pyapp');
-process.env.LIRI_DATA_DIR = join(os.homedir(), '.pyapp', 'data');
+
+// 校验 os.homedir() 返回值，防止回退到 C:\Users\Default 等系统保护目录
+const userHome = os.homedir();
+const invalidHomeDirs = ['C:\\Users\\Default', 'C:\\Users\\default'];
+if (!userHome || invalidHomeDirs.includes(userHome)) {
+  const homeDrive = process.env.HOMEDRIVE || '';
+  const homePath = process.env.HOMEPATH || '';
+  if (homeDrive && homePath) {
+    process.env.LIRI_HOME = join(homeDrive + homePath, '.pyapp');
+  } else if (process.env.USERPROFILE) {
+    process.env.LIRI_HOME = join(process.env.USERPROFILE, '.pyapp');
+  } else {
+    // 最后兜底：使用项目目录下的 data 子目录
+    process.env.LIRI_HOME = join(projectRoot, 'app', 'data', 'pyapp');
+  }
+} else {
+  process.env.LIRI_HOME = join(userHome, '.pyapp');
+}
+process.env.LIRI_DATA_DIR = join(process.env.LIRI_HOME, 'data');
 
 // ── 策略 6: 加载 .env 文件 ──
 // Bun 自动加载 .env 仅在 CWD 中查找，而 .env 位于 app/ 子目录，

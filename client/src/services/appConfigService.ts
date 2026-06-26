@@ -7,10 +7,20 @@ export interface AppConfig {
 const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 function defaultConfig(): AppConfig {
-  const homeDir =
-    typeof process !== "undefined" && process.env?.USERPROFILE
-      ? process.env.USERPROFILE
-      : "C:\\Users\\Default";
+  // 解析用户主目录，优先级：
+  // 1. USERPROFILE 环境变量
+  // 2. HOMEDRIVE + HOMEPATH 组合
+  // 3. 抛出明确错误（绝不回退到 C:\Users\Default，那是系统保护的模板目录，不可写）
+  let homeDir: string;
+  if (typeof process !== "undefined" && process.env?.USERPROFILE) {
+    homeDir = process.env.USERPROFILE;
+  } else if (typeof process !== "undefined" && process.env?.HOMEDRIVE && process.env?.HOMEPATH) {
+    homeDir = process.env.HOMEDRIVE + process.env.HOMEPATH;
+  } else {
+    throw new Error(
+      "无法解析用户主目录。请设置 USERPROFILE 或 HOMEDRIVE+HOMEPATH 环境变量。"
+    );
+  }
 
   return {
     dataDir: `${homeDir}\\.pyapp`,

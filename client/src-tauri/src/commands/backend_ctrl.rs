@@ -86,8 +86,13 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     };
 
     // 确保数据目录存在（首次安装时目录不存在会导致 sidecar 启动失败，Windows error 267）
+    // 注意：如果 data_dir 指向 C:\Users\Default 等系统保护目录，会因权限不足失败 (os error 5)
+    // 这通常意味着 USERPROFILE 环境变量未设置或 app_config.json 中存入了错误路径
     std::fs::create_dir_all(&data_dir)
-        .map_err(|e| format!("Failed to create data directory '{}': {}", data_dir, e))?;
+        .map_err(|e| format!(
+            "无法创建数据目录 '{}'：{}\n\n请检查：\n- USERPROFILE 环境变量是否已设置\n- 是否有权限写入该目录\n- app_config.json 中的 dataDir 值是否正确",
+            data_dir, e
+        ))?;
     // 同时确保 data 子目录存在（LIRI_DATA_DIR 环境变量指向此处）
     std::fs::create_dir_all(format!("{}/data", data_dir))
         .map_err(|e| format!("Failed to create data subdirectory '{}/data': {}", data_dir, e))?;

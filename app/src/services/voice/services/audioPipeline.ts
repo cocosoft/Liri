@@ -48,6 +48,20 @@ export interface TTSFormatBuffer {
 }
 
 /**
+ * STT 输入音频前处理选项
+ */
+export interface AudioPreprocessOptions {
+  /** 噪声门控 RMS 阈值（低于此值的帧视为噪声，0.0 ~ 1.0），默认 0.005 */
+  noiseGateThreshold?: number;
+  /** 音量归一化目标 RMS 值（0.0 ~ 1.0），默认 0.15（约 -16dB） */
+  normalizationTarget?: number;
+  /** 静音检测 RMS 阈值（0.0 ~ 1.0），默认 0.002 */
+  silenceThreshold?: number;
+  /** 静音裁剪最小静音时长（毫秒），默认 500 */
+  minSilenceMs?: number;
+}
+
+/**
  * 解析 WAV Buffer 头部的采样率和声道数
  *
  * WAV 文件结构：
@@ -207,6 +221,146 @@ export class AudioPipeline {
           format: 'wav' as const,
           sampleRate: parsed?.sampleRate ?? 16000,
           channels: parsed?.channels ?? 1,
+        };
+      }
+    )();
+  }
+
+  /**
+   * STT 输入音频前处理管线
+   *
+   * 4 阶段处理：
+   *   1. 重采样到 16kHz mono（复用 toSTTFormat）
+   *   2. 噪声门控：RMS 低于阈值的样本置零
+   *   3. 音量归一化：线性放大到目标 RMS
+   *   4. 静音裁剪：移除首尾静音段
+   *
+   * @param options 预处理选项
+   * @returns 预处理后的 PCM16 16kHz mono Buffer
+   */
+  async preprocessForSTT(
+    options?: AudioPreprocessOptions
+  ): Promise<STTFormatBuffer> {
+    const otel = getOTelTracing();
+    return otel.wrap(
+      {
+        name: 'voice.audioPipeline.preprocessForSTT',
+        attributes: {
+          inputFormat: this.inputFormat.format,
+          inputSampleRate: this.inputFormat.sampleRate,
+          inputChannels: this.inputFormat.channels,
+        },
+      },
+      async () => {
+        // Step 1: 重采样到 16kHz mono
+        const sttBuffer = await this.toSTTFormat();
+        let pcmData = sttBuffer.data;
+
+        const noiseGate = options?.noiseGateThreshold ?? 0.005;
+        const normTarget = options?.normalizationTarget ?? 0.15;
+        const silenceThresh = options?.silenceThreshold ?? 0.002;
+        const minSilenceSamples = Math.max(
+          1,
+          Math.round(((options?.minSilenceMs ?? 500) / 1000) * 16000)
+        );
+
+        // PCM16 s16le → Float32 数组
+        const sampleCount = Math.floor(pcmData.length / 2);
+        const samples = new Float32Array(sampleCount);
+        for (let i = 0; i < sampleCount; i++) {
+          samples[i] = pcmData.readInt16LE(i * 2) / 32768;
+        }
+
+        // Step 2: 噪声门控 — 按帧计算 RMS，低于阈值的帧置零
+        const frameSize = 256; // 16ms @ 16kHz
+        const numFrames = Math.ceil(sampleCount / frameSize);
+        for (let f = 0; f < numFrames; f++) {
+          const start = f * frameSize;
+          const end = Math.min(start + frameSize, sampleCount);
+          let sumSq = 0;
+          for (let s = start; s < end; s++) {
+            sumSq += samples[s] * samples[s];
+          }
+          const rms = Math.sqrt(sumSq / (end - start));
+          if (rms < noiseGate) {
+            samples.fill(0, start, end);
+          }
+        }
+
+        // Step 3: 音量归一化 — 计算全局 RMS，线性放大到目标值
+        let sumSq = 0;
+        for (let i = 0; i < sampleCount; i++) {
+          sumSq += samples[i] * samples[i];
+        }
+        const currentRms = Math.sqrt(sumSq / sampleCount);
+        if (currentRms > 0.0001 && currentRms < normTarget) {
+          const gain = normTarget / currentRms;
+          for (let i = 0; i < sampleCount; i++) {
+            samples[i] = Math.max(-1, Math.min(1, samples[i] * gain));
+          }
+        }
+
+        // Step 4: 静音裁剪 — 移除首尾静音段
+        let leadingSilence = 0;
+        for (let i = 0; i + minSilenceSamples <= sampleCount; i++) {
+          let isSilent = true;
+          for (let j = 0; j < minSilenceSamples; j++) {
+            if (Math.abs(samples[i + j]) > silenceThresh) {
+              isSilent = false;
+              break;
+            }
+          }
+          if (isSilent) {
+            leadingSilence = i + minSilenceSamples;
+            i += minSilenceSamples - 1;
+          } else {
+            break;
+          }
+        }
+
+        let trailingSilence = sampleCount;
+        for (let i = sampleCount - minSilenceSamples; i >= 0; i--) {
+          let isSilent = true;
+          for (let j = 0; j < minSilenceSamples; j++) {
+            if (Math.abs(samples[i + j]) > silenceThresh) {
+              isSilent = false;
+              break;
+            }
+          }
+          if (isSilent) {
+            trailingSilence = i;
+            i -= minSilenceSamples - 1;
+          } else {
+            break;
+          }
+        }
+
+        const trimmedStart = Math.max(0, leadingSilence);
+        const trimmedEnd = Math.min(sampleCount, trailingSilence);
+
+        // Float32 → PCM16 s16le Buffer
+        const outSampleCount = Math.max(0, trimmedEnd - trimmedStart);
+        // 至少返回 1 个样本（避免空 Buffer）
+        const finalCount = Math.max(outSampleCount, 1);
+        const outBuffer = Buffer.alloc(finalCount * 2);
+        for (let i = 0; i < finalCount && trimmedStart + i < sampleCount; i++) {
+          const val = Math.max(-1, Math.min(1, samples[trimmedStart + i]));
+          outBuffer.writeInt16LE(Math.round(val * 32768), i * 2);
+        }
+
+        logger.info('STT 音频前处理完成', {
+          inputSamples: sampleCount,
+          outputSamples: finalCount,
+          trimmedStart,
+          trimmedEnd,
+          currentRms: Math.round(currentRms * 1000) / 1000,
+        });
+
+        return {
+          data: outBuffer,
+          sampleRate: 16000 as const,
+          channels: 1 as const,
+          format: 'pcm_s16le' as const,
         };
       }
     )();

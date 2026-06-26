@@ -101,6 +101,12 @@ export interface STTTranscribeOptions {
   punctuation?: boolean;
   /** 请求超时（毫秒） */
   timeout?: number;
+  /** 音频格式（如 wav、mp3、opus） */
+  format?: string;
+  /** 音频采样率（如 16000、44100） */
+  sampleRate?: number;
+  /** 跳过缓存（用于调试/测试） */
+  skipCache?: boolean;
 }
 
 /**

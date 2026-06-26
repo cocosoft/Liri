@@ -23,6 +23,8 @@
  * ```
  */
 
+import { createHash } from 'crypto';
+
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTResult,
@@ -98,10 +100,230 @@ class ProviderSemaphore {
 }
 
 /**
- * STT 提供者注册表
+ * 计算音频内容指纹（SHA-256 前 16 字节）
  *
- * 实例方法实现核心逻辑，static 方法作为默认实例的门面。
+ * @param buffer 音频数据
+ * @returns 16 字节十六进制字符串
  */
+function computeAudioFingerprint(buffer: Buffer): string {
+  return createHash('sha256').update(buffer).digest('hex').slice(0, 32);
+}
+
+/**
+ * STT 缓存配置
+ */
+interface STTCacheConfig {
+  /** 最大缓存条目数，默认 50 */
+  maxEntries: number;
+  /** 缓存 TTL（毫秒），默认 5 分钟 */
+  ttlMs: number;
+  /** 最小音频大小（字节），小于此值不缓存，默认 256 */
+  minAudioSize: number;
+}
+
+/**
+ * 缓存条目
+ */
+interface CacheEntry {
+  result: STTResult;
+  cachedAt: number;
+  hits: number;
+}
+
+/**
+ * STT 转录 LRU 缓存
+ *
+ * 以音频内容指纹为键，避免重复转录相同音频。
+ * 使用 Map 的插入顺序实现 LRU 驱逐（访问时先删除再插入）。
+ */
+class STTCache {
+  private store = new Map<string, CacheEntry>();
+  private config: STTCacheConfig;
+
+  constructor(config?: Partial<STTCacheConfig>) {
+    this.config = {
+      maxEntries: 50,
+      ttlMs: 5 * 60 * 1000,
+      minAudioSize: 256,
+      ...config,
+    };
+  }
+
+  /**
+   * 生成缓存键
+   * 复合键：指纹 + 语言 + 格式 + 采样率
+   */
+  private buildKey(audioData: Buffer, options?: STTTranscribeOptions): string {
+    const fingerprint = computeAudioFingerprint(audioData);
+    const lang = options?.language || '';
+    const fmt = options?.format || '';
+    const rate = options?.sampleRate || '';
+    return `${fingerprint}:${lang}:${fmt}:${rate}`;
+  }
+
+  /**
+   * 获取缓存
+   * 命中时将条目移到末尾（LRU 策略）
+   */
+  get(
+    audioData: Buffer,
+    options?: STTTranscribeOptions
+  ): STTResult | undefined {
+    const key = this.buildKey(audioData, options);
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+
+    // TTL 过期检查
+    if (Date.now() - entry.cachedAt > this.config.ttlMs) {
+      this.store.delete(key);
+      return undefined;
+    }
+
+    // LRU：先删除再插入，将该条目移到末尾
+    this.store.delete(key);
+    this.store.set(key, entry);
+    entry.hits++;
+
+    logger.debug('STTCache · 命中缓存', {
+      key: key.slice(0, 16),
+      hits: entry.hits,
+    });
+    return entry.result;
+  }
+
+  /**
+   * 写入缓存
+   */
+  set(
+    audioData: Buffer,
+    result: STTResult,
+    options?: STTTranscribeOptions
+  ): void {
+    // 跳过过小的音频
+    if (audioData.length < this.config.minAudioSize) return;
+
+    // 跳过空结果
+    if (!result.text && result.confidence === 0) return;
+
+    const key = this.buildKey(audioData, options);
+
+    // 已存在 → 更新
+    if (this.store.has(key)) {
+      this.store.delete(key);
+    }
+
+    this.store.set(key, {
+      result,
+      cachedAt: Date.now(),
+      hits: 0,
+    });
+
+    // LRU 驱逐
+    this.evictIfNeeded();
+  }
+
+  /**
+   * 超过上限时驱逐最久未使用的条目（即 Map 中第一个）
+   */
+  private evictIfNeeded(): void {
+    while (this.store.size > this.config.maxEntries) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.store.delete(oldestKey);
+        logger.debug('STTCache · LRU 驱逐', { key: oldestKey.slice(0, 16) });
+      }
+    }
+  }
+
+  /**
+   * 主动失效指定音频的缓存
+   */
+  invalidate(audioData: Buffer, options?: STTTranscribeOptions): void {
+    const key = this.buildKey(audioData, options);
+    this.store.delete(key);
+  }
+
+  /**
+   * 清理过期条目
+   */
+  evictExpired(): number {
+    const now = Date.now();
+    let count = 0;
+    for (const [key, entry] of this.store) {
+      if (now - entry.cachedAt > this.config.ttlMs) {
+        this.store.delete(key);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * 当前缓存大小
+   */
+  get size(): number {
+    return this.store.size;
+  }
+
+  /**
+   * 缓存命中率统计
+   */
+  getStats(): { size: number; hitRatio: number } {
+    let totalHits = 0;
+    for (const entry of this.store.values()) {
+      totalHits += entry.hits;
+    }
+    return {
+      size: this.store.size,
+      hitRatio:
+        this.store.size > 0 ? totalHits / (totalHits + this.store.size) : 0,
+    };
+  }
+}
+
+/** 默认故障转移链 */
+const DEFAULT_FAILOVER_CHAIN = ['cloud', 'local', 'stream'];
+
+/**
+ * 故障转移配置
+ */
+interface FailoverConfig {
+  /** 故障转移链（Provider ID 列表，按优先级从高到低） */
+  chain: string[];
+  /** 降级持续时间（毫秒），超过后重试原始 Provider */
+  degradeDurationMs: number;
+  /** 故障计数阈值，超过此值触发降级 */
+  failureThreshold: number;
+}
+
+/**
+ * 健康探测结果
+ */
+interface HealthProbeResult {
+  healthy: boolean;
+  latencyMs: number;
+  error?: string;
+}
+
+/**
+ * 统一健康探测策略接口
+ */
+interface HealthProbeStrategy {
+  name: string;
+  probe(): Promise<HealthProbeResult>;
+  intervalMs: number;
+  timeoutMs: number;
+}
+
+/**
+ * Provider 健康配置
+ */
+interface ProviderHealthConfig {
+  strategy: HealthProbeStrategy;
+  unhealthyThreshold: number;
+  recoveryThreshold: number;
+  retryIntervalMs: number;
+}
 export class STTRegistry {
   /** 实例级别：提供者映射表 */
   private providers: Map<string, STTProvider> = new Map();
@@ -109,6 +331,23 @@ export class STTRegistry {
   private defaultProviderId: string = '';
   /** 全局默认实例 */
   private static defaultInstance: STTRegistry = new STTRegistry();
+
+  /** STT 转录 LRU 缓存 */
+  private sttCache: STTCache = new STTCache();
+  /** 是否跳过缓存（用于调试/测试） */
+  private skipCache: boolean = false;
+
+  /** 故障转移链配置 */
+  private failoverConfig: FailoverConfig = {
+    chain: [...DEFAULT_FAILOVER_CHAIN],
+    degradeDurationMs: 60000,
+    failureThreshold: 3,
+  };
+
+  /** 各 Provider 连续失败计数 */
+  private failureCounts: Map<string, number> = new Map();
+  /** 各 Provider 降级时间戳（为 0 表示未降级） */
+  private degradedTimestamps: Map<string, number> = new Map();
 
   /** 事件监听器映射表 */
   private listeners: Map<string, Set<(providerId: string) => void>> = new Map();
@@ -141,6 +380,40 @@ export class STTRegistry {
    */
   static setConcurrencyLimit(providerType: string, max: number): void {
     STTRegistry.defaultInstance.concurrencyLimits[providerType] = max;
+  }
+
+  /**
+   * 配置 STT 缓存
+   *
+   * @param config 缓存配置（部分字段）
+   */
+  static configureCache(config: Partial<STTCacheConfig>): void {
+    STTRegistry.defaultInstance.sttCache = new STTCache(config);
+  }
+
+  /**
+   * 设置是否跳过缓存
+   *
+   * @param skip true 为跳过缓存（调试/测试用）
+   */
+  static setSkipCache(skip: boolean): void {
+    STTRegistry.defaultInstance.skipCache = skip;
+  }
+
+  /**
+   * 获取缓存统计信息
+   */
+  static getCacheStats(): { size: number; hitRatio: number } {
+    return STTRegistry.defaultInstance.sttCache.getStats();
+  }
+
+  /**
+   * 配置故障转移链
+   *
+   * @param chain Provider ID 列表（按优先级从高到低）
+   */
+  static setFailoverChain(chain: string[]): void {
+    STTRegistry.defaultInstance.failoverConfig.chain = [...chain];
   }
 
   /**
@@ -444,7 +717,16 @@ export class STTRegistry {
     options?: STTTranscribeOptions,
     providerId?: string
   ): Promise<STTResult> {
-    const providers = this.getCandidateProvidersInstance(providerId);
+    // ========== 缓存检查 ==========
+    if (!this.skipCache && !options?.skipCache) {
+      const cached = this.sttCache.get(audioData, options);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    // ========== 故障转移：按链选择候选 Provider ==========
+    const providers = this.getFailoverCandidatesInstance(providerId);
 
     if (providers.length === 0) {
       return {
@@ -456,10 +738,18 @@ export class STTRegistry {
     }
 
     let lastError: Error | undefined;
+    let result: STTResult | undefined;
+
     for (let i = 0; i < providers.length; i++) {
       const provider = providers[i];
 
-      // 并发控制：获取信号量许可（队列满则跳过该 provider）
+      // 检查该 Provider 是否处于降级中
+      if (this.isProviderDegraded(provider.id)) {
+        logger.debug('STT 跳过已降级的 Provider', { provider: provider.id });
+        continue;
+      }
+
+      // 并发控制：获取信号量许可
       let semAcquired = false;
       const semaphore = this.getOrCreateSemaphore(provider.id);
       try {
@@ -471,44 +761,45 @@ export class STTRegistry {
         handleError(lastError, {
           module: 'services:voice:sttRegistry',
           action: 'transcribe:concurrency',
-          context: {
-            provider: provider.id,
-            error: semaError,
-          },
+          context: { provider: provider.id, error: semaError },
         });
-
-        // 队列满，不阻塞，尝试下一个提供者
-        // 如果这是最后一个提供者，循环结束后会使用 lastError
         continue;
       }
 
       try {
-        return await provider.transcribe(audioData, options);
+        result = await provider.transcribe(audioData, options);
+
+        // 转录成功 → 记录恢复，写入缓存
+        this.recordProviderSuccess(provider.id);
+        this.sttCache.set(audioData, result, options);
+
+        logger.info('STT 转录成功', {
+          provider: provider.id,
+          confidence: result.confidence,
+        });
+        return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         logger.error('STT 转录失败', {
           provider: provider.id,
           error: lastError.message,
-          fallback: providers.length > 1,
+          attempt: i + 1,
+          total: providers.length,
         });
         handleError(lastError, {
           module: 'services:voice:sttRegistry',
           action: 'transcribe',
-          context: {
-            provider: provider.id,
-            fallback: providers.length > 1,
-          },
+          context: { provider: provider.id, attempt: i + 1 },
         });
 
-        // 如果首个候选提供者失败且有 fallback，标记为降级以启动健康自愈
-        if (i === 0 && providers.length > 1) {
-          this.trackDegradedProvider(provider.id);
-        }
+        // 记录 Provider 失败
+        this.recordProviderFailure(provider.id);
       } finally {
         if (semAcquired) semaphore.release();
       }
     }
 
+    // 全部失败
     logger.error('STT 所有提供者转录均失败', {
       providerCount: providers.length,
       lastError: lastError?.message,
@@ -516,9 +807,7 @@ export class STTRegistry {
     handleError(lastError!, {
       module: 'services:voice:sttRegistry',
       action: 'transcribe:all_failed',
-      context: {
-        providerCount: providers.length,
-      },
+      context: { providerCount: providers.length },
     });
 
     return {
@@ -530,9 +819,10 @@ export class STTRegistry {
   }
 
   /**
-   * 获取当前实例的候选提供者列表（按优先级排序）
+   * 获取故障转移候选 Provider 列表
+   * 按配置的 failover 链顺序，跳过已降级的 Provider
    */
-  private getCandidateProvidersInstance(providerId?: string): STTProvider[] {
+  private getFailoverCandidatesInstance(providerId?: string): STTProvider[] {
     const candidates: STTProvider[] = [];
     const seen = new Set<string>();
 
@@ -543,16 +833,75 @@ export class STTRegistry {
       }
     };
 
-    addIfNotSeen(this.getProviderInstance(providerId));
-    addIfNotSeen(this.getDefaultProviderInstance());
-
-    for (const p of this.getAllProvidersInstance()) {
-      addIfNotSeen(p);
+    // 如果有指定 providerId，优先使用
+    if (providerId) {
+      addIfNotSeen(this.providers.get(providerId));
+    } else {
+      // 按故障转移链顺序遍历
+      for (const chainId of this.failoverConfig.chain) {
+        addIfNotSeen(this.providers.get(chainId));
+      }
+      // 补充注册表中但不在链中的 Provider
+      for (const p of this.providers.values()) {
+        addIfNotSeen(p);
+      }
     }
 
     return candidates;
   }
 
+  /**
+   * 检查指定 Provider 是否处于降级状态
+   */
+  private isProviderDegraded(providerId: string): boolean {
+    const degradedAt = this.degradedTimestamps.get(providerId);
+    if (degradedAt === undefined) return false;
+
+    // 检查降级持续时间是否已过
+    if (Date.now() - degradedAt > this.failoverConfig.degradeDurationMs) {
+      // 降级时间已过，尝试恢复
+      this.degradedTimestamps.delete(providerId);
+      this.failureCounts.set(providerId, 0);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 记录 Provider 成功（重置失败计数）
+   */
+  private recordProviderSuccess(providerId: string): void {
+    this.failureCounts.set(providerId, 0);
+    this.degradedTimestamps.delete(providerId);
+    this.degradedProviderIds.delete(providerId);
+    this.emitInstance('provider_recovered', providerId);
+  }
+
+  /**
+   * 记录 Provider 失败（达到阈值时触发降级）
+   */
+  private recordProviderFailure(providerId: string): void {
+    const currentCount = (this.failureCounts.get(providerId) || 0) + 1;
+    this.failureCounts.set(providerId, currentCount);
+
+    if (currentCount >= this.failoverConfig.failureThreshold) {
+      this.degradedTimestamps.set(providerId, Date.now());
+      this.degradedProviderIds.add(providerId);
+      this.emitInstance('provider_failed', providerId);
+      this.startHealthCheckInstance();
+
+      logger.warn('STT Provider 已降级', {
+        provider: providerId,
+        failureCount: currentCount,
+        degradeDurationMs: this.failoverConfig.degradeDurationMs,
+      });
+    }
+  }
+
+  /**
+   * 获取当前实例的候选提供者列表（按优先级排序）
+   */
   /**
    * 在当前实例创建流式转录连接
    */
@@ -701,15 +1050,5 @@ export class STTRegistry {
     if (this.degradedProviderIds.size === 0) {
       this.stopHealthCheckInstance();
     }
-  }
-
-  /**
-   * 记录降级的提供者并启动健康探测
-   */
-  private trackDegradedProvider(providerId: string): void {
-    if (this.degradedProviderIds.has(providerId)) return;
-    this.degradedProviderIds.add(providerId);
-    this.emitInstance('provider_failed', providerId);
-    this.startHealthCheckInstance();
   }
 }

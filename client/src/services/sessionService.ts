@@ -1,5 +1,8 @@
 import type { Message, Session } from "../types";
 import { httpLegacy as http } from "./httpClient";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("sessionService");
 
 const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 

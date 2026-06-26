@@ -491,7 +491,7 @@ class ChronologicalBlockBuilder {
     const raw = todoData as unknown as { phase?: string };
     const normalized: import("../types/index").TaskCardData = {
       ...todoData,
-      status: raw.phase || todoData.status || 'planning',
+      status: (raw.phase || todoData.status || 'planning') as "done" | "planning" | "executing",
     };
 
     // 先按标题精确匹配
@@ -1098,7 +1098,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           });
           blockBuilder.addQuestion(chunk.questionData);
           const newBlocks = blockBuilder.getBlocks();
-          logger.debug("addQuestion 后 block count:", newBlocks.length, {
+          logger.debug("addQuestion 后 block count: " + newBlocks.length, {
             questionBlocks: newBlocks.filter((b) => b.type === "question").length,
           });
           updatedMsg = { ...msg, blocks: newBlocks };
@@ -1385,7 +1385,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const current = get().sessionFiles;
     const exists = current.some((f) => f.path === file.path);
     if (!exists) {
-      logger.debug("addSessionFile: adding:", file.path, "total after:", current.length + 1);
+      logger.debug("addSessionFile: adding: " + file.path + " total after: " + (current.length + 1));
       set({ sessionFiles: [...current, file] });
     } else {
       logger.debug("addSessionFile: already exists:", file.path);

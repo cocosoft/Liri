@@ -84,7 +84,8 @@ let wakeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 /** 唤醒词检测回调 */
 let onWakeWordDetectedCb: ((data: { matchedTrigger: string | null; remainingText: string | null }) => void) | null = null;
 
-/** 唤醒 WS 连接断开回调 */
+/** 唤醒 WS 连接断开回调 — 保留供后续使用 */
+// @ts-expect-error TS6133: reserved for future use
 let onWakeDisconnectCb: (() => void) | null = null;
 
 /** 唤醒 WS 是否已主动断开 */

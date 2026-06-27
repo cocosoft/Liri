@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import type { ClawHubSkillMeta } from "../../services/skillService";
 
@@ -33,6 +34,7 @@ export function SkillDetailModal({
   onUninstall,
   onToggle,
 }: SkillDetailModalProps) {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -90,7 +92,7 @@ export function SkillDetailModal({
           <p
             className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}
           >
-            {skill.description || "暂无描述"}
+            {skill.description || t("skill.noDescription")}
           </p>
 
           <div
@@ -103,14 +105,14 @@ export function SkillDetailModal({
               </p>
             </div>
             <div>
-              <span className="font-semibold">作者</span>
+              <span className="font-semibold">{t("skill.author")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {skill.author}
               </p>
             </div>
             {skill.license && (
               <div>
-                <span className="font-semibold">许可</span>
+                <span className="font-semibold">{t("skill.license")}</span>
                 <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                   {skill.license}
                 </p>
@@ -118,7 +120,7 @@ export function SkillDetailModal({
             )}
             {skill.category && (
               <div>
-                <span className="font-semibold">分类</span>
+                <span className="font-semibold">{t("skill.categories")}</span>
                 <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                   {skill.category}
                 </p>
@@ -213,7 +215,7 @@ export function SkillDetailModal({
                 onClick={onUninstall}
                 className="px-4 py-2 text-sm rounded-lg bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors"
               >
-                卸载
+                {t("skill.uninstall")}
               </button>
             </>
           ) : (
@@ -226,7 +228,7 @@ export function SkillDetailModal({
                   : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
-              {installing ? "安装中..." : "安装"}
+              {installing ? t("common.installing") : t("skill.install")}
             </button>
           )}
         </div>

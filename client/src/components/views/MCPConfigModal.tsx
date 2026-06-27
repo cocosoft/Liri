@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import type {
   InstalledMCPServer,
@@ -71,11 +72,6 @@ interface MCPConfigModalProps {
   verifying?: boolean;
 }
 
-const AUTH_OPTIONS = [
-  { value: "none", label: "无" },
-  { value: "bearer", label: "Bearer Token" },
-];
-
 /**
  * MCPConfigModal — MCP 服务器配置编辑弹窗
  * 支持：名称/URL/传输类型/认证/Headers/环境变量/高级折叠
@@ -89,6 +85,7 @@ function MCPConfigModal({
   onVerify,
   verifying = false,
 }: MCPConfigModalProps) {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
   const isEdit = !!server;
@@ -230,7 +227,7 @@ function MCPConfigModal({
           <h2
             className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            {isEdit ? "编辑配置" : "添加 MCP 服务器"}
+            {isEdit ? t("mcp.editConfig") : t("mcp.addServer")}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -238,14 +235,14 @@ function MCPConfigModal({
               className={`text-xs hover:underline ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}
               title="从 JSON 文件导入"
             >
-              导入
+              {t("common.import")}
             </button>
             <button
               onClick={handleExport}
               className={`text-xs hover:underline ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}
               title="导出为 JSON 文件"
             >
-              导出
+              {t("common.export")}
             </button>
             <button
               onClick={onClose}
@@ -276,13 +273,13 @@ function MCPConfigModal({
               <label
                 className={`block text-xs mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                名称
+                {t("mcp.name")}
               </label>
               <input
                 type="text"
                 value={form.title}
                 onChange={(e) => update({ title: e.target.value })}
-                placeholder="输入服务器名称"
+                placeholder={t("mcp.namePlaceholder")}
                 className={`w-full text-sm bg-transparent outline-none border-b pb-1 ${
                   isDark
                     ? "border-gray-600 text-white placeholder-gray-500 focus:border-blue-400"
@@ -294,7 +291,7 @@ function MCPConfigModal({
               <label
                 className={`block text-xs mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                传输类型
+                {t("mcp.transport")}
               </label>
               <select
                 value={form.transport}
@@ -318,13 +315,13 @@ function MCPConfigModal({
             <label
               className={`block text-xs mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              描述
+              {t("mcp.description")}
             </label>
             <input
               type="text"
               value={form.description}
               onChange={(e) => update({ description: e.target.value })}
-              placeholder="简要描述该服务器用途"
+              placeholder={t("mcp.descriptionPlaceholder")}
               className={`w-full text-sm bg-transparent outline-none border-b pb-1 ${
                 isDark
                   ? "border-gray-600 text-white placeholder-gray-500 focus:border-blue-400"
@@ -359,7 +356,7 @@ function MCPConfigModal({
                 <label
                   className={`block text-xs mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  命令
+                  {t("mcp.command")}
                 </label>
                 <input
                   type="text"
@@ -377,7 +374,7 @@ function MCPConfigModal({
                 <label
                   className={`block text-xs mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  参数
+                  {t("mcp.args")}
                 </label>
                 <input
                   type="text"
@@ -435,11 +432,8 @@ function MCPConfigModal({
                   : "border-gray-300 text-gray-900 focus:border-blue-500"
               }`}
             >
-              {AUTH_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+              <option value="none">{t("mcp.none")}</option>
+              <option value="bearer">{t("mcp.bearerToken")}</option>
             </select>
           </div>
 
@@ -494,7 +488,7 @@ function MCPConfigModal({
                   <label
                     className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    环境变量
+                    {t("mcp.envVars")}
                   </label>
                   <button
                     onClick={addEnvVar}
@@ -504,7 +498,7 @@ function MCPConfigModal({
                         : "border-gray-300 text-gray-500 hover:bg-gray-50"
                     }`}
                   >
-                    + 添加
+                    + {t("mcp.add")}
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -516,7 +510,7 @@ function MCPConfigModal({
                         onChange={(e) =>
                           updateEnvVar(i, "name", e.target.value)
                         }
-                        placeholder="变量名"
+                        placeholder={t("mcp.envVarName")}
                         className={`flex-1 text-sm bg-transparent outline-none border-b pb-1 ${
                           isDark
                             ? "border-gray-600 text-white placeholder-gray-500 focus:border-blue-400"
@@ -583,7 +577,7 @@ function MCPConfigModal({
                   : "border-green-300 text-green-600 hover:bg-green-50"
               }`}
             >
-              {verifying ? "验证中..." : "验证连接"}
+              {verifying ? t("mcp.verifying") : t("mcp.verify")}
             </button>
           )}
           <button
@@ -594,13 +588,13 @@ function MCPConfigModal({
                 : "bg-gray-100 hover:bg-gray-200 text-gray-700"
             }`}
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
             className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           >
-            {isEdit ? "保存" : "添加"}
+            {isEdit ? t("mcp.save") : t("mcp.add")}
           </button>
         </div>
       </div>

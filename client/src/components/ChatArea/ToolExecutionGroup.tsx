@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { MessageBlock } from "../../types";
 import ToolCallGroup from "./ToolCallGroup";
 import MarkdownRenderer from "./MarkdownRenderer";
@@ -13,6 +14,7 @@ interface ToolExecutionGroupProps {
 }
 
 function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
+  const { t } = useTranslation();
   const { readFileToPreview } = useChatStore();
   const toolcallFlat = useFeatureFlagStore((s) => s.flags.toolcall_flat);
 
@@ -37,7 +39,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
         return getToolDisplayName(block.toolCall.name);
       }
     }
-    return "工具执行";
+    return t("chat.toolExecution");
   }, [blocks]);
 
   const status = useMemo(() => {
@@ -70,13 +72,13 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const statusConfig = useMemo(() => {
     switch (status) {
       case "completed":
-        return { icon: "\u{2705}", label: "完成", color: "#9ece6a" };
+        return { icon: "\u{2705}", label: t("chat.completed"), color: "#9ece6a" };
       case "failed":
-        return { icon: "\u{274C}", label: "失败", color: "#f7768e" };
+        return { icon: "\u{274C}", label: t("chat.failed"), color: "#f7768e" };
       default:
-        return { icon: "\u{23F3}", label: "执行中", color: "#e6c384" };
+        return { icon: "\u{23F3}", label: t("chat.executing"), color: "#e6c384" };
     }
-  }, [status]);
+  }, [status, t]);
 
   /** 从 tool_call 块提取人话摘要 */
   const summaryText = useMemo(() => {
@@ -191,7 +193,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                 {aggregateStats.completed}/{aggregateStats.total}
                 {aggregateStats.failed > 0 && (
                   <span className="text-red-400 ml-1">
-                    ({aggregateStats.failed} 失败)
+                    ({aggregateStats.failed} {t("chat.failed")})
                   </span>
                 )}
               </span>
@@ -243,7 +245,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
               onClick={() => setInnerCollapsed(false)}
               className="block w-full px-2.5 py-1 bg-transparent text-gray-400 text-xs cursor-pointer text-left"
             >
-              📋 点击展开详情 ({blocks.length} 项)
+              📋 {t("chat.expandDetail")} ({blocks.length} 项)
             </button>
           ) : (
             <div className="px-2 py-1 flex flex-col gap-0.5">

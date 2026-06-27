@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useMCPStore } from "../../stores/mcpStore";
 import { useToastStore } from "../../stores/toastStore";
@@ -11,45 +12,46 @@ const TRANSPORT_LABELS: Record<string, string> = {
 };
 
 /**
- * 获取服务器状态（结合 connected + enabled 推断可读状态）
- */
-function getServerStatus(s: InstalledMCPServer): {
-  label: string;
-  color: string;
-} {
-  if (s.connected) {
-    return {
-      label: "已连接",
-      color:
-        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-    };
-  }
-  if (s.configInFile) {
-    return {
-      label: "配置文件",
-      color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    };
-  }
-  if (s.enabled) {
-    return {
-      label: "未连接",
-      color:
-        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-    };
-  }
-  return {
-    label: "已禁用",
-    color: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
-  };
-}
-
-/**
  * MCPInstalledList — 已安装 MCP 服务器列表
  * 展示传输类型、连接状态、工具数量、操作按钮
  */
 function MCPInstalledList() {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
+
+  /**
+   * 获取服务器状态（结合 connected + enabled 推断可读状态）
+   */
+  const getServerStatus = (s: InstalledMCPServer): {
+    label: string;
+    color: string;
+  } => {
+    if (s.connected) {
+      return {
+        label: t("mcp.connected"),
+        color:
+          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      };
+    }
+    if (s.configInFile) {
+      return {
+        label: t("mcp.configFile"),
+        color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      };
+    }
+    if (s.enabled) {
+      return {
+        label: t("mcp.notConnected"),
+        color:
+          "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+      };
+    }
+    return {
+      label: t("mcp.disabled"),
+      color: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+    };
+  };
 
   const {
     installedServers,
@@ -90,7 +92,7 @@ function MCPInstalledList() {
           <h2
             className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            已安装服务器
+            {t("mcp.installedServers")}
           </h2>
         </div>
         <div className="text-center py-6">
@@ -134,7 +136,7 @@ function MCPInstalledList() {
           <h2
             className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            已安装服务器
+            {t("mcp.installedServers")}
           </h2>
           <span
             className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}
@@ -145,7 +147,7 @@ function MCPInstalledList() {
             <span
               className={`text-xs ${isDark ? "text-blue-400" : "text-blue-600"}`}
             >
-              已选 {selectedServerNames.size}
+              {t("mcp.selectedCount", { count: selectedServerNames.size })}
             </span>
           )}
         </div>
@@ -209,7 +211,7 @@ function MCPInstalledList() {
             disabled={batchOperating}
             className="px-2 py-1 text-xs rounded bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 dark:text-yellow-400 transition-colors disabled:opacity-50"
           >
-            批量禁用
+            {t("mcp.batchDisable")}
           </button>
           <button
             onClick={() => {
@@ -222,13 +224,13 @@ function MCPInstalledList() {
             disabled={batchOperating}
             className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
           >
-            批量卸载
+            {t("mcp.batchUninstall")}
           </button>
           {batchOperating && (
             <span
               className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              操作中...
+            {t("mcp.operating")}
             </span>
           )}
         </div>
@@ -284,7 +286,7 @@ function MCPInstalledList() {
                           : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       }`}
                     >
-                      {server.installedFrom === "official" ? "官方" : "第三方"}
+                      {server.installedFrom === "official" ? t("mcp.official") : t("mcp.thirdParty")}
                     </span>
                   )}
                 </div>
@@ -309,7 +311,7 @@ function MCPInstalledList() {
                     <span
                       className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
                     >
-                      {toolCount} 个工具
+                      {toolCount} {t("mcp.toolCountLabel", { count: toolCount })}
                     </span>
                   )}
 
@@ -355,7 +357,7 @@ function MCPInstalledList() {
                   disabled={operatingId === server.name}
                   className="px-3 py-1.5 text-xs rounded-lg bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
                 >
-                  卸载
+                  {t("common.uninstall")}
                 </button>
               </div>
             </div>

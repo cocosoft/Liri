@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -30,6 +31,7 @@ interface TrustedWorkspacesPanelProps {
 }
 
 function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
+  const { t } = useTranslation();
   const [permission, setPermission] = useState<PermissionConfig>({
     mode: "default",
     trustedWorkspaces: [],
@@ -126,8 +128,8 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
 
   return (
     <ConfigSection
-      title="信任工作区"
-      description="管理工作空间信任级别，信任的目录内 AI 操作将减少安全拦截"
+      title={t("settings.trustedWorkspaces")}
+      description={t("settings.trustedWorkspacesDesc")}
       isDark={isDark}
     >
       {/* 权限模式 */}
@@ -213,7 +215,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
             onClick={() => removeWorkspace(i)}
             className="text-red-400 hover:text-red-600 text-sm"
           >
-            删除
+            {t("common.delete")}
           </button>
         </div>
       ))}

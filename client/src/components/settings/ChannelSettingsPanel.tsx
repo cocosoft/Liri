@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ConfigSection, ConfigItem, ToggleConfig } from "./ConfigComponents";
 
 const CHANNEL_LIST: { key: string; label: string; description: string }[] = [
@@ -38,12 +39,14 @@ function ChannelSettingsPanel({
   channels,
   onUpdate,
 }: ChannelSettingsPanelProps) {
+  const { t } = useTranslation();
+
   const gatewayEnabled = channels.gateway?.enabled === true;
 
   return (
     <ConfigSection
-      title="渠道设置"
-      description="管理外部消息渠道的启用状态，网关总开关控制所有渠道"
+      title={t("settings.channelSettings")}
+      description={t("settings.channelSettingsDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">

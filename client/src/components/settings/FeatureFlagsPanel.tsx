@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ConfigSection, ConfigItem, ToggleConfig } from "./ConfigComponents";
 
 interface FeatureFlags {
@@ -23,6 +24,8 @@ function FeatureFlagsPanel({
   features,
   onUpdate,
 }: FeatureFlagsPanelProps) {
+  const { t } = useTranslation();
+
   const featureList: {
     key: keyof FeatureFlags;
     label: string;
@@ -77,8 +80,8 @@ function FeatureFlagsPanel({
 
   return (
     <ConfigSection
-      title="功能开关"
-      description="控制各项功能的启用状态"
+      title={t("settings.features")}
+      description={t("settings.featuresDesc")}
       isDark={isDark}
     >
       <div className="space-y-2">

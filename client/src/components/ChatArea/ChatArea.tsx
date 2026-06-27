@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
@@ -11,6 +12,7 @@ import RoundNavigator from "./RoundNavigator";
 import ContextPanel from "./ContextPanel";
 
 function ChatArea() {
+  const { t } = useTranslation();
   const { messages, error, isStreaming } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
@@ -50,7 +52,7 @@ function ChatArea() {
   };
 
   const handleCreateSession = () => {
-    createSession("新会话");
+    createSession(t('chat.newSession'));
   };
 
   // ---- 自动 TTS 播放 ----
@@ -92,7 +94,7 @@ function ChatArea() {
       error.includes("NetworkError") ||
       error.includes("typo") ||
       error.includes("url or port"))
-      ? '后端服务未运行。请点击左侧侧边栏底部的 "未连接" 按钮查看启动说明。'
+      ? t('chat.backendNotRunning')
       : error;
 
   // 缓存 sessionUsage 计算，仅 messages 变化时重算 O(n)
@@ -141,20 +143,20 @@ function ChatArea() {
                     onClick={() => useBackendStore.getState().checkStatus()}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
-                    🔄 重试连接
+                    🔄 {t('common.retry')}
                   </button>
                   <button
                     onClick={() => navigator.clipboard.writeText(displayError)}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
-                    📋 复制错误
+                    📋 {t('chat.copyMessage')}
                   </button>
                 </div>
               </div>
               <button
                 onClick={handleDismissError}
                 className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-                title="关闭"
+                title={t('common.close')}
               >
                 ✕
               </button>
@@ -165,12 +167,12 @@ function ChatArea() {
             fallback={
               <div className="flex items-center justify-center min-h-[400px] p-8">
                 <div className="text-center">
-                  <p className="text-gray-500 mb-4">消息列表加载出错，请刷新页面重试</p>
+                  <p className="text-gray-500 mb-4">{t('chat.messageListLoadError')}</p>
                   <button
                     onClick={() => window.location.reload()}
                     className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                   >
-                    刷新页面
+                    {t('chat.refreshPage')}
                   </button>
                 </div>
               </div>
@@ -191,9 +193,9 @@ function ChatArea() {
         {showScrollToBottom && (
           <button
             onClick={scrollToBottom}
-            aria-label="滚动到底部"
+            aria-label={t('chat.scrollToBottom')}
             className="absolute bottom-16 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-            title="滚动到底部"
+            title={t('chat.scrollToBottom')}
           >
             <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />

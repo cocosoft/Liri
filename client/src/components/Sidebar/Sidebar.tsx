@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
 import { HomeIcon, ChatIcon, KnowledgeIcon, ImageIcon, VideoIcon, TranslateIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon } from "../../assets/icons";
@@ -21,6 +22,24 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "knowledge", label: "知识库", icon: KnowledgeIcon, path: "/knowledge" },
 ];
 
+/** 菜单项 id 到 i18n key 的映射 */
+const MENU_LABEL_KEYS: Record<string, string> = {
+  home: "nav.home",
+  chat: "nav.chat",
+  image: "image.title",
+  video: "video.title",
+  translate: "translate.title",
+  knowledge: "knowledge.title",
+  models: "model.title",
+  skills: "skill.title",
+  files: "nav.files",
+  mcp: "mcp.title",
+  channels: "channels.title",
+  "council-roles": "agent.title",
+  theme: "settings.theme",
+  settings: "nav.settings",
+};
+
 /** 管理折叠：模型/技能/MCP/频道/文件 */
 const MANAGEMENT_ITEMS: MenuItem[] = [
   { id: "models", label: "模型", icon: ModelIcon, path: "/models" },
@@ -41,11 +60,14 @@ function MenuButton({ item, isActive, onNavigate }: {
   isActive: boolean;
   onNavigate?: () => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
   const isDark = config.theme === "dark";
+
+  const labelText = t(MENU_LABEL_KEYS[item.id] || item.label);
 
   const handleClick = () => {
     const actualPath = item.path;
@@ -73,11 +95,11 @@ function MenuButton({ item, isActive, onNavigate }: {
             ? "text-yellow-400 hover:bg-gray-700"
             : "text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700"
         }`}
-        title={isDark ? "切换到浅色模式" : "切换到深色模式"}
+        title={isDark ? t("sidebar.switchToLight") : t("sidebar.switchToDark")}
       >
         <ThemeIcon size={20} />
         <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
-          {isDark ? "浅色" : "深色"}
+          {isDark ? t("settings.light") : t("settings.dark")}
         </span>
       </button>
     );
@@ -93,11 +115,11 @@ function MenuButton({ item, isActive, onNavigate }: {
           ? "bg-blue-600 text-white"
           : "text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
       }`}
-      title={item.label}
+      title={labelText}
     >
       <IconComponent size={20} />
       <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
-        {item.label}
+        {labelText}
       </span>
     </button>
   );
@@ -110,6 +132,7 @@ function MenuButton({ item, isActive, onNavigate }: {
  */
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const activeRoute = location.pathname.replace("/", "") || "home";
   const [showManagement, setShowManagement] = useState(false);
@@ -148,11 +171,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               ? "bg-blue-600 text-white"
               : "text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700"
           }`}
-          title="管理"
+          title={t("sidebar.manage")}
         >
           <SettingsIcon size={20} />
           <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
-            管理
+            {t("sidebar.manage")}
           </span>
         </button>
 
@@ -190,14 +213,15 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 /** 移动端：底部导航栏 */
 function MobileBottomNav() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const activeRoute = location.pathname.replace("/", "") || "home";
 
   const items: MenuItem[] = [
-    { id: "home", label: "首页", icon: HomeIcon, path: "/" },
-    { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
-    { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
+    { id: "home", label: t("nav.home"), icon: HomeIcon, path: "/" },
+    { id: "chat", label: t("nav.chat"), icon: ChatIcon, path: "/chat" },
+    { id: "settings", label: t("nav.settings"), icon: SettingsIcon, path: "/settings" },
   ];
 
   return (

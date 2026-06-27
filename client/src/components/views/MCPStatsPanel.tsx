@@ -3,6 +3,8 @@
  * 展示 4 个指标卡片：总数 / 已启用 / 已禁用 / 已连接
  */
 
+import { useTranslation } from "react-i18next";
+
 interface MCPStats {
   total: number;
   enabled: number;
@@ -39,15 +41,17 @@ function StatCard({
 }
 
 function MCPStatsPanel({ stats }: MCPStatsPanelProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="mb-4 p-5 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-100 dark:border-purple-900/30">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            MCP 服务器
+            {t("mcp.serverTitle")}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            管理 Model Context Protocol 服务器
+            {t("mcp.serverDesc")}
           </p>
         </div>
       </div>
@@ -55,25 +59,25 @@ function MCPStatsPanel({ stats }: MCPStatsPanelProps) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           icon="🔌"
-          label="总数"
+          label={t("mcp.total")}
           value={stats.total}
           colorClass="text-gray-700 dark:text-gray-300"
         />
         <StatCard
           icon="✅"
-          label="已启用"
+          label={t("mcp.enabled")}
           value={stats.enabled}
           colorClass="text-green-600 dark:text-green-400"
         />
         <StatCard
           icon="⏸"
-          label="已禁用"
+          label={t("mcp.disabled")}
           value={stats.disabled}
           colorClass="text-amber-600 dark:text-amber-400"
         />
         <StatCard
           icon="🟢"
-          label="已连接"
+          label={t("mcp.connected")}
           value={stats.connected}
           colorClass="text-blue-600 dark:text-blue-400"
         />

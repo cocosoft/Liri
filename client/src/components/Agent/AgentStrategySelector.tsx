@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface AgentStrategy {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ function AgentStrategySelector({
   strategies,
   onSelect,
 }: AgentStrategySelectorProps) {
+  const { t } = useTranslation();
   const displayStrategies = strategies;
 
   return (
@@ -25,7 +28,7 @@ function AgentStrategySelector({
       <h2
         className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
       >
-        选择 Agent 策略
+        {t('selectAgentStrategy')}
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {displayStrategies.map((strategy) => (
@@ -86,16 +89,16 @@ function AgentStrategySelector({
           className={`text-sm space-y-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
         >
           <li>
-            • <strong>通用策略</strong>：适合大多数场景，自动调整处理方式
+            • <strong>{t("agent.config")}</strong>：{t("agent.capabilities")}
           </li>
           <li>
-            • <strong>代码策略</strong>：针对编程任务优化，提供更准确的代码建议
+            • <strong>{t("agent.config")}</strong>：{t("agent.status")}
           </li>
           <li>
-            • <strong>探索策略</strong>：深入分析问题，适合研究和复杂决策
+            • <strong>{t("agent.advanced")}</strong>：{t("agent.trajectory")}
           </li>
           <li>
-            • <strong>规划策略</strong>：分解复杂任务，逐步执行
+            • <strong>{t("agent.advanced")}</strong>：{t("agent.capabilities")}
           </li>
         </ul>
       </div>

@@ -7,12 +7,23 @@
  * - "card"：卡片式，header + 折叠 body
  */
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { ToolCall } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
+import ImageToolResult from "./ImageToolResult/ImageToolResult";
 import { useChatStore } from "../../stores/chatStore";
 import { getToolDisplayName, getToolHumanSummary } from "../../utils/toolHumanSummary";
 import { formatKey } from "../../utils/formatKey";
 import { formatValue } from "../../utils/formatValue";
+
+/** 图片相关工具名列表 */
+const IMAGE_TOOL_NAMES = [
+  "image_generate",
+  "image_svg_generate",
+  "image_analysis",
+  "canvas",
+  "image",
+];
 
 interface ToolCallGroupProps {
   toolCall: ToolCall;
@@ -60,6 +71,7 @@ function formatArgumentsNatural(
 }
 
 function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: ToolCallGroupProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const prevStreaming = useRef(isStreaming);
   const { readFileToPreview } = useChatStore();
@@ -90,6 +102,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
 
   const humanSummary = getToolHumanSummary(toolCall);
   const displayName = getToolDisplayName(toolCall.name);
+  const isImageTool = IMAGE_TOOL_NAMES.includes(toolCall.name);
 
   const handleToggle = () => {
     setExpanded(!expanded);
@@ -103,7 +116,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
     <>
       {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
         <div className="mb-0.5">
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">参数</div>
+          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">{t("chat.parameters")}</div>
           <div className="flex flex-col gap-0.5">
             {formatArgumentsNatural(
               toolCall.arguments as Record<string, unknown>,
@@ -114,8 +127,10 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
       )}
       {toolCall.result !== undefined && (
         <div>
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">结果</div>
-          {typeof toolCall.result === "string" ? (
+          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">{t("chat.result")}</div>
+          {isImageTool ? (
+            <ImageToolResult toolCall={toolCall} />
+          ) : typeof toolCall.result === "string" ? (
             <MarkdownRenderer content={toolCall.result} onPreviewFile={readFileToPreview} />
           ) : (
             <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
@@ -144,7 +159,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
             className="text-[10px] px-1.5 py-0.5 rounded shrink-0 ml-auto"
             style={{ background: statusColor, color: "#1a1b26" }}
           >
-            {isStreaming ? "执行中" : toolCall.status || "完成"}
+            {isStreaming ? t("chat.executing") : t("chat.completed")}
           </span>
           <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
         </button>
@@ -178,7 +193,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
           className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
           style={{ background: statusColor, color: "#1a1b26" }}
         >
-          {isStreaming ? "running" : toolCall.status || "completed"}
+          {isStreaming ? t("chat.running") : t("chat.completed")}
         </span>
         <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
       </button>

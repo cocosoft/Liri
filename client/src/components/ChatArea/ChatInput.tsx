@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore, inferFileType } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
@@ -20,6 +21,7 @@ interface FileAttachment {
 }
 
 function ChatInput() {
+  const { t } = useTranslation();
   const [showCommands, setShowCommands] = useState(false);
   const [commandIndex, setCommandIndex] = useState(0);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
@@ -125,7 +127,7 @@ function ChatInput() {
       let sessionId = currentSession?.id;
 
       if (!sessionId) {
-        const newSession = await createSession("新会话");
+        const newSession = await createSession(t('chat.newSession'));
         sessionId = newSession.id;
       }
 
@@ -160,16 +162,16 @@ function ChatInput() {
           typeof replyMessage.content === "string"
             ? replyMessage.content.slice(0, 100) +
               (replyMessage.content.length > 100 ? "..." : "")
-            : "[复杂内容]";
-        messageContent = `回复：${replyContent}\n\n${messageContent}`;
+            : t('chat.complexContent');
+        messageContent = `${t('chat.replyPrefix')}${replyContent}\n\n${messageContent}`;
       }
       if (uploadedPaths.length > 0) {
         const fileRefs = uploadedPaths
           .map((p, i) => `[${attachments[i].name}](${p})`)
           .join(", ");
         messageContent = messageContent
-          ? `${messageContent}\n\n附件: ${fileRefs}`
-          : `上传文件: ${fileRefs}`;
+          ? `${messageContent}\n\n${t('chat.attachments')}: ${fileRefs}`
+          : `${t('chat.uploadFile')}: ${fileRefs}`;
       }
 
       if (messageContent) {
@@ -186,7 +188,7 @@ function ChatInput() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       alert(
-        `文件上传失败: ${errorMsg}\n\n可能原因：\n• 系统安全策略限制了对用户目录的访问\n• 磁盘空间不足\n\n系统会自动尝试使用项目目录作为备选存储位置。`,
+        t('chat.fileUploadFailed', { errorMsg }),
       );
       useChatStore.setState({ isUploading: false });
     }
@@ -200,7 +202,7 @@ function ChatInput() {
 
     let sessionId = currentSession?.id;
     if (!sessionId) {
-      const newSession = await createSession("新会话");
+      const newSession = await createSession(t('chat.newSession'));
       sessionId = newSession.id;
     }
 
@@ -333,14 +335,14 @@ function ChatInput() {
           {replyMessage && (
             <div className="mb-2 flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                {replyMessage.role === "user" ? "回复 你" : "回复 Liri"}:
+                {replyMessage.role === "user" ? `${t('chat.replyTo')}${t('chat.user')}` : `${t('chat.replyTo')}${t('chat.assistant')}`}:
               </span>
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
                 {typeof replyMessage.content === "string"
                   ? replyMessage.content.length > 50
                     ? replyMessage.content.slice(0, 50) + "..."
                     : replyMessage.content
-                  : "[复杂内容]"}
+                  : t('chat.complexContent')}
               </span>
               <button
                 onClick={() => {
@@ -348,7 +350,7 @@ function ChatInput() {
                   useChatStore.getState().setReplyMessage(null);
                 }}
                 className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
-                title="取消回复"
+                title={t('chat.cancelReply')}
               >
                 ✕
               </button>
@@ -358,14 +360,14 @@ function ChatInput() {
           {editTarget && (
             <div className="mb-2 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
               <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                编辑消息:
+                {t('chat.editMessage')}:
               </span>
               <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
                 {typeof editTarget.content === "string"
                   ? editTarget.content.length > 50
                     ? editTarget.content.slice(0, 50) + "..."
                     : editTarget.content
-                  : "[复杂内容]"}
+                  : t('chat.complexContent')}
               </span>
               <button
                 onClick={() => {
@@ -374,7 +376,7 @@ function ChatInput() {
                   setInput("");
                 }}
                 className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
-                title="取消编辑"
+                title={t('chat.cancelEdit')}
               >
                 ✕
               </button>
@@ -390,13 +392,13 @@ function ChatInput() {
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onKeyUp={handleKeyUp}
-                aria-label="消息输入框"
+                aria-label={t('chat.messageInput')}
                 placeholder={
                   currentSession
                     ? isStreaming && messageQueueEnabled
-                      ? "AI 正在回复中，你可以继续输入消息..."
-                      : "输入消息或 / 查看命令..."
-                    : "请先选择或创建会话"
+                      ? t('chat.streamingInputHint')
+                      : t('chat.inputPlaceholder')
+                    : t('chat.selectSessionHint')
                 }
                 disabled={!currentSession}
                 className="w-full px-3 py-2.5 bg-transparent resize-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:cursor-not-allowed"
@@ -421,18 +423,18 @@ function ChatInput() {
               {isStreaming && !messageQueueEnabled ? (
                 <button
                   onClick={() => stopMessage()}
-                  aria-label="停止生成"
+                  aria-label={t('chat.stopGeneration')}
                   className="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <rect x="4" y="4" width="16" height="16" rx="2" />
                   </svg>
-                  <span>停止</span>
+                  <span>{t('chat.stopGeneration')}</span>
                 </button>
               ) : (
                 <button
                   onClick={handleSubmit}
-                  aria-label={isStreaming && messageQueueEnabled ? "排队发送消息" : "发送消息"}
+                  aria-label={isStreaming && messageQueueEnabled ? t('chat.queueSend') : t('chat.send')}
                   disabled={
                     !currentSession ||
                     (!messageQueueEnabled && isSending) ||
@@ -447,7 +449,7 @@ function ChatInput() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span>上传中</span>
+                      <span>{t('chat.uploading')}</span>
                     </>
                   ) : isSending ? (
                     <>
@@ -455,21 +457,21 @@ function ChatInput() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span>{messageQueueEnabled && messageQueue.length > 0 ? `发送中 (${messageQueue.length} 排队)` : "发送中"}</span>
+                      <span>{messageQueueEnabled && messageQueue.length > 0 ? `${t('chat.sending')} (${messageQueue.length} ${t('chat.queued')})` : t('chat.sending')}</span>
                     </>
                   ) : messageQueueEnabled && messageQueue.length > 0 ? (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                       </svg>
-                      <span>发送 ({messageQueue.length + 1} 排队)</span>
+                      <span>{t('chat.send')} ({messageQueue.length + 1} {t('chat.queued')})</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                       </svg>
-                      <span>发送</span>
+                      <span>{t('chat.send')}</span>
                     </>
                   )}
                 </button>

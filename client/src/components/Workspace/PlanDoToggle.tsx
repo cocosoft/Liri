@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface PlanDoToggleProps {
   mode: "plan" | "do";
   onToggle: (mode: "plan" | "do") => void;
@@ -10,10 +12,11 @@ interface PlanDoToggleProps {
  * AI 执行中（executionPhase 非空）时禁用切换
  */
 export default function PlanDoToggle({ mode, onToggle, disabled }: PlanDoToggleProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 gap-1">
       <span className="text-xs text-gray-500 dark:text-gray-400 mr-1 flex-shrink-0">
-        模式：
+        {t("workspace.planDoToggle")}：
       </span>
       <button
         className={`px-3 py-1 text-xs rounded-l-md transition-colors ${
@@ -23,9 +26,9 @@ export default function PlanDoToggle({ mode, onToggle, disabled }: PlanDoToggleP
         }`}
         onClick={() => onToggle("plan")}
         disabled={disabled}
-        title="方案讨论模式：AI 分析、设计，不写文件"
+        title={t("workspace.plan")}
       >
-        Plan
+        {t("workspace.plan")}
       </button>
       <button
         className={`px-3 py-1 text-xs rounded-r-md transition-colors ${
@@ -41,7 +44,7 @@ export default function PlanDoToggle({ mode, onToggle, disabled }: PlanDoToggleP
       </button>
       {disabled && (
         <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
-          AI 执行中，暂不可切换
+          {t("agent.running")}，{t("agent.config") + "... "}
         </span>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -24,10 +25,12 @@ function AutoUpdatePanel({
   autoUpdate,
   onUpdate,
 }: AutoUpdatePanelProps) {
+  const { t } = useTranslation();
+
   return (
     <ConfigSection
-      title="自动更新"
-      description="配置软件自动更新行为"
+      title={t("settings.autoUpdate")}
+      description={t("settings.autoUpdateDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">

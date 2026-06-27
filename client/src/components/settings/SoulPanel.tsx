@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { fetchSoul, saveSoul } from "../../services/soulService";
 import { ConfigSection } from "./ConfigComponents";
 
@@ -37,6 +38,7 @@ const DEFAULT_SOUL = `# SOUL.md — Liri 的人格
  * 允许用户查看和编辑 SOUL.md 中定义的 AI 人格（核心信念、边界、语气）
  */
 function SoulPanel({ isDark }: SoulPanelProps) {
+  const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -89,8 +91,8 @@ function SoulPanel({ isDark }: SoulPanelProps) {
 
   return (
     <ConfigSection
-      title="玲珑鸟人格"
-      description="查看和编辑 Liri 的人格定义 — 核心信念、边界和语气"
+      title={t("settings.soul")}
+      description={t("settings.soulDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">
@@ -102,7 +104,7 @@ function SoulPanel({ isDark }: SoulPanelProps) {
               ? "bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-500"
               : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"
           }`}
-          placeholder="输入人格定义..."
+          placeholder={t("settings.soulDesc")}
         />
 
         {message && (
@@ -127,7 +129,7 @@ function SoulPanel({ isDark }: SoulPanelProps) {
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {saving ? "保存中..." : "保存"}
+            {saving ? "保存中..." : t("common.save")}
           </button>
 
           <button

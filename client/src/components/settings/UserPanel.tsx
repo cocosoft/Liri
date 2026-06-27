@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { fetchUser, saveUser } from "../../services/soulService";
 import { ConfigSection } from "./ConfigComponents";
 
@@ -27,6 +28,7 @@ const DEFAULT_USER = `# USER.md — 用户身份
  * 允许用户查看和编辑 USER.md 中定义的个人身份信息
  */
 function UserPanel({ isDark }: UserPanelProps) {
+  const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -79,8 +81,8 @@ function UserPanel({ isDark }: UserPanelProps) {
 
   return (
     <ConfigSection
-      title="用户身份"
-      description="编辑你的个人身份信息 — AI 将根据此信息调整沟通风格"
+      title={t("settings.userProfile")}
+      description={t("settings.userProfileDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">
@@ -117,7 +119,7 @@ function UserPanel({ isDark }: UserPanelProps) {
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {saving ? "保存中..." : "💾 保存"}
+            {saving ? "保存中..." : t("common.save")}
           </button>
 
           <button

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../services/httpClient";
 
 interface KanbanCard {
@@ -15,10 +16,10 @@ interface KanbanCard {
 }
 
 const COLUMNS = [
-  { id: "backlog", label: "待规划", icon: "📥", color: "bg-gray-200 dark:bg-gray-700" },
-  { id: "todo", label: "待执行", icon: "📋", color: "bg-yellow-100 dark:bg-yellow-900/30" },
-  { id: "in_progress", label: "进行中", icon: "🔄", color: "bg-blue-100 dark:bg-blue-900/30" },
-  { id: "done", label: "已完成", icon: "✅", color: "bg-green-100 dark:bg-green-900/30" },
+  { id: "backlog", label: "agent.backlog", icon: "📥", color: "bg-gray-200 dark:bg-gray-700" },
+  { id: "todo", label: "agent.todo", icon: "📋", color: "bg-yellow-100 dark:bg-yellow-900/30" },
+  { id: "in_progress", label: "agent.in_progress", icon: "🔄", color: "bg-blue-100 dark:bg-blue-900/30" },
+  { id: "done", label: "agent.done", icon: "✅", color: "bg-green-100 dark:bg-green-900/30" },
 ];
 
 const PRI: Record<string, string> = {
@@ -28,6 +29,7 @@ const PRI: Record<string, string> = {
 };
 
 export default function KanbanBoard() {
+  const { t } = useTranslation();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -102,15 +104,15 @@ export default function KanbanBoard() {
 
       {showCreate && (
         <div className="space-y-1.5 bg-gray-50 dark:bg-gray-700/30 p-2 rounded border border-gray-200 dark:border-gray-700">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="卡片标题"
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("agent.kanban")}
             className="w-full px-2 py-1 text-xs border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             onKeyDown={(e) => e.key === "Enter" && create()} />
-          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="描述（可选）"
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t("workspace.detail")}
             className="w-full px-2 py-1 text-xs border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
           <div className="flex items-center gap-2">
             <select value={pri} onChange={(e) => setPri(e.target.value)}
               className="px-2 py-1 text-xs border rounded bg-white dark:bg-gray-700">
-              <option value="high">高</option><option value="medium">中</option><option value="low">低</option>
+              <option value="high">{t("workspace.priority")}</option><option value="medium">{t("agent.status")}</option><option value="low">{t("common.close")}</option>
             </select>
             <button onClick={create} disabled={!title.trim()}
               className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50">添加</button>
@@ -126,7 +128,7 @@ export default function KanbanBoard() {
               className={`flex-1 min-w-[100px] rounded p-1.5 ${col.color} ${dragOverCol === col.id ? "ring-2 ring-blue-400" : ""}`}
               onDragOver={(e) => onDragOver(e, col.id)} onDrop={(e) => onDrop(e, col.id)}>
               <div className="text-[10px] font-medium text-gray-600 dark:text-gray-300 mb-1 flex items-center justify-between">
-                <span>{col.icon} {col.label}</span>
+                <span>{col.icon} {t(col.label)}</span>
                 <span className="text-gray-400">{items.length}</span>
               </div>
               <div className="space-y-1">

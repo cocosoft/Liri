@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useMCPStore } from "../../stores/mcpStore";
 
@@ -35,6 +36,7 @@ function formatSchema(schema: Record<string, unknown> | undefined): string {
  * 使用 store 中的 allTools 数据，支持搜索/分页/Schema展开/工具启停
  */
 function MCPToolsPanel() {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -202,15 +204,15 @@ function MCPToolsPanel() {
       {/* 工具列表 */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {toolsLoading ? (
-          <div className="p-6 text-center text-sm text-gray-400">加载中...</div>
+          <div className="p-6 text-center text-sm text-gray-400">{t("common.loading")}</div>
         ) : filteredTools.length === 0 ? (
           <div className="p-6 text-center">
             <p
               className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
               {allTools.length === 0
-                ? "连接 MCP 服务器后将自动获取工具列表"
-                : "未找到匹配的工具"}
+                ? t("mcp.loadingTools")
+                : t("mcp.noMatchTools")}
             </p>
           </div>
         ) : (
@@ -265,7 +267,7 @@ function MCPToolsPanel() {
                           : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                       }`}
                     >
-                      {isExpanded ? "收起" : "Schema"}
+                      {isExpanded ? t("mcp.collapse") : t("mcp.schema")}
                     </button>
                   )}
                 </div>
@@ -318,7 +320,7 @@ function MCPToolsPanel() {
                   : "bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40"
               }`}
             >
-              下一页
+              {t("common.nextPage")}
             </button>
           </div>
         </div>

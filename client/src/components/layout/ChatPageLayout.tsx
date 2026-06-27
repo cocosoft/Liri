@@ -9,7 +9,7 @@ import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 
 /** 聊天页面布局：从 App.tsx 内联 JSX 提取 */
 export default function ChatPageLayout() {
-  const { config } = useConfigStore();
+  const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
   const interimText = useAppStore((s) => s.interimText);
   const finalText = useAppStore((s) => s.finalText);

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -18,6 +19,8 @@ interface AIConfigProps {
 }
 
 function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
+  const { t } = useTranslation();
+
   const handleProviderChange = (provider: string) => {
     onUpdate({ provider });
   };
@@ -42,12 +45,12 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
 
   return (
     <ConfigSection
-      title="AI 配置"
-      description="配置 AI 提供商和模型参数"
+      title={t("settings.aiConfig")}
+      description={t("settings.aiConfigDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">
-        <ConfigItem label="AI 提供商" isDark={isDark}>
+        <ConfigItem label={t("settings.providers")} isDark={isDark}>
           <SelectConfig
             isDark={isDark}
             value={config.provider || "openai"}
@@ -62,7 +65,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
           />
         </ConfigItem>
 
-        <ConfigItem label="默认模型" isDark={isDark}>
+        <ConfigItem label={t("settings.defaultModel")} isDark={isDark}>
           <TextConfig
             isDark={isDark}
             value={config.model || ""}
@@ -81,7 +84,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
               DeepSeek 配置
             </h4>
             <div className="space-y-3">
-              <ConfigItem label="API Key" isDark={isDark}>
+              <ConfigItem label={t("settings.apiKey")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   type="password"
@@ -90,7 +93,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   placeholder="sk-..."
                 />
               </ConfigItem>
-              <ConfigItem label="Base URL" isDark={isDark}>
+              <ConfigItem label={t("settings.apiEndpoint")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   value={config.deepseek?.baseUrl || ""}
@@ -98,7 +101,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   placeholder="https://api.deepseek.com"
                 />
               </ConfigItem>
-              <ConfigItem label="模型" isDark={isDark}>
+              <ConfigItem label={t("settings.models")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   value={config.deepseek?.model || ""}
@@ -120,7 +123,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
               Anthropic 配置
             </h4>
             <div className="space-y-3">
-              <ConfigItem label="API Key" isDark={isDark}>
+              <ConfigItem label={t("settings.apiKey")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   type="password"
@@ -129,7 +132,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   placeholder="sk-ant-..."
                 />
               </ConfigItem>
-              <ConfigItem label="Base URL" isDark={isDark}>
+              <ConfigItem label={t("settings.apiEndpoint")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   value={config.anthropic?.baseUrl || ""}
@@ -137,7 +140,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   placeholder="https://api.anthropic.com"
                 />
               </ConfigItem>
-              <ConfigItem label="模型" isDark={isDark}>
+              <ConfigItem label={t("settings.models")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   value={config.anthropic?.model || ""}
@@ -159,7 +162,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
               OpenAI 配置
             </h4>
             <div className="space-y-3">
-              <ConfigItem label="API Key" isDark={isDark}>
+              <ConfigItem label={t("settings.apiKey")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   type="password"
@@ -168,7 +171,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   placeholder="sk-..."
                 />
               </ConfigItem>
-              <ConfigItem label="Base URL" isDark={isDark}>
+              <ConfigItem label={t("settings.apiEndpoint")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   value={config.openai?.baseUrl || ""}
@@ -176,7 +179,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
                   placeholder="https://api.openai.com"
                 />
               </ConfigItem>
-              <ConfigItem label="模型" isDark={isDark}>
+              <ConfigItem label={t("settings.models")} isDark={isDark}>
                 <TextConfig
                   isDark={isDark}
                   value={config.openai?.model || ""}

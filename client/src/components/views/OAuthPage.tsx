@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 
 interface OAuthProvider {
@@ -22,6 +23,7 @@ interface OAuthSession {
 }
 
 function OAuthPage() {
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
   const [providers, setProviders] = useState<OAuthProvider[]>([
@@ -126,12 +128,12 @@ function OAuthPage() {
             <h1
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              OAuth 认证管理
+              {t("oauth.title")}
             </h1>
             <p
               className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              管理第三方 OAuth 提供商和认证会话
+              {t("oauth.manageDesc")}
             </p>
           </div>
         </div>
@@ -145,7 +147,7 @@ function OAuthPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            提供商配置
+            {t("oauth.providerConfig")}
           </button>
           <button
             onClick={() => setActiveTab("sessions")}
@@ -155,7 +157,7 @@ function OAuthPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            活动会话
+            {t("oauth.activeSessions")}
           </button>
         </div>
 
@@ -191,7 +193,7 @@ function OAuthPage() {
                       <div
                         className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                       >
-                        {provider.enabled ? "已启用" : "已禁用"}
+                        {provider.enabled ? t("common.enabled") : t("common.disabled")}
                       </div>
                     </div>
                   </div>
@@ -220,7 +222,7 @@ function OAuthPage() {
                         <p
                           className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                         >
-                          OAuth 2.0 认证配置
+                          OAuth 2.0 {t("oauth.configTitle")}
                         </p>
                       </div>
                     </div>
@@ -234,7 +236,7 @@ function OAuthPage() {
                             : "bg-gray-200 hover:bg-gray-300 text-gray-700"
                       }`}
                     >
-                      {selectedProvider.enabled ? "已启用" : "已禁用"}
+                      {selectedProvider.enabled ? t("common.enabled") : t("common.disabled")}
                     </button>
                   </div>
 
@@ -285,7 +287,7 @@ function OAuthPage() {
                       <label
                         className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                       >
-                        授权范围 (Scopes)
+                        {t("oauth.scopes")}
                       </label>
                       <div className="flex flex-wrap gap-2">
                         {selectedProvider.scopes.map((scope) => (
@@ -307,7 +309,7 @@ function OAuthPage() {
                   <p
                     className={`${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    请从左侧选择一个提供商查看详情
+                    {t("oauth.selectProviderHint")}
                   </p>
                 </div>
               )}
@@ -322,7 +324,7 @@ function OAuthPage() {
             {sessions.length === 0 ? (
               <div className="text-center py-12">
                 <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  暂无活动会话
+                  {t("oauth.noActiveSessions")}
                 </p>
               </div>
             ) : (
@@ -352,8 +354,8 @@ function OAuthPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>用户ID: {session.userId}</span>
-                          <span>过期: {session.expiresAt}</span>
+                          <span>{t("oauth.userId")}: {session.userId}</span>
+                          <span>{t("oauth.expiresAt")}: {session.expiresAt}</span>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {session.scopes.map((scope) => (
@@ -371,7 +373,7 @@ function OAuthPage() {
                       onClick={() => revokeSession(session.id)}
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${isDark ? "bg-red-900/30 hover:bg-red-900/50 text-red-400" : "bg-red-50 hover:bg-red-100 text-red-600"}`}
                     >
-                      撤销授权
+                      {t("oauth.revokeAuth")}
                     </button>
                   </div>
                 ))}

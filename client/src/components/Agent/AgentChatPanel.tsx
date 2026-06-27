@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { agentService } from "../../services/agentService";
 
 interface ChatEntry {
@@ -13,6 +14,7 @@ interface AgentChatPanelProps {
 }
 
 function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -37,7 +39,7 @@ function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
       const reply = await agentService.sendChatMessage(taskId, text);
       setMessages((p) => [
         ...p,
-        { role: "assistant", content: reply || "(无响应)", timestamp: Date.now() },
+        { role: "assistant", content: reply || t("agent.error"), timestamp: Date.now() },
       ]);
     } catch (e) {
       setError(String(e));
@@ -55,7 +57,7 @@ function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
       <div className="flex-1 overflow-y-auto space-y-2 mb-2 min-h-[200px] max-h-[360px] bg-gray-50 dark:bg-gray-800/50 rounded p-2 border border-gray-100 dark:border-gray-700">
         {messages.length === 0 && (
           <p className="text-xs text-gray-400 text-center py-6">
-            向 Agent 发送指令开始交互
+            {t("agent.chatPanel")}
           </p>
         )}
         {messages.map((m, i) => (
@@ -106,7 +108,7 @@ function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
           disabled={sending || !input.trim()}
           className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
         >
-          {sending ? "..." : "发送"}
+          {sending ? "..." : t("voice.listening")}
         </button>
       </div>
     </div>

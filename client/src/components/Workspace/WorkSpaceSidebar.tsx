@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import DirectoryTree from "../views/DirectoryTree";
 import { useWorkStore } from "../../stores/workStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -12,12 +13,12 @@ const DEFAULT_ROOTS = [
   { key: "workspace", label: "工作区", path: ".", icon: "\u{1F4C1}" },
 ];
 
-/** 工作项状态标签映射 */
-const STATUS_LABELS: Record<string, string> = {
-  pending: "等待中",
-  in_progress: "执行中",
-  done: "已完成",
-  failed: "失败",
+/** 工作项状态标签映射（key → i18n key） */
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: "workspace.pending",
+  in_progress: "workspace.activeWorkflows",
+  done: "agent.status",
+  failed: "common.failed",
 };
 
 /** 工作项状态颜色映射 */
@@ -34,6 +35,7 @@ const STATUS_COLORS: Record<string, string> = {
  * 下部：文件树（复用 DirectoryTree 组件）
  */
 export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
+  const { t } = useTranslation();
   const activeWorkItem = useWorkStore((s) => s.activeWorkItem);
   const setActiveWorkItem = useWorkStore((s) => s.setActiveWorkItem);
 
@@ -74,12 +76,12 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
         {/* 标题栏 + 新增按钮 */}
         <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
           <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            工作项
+            {t("workspace.workflow")}
           </h4>
           <button
             onClick={() => setShowInput(true)}
             className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-            title="新增工作项"
+            title={t("workspace.addMember")}
           >
             +
           </button>
@@ -94,7 +96,7 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="工作项名称..."
+                placeholder={t("workspace.workflow") + "..."}
                 autoFocus
                 className="flex-1 px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded
                            bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100
@@ -106,7 +108,7 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
                 className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600
                            disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
               >
-                确定
+                {t("common.save")}
               </button>
             </div>
           </div>
@@ -132,7 +134,7 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
                       {/* 状态指示点 */}
                       <span
                         className={`flex-shrink-0 w-2 h-2 rounded-full ${STATUS_COLORS[item.status] || "bg-gray-400"}`}
-                        title={STATUS_LABELS[item.status] || item.status}
+                        title={t(STATUS_LABEL_KEYS[item.status] || item.status)}
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
                         {item.title}
@@ -150,7 +152,7 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
           ) : (
             <div className="flex items-center justify-center h-full py-4">
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                {showInput ? "输入名称后按确定创建" : "暂无工作项，点击 + 创建"}
+                {showInput ? t("workspace.noWorkflows") : t("workspace.noMembers")}
               </p>
             </div>
           )}
@@ -161,7 +163,7 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
       <div className="flex-1 overflow-auto">
         <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
           <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            文件树
+            {t("workspace.sidebar")}
           </h4>
         </div>
         <DirectoryTree

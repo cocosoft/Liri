@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ThinkingBlockProps {
   content: string;
@@ -6,6 +7,7 @@ interface ThinkingBlockProps {
 }
 
 function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(true);
   const prevStreaming = useRef(isStreaming);
 
@@ -30,7 +32,7 @@ function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
       <button onClick={() => setCollapsed(!collapsed)} style={styles.header}>
         <span style={styles.spinner}>{isStreaming ? "⏳" : "💭"}</span>
         <span style={styles.title}>
-          {isStreaming ? "Thinking..." : "Thought Process"}
+          {isStreaming ? t("chat.thinking") : t("chat.thoughtProcess")}
         </span>
         <span style={styles.toggle}>{collapsed ? "▶" : "▼"}</span>
       </button>

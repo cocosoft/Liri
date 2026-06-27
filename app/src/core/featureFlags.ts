@@ -244,6 +244,16 @@ export const FEATURE_FLAGS = {
   /** 工作流脚本 */
   WORKFLOW_SCRIPTS: false,
 
+  // ───── 图像工具（Image Tools） ─────
+  /** 多后端图像生成 Provider 模式 */
+  IMAGE_GENERATE_MULTI_PROVIDER: true,
+  /** L2 本地模型图片分析（OCR/YOLO/CLIP via Python） */
+  IMAGE_ANALYSIS_LOCAL: true,
+  /** 图像工具扩展编辑操作 */
+  IMAGE_TOOL_EXTENDED: true,
+  /** CanvasTool V2（Sharp 渲染） */
+  CANVAS_TOOL_V2: true,
+
   // ───── 文件转换器（File Converter） ─────
   /** 文件转换总开关 */
   FILE_CONVERTER: true,
@@ -346,6 +356,10 @@ const TOOL_FLAG_MAP: Record<string, FeatureFlag> = {
   ENABLE_FILE_CONVERTER_AUDIO: 'FILE_CONVERTER_AUDIO',
   ENABLE_FILE_CONVERTER_EPUB: 'FILE_CONVERTER_EPUB',
   ENABLE_FILE_CONVERTER_ZIP: 'FILE_CONVERTER_ZIP',
+  ENABLE_IMAGE_GENERATE_MULTI: 'IMAGE_GENERATE_MULTI_PROVIDER',
+  ENABLE_IMAGE_ANALYSIS_LOCAL: 'IMAGE_ANALYSIS_LOCAL',
+  ENABLE_IMAGE_TOOL_EXTENDED: 'IMAGE_TOOL_EXTENDED',
+  ENABLE_CANVAS_TOOL_V2: 'CANVAS_TOOL_V2',
 };
 
 /** 所有工具名称列表 */

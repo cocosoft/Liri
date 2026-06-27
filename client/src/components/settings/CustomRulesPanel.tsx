@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -51,6 +52,7 @@ const RULE_TABS: { id: RuleTab; label: string }[] = [
 ];
 
 function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<CustomRulesConfig>({});
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -202,8 +204,8 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
 
   return (
     <ConfigSection
-      title="自定义规则"
-      description="配置命令和目录的黑白名单，覆盖默认安全规则"
+      title={t("settings.customRules")}
+      description={t("settings.customRulesDesc")}
       isDark={isDark}
     >
       {/* 命令模式选择 */}
@@ -284,7 +286,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
                 onClick={() => removeItem(i)}
                 className="text-red-400 hover:text-red-600 text-xs ml-2 shrink-0"
               >
-                删除
+                {t("common.delete")}
               </button>
             </div>
           ))}

@@ -9,6 +9,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // ========== 类型定义 ==========
 
@@ -71,6 +72,7 @@ const VOTE_LABELS: Record<string, string> = {
  * Council 辩论详情组件
  */
 function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) {
+  const { t } = useTranslation();
   const [selectedRound, setSelectedRound] = useState<number | null>(null);
 
   return (
@@ -78,7 +80,7 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
       {/* 头部 */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold">Council 辩论详情</h3>
+          <h3 className="text-lg font-semibold">{t("workspace.council")}</h3>
           <p className="text-sm text-gray-500 mt-1">{detail.topic}</p>
         </div>
         <button
@@ -119,7 +121,7 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-1.5 py-0.5 rounded text-xs ${STANCE_COLORS[round.stance].bg} ${STANCE_COLORS[round.stance].text}`}>
-                    {STANCE_LABELS[round.stance]}
+                    {t(STANCE_LABELS[round.stance])}
                   </span>
                   <span className="text-xs text-gray-500">
                     置信度: {(round.confidence * 100).toFixed(0)}%
@@ -159,7 +161,7 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
 
       {/* 最终结论 */}
       <div>
-        <h4 className="text-sm font-semibold mb-2">最终结论</h4>
+        <h4 className="text-sm font-semibold mb-2">{t("workspace.orchestration")}</h4>
         <div className={`p-3 rounded-lg border text-sm ${
           isDark ? "border-green-700 bg-green-900/20" : "border-green-300 bg-green-50"
         }`}>

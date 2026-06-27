@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useVoiceStore } from "../../stores/voiceStore";
 import type { VoiceProvider } from "../../services/voiceService";
 
@@ -33,6 +34,7 @@ function getWakeWordStatus(
 }
 
 function VoiceSettings({ isDark }: VoiceSettingsProps) {
+  const { t } = useTranslation();
   const {
     settings,
     isProcessing,
@@ -118,7 +120,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
           />
         </svg>
-        加载中...
+        {t("common.loading")}
       </div>
     );
   }
@@ -394,7 +396,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
               : "bg-blue-600 hover:bg-blue-700 text-white"
           } disabled:opacity-50`}
         >
-          {isProcessing ? "保存中..." : "保存设置"}
+          {isProcessing ? "保存中..." : t("settings.saveSettings")}
         </button>
       </div>
     </div>

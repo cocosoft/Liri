@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -24,16 +25,18 @@ function CompanionSettingsPanel({
   onUpdateCompanion,
   onToggleMuted,
 }: CompanionPanelProps) {
+  const { t } = useTranslation();
+
   return (
     <ConfigSection
-      title="伙伴设置"
-      description="自定义 AI 助手的显示名称和个性风格"
+      title={t("settings.companion")}
+      description={t("settings.companionDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">
         {/* 名称 */}
         <ConfigItem
-          label="助手名称"
+          label={t("settings.providerName")}
           description="设置 AI 助手在对话中的显示名称"
           isDark={isDark}
         >

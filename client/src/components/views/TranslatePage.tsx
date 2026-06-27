@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 
 /**
@@ -5,6 +6,7 @@ import { useConfigStore } from "../../stores/configStore";
  * 后续将实现 AI 多语言翻译、文档翻译等功能
  */
 function TranslatePage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -20,8 +22,8 @@ function TranslatePage() {
         <path d="M2 17l10 5 10-5" />
         <path d="M2 12l10 5 10-5" />
       </svg>
-      <h2 className="text-xl font-medium mb-2">翻译</h2>
-      <p className="text-sm">AI 多语言翻译功能，敬请期待</p>
+      <h2 className="text-xl font-medium mb-2">{t("translate.title")}</h2>
+      <p className="text-sm">{t("translate.comingSoon")}</p>
     </div>
   );
 }

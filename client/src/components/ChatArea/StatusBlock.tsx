@@ -4,9 +4,11 @@ import { STYLES } from "../../styles/animations";
 interface StatusBlockProps {
   content: string;
   isStreaming?: boolean;
+  /** 状态标记（用于图标判断，不依赖字符串匹配） */
+  status?: string;
 }
 
-function StatusBlock({ content, isStreaming }: StatusBlockProps) {
+function StatusBlock({ content, isStreaming, status }: StatusBlockProps) {
   const [collapsed, setCollapsed] = useState(!isStreaming);
   const prevStreaming = useRef(isStreaming);
 
@@ -19,11 +21,8 @@ function StatusBlock({ content, isStreaming }: StatusBlockProps) {
     }
   }, [isStreaming]);
 
-  const isRunning = content.includes("Running");
-  const isToolStatus =
-    content.includes("Running tool") ||
-    (content.includes("Tool ") &&
-      (content.includes("completed") || content.includes("失败")));
+  const isRunning = status === "running";
+  const isToolStatus = status === "completed" || status === "failed";
 
   return (
     <div style={styles.container}>

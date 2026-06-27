@@ -1,4 +1,5 @@
 import React, { memo, useState, Suspense, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { Message, MessageBlock } from "../../types";
 import ToolExecutionGroup from "./ToolExecutionGroup";
 import ToolResultMessage from "./ToolResultMessage";
@@ -29,7 +30,7 @@ interface ChatMessageProps {
  * 从消息的 blocks 中提取完整文本内容（用于复制等操作）
  * 包含 text 块、thinking 块、tool_call 结果等所有可见文本
  */
-function getFullContent(message: Message): string {
+function getFullContent(message: Message, labels: { thoughtProcess: string; toolCall: string; parameters: string; result: string }): string {
   const parts: string[] = [];
 
   if (message.content) {
@@ -39,12 +40,11 @@ function getFullContent(message: Message): string {
   if (message.blocks && message.blocks.length > 0) {
     for (const block of message.blocks) {
       if (block.type === "text" && block.content) {
-        // text 块内容已在 message.content 中，但 blocks 中的可能更完整
         if (!message.content || !message.content.includes(block.content)) {
           parts.push(block.content);
         }
       } else if (block.type === "thinking" && block.content) {
-        parts.push(`> 💭 思考过程\n> ${block.content.replace(/\n/g, "\n> ")}`);
+        parts.push(`> 💭 ${labels.thoughtProcess}\n> ${block.content.replace(/\n/g, "\n> ")}`);
       } else if (block.type === "tool_call" && block.toolCall) {
         const tc = block.toolCall;
         const argsStr = tc.arguments ? JSON.stringify(tc.arguments, null, 2) : "";
@@ -54,9 +54,9 @@ function getFullContent(message: Message): string {
             : JSON.stringify(tc.result, null, 2)
           : "";
         if (argsStr || resultStr) {
-          const lines = [`**工具调用：${tc.name}**`];
-          if (argsStr) lines.push(`参数：\n\`\`\`json\n${argsStr}\n\`\`\``);
-          if (resultStr) lines.push(`结果：\n${resultStr.slice(0, 500)}`);
+          const lines = [`**${labels.toolCall}${tc.name}**`];
+          if (argsStr) lines.push(`${labels.parameters}\n\`\`\`json\n${argsStr}\n\`\`\``);
+          if (resultStr) lines.push(`${labels.result}\n${resultStr.slice(0, 500)}`);
           parts.push(lines.join("\n\n"));
         }
       }
@@ -76,6 +76,7 @@ const ChatMessageMemo = memo(function ChatMessage({
   hasReplies,
   sessionUsage,
 }: ChatMessageProps) {
+  const { t } = useTranslation();
   const setReplyMessage = useChatStore((s) => s.setReplyMessage);
   const setEditTarget = useChatStore((s) => s.setEditTarget);
   const regenerateMessage = useChatStore((s) => s.regenerateMessage);
@@ -115,7 +116,12 @@ const ChatMessageMemo = memo(function ChatMessage({
   };
 
   const handleCopy = async () => {
-    const textToCopy = getFullContent(message);
+    const textToCopy = getFullContent(message, {
+      thoughtProcess: t('chat.thoughtProcess'),
+      toolCall: t('chat.toolCall'),
+      parameters: t('chat.parameters'),
+      result: t('chat.result'),
+    });
     await navigator.clipboard.writeText(textToCopy);
     setShowActions(false);
   };
@@ -141,8 +147,8 @@ const ChatMessageMemo = memo(function ChatMessage({
     setShowActions(false);
     try {
       const branchTitle = currentSession
-        ? `分支：${currentSession.title}`
-        : "新分支会话";
+        ? `${t('chat.branchPrefix')}${currentSession.title}`
+        : t('chat.newBranchSession');
       const session = await createSession(branchTitle);
       await switchSession(session.id);
     } catch (err) {
@@ -192,12 +198,12 @@ const ChatMessageMemo = memo(function ChatMessage({
                 : "text-gray-600 dark:text-gray-400"
             }`}
           >
-            {isUser ? "你" : "Liri"}
+            {isUser ? t('chat.user') : t('chat.assistant')}
           </span>
           {/* 被回复标记 */}
           {hasReplies && (
             <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
-              有回复
+              {t('chat.hasReplies')}
             </span>
           )}
         </div>
@@ -222,16 +228,16 @@ const ChatMessageMemo = memo(function ChatMessage({
                 const el = document.querySelector(`[data-msg-id="${replyTarget.id}"]`);
                 el?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
-              title="点击跳转到被回复的消息"
+              title={t('chat.jumpToReply')}
             >
               <div className="font-medium mb-0.5">
-                {replyTarget.role === "user" ? "👤 你" : "🤖 Liri"}
+                {replyTarget.role === "user" ? `👤 ${t('chat.user')}` : `🤖 ${t('chat.assistant')}`}
               </div>
               <div className="truncate">
                 {typeof replyTarget.content === "string"
                   ? replyTarget.content.slice(0, 80) +
                     (replyTarget.content.length > 80 ? "..." : "")
-                  : "[复杂内容]"}
+                  : t('chat.complexContent')}
               </div>
             </div>
           )}
@@ -314,13 +320,13 @@ const ChatMessageMemo = memo(function ChatMessage({
               onClick={handleRetry}
               className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
             >
-              🔄 重试
+              🔄 {t('common.retry')}
             </button>
             <button
               onClick={handleContinue}
               className="px-4 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md transition-colors"
             >
-              继续
+              {t('chat.continueGenerate')}
             </button>
           </div>
         )}
@@ -335,14 +341,14 @@ const ChatMessageMemo = memo(function ChatMessage({
               }}
               className="px-3 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
             >
-              编辑
+              {t('chat.editMessage')}
             </button>
             <button
               onClick={handleBranch}
               disabled={branching}
               className="px-3 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors disabled:opacity-50"
             >
-              {branching ? "分支中..." : "分支"}
+              {branching ? t('chat.branching') : t('chat.branch')}
             </button>
           </div>
         )}
@@ -355,38 +361,38 @@ const ChatMessageMemo = memo(function ChatMessage({
               }}
               className="px-3 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
             >
-              回复
+              {t('chat.reply')}
             </button>
             <button
               onClick={handleCopy}
               className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             >
-              复制
+              {t('chat.copyMessage')}
             </button>
             <button
               onClick={openSaveModal}
               className="px-3 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
             >
-              保存到知识库
+              {t('chat.saveToKnowledge')}
             </button>
             <button
               onClick={handleContinue}
               className="px-3 py-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
             >
-              继续生成
+              {t('chat.continueGenerate')}
             </button>
             <button
               onClick={handleRegenerate}
               className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             >
-              重新生成
+              {t('chat.regenerate')}
             </button>
             <button
               onClick={handleBranch}
               disabled={branching}
               className="px-3 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors disabled:opacity-50"
             >
-              {branching ? "分支中..." : "分支"}
+              {branching ? t('chat.branching') : t('chat.branch')}
             </button>
           </div>
         )}
@@ -402,7 +408,7 @@ const ChatMessageMemo = memo(function ChatMessage({
                       .split("\n")[0]
                       .replace(/^#+\s*/, "")
                       .slice(0, 50)
-                  : "对话内容"
+                  : t('chat.chatContent')
               }
               onClose={() => setShowSaveModal(false)}
               onSave={handleSaveToKnowledge}

@@ -8,6 +8,7 @@ import type {
   SkillSource,
   SkillContent,
 } from "../../services/skillService";
+import { useTranslation } from "react-i18next";
 import { skillService } from "../../services/skillService";
 import SearchInput from "../common/SearchInput";
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -17,6 +18,7 @@ import SkillEditor from "../Skill/SkillEditor";
 import SkillMarketModal from "./SkillMarketModal";
 
 function SkillPage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -180,10 +182,10 @@ function SkillPage() {
   };
 
   const STATUS_OPTIONS: { value: SkillStatus | "all"; label: string }[] = [
-    { value: "all", label: "全部状态" },
-    { value: "enabled", label: "已启用" },
-    { value: "disabled", label: "已禁用" },
-    { value: "draft", label: "草稿" },
+    { value: "all", label: t("skill.allStatus") },
+    { value: "enabled", label: t("skill.enabled") },
+    { value: "disabled", label: t("skill.disabled") },
+    { value: "draft", label: t("skill.draft") },
   ];
 
   return (
@@ -223,7 +225,7 @@ function SkillPage() {
                   : "bg-blue-600 hover:bg-blue-700"
               }`}
             >
-              + 创建技能
+              + {t("skill.create")}
             </button>
           </div>
         </div>
@@ -240,22 +242,22 @@ function SkillPage() {
         <div className="grid grid-cols-4 gap-3 mb-4">
           {[
             {
-              label: "总数",
+              label: t("skill.totalCount"),
               value: stats.total,
               color: "text-blue-600 dark:text-blue-400",
             },
             {
-              label: "已启用",
+              label: t("skill.enabled"),
               value: stats.enabled,
               color: "text-green-600 dark:text-green-400",
             },
             {
-              label: "已禁用",
+              label: t("skill.disabled"),
               value: stats.disabled,
               color: "text-gray-600 dark:text-gray-400",
             },
             {
-              label: "草稿",
+              label: t("skill.draft"),
               value: stats.draft,
               color: "text-yellow-600 dark:text-yellow-400",
             },
@@ -308,7 +310,7 @@ function SkillPage() {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="搜索技能名称、描述或分类..."
+            placeholder={t("skill.searchPlaceholder")}
             isDark={isDark}
             className="flex-1 min-w-[200px]"
           />
@@ -317,40 +319,40 @@ function SkillPage() {
         {/* 来源过滤按钮组 */}
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
           {[
-            { source: null, label: "全部", dotColor: "" },
+            { source: null, label: t("common.all"), dotColor: "" },
             {
               source: "builtin" as SkillSource,
-              label: "内置",
+              label: t("skill.sourceBuiltin"),
               dotColor: "bg-blue-500",
             },
             {
               source: "official" as SkillSource,
-              label: "官方",
+              label: t("skill.official"),
               dotColor: "bg-indigo-500",
             },
             {
               source: "third_party" as SkillSource,
-              label: "第三方",
+              label: t("skill.thirdParty"),
               dotColor: "bg-orange-500",
             },
             {
               source: "user" as SkillSource,
-              label: "用户",
+              label: t("skill.sourceUser"),
               dotColor: "bg-green-500",
             },
             {
               source: "project" as SkillSource,
-              label: "项目",
+              label: t("skill.sourceProject"),
               dotColor: "bg-purple-500",
             },
             {
               source: "plugin" as SkillSource,
-              label: "插件",
+              label: t("skill.sourcePlugin"),
               dotColor: "bg-orange-500",
             },
             {
               source: "bundled" as SkillSource,
-              label: "捆绑",
+              label: t("skill.sourceBundled"),
               dotColor: "bg-gray-500",
             },
           ].map((opt) => (
@@ -387,7 +389,7 @@ function SkillPage() {
                 : "bg-white border-gray-300 text-gray-700"
             } focus:outline-none focus:ring-2 focus:ring-blue-500`}
           >
-            <option value="">全部分类</option>
+            <option value="">{t("skill.allCategories")}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}

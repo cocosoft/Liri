@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import type { ServerDetail } from "../../services/mcpMarketplaceService";
 
@@ -23,6 +24,7 @@ export function MCPMarketDetailModal({
   onUninstall,
   onToggle,
 }: MCPMarketDetailModalProps) {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -37,8 +39,8 @@ export function MCPMarketDetailModal({
   }, [onClose]);
 
   const getRegistryLabel = () => {
-    if (server.registry === "official") return "官方注册表";
-    return server.sourceRegistry || "第三方";
+    if (server.registry === "official") return t("mcp.officialRegistry");
+    return server.sourceRegistry || t("mcp.thirdParty");
   };
 
   const getRatingStars = (rating: number) => {
@@ -90,7 +92,7 @@ export function MCPMarketDetailModal({
           <p
             className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}
           >
-            {server.description || "暂无描述"}
+            {server.description || t("mcp.noDescription")}
           </p>
 
           <div
@@ -103,19 +105,19 @@ export function MCPMarketDetailModal({
               </p>
             </div>
             <div>
-              <span className="font-semibold">作者</span>
+              <span className="font-semibold">{t("common.author")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {server.author}
               </p>
             </div>
             <div>
-              <span className="font-semibold">评分</span>
+              <span className="font-semibold">{t("mcp.rating")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
-                {getRatingStars(server.rating)} ({server.installCount} 次安装)
+                {getRatingStars(server.rating)} ({t("mcp.installCount", { count: server.installCount })})
               </p>
             </div>
             <div>
-              <span className="font-semibold">协议版本</span>
+              <span className="font-semibold">{t("mcp.protocolVersion")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {server.protocolVersion}
               </p>
@@ -161,7 +163,7 @@ export function MCPMarketDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                提供的工具
+                {t("mcp.providedTools")}
               </span>
               <div className="mt-1 space-y-2">
                 {server.tools.map((tool) => (
@@ -204,7 +206,7 @@ export function MCPMarketDetailModal({
                       {env.name}
                     </code>
                     {env.required && (
-                      <span className="text-red-500 text-xs">*必填</span>
+                      <span className="text-red-500 text-xs">*{t("mcp.required")}</span>
                     )}
                     <span
                       className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
@@ -252,7 +254,7 @@ export function MCPMarketDetailModal({
                 onClick={onUninstall}
                 className="px-4 py-2 text-sm rounded-lg bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors"
               >
-                卸载
+                {t("common.uninstall")}
               </button>
             </>
           ) : (

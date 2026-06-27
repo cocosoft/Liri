@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { httpLegacy as http } from "../../services/httpClient";
 
@@ -73,11 +74,11 @@ const PHASE_ICONS: Record<string, string> = {
 };
 
 const PHASE_NAMES: Record<string, string> = {
-  plan: "Plan 规划",
-  execute: "Execute 执行",
-  review: "Review 审查",
-  decide: "Decide 决策",
-  completed: "完成",
+  plan: "agent.plan",
+  execute: "agent.execute",
+  review: "agent.review",
+  decide: "agent.decide",
+  completed: "agent.completed",
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -89,11 +90,11 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const STATUS_TEXT: Record<string, string> = {
-  pending: "待执行",
-  running: "执行中",
-  completed: "已完成",
-  failed: "失败",
-  cancelled: "已跳过",
+  pending: "agent.idle",
+  running: "agent.running",
+  completed: "agent.completed",
+  failed: "agent.error",
+  cancelled: "common.cancel",
 };
 
 const DECISION_TEXT: Record<string, string> = {
@@ -109,6 +110,7 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
   const [notFound, setNotFound] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const load = async () => {
     setLoading(true);
@@ -171,7 +173,7 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
     return (
       <div className="space-y-3">
         <div className="text-center py-4">
-          <p className="text-xs text-gray-400">暂无 PDCA 任务</p>
+          <p className="text-xs text-gray-400">{t("agent.noAgents")}</p>
           <button
             onClick={load}
             className="mt-2 text-xs text-blue-600 hover:text-blue-800"
@@ -284,7 +286,7 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
               {expandedStep === step.id && (
                 <div className="px-3 pb-2 space-y-1.5 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-4 text-[10px] text-gray-400 pt-1.5">
-                    <span>状态: {STATUS_TEXT[step.status] || step.status}</span>
+                    <span>{t("agent.status")}: {t(STATUS_TEXT[step.status] || step.status)}</span>
                     <span>
                       重试: {step.retryCount}/{step.maxRetries}
                     </span>
@@ -354,20 +356,20 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
                           onClick={() => handleDecide(step.id, "approved")}
                           className="text-[10px] px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded"
                         >
-                          通过
+                          {t("common.save")}
                         </button>
                         <button
                           onClick={() => handleDecide(step.id, "retry")}
                           disabled={step.retryCount >= step.maxRetries}
                           className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
                         >
-                          重试
+                          {t("common.retry")}
                         </button>
                         <button
                           onClick={() => handleDecide(step.id, "skip")}
                           className="text-[10px] px-2 py-0.5 bg-gray-600 hover:bg-gray-700 text-white rounded"
                         >
-                          跳过
+                          {t("common.close")}
                         </button>
                       </>
                     )}
@@ -404,7 +406,7 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
         onClick={load}
         className="w-full text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 py-0.5"
       >
-        刷新状态
+        {t("common.refresh")}
       </button>
     </div>
   );

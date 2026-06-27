@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -42,6 +43,7 @@ function getSourceLabel(source?: string): string {
  * 支持新建、切换、重命名、删除会话，可折叠/展开。
  */
 function SessionHistorySidebar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const {
     sessions,
@@ -214,7 +216,7 @@ function SessionHistorySidebar() {
   }, [loadSessions]);
 
   const handleNewSession = async () => {
-    const title = `新会话 ${sessions.length + 1}`;
+    const title = t('chat.newSession') + ` ${sessions.length + 1}`;
     await createSession(title);
     navigate("/chat");
   };
@@ -286,7 +288,7 @@ function SessionHistorySidebar() {
           <button
             onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            title="展开会话历史"
+            title={t('chat.expandSidebar')}
           >
             <svg
               className="w-4 h-4"
@@ -303,7 +305,7 @@ function SessionHistorySidebar() {
             </svg>
           </button>
           <span className="hidden group-hover:inline text-xs font-medium text-gray-500 dark:text-gray-400">
-            会话历史
+            {t('chat.sessionHistory')}
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center py-2 gap-2 group-hover:hidden">
@@ -326,7 +328,7 @@ function SessionHistorySidebar() {
         </div>
         <div className="hidden group-hover:flex flex-1 flex-col overflow-y-auto p-2">
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
-            会话列表
+            {t('chat.allSessions')}
           </p>
         </div>
       </div>
@@ -337,13 +339,13 @@ function SessionHistorySidebar() {
     <div className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-60">
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          会话历史
+          {t('chat.sessionHistory')}
         </h3>
         <div className="flex items-center gap-1">
           <button
             onClick={handleNewSession}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            title="新建会话"
+            title={t('chat.newSession')}
           >
             <svg
               className="w-4 h-4"
@@ -362,7 +364,7 @@ function SessionHistorySidebar() {
           <button
             onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            title="收起侧边栏"
+            title={t('chat.collapseSidebar')}
           >
             <svg
               className="w-4 h-4"
@@ -387,7 +389,7 @@ function SessionHistorySidebar() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="搜索会话..."
+          placeholder={t('chat.searchSessions')}
           className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200 placeholder-gray-400"
         />
       </div>
@@ -398,11 +400,11 @@ function SessionHistorySidebar() {
             <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-            <p className="text-sm text-gray-400 dark:text-gray-500">暂无会话</p>
-            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">创建新会话开始聊天</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{t('chat.noSessions')}</p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">{t('chat.createSessionHint')}</p>
           </div>
         ) : filteredSessions.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">未找到匹配的会话</p>
+          <p className="text-xs text-gray-400 text-center py-4">{t('chat.noResults')}</p>
         ) : (
           <div style={{ height: virtualList.total * ESTIMATED_ITEM_HEIGHT, position: "relative" }}>
             <div style={{ transform: `translateY(${virtualList.offsetY}px)` }}>
@@ -448,7 +450,7 @@ function SessionHistorySidebar() {
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
-            清除全部会话
+            {t('chat.clearHistory')}
           </button>
         </div>
       )}
@@ -456,9 +458,9 @@ function SessionHistorySidebar() {
       {/* 删除会话确认对话框 */}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="删除会话"
-        message={`确定要删除会话 "${sessions.find((s) => s.id === deleteTarget)?.title || "未命名会话"}" 吗？`}
-        confirmText="删除"
+        title={t('chat.deleteSession')}
+        message={t('chat.confirmDeleteSession', { title: sessions.find((s) => s.id === deleteTarget)?.title || t('chat.unnamedSession') })}
+        confirmText={t('common.delete')}
         variant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
@@ -467,9 +469,9 @@ function SessionHistorySidebar() {
       {/* 清除全部确认对话框 */}
       <ConfirmDialog
         open={showClearConfirm}
-        title="清除全部"
-        message="确定要清除所有会话记录吗？此操作不可恢复。"
-        confirmText="清除"
+        title={t('chat.clearAllTitle')}
+        message={t('chat.clearAllMessage')}
+        confirmText={t('chat.clearAll')}
         variant="danger"
         onConfirm={handleConfirmClearAll}
         onCancel={handleCancelClearAll}

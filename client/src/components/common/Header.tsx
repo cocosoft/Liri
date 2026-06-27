@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 import { DashboardIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
 
@@ -8,6 +9,7 @@ import { DashboardIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons"
  * 右侧放置全局性快捷入口：仪表盘、用户中心、帮助中心、更新检查
  */
 function Header() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [showUpdateMenu, setShowUpdateMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -63,15 +65,15 @@ function Header() {
         <button
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm transition-colors"
-          title="仪表盘"
+          title={t("nav.dashboard")}
         >
           <DashboardIcon size={16} />
-          <span>仪表盘</span>
+          <span>{t("nav.dashboard")}</span>
         </button>
 
         {/* 只读显示当前应用名称 */}
         <span className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 dark:text-gray-500 text-sm select-none">
-          当前应用：Liri
+          {t("header.currentApp")}: Liri
         </span>
 
         {/* 分隔线 */}
@@ -81,7 +83,7 @@ function Header() {
         <button
           onClick={() => navigate("/user")}
           className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
-          title="用户中心"
+          title={t("header.userCenter")}
         >
           <UserIcon size={18} />
         </button>
@@ -90,7 +92,7 @@ function Header() {
         <button
           onClick={() => navigate("/help")}
           className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
-          title="帮助中心"
+          title={t("header.helpCenter")}
         >
           <HelpIcon size={18} />
         </button>
@@ -100,7 +102,7 @@ function Header() {
           <button
             onClick={() => setShowUpdateMenu(!showUpdateMenu)}
             className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
-            title="检查更新"
+            title={t("header.checkUpdate")}
           >
             <BellIcon size={16} />
             {result?.available && (
@@ -111,13 +113,13 @@ function Header() {
           {showUpdateMenu && (
             <div className="absolute right-0 mt-1 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50">
               <div className="px-4 py-2.5 text-xs text-gray-400 dark:text-gray-500 font-medium border-b border-gray-100 dark:border-gray-700">
-                软件更新
+                {t("header.softwareUpdate")}
               </div>
 
               <div className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    检查更新
+                    {t("header.checkUpdate")}
                   </span>
                   <button
                     onClick={check}
@@ -125,17 +127,17 @@ function Header() {
                     className="px-3 py-1 text-xs bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded"
                   >
                     {checking
-                      ? "检查中..."
+                      ? t("header.checking")
                       : downloading
-                        ? "下载中..."
-                        : "检查更新"}
+                        ? t("header.downloading")
+                        : t("header.checkUpdate")}
                   </button>
                 </div>
 
                 {result?.available && (
                   <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                     <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-                      发现新版本 {result.latestVersion}
+                      {t("header.newVersionFound", { version: result.latestVersion })}
                     </p>
                     {result.body && (
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 line-clamp-2">
@@ -147,7 +149,7 @@ function Header() {
 
                 {result && !result.available && !checking && (
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    已是最新版本
+                    {t("header.upToDate")}
                   </p>
                 )}
 

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { DevIcon, SearchIcon, FileIcon, SettingsIcon, ThemeIcon, ChatIcon, MicIcon } from "../../assets/icons";
 
 /** 开发者工具导航项 */
@@ -30,6 +31,17 @@ const NAV_ITEMS: DevNavItem[] = [
   { id: "stt-test", label: "语音测试", icon: MicIcon },
 ];
 
+/** 导航项 id 到 i18n key 的映射 */
+const NAV_LABEL_KEYS: Record<string, string> = {
+  terminal: "dev.terminal",
+  logs: "dev.logs",
+  files: "dev.fileManager",
+  sandbox: "dev.sandbox",
+  media: "dev.media",
+  autoreply: "dev.autoReply",
+  "stt-test": "dev.voiceTest",
+};
+
 /** 子页面标识到路径的映射 */
 const SUB_ROUTE_MAP: Record<string, string> = {
   terminal: "/dev/terminal",
@@ -42,6 +54,7 @@ const SUB_ROUTE_MAP: Record<string, string> = {
 };
 
 function DevPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { subPage } = useParams<{ subPage?: string }>();
   const activeNav = subPage && NAV_ITEMS.some((n) => n.id === subPage) ? subPage : "terminal";
@@ -52,7 +65,7 @@ function DevPage() {
       <aside className="w-48 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="px-4 pt-5 pb-3">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            开发者工具
+            {t("dev.title")}
           </h2>
         </div>
         <nav className="pb-6">
@@ -70,7 +83,7 @@ function DevPage() {
                 }`}
               >
                 <IconComponent size={18} />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{t(NAV_LABEL_KEYS[item.id] || item.label)}</span>
               </button>
             );
           })}
@@ -79,7 +92,7 @@ function DevPage() {
 
       {/* ── 右侧内容区 ── */}
       <main className="flex-1 min-w-0 overflow-y-auto bg-white dark:bg-gray-800">
-        <Suspense fallback={<div className="p-6 text-gray-500 dark:text-gray-400">加载中...</div>}>
+        <Suspense fallback={<div className="p-6 text-gray-500 dark:text-gray-400">{t("common.loading")}</div>}>
           {renderActivePage()}
         </Suspense>
       </main>
@@ -89,7 +102,7 @@ function DevPage() {
   /** 渲染当前激活的子页面 */
   function renderActivePage() {
     const LazyComp = SUB_PAGE_REGISTRY[activeNav];
-    if (!LazyComp) return <div className="p-6 text-gray-500 dark:text-gray-400">页面未找到</div>;
+    if (!LazyComp) return <div className="p-6 text-gray-500 dark:text-gray-400">{t("dev.pageNotFound")}</div>;
     return <LazyComp />;
   }
 }

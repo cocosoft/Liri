@@ -62,6 +62,7 @@ function BlockRenderer({ block, sessionId, onQuestionResponse }: BlockRendererPr
         <StatusBlock
           content={block.content}
           isStreaming={block.isStreaming ?? false}
+          status={block.status}
         />
       );
     case "tool_call":

@@ -34,6 +34,7 @@
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "test:check-coverage": "bun run scripts/check-coverage-threshold.ts",
     "test:reporter": "bun run test-reporter.ts",
+    "generate-test-images": "bun run scripts/generate-test-images.ts",
     "benchmark:startup": "bun run scripts/benchmark-startup.ts",
     "benchmark:compare": "bun run ../scripts/compare-performance-baseline.ts",
     "memory": "bun run src/cli.ts",

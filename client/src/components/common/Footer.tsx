@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useBackendStore } from "../../stores/backendStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import {
@@ -9,6 +10,7 @@ import { costService, type CostSummary } from "../../services/costService";
 import ModelSwitcher from "../modelAdmin/ModelSwitcher";
 
 function Footer() {
+  const { t } = useTranslation();
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();
   const { currentModelId, routerTier, routingMode, loadCurrent } =
@@ -64,7 +66,7 @@ function Footer() {
     <span className={`inline-block w-2 h-2 rounded-full ${running ? "bg-green-500" : "bg-red-500"}`} />
   );
 
-  const getStatusText = () => (status.running ? "运行中" : "已停止");
+  const getStatusText = () => (status.running ? t("common.running") : t("common.stopped"));
 
   const handleStart = async () => {
     setActionLoading(true);
@@ -115,7 +117,7 @@ function Footer() {
         <div
             onClick={() => setIsExpanded(!isExpanded)}
             className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors cursor-pointer"
-            title="点击展开详细状态"
+            title={t("footer.expandStatus")}
           >
             {getStatusDot(status.running)}
             <span>Backend {getStatusText()}</span>
@@ -128,7 +130,7 @@ function Footer() {
               disabled={actionLoading}
               className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
             >
-              {actionLoading ? "..." : "停止"}
+              {actionLoading ? "..." : t("common.stop")}
             </button>
           ) : (
             <button
@@ -139,7 +141,7 @@ function Footer() {
               disabled={actionLoading}
               className="ml-2 px-1.5 py-0.5 text-[10px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition-colors"
             >
-              {actionLoading ? "..." : "启动"}
+              {actionLoading ? "..." : t("common.start")}
             </button>
           )}
         </div>
@@ -174,7 +176,7 @@ function Footer() {
             <button
               onClick={() => setShowModelSwitcher(true)}
               className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-              title="点击切换模型"
+              title={t("footer.switchModel")}
             >
               <span className="text-purple-500">Model:</span>
               <span
@@ -204,7 +206,7 @@ function Footer() {
             <button
               onClick={() => setShowCostDetail(!showCostDetail)}
               className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-              title="点击切换 Token 详情"
+              title={t("footer.toggleTokenDetail")}
             >
               <span className="text-blue-500">
                 In:{formatTokens(costSummary.sessionInputTokens)}
@@ -220,7 +222,7 @@ function Footer() {
             {/* 今日消费 */}
             {costSummary.todayCost > 0 && (
               <span className="text-orange-500">
-                今日: ¥{costSummary.todayCost.toFixed(4)}
+                 {t("footer.today")}: ¥{costSummary.todayCost.toFixed(4)}
               </span>
             )}
           </>
@@ -234,7 +236,7 @@ function Footer() {
         <div className="absolute bottom-full mb-1 right-4 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg text-xs min-w-[260px] z-50">
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-              Token 详情
+              {t("footer.tokenDetail")}
             </h4>
             <button
               onClick={() => setShowCostDetail(false)}
@@ -245,13 +247,13 @@ function Footer() {
           </div>
           <div className="space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">输入</span>
+              <span className="text-gray-500 dark:text-gray-400">{t("footer.input")}</span>
               <span className="text-blue-500 font-medium">
                 {costSummary.sessionInputTokens.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">输出</span>
+              <span className="text-gray-500 dark:text-gray-400">{t("footer.output")}</span>
               <span className="text-green-500 font-medium">
                 {costSummary.sessionOutputTokens.toLocaleString()}
               </span>
@@ -259,7 +261,7 @@ function Footer() {
             {costSummary.totalCacheReadTokens > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">
-                  缓存读取
+                  {t("footer.cacheRead")}
                 </span>
                 <span className="text-cyan-500 font-medium">
                   {costSummary.totalCacheReadTokens.toLocaleString()}
@@ -269,7 +271,7 @@ function Footer() {
             {costSummary.totalCacheCreationTokens > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">
-                  缓存写入
+                  {t("footer.cacheWrite")}
                 </span>
                 <span className="text-yellow-500 font-medium">
                   {costSummary.totalCacheCreationTokens.toLocaleString()}
@@ -278,19 +280,19 @@ function Footer() {
             )}
             <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">今日</span>
+              <span className="text-gray-500 dark:text-gray-400">{t("footer.today")}</span>
               <span className="text-gray-900 dark:text-gray-100">
                 {costSummary.todayTokens.toLocaleString()} tokens
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">今日成本</span>
+              <span className="text-gray-500 dark:text-gray-400">{t("footer.todayCost")}</span>
               <span className="text-orange-500 font-medium">
                 ${costSummary.todayCost.toFixed(4)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">会话成本</span>
+              <span className="text-gray-500 dark:text-gray-400">{t("footer.sessionCost")}</span>
               <span className="text-red-500 font-medium">
                 ${costSummary.sessionCost.toFixed(4)}
               </span>
@@ -304,7 +306,7 @@ function Footer() {
         <div className="absolute bottom-full mb-1 left-4 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg text-xs min-w-[280px] z-50">
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-              系统状态详情
+              {t("footer.systemStatus")}
             </h4>
             <button
               onClick={() => setIsExpanded(false)}
@@ -324,7 +326,7 @@ function Footer() {
             </div>
             {status.port && (
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">端口</span>
+                <span className="text-gray-500 dark:text-gray-400">{t("footer.port")}</span>
                 <span className="text-gray-900 dark:text-gray-100">
                   {status.port}
                 </span>
@@ -343,7 +345,7 @@ function Footer() {
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />
                 <div className="flex justify-between">
                   <span className="text-gray-500 dark:text-gray-400">
-                    运行时间
+                    {t("footer.uptime")}
                   </span>
                   <span className="text-gray-900 dark:text-gray-100">
                     {getUptime(summary.uptime)}
@@ -356,14 +358,14 @@ function Footer() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">内存</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t("footer.memory")}</span>
                   <span className={`${getPercentColor(summary.memoryPercent)}`}>
                     {summary.memoryPercent.toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500 dark:text-gray-400">
-                    请求总数
+                    {t("footer.requestCount")}
                   </span>
                   <span className="text-gray-900 dark:text-gray-100">
                     {summary.requestCount.toLocaleString()}
@@ -371,7 +373,7 @@ function Footer() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500 dark:text-gray-400">
-                    错误数
+                    {t("footer.errorCount")}
                   </span>
                   <span
                     className={
@@ -385,7 +387,7 @@ function Footer() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500 dark:text-gray-400">
-                    平均响应时间
+                    {t("footer.avgResponseTime")}
                   </span>
                   <span className="text-gray-900 dark:text-gray-100">
                     {summary.avgResponseTime.toFixed(0)}ms
@@ -398,23 +400,23 @@ function Footer() {
               <>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />
                 <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  消费概览
+                  {t("footer.costOverview")}
                 </h5>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">今日</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t("footer.today")}</span>
                   <span className="text-orange-500 font-medium">
                     ¥{costSummary.todayCost.toFixed(4)} /{" "}
                     {costSummary.todayTokens.toLocaleString()} tokens
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">本周</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t("footer.thisWeek")}</span>
                   <span className="text-gray-900 dark:text-gray-100">
                     ¥{costSummary.weeklyCost.toFixed(4)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">本月</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t("footer.thisMonth")}</span>
                   <span className="text-gray-900 dark:text-gray-100">
                     ¥{costSummary.monthlyCost.toFixed(4)}
                   </span>

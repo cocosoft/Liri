@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useSkillStore } from "../../stores/skillStore";
 import { useToastStore } from "../../stores/toastStore";
@@ -21,6 +22,7 @@ const SOURCE_OPTIONS: {
 ];
 
 function SkillMarketPage() {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -153,7 +155,7 @@ function SkillMarketPage() {
     async (skillId: string, enabled: boolean) => {
       try {
         await toggleSkill(skillId, enabled);
-        addToast("info", enabled ? "已启用" : "已禁用");
+        addToast("info", enabled ? t("skill.enabled") : t("skill.disabled"));
       } catch {
         addToast("error", "操作失败");
       }
@@ -165,9 +167,9 @@ function SkillMarketPage() {
     async (skillId: string) => {
       try {
         await updateSkill(skillId);
-        addToast("success", "更新成功");
+        addToast("success", t("skill.updateSuccess"));
       } catch {
-        addToast("error", "更新失败");
+        addToast("error", t("skill.updateFailed"));
       }
     },
     [updateSkill, addToast],
@@ -207,7 +209,7 @@ function SkillMarketPage() {
       URL.revokeObjectURL(url);
       addToast("success", `已导出 ${data.length} 个技能`);
     } catch {
-      addToast("error", "导出失败");
+      addToast("error", t("skill.exportFailed"));
     }
   }, [addToast]);
 
@@ -257,7 +259,7 @@ function SkillMarketPage() {
 
         await skillService.importSkills(skills);
         await loadInstalled();
-        addToast("success", `成功导入 ${skills.length} 个技能`);
+        addToast("success", t("skill.importSuccess", { count: skills.length }));
       } catch (err) {
         addToast(
           "error",
@@ -379,7 +381,7 @@ function SkillMarketPage() {
           <span
             className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            作者: {result.skill.author}
+            {t("common.author")}: {result.skill.author}
           </span>
           {result.skill.category && (
             <span
@@ -421,7 +423,7 @@ function SkillMarketPage() {
               title="克隆此技能"
               className="px-3 py-1.5 text-sm rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-400 transition-colors disabled:opacity-50"
             >
-              克隆
+              {t("skill.clone")}
             </button>
             <button
               onClick={() => setUninstallTarget(result.skill.id)}
@@ -464,7 +466,7 @@ function SkillMarketPage() {
             <p
               className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              浏览和安装 ClawHub 生态技能
+              {t("skill.marketSubtitle")}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -505,7 +507,7 @@ function SkillMarketPage() {
                     : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200"
                 }`}
               >
-                更新全部
+              {t("skill.updateAll")}
               </button>
             )}
             <button
@@ -528,22 +530,22 @@ function SkillMarketPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           {[
             {
-              label: "已安装",
+              label: t("skill.installed"),
               value: stats.installedTotal,
               color: "text-blue-600 dark:text-blue-400",
             },
             {
-              label: "已启用",
+              label: t("skill.enabled"),
               value: stats.installedEnabled,
               color: "text-green-600 dark:text-green-400",
             },
             {
-              label: "已禁用",
+              label: t("skill.disabled"),
               value: stats.installedDisabled,
               color: "text-gray-500 dark:text-gray-400",
             },
             {
-              label: "可更新",
+              label: t("skill.updatable"),
               value: stats.updatableCount,
               color: "text-yellow-600 dark:text-yellow-400",
             },
@@ -576,7 +578,7 @@ function SkillMarketPage() {
                 setLocalSearch(e.target.value);
                 if (e.target.value) setBrowseActive(false);
               }}
-              placeholder="搜索技能..."
+              placeholder={t("skill.search")}
               className={`w-full px-4 py-2 text-sm outline-none rounded-lg ${isDark ? "bg-transparent text-white placeholder-gray-400" : "bg-white text-gray-900 placeholder-gray-500"}`}
             />
             <svg
@@ -601,7 +603,7 @@ function SkillMarketPage() {
             <span
               className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              市场:
+              {t("skill.market")}:
             </span>
             <button
               onClick={() => {
@@ -618,7 +620,7 @@ function SkillMarketPage() {
                     : "text-gray-600 hover:text-gray-900 border border-gray-200"
               }`}
             >
-              全部
+              {t("common.all")}
             </button>
             {availableSources.map((s) => {
               const isBuiltin = [
@@ -701,7 +703,7 @@ function SkillMarketPage() {
                   ? "text-gray-400 hover:text-gray-200 border border-dashed border-gray-600"
                   : "text-gray-500 hover:text-gray-800 border border-dashed border-gray-300"
               }`}
-              title="添加自定义市场"
+              title={t("skill.addCustomSource")}
             >
               {showAddSource ? "−" : "+"}
             </button>
@@ -724,7 +726,7 @@ function SkillMarketPage() {
               type="text"
               value={newSourceUrl}
               onChange={(e) => setNewSourceUrl(e.target.value)}
-              placeholder="API 地址 (如 https://modelscope.cn/api/v1)"
+              placeholder={t("skill.sourceUrlPlaceholder")}
               className={`flex-1 min-w-[200px] px-2 py-1 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500" : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"}`}
             />
             <button
@@ -767,7 +769,7 @@ function SkillMarketPage() {
                     : "text-gray-600 hover:text-gray-900 border border-gray-200"
               }`}
             >
-              全部
+              {t("common.all")}
             </button>
             {categories.map((cat) => (
               <button
@@ -819,7 +821,7 @@ function SkillMarketPage() {
                   className={`inline-block w-2 h-2 rounded-full ${opt.dotColor}`}
                 />
               )}
-              {opt.label}
+              {opt.value === "all" ? t("common.all") : opt.label}
             </button>
           ))}
         </div>
@@ -871,7 +873,7 @@ function SkillMarketPage() {
                       disabled={page >= totalPages}
                       className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
-                      下一页
+                      {t("common.nextPage")}
                     </button>
                   </div>
                 )}
@@ -887,7 +889,7 @@ function SkillMarketPage() {
                 <h2
                   className={`text-sm font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                 >
-                  推荐技能
+                  {t("skill.recommended")}
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {recommended.map((r) => (
@@ -955,14 +957,14 @@ function SkillMarketPage() {
                                     : "bg-blue-600 hover:bg-blue-700 text-white"
                                 } disabled:opacity-50`}
                               >
-                                {isEnabled(r.skill.id) ? "禁用" : "启用"}
+                                {isEnabled(r.skill.id) ? t("common.disable") : t("common.enable")}
                               </button>
                               <button
                                 onClick={() => setUninstallTarget(r.skill.id)}
                                 disabled={operatingId === r.skill.id}
                                 className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
                               >
-                                卸载
+                                {t("skill.uninstall")}
                               </button>
                             </div>
                           </div>
@@ -976,7 +978,7 @@ function SkillMarketPage() {
                                 : "bg-blue-600 hover:bg-blue-700 text-white"
                             }`}
                           >
-                            {operatingId === r.skill.id ? "安装中..." : "安装"}
+                            {operatingId === r.skill.id ? t("common.installing") : t("skill.install")}
                           </button>
                         )}
                       </div>
@@ -1035,13 +1037,13 @@ function SkillMarketPage() {
                                     : "bg-yellow-100 text-yellow-700"
                                 }`}
                               >
-                                有更新
+                                {t("skill.hasUpdate")}
                               </span>
                             )}
                             {s.enabled ? (
                               <span
                                 className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"
-                                title="已启用"
+                                title={t("skill.enabled")}
                               />
                             ) : (
                               <span
@@ -1080,22 +1082,22 @@ function SkillMarketPage() {
                               : "bg-blue-600 hover:bg-blue-700 text-white"
                           } disabled:opacity-50`}
                         >
-                          {s.enabled ? "禁用" : "启用"}
+                          {s.enabled ? t("common.disable") : t("common.enable")}
                         </button>
                         <button
                           onClick={() => handleClone(s.meta.id)}
                           disabled={operatingId === s.meta.id}
-                          title="克隆此技能"
+                          title={t("skill.clone")}
                           className="px-2 py-1 text-xs rounded bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-400 transition-colors disabled:opacity-50"
                         >
-                          克隆
+                          {t("skill.clone")}
                         </button>
                         <button
                           onClick={() => setUninstallTarget(s.meta.id)}
                           disabled={operatingId === s.meta.id}
                           className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
                         >
-                          卸载
+                          {t("skill.uninstall")}
                         </button>
                       </div>
                     </div>
@@ -1111,7 +1113,7 @@ function SkillMarketPage() {
                 <p
                   className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  输入关键词搜索 ClawHub 技能市场
+                  {t("skill.searchMarketHint")}
                 </p>
               </div>
             )}
@@ -1134,11 +1136,11 @@ function SkillMarketPage() {
           onUninstall={async () => {
             try {
               await uninstallSkill(selectedSkill.id);
-              addToast("success", "卸载成功");
+              addToast("success", t("skill.uninstallSuccess"));
               setShowDetail(false);
               setSelectedSkill(null);
             } catch {
-              addToast("error", "卸载失败");
+              addToast("error", t("skill.uninstallFailed"));
             }
           }}
           onToggle={(enabled) => handleToggle(selectedSkill.id, enabled)}

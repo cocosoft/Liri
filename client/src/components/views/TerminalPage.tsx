@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
+import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../services/httpClient";
 
 const XTermPanel = lazy(() => import("../Terminal/XTermPanel"));
@@ -25,6 +26,7 @@ interface BackendCommand {
 }
 
 function TerminalPage() {
+  const { t } = useTranslation();
   const [lines, setLines] = useState<TerminalLine[]>([]);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -38,8 +40,8 @@ function TerminalPage() {
 
   useEffect(() => {
     loadBackendCommands();
-    addLine("欢迎使用 Liri 终端", "output");
-    addLine("输入 help 查看可用命令", "output");
+    addLine(t("terminal.welcome"), "output");
+    addLine(t("terminal.helpHint"), "output");
     addLine("", "output");
   }, []);
 
@@ -80,7 +82,7 @@ function TerminalPage() {
       return {
         success: false,
         output: "",
-        error: error instanceof Error ? error.message : "网络错误",
+        error: error instanceof Error ? error.message : t("terminal.networkError"),
       };
     }
   };
@@ -143,16 +145,16 @@ function TerminalPage() {
 
     // 处理 help 命令：展示后端可用命令
     if (trimmedCmd === "help" || trimmedCmd === "/help") {
-      addLine("可用命令:", "output");
-      addLine("  cd <目录>      切换工作目录", "output");
-      addLine("  clear          清屏", "output");
-      addLine("  pwd            显示当前目录", "output");
-      addLine("  date           显示当前时间", "output");
-      addLine("  whoami         显示当前用户", "output");
-      addLine("  help           显示此帮助", "output");
+      addLine(t("terminal.help.availableCommands"), "output");
+      addLine(t("terminal.help.cd"), "output");
+      addLine(t("terminal.help.clear"), "output");
+      addLine(t("terminal.help.pwd"), "output");
+      addLine(t("terminal.help.date"), "output");
+      addLine(t("terminal.help.whoami"), "output");
+      addLine(t("terminal.help.help"), "output");
       if (backendCommands.length > 0) {
         addLine("", "output");
-        addLine("后端命令:", "output");
+        addLine(t("terminal.help.backendCommands"), "output");
         backendCommands.forEach((cmd) => {
           const hint = cmd.argumentHint ? ` ${cmd.argumentHint}` : "";
           addLine(`  ${cmd.name}${hint}    ${cmd.description}`, "output");
@@ -223,7 +225,7 @@ function TerminalPage() {
     >
       <div className="px-4 py-2 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <span className="text-gray-400 text-sm">终端</span>
+          <span className="text-gray-400 text-sm">{t("terminal.title")}</span>
           <div className="flex gap-1">
             <span className="w-3 h-3 rounded-full bg-red-500" />
             <span className="w-3 h-3 rounded-full bg-yellow-500" />
@@ -234,7 +236,7 @@ function TerminalPage() {
               onClick={() => setMode("basic")}
               className={`text-xs px-2 py-0.5 rounded ${mode === "basic" ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
             >
-              基础
+              {t("terminal.basic")}
             </button>
             <button
               onClick={() => setMode("xterm")}
@@ -246,7 +248,7 @@ function TerminalPage() {
         </div>
       </div>
       {mode === "xterm" ? (
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-500 text-sm">加载终端引擎...</div>}>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-500 text-sm">{t("terminal.loadingEngine")}</div>}>
           <XTermPanel />
         </Suspense>
       ) : (
@@ -256,7 +258,7 @@ function TerminalPage() {
             onClick={() => setLines([])}
             className="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded"
           >
-            清除
+            {t("terminal.clear")}
           </button>
         </div>
 
@@ -292,7 +294,7 @@ function TerminalPage() {
               disabled={isExecuting}
               className="flex-1 bg-transparent text-white font-mono text-sm outline-none"
               autoFocus
-              placeholder={isExecuting ? "执行中..." : ""}
+              placeholder={isExecuting ? t("terminal.executing") : ""}
             />
           </div>
         </div>

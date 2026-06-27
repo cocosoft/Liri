@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useWorkStore, type ContentView } from "../../stores/workStore";
 import { useProjectStore } from "../../stores/projectStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -41,15 +42,16 @@ const TABS: TabConfig[] = [
  * 显示方案/架构图/分析结果（只读视图）
  */
 function PlanContentArea() {
+  const { t } = useTranslation();
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center">
         <div className="text-4xl mb-3">{"\u{1F4CB}"}</div>
         <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">
-          方案视图
+          {t("workspace.plan")}
         </h3>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          AI 正在分析需求，设计方案中...
+          {t("workspace.intelligence")}
         </p>
       </div>
     </div>
@@ -61,15 +63,16 @@ function PlanContentArea() {
  * 显示编辑器/diff/变更概览
  */
 function DoContentArea() {
+  const { t } = useTranslation();
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center">
         <div className="text-4xl mb-3">{"\u{1F527}"}</div>
         <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">
-          执行视图
+            {t("workspace.do")}
         </h3>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          AI 正在实施代码变更...
+          {t("agent.status")}
         </p>
       </div>
     </div>
@@ -80,6 +83,7 @@ function DoContentArea() {
  * 根据 contentView 渲染对应的内容视图
  */
 function ContentViewRenderer({ contentView }: { contentView: ContentView }) {
+  const { t } = useTranslation();
   switch (contentView) {
     case "welcome":
       return (
@@ -87,10 +91,10 @@ function ContentViewRenderer({ contentView }: { contentView: ContentView }) {
           <div className="text-center">
             <div className="text-5xl mb-4">{"\u{1F3AF}"}</div>
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-              欢迎使用工作界面
+            {t("workspace.title")}
             </h2>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 max-w-md">
-              在右侧对话区描述你的需求，AI 将根据 Plan/Do 模式协助你完成工作。
+              {t("workspace.overview")}
             </p>
           </div>
         </div>
@@ -171,6 +175,7 @@ interface NotificationItem {
  * 点击展开下拉菜单显示最近通知
  */
 function NotificationBell() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const ref = useRef<HTMLDivElement>(null);
@@ -199,7 +204,7 @@ function NotificationBell() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        title="通知中心"
+        title={t("workspace.title")}
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -215,10 +220,10 @@ function NotificationBell() {
         <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-hidden flex flex-col">
           {/* 头部 */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">通知</span>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("common.success")}</span>
             {unreadCount > 0 && (
               <button onClick={markAllRead} className="text-xs text-blue-500 hover:text-blue-600">
-                全部已读
+                {t("workspace.board")}
               </button>
             )}
           </div>

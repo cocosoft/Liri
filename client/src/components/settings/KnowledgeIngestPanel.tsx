@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../services/httpClient";
 import { ConfigSection, ConfigItem } from "./ConfigComponents";
 
@@ -14,6 +15,7 @@ const DEFAULT_RULES_INFO = [
 ];
 
 function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
+  const { t } = useTranslation();
   const [includeTags, setIncludeTags] = useState<string[]>([]);
   const [excludeTags, setExcludeTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,8 +130,8 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
 
   return (
     <ConfigSection
-      title="文件摄取规则"
-      description="自定义哪些文件类型可以进入知识库。不配置时使用内置默认规则。"
+      title={t("settings.knowledgeIngest")}
+      description={t("settings.knowledgeIngestDesc")}
       isDark={isDark}
     >
       {/* 内置规则说明 */}
@@ -215,7 +217,7 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
           disabled={loading}
           className="px-4 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "保存中..." : "保存"}
+          {loading ? "保存中..." : t("common.save")}
         </button>
         {saved && <span className="text-xs text-green-500">已保存</span>}
         {error && (

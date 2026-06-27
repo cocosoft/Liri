@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { planService, pdcaService } from "../../services/planService";
 import type { Plan } from "../../services/planService";
 import PdcaPipeline from "../Agent/PdcaPipeline";
@@ -13,11 +14,19 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "kanban", label: "看板", icon: "📌" },
 ];
 
+/** Tab id 到 i18n key 的映射 */
+const TAB_LABEL_KEYS: Record<string, string> = {
+  plans: "plans.planManagement",
+  pdca: "plans.pdcaFlow",
+  kanban: "plans.kanban",
+};
+
 /**
  * 计划/PDCA/看板 管理页面
  * 方案规划中的管理类功能：任务中心下的 Plans/PDCA/Kanban 归集
  */
 export default function PlansPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>("plans");
 
   return (
@@ -25,7 +34,7 @@ export default function PlansPage() {
       <div className="max-w-5xl mx-auto p-6">
         {/* 页面标题 */}
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-          管理面板
+          {t("plans.managementPanel")}
         </h2>
 
         {/* Tab 导航 */}
@@ -41,7 +50,7 @@ export default function PlansPage() {
               }`}
             >
               <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span>{t(TAB_LABEL_KEYS[tab.id] || tab.label)}</span>
             </button>
           ))}
         </div>
@@ -58,6 +67,7 @@ export default function PlansPage() {
 /* ========== 计划管理视图 ========== */
 
 function PlansView() {
+  const { t } = useTranslation();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [goal, setGoal] = useState("");
@@ -101,11 +111,11 @@ function PlansView() {
   };
 
   const statusText: Record<string, string> = {
-    pending: "等待中",
-    running: "运行中",
-    completed: "已完成",
-    failed: "失败",
-    aborted: "已中止",
+    pending: t("plans.pending"),
+    running: t("plans.running"),
+    completed: t("plans.completed"),
+    failed: t("plans.failed"),
+    aborted: t("plans.aborted"),
   };
 
   if (loading) {
@@ -121,14 +131,14 @@ function PlansView() {
       {/* 新建计划 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          新建计划
+          {t("plans.newPlan")}
         </h3>
         <div className="flex gap-2">
           <input
             type="text"
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            placeholder="输入计划目标..."
+            placeholder={t("plans.goalPlaceholder")}
             className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
@@ -137,7 +147,7 @@ function PlansView() {
             disabled={creating || !goal.trim()}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
           >
-            {creating ? "创建中..." : "创建"}
+            {creating ? t("plans.creating") : t("common.create")}
           </button>
         </div>
       </div>
@@ -145,7 +155,7 @@ function PlansView() {
       {/* 计划列表 */}
       {plans.length === 0 ? (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-          暂无计划，创建一条开始吧
+          {t("plans.noPlans")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -160,7 +170,7 @@ function PlansView() {
                     {plan.description}
                   </p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {plan.steps?.length || 0} 个步骤
+                    {t("plans.stepsCount", { count: plan.steps?.length || 0 })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-3">
@@ -172,7 +182,7 @@ function PlansView() {
                       onClick={() => handleExecute(plan.id)}
                       className="px-2.5 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
                     >
-                      执行
+                      {t("plans.execute")}
                     </button>
                   )}
                   {plan.status === "running" && (
@@ -180,7 +190,7 @@ function PlansView() {
                       onClick={() => handleAbort(plan.id)}
                       className="px-2.5 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded"
                     >
-                      中止
+                      {t("plans.abort")}
                     </button>
                   )}
                 </div>
@@ -196,6 +206,7 @@ function PlansView() {
 /* ========== PDCA 视图 ========== */
 
 function PdcaView() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [description, setDescription] = useState("");
   const [starting, setStarting] = useState(false);
@@ -236,14 +247,14 @@ function PdcaView() {
       {/* 启动 PDCA */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          启动 PDCA 流程
+          {t("plans.startPdca")}
         </h3>
         <div className="flex gap-2">
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="输入任务描述..."
+            placeholder={t("plans.taskDescPlaceholder")}
             className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => e.key === "Enter" && handleStart()}
           />
@@ -252,7 +263,7 @@ function PdcaView() {
             disabled={starting || !description.trim()}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
           >
-            {starting ? "启动中..." : "启动"}
+            {starting ? t("plans.starting") : t("plans.start")}
           </button>
         </div>
       </div>
@@ -263,7 +274,7 @@ function PdcaView() {
           <PdcaPipeline taskId={activeTaskId} />
         ) : (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">
-            暂无活动的 PDCA 流程，在上方输入描述启动一个
+            {t("plans.noActivePdca")}
           </p>
         )}
       </div>

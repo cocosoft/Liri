@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from "react";
+import { withTranslation, type WithTranslation } from "react-i18next";
 
-interface ErrorBoundaryProps {
+interface ErrorBoundaryProps extends WithTranslation {
   /** 自定义 fallback UI，默认显示通用错误页 */
   fallback?: ReactNode;
   /** 错误回调（如上报） */
@@ -13,7 +14,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -45,25 +46,25 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="text-center max-w-md">
             <div className="text-4xl mb-4" aria-hidden="true">⚠️</div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              页面发生错误
+              {this.props.t("errorBoundary.title")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {this.state.error?.message || "未知错误"}
+              {this.state.error?.message || this.props.t("errorBoundary.unknown")}
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleReset}
                 className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                aria-label="重试加载"
+                aria-label={this.props.t("errorBoundary.retryAria")}
               >
-                重试
+                {this.props.t("errorBoundary.retry")}
               </button>
               <button
                 onClick={this.handleRefresh}
                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                aria-label="刷新页面"
+                aria-label={this.props.t("errorBoundary.refreshAria")}
               >
-                刷新页面
+                {this.props.t("errorBoundary.refresh")}
               </button>
             </div>
           </div>
@@ -74,3 +75,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
+
+const TranslatedErrorBoundary = withTranslation()(ErrorBoundary);
+export { TranslatedErrorBoundary as ErrorBoundary };
+export default TranslatedErrorBoundary;

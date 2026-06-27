@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { workspaceService } from "../../services/workspaceService";
 import AgentChatPanel from "../Agent/AgentChatPanel";
@@ -24,11 +25,11 @@ const STATUS_STYLE: Record<string, { dot: string; bg: string; text: string }> = 
   error:     { dot: "bg-red-400",   bg: "bg-red-50 dark:bg-red-900/20",     text: "text-red-600 dark:text-red-400" },
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  idle:      "空闲",
-  running:   "运行中",
-  completed: "已完成",
-  error:     "出错",
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  idle:      "chat.idle",
+  running:   "chat.running",
+  completed: "chat.completed",
+  error:     "common.error",
 };
 
 /**
@@ -38,6 +39,7 @@ const STATUS_LABEL: Record<string, string> = {
  * 每个卡片显示 Agent 的状态、角色、当前任务和进度。
  */
 export default function AgentCardGrid() {
+  const { t } = useTranslation();
   const activeWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const [agents, setAgents] = useState<SwarmAgent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,14 +71,14 @@ export default function AgentCardGrid() {
       {/* 工具栏 */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          Agent 列表
+          {t("agent.title")}
         </h2>
         <button
           onClick={fetchAgents}
           disabled={loading}
           className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
         >
-          {loading ? "刷新中..." : "刷新"}
+          {loading ? t("common.loading") + "..." : t("common.refresh")}
         </button>
       </div>
 
@@ -119,7 +121,7 @@ export default function AgentCardGrid() {
                 <span className={`text-[10px] font-medium flex-shrink-0 ${
                   STATUS_STYLE[agent.status]?.text ?? "text-gray-500"
                 }`}>
-                  {STATUS_LABEL[agent.status] ?? agent.status}
+                  {t(STATUS_LABEL_KEYS[agent.status] ?? agent.status, agent.status)}
                 </span>
               </div>
 
@@ -134,7 +136,7 @@ export default function AgentCardGrid() {
               {/* 任务和进度 */}
               {agent.task && (
                 <div className="mb-2">
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">当前任务</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{t("agent.task")}</span>
                   <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                     {agent.task}
                   </p>
@@ -144,7 +146,7 @@ export default function AgentCardGrid() {
               {agent.progress !== undefined && agent.progress > 0 && (
                 <div className="mb-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500">进度</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{t("workspace.workflow")}</span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400">
                       {Math.round(agent.progress * 100)}%
                     </span>
@@ -161,7 +163,7 @@ export default function AgentCardGrid() {
               {/* 连接数 */}
               {agent.connections && agent.connections.length > 0 && (
                 <div className="text-[10px] text-gray-400 dark:text-gray-500">
-                  连接 {agent.connections.length} 个 Agent
+                  {t("agent.connections", { count: agent.connections.length })}
                 </div>
               )}
 

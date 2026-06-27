@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -35,10 +36,12 @@ function NotificationsPanel({
   notifications,
   onUpdate,
 }: NotificationsPanelProps) {
+  const { t } = useTranslation();
+
   return (
     <ConfigSection
-      title="通知设置"
-      description="配置系统通知偏好"
+      title={t("settings.notifications")}
+      description={t("settings.notificationsDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">

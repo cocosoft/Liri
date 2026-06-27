@@ -8,9 +8,10 @@
 
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir, resolvePyappHome } from '@modules/core/paths';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types';
 import { CanvasInstance } from './CanvasInstance';
@@ -22,6 +23,27 @@ const logger = new Logger({ level: LogLevel.INFO, module: 'tools:canvas' });
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 /** 画布实例空闲 TTL (ms) — 15 分钟无操作则销毁 */
 const INSTANCE_IDLE_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * 路径白名单验证
+ * 仅允许访问 ~/.pyapp/ 和项目目录下的路径，防止任意文件读取
+ */
+function isValidImagePath(filePath: string): boolean {
+  const resolved = path.resolve(filePath);
+  const pyappHome = resolvePyappHome();
+  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+
+  // 允许 ~/.pyapp/ 下的路径
+  if (resolved.startsWith(pyappHome)) return true;
+
+  // 允许项目目录下的路径
+  if (resolved.startsWith(projectDir)) return true;
+
+  // 允许系统临时目录（用于跨工具传递中间产物）
+  if (resolved.startsWith(os.tmpdir())) return true;
+
+  return false;
+}
 
 /** 支持的画布操作 */
 export interface CanvasOperation {
@@ -380,6 +402,15 @@ export class CanvasTool extends BaseTool {
       return {
         success: false,
         error: 'Import requires element.src (file path)',
+      };
+    }
+
+    // 路径白名单安全检查
+    if (!isValidImagePath(imgElem.src)) {
+      logger.warn('CanvasTool · 导入路径不在白名单中', { src: imgElem.src });
+      return {
+        success: false,
+        error: `Access denied: image path is not in the allowed directories. Only paths under ~/.pyapp/, project directory, and temp are allowed.`,
       };
     }
 

@@ -5,6 +5,7 @@
  * 支持音频电平指示器和多位置模式。
  */
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface VoiceSubtitleOverlayProps {
   /** 中间结果文本（实时更新，灰色/闪烁） */
@@ -38,6 +39,7 @@ export default function VoiceSubtitleOverlay({
   autoHideTimeout = 3000,
   onToggleHistory,
 }: VoiceSubtitleOverlayProps) {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -110,9 +112,9 @@ export default function VoiceSubtitleOverlay({
   /** 状态文本 */
   const statusLabel: Record<string, string> = {
     idle: "",
-    listening: "正在聆听...",
-    processing: "语音识别中...",
-    done: "识别完成",
+    listening: t("voice.listening"),
+    processing: t("voice.processing"),
+    done: t("voice.speaking") + " " + t("common.success"),
   };
 
   return (
@@ -254,7 +256,7 @@ export default function VoiceSubtitleOverlay({
             marginTop: 2,
           }}
         >
-          查看历史字幕
+          {t("voice.voiceHistory")}
         </button>
       )}
     </div>

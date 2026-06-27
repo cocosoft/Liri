@@ -3,7 +3,8 @@
  *
  * 显示成本报告、预算状态、模型使用费用分布
  */
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { workspaceService } from "@/services/workspaceService";
 
@@ -30,6 +31,7 @@ interface BudgetStatus {
 }
 
 export const CostView: React.FC = () => {
+  const { t } = useTranslation();
   const { currentWorkspace } = useWorkspaceStore();
   const workspaceId = currentWorkspace?.id || "";
 
@@ -68,7 +70,7 @@ export const CostView: React.FC = () => {
   };
 
   if (!workspaceId) {
-    return <div className="p-4 text-gray-500">请先选择工作空间</div>;
+    return <div className="p-4 text-gray-500">{t("workspace.title") + " " + t("workspace.members")}</div>;
   }
 
   if (loading) {
@@ -82,11 +84,11 @@ export const CostView: React.FC = () => {
       {/* 预算状态 */}
       {budget && (
         <div className="p-4 bg-white rounded-lg border">
-          <h3 className="font-medium text-gray-700 mb-2">预算状态</h3>
+          <h3 className="font-medium text-gray-700 mb-2">{t("workspace.board")}</h3>
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-500">已使用</span>
+                <span className="text-gray-500">{t("workspace.cost")}</span>
                 <span className="font-medium">{formatUSD(budget.currentCost)} / {formatUSD(budget.limit)}</span>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -110,14 +112,14 @@ export const CostView: React.FC = () => {
                 {budget.percentageUsed.toFixed(1)}%
               </div>
               <div className="text-xs text-gray-400">
-                {budget.status === "exceeded" ? "已超支" :
-                 budget.status === "warning" ? "接近上限" : "正常"}
+                {budget.status === "exceeded" ? t("workspace.cost") :
+                 budget.status === "warning" ? t("workspace.cost") : t("common.success")}
               </div>
             </div>
           </div>
           {budget.remaining > 0 && (
             <div className="text-xs text-gray-400 mt-2">
-              剩余预算: {formatUSD(budget.remaining)}
+              {t("workspace.cost")}: {formatUSD(budget.remaining)}
             </div>
           )}
         </div>
@@ -133,7 +135,7 @@ export const CostView: React.FC = () => {
             </div>
             <div className="p-3 bg-white rounded-lg border text-center">
               <div className="text-2xl font-bold text-gray-700">{formatTokens(report.totalTokens)}</div>
-              <div className="text-xs text-gray-500 mt-1">总 Token</div>
+              <div className="text-xs text-gray-500 mt-1">{t("workspace.cost")}</div>
             </div>
             <div className="p-3 bg-white rounded-lg border text-center">
               <div className="text-2xl font-bold text-gray-700">
@@ -172,7 +174,7 @@ export const CostView: React.FC = () => {
 
           {/* 模型费用明细 */}
           <div className="p-4 bg-white rounded-lg border">
-            <h3 className="font-medium text-gray-700 mb-2">模型费用明细</h3>
+            <h3 className="font-medium text-gray-700 mb-2">{t("workspace.cost") + " " + t("workspace.detail")}</h3>
             {Object.keys(report.modelBreakdown).length === 0 ? (
               <div className="text-sm text-gray-400">暂无数据</div>
             ) : (

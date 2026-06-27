@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -39,10 +40,12 @@ function LocalAgentPanel({
   onUpdateLocalAgent,
   onUpdateOllama,
 }: LocalAgentPanelProps) {
+  const { t } = useTranslation();
+
   return (
     <ConfigSection
-      title="本地 Agent 配置"
-      description="配置本地 AI Agent 和路由策略"
+      title={t("settings.localAgent")}
+      description={t("settings.localAgentDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">
@@ -167,7 +170,7 @@ function LocalAgentPanel({
               />
             </ConfigItem>
 
-            <ConfigItem label="默认模型" isDark={isDark}>
+            <ConfigItem label={t("settings.defaultModel")} isDark={isDark}>
               <SelectConfig
                 isDark={isDark}
                 value={ollama.defaultModel}

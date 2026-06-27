@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface AgentIdentity {
   name?: string;
   description?: string;
@@ -18,6 +20,7 @@ function AgentIdentityConfig({
   config,
   onUpdate,
 }: AgentIdentityConfigProps) {
+  const { t } = useTranslation();
   const identity = config || {};
 
   const handleChange = (
@@ -40,7 +43,7 @@ function AgentIdentityConfig({
           <label
             className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            Agent 名称
+            {t("agent.agentName")}
           </label>
           <input
             type="text"
@@ -79,7 +82,7 @@ function AgentIdentityConfig({
         <label
           className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          描述
+          {t("workspace.detail")}
         </label>
         <textarea
           value={identity.description || ""}
@@ -103,7 +106,7 @@ function AgentIdentityConfig({
         <textarea
           value={identity.personality || ""}
           onChange={(e) => handleChange("personality", e.target.value)}
-          placeholder="描述 Agent 的个性特征和行为模式"
+          placeholder={t("agent.config")}
           rows={3}
           className={`w-full px-3 py-2 rounded-lg border resize-none ${
             isDark
@@ -165,7 +168,7 @@ function AgentIdentityConfig({
                   newAgents[index] = e.target.value;
                   handleChange("remoteAgents", newAgents);
                 }}
-                placeholder="输入远程 Agent 地址"
+                placeholder={t("agent.agentName")}
                 className={`flex-1 px-3 py-2 rounded-lg border ${
                   isDark
                     ? "bg-gray-800 border-gray-700 text-white"
@@ -212,7 +215,7 @@ function AgentIdentityConfig({
                 : "border-gray-300 text-gray-500 hover:border-gray-400"
             }`}
           >
-            + 添加远程 Agent
+            {t("workspace.addMember") + " " + t("agent.create")}
           </button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useVoiceStore } from "../stores/voiceStore";
 
 interface VoiceSessionIndicatorProps {
@@ -5,24 +6,25 @@ interface VoiceSessionIndicatorProps {
 }
 
 function VoiceSessionIndicator({ isDark }: VoiceSessionIndicatorProps) {
+  const { t } = useTranslation();
   const { isRecording, isProcessing, isPlaying, audioLevel } = useVoiceStore();
 
   const getStatus = () => {
     if (isRecording)
       return {
-        label: "录音中",
+        label: t("voice.recording"),
         color: "text-red-500",
         bgColor: isDark ? "bg-red-900/30" : "bg-red-50",
       };
     if (isProcessing)
       return {
-        label: "处理中",
+        label: t("voice.processing"),
         color: "text-yellow-500",
         bgColor: isDark ? "bg-yellow-900/30" : "bg-yellow-50",
       };
     if (isPlaying)
       return {
-        label: "播放中",
+        label: t("voice.speaking"),
         color: "text-blue-500",
         bgColor: isDark ? "bg-blue-900/30" : "bg-blue-50",
       };

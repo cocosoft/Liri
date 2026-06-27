@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../stores/authStore";
 import { useConfigStore } from "../../stores/configStore";
 
 function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { login, register, isLoading, error, clearError } = useAuthStore();
   const config = useConfigStore((s) => s.config);
@@ -22,23 +24,23 @@ function LoginPage() {
     clearError();
 
     if (!username.trim()) {
-      setFormError("请输入用户名");
+      setFormError(t("user.errorUsernameRequired"));
       return;
     }
 
     if (!password) {
-      setFormError("请输入密码");
+      setFormError(t("user.errorPasswordRequired"));
       return;
     }
 
     if (isRegisterMode) {
       if (password !== confirmPassword) {
-        setFormError("两次输入的密码不一致");
+        setFormError(t("user.errorPasswordMismatch"));
         return;
       }
 
       if (password.length < 6) {
-        setFormError("密码长度至少6位");
+        setFormError(t("user.errorPasswordTooShort"));
         return;
       }
 
@@ -90,14 +92,14 @@ function LoginPage() {
           <h1
             className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            {isRegisterMode ? "注册账号" : "登录"}
+            {isRegisterMode ? t("user.register") : t("user.login")}
           </h1>
           <p
             className={`mt-2 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
             {isRegisterMode
-              ? "创建一个新账号开始使用"
-              : "欢迎回来，请登录您的账号"}
+              ? t("user.registerHint")
+              : t("user.loginHint")}
           </p>
         </div>
 
@@ -114,13 +116,13 @@ function LoginPage() {
             <label
               className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"} mb-1`}
             >
-              用户名
+              {t("user.username")}
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="请输入用户名"
+              placeholder={t("user.usernamePlaceholder")}
               className={`w-full px-3 py-2 text-sm border rounded-lg ${
                 isDark
                   ? "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:ring-blue-500"
@@ -133,13 +135,13 @@ function LoginPage() {
             <label
               className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"} mb-1`}
             >
-              密码
+              {t("user.password")}
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="请输入密码"
+              placeholder={t("user.passwordPlaceholder")}
               className={`w-full px-3 py-2 text-sm border rounded-lg ${
                 isDark
                   ? "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:ring-blue-500"
@@ -154,13 +156,13 @@ function LoginPage() {
                 <label
                   className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"} mb-1`}
                 >
-                  确认密码
+                  {t("user.confirmPassword")}
                 </label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="请再次输入密码"
+                  placeholder={t("user.confirmPasswordPlaceholder")}
                   className={`w-full px-3 py-2 text-sm border rounded-lg ${
                     isDark
                       ? "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:ring-blue-500"
@@ -173,13 +175,13 @@ function LoginPage() {
                 <label
                   className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"} mb-1`}
                 >
-                  邮箱（可选）
+                  {t("user.emailOptional")}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="请输入邮箱（可选）"
+                  placeholder={t("user.emailOptionalPlaceholder")}
                   className={`w-full px-3 py-2 text-sm border rounded-lg ${
                     isDark
                       ? "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:ring-blue-500"
@@ -201,19 +203,19 @@ function LoginPage() {
                   : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {isLoading ? "处理中..." : isRegisterMode ? "注册" : "登录"}
+            {isLoading ? t("user.processing") : isRegisterMode ? t("user.register") : t("user.login")}
           </button>
         </form>
 
         <div
           className={`mt-6 text-center text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
         >
-          {isRegisterMode ? "已有账号？" : "还没有账号？"}
+          {isRegisterMode ? t("user.hasAccount") : t("user.noAccount")}
           <button
             onClick={toggleMode}
             className={`ml-1 font-medium ${isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-700"}`}
           >
-            {isRegisterMode ? "立即登录" : "立即注册"}
+            {isRegisterMode ? t("user.loginNow") : t("user.registerNow")}
           </button>
         </div>
 
@@ -222,12 +224,12 @@ function LoginPage() {
             <div
               className={`mt-4 text-center text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              或{" "}
+              {t("user.or")}{" "}
               <button
                 onClick={() => navigate("/apikeys")}
                 className={`font-medium ${isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-700"}`}
               >
-                使用 API 密钥登录
+                {t("user.loginWithApiKey")}
               </button>
             </div>
 
@@ -243,7 +245,7 @@ function LoginPage() {
                 <span
                   className={`relative z-10 px-4 ${isDark ? "bg-gray-800 text-gray-400" : "bg-white text-gray-500"} text-sm`}
                 >
-                  或使用第三方账号登录
+                  {t("user.orLoginWithThirdParty")}
                 </span>
               </div>
 

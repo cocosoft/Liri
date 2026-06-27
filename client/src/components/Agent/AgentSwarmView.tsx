@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface SwarmAgent {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ const STATUS_COLORS = {
 };
 
 function AgentSwarmView({ isDark, agents, onAgentClick }: AgentSwarmViewProps) {
+  const { t } = useTranslation();
   const displayAgents = agents;
 
   const getAgentPosition = (index: number, total: number) => {
@@ -134,17 +137,17 @@ function AgentSwarmView({ isDark, agents, onAgentClick }: AgentSwarmViewProps) {
         <h3
           className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          图例
+          {t("agent.legend")}
         </h3>
         <div className="flex flex-wrap gap-4">
           {Object.entries(STATUS_COLORS).map(([status, colors]) => (
             <div key={status} className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${colors.dot}`} />
               <span className={`text-sm ${colors.text}`}>
-                {status === "idle" && "空闲"}
-                {status === "running" && "运行中"}
-                {status === "completed" && "已完成"}
-                {status === "error" && "错误"}
+                {status === "idle" && t("agent.idle")}
+                {status === "running" && t("agent.running")}
+                {status === "completed" && t("agent.completed")}
+                {status === "error" && t("agent.error")}
               </span>
             </div>
           ))}

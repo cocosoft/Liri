@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 
 interface SandboxConfig {
@@ -21,6 +22,7 @@ interface SandboxSession {
 }
 
 function SandboxPage() {
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
   const [sandboxConfig, setSandboxConfig] = useState<SandboxConfig>({
@@ -112,11 +114,11 @@ function SandboxPage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case "running":
-        return "运行中";
+        return t("sandbox.running");
       case "stopped":
-        return "已停止";
+        return t("sandbox.stopped");
       case "error":
-        return "出错";
+        return t("sandbox.error");
       default:
         return status;
     }
@@ -139,12 +141,12 @@ function SandboxPage() {
             <h1
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              沙箱管理
+              {t("sandbox.title")}
             </h1>
             <p
               className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              配置和管理隔离执行环境
+              {t("sandbox.subtitle")}
             </p>
           </div>
           <button
@@ -155,7 +157,7 @@ function SandboxPage() {
                 : "bg-green-600 hover:bg-green-700 text-white"
             }`}
           >
-            {sandboxConfig.enabled ? "禁用沙箱" : "启用沙箱"}
+            {sandboxConfig.enabled ? t("sandbox.disableSandbox") : t("sandbox.enableSandbox")}
           </button>
         </div>
 
@@ -165,14 +167,14 @@ function SandboxPage() {
           <h3
             className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            安全配置
+            {t("sandbox.securityConfig")}
           </h3>
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label
                 className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                内存限制 (MB)
+                {t("sandbox.memoryLimit")}
               </label>
               <input
                 type="number"
@@ -190,7 +192,7 @@ function SandboxPage() {
               <label
                 className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                CPU限制 (%)
+                {t("sandbox.cpuLimit")}
               </label>
               <input
                 type="number"
@@ -215,7 +217,7 @@ function SandboxPage() {
                 htmlFor="networkAccess"
                 className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                允许网络访问
+                {t("sandbox.allowNetwork")}
               </label>
             </div>
             <div className="flex items-center gap-3">
@@ -232,7 +234,7 @@ function SandboxPage() {
                 htmlFor="fileSystemAccess"
                 className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                允许文件系统访问
+                {t("sandbox.allowFileSystem")}
               </label>
             </div>
           </div>
@@ -244,14 +246,14 @@ function SandboxPage() {
           <h3
             className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            路径配置
+            {t("sandbox.pathConfig")}
           </h3>
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label
                 className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                允许访问的路径
+                {t("sandbox.allowedPaths")}
               </label>
               <div className="space-y-2 mb-3">
                 {sandboxConfig.allowedPaths.map((path) => (
@@ -285,7 +287,7 @@ function SandboxPage() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="添加路径..."
+                  placeholder={t("sandbox.addPath")}
                   className={`flex-1 px-3 py-1 border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -303,7 +305,7 @@ function SandboxPage() {
               <label
                 className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                禁止访问的路径
+                {t("sandbox.blockedPaths")}
               </label>
               <div className="space-y-2 mb-3">
                 {sandboxConfig.blockedPaths.map((path) => (
@@ -337,7 +339,7 @@ function SandboxPage() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="添加路径..."
+                  placeholder={t("sandbox.addPath")}
                   className={`flex-1 px-3 py-1 border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -360,7 +362,7 @@ function SandboxPage() {
           <h3
             className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            沙箱会话
+            {t("sandbox.sessions")}
           </h3>
           <div className="space-y-3">
             {sessions.map((session) => (
@@ -378,13 +380,13 @@ function SandboxPage() {
                     <p
                       className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                     >
-                      开始时间: {session.startTime}
+                      {t("sandbox.startTime")}: {session.startTime}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
                     {session.status === "running" && (
                       <span className="text-sm text-gray-500">
-                        内存: {session.memoryUsage}MB | 时长:{" "}
+                        {t("sandbox.memory")}: {session.memoryUsage}MB | {t("sandbox.duration")}:{" "}
                         {formatDuration(session.duration)}
                       </span>
                     )}

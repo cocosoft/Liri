@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import SkillMarketPage from "./SkillMarketPage";
 import { useConfigStore } from "../../stores/configStore";
 
@@ -7,6 +8,7 @@ import { useConfigStore } from "../../stores/configStore";
  * 将 SkillMarketPage 包装为全屏弹窗，由 SkillPage 触发打开。
  */
 function SkillMarketModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -49,14 +51,14 @@ function SkillMarketModal({ onClose }: { onClose: () => void }) {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            返回技能管理
+            {t("skill.backToManage")}
           </button>
           <h2
             className={`text-base font-semibold ${
               isDark ? "text-gray-100" : "text-gray-900"
             }`}
           >
-            技能市场
+            {t("skill.title")}
           </h2>
           <div className="w-20" />
         </div>

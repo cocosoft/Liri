@@ -10,6 +10,8 @@
 import { useState, useEffect } from "react";
 import { workspaceService } from "../../services/workspaceService";
 
+import { useTranslation } from "react-i18next";
+
 // ========== 类型定义 ==========
 
 /** Agent 模型绑定 */
@@ -49,6 +51,7 @@ const ROLE_LABELS: Record<string, string> = {
  * Agent-Model 绑定配置组件
  */
 function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfigProps) {
+  const { t } = useTranslation();
   const [bindings, setBindings] = useState<AgentModelBinding[]>([]);
   const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,7 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold">Agent-Model 绑定配置</h3>
-          <p className="text-sm text-gray-500 mt-1">为每个 Agent 角色选择模型和参数</p>
+          <p className="text-sm text-gray-500 mt-1">{t("agent.config")}</p>
         </div>
         <button
           onClick={handleSave}
@@ -170,7 +173,7 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
 
               {/* 最大 Token */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">最大 Token 数</label>
+                <label className="block text-xs text-gray-500 mb-1">{t("workspace.cost")}</label>
                 <input
                   type="number"
                   value={binding.maxTokens}

@@ -8,6 +8,9 @@ vision_worker.py — Liri 视觉分析常驻进程
 支持的模型（按需导入，首次使用时自动 pip install）：
   - colorthief: 主色调提取 (pip install colorthief)
   - Pillow: 图片元数据读取 (pip install Pillow)
+  - EasyOCR: 光学字符识别 (pip install easyocr)
+  - ultralytics: YOLOv8 目标检测 (pip install ultralytics)
+  - CLIP: 图片语义匹配 (pip install open-clip-torch)
 
 消息协议：
   请求：{"id":"req_1","method":"analyze_colors","params":{"image_path":"/path/to/img.png"}}
@@ -64,6 +67,28 @@ def _check_pillow():
 
 
 register_model("pillow", _check_pillow, "pip install Pillow")
+
+# ---- 模型: EasyOCR (文字识别) ----
+def _check_easyocr():
+    import easyocr  # noqa: F401
+
+
+register_model("easyocr", _check_easyocr, "pip install easyocr")
+
+# ---- 模型: ultralytics/YOLO (目标检测) ----
+def _check_ultralytics():
+    import ultralytics  # noqa: F401
+
+
+register_model("ultralytics", _check_ultralytics, "pip install ultralytics")
+
+# ---- 模型: open_clip (语义匹配) ----
+def _check_clip():
+    import open_clip  # noqa: F401
+
+
+register_model("open_clip", _check_clip, "pip install open-clip-torch")
+
 
 # ---------------------------------------------------------------------------
 #  命令处理器
@@ -126,9 +151,224 @@ def handle_analyze_metadata(params):
     return result
 
 
+def handle_ocr(params):
+    """
+    OCR 文字识别
+    返回：{"text": "...", "confidence": 0.95, "blocks": [...]}
+    """
+    ensure_model("easyocr")
+    import easyocr
+
+    image_path = params.get("image_path")
+    if not image_path:
+        return _error("MISSING_PARAM", "image_path is required")
+    if not os.path.isfile(image_path):
+        return _error("FILE_NOT_FOUND", f"Image not found: {image_path}")
+
+    languages = params.get("languages", ["ch_sim", "en"])
+    # EasyOCR Reader 是重量级对象，缓存起来复用
+    lang_key = "+".join(sorted(languages))
+    reader = _get_cached_easyocr_reader(lang_key, languages)
+
+    results = reader.readtext(image_path)
+
+    blocks = []
+    full_text_parts = []
+    total_confidence = 0
+    for (bbox, text, confidence) in results:
+        blocks.append({
+            "text": text,
+            "confidence": round(float(confidence), 4),
+            "bbox": [[int(p[0]), int(p[1])] for p in bbox],
+        })
+        full_text_parts.append(text)
+        total_confidence += confidence
+
+    avg_confidence = (total_confidence / len(results)) if results else 0
+
+    return {
+        "text": "\n".join(full_text_parts),
+        "confidence": round(float(avg_confidence), 4),
+        "blocks": blocks,
+        "language": lang_key,
+    }
+
+
+# EasyOCR Reader 缓存
+_easyocr_readers = {}
+
+def _get_cached_easyocr_reader(lang_key, languages):
+    """获取或创建 EasyOCR Reader（带缓存）"""
+    import easyocr
+    if lang_key not in _easyocr_readers:
+        _easyocr_readers[lang_key] = easyocr.Reader(languages, gpu=False)
+    return _easyocr_readers[lang_key]
+
+
+def handle_object_detection(params):
+    """
+    YOLO 目标检测
+    返回：{"objects": [{"label": "person", "confidence": 0.92, "bbox": [x,y,w,h]}, ...]}
+    """
+    ensure_model("ultralytics")
+    from ultralytics import YOLO
+
+    image_path = params.get("image_path")
+    if not image_path:
+        return _error("MISSING_PARAM", "image_path is required")
+    if not os.path.isfile(image_path):
+        return _error("FILE_NOT_FOUND", f"Image not found: {image_path}")
+
+    model_name = params.get("model", "yolov8n")
+    # YOLO 模型也缓存复用
+    model = _get_cached_yolo_model(model_name)
+
+    results = model(image_path)
+    objects = []
+    for result in results:
+        boxes = result.boxes
+        if boxes is None:
+            continue
+        for box in boxes:
+            cls_id = int(box.cls[0].item())
+            label = result.names.get(cls_id, f"class_{cls_id}")
+            confidence = float(box.conf[0].item())
+            xywh = box.xywh[0].tolist()
+            objects.append({
+                "label": label,
+                "confidence": round(confidence, 4),
+                "bbox": {
+                    "x": round(xywh[0], 2),
+                    "y": round(xywh[1], 2),
+                    "width": round(xywh[2], 2),
+                    "height": round(xywh[3], 2),
+                },
+            })
+
+    return {
+        "objects": objects,
+        "count": len(objects),
+        "model": model_name,
+    }
+
+
+_yolo_models = {}
+
+def _get_cached_yolo_model(model_name):
+    """获取或创建 YOLO 模型（带缓存）"""
+    from ultralytics import YOLO
+    if model_name not in _yolo_models:
+        _yolo_models[model_name] = YOLO(f"{model_name}.pt")
+    return _yolo_models[model_name]
+
+
+def handle_image_similarity(params):
+    """
+    CLIP 图片语义匹配
+    返回：{"similarity": 0.85, "label": "best_match_label"}
+    支持两种模式：
+      - image vs text：计算图片与文本描述的匹配度
+      - image vs image：计算两张图片的语义相似度
+    """
+    ensure_model("open_clip")
+    import open_clip
+    import torch
+    from PIL import Image
+
+    image_path = params.get("image_path")
+    if not image_path:
+        return _error("MISSING_PARAM", "image_path is required")
+    if not os.path.isfile(image_path):
+        return _error("FILE_NOT_FOUND", f"Image not found: {image_path}")
+
+    # 加载 CLIP 模型（缓存）
+    model, preprocess, tokenizer = _get_cached_clip_model()
+
+    pil_image = Image.open(image_path).convert("RGB")
+    image_input = preprocess(pil_image).unsqueeze(0)
+
+    with torch.no_grad():
+        image_features = model.encode_image(image_input)
+        image_features /= image_features.norm(dim=-1, keepdim=True)
+
+    # 模式 1: 图片 vs 文本标签列表
+    labels = params.get("labels")
+    if labels:
+        text_tokens = tokenizer(labels)
+        with torch.no_grad():
+            text_features = model.encode_text(text_tokens)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        similarity = (image_features @ text_features.T).squeeze(0)
+        best_idx = int(similarity.argmax().item())
+
+        return {
+            "similarity": round(float(similarity.max().item()), 4),
+            "label": labels[best_idx],
+            "all_scores": {label: round(float(score.item()), 4) for label, score in zip(labels, similarity)},
+        }
+
+    # 模式 2: 图片 vs 图片
+    compare_path = params.get("compare_path")
+    if compare_path:
+        if not os.path.isfile(compare_path):
+            return _error("FILE_NOT_FOUND", f"Compare image not found: {compare_path}")
+
+        compare_image = Image.open(compare_path).convert("RGB")
+        compare_input = preprocess(compare_image).unsqueeze(0)
+
+        with torch.no_grad():
+            compare_features = model.encode_image(compare_input)
+            compare_features /= compare_features.norm(dim=-1, keepdim=True)
+
+        sim = float((image_features @ compare_features.T).item())
+        return {
+            "similarity": round(sim, 4),
+            "mode": "image_vs_image",
+        }
+
+    # 模式 3: 图片 vs 单个文本
+    text = params.get("text")
+    if text:
+        text_tokens = tokenizer([text])
+        with torch.no_grad():
+            text_features = model.encode_text(text_tokens)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        sim = float((image_features @ text_features.T).item())
+        return {
+            "similarity": round(sim, 4),
+            "text": text,
+            "mode": "image_vs_text",
+        }
+
+    return _error("MISSING_PARAM", "Requires 'labels', 'compare_path', or 'text' parameter")
+
+
+_clip_model_cache = None
+
+def _get_cached_clip_model():
+    """获取或创建 CLIP 模型（全局单例缓存）"""
+    global _clip_model_cache
+    import open_clip
+    if _clip_model_cache is None:
+        # 使用 ViT-B-32 作为默认模型（轻量、快速）
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            "ViT-B-32", pretrained="laion2b_s34b_b79k"
+        )
+        tokenizer = open_clip.get_tokenizer("ViT-B-32")
+        _clip_model_cache = (model, preprocess, tokenizer)
+    return _clip_model_cache
+
+
 def handle_health(_params):
     """健康检查"""
-    return {"status": "ok", "python_version": sys.version, "models": list(MODELS.keys())}
+    return {
+        "status": "ok",
+        "python_version": sys.version,
+        "models": list(MODELS.keys()),
+        "loaded_models": [name for name, m in MODELS.items() if m["loaded"]],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +378,9 @@ def handle_health(_params):
 HANDLERS = {
     "analyze_colors": handle_analyze_colors,
     "analyze_metadata": handle_analyze_metadata,
+    "ocr": handle_ocr,
+    "object_detection": handle_object_detection,
+    "image_similarity": handle_image_similarity,
     "health": handle_health,
 }
 
@@ -193,7 +436,11 @@ def process_request(msg):
 def main():
     """StdIO JSON-RPC 主循环：读一行 → 处理 → 写一行 → 刷新"""
     # 启动信号
-    startup_msg = json.dumps({"type": "startup", "pid": os.getpid(), "models": list(MODELS.keys())})
+    startup_msg = json.dumps({
+        "type": "startup",
+        "pid": os.getpid(),
+        "models": list(MODELS.keys()),
+    })
     sys.stdout.write(startup_msg + "\n")
     sys.stdout.flush()
 
@@ -209,7 +456,11 @@ def main():
         try:
             msg = json.loads(line)
         except json.JSONDecodeError:
-            resp = json.dumps({"id": "unknown", "success": False, "error": {"code": "INVALID_JSON", "message": "Failed to parse JSON"}})
+            resp = json.dumps({
+                "id": "unknown",
+                "success": False,
+                "error": {"code": "INVALID_JSON", "message": "Failed to parse JSON"},
+            })
             sys.stdout.write(resp + "\n")
             sys.stdout.flush()
             continue

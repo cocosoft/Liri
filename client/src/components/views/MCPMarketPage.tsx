@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useMCPStore } from "../../stores/mcpStore";
 import { useToastStore } from "../../stores/toastStore";
@@ -22,6 +23,7 @@ const CATEGORIES = [
  * 使用 useMCPStore 统一管理状态，包含统计面板、搜索、安装/卸载/启停
  */
 function MCPMarketPage() {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -94,7 +96,7 @@ function MCPMarketPage() {
       await install(serverId);
       const server = searchResults.find((r) => r.server.name === serverId);
       const label = server?.server.title || serverId;
-      addToast("success", `"${label}" 安装成功`);
+      addToast("success", `"${label}" ${t("mcp.installSuccess")}`);
     },
     [install, searchResults, addToast],
   );
@@ -162,8 +164,8 @@ function MCPMarketPage() {
 
   // 注册表标签
   const getRegistryLabel = (server: SearchResult["server"]) => {
-    if (server.registry === "official") return "官方";
-    return server.sourceRegistry || "第三方";
+    if (server.registry === "official") return t("mcp.official");
+    return server.sourceRegistry || t("mcp.thirdParty");
   };
 
   // 评分星级
@@ -209,7 +211,7 @@ function MCPMarketPage() {
           <h2
             className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            MCP 市场
+            {t("mcp.title")}
           </h2>
           <button
             onClick={() => openConfigModal(null)}
@@ -218,7 +220,7 @@ function MCPMarketPage() {
                 ? "border-gray-600 text-gray-300 hover:bg-gray-700"
                 : "border-gray-300 text-gray-600 hover:bg-gray-50"
             }`}
-            title="手动添加新的 MCP 服务器"
+            title={t("mcp.addServer")}
           >
             + 手动添加
           </button>
@@ -270,7 +272,11 @@ function MCPMarketPage() {
                       : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
                 }`}
               >
-                {category.label}
+                {category.value === "all"
+                  ? t("common.all")
+                  : category.value === "official"
+                    ? t("mcp.official")
+                    : t("mcp.thirdParty")}
               </button>
             ))}
           </div>
@@ -289,7 +295,7 @@ function MCPMarketPage() {
             <span
               className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              注册表:
+              {t("mcp.registry")}:
             </span>
             <button
               onClick={() => setSourceRegistry("")}
@@ -342,7 +348,7 @@ function MCPMarketPage() {
                     : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
               }`}
             >
-              {isLoading ? "加载中..." : "浏览市场"}
+              {isLoading ? t("common.loading") : t("mcp.browseMarket")}
             </button>
           </div>
         )}
@@ -363,12 +369,12 @@ function MCPMarketPage() {
               <p
                 className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                选择注册表后点击"浏览市场"或输入关键词搜索
+                {t("mcp.selectRegistryHint")}
               </p>
               <p
                 className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
               >
-                已安装 {stats.total} 个服务器
+                {t("mcp.installedCount", { count: stats.total })}
               </p>
             </div>
           ) : searchResults.length === 0 ? (
@@ -435,7 +441,7 @@ function MCPMarketPage() {
                             isDark ? "text-gray-500" : "text-gray-400"
                           }`}
                         >
-                          作者: {result.server.author}
+                          {t("mcp.author")}: {result.server.author}
                         </span>
                         <span
                           className={`text-xs ${
@@ -494,8 +500,8 @@ function MCPMarketPage() {
                           }`}
                         >
                           {operatingId === result.server.name
-                            ? "安装中..."
-                            : "安装"}
+                            ? t("common.installing")
+                            : t("common.install")}
                         </button>
                       )}
                     </div>
@@ -511,7 +517,7 @@ function MCPMarketPage() {
                     disabled={page <= 1}
                     className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    上一页
+                    {t("common.prevPage")}
                   </button>
                   <span
                     className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
@@ -523,7 +529,7 @@ function MCPMarketPage() {
                     disabled={page >= totalPages}
                     className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    下一页
+                    {t("common.nextPage")}
                   </button>
                 </div>
               )}

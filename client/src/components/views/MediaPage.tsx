@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 
 interface MediaFile {
@@ -11,6 +12,7 @@ interface MediaFile {
 }
 
 function MediaPage() {
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
   const [files, setFiles] = useState<MediaFile[]>([
@@ -108,15 +110,15 @@ function MediaPage() {
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "image":
-        return "图片";
+        return t("media.image");
       case "video":
-        return "视频";
+        return t("media.video");
       case "audio":
-        return "音频";
+        return t("media.audio");
       case "document":
-        return "文档";
+        return t("media.document");
       default:
-        return "其他";
+        return t("media.other");
     }
   };
 
@@ -168,12 +170,12 @@ function MediaPage() {
             <h1
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              媒体管理
+              {t("media.title")}
             </h1>
             <p
               className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              管理上传的媒体文件和资源
+              {t("media.manageDesc")}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -182,20 +184,20 @@ function MediaPage() {
                 <span
                   className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  已选择 {selectedFiles.length} 个文件
+                  {t("media.selectedCount", { count: selectedFiles.length })}
                 </span>
                 <button
                   onClick={deleteSelected}
                   className={`px-3 py-1.5 text-sm rounded-lg ${isDark ? "bg-red-900/30 hover:bg-red-900/50 text-red-400" : "bg-red-50 hover:bg-red-100 text-red-600"}`}
                 >
-                  删除选中
+                  {t("media.deleteSelected")}
                 </button>
               </>
             )}
             <button
               className={`px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg`}
             >
-              上传文件
+              {t("chat.uploadFile")}
             </button>
           </div>
         </div>
@@ -219,7 +221,7 @@ function MediaPage() {
             </svg>
             <input
               type="text"
-              placeholder="搜索文件名或标签..."
+              placeholder={t("media.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full pl-9 text-sm ${isDark ? "bg-transparent text-gray-100 placeholder-gray-500" : "bg-transparent text-gray-900 placeholder-gray-500"}`}
@@ -239,7 +241,7 @@ function MediaPage() {
                         : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                   }`}
                 >
-                  {f === "all" ? "全部" : getTypeLabel(f)}
+                  {f === "all" ? t("common.all") : getTypeLabel(f)}
                 </button>
               ),
             )}
@@ -252,7 +254,7 @@ function MediaPage() {
           {filteredFiles.length === 0 ? (
             <div className="text-center py-12">
               <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                暂无媒体文件
+                {t("media.noMedia")}
               </p>
             </div>
           ) : (

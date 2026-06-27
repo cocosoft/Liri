@@ -163,10 +163,11 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
 
     // ---- 内容生成类 ----
     case "image_generate":
-    case "image":
       return formatSummary("正在生成图片", getArgStr(args, "prompt"));
+    case "image":
+      return formatSummary("正在编辑图片", getArgStr(args, "action"));
     case "image_analysis":
-      return formatSummary("正在分析图片", getArgStr(args, "image_path", "path"));
+      return formatSummary("正在分析图片", getArgStr(args, "action") || getArgStr(args, "image_path", "path"));
     case "image_svg_generate":
       return formatSummary("正在生成 SVG", getArgStr(args, "prompt"));
     case "music_generate":

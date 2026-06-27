@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface TrajectoryStep {
   id: string;
   timestamp: number;
@@ -22,17 +24,18 @@ interface AgentTrajectoryViewProps {
 }
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
-  analyze: { label: "分析", color: "text-purple-500" },
-  plan: { label: "规划", color: "text-blue-500" },
-  execute: { label: "执行", color: "text-green-500" },
-  test: { label: "测试", color: "text-yellow-500" },
-  review: { label: "审核", color: "text-red-500" },
+  analyze: { label: "agent.kanban", color: "text-purple-500" },
+  plan: { label: "agent.plan", color: "text-blue-500" },
+  execute: { label: "agent.execute", color: "text-green-500" },
+  test: { label: "agent.test", color: "text-yellow-500" },
+  review: { label: "agent.review", color: "text-red-500" },
 };
 
 function AgentTrajectoryView({
   isDark,
   trajectories,
 }: AgentTrajectoryViewProps) {
+  const { t } = useTranslation();
   const displayTrajectories = trajectories;
 
   const formatTime = (timestamp: number) => {
@@ -97,9 +100,9 @@ function AgentTrajectoryView({
                           : "bg-red-100 text-red-600"
                   }`}
                 >
-                  {trajectory.status === "completed" && "已完成"}
-                  {trajectory.status === "running" && "运行中"}
-                  {trajectory.status === "failed" && "失败"}
+                  {trajectory.status === "completed" && t("agent.completed")}
+                  {trajectory.status === "running" && t("agent.running")}
+                  {trajectory.status === "failed" && t("agent.error")}
                 </span>
               </div>
               <div
@@ -117,7 +120,7 @@ function AgentTrajectoryView({
 
                 <div className="space-y-4">
                   {trajectory.steps.map((step, index) => {
-                    const actionInfo = ACTION_LABELS[step.action] || {
+                      const actionInfo = ACTION_LABELS[step.action] || {
                       label: step.action,
                       color: isDark ? "text-gray-400" : "text-gray-500",
                     };
@@ -151,7 +154,7 @@ function AgentTrajectoryView({
                             <span
                               className={`text-sm font-medium ${actionInfo.color}`}
                             >
-                              {actionInfo.label}
+                              {t(actionInfo.label)}
                             </span>
                             <span
                               className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
@@ -167,7 +170,7 @@ function AgentTrajectoryView({
                           <div
                             className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
                           >
-                            输出: {step.output}
+                            {t("workspace.workflow")}: {step.output}
                           </div>
                         </div>
                       </div>

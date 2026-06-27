@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import KeyboardShortcutsHelp from "../common/KeyboardShortcutsHelp";
 import { httpLegacy as http } from "../../services/httpClient";
 
@@ -22,6 +23,13 @@ const NAV_ITEMS: HelpNavItem[] = [
   { id: "shortcuts", label: "快捷键", icon: "S" },
   { id: "about", label: "关于 Liri", icon: "A" },
 ];
+
+/** 导航项 id 到 i18n key 的映射 */
+const NAV_LABEL_KEYS: Record<string, string> = {
+  docs: "help.helpDocs",
+  shortcuts: "help.shortcuts",
+  about: "help.aboutLiri",
+};
 
 const ACTIVE_NAV_KEY = "liri-help-active-nav";
 const APP_VERSION = "7.9.0";
@@ -163,12 +171,16 @@ const DOC_LABELS: Record<string, string> = {
   "bash": "Bash",
 };
 
-/** 格式化文档名 */
-function formatDocLabel(name: string): string {
+/** 格式化文档名（i18n 优先，DOC_LABELS 为 fallback） */
+function formatDocLabel(name: string, tFn: (key: string) => string): string {
+  const key = `help.labels.${name.replace(/-/g, "_")}`;
+  const translated = tFn(key);
+  if (translated !== key) return translated;
   return DOC_LABELS[name] || name;
 }
 
 function HelpPage() {
+  const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState(() => {
     try {
       const s = localStorage.getItem(ACTIVE_NAV_KEY);
@@ -235,12 +247,12 @@ function HelpPage() {
             html += `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">${line}</p>`;
           }
         }
-        setDocContent({ title: formatDocLabel(fileName), html });
+        setDocContent({ title: formatDocLabel(fileName, t), html });
       } else {
-        setDocContent({ title: formatDocLabel(fileName), html: "<p class='text-red-500'>文档加载失败</p>" });
+        setDocContent({ title: formatDocLabel(fileName, t), html: `<p class='text-red-500'>${t("help.loadFailed")}</p>` });
       }
     } catch {
-      setDocContent({ title: formatDocLabel(fileName), html: "<p class='text-red-500'>文档加载失败：无法连接后端服务</p>" });
+      setDocContent({ title: formatDocLabel(fileName, t), html: `<p class='text-red-500'>${t("help.loadFailedBackend")}</p>` });
     }
     setLoadingDoc(false);
   };
@@ -255,7 +267,7 @@ function HelpPage() {
       <aside className="w-52 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="px-4 pt-5 pb-3">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            帮助中心
+            {t("help.helpCenter")}
           </h2>
         </div>
         <nav className="pb-6">
@@ -274,7 +286,7 @@ function HelpPage() {
                 <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                   {item.icon}
                 </span>
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{t(NAV_LABEL_KEYS[item.id] || item.label)}</span>
               </button>
             );
           })}
@@ -298,12 +310,12 @@ function HelpPage() {
                 onClick={() => setDocContent(null)}
                 className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
               >
-                返回
+                {t("common.back")}
               </button>
             </div>
             <div className="px-6 py-4 max-w-3xl">
               {loadingDoc ? (
-                <p className="text-sm text-gray-500">加载中...</p>
+                <p className="text-sm text-gray-500">{t("common.loading")}</p>
               ) : (
                 <div
                   className="prose prose-sm dark:prose-invert max-w-none"
@@ -323,10 +335,10 @@ function HelpPage() {
       <div className="p-6 max-w-4xl">
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-            帮助文档
+            {t("help.helpDocs")}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            点击分类展开文档列表，选择文档查看详细内容
+            {t("help.docsDesc")}
           </p>
         </div>
 
@@ -363,7 +375,7 @@ function HelpPage() {
                         disabled={loadingDoc}
                         className="w-full text-left px-5 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50"
                       >
-                        {formatDocLabel(file)}
+                        {formatDocLabel(file, t)}
                       </button>
                     ))}
                   </div>
@@ -374,7 +386,7 @@ function HelpPage() {
         </div>
 
         <p className="mt-6 text-sm text-gray-400 dark:text-gray-500">
-          更多文档请查看项目 <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">app/docs/</code> 目录
+          {t("help.moreDocs")} <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">app/docs/</code> {t("help.directory")}
         </p>
       </div>
     );
@@ -385,7 +397,7 @@ function HelpPage() {
     return (
       <div className="p-6 max-w-3xl">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          快捷键
+          {t("help.shortcuts")}
         </h3>
         <KeyboardShortcutsHelp />
       </div>
@@ -398,7 +410,7 @@ function HelpPage() {
       <div className="p-6 max-w-3xl space-y-8">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            关于 Liri
+            {t("help.aboutLiri")}
           </h3>
 
           {/* 应用信息 */}
@@ -411,10 +423,10 @@ function HelpPage() {
                 Liri
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                版本 {APP_VERSION}
+                {t("help.versionLabel", { version: APP_VERSION })}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                集 AI 聊天、任务管理、知识库、自动化于一体的桌面生产力工具
+                {t("help.aboutDesc")}
               </p>
             </div>
           </div>
@@ -422,21 +434,21 @@ function HelpPage() {
           {/* 详细信息 */}
           <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-              <span className="text-gray-600 dark:text-gray-400">开源协议</span>
+              <span className="text-gray-600 dark:text-gray-400">{t("help.license")}</span>
               <span className="text-gray-900 dark:text-gray-100 font-medium">
                 MIT License
               </span>
             </div>
             <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-              <span className="text-gray-600 dark:text-gray-400">技术栈</span>
+              <span className="text-gray-600 dark:text-gray-400">{t("help.techStack")}</span>
               <span className="text-gray-900 dark:text-gray-100">
-                TypeScript + Rust + React + Tauri
+                {t("help.techStackValue")}
               </span>
             </div>
             <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-              <span className="text-gray-600 dark:text-gray-400">运行时</span>
+              <span className="text-gray-600 dark:text-gray-400">{t("help.runtime")}</span>
               <span className="text-gray-900 dark:text-gray-100">
-                Node.js + Python (UV)
+                {t("help.runtimeValue")}
               </span>
             </div>
           </div>
@@ -445,39 +457,39 @@ function HelpPage() {
         {/* 核心功能 */}
         <div>
           <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">
-            核心功能
+            {t("help.coreFeatures")}
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                AI 聊天
+                {t("help.aiChat")}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                多模型对话、流式输出、上下文管理
+                {t("help.aiChatDesc")}
               </p>
             </div>
             <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                任务管理
+                {t("help.taskMgmt")}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Agent 任务、PDCA 循环、看板管理
+                {t("help.taskMgmtDesc")}
               </p>
             </div>
             <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                知识库
+                {t("help.knowledge")}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                文档管理、语义搜索、RAG
+                {t("help.knowledgeDesc")}
               </p>
             </div>
             <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                自动化
+                {t("help.automation")}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                定时任务、渠道集成、Webhook
+                {t("help.automationDesc")}
               </p>
             </div>
           </div>
@@ -486,7 +498,7 @@ function HelpPage() {
         {/* 链接 */}
         <div>
           <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">
-            相关链接
+            {t("help.relatedLinks")}
           </h4>
           <div className="space-y-2 text-sm">
             <a
@@ -497,7 +509,7 @@ function HelpPage() {
               }}
               className="block px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded text-blue-600 dark:text-blue-400 hover:underline"
             >
-              查看帮助文档
+              {t("help.viewDocs")}
             </a>
           </div>
         </div>

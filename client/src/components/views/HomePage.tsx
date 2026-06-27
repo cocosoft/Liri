@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useBackendStore } from "../../stores/backendStore";
 import { ChatIcon, KnowledgeIcon, GaugeIcon, DashboardIcon, TaskIcon, CronIcon, FileIcon, DevIcon, SettingsIcon } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
@@ -31,6 +32,7 @@ function NavCard({ icon: IconComponent, title, description, path }: NavCardProps
 }
 
 function HomePage() {
+  const { t } = useTranslation();
   const { status, startBackend, stopBackend, error } = useBackendStore();
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
@@ -58,10 +60,10 @@ function HomePage() {
         {/* 欢迎区域 */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            欢迎使用 Liri
+            {t("chat.welcomeTitle")}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            官网: https://openliri.com · 快速访问常用功能，开始您的工作流程
+            {t("common.homeSubtitle")}
           </p>
         </div>
 
@@ -72,10 +74,10 @@ function HomePage() {
               <div className={`w-3 h-3 rounded-full ${status.running ? "bg-green-500" : "bg-red-500"}`} />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Backend 服务
+                  {t("common.backendService")}
                 </h3>
                 <p className={`text-sm ${getStatusColor()}`}>
-                  {status.running ? "运行中" : "已停止"}
+                  {status.running ? t("common.running") : t("common.stopped")}
                   {status.running && status.port && ` · 端口 ${status.port}`}
                 </p>
               </div>
@@ -87,7 +89,7 @@ function HomePage() {
                   disabled={actionLoading}
                   className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
                 >
-                  {actionLoading ? "停止中..." : "停止"}
+                  {actionLoading ? t("common.stopping") : t("common.stop")}
                 </button>
               ) : (
                 <button
@@ -95,14 +97,14 @@ function HomePage() {
                   disabled={actionLoading}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm transition-colors"
                 >
-                  {actionLoading ? "启动中..." : "启动"}
+                  {actionLoading ? t("common.starting") : t("common.start")}
                 </button>
               )}
               <button
                 onClick={() => navigate("/settings")}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition-colors"
               >
-                高级设置
+                {t("common.advancedSettings")}
               </button>
             </div>
           </div>
@@ -115,67 +117,67 @@ function HomePage() {
 
         {/* 常用功能网格 */}
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-          常用功能
+          {t("common.commonFunctions")}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <NavCard
             icon={ChatIcon}
-            title="聊天"
-            description="与 AI 助手对话，处理各种任务"
+            title={t("home.card.chat")}
+            description={t("home.card.chatDesc")}
             path="/chat"
           />
           <NavCard
             icon={KnowledgeIcon}
-            title="知识库"
-            description="管理文档，进行知识检索"
+            title={t("home.card.knowledge")}
+            description={t("home.card.knowledgeDesc")}
             path="/knowledge"
           />
           <NavCard
             icon={GaugeIcon}
-            title="成本"
-            description="查看 API 调用消费记录"
+            title={t("home.card.cost")}
+            description={t("home.card.costDesc")}
             path="/cost"
           />
           <NavCard
             icon={DashboardIcon}
-            title="仪表盘"
-            description="系统概览和统计数据"
+            title={t("home.card.dashboard")}
+            description={t("home.card.dashboardDesc")}
             path="/dashboard"
           />
           <NavCard
             icon={TaskIcon}
-            title="任务"
-            description="Agent 任务管理，AI 多步推理执行"
+            title={t("home.card.tasks")}
+            description={t("home.card.tasksDesc")}
             path="/tasks"
           />
           <NavCard
             icon={CronIcon}
-            title="定时任务"
-            description="Cron 定时调度，自动化执行"
+            title={t("home.card.cron")}
+            description={t("home.card.cronDesc")}
             path="/cron"
           />
           <NavCard
             icon={FileIcon}
-            title="文件"
-            description="管理和操作文件系统"
+            title={t("home.card.files")}
+            description={t("home.card.filesDesc")}
             path="/files"
           />
           <NavCard
             icon={DevIcon}
-            title="终端"
-            description="访问命令行终端"
+            title={t("home.card.terminal")}
+            description={t("home.card.terminalDesc")}
             path="/terminal"
           />
           <NavCard
             icon={GaugeIcon}
-            title="监控"
-            description="实时监控系统状态"
+            title={t("home.card.monitor")}
+            description={t("home.card.monitorDesc")}
             path="/monitor"
           />
           <NavCard
             icon={SettingsIcon}
-            title="设置"
-            description="系统配置和管理功能"
+            title={t("home.card.settings")}
+            description={t("home.card.settingsDesc")}
             path="/settings"
           />
         </div>
@@ -183,10 +185,10 @@ function HomePage() {
         {/* 快捷提示 */}
         <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
           <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
-            💡 提示
+            {t("common.tip")}
           </h3>
           <p className="text-sm text-blue-700 dark:text-blue-400">
-            点击左下角的主题切换按钮可以快速切换主题
+            {t("common.tipText")}
           </p>
         </div>
       </div>

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useApiKeyStore } from "../../stores/authStore";
 import { useConfigStore } from "../../stores/configStore";
 
 function ApiKeyPage() {
+  const { t } = useTranslation();
   const { apiKeys, isLoading, error, loadApiKeys, createApiKey, deleteApiKey } =
     useApiKeyStore();
   const config = useConfigStore((s) => s.config);
@@ -20,7 +22,7 @@ function ApiKeyPage() {
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) {
-      setCreateError("请输入密钥名称");
+      setCreateError(t("settings.apiKeyNameRequired"));
       return;
     }
 
@@ -30,12 +32,12 @@ function ApiKeyPage() {
       setNewKeyValue(key);
       setNewKeyName("");
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "创建失败");
+      setCreateError(e instanceof Error ? e.message : t("common.failed"));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这个 API 密钥吗？此操作不可撤销。")) {
+    if (!confirm(t("settings.confirmDeleteApiKey"))) {
       return;
     }
 
@@ -74,12 +76,12 @@ function ApiKeyPage() {
             <h1
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              API 密钥管理
+              {t("settings.apiKeyManagement")}
             </h1>
             <p
               className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              管理您的 API 密钥，用于程序化访问
+              {t("settings.apiKeyDesc")}
             </p>
           </div>
           <button
@@ -95,7 +97,7 @@ function ApiKeyPage() {
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            创建密钥
+            {t("settings.createApiKey")}
           </button>
         </div>
 
@@ -111,7 +113,7 @@ function ApiKeyPage() {
           <div
             className={`text-center py-12 ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            加载中...
+            {t("common.loading")}
           </div>
         ) : apiKeys.length === 0 ? (
           <div
@@ -131,12 +133,12 @@ function ApiKeyPage() {
               />
             </svg>
             <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              暂无 API 密钥
+              {t("settings.noApiKeys")}
             </p>
             <p
               className={`mt-1 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              点击上方按钮创建一个新的 API 密钥
+              {t("settings.noApiKeysHint")}
             </p>
           </div>
         ) : (
@@ -148,11 +150,11 @@ function ApiKeyPage() {
                 <tr
                   className={`text-left text-sm border-b ${isDark ? "border-gray-700 text-gray-400" : "border-gray-200 text-gray-500"}`}
                 >
-                  <th className="px-4 py-3 font-medium">名称</th>
-                  <th className="px-4 py-3 font-medium">密钥</th>
-                  <th className="px-4 py-3 font-medium">创建时间</th>
-                  <th className="px-4 py-3 font-medium">最后使用</th>
-                  <th className="px-4 py-3 font-medium">操作</th>
+                  <th className="px-4 py-3 font-medium">{t("common.name")}</th>
+                  <th className="px-4 py-3 font-medium">{t("settings.apiKey")}</th>
+                  <th className="px-4 py-3 font-medium">{t("settings.createdAt")}</th>
+                  <th className="px-4 py-3 font-medium">{t("settings.lastUsed")}</th>
+                  <th className="px-4 py-3 font-medium">{t("settings.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -171,14 +173,14 @@ function ApiKeyPage() {
                     <td className="px-4 py-3 text-sm">
                       {key.last_used_at
                         ? formatDate(key.last_used_at)
-                        : "从未使用"}
+                        : t("settings.neverUsed")}
                     </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleDelete(key.id)}
                         className={`text-sm hover:underline ${isDark ? "text-red-400" : "text-red-600"}`}
                       >
-                        删除
+                        {t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -199,7 +201,7 @@ function ApiKeyPage() {
                 <h2
                   className={`text-lg font-bold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
                 >
-                  API 密钥已创建
+                  {t("settings.apiKeyCreated")}
                 </h2>
                 <div
                   className={`p-3 rounded-lg mb-4 ${isDark ? "bg-yellow-900/30 border border-yellow-700" : "bg-yellow-50 border border-yellow-200"}`}
@@ -207,7 +209,7 @@ function ApiKeyPage() {
                   <p
                     className={`text-sm ${isDark ? "text-yellow-400" : "text-yellow-700"}`}
                   >
-                    请立即复制密钥，关闭后将无法再次查看完整密钥。
+                    {t("settings.apiKeyCopyWarning")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 mb-4">
@@ -221,7 +223,7 @@ function ApiKeyPage() {
                     onClick={handleCopy}
                     className={`px-3 py-2 text-sm rounded-lg ${copied ? "bg-green-600 text-white" : isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}
                   >
-                    {copied ? "已复制" : "复制"}
+                    {copied ? t("settings.copied") : t("common.copy")}
                   </button>
                 </div>
                 <button
@@ -231,7 +233,7 @@ function ApiKeyPage() {
                   }}
                   className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
                 >
-                  完成
+                  {t("common.confirm")}
                 </button>
               </>
             ) : (
@@ -239,20 +241,20 @@ function ApiKeyPage() {
                 <h2
                   className={`text-lg font-bold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
                 >
-                  创建 API 密钥
+                  {t("settings.createApiKey")}
                 </h2>
                 <div className="space-y-4">
                   <div>
                     <label
                       className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"} mb-1`}
                     >
-                      密钥名称
+                      {t("settings.apiKeyName")}
                     </label>
                     <input
                       type="text"
                       value={newKeyName}
                       onChange={(e) => setNewKeyName(e.target.value)}
-                      placeholder="例如：我的应用密钥"
+                      placeholder={t("settings.apiKeyNamePlaceholder")}
                       className={`w-full px-3 py-2 text-sm border rounded-lg ${
                         isDark
                           ? "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
@@ -269,14 +271,14 @@ function ApiKeyPage() {
                           : "border-gray-300 text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      取消
+                      {t("common.cancel")}
                     </button>
                     <button
                       onClick={handleCreate}
                       disabled={isLoading}
                       className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium"
                     >
-                      {isLoading ? "创建中..." : "创建"}
+                      {isLoading ? t("settings.creating") : t("common.create")}
                     </button>
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 
 /**
@@ -5,6 +6,7 @@ import { useConfigStore } from "../../stores/configStore";
  * 后续将实现 AI 视频生成、编辑等功能
  */
 function VideoPage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -19,8 +21,8 @@ function VideoPage() {
         <polygon points="23 7 16 12 23 17 23 7" />
         <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
       </svg>
-      <h2 className="text-xl font-medium mb-2">视频处理</h2>
-      <p className="text-sm">AI 视频生成与编辑功能，敬请期待</p>
+      <h2 className="text-xl font-medium mb-2">{t("video.title")}</h2>
+      <p className="text-sm">{t("video.comingSoon")}</p>
     </div>
   );
 }

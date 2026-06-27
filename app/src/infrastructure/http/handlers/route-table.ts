@@ -366,6 +366,17 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Images ----
+  if (method === 'GET' && url === '/v1/images/list') {
+    await self['handleImageList'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/images/static/')) {
+    const filePath = url.slice('/v1/images/static/'.length);
+    await self['handleImageStatic'](req, res, decodeURIComponent(filePath));
+    return true;
+  }
+
   // ---- Agent ----
   if (method === 'GET' && url === '/v1/agents/tasks') {
     await self['handleListAgentTasks'](req, res);

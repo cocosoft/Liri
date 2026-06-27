@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { useVoiceStore } from "../stores/voiceStore";
 import { voiceService } from "../services/voiceService";
@@ -68,6 +69,7 @@ export interface VoiceInputHandle {
  */
 const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
   ({ isDark, onTranscribed, subtitleLang = "zh-CN", autoSubmit = false, onShouldSubmit }, ref) => {
+  const { t } = useTranslation();
   const {
     isRecording,
     isProcessing,
@@ -275,13 +277,13 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
       if (avgLevel < 1) {
         return {
           ok: true,
-          warning: "麦克风似乎已静音，请检查系统音量",
+          warning: t("voice.muted"),
         };
       }
       if (avgLevel < 5) {
         return {
           ok: true,
-          warning: "麦克风音量偏低，可能影响识别效果",
+          warning: t("voice.lowVolume"),
         };
       }
       return { ok: true };
@@ -290,7 +292,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         useVoiceStore.setState({
           micStatus: { status: "permission_denied", audioLevel: 0 },
         });
-        return { ok: false, warning: "请在浏览器设置中允许麦克风权限" };
+        return { ok: false, warning: t("voice.micPermissionDenied") };
       }
       useVoiceStore.setState({
         micStatus: { status: "no_device", audioLevel: 0 },
@@ -360,7 +362,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
             console.error("语音转录失败:", err);
             useVoiceStore.setState({
               voiceError:
-                err instanceof Error ? err.message : "语音转录失败",
+                err instanceof Error ? err.message : t("voice.sttFailed"),
               subtitleStatus: "idle",
             });
           } finally {
@@ -379,7 +381,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
       startSubtitleRecognition();
     } catch (e) {
       console.error("无法启动录音:", e);
-      setMicWarning("麦克风访问失败，请检查权限");
+      setMicWarning(t("voice.micAccessFailed"))
     }
   };
 

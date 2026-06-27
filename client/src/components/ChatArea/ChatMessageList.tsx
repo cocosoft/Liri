@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import ChatMessage from "./ChatMessage";
 import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
@@ -6,13 +7,14 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 
 /** 消息级别的轻量级错误降级 UI */
 function MessageErrorFallback({ error }: { error: Error | null }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 p-4 mx-2 my-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg" role="alert">
       <span className="text-lg shrink-0" aria-hidden="true">⚠️</span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">消息渲染异常</p>
+        <p className="text-sm font-medium text-red-700 dark:text-red-300">{t('chat.messageRenderError')}</p>
         <p className="text-xs text-red-500 dark:text-red-400 truncate mt-0.5">
-          {error?.message || "未知错误"}
+          {error?.message || t('common.noData')}
         </p>
       </div>
     </div>
@@ -67,6 +69,7 @@ function SearchBar({
   onNext: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -90,31 +93,31 @@ function SearchBar({
             onClose();
           }
         }}
-        placeholder="搜索消息内容..."
+        placeholder={t('chat.searchSessions')}
         className="flex-1 text-sm bg-transparent border-none outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400"
       />
       {query && (
         <span className="text-xs text-gray-500 shrink-0 whitespace-nowrap">
           {matchCount > 0
-            ? `${currentIndex + 1}/${matchCount} 个匹配`
-            : "无匹配"}
+            ? `${currentIndex + 1}/${matchCount} ${t('chat.searchResults')}`
+            : t('chat.noResults')}
         </span>
       )}
       {matchCount > 1 && (
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={onPrev} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title="上一个匹配 (Shift+Enter)">
+          <button onClick={onPrev} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title={t('chat.prevMatch')}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
             </svg>
           </button>
-          <button onClick={onNext} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title="下一个匹配 (Enter)">
+          <button onClick={onNext} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title={t('chat.nextMatch')}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
         </div>
       )}
-      <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600" title="关闭搜索 (Esc)">
+      <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600" title={t('chat.closeSearch')}>
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
@@ -126,13 +129,13 @@ function SearchBar({
 /**
  * 将消息列表导出为 Markdown 格式
  */
-function exportAsMarkdown(messages: Message[]): string {
+function exportAsMarkdown(messages: Message[], roleLabels: Record<string, string>): string {
   return messages
     .map((msg) => {
       const roleLabel =
-        msg.role === "user" ? "👤 用户" :
-        msg.role === "assistant" ? "🤖 AI" :
-        msg.role === "system" ? "⚙️ 系统" : "🛠 工具";
+        msg.role === "user" ? `👤 ${roleLabels.user}` :
+        msg.role === "assistant" ? `🤖 ${roleLabels.assistant}` :
+        msg.role === "system" ? `⚙️ ${roleLabels.system}` : `🛠 ${roleLabels.tool}`;
       const date = new Date(msg.timestamp).toLocaleString();
       const text = getMessageSearchText(msg);
       return `### ${roleLabel}  (${date})\n\n${text}\n`;
@@ -183,6 +186,7 @@ export default function ChatMessageList({
   sessionTitle,
   onCreateSession,
 }: ChatMessageListProps) {
+  const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
 
   // 搜索状态
@@ -284,7 +288,12 @@ export default function ChatMessageList({
 
   /** 导出按钮 */
   const handleExportMarkdown = useCallback(() => {
-    const md = exportAsMarkdown(messages);
+    const md = exportAsMarkdown(messages, {
+      user: t('chat.user'),
+      assistant: t('chat.assistant'),
+      system: t('chat.system'),
+      tool: t('chat.tool'),
+    });
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -320,13 +329,13 @@ export default function ChatMessageList({
             />
           </div>
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-            欢迎使用 Liri
+            {t('chat.welcomeTitle')}
           </h2>
           <p className="text-gray-500 dark:text-gray-400">
             官网: https://openliri.com
           </p>
           <p className="text-gray-500 dark:text-gray-400 mt-1 mb-8">
-            请从左侧选择一个会话或创建新会话开始聊天
+            {t('chat.welcomeHint')}
           </p>
           <button
             onClick={onCreateSession}
@@ -335,7 +344,7 @@ export default function ChatMessageList({
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            开始聊天
+            {t('chat.startChat')}
           </button>
         </div>
       </div>
@@ -358,14 +367,14 @@ export default function ChatMessageList({
             {sessionTitle}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            开始发送消息进行对话
+            {t('chat.noMessages')}
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
-              支持 Markdown 格式
+              {t('chat.markdownSupport')}
             </span>
             <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
-              按 Enter 发送
+              {t('chat.enterToSend')}
             </span>
           </div>
         </div>
@@ -394,7 +403,7 @@ export default function ChatMessageList({
           <button
             onClick={toggleSearch}
             className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            title="搜索 (Ctrl+F)"
+            title={t('common.search')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -406,7 +415,7 @@ export default function ChatMessageList({
             <button
               onClick={() => setExportOpen((prev) => !prev)}
               className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title="导出对话"
+              title={t('chat.exportSession')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -425,7 +434,7 @@ export default function ChatMessageList({
                   onClick={handleExportJson}
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  导出为 JSON
+                  {t('chat.exportAsJson')}
                 </button>
               </div>
             )}

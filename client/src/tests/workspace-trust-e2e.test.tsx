@@ -101,7 +101,7 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       });
 
       // 点击第一个工作空间的删除按钮
-      const deleteBtns = screen.getAllByRole("button", { name: /common\.delete|删除/ });
+      const deleteBtns = await screen.findAllByRole("button", { name: /common\.delete|删除/ });
       await user.click(deleteBtns[0]);
 
       await waitFor(() => {
@@ -288,7 +288,7 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
         expect(screen.getByText("rm -rf")).toBeTruthy();
       });
 
-      const deleteBtns = screen.getAllByRole("button", { name: /common\.delete|删除/ });
+      const deleteBtns = await screen.findAllByRole("button", { name: /common\.delete|删除/ });
       await user.click(deleteBtns[0]);
 
       await waitFor(() => {

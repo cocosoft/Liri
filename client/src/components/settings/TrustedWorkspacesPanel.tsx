@@ -214,6 +214,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
           <button
             onClick={() => removeWorkspace(i)}
             className="text-red-400 hover:text-red-600 text-sm"
+            aria-label={t("common.delete")}
           >
             {t("common.delete")}
           </button>

@@ -285,6 +285,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
               <button
                 onClick={() => removeItem(i)}
                 className="text-red-400 hover:text-red-600 text-xs ml-2 shrink-0"
+                aria-label={t("common.delete")}
               >
                 {t("common.delete")}
               </button>

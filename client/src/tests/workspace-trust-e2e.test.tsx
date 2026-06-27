@@ -101,10 +101,12 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       });
 
       // 点击第一个工作空间的删除按钮
-      const deleteBtns = screen.getAllByText("删除");
+      const deleteBtns = screen.getAllByRole("button", { name: /common\.delete|删除/ });
       await user.click(deleteBtns[0]);
 
-      expect(screen.queryByText("/home/user/proj-a")).toBeNull();
+      await waitFor(() => {
+        expect(screen.queryByText("/home/user/proj-a")).toBeNull();
+      });
     });
 
     it("添加空路径时不生效", async () => {
@@ -286,10 +288,12 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
         expect(screen.getByText("rm -rf")).toBeTruthy();
       });
 
-      const deleteBtns = screen.getAllByText("删除");
+      const deleteBtns = screen.getAllByRole("button", { name: /common\.delete|删除/ });
       await user.click(deleteBtns[0]);
 
-      expect(screen.queryByText("rm -rf")).toBeNull();
+      await waitFor(() => {
+        expect(screen.queryByText("rm -rf")).toBeNull();
+      });
     });
 
     it("切换命令模式", async () => {

@@ -22,7 +22,6 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use tracing::info;
 
@@ -72,26 +71,24 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
 
     let port_str = current_port.to_string();
 
-    // 确定数据目录，优先使用配置的目录，否则使用用户目录下的 .pyapp
-    // 使用 Tauri path API（通过 SHGetKnownFolderPath，不依赖环境变量）
+    // 确定数据目录，优先使用配置的目录，否则使用安全的本地路径
+    // 不依赖 home_dir()，因为安装程序以 SYSTEM 身份运行时 home_dir() 会返回 C:\Users\Default（不可写）
     let data_dir = if !config.data_dir.is_empty() {
         config.data_dir.clone()
     } else {
-        let home = app_handle
-            .path()
-            .home_dir()
-            .map(|p| p.display().to_string())
-            .map_err(|e| format!("Failed to resolve home directory: {}", e))?;
-        format!("{}\\.pyapp", home)
+        resolve_safe_data_dir(&app_handle)?
     };
 
-    // 确保数据目录存在（首次安装时目录不存在会导致 sidecar 启动失败，Windows error 267）
-    // 注意：如果 data_dir 指向 C:\Users\Default 等系统保护目录，会因权限不足失败 (os error 5)
-    // 这通常意味着 USERPROFILE 环境变量未设置或 app_config.json 中存入了错误路径
+    // 确保数据目录存在
     std::fs::create_dir_all(&data_dir)
         .map_err(|e| format!(
-            "无法创建数据目录 '{}'：{}\n\n请检查：\n- USERPROFILE 环境变量是否已设置\n- 是否有权限写入该目录\n- app_config.json 中的 dataDir 值是否正确",
-            data_dir, e
+            "无法创建数据目录 '{}'：{}\n\n请检查：\n- 应用是否有权限写入该目录\n- {}",
+            data_dir, e,
+            if data_dir.contains("\\Default") || data_dir.contains("\\default") {
+                "当前运行在 SYSTEM 账户下，无法写入用户目录。请以当前用户身份运行应用"
+            } else {
+                "app_config.json 中的 dataDir 值是否正确"
+            }
         ))?;
     // 同时确保 data 子目录存在（LIRI_DATA_DIR 环境变量指向此处）
     std::fs::create_dir_all(format!("{}/data", data_dir))
@@ -171,6 +168,43 @@ pub async fn stop_backend() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// 安全的数据目录解析
+///
+/// 不依赖 `home_dir()` API（会返回 C:\Users\Default 当进程以 SYSTEM 身份运行时）。
+/// 优先级：
+///   1. USERPROFILE 环境变量（排除 C:\Users\Default 等系统保护目录）
+///   2. 应用可执行文件所在目录下的 `.pyapp` 子目录
+fn resolve_safe_data_dir(_app_handle: &tauri::AppHandle) -> Result<String, String> {
+    // 第一步：尝试 USERPROFILE（大多数正常登录用户都有这个变量）
+    if let Ok(userprofile) = std::env::var("USERPROFILE") {
+        let lower = userprofile.to_lowercase();
+        // 排除系统保护目录
+        let is_system_profile = lower.ends_with("\\default")
+            || lower.ends_with(r"\default user")
+            || lower.contains("\\systemprofile");
+        if !is_system_profile {
+            // 验证目录可写
+            let test_dir = format!("{}\\{}", userprofile, ".pyapp");
+            if std::fs::create_dir_all(&test_dir).is_ok() {
+                return Ok(test_dir);
+            }
+        }
+    }
+
+    // 第二步：使用可执行文件所在目录
+    // 适用于安装包部署场景——数据跟随应用目录
+    let exe_dir = std::env::current_exe()
+        .map_err(|e| format!("无法获取可执行文件路径: {}", e))?
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or("无法解析可执行文件父目录")?;
+    let data_dir = exe_dir.join(".pyapp");
+    let data_dir_str = data_dir.display().to_string();
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("无法创建数据目录 '{}': {}", data_dir_str, e))?;
+    Ok(data_dir_str)
 }
 
 #[tauri::command]

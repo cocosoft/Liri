@@ -112,7 +112,8 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
     {
       name: 'savePath',
       type: 'string',
-      description: 'File path to save the SVG. If not provided, only returns the code.',
+      description:
+        'File path to save the SVG. If not provided, only returns the code.',
       required: false,
     },
     {
@@ -165,7 +166,9 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
 
     const styleHint = input.style ? `风格：${input.style}。` : '';
     const colorHint = input.color ? `主色：${input.color}。` : '';
-    const bgHint = input.backgroundColor ? `背景色：${input.backgroundColor}。` : '';
+    const bgHint = input.backgroundColor
+      ? `背景色：${input.backgroundColor}。`
+      : '';
 
     const userPrompt = `生成一个 ${size}（viewBox="0 0 ${width} ${height}"）的 SVG。${styleHint}${colorHint}${bgHint}描述：${input.prompt}`;
 
@@ -220,7 +223,9 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
           fs.mkdirSync(dir, { recursive: true });
         }
 
-        filePath = resolvedPath.endsWith('.svg') ? resolvedPath : resolvedPath + '.svg';
+        filePath = resolvedPath.endsWith('.svg')
+          ? resolvedPath
+          : resolvedPath + '.svg';
         fs.writeFileSync(filePath, svgCode, 'utf-8');
       }
 
@@ -245,7 +250,10 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
           : `\`\`\`svg\n${svgCode}\n\`\`\``,
       };
     } catch (error) {
-      await handleError(error, { module: 'tools:imageSvg', action: 'generate' });
+      await handleError(error, {
+        module: 'tools:imageSvg',
+        action: 'generate',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       return { success: false, error: `SVG 生成失败：${errorMsg}` };
     }
@@ -320,8 +328,18 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
     const selfCloseTags = svgCode.match(/<(\w+)[^>]*\/>/g) || [];
 
     const selfClosingSet = new Set([
-      'path', 'circle', 'rect', 'line', 'ellipse', 'polygon', 'polyline',
-      'image', 'use', 'stop', 'animate', 'animateTransform',
+      'path',
+      'circle',
+      'rect',
+      'line',
+      'ellipse',
+      'polygon',
+      'polyline',
+      'image',
+      'use',
+      'stop',
+      'animate',
+      'animateTransform',
     ]);
 
     const openCount = new Map<string, number>();
@@ -368,7 +386,10 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
    * @param templateName 模板名称
    * @param params 替换参数（如 color, fill, stroke, text 等）
    */
-  getTemplate(templateName: string, params?: Record<string, string>): string | null {
+  getTemplate(
+    templateName: string,
+    params?: Record<string, string>
+  ): string | null {
     const template = SVG_TEMPLATES[templateName];
     if (!template) return null;
 

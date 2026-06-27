@@ -78,7 +78,11 @@ import {
   handleUpdateSessionMeta,
 } from './handlers/session-handlers';
 import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
-import { handleImageStatic, handleImageList } from './handlers/image-handlers';
+import {
+  handleImageStatic,
+  handleImageList,
+  handleImageUpload,
+} from './handlers/image-handlers';
 import {
   handleListAgentTasks,
   handleExecuteAgentTask,
@@ -735,6 +739,13 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleImageList(this._handlerCtx, req, res);
+  }
+
+  private async handleImageUpload(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleImageUpload(this._handlerCtx, req, res);
   }
 
   // ========== Agent Handlers (extracted to handlers/agent1-handlers.ts) ==========

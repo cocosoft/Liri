@@ -3,8 +3,15 @@
  * 走 /v1/images/generations 端点，支持 b64_json 响应
  */
 
-import type { ImageGenerationParams, ImageGenerationResult } from '../../../ai/providers/AIProvider';
-import type { ImageGenerationProvider, CostEstimate, ProviderConfig } from '../types';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../../ai/providers/AIProvider';
+import type {
+  ImageGenerationProvider,
+  CostEstimate,
+  ProviderConfig,
+} from '../types';
 
 export class DallEProvider implements ImageGenerationProvider {
   readonly name = 'OpenAI DALL-E 3';
@@ -25,12 +32,12 @@ export class DallEProvider implements ImageGenerationProvider {
 
     // DALL-E 3 定价参考 (USD)
     const priceMap: Record<string, number> = {
-      '1024x1024': 0.040,
-      '1024x1792': 0.080,
-      '1792x1024': 0.080,
+      '1024x1024': 0.04,
+      '1024x1792': 0.08,
+      '1792x1024': 0.08,
     };
     const hdMultiplier = params.quality === 'hd' ? 2 : 1;
-    const unitPrice = priceMap[size] ?? 0.040;
+    const unitPrice = priceMap[size] ?? 0.04;
     const total = unitPrice * n * hdMultiplier;
 
     return {
@@ -41,7 +48,9 @@ export class DallEProvider implements ImageGenerationProvider {
     };
   }
 
-  async generate(params: ImageGenerationParams): Promise<ImageGenerationResult> {
+  async generate(
+    params: ImageGenerationParams
+  ): Promise<ImageGenerationResult> {
     const startTime = Date.now();
 
     const body: Record<string, unknown> = {

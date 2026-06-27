@@ -25,10 +25,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import {
-  VadDetector,
-  type VadResult,
-} from '@modules/services/voice/services/vadDetector';
+import { VadDetector } from '@modules/services/voice/services/vadDetector';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 
 const logger = new Logger({ level: LogLevel.INFO });

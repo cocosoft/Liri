@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具管理工具
  * 提供函数式的工具管理方法
  */
@@ -92,6 +92,9 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     // 媒体编辑工具
     createToolLoader(ToolFactory.prototype.createImageTool),
     createToolLoader(ToolFactory.prototype.createImageAnalysisTool),
+    createToolLoader(ToolFactory.prototype.createImageGenerateTool),
+    createToolLoader(ToolFactory.prototype.createImageSvgTool),
+    createToolLoader(ToolFactory.prototype.createCanvasTool),
     createToolLoader(ToolFactory.prototype.createVideoTool),
     createToolLoader(ToolFactory.prototype.createMusicTool),
 

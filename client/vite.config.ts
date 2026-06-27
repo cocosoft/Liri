@@ -42,6 +42,20 @@ export default defineConfig({
           });
         },
       },
+      '/v1': {
+        target: 'http://127.0.0.1:7890',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            if ((err as NodeJS.ErrnoException).code === 'ECONNREFUSED') {
+              if (res && !res.headersSent) {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Backend unavailable' }));
+              }
+            }
+          });
+        },
+      },
     },
   },
   envPrefix: ['VITE_', 'TAURI_'],

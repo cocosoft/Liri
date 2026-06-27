@@ -4,8 +4,15 @@
  * 按秒计费，约 $0.025/张 (1024x1024)
  */
 
-import type { ImageGenerationParams, ImageGenerationResult } from '../../../ai/providers/AIProvider';
-import type { ImageGenerationProvider, CostEstimate, ProviderConfig } from '../types';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../../ai/providers/AIProvider';
+import type {
+  ImageGenerationProvider,
+  CostEstimate,
+  ProviderConfig,
+} from '../types';
 
 export class ReplicateProvider implements ImageGenerationProvider {
   readonly name = 'Replicate Flux';
@@ -28,7 +35,9 @@ export class ReplicateProvider implements ImageGenerationProvider {
     };
   }
 
-  async generate(params: ImageGenerationParams): Promise<ImageGenerationResult> {
+  async generate(
+    params: ImageGenerationParams
+  ): Promise<ImageGenerationResult> {
     const startTime = Date.now();
 
     // 解析尺寸
@@ -50,15 +59,18 @@ export class ReplicateProvider implements ImageGenerationProvider {
 
     try {
       // 创建预测
-      const createResp = await fetch('https://api.replicate.com/v1/predictions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30000),
-      });
+      const createResp = await fetch(
+        'https://api.replicate.com/v1/predictions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(30000),
+        }
+      );
 
       if (!createResp.ok) {
         const errorBody = await createResp.text();

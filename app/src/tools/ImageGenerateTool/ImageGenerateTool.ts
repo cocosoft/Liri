@@ -23,7 +23,10 @@ import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile
 import { ImageGenerationRouter } from './ImageGenerationRouter';
 import type { ImageGenerationConfig, CostRecord } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageGenerate' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'tools:imageGenerate',
+});
 
 export interface ImageGenerateParams {
   prompt: string;
@@ -109,7 +112,8 @@ export class ImageGenerateTool extends BaseTool {
       name: 'provider',
       type: 'string',
       enum: ['openai', 'stability', 'sdwebui', 'replicate'],
-      description: 'AI provider to use. If not specified, uses the fallback chain.',
+      description:
+        'AI provider to use. If not specified, uses the fallback chain.',
       required: false,
     },
   ];
@@ -120,7 +124,9 @@ export class ImageGenerateTool extends BaseTool {
   /** 获取 Router 实例 */
   private getRouter(): ImageGenerationRouter {
     if (!ImageGenerateTool.router) {
-      ImageGenerateTool.router = new ImageGenerationRouter(this.getProviderConfig());
+      ImageGenerateTool.router = new ImageGenerationRouter(
+        this.getProviderConfig()
+      );
     }
     return ImageGenerateTool.router;
   }
@@ -129,7 +135,8 @@ export class ImageGenerateTool extends BaseTool {
    * 从环境变量构建 Provider 配置
    */
   private getProviderConfig(): Partial<ImageGenerationConfig> {
-    const openaiKey = process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY;
+    const openaiKey =
+      process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY;
     const stabilityKey = process.env.STABILITY_API_KEY;
     const replicateKey = process.env.REPLICATE_API_KEY;
     const sdEndpoint = process.env.SD_WEBUI_URL;
@@ -170,7 +177,10 @@ export class ImageGenerateTool extends BaseTool {
 
       if (!params.prompt || typeof params.prompt !== 'string') {
         logger.warn('ImageGenerateTool · 缺少提示词');
-        return { success: false, error: 'prompt is required and must be a string' };
+        return {
+          success: false,
+          error: 'prompt is required and must be a string',
+        };
       }
 
       const count = params.n ?? 1;
@@ -187,7 +197,10 @@ export class ImageGenerateTool extends BaseTool {
       // 新方式：走 fallback 链
       return await this.executeWithRouter(params);
     } catch (error) {
-      await handleError(error, { module: 'tools:imageGenerate', action: 'execute' });
+      await handleError(error, {
+        module: 'tools:imageGenerate',
+        action: 'execute',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       return { success: false, error: `Failed to generate image: ${errorMsg}` };
     }
@@ -196,7 +209,9 @@ export class ImageGenerateTool extends BaseTool {
   /**
    * 通过新的 Router 执行图片生成（fallback 链）
    */
-  private async executeWithRouter(params: ImageGenerateParams): Promise<ToolResult> {
+  private async executeWithRouter(
+    params: ImageGenerateParams
+  ): Promise<ToolResult> {
     const router = this.getRouter();
 
     // 预先显示费用估算
@@ -221,15 +236,16 @@ export class ImageGenerateTool extends BaseTool {
       size: params.size,
     });
 
-    const { result, costBreakdown, totalCostUsd, usedProvider } = await router.generate({
-      prompt: params.prompt,
-      negativePrompt: params.negativePrompt,
-      size: params.size,
-      quality: params.quality,
-      style: params.style,
-      n: params.n ?? 1,
-      format: params.format,
-    });
+    const { result, costBreakdown, totalCostUsd, usedProvider } =
+      await router.generate({
+        prompt: params.prompt,
+        negativePrompt: params.negativePrompt,
+        size: params.size,
+        quality: params.quality,
+        style: params.style,
+        n: params.n ?? 1,
+        format: params.format,
+      });
 
     if (!result.success) {
       logger.error('ImageGenerateTool · 生成失败 (Router)', {
@@ -239,14 +255,26 @@ export class ImageGenerateTool extends BaseTool {
       return {
         success: false,
         error: result.error,
-        data: { costBreakdown, totalCostUsd, providerErrors: costBreakdown.filter((c) => c.status === 'failed').map((c) => c.provider) },
+        data: {
+          costBreakdown,
+          totalCostUsd,
+          providerErrors: costBreakdown
+            .filter((c) => c.status === 'failed')
+            .map((c) => c.provider),
+        },
       };
     }
 
     const images: GeneratedImage[] = [];
     for (const img of result.data) {
-      if (!img.url || typeof img.url !== 'string' || img.url.trim().length === 0) {
-        logger.warn('ImageGenerateTool · 生成的图片 URL 无效', { url: img.url });
+      if (
+        !img.url ||
+        typeof img.url !== 'string' ||
+        img.url.trim().length === 0
+      ) {
+        logger.warn('ImageGenerateTool · 生成的图片 URL 无效', {
+          url: img.url,
+        });
         continue;
       }
 
@@ -261,7 +289,10 @@ export class ImageGenerateTool extends BaseTool {
 
     if (images.length === 0) {
       logger.error('ImageGenerateTool · 所有生成的图片均未通过安全检查');
-      return { success: false, error: 'All generated images failed security checks' };
+      return {
+        success: false,
+        error: 'All generated images failed security checks',
+      };
     }
 
     logger.info('ImageGenerateTool · 生成完成 (Router)', {
@@ -299,11 +330,15 @@ export class ImageGenerateTool extends BaseTool {
   /**
    * 通过原有的 ProviderRegistry 执行（兼容旧接口）
    */
-  private async executeWithSpecificProvider(params: ImageGenerateParams): Promise<ToolResult> {
+  private async executeWithSpecificProvider(
+    params: ImageGenerateParams
+  ): Promise<ToolResult> {
     const provider = providerRegistry.get(params.provider ?? 'openai');
 
     if (!provider.generateImage) {
-      logger.warn('ImageGenerateTool · 提供商不支持图片生成', { provider: provider.id });
+      logger.warn('ImageGenerateTool · 提供商不支持图片生成', {
+        provider: provider.id,
+      });
       return {
         success: false,
         error: `Provider '${provider.id}' does not support image generation. Use 'openai' provider with DALL-E 3.`,
@@ -328,14 +363,22 @@ export class ImageGenerateTool extends BaseTool {
     });
 
     if (!result.success) {
-      logger.error('ImageGenerateTool · 生成失败 (兼容模式)', { error: result.error });
+      logger.error('ImageGenerateTool · 生成失败 (兼容模式)', {
+        error: result.error,
+      });
       return { success: false, error: result.error };
     }
 
     const images: GeneratedImage[] = [];
     for (const img of result.data) {
-      if (!img.url || typeof img.url !== 'string' || img.url.trim().length === 0) {
-        logger.warn('ImageGenerateTool · 生成的图片 URL 无效', { url: img.url });
+      if (
+        !img.url ||
+        typeof img.url !== 'string' ||
+        img.url.trim().length === 0
+      ) {
+        logger.warn('ImageGenerateTool · 生成的图片 URL 无效', {
+          url: img.url,
+        });
         continue;
       }
       images.push({
@@ -349,7 +392,10 @@ export class ImageGenerateTool extends BaseTool {
 
     if (images.length === 0) {
       logger.error('ImageGenerateTool · 所有生成的图片均未通过安全检查');
-      return { success: false, error: 'All generated images failed security checks' };
+      return {
+        success: false,
+        error: 'All generated images failed security checks',
+      };
     }
 
     logger.info('ImageGenerateTool · 生成完成 (兼容模式)', {
@@ -368,7 +414,12 @@ export class ImageGenerateTool extends BaseTool {
 
     return {
       success: true,
-      data: { images, params, model: result.model, durationMs: result.durationMs },
+      data: {
+        images,
+        params,
+        model: result.model,
+        durationMs: result.durationMs,
+      },
       output: `Generated ${params.n ?? 1} image(s) using ${params.provider ?? 'openai'} (${result.model}): "${params.prompt.slice(0, 80)}..."`,
     };
   }

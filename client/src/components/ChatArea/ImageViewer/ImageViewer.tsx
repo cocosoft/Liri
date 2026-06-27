@@ -70,12 +70,26 @@ export default function ImageViewer({ images, initialIndex = 0, onClose }: Props
     if (scale > 1) setOffset({ x: 0, y: 0 });
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!currentUrl) return;
-    const a = document.createElement("a");
-    a.href = currentUrl;
-    a.download = `image_${Date.now()}`;
-    a.click();
+    try {
+      // fetch + blob 确保跨域大文件也能触发下载
+      const res = await fetch(currentUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ext = currentUrl.split(".").pop()?.split("?")[0] || "png";
+      a.download = `image_${Date.now()}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // fallback: 直接 a 标签点击
+      const a = document.createElement("a");
+      a.href = currentUrl;
+      a.download = `image_${Date.now()}`;
+      a.click();
+    }
   };
 
   return (

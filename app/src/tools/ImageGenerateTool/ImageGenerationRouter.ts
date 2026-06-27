@@ -11,7 +11,10 @@
 
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import type { ImageGenerationParams, ImageGenerationResult } from '../../ai/providers/AIProvider';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../ai/providers/AIProvider';
 import type {
   ImageGenerationProvider,
   ImageGenerationConfig,
@@ -26,7 +29,10 @@ import { ReplicateProvider } from './providers/ReplicateProvider';
 import { ImageGenerationCache } from './ImageGenerationCache';
 import { getImageSafetyFilter } from './ImageSafetyFilter';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageGenerate' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'tools:imageGenerate',
+});
 
 export class ImageGenerationRouter {
   private providers: ImageGenerationProvider[] = [];
@@ -63,7 +69,9 @@ export class ImageGenerationRouter {
           provider = new ReplicateProvider(cfg);
           break;
         default:
-          logger.warn('ImageGenerationRouter · 未知 Provider 类型', { type: cfg.type });
+          logger.warn('ImageGenerationRouter · 未知 Provider 类型', {
+            type: cfg.type,
+          });
           continue;
       }
 
@@ -117,7 +125,14 @@ export class ImageGenerationRouter {
         });
         return {
           result: cached,
-          costBreakdown: [{ provider: 'cache', status: 'success', estimatedCostUsd: 0, latencyMs: 0 }],
+          costBreakdown: [
+            {
+              provider: 'cache',
+              status: 'success',
+              estimatedCostUsd: 0,
+              latencyMs: 0,
+            },
+          ],
           totalCostUsd: 0,
           usedProvider: 'cache',
         };
@@ -148,6 +163,22 @@ export class ImageGenerationRouter {
     // 按优先级依次尝试
     const maxRetries = this.config.fallback.maxRetries;
     const providers = this.providers.slice(0, maxRetries + 1);
+
+    if (providers.length === 0) {
+      return {
+        result: {
+          success: false,
+          data: [],
+          error:
+            'No AI image provider is configured. Please set OPENAI_API_KEY, STABILITY_API_KEY, REPLICATE_API_KEY, or SD_WEBUI_URL in your .env file.',
+          durationMs: 0,
+        },
+        costBreakdown: [],
+        totalCostUsd: 0,
+        usedProvider: 'none',
+      };
+    }
+
     const otel = getOTelTracing();
 
     for (const provider of providers) {
@@ -193,7 +224,12 @@ export class ImageGenerationRouter {
             this.cache.set(params, result);
           }
 
-          return { result, costBreakdown, totalCostUsd, usedProvider: provider.type };
+          return {
+            result,
+            costBreakdown,
+            totalCostUsd,
+            usedProvider: provider.type,
+          };
         }
 
         // Provider 返回失败

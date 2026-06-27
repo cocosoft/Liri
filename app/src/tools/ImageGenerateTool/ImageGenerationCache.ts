@@ -9,7 +9,10 @@
  *   - 内存 LRU：最多 100 条，超出后淘汰最旧条目
  */
 
-import type { ImageGenerationParams, ImageGenerationResult } from '../../ai/providers/AIProvider';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../ai/providers/AIProvider';
 import type { GenerationCacheConfig } from './types';
 
 /** 缓存条目 */

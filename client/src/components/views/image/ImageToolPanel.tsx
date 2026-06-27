@@ -1,24 +1,17 @@
 /**
  * ImageToolPanel
  * 左侧工具入口面板 — 选择工具类型 → 展开 ToolParamForm
+ * 引用 toolRegistry 集中管理工具定义
  */
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import ToolParamForm from "./ToolParamForm";
+import { TOOL_ENTRIES } from "./toolRegistry";
 
 interface Props {
   onExecute: (toolName: string, args: Record<string, unknown>) => void;
   loading?: boolean;
 }
-
-/** 工具名 → i18n 键 + emoji 映射 */
-const TOOL_KEYS: Record<string, { labelKey: string; icon: string }> = {
-  image_generate:     { labelKey: "image.generate", icon: "🖼" },
-  image_analysis:     { labelKey: "image.analyze",  icon: "🔍" },
-  image:              { labelKey: "image.edit",      icon: "✂" },
-  image_svg_generate: { labelKey: "image.svg",       icon: "📐" },
-  canvas:             { labelKey: "image.canvas",    icon: "🎨" },
-};
 
 export default function ImageToolPanel({ onExecute, loading }: Props) {
   const { t } = useTranslation();
@@ -30,7 +23,9 @@ export default function ImageToolPanel({ onExecute, loading }: Props) {
 
   const handleSubmit = useCallback(
     (args: Record<string, unknown>) => {
-      if (activeTool) onExecute(activeTool, args);
+      if (activeTool) {
+        onExecute(activeTool, args);
+      }
     },
     [activeTool, onExecute]
   );
@@ -42,25 +37,30 @@ export default function ImageToolPanel({ onExecute, loading }: Props) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {Object.entries(TOOL_KEYS).map(([toolName, { labelKey, icon }]) => (
+        {TOOL_ENTRIES.map((tool) => (
           <button
-            key={toolName}
-            onClick={() => handleSelect(toolName)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs border-0 cursor-pointer transition-colors ${
-              activeTool === toolName
-                ? "bg-blue-600/30 text-blue-300 border border-blue-500/30"
-                : "bg-gray-800/50 text-gray-400 hover:bg-gray-700/50 border border-gray-700/30"
+            key={tool.name}
+            onClick={() => handleSelect(tool.name)}
+            disabled={loading}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors disabled:opacity-40 ${
+              activeTool === tool.name
+                ? "bg-blue-600/30 text-blue-300 border-blue-500/40"
+                : "bg-gray-700/60 text-gray-200 border-gray-600/30 hover:bg-gray-600/50 hover:text-white"
             }`}
           >
-            <span className="text-sm">{icon}</span>
-            <span>{t(labelKey)}</span>
+            <span className="text-sm">{tool.icon}</span>
+            <span>{t(tool.labelKey)}</span>
           </button>
         ))}
       </div>
 
       {activeTool && (
         <div className="bg-gray-800/40 rounded p-3 border border-gray-700/30">
-          <ToolParamForm toolName={activeTool} onSubmit={handleSubmit} loading={loading} />
+          <ToolParamForm
+            toolName={activeTool}
+            onSubmit={handleSubmit}
+            loading={loading}
+          />
         </div>
       )}
     </div>

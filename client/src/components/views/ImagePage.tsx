@@ -1,46 +1,32 @@
 /**
  * ImagePage
- * 图像工作台 — 左侧工具面板 + 右侧图库网格
+ * 图像工作台 — 左侧工具面板 + 右侧图库网格（P2-7: 无限滚动）
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
-import { imageService } from "../../services/imageService";
+import { imageService, clearImageCache } from "../../services/imageService";
 import ImageToolPanel from "./image/ImageToolPanel";
-import ImageGallery from "./image/ImageGallery";
+import ImageGallery, { useImageGallery } from "./image/ImageGallery";
 import ImageUploadDrop from "./image/ImageUploadDrop";
-
-type ImageItem = { path: string; url: string };
+import TaskHistoryPanel from "./image/TaskHistory";
+import { addHistory } from "./image/taskHistoryStore";
 
 function ImagePage() {
   const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
-  const [images, setImages] = useState<ImageItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const gallery = useImageGallery();
   const [error, setError] = useState<string | null>(null);
+  const [toolLoading, setToolLoading] = useState(false);
 
-  const loadImages = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await imageService.listImages();
-      setImages(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("image.loadFailed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    loadImages();
-  }, [loadImages]);
+  const loading = gallery.loading || toolLoading;
 
   const handleToolExecute = useCallback(
     async (toolName: string, args: Record<string, unknown>) => {
-      setLoading(true);
+      const startedAt = Date.now();
+      setToolLoading(true);
       setError(null);
       try {
         switch (toolName) {
@@ -67,19 +53,27 @@ function ImagePage() {
           case "canvas":
             break;
         }
-        await loadImages();
+        addHistory({ toolName, args, success: true, startedAt, completedAt: Date.now() });
+        clearImageCache();
+        gallery.refresh();
       } catch (err) {
+        addHistory({ toolName, args, success: false, error: err instanceof Error ? err.message : String(err), startedAt, completedAt: Date.now() });
         setError(err instanceof Error ? err.message : t("image.toolExecutionFailed"));
       } finally {
-        setLoading(false);
+        setToolLoading(false);
       }
     },
-    [loadImages, t]
+    [gallery, t]
   );
 
-  const handleFileSelect = useCallback((_file: File) => {
-    // TODO: 上传文件到后端
-  }, []);
+  const handleUploaded = useCallback((_result: { path: string; url: string }) => {
+    clearImageCache();
+    gallery.refresh();
+  }, [gallery]);
+
+  const handleResume = useCallback((toolName: string, args: Record<string, unknown>) => {
+    handleToolExecute(toolName, args);
+  }, [handleToolExecute]);
 
   const textColor = isDark ? "text-gray-300" : "text-gray-700";
   const subtitleColor = isDark ? "text-gray-500" : "text-gray-400";
@@ -94,7 +88,7 @@ function ImagePage() {
           <p className={`text-xs ${subtitleColor}`}>{t("image.subtitle")}</p>
         </div>
         <button
-          onClick={loadImages}
+          onClick={gallery.refresh}
           disabled={loading}
           className="px-3 py-1 rounded text-xs border-0 cursor-pointer bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50"
         >
@@ -119,10 +113,19 @@ function ImagePage() {
       <div className="flex-1 overflow-hidden flex">
         <div className="w-64 shrink-0 overflow-y-auto border-r border-gray-700/20 p-3 space-y-4">
           <ImageToolPanel onExecute={handleToolExecute} loading={loading} />
-          <ImageUploadDrop onFileSelect={handleFileSelect} />
+          <ImageUploadDrop onUploaded={handleUploaded} />
+          <TaskHistoryPanel onResume={handleResume} />
         </div>
         <div className="flex-1 overflow-y-auto p-4">
-          <ImageGallery images={images} loading={loading} onRefresh={loadImages} />
+          <ImageGallery
+            images={gallery.images}
+            total={gallery.total}
+            hasMore={gallery.hasMore}
+            loading={gallery.loading}
+            loadingMore={gallery.loadingMore}
+            onLoadMore={gallery.loadMore}
+            onRefresh={gallery.refresh}
+          />
         </div>
       </div>
     </div>

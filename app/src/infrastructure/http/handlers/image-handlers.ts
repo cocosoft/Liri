@@ -10,7 +10,10 @@
 import type http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { URL } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import type { HandlerCtx } from './handler-utils';
+import { readRawBody, parseMultipartBody } from './handler-utils';
 import { handleError } from '@modules/error';
 import { resolveOutputDir } from '@modules/core/paths';
 
@@ -49,7 +52,11 @@ function isPathSafe(requestedPath: string): boolean {
 /**
  * 递归遍历目录收集图片文件路径
  */
-function collectImageFiles(dir: string, basePath: string, files: string[]): void {
+function collectImageFiles(
+  dir: string,
+  basePath: string,
+  files: string[]
+): void {
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -121,8 +128,88 @@ export async function handleImageStatic(
 }
 
 /**
- * GET /v1/images/list
- * 列出所有已生成的图片文件
+ * POST /v1/images/upload
+ * 上传图片（multipart/form-data，字段名 "file"）
+ */
+export async function handleImageUpload(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Expected multipart/form-data' }));
+      return;
+    }
+
+    const body = await readRawBody(req);
+    const parts = parseMultipartBody(body, contentType);
+    const filePart = parts.find((p) => p.name === 'file' && p.filename);
+
+    if (
+      !filePart ||
+      !(filePart.data instanceof Buffer) ||
+      filePart.data.length === 0
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No file uploaded or file is empty' }));
+      return;
+    }
+
+    // 安全校验：仅允许图片类型
+    const ext = path.extname(filePart.filename || '.png').toLowerCase();
+    const allowedExts = [
+      '.png',
+      '.jpg',
+      '.jpeg',
+      '.webp',
+      '.gif',
+      '.bmp',
+      '.svg',
+    ];
+    if (!allowedExts.includes(ext)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Unsupported file type: ${ext}` }));
+      return;
+    }
+
+    // 保存到 output/images/YYYY-MM-DD/
+    const today = new Date().toISOString().slice(0, 10);
+    const targetDir = path.join(IMAGES_ROOT, today);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const safeName = `${randomUUID().slice(0, 8)}${ext}`;
+    const outputPath = path.join(targetDir, safeName);
+    fs.writeFileSync(outputPath, filePart.data);
+
+    // 构建相对于 IMAGES_ROOT 的路径
+    const relativePath = path
+      .relative(IMAGES_ROOT, outputPath)
+      .replace(/\\/g, '/');
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        path: relativePath,
+        url: `/v1/images/static/${relativePath}`,
+      })
+    );
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'image_upload' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
+ * GET /v1/images/list?page=1&pageSize=50
+ * 列出已生成的图片文件（支持分页）
  */
 export async function handleImageList(
   ctx: HandlerCtx,
@@ -130,6 +217,18 @@ export async function handleImageList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
+    // 解析分页参数
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const page = Math.max(
+      1,
+      parseInt(urlObj.searchParams.get('page') || '1', 10)
+    );
+    const pageSize = Math.min(
+      200,
+      Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '50', 10))
+    );
+
     const files: string[] = [];
 
     if (fs.existsSync(IMAGES_ROOT)) {
@@ -139,14 +238,26 @@ export async function handleImageList(
     // 按路径排序（日期目录 + 文件名，天然按时间排序）
     files.sort().reverse();
 
+    const total = files.length;
+    const startIdx = (page - 1) * pageSize;
+    const paged = files.slice(startIdx, startIdx + pageSize);
+
     // 构建完整 URL
-    const images = files.map((f) => ({
+    const images = paged.map((f) => ({
       path: f.replace(/\\/g, '/'),
       url: `/v1/images/static/${f.replace(/\\/g, '/')}`,
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ images }));
+    res.end(
+      JSON.stringify({
+        images,
+        total,
+        page,
+        pageSize,
+        hasMore: startIdx + pageSize < total,
+      })
+    );
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'image_list' });
     if (!res.headersSent) {

@@ -158,7 +158,10 @@ export interface SimilarityResult {
 }
 
 const processor = new ImageProcessor();
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageAnalysis' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'tools:imageAnalysis',
+});
 
 /** L2 分析 WorkerGuard（懒加载单例） */
 let l2WorkerGuard: WorkerGuard | null = null;
@@ -194,7 +197,17 @@ export class ImageAnalysisTool extends BaseTool {
     {
       name: 'action',
       type: 'string',
-      enum: ['metadata', 'colors', 'content', 'compare', 'full', 'vision', 'ocr', 'objects', 'similarity'],
+      enum: [
+        'metadata',
+        'colors',
+        'content',
+        'compare',
+        'full',
+        'vision',
+        'ocr',
+        'objects',
+        'similarity',
+      ],
       description: 'Analysis action to perform',
       required: true,
     },
@@ -213,7 +226,8 @@ export class ImageAnalysisTool extends BaseTool {
     {
       name: 'samplePrecision',
       type: 'number',
-      description: 'Color sampling precision (1-10, higher is more accurate but slower, default 3)',
+      description:
+        'Color sampling precision (1-10, higher is more accurate but slower, default 3)',
       required: false,
       default: 3,
     },
@@ -232,7 +246,8 @@ export class ImageAnalysisTool extends BaseTool {
     {
       name: 'labels',
       type: 'array',
-      description: 'Labels for similarity matching (e.g. ["cat", "dog", "car"])',
+      description:
+        'Labels for similarity matching (e.g. ["cat", "dog", "car"])',
       required: false,
     },
   ];
@@ -247,13 +262,20 @@ export class ImageAnalysisTool extends BaseTool {
       }
 
       if (!fs.existsSync(params.inputPath)) {
-        logger.warn('ImageAnalysisTool · 输入文件不存在', { inputPath: params.inputPath });
-        return { success: false, error: `Input file not found: ${params.inputPath}` };
+        logger.warn('ImageAnalysisTool · 输入文件不存在', {
+          inputPath: params.inputPath,
+        });
+        return {
+          success: false,
+          error: `Input file not found: ${params.inputPath}`,
+        };
       }
 
       const stat = fs.statSync(params.inputPath);
       if (!stat.isFile()) {
-        logger.warn('ImageAnalysisTool · 输入不是文件', { inputPath: params.inputPath });
+        logger.warn('ImageAnalysisTool · 输入不是文件', {
+          inputPath: params.inputPath,
+        });
         return { success: false, error: `Not a file: ${params.inputPath}` };
       }
 
@@ -261,24 +283,40 @@ export class ImageAnalysisTool extends BaseTool {
       const checkBuffer = fs.readFileSync(params.inputPath);
       const ext = path.extname(params.inputPath).slice(1).toLowerCase();
       const mimeMap: Record<string, string> = {
-        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        webp: 'image/webp',
+        gif: 'image/gif',
+        bmp: 'image/bmp',
       };
       const checkMime = mimeMap[ext] || `image/${ext}`;
-      const sanitizeResult = imageSanitizationPolicy.sanitize(checkBuffer, checkMime);
+      const sanitizeResult = imageSanitizationPolicy.sanitize(
+        checkBuffer,
+        checkMime
+      );
 
       if (!sanitizeResult.sanitized) {
         logger.warn('ImageAnalysisTool · 安全检查未通过', {
-          inputPath: params.inputPath, warnings: sanitizeResult.warnings,
+          inputPath: params.inputPath,
+          warnings: sanitizeResult.warnings,
         });
-        return { success: false, error: `Image failed security check: ${sanitizeResult.warnings.join(', ')}` };
+        return {
+          success: false,
+          error: `Image failed security check: ${sanitizeResult.warnings.join(', ')}`,
+        };
       }
 
       if (sanitizeResult.warnings.length > 0) {
-        logger.warn('ImageAnalysisTool · 安全检查告警', { warnings: sanitizeResult.warnings });
+        logger.warn('ImageAnalysisTool · 安全检查告警', {
+          warnings: sanitizeResult.warnings,
+        });
       }
 
-      logger.info('ImageAnalysisTool · 执行', { action: params.action, inputPath: params.inputPath });
+      logger.info('ImageAnalysisTool · 执行', {
+        action: params.action,
+        inputPath: params.inputPath,
+      });
 
       // OTel 追踪
       const otel = getOTelTracing();
@@ -290,38 +328,69 @@ export class ImageAnalysisTool extends BaseTool {
       let result: ToolResult;
       try {
         switch (params.action) {
-        case 'metadata':   result = this.handleMetadata(params); break;
-        case 'colors':     result = this.handleColors(params); break;
-        case 'content':    result = this.handleContent(params); break;
-        case 'compare':    result = this.handleCompare(params); break;
-        case 'full':       result = await this.handleFull(params); break;
-        case 'vision':     result = await this.handleVision(params); break;
-        case 'ocr':        result = await this.handleOcr(params); break;
-        case 'objects':    result = await this.handleObjectDetection(params); break;
-        case 'similarity': result = await this.handleSimilarity(params); break;
-        default:
-          logger.warn('ImageAnalysisTool · 未知操作', { action: params.action });
-          result = { success: false, error: `Unknown action: ${params.action}` };
+          case 'metadata':
+            result = this.handleMetadata(params);
+            break;
+          case 'colors':
+            result = this.handleColors(params);
+            break;
+          case 'content':
+            result = this.handleContent(params);
+            break;
+          case 'compare':
+            result = this.handleCompare(params);
+            break;
+          case 'full':
+            result = await this.handleFull(params);
+            break;
+          case 'vision':
+            result = await this.handleVision(params);
+            break;
+          case 'ocr':
+            result = await this.handleOcr(params);
+            break;
+          case 'objects':
+            result = await this.handleObjectDetection(params);
+            break;
+          case 'similarity':
+            result = await this.handleSimilarity(params);
+            break;
+          default:
+            logger.warn('ImageAnalysisTool · 未知操作', {
+              action: params.action,
+            });
+            result = {
+              success: false,
+              error: `Unknown action: ${params.action}`,
+            };
+        }
+
+        otel.endSpan(
+          span,
+          result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
+        );
+
+        // 分析成功后将结果写入知识库
+        if (result.success) {
+          this.recordAnalysisToKnowledgeBase(params, result).catch(
+            (err: unknown) => {
+              logger.warn('ImageAnalysisTool · 知识库写入失败', {
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          );
+        }
+
+        return result;
+      } catch (spanError) {
+        otel.endSpan(span, SpanStatusCode.ERROR, String(spanError));
+        throw spanError;
       }
-
-      otel.endSpan(span, result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR);
-
-      // 分析成功后将结果写入知识库
-      if (result.success) {
-        this.recordAnalysisToKnowledgeBase(params, result).catch((err: unknown) => {
-          logger.warn('ImageAnalysisTool · 知识库写入失败', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-      }
-
-      return result;
-    } catch (spanError) {
-      otel.endSpan(span, SpanStatusCode.ERROR, String(spanError));
-      throw spanError;
-    }
     } catch (error) {
-      await handleError(error, { module: 'tools:imageAnalysis', action: (input as ImageAnalysisInput)?.action ?? 'unknown' });
+      await handleError(error, {
+        module: 'tools:imageAnalysis',
+        action: (input as ImageAnalysisInput)?.action ?? 'unknown',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       return { success: false, error: `Image analysis failed: ${errorMsg}` };
     }
@@ -339,7 +408,8 @@ export class ImageAnalysisTool extends BaseTool {
     if (!guard) {
       return {
         success: false,
-        error: 'L2 OCR is unavailable. Python worker circuit is open. Try L3 vision analysis instead.',
+        error:
+          'L2 OCR is unavailable. Python worker circuit is open. Try L3 vision analysis instead.',
         data: { l2Unavailable: true },
       };
     }
@@ -361,7 +431,10 @@ export class ImageAnalysisTool extends BaseTool {
         output: response.text,
       };
     } catch (error) {
-      await handleError(error, { module: 'tools:imageAnalysis', action: 'analyze.l2.ocr' });
+      await handleError(error, {
+        module: 'tools:imageAnalysis',
+        action: 'analyze.l2.ocr',
+      });
 
       // 降级到 L3 云端分析
       logger.warn('ImageAnalysisTool · L2 OCR 失败，降级到 L3');
@@ -376,27 +449,34 @@ export class ImageAnalysisTool extends BaseTool {
    * 目标检测（L2 → Python YOLOv8n）
    * 降级：Python 不可用时返回错误提示
    */
-  private async handleObjectDetection(params: ImageAnalysisInput): Promise<ToolResult> {
+  private async handleObjectDetection(
+    params: ImageAnalysisInput
+  ): Promise<ToolResult> {
     const guard = getL2WorkerGuard();
 
     if (!guard) {
       return {
         success: false,
-        error: 'L2 object detection is unavailable. Python worker circuit is open.',
+        error:
+          'L2 object detection is unavailable. Python worker circuit is open.',
         data: { l2Unavailable: true },
       };
     }
 
     try {
-      const response = await guard.request<ObjectDetectionResult>('object_detection', {
-        image_path: params.inputPath,
-        model: 'yolov8n',
-      });
+      const response = await guard.request<ObjectDetectionResult>(
+        'object_detection',
+        {
+          image_path: params.inputPath,
+          model: 'yolov8n',
+        }
+      );
 
       const lines = [
         `Object Detection Results (${response.count} objects):`,
         ...response.objects.map(
-          (o) => `  ${o.label}: ${(o.confidence * 100).toFixed(1)}% at (${o.bbox.x}, ${o.bbox.y}, ${o.bbox.width}x${o.bbox.height})`
+          (o) =>
+            `  ${o.label}: ${(o.confidence * 100).toFixed(1)}% at (${o.bbox.x}, ${o.bbox.y}, ${o.bbox.width}x${o.bbox.height})`
         ),
       ];
 
@@ -406,7 +486,10 @@ export class ImageAnalysisTool extends BaseTool {
         output: lines.join('\n'),
       };
     } catch (error) {
-      await handleError(error, { module: 'tools:imageAnalysis', action: 'analyze.l2.yolo' });
+      await handleError(error, {
+        module: 'tools:imageAnalysis',
+        action: 'analyze.l2.yolo',
+      });
 
       logger.warn('ImageAnalysisTool · L2 目标检测失败，降级到 L3');
       return this.handleVision({
@@ -420,19 +503,24 @@ export class ImageAnalysisTool extends BaseTool {
    * 图片相似度分析（L2 → Python CLIP）
    * 降级：Python 不可用时返回错误提示
    */
-  private async handleSimilarity(params: ImageAnalysisInput): Promise<ToolResult> {
+  private async handleSimilarity(
+    params: ImageAnalysisInput
+  ): Promise<ToolResult> {
     const guard = getL2WorkerGuard();
 
     if (!guard) {
       return {
         success: false,
-        error: 'L2 similarity analysis is unavailable. Python worker circuit is open.',
+        error:
+          'L2 similarity analysis is unavailable. Python worker circuit is open.',
         data: { l2Unavailable: true },
       };
     }
 
     try {
-      const requestParams: Record<string, unknown> = { image_path: params.inputPath };
+      const requestParams: Record<string, unknown> = {
+        image_path: params.inputPath,
+      };
 
       if (params.labels && params.labels.length > 0) {
         requestParams.labels = params.labels;
@@ -441,25 +529,40 @@ export class ImageAnalysisTool extends BaseTool {
       } else if (params.prompt) {
         requestParams.text = params.prompt;
       } else {
-        return { success: false, error: 'Requires labels, comparePath, or prompt for similarity analysis' };
+        return {
+          success: false,
+          error:
+            'Requires labels, comparePath, or prompt for similarity analysis',
+        };
       }
 
-      const response = await guard.request<SimilarityResult>('image_similarity', requestParams);
+      const response = await guard.request<SimilarityResult>(
+        'image_similarity',
+        requestParams
+      );
 
       const scoreText = `Similarity: ${(response.similarity * 100).toFixed(1)}%`;
       let output = scoreText;
       if (response.label) output += `\nBest match: ${response.label}`;
       if (response.allScores) {
-        output += '\n' + Object.entries(response.allScores)
-          .map(([k, v]) => `  ${k}: ${(v * 100).toFixed(1)}%`)
-          .join('\n');
+        output +=
+          '\n' +
+          Object.entries(response.allScores)
+            .map(([k, v]) => `  ${k}: ${(v * 100).toFixed(1)}%`)
+            .join('\n');
       }
 
       return { success: true, data: response, output };
     } catch (error) {
-      await handleError(error, { module: 'tools:imageAnalysis', action: 'analyze.l2.clip' });
+      await handleError(error, {
+        module: 'tools:imageAnalysis',
+        action: 'analyze.l2.clip',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
-      return { success: false, error: `Similarity analysis failed: ${errorMsg}` };
+      return {
+        success: false,
+        error: `Similarity analysis failed: ${errorMsg}`,
+      };
     }
   }
 
@@ -528,21 +631,29 @@ export class ImageAnalysisTool extends BaseTool {
       `Color Analysis for: ${params.inputPath}`,
       `Dominant Colors:`,
       ...colors.dominantColors.map(
-        (c) => `  ${c.hex} (${c.rgb.join(',')}) - ${(c.percentage * 100).toFixed(1)}%`
+        (c) =>
+          `  ${c.hex} (${c.rgb.join(',')}) - ${(c.percentage * 100).toFixed(1)}%`
       ),
       `Palette: ${colors.palette}`,
       `Tone: ${colors.isWarm ? 'Warm' : ''}${colors.isWarm && colors.isCool ? ' / ' : ''}${colors.isCool ? 'Cool' : ''}`,
       `Brightness: ${(colors.brightness * 100).toFixed(0)}%`,
       `Colorfulness: ${(colors.colorfulness * 100).toFixed(0)}%`,
     ];
-    return { success: true, data: { colors, metadata }, output: lines.join('\n') };
+    return {
+      success: true,
+      data: { colors, metadata },
+      output: lines.join('\n'),
+    };
   }
 
   private handleContent(params: ImageAnalysisInput): ToolResult {
     const metadata = this.extractMetadata(params.inputPath);
     const content = this.analyzeContent(metadata);
     if (!metadata.width || !metadata.height) {
-      return { success: false, error: 'Cannot analyze content: unable to determine image dimensions' };
+      return {
+        success: false,
+        error: 'Cannot analyze content: unable to determine image dimensions',
+      };
     }
     const lines = [
       `Content Analysis for: ${params.inputPath}`,
@@ -552,35 +663,57 @@ export class ImageAnalysisTool extends BaseTool {
       `Content Density: ${content.contentDensity}`,
       `Sharpness Estimate: ${(content.sharpness * 100).toFixed(0)}%`,
     ];
-    return { success: true, data: { content, metadata }, output: lines.join('\n') };
+    return {
+      success: true,
+      data: { content, metadata },
+      output: lines.join('\n'),
+    };
   }
 
   private handleCompare(params: ImageAnalysisInput): ToolResult {
     if (!params.comparePath) {
-      return { success: false, error: 'comparePath is required for compare action' };
+      return {
+        success: false,
+        error: 'comparePath is required for compare action',
+      };
     }
     if (!fs.existsSync(params.comparePath)) {
-      return { success: false, error: `Compare file not found: ${params.comparePath}` };
+      return {
+        success: false,
+        error: `Compare file not found: ${params.comparePath}`,
+      };
     }
     const metaA = this.extractMetadata(params.inputPath);
     const metaB = this.extractMetadata(params.comparePath);
     const comparison = this.compareImages(metaA, metaB);
     const lines = [
-      'Image Comparison:', '',
+      'Image Comparison:',
+      '',
       '--- Image A ---',
       `  ${params.inputPath}`,
       `  ${metaA.width || '?'} x ${metaA.height || '?'}, ${metaA.format}, ${(metaA.fileSize / 1024).toFixed(1)} KB`,
-      '', '--- Image B ---',
+      '',
+      '--- Image B ---',
       `  ${params.comparePath}`,
       `  ${metaB.width || '?'} x ${metaB.height || '?'}, ${metaB.format}, ${(metaB.fileSize / 1024).toFixed(1)} KB`,
-      '', '--- Differences ---',
-      comparison.sameDimensions ? '  Dimensions: Identical' : `  Dimensions: ${comparison.dimensionDiff}`,
-      comparison.sameFormat ? '  Format: Identical' : `  Format: ${metaA.format} vs ${metaB.format}`,
+      '',
+      '--- Differences ---',
+      comparison.sameDimensions
+        ? '  Dimensions: Identical'
+        : `  Dimensions: ${comparison.dimensionDiff}`,
+      comparison.sameFormat
+        ? '  Format: Identical'
+        : `  Format: ${metaA.format} vs ${metaB.format}`,
       `  Size Ratio: ${comparison.sizeRatio.toFixed(2)}x`,
       metaA.aspectRatio && metaB.aspectRatio
-        ? `  Aspect Ratio Diff: ${(comparison.aspectRatioDiff * 100).toFixed(2)}%` : '',
+        ? `  Aspect Ratio Diff: ${(comparison.aspectRatioDiff * 100).toFixed(2)}%`
+        : '',
     ].filter(Boolean);
-    return { success: true, data: { imageA: metaA, imageB: metaB, comparison }, output: lines.join('\n') };
+    return {
+      success: true,
+      data: { imageA: metaA, imageB: metaB, comparison },
+      output: lines.join('\n'),
+    };
   }
 
   // ---- L3 云端分析 ----
@@ -591,44 +724,72 @@ export class ImageAnalysisTool extends BaseTool {
     const colors = this.analyzeColors(params.inputPath, precision);
     const content = this.analyzeContent(metadata);
     const lines = [
-      '=== Full Image Analysis ===', '',
+      '=== Full Image Analysis ===',
+      '',
       '--- Metadata ---',
       `File: ${metadata.filePath}`,
       `Size: ${(metadata.fileSize / 1024).toFixed(1)} KB`,
       `Format: ${metadata.format}`,
-      metadata.width ? `Dimensions: ${metadata.width} x ${metadata.height}` : '',
-      metadata.aspectRatio ? `Aspect Ratio: ${metadata.aspectRatio?.toFixed(3)}` : '',
-      '', '--- Color Analysis ---',
-      ...colors.dominantColors.map((c) => `  ${c.hex} - ${(c.percentage * 100).toFixed(1)}%`),
+      metadata.width
+        ? `Dimensions: ${metadata.width} x ${metadata.height}`
+        : '',
+      metadata.aspectRatio
+        ? `Aspect Ratio: ${metadata.aspectRatio?.toFixed(3)}`
+        : '',
+      '',
+      '--- Color Analysis ---',
+      ...colors.dominantColors.map(
+        (c) => `  ${c.hex} - ${(c.percentage * 100).toFixed(1)}%`
+      ),
       `Brightness: ${(colors.brightness * 100).toFixed(0)}%`,
       `Colorfulness: ${(colors.colorfulness * 100).toFixed(0)}%`,
-      '', '--- Content Analysis ---',
+      '',
+      '--- Content Analysis ---',
       `Orientation: ${content.isSquare ? 'Square' : content.isLandscape ? 'Landscape' : 'Portrait'}`,
       `Size Category: ${content.sizeCategory}`,
       `Content Density: ${content.contentDensity}`,
     ].filter(Boolean);
 
     if (params.prompt) {
-      const visionResult = await this.doVisionAnalysis(params.inputPath, params.prompt);
+      const visionResult = await this.doVisionAnalysis(
+        params.inputPath,
+        params.prompt
+      );
       if (visionResult.success) {
         lines.push('', '--- AI Vision Analysis ---', visionResult.description);
       }
     }
-    return { success: true, data: { metadata, colors, content } satisfies FullAnalysis, output: lines.join('\n') };
+    return {
+      success: true,
+      data: { metadata, colors, content } satisfies FullAnalysis,
+      output: lines.join('\n'),
+    };
   }
 
   private async handleVision(params: ImageAnalysisInput): Promise<ToolResult> {
-    const result = await this.doVisionAnalysis(params.inputPath, params.prompt || '请详细描述这张图片的内容。');
+    const result = await this.doVisionAnalysis(
+      params.inputPath,
+      params.prompt || '请详细描述这张图片的内容。'
+    );
     if (!result.success) {
       return { success: false, error: result.error };
     }
-    return { success: true, data: { description: result.description, durationMs: result.durationMs }, output: result.description };
+    return {
+      success: true,
+      data: { description: result.description, durationMs: result.durationMs },
+      output: result.description,
+    };
   }
 
   private async doVisionAnalysis(
     filePath: string,
     prompt: string
-  ): Promise<{ success: boolean; description: string; error?: string; durationMs?: number }> {
+  ): Promise<{
+    success: boolean;
+    description: string;
+    error?: string;
+    durationMs?: number;
+  }> {
     let provider = providerRegistry.get('google');
     if (!provider.analyzeImage) {
       provider = providerRegistry.get('openai');
@@ -637,14 +798,19 @@ export class ImageAnalysisTool extends BaseTool {
       return {
         success: false,
         description: '',
-        error: 'No provider with vision capability available (try google or openai)',
+        error:
+          'No provider with vision capability available (try google or openai)',
       };
     }
     const imageBuffer = fs.readFileSync(filePath);
     const ext = path.extname(filePath).slice(1).toLowerCase();
     const mimeMap: Record<string, string> = {
-      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-      webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+      gif: 'image/gif',
+      bmp: 'image/bmp',
     };
     const mimeType = mimeMap[ext] || 'image/png';
     return provider.analyzeImage({ imageBuffer, mimeType, prompt });
@@ -657,51 +823,89 @@ export class ImageAnalysisTool extends BaseTool {
     const ext = path.extname(filePath).slice(1).toLowerCase();
     const dims = processor.getDimensions(filePath);
     const formatMap: Record<string, string> = {
-      png: 'png', jpg: 'jpeg', jpeg: 'jpeg', webp: 'webp',
-      gif: 'gif', bmp: 'bmp', svg: 'svg', tiff: 'tiff', tif: 'tiff',
-      ico: 'ico', avif: 'avif',
+      png: 'png',
+      jpg: 'jpeg',
+      jpeg: 'jpeg',
+      webp: 'webp',
+      gif: 'gif',
+      bmp: 'bmp',
+      svg: 'svg',
+      tiff: 'tiff',
+      tif: 'tiff',
+      ico: 'ico',
+      avif: 'avif',
     };
     const format = formatMap[ext] || ext;
     const mimeType = `image/${format === 'jpeg' ? 'jpeg' : format}`;
     const bytesPerPixel =
       dims?.width && dims?.height && dims.width > 0 && dims.height > 0
-        ? stat.size / (dims.width * dims.height) : undefined;
-    return { filePath, fileSize: stat.size, format, width: dims?.width, height: dims?.height, aspectRatio: dims?.aspectRatio, bytesPerPixel, mimeType };
+        ? stat.size / (dims.width * dims.height)
+        : undefined;
+    return {
+      filePath,
+      fileSize: stat.size,
+      format,
+      width: dims?.width,
+      height: dims?.height,
+      aspectRatio: dims?.aspectRatio,
+      bytesPerPixel,
+      mimeType,
+    };
   }
 
   private analyzeColors(filePath: string, precision: number): ColorAnalysis {
     const buffer = fs.readFileSync(filePath);
     const step = Math.max(4, Math.round(12 / precision));
     const colorBuckets = new Map<string, number>();
-    let totalSampled = 0, totalR = 0, totalG = 0, totalB = 0;
+    let totalSampled = 0,
+      totalR = 0,
+      totalG = 0,
+      totalB = 0;
 
     for (let i = 0; i < buffer.length; i += step * 3) {
       if (i + 2 >= buffer.length) break;
-      const r = buffer[i], g = buffer[i + 1], b = buffer[i + 2];
-      totalR += r; totalG += g; totalB += b;
+      const r = buffer[i],
+        g = buffer[i + 1],
+        b = buffer[i + 2];
+      totalR += r;
+      totalG += g;
+      totalB += b;
       totalSampled++;
       const key = `${Math.round(r / 32) * 32},${Math.round(g / 32) * 32},${Math.round(b / 32) * 32}`;
       colorBuckets.set(key, (colorBuckets.get(key) || 0) + 1);
     }
 
-    const sorted = [...colorBuckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const sorted = [...colorBuckets.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
     const totalCount = sorted.reduce((sum, [, count]) => sum + count, 0);
     const dominantColors = sorted.map(([key, count]) => {
       const [r, g, b] = key.split(',').map(Number);
-      return { hex: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase(), rgb: [r, g, b] as [number, number, number], percentage: totalCount > 0 ? count / totalCount : 0 };
+      return {
+        hex: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase(),
+        rgb: [r, g, b] as [number, number, number],
+        percentage: totalCount > 0 ? count / totalCount : 0,
+      };
     });
 
     const avgR = totalSampled > 0 ? totalR / totalSampled : 0;
     const avgG = totalSampled > 0 ? totalG / totalSampled : 0;
     const avgB = totalSampled > 0 ? totalB / totalSampled : 0;
-    const isWarm = avgR > avgB, isCool = avgB > avgR;
+    const isWarm = avgR > avgB,
+      isCool = avgB > avgR;
     const brightness = (avgR + avgG + avgB) / (3 * 255);
     const colorfulness =
       dominantColors.length > 1
-        ? Math.min(1, dominantColors.slice(0, 3).reduce((sum, c) => {
-            const [r, g, b] = c.rgb;
-            return sum + Math.sqrt((r - g) ** 2 + ((r + g) / 2 - b) ** 2) / 255;
-          }, 0) / 3) : 0;
+        ? Math.min(
+            1,
+            dominantColors.slice(0, 3).reduce((sum, c) => {
+              const [r, g, b] = c.rgb;
+              return (
+                sum + Math.sqrt((r - g) ** 2 + ((r + g) / 2 - b) ** 2) / 255
+              );
+            }, 0) / 3
+          )
+        : 0;
 
     let palette = 'monochrome';
     if (dominantColors.length >= 3 && colorfulness > 0.3) palette = 'colorful';
@@ -710,14 +914,23 @@ export class ImageAnalysisTool extends BaseTool {
     else if (brightness > 0.7) palette = 'bright';
     else if (brightness < 0.3) palette = 'dark';
 
-    return { dominantColors, palette, isWarm, isCool, brightness: Math.round(brightness * 100) / 100, colorfulness: Math.round(colorfulness * 100) / 100 };
+    return {
+      dominantColors,
+      palette,
+      isWarm,
+      isCool,
+      brightness: Math.round(brightness * 100) / 100,
+      colorfulness: Math.round(colorfulness * 100) / 100,
+    };
   }
 
   private analyzeContent(metadata: ImageMetadata): ContentAnalysis {
     const { width, height, fileSize } = metadata;
-    const w = width || 0, h = height || 0;
+    const w = width || 0,
+      h = height || 0;
     const isSquare = w > 0 && h > 0 && Math.abs(w - h) / Math.max(w, h) < 0.05;
-    const isLandscape = w > h, isPortrait = h > w;
+    const isLandscape = w > h,
+      isPortrait = h > w;
     let sizeCategory: ContentAnalysis['sizeCategory'] = 'medium';
     const maxDim = Math.max(w, h);
     if (maxDim > 0 && maxDim <= 64) sizeCategory = 'icon';
@@ -731,12 +944,26 @@ export class ImageAnalysisTool extends BaseTool {
       if (bytesPerArea < 0.5) contentDensity = 'sparse';
       else if (bytesPerArea > 3) contentDensity = 'dense';
     }
-    const sharpness = w > 0 && h > 0 && fileSize > 0 ? Math.min(1, Math.log2(fileSize / (w * h) + 1) / 5) : 0.5;
-    return { sizeCategory, isSquare, isLandscape, isPortrait, contentDensity, sharpness: Math.round(sharpness * 100) / 100 };
+    const sharpness =
+      w > 0 && h > 0 && fileSize > 0
+        ? Math.min(1, Math.log2(fileSize / (w * h) + 1) / 5)
+        : 0.5;
+    return {
+      sizeCategory,
+      isSquare,
+      isLandscape,
+      isPortrait,
+      contentDensity,
+      sharpness: Math.round(sharpness * 100) / 100,
+    };
   }
 
-  private compareImages(metaA: ImageMetadata, metaB: ImageMetadata): CompareAnalysis {
-    const sameDimensions = metaA.width === metaB.width && metaA.height === metaB.height;
+  private compareImages(
+    metaA: ImageMetadata,
+    metaB: ImageMetadata
+  ): CompareAnalysis {
+    const sameDimensions =
+      metaA.width === metaB.width && metaA.height === metaB.height;
     const sameFormat = metaA.format === metaB.format;
     const sizeRatio = metaB.fileSize > 0 ? metaA.fileSize / metaB.fileSize : 0;
     let dimensionDiff = '';
@@ -747,9 +974,18 @@ export class ImageAnalysisTool extends BaseTool {
     } else {
       dimensionDiff = 'Dimensions unknown for one or both images';
     }
-    const aspectRatioDiff = metaA.aspectRatio && metaB.aspectRatio
-      ? Math.abs(metaA.aspectRatio - metaB.aspectRatio) / Math.max(metaA.aspectRatio, metaB.aspectRatio) : 0;
-    return { sameDimensions, dimensionDiff, sizeRatio: Math.round(sizeRatio * 100) / 100, aspectRatioDiff: Math.round(aspectRatioDiff * 100) / 100, sameFormat };
+    const aspectRatioDiff =
+      metaA.aspectRatio && metaB.aspectRatio
+        ? Math.abs(metaA.aspectRatio - metaB.aspectRatio) /
+          Math.max(metaA.aspectRatio, metaB.aspectRatio)
+        : 0;
+    return {
+      sameDimensions,
+      dimensionDiff,
+      sizeRatio: Math.round(sizeRatio * 100) / 100,
+      aspectRatioDiff: Math.round(aspectRatioDiff * 100) / 100,
+      sameFormat,
+    };
   }
 }
 

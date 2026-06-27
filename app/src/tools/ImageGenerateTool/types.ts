@@ -3,7 +3,10 @@
  * 多后端图像生成 Provider 接口 + 配置 + 结果类型
  */
 
-import type { ImageGenerationParams, ImageGenerationResult } from '../../ai/providers/AIProvider';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../ai/providers/AIProvider';
 
 // ============================================================
 // Provider 接口

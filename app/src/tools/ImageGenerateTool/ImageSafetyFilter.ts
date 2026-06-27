@@ -12,7 +12,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageGenerate' });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'tools:imageGenerate',
+});
 
 /** 安全过滤严格度 */
 export type SafetyStrictness = 'low' | 'medium' | 'high';
@@ -34,25 +37,50 @@ export interface SafetyCheckResult {
 const BLOCKED_KEYWORDS: Record<SafetyStrictness, string[]> = {
   low: [
     // 仅拦截明显违规内容
-    'child abuse', 'child pornography',
+    'child abuse',
+    'child pornography',
   ],
   medium: [
     ...['child abuse', 'child pornography'],
-    'violence', 'gore', 'torture', 'weapon',
-    'hate speech', 'racist', 'discrimination',
+    'violence',
+    'gore',
+    'torture',
+    'weapon',
+    'hate speech',
+    'racist',
+    'discrimination',
   ],
   high: [
-    ...['child abuse', 'child pornography', 'violence', 'gore', 'torture', 'weapon',
-      'hate speech', 'racist', 'discrimination'],
-    'nude', 'naked', 'explicit', 'porn',
-    'drug', 'suicide', 'self-harm',
+    ...[
+      'child abuse',
+      'child pornography',
+      'violence',
+      'gore',
+      'torture',
+      'weapon',
+      'hate speech',
+      'racist',
+      'discrimination',
+    ],
+    'nude',
+    'naked',
+    'explicit',
+    'porn',
+    'drug',
+    'suicide',
+    'self-harm',
   ],
 };
 
 /** 白名单（始终允许的关键词） */
 const ALLOWLIST: string[] = [
-  'medical', 'educational', 'anatomy', 'art',
-  'historical', 'documentary', 'scientific',
+  'medical',
+  'educational',
+  'anatomy',
+  'art',
+  'historical',
+  'documentary',
+  'scientific',
 ];
 
 export class ImageSafetyFilter {

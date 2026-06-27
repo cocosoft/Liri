@@ -25,7 +25,17 @@ const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageTool' });
  * 图片编辑操作参数
  */
 export interface ImageEditInput {
-  action: 'resize' | 'convert' | 'info' | 'grayscale' | 'crop' | 'rotate' | 'flip' | 'watermark' | 'adjust' | 'batch';
+  action:
+    | 'resize'
+    | 'convert'
+    | 'info'
+    | 'grayscale'
+    | 'crop'
+    | 'rotate'
+    | 'flip'
+    | 'watermark'
+    | 'adjust'
+    | 'batch';
   inputPath: string;
   outputPath?: string;
   width?: number;
@@ -45,7 +55,12 @@ export interface ImageEditInput {
 
   // watermark 操作
   watermarkText?: string;
-  watermarkPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+  watermarkPosition?:
+    | 'top-left'
+    | 'top-right'
+    | 'bottom-left'
+    | 'bottom-right'
+    | 'center';
   watermarkFontSize?: number;
   watermarkColor?: string;
 
@@ -91,7 +106,18 @@ export class ImageTool extends BaseTool {
     {
       name: 'action',
       type: 'string',
-      enum: ['resize', 'crop', 'rotate', 'flip', 'watermark', 'adjust', 'convert', 'grayscale', 'info', 'batch'],
+      enum: [
+        'resize',
+        'crop',
+        'rotate',
+        'flip',
+        'watermark',
+        'adjust',
+        'convert',
+        'grayscale',
+        'info',
+        'batch',
+      ],
       description: 'Image editing action to perform',
       required: true,
     },
@@ -212,43 +238,77 @@ export class ImageTool extends BaseTool {
       }
 
       if (!fs.existsSync(params.inputPath)) {
-        logger.warn('ImageTool · 输入文件不存在', { inputPath: params.inputPath });
-        return { success: false, error: `Input file not found: ${params.inputPath}` };
+        logger.warn('ImageTool · 输入文件不存在', {
+          inputPath: params.inputPath,
+        });
+        return {
+          success: false,
+          error: `Input file not found: ${params.inputPath}`,
+        };
       }
 
       // 安全检查
       const checkBuffer = fs.readFileSync(params.inputPath);
       const ext = path.extname(params.inputPath).slice(1).toLowerCase();
       const mimeMap: Record<string, string> = {
-        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        webp: 'image/webp',
+        gif: 'image/gif',
+        bmp: 'image/bmp',
       };
       const checkMime = mimeMap[ext] || `image/${ext}`;
-      const sanitizeResult = imageSanitizationPolicy.sanitize(checkBuffer, checkMime);
+      const sanitizeResult = imageSanitizationPolicy.sanitize(
+        checkBuffer,
+        checkMime
+      );
 
       if (!sanitizeResult.sanitized) {
-        logger.warn('ImageTool · 安全检查未通过', { inputPath: params.inputPath, warnings: sanitizeResult.warnings });
-        return { success: false, error: `Image failed security check: ${sanitizeResult.warnings.join(', ')}` };
+        logger.warn('ImageTool · 安全检查未通过', {
+          inputPath: params.inputPath,
+          warnings: sanitizeResult.warnings,
+        });
+        return {
+          success: false,
+          error: `Image failed security check: ${sanitizeResult.warnings.join(', ')}`,
+        };
       }
 
-      logger.info('ImageTool · 执行', { action: params.action, inputPath: params.inputPath });
+      logger.info('ImageTool · 执行', {
+        action: params.action,
+        inputPath: params.inputPath,
+      });
 
       switch (params.action) {
-        case 'resize':    return this.handleResize(params);
-        case 'convert':   return this.handleConvert(params);
-        case 'info':      return this.handleInfo(params);
-        case 'grayscale': return this.handleGrayscale(params);
-        case 'crop':      return this.handleCrop(params);
-        case 'rotate':    return this.handleRotate(params);
-        case 'flip':      return this.handleFlip(params);
-        case 'watermark': return this.handleWatermark(params);
-        case 'adjust':    return this.handleAdjust(params);
-        case 'batch':     return await this.handleBatch(params);
+        case 'resize':
+          return this.handleResize(params);
+        case 'convert':
+          return this.handleConvert(params);
+        case 'info':
+          return this.handleInfo(params);
+        case 'grayscale':
+          return this.handleGrayscale(params);
+        case 'crop':
+          return this.handleCrop(params);
+        case 'rotate':
+          return this.handleRotate(params);
+        case 'flip':
+          return this.handleFlip(params);
+        case 'watermark':
+          return this.handleWatermark(params);
+        case 'adjust':
+          return this.handleAdjust(params);
+        case 'batch':
+          return await this.handleBatch(params);
         default:
           return { success: false, error: `Unknown action: ${params.action}` };
       }
     } catch (error) {
-      await handleError(error, { module: 'tools:imageTool', action: (input as ImageEditInput)?.action ?? 'unknown' });
+      await handleError(error, {
+        module: 'tools:imageTool',
+        action: (input as ImageEditInput)?.action ?? 'unknown',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       return { success: false, error: `Image operation failed: ${errorMsg}` };
     }
@@ -258,25 +318,44 @@ export class ImageTool extends BaseTool {
 
   private async handleResize(params: ImageEditInput): Promise<ToolResult> {
     if (!params.width && !params.height) {
-      return { success: false, error: 'At least one of width or height is required for resize action' };
+      return {
+        success: false,
+        error: 'At least one of width or height is required for resize action',
+      };
     }
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_resized');
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_resized');
     const result = await processor.resize(params.inputPath, outputPath, {
       maxWidth: params.width,
       maxHeight: params.height,
       quality: params.quality,
     });
-    if (!result.success) return { success: false, error: result.error || 'Resize failed' };
+    if (!result.success)
+      return { success: false, error: result.error || 'Resize failed' };
     return this.outputToResult('resize', params.inputPath, result);
   }
 
   private async handleConvert(params: ImageEditInput): Promise<ToolResult> {
-    if (!params.format) return { success: false, error: 'Target format is required for convert action' };
+    if (!params.format)
+      return {
+        success: false,
+        error: 'Target format is required for convert action',
+      };
     const ext = `.${params.format}`;
-    const outputPath = params.outputPath || params.inputPath.replace(path.extname(params.inputPath), ext);
-    const result = await processor.convert(params.inputPath, outputPath, params.format);
-    if (!result.success) return { success: false, error: result.error || 'Convert failed' };
-    return this.outputToResult('convert', params.inputPath, result, { format: params.format });
+    const outputPath =
+      params.outputPath ||
+      params.inputPath.replace(path.extname(params.inputPath), ext);
+    const result = await processor.convert(
+      params.inputPath,
+      outputPath,
+      params.format
+    );
+    if (!result.success)
+      return { success: false, error: result.error || 'Convert failed' };
+    return this.outputToResult('convert', params.inputPath, result, {
+      format: params.format,
+    });
   }
 
   private handleInfo(params: ImageEditInput): ToolResult {
@@ -284,8 +363,13 @@ export class ImageTool extends BaseTool {
     const dims = processor.getDimensions(params.inputPath);
     const ext = path.extname(params.inputPath).slice(1);
     const data: ImageEditOutput = {
-      action: 'info', inputPath: params.inputPath, originalSize: stat.size,
-      width: dims?.width, height: dims?.height, aspectRatio: dims?.aspectRatio, format: ext,
+      action: 'info',
+      inputPath: params.inputPath,
+      originalSize: stat.size,
+      width: dims?.width,
+      height: dims?.height,
+      aspectRatio: dims?.aspectRatio,
+      format: ext,
     };
     const info = [
       `File: ${params.inputPath}`,
@@ -297,9 +381,17 @@ export class ImageTool extends BaseTool {
   }
 
   private async handleGrayscale(params: ImageEditInput): Promise<ToolResult> {
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_grayscale');
-    const result = await processor.resize(params.inputPath, outputPath, { grayscale: true });
-    if (!result.success) return { success: false, error: result.error || 'Grayscale conversion failed' };
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_grayscale');
+    const result = await processor.resize(params.inputPath, outputPath, {
+      grayscale: true,
+    });
+    if (!result.success)
+      return {
+        success: false,
+        error: result.error || 'Grayscale conversion failed',
+      };
     return this.outputToResult('grayscale', params.inputPath, result);
   }
 
@@ -307,57 +399,100 @@ export class ImageTool extends BaseTool {
     const x = params.cropX ?? 0;
     const y = params.cropY ?? 0;
     if (!params.width || !params.height) {
-      return { success: false, error: 'width and height are required for crop action' };
+      return {
+        success: false,
+        error: 'width and height are required for crop action',
+      };
     }
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_cropped');
-    const result = await processor.crop(params.inputPath, outputPath, { x, y, width: params.width, height: params.height });
-    if (!result.success) return { success: false, error: result.error || 'Crop failed' };
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_cropped');
+    const result = await processor.crop(params.inputPath, outputPath, {
+      x,
+      y,
+      width: params.width,
+      height: params.height,
+    });
+    if (!result.success)
+      return { success: false, error: result.error || 'Crop failed' };
     return this.outputToResult('crop', params.inputPath, result);
   }
 
   private async handleRotate(params: ImageEditInput): Promise<ToolResult> {
     const degrees = params.degrees ?? 90;
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_rotated');
-    const result = await processor.rotate(params.inputPath, outputPath, degrees);
-    if (!result.success) return { success: false, error: result.error || 'Rotate failed' };
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_rotated');
+    const result = await processor.rotate(
+      params.inputPath,
+      outputPath,
+      degrees
+    );
+    if (!result.success)
+      return { success: false, error: result.error || 'Rotate failed' };
     return this.outputToResult('rotate', params.inputPath, result);
   }
 
   private async handleFlip(params: ImageEditInput): Promise<ToolResult> {
     const direction = params.direction ?? 'horizontal';
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, `_flipped_${direction}`);
-    const result = await processor.flip(params.inputPath, outputPath, direction);
-    if (!result.success) return { success: false, error: result.error || 'Flip failed' };
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, `_flipped_${direction}`);
+    const result = await processor.flip(
+      params.inputPath,
+      outputPath,
+      direction
+    );
+    if (!result.success)
+      return { success: false, error: result.error || 'Flip failed' };
     return this.outputToResult('flip', params.inputPath, result);
   }
 
   private async handleWatermark(params: ImageEditInput): Promise<ToolResult> {
     if (!params.watermarkText) {
-      return { success: false, error: 'watermarkText is required for watermark action' };
+      return {
+        success: false,
+        error: 'watermarkText is required for watermark action',
+      };
     }
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_watermarked');
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_watermarked');
     const result = await processor.watermark(params.inputPath, outputPath, {
       text: params.watermarkText,
       position: params.watermarkPosition,
       fontSize: params.watermarkFontSize,
       color: params.watermarkColor,
     });
-    if (!result.success) return { success: false, error: result.error || 'Watermark failed' };
+    if (!result.success)
+      return { success: false, error: result.error || 'Watermark failed' };
     return this.outputToResult('watermark', params.inputPath, result);
   }
 
   private async handleAdjust(params: ImageEditInput): Promise<ToolResult> {
-    if (!params.brightness && !params.contrast && !params.saturation && !params.gamma) {
-      return { success: false, error: 'At least one of brightness, contrast, saturation, or gamma is required' };
+    if (
+      !params.brightness &&
+      !params.contrast &&
+      !params.saturation &&
+      !params.gamma
+    ) {
+      return {
+        success: false,
+        error:
+          'At least one of brightness, contrast, saturation, or gamma is required',
+      };
     }
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_adjusted');
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_adjusted');
     const result = await processor.adjust(params.inputPath, outputPath, {
       brightness: params.brightness,
       contrast: params.contrast,
       saturation: params.saturation,
       gamma: params.gamma,
     });
-    if (!result.success) return { success: false, error: result.error || 'Adjust failed' };
+    if (!result.success)
+      return { success: false, error: result.error || 'Adjust failed' };
     return this.outputToResult('adjust', params.inputPath, result);
   }
 
@@ -367,7 +502,10 @@ export class ImageTool extends BaseTool {
   private async handleBatch(params: ImageEditInput): Promise<ToolResult> {
     const operations = params.operations ?? [];
     if (operations.length === 0) {
-      return { success: false, error: 'operations array is required for batch action' };
+      return {
+        success: false,
+        error: 'operations array is required for batch action',
+      };
     }
 
     const concurrency = params.concurrency ?? 4;
@@ -411,14 +549,19 @@ export class ImageTool extends BaseTool {
 
     const output = [
       `Batch processing completed: ${results.length}/${operations.length} succeeded`,
-      errors.length > 0 ? `Errors (${errors.length}):\n${errors.map((e) => `  ${e}`).join('\n')}` : '',
-    ].filter(Boolean).join('\n');
+      errors.length > 0
+        ? `Errors (${errors.length}):\n${errors.map((e) => `  ${e}`).join('\n')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     return {
       success: errors.length === 0 || stopOnError === 'continue',
       data,
       output,
-      error: errors.length > 0 ? `${errors.length} operation(s) failed` : undefined,
+      error:
+        errors.length > 0 ? `${errors.length} operation(s) failed` : undefined,
     };
   }
 

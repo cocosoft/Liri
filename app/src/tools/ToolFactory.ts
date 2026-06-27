@@ -931,6 +931,20 @@ export class ToolFactory {
   }
 
   /**
+   * 创建图片生成工具
+   */
+  createImageGenerateTool(): Tool {
+    return new ImageGenerateTool();
+  }
+
+  /**
+   * 创建 SVG 生成工具
+   */
+  createImageSvgTool(): Tool {
+    return new ImageSvgTool();
+  }
+
+  /**
    * 创建网关管理工具
    */
   createGatewayTool(): Tool {

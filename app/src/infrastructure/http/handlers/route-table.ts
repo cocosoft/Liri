@@ -376,6 +376,10 @@ export async function dispatchRoute(
     await self['handleImageStatic'](req, res, decodeURIComponent(filePath));
     return true;
   }
+  if (method === 'POST' && url === '/v1/images/upload') {
+    await self['handleImageUpload'](req, res);
+    return true;
+  }
 
   // ---- Agent ----
   if (method === 'GET' && url === '/v1/agents/tasks') {

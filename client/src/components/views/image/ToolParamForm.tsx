@@ -4,8 +4,9 @@
  */
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { getToolSchema } from "./toolRegistry";
 
-interface ToolParam {
+export interface ToolParam {
   name: string;
   type: "string" | "number";
   enum?: string[];
@@ -13,62 +14,6 @@ interface ToolParam {
   required: boolean;
   default?: unknown;
 }
-
-/** 5 个图像工具的参数 schema（仅定义结构和 i18n 键，不包含显示文本） */
-const TOOL_SCHEMAS: Record<string, { titleKey: string; params: ToolParam[] }> = {
-  image_generate: {
-    titleKey: "image.generateImage",
-    params: [
-      { name: "prompt",          type: "string", descriptionKey: "image.prompt",            required: true },
-      { name: "negativePrompt",  type: "string", descriptionKey: "image.negativePrompt",    required: false },
-      { name: "size",            type: "string", enum: ["256x256","512x512","1024x1024","1024x1792","1792x1024"], descriptionKey: "image.size",  required: false, default: "1024x1024" },
-      { name: "quality",         type: "string", enum: ["standard","hd"],                   descriptionKey: "image.quality",         required: false, default: "standard" },
-      { name: "style",           type: "string", enum: ["vivid","natural"],                 descriptionKey: "image.style",           required: false, default: "vivid" },
-      { name: "n",               type: "number", descriptionKey: "image.numberOfImages",    required: false, default: 1 },
-      { name: "format",          type: "string", enum: ["png","jpeg","webp"],               descriptionKey: "image.outputFormat",    required: false, default: "png" },
-    ],
-  },
-  image_analysis: {
-    titleKey: "image.analyzeImage",
-    params: [
-      { name: "action",          type: "string", enum: ["metadata","colors","content","compare","full","vision","ocr","objects","similarity"], descriptionKey: "image.action", required: true },
-      { name: "inputPath",       type: "string", descriptionKey: "image.inputPath",                required: true },
-      { name: "samplePrecision", type: "number", descriptionKey: "image.samplePrecision",          required: false, default: 3 },
-      { name: "prompt",          type: "string", descriptionKey: "image.visionPrompt",             required: false },
-    ],
-  },
-  image: {
-    titleKey: "image.editImage",
-    params: [
-      { name: "action",        type: "string", enum: ["resize","crop","rotate","flip","watermark","adjust","convert","grayscale","info","batch"], descriptionKey: "image.action", required: true },
-      { name: "inputPath",     type: "string", descriptionKey: "image.inputPath",       required: true },
-      { name: "width",         type: "number", descriptionKey: "image.targetWidth",      required: false },
-      { name: "height",        type: "number", descriptionKey: "image.targetHeight",     required: false },
-      { name: "format",        type: "string", enum: ["png","jpeg","webp"],              descriptionKey: "image.outputFormat",      required: false },
-      { name: "degrees",       type: "number", descriptionKey: "image.rotationDegrees",  required: false },
-      { name: "direction",     type: "string", enum: ["horizontal","vertical","both"],   descriptionKey: "image.flipDirection",     required: false },
-      { name: "watermarkText", type: "string", descriptionKey: "image.watermarkText",    required: false },
-    ],
-  },
-  image_svg_generate: {
-    titleKey: "image.generateSvg",
-    params: [
-      { name: "prompt", type: "string", descriptionKey: "image.prompt",  required: true },
-      { name: "size",   type: "string", descriptionKey: "image.svgSize", required: false, default: "64x64" },
-      { name: "style",  type: "string", enum: ["flat","line","solid","colorful"], descriptionKey: "image.svgStyle",      required: false },
-      { name: "color",  type: "string", descriptionKey: "image.primaryColor",    required: false },
-    ],
-  },
-  canvas: {
-    titleKey: "image.canvasOp",
-    params: [
-      { name: "action", type: "string", enum: ["create","draw","text","clear","export"], descriptionKey: "image.action",        required: true },
-      { name: "width",  type: "number", descriptionKey: "image.canvasWidth",             required: false, default: 800 },
-      { name: "height", type: "number", descriptionKey: "image.canvasHeight",            required: false, default: 600 },
-      { name: "format", type: "string", enum: ["png","jpeg","webp","svg"],               descriptionKey: "image.outputFormat",   required: false, default: "png" },
-    ],
-  },
-};
 
 interface Props {
   toolName: string;
@@ -78,7 +23,7 @@ interface Props {
 
 export default function ToolParamForm({ toolName, onSubmit, loading }: Props) {
   const { t } = useTranslation();
-  const schema = TOOL_SCHEMAS[toolName];
+  const schema = getToolSchema(toolName);
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const initial: Record<string, unknown> = {};
     if (schema) {
@@ -88,13 +33,38 @@ export default function ToolParamForm({ toolName, onSubmit, loading }: Props) {
     }
     return initial;
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = useCallback((name: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => {
+      if (prev[name]) {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      }
+      return prev;
+    });
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // P0-2: 参数校验
+    const newErrors: Record<string, string> = {};
+    if (schema) {
+      for (const p of schema.params) {
+        const val = values[p.name];
+        if (p.required && (val === undefined || val === "" || val === null)) {
+          newErrors[p.name] = t("image.validationRequired");
+        }
+      }
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     const cleaned: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(values)) {
       if (val !== "" && val !== undefined && val !== null) cleaned[key] = val;
@@ -124,8 +94,9 @@ export default function ToolParamForm({ toolName, onSubmit, loading }: Props) {
               <select
                 value={String(value ?? param.default ?? "")}
                 onChange={(e) => handleChange(param.name, e.target.value)}
-                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200"
+                className={`w-full bg-gray-800 border rounded px-2 py-1 text-xs text-gray-200 ${errors[param.name] ? "border-red-500" : "border-gray-600"}`}
               >
+                <option value="">-- {t("image.selectOption")} --</option>
                 {param.enum.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
@@ -136,7 +107,7 @@ export default function ToolParamForm({ toolName, onSubmit, loading }: Props) {
                 value={value !== undefined ? String(value) : ""}
                 onChange={(e) => handleChange(param.name, e.target.value ? Number(e.target.value) : undefined)}
                 placeholder={t(param.descriptionKey)}
-                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200"
+                className={`w-full bg-gray-800 border rounded px-2 py-1 text-xs text-gray-200 ${errors[param.name] ? "border-red-500" : "border-gray-600"}`}
               />
             ) : (
               <input
@@ -145,8 +116,11 @@ export default function ToolParamForm({ toolName, onSubmit, loading }: Props) {
                 onChange={(e) => handleChange(param.name, e.target.value)}
                 placeholder={t(param.descriptionKey)}
                 required={param.required}
-                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200"
+                className={`w-full bg-gray-800 border rounded px-2 py-1 text-xs text-gray-200 ${errors[param.name] ? "border-red-500" : "border-gray-600"}`}
               />
+            )}
+            {errors[param.name] && (
+              <div className="text-[9px] text-red-400">{errors[param.name]}</div>
             )}
           </div>
         );

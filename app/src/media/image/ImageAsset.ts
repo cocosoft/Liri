@@ -59,7 +59,10 @@ export async function validateAsset(asset: ImageAsset): Promise<ImageAsset> {
 /**
  * 从文件路径创建 ImageAsset
  */
-export function createImageAsset(filePath: string, format?: ImageAsset['format']): ImageAsset | null {
+export function createImageAsset(
+  filePath: string,
+  format?: ImageAsset['format']
+): ImageAsset | null {
   try {
     if (!fs.existsSync(filePath)) return null;
 

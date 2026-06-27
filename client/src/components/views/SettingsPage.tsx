@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
+import i18n from "../../i18n";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
 import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
@@ -162,6 +164,7 @@ const TIMEZONE_OPTIONS = [
 ];
 
 function SettingsPage() {
+  const { t } = useTranslation();
   const { config, setConfig } = useConfigStore();
   const [activeNav, setActiveNav] = useState(() => getPersistedNav("config"));
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
@@ -611,32 +614,61 @@ function SettingsPage() {
       (config.timezone as string) ||
       Intl.DateTimeFormat().resolvedOptions().timeZone ||
       "Asia/Shanghai";
+
+    /** 已支持的语言（有翻译文件） */
+    const SUPPORTED_LANGUAGES = [
+      { value: "zh-CN", label: "简体中文" },
+      { value: "en-US", label: "English (US)" },
+    ];
+
+    /** 计划中的语言（无翻译文件，切换后仍显示中文） */
+    const PLANNED_LANGUAGES = [
+      { value: "zh-TW", label: "繁體中文 (即將支援)" },
+      { value: "en-GB", label: "English (UK) (coming soon)" },
+      { value: "ja-JP", label: "日本語 (coming soon)" },
+      { value: "ko-KR", label: "한국어 (coming soon)" },
+      { value: "fr-FR", label: "Français (à venir)" },
+      { value: "de-DE", label: "Deutsch (demnächst)" },
+      { value: "es-ES", label: "Español (próximamente)" },
+      { value: "pt-BR", label: "Português (BR) (em breve)" },
+      { value: "ru-RU", label: "Русский (скоро)" },
+      { value: "ar-SA", label: "العربية (قريباً)" },
+    ];
+
+    const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const lang = e.target.value;
+      setConfig("language", lang);
+      // 立即切换 i18n 语言
+      const i18nLang = lang.startsWith("zh") ? "zh" : lang.startsWith("en") ? "en" : "zh";
+      i18n.changeLanguage(i18nLang);
+    };
+
+    const currentThemeLabel = isDark ? t("settings.dark") : t("settings.light");
+
     return (
-      <ConfigSection title="外观" description="配置界面主题、语言和时区" isDark={isDark}>
-        <ConfigItem label="主题模式" description={`当前: ${isDark ? "深色" : "浅色"}`} isDark={isDark}>
+      <ConfigSection title={t("settings.appearance")} description={t("settings.appearanceDesc")} isDark={isDark}>
+        <ConfigItem label={t("settings.theme")} description={`${t("settings.current")}: ${currentThemeLabel}`} isDark={isDark}>
           <ToggleConfig isDark={isDark} checked={isDark} onChange={toggleTheme} />
         </ConfigItem>
-        <ConfigItem label="界面语言" isDark={isDark}>
+        <ConfigItem label={t("settings.language")} isDark={isDark}>
           <select
             value={language}
-            onChange={(e) => setConfig("language", e.target.value)}
+            onChange={handleLanguageChange}
             className="w-full max-w-sm px-3 py-1.5 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           >
-            <option value="zh-CN">简体中文</option>
-            <option value="zh-TW">繁體中文</option>
-            <option value="en-US">English (US)</option>
-            <option value="en-GB">English (UK)</option>
-            <option value="ja-JP">日本語</option>
-            <option value="ko-KR">한국어</option>
-            <option value="fr-FR">Français</option>
-            <option value="de-DE">Deutsch</option>
-            <option value="es-ES">Español</option>
-            <option value="pt-BR">Português (BR)</option>
-            <option value="ru-RU">Русский</option>
-            <option value="ar-SA">العربية</option>
+            <optgroup label="---">
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label={t("settings.comingSoon")}>
+              {PLANNED_LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value} disabled>{l.label}</option>
+              ))}
+            </optgroup>
           </select>
         </ConfigItem>
-        <ConfigItem label="时区" isDark={isDark}>
+        <ConfigItem label={t("settings.timezone")} isDark={isDark}>
           <select
             value={timezone}
             onChange={(e) => setConfig("timezone", e.target.value)}

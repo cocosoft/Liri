@@ -212,12 +212,88 @@ export const imageService = {
   },
 
   /**
-   * 获取图片列表
+   * 获取图片列表（含 TTL 缓存 + 分页）
    */
-  async listImages(): Promise<Array<{ path: string; url: string }>> {
-    const raw = await http.get<{ images: Array<{ path: string; url: string }> }>(
-      "/v1/images/list"
-    );
-    return raw?.images || [];
+  async listImages(params?: { page?: number; pageSize?: number }): Promise<{
+    images: Array<{ path: string; url: string }>;
+    total: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  }> {
+    const { page = 1, pageSize = 50 } = params || {};
+    const cacheKey = `listImages-${page}-${pageSize}`;
+    return withCache(cacheKey, async () => {
+      const raw = await http.get<{
+        images: Array<{ path: string; url: string }>;
+        total: number;
+        page: number;
+        pageSize: number;
+        hasMore: boolean;
+      }>(`/v1/images/list?page=${page}&pageSize=${pageSize}`);
+      return raw || { images: [], total: 0, page, pageSize, hasMore: false };
+    });
+  },
+
+  /**
+   * 上传图片（XHR + 进度回调）
+   */
+  upload(
+    file: File,
+    onProgress?: (pct: number) => void
+  ): Promise<{ path: string; url: string }> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/v1/images/upload");
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error("Invalid JSON response"));
+          }
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.ontimeout = () => reject(new Error("Upload timeout"));
+
+      const formData = new FormData();
+      formData.append("file", file);
+      xhr.send(formData);
+    });
   },
 };
+
+// ============================================================
+// P2-9: 轻量级 TTL 缓存
+// ============================================================
+
+const _cache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL_MS = 30_000; // 30 秒
+
+/** 缓存包装器 */
+function withCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const cached = _cache.get(key);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    return Promise.resolve(cached.data as T);
+  }
+  return fetcher().then((data) => {
+    _cache.set(key, { data, ts: Date.now() });
+    return data;
+  });
+}
+
+/** 清除所有缓存（生成/编辑/上传后调用） */
+export function clearImageCache(): void {
+  _cache.clear();
+}

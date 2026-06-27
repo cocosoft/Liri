@@ -249,7 +249,7 @@ function stopHeartbeat(client: WakeWsClient): void {
 function cleanupClient(
   client: WakeWsClient,
   code: number,
-  reason: string
+  _reason: string
 ): void {
   if (client.state === ConnState.CLOSED) return;
 
@@ -407,7 +407,7 @@ export function closeAllWakeConnections(): void {
   const count = wakeClients.size;
   logger.info('关闭所有唤醒 WS 连接', { count });
 
-  for (const [id, client] of wakeClients) {
+  for (const [_id, client] of wakeClients) {
     cleanupClient(client, 1001, 'server shutting down');
   }
 

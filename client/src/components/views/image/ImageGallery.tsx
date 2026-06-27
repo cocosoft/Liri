@@ -1,10 +1,11 @@
 /**
  * ImageGallery
- * 历史图片网格 — 按时间倒序展示，点击放大
+ * 历史图片网格 — 无限滚动 + 点击放大（P2-7: IntersectionObserver 分页加载）
  */
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import ImageViewer from "../../ChatArea/ImageViewer/ImageViewer";
+import { imageService } from "../../../services/imageService";
 
 interface ImageItem {
   path: string;
@@ -13,21 +14,52 @@ interface ImageItem {
 
 interface Props {
   images: ImageItem[];
+  total?: number;
+  hasMore?: boolean;
   loading?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
   onRefresh?: () => void;
 }
 
-export default function ImageGallery({ images, loading, onRefresh }: Props) {
+export default function ImageGallery({
+  images,
+  total,
+  hasMore,
+  loading,
+  loadingMore,
+  onLoadMore,
+  onRefresh,
+}: Props) {
   const { t } = useTranslation();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver 监听哨兵，触发加载更多
+  useEffect(() => {
+    if (!hasMore || !onLoadMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: "100px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, onLoadMore, loadingMore]);
 
   const handleClick = useCallback((index: number) => {
     setViewerIndex(index);
     setViewerOpen(true);
   }, []);
 
-  if (loading) {
+  if (loading && images.length === 0) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -77,6 +109,26 @@ export default function ImageGallery({ images, loading, onRefresh }: Props) {
         ))}
       </div>
 
+      {/* 分页信息 + 加载更多哨兵 */}
+      <div ref={sentinelRef} className="flex items-center justify-center py-4">
+        {loadingMore ? (
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="w-3 h-3 border border-gray-500 border-t-transparent rounded-full animate-spin" />
+            {t("image.loading")}
+          </div>
+        ) : hasMore ? (
+          <span className="text-[10px] text-gray-600">
+            {total && `${total - images.length} ${t("image.moreRemaining")}`}
+          </span>
+        ) : (
+          total !== undefined && total > 0 && (
+            <span className="text-[10px] text-gray-600">
+              {total} {t("image.total")}
+            </span>
+          )
+        )}
+      </div>
+
       {viewerOpen && (
         <ImageViewer
           images={images.map((img) => img.url)}
@@ -86,4 +138,67 @@ export default function ImageGallery({ images, loading, onRefresh }: Props) {
       )}
     </>
   );
+}
+
+// ============================================================
+// 带无限滚动的容器 Hook
+// ============================================================
+
+export function useImageGallery() {
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const pageSize = 50;
+
+  const loadInitial = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await imageService.listImages({ page: 1, pageSize });
+      setImages(res.images);
+      setTotal(res.total);
+      setHasMore(res.hasMore);
+      setPage(1);
+    } catch {
+      // 保留旧列表
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 初始加载
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      loadInitial();
+    }
+  }, [loadInitial]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await imageService.listImages({ page: nextPage, pageSize });
+      setImages((prev) => [...prev, ...res.images]);
+      setTotal(res.total);
+      setHasMore(res.hasMore);
+      setPage(nextPage);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page, pageSize, hasMore, loadingMore]);
+
+  return {
+    images,
+    total,
+    hasMore,
+    loading,
+    loadingMore,
+    loadMore,
+    refresh: loadInitial,
+  } as const;
 }

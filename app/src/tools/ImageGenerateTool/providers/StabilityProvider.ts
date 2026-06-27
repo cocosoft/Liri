@@ -3,8 +3,15 @@
  * 走 Stability AI REST API (v2beta/stable-image/generate)
  */
 
-import type { ImageGenerationParams, ImageGenerationResult } from '../../../ai/providers/AIProvider';
-import type { ImageGenerationProvider, CostEstimate, ProviderConfig } from '../types';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../../ai/providers/AIProvider';
+import type {
+  ImageGenerationProvider,
+  CostEstimate,
+  ProviderConfig,
+} from '../types';
 
 export class StabilityProvider implements ImageGenerationProvider {
   readonly name = 'Stability AI';
@@ -29,7 +36,9 @@ export class StabilityProvider implements ImageGenerationProvider {
     };
   }
 
-  async generate(params: ImageGenerationParams): Promise<ImageGenerationResult> {
+  async generate(
+    params: ImageGenerationParams
+  ): Promise<ImageGenerationResult> {
     const startTime = Date.now();
     const n = params.n ?? 1;
 

@@ -110,7 +110,9 @@ export class TempFileManager {
   /**
    * 获取文件信息
    */
-  info(filePath: string): { createdAt: Date; ttlMs: number; size: number } | null {
+  info(
+    filePath: string
+  ): { createdAt: Date; ttlMs: number; size: number } | null {
     const entry = this.files.get(filePath);
     if (!entry) return null;
 
@@ -142,7 +144,7 @@ export class TempFileManager {
     const toDelete: string[] = [];
 
     for (const [filePath, entry] of this.files) {
-      if (target === 'all' || (now - entry.lastTouched > entry.ttlMs)) {
+      if (target === 'all' || now - entry.lastTouched > entry.ttlMs) {
         toDelete.push(filePath);
       }
     }
@@ -192,7 +194,9 @@ export class TempFileManager {
       typeof this.cleanupTimer === 'object' &&
       'unref' in this.cleanupTimer
     ) {
-      (this.cleanupTimer as ReturnType<typeof setInterval> & { unref(): void }).unref();
+      (
+        this.cleanupTimer as ReturnType<typeof setInterval> & { unref(): void }
+      ).unref();
     }
   }
 }

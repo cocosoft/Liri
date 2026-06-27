@@ -4,8 +4,15 @@
  * 默认地址 http://localhost:7860，免费无限制
  */
 
-import type { ImageGenerationParams, ImageGenerationResult } from '../../../ai/providers/AIProvider';
-import type { ImageGenerationProvider, CostEstimate, ProviderConfig } from '../types';
+import type {
+  ImageGenerationParams,
+  ImageGenerationResult,
+} from '../../../ai/providers/AIProvider';
+import type {
+  ImageGenerationProvider,
+  CostEstimate,
+  ProviderConfig,
+} from '../types';
 
 export class SDWebUIProvider implements ImageGenerationProvider {
   readonly name = 'SD WebUI (Local)';
@@ -28,7 +35,9 @@ export class SDWebUIProvider implements ImageGenerationProvider {
     };
   }
 
-  async generate(params: ImageGenerationParams): Promise<ImageGenerationResult> {
+  async generate(
+    params: ImageGenerationParams
+  ): Promise<ImageGenerationResult> {
     const startTime = Date.now();
 
     // 解析尺寸

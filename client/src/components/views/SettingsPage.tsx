@@ -31,7 +31,7 @@ import type { BaseIconProps } from "../../assets/icons";
 /** 导航项类型 */
 interface NavItem {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<BaseIconProps>;
   zone: string;
 }
@@ -39,7 +39,7 @@ interface NavItem {
 /** 导航分组定义 */
 interface NavGroup {
   id: string;
-  label: string;
+  labelKey: string;
   badgeClass: string;
   items: NavItem[];
 }
@@ -48,60 +48,60 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   {
     id: "general",
-    label: "通用",
+    labelKey: "settings.categoryGeneral",
     badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
     items: [
-      { id: "config", label: "通用配置", icon: SettingsIcon, zone: "general" },
-      { id: "notifications", label: "通知设置", icon: BellIcon, zone: "general" },
+      { id: "config", labelKey: "settings.generalConfig", icon: SettingsIcon, zone: "general" },
+      { id: "notifications", labelKey: "settings.notifications", icon: BellIcon, zone: "general" },
     ],
   },
   {
     id: "ai",
-    label: "模型与 AI",
+    labelKey: "settings.categoryAI",
     badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
     items: [
-      { id: "models", label: "模型管理", icon: ModelIcon, zone: "ai" },
-      { id: "skills", label: "技能管理", icon: SkillIcon, zone: "ai" },
-      { id: "router", label: "智能路由", icon: SlidersIcon, zone: "ai" },
-      { id: "soul", label: "玲珑鸟人格", icon: BookOpenIcon, zone: "ai" },
-      { id: "user", label: "用户身份", icon: UserIcon, zone: "ai" },
+      { id: "models", labelKey: "settings.models", icon: ModelIcon, zone: "ai" },
+      { id: "skills", labelKey: "settings.skills", icon: SkillIcon, zone: "ai" },
+      { id: "router", labelKey: "settings.router", icon: SlidersIcon, zone: "ai" },
+      { id: "soul", labelKey: "settings.soul", icon: BookOpenIcon, zone: "ai" },
+      { id: "user", labelKey: "settings.user", icon: UserIcon, zone: "ai" },
     ],
   },
   {
     id: "security",
-    label: "安全与认证",
+    labelKey: "settings.categorySecurity",
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     items: [
-      { id: "apikeys", label: "API 密钥", icon: KeyIcon, zone: "security" },
-      { id: "trusted-workspaces", label: "信任工作区", icon: FolderOpenIcon, zone: "security" },
-      { id: "custom-rules", label: "自定义规则", icon: WrenchIcon, zone: "security" },
-      { id: "permissions", label: "权限管理", icon: ShieldIcon, zone: "security" },
-      { id: "oauth", label: "OAuth 认证", icon: LinkIcon, zone: "security" },
+      { id: "apikeys", labelKey: "settings.apiKeys", icon: KeyIcon, zone: "security" },
+      { id: "trusted-workspaces", labelKey: "settings.trustedWorkspaces", icon: FolderOpenIcon, zone: "security" },
+      { id: "custom-rules", labelKey: "settings.customRules", icon: WrenchIcon, zone: "security" },
+      { id: "permissions", labelKey: "settings.permissions", icon: ShieldIcon, zone: "security" },
+      { id: "oauth", labelKey: "settings.oauth", icon: LinkIcon, zone: "security" },
     ],
   },
   {
     id: "integration",
-    label: "集成与渠道",
+    labelKey: "settings.categoryIntegration",
     badgeClass: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     items: [
-      { id: "channels", label: "消息渠道", icon: ChannelIcon, zone: "integration" },
-      { id: "voice", label: "语音设置", icon: MicIcon, zone: "integration" },
-      { id: "mcp", label: "MCP 市场", icon: McpIcon, zone: "integration" },
-      { id: "skill-market", label: "技能市场", icon: CloudIcon, zone: "integration" },
-      { id: "autoreply", label: "自动回复", icon: ZapIcon, zone: "integration" },
+      { id: "channels", labelKey: "settings.channels", icon: ChannelIcon, zone: "integration" },
+      { id: "voice", labelKey: "settings.voice", icon: MicIcon, zone: "integration" },
+      { id: "mcp", labelKey: "settings.mcp", icon: McpIcon, zone: "integration" },
+      { id: "skill-market", labelKey: "settings.skillMarket", icon: CloudIcon, zone: "integration" },
+      { id: "autoreply", labelKey: "settings.autoReply", icon: ZapIcon, zone: "integration" },
     ],
   },
   {
     id: "storage",
-    label: "存储与成本",
+    labelKey: "settings.categoryStorage",
     badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     items: [
-      { id: "data-dir", label: "数据目录", icon: FolderOpenIcon, zone: "storage" },
-      { id: "files", label: "文件管理", icon: FileIcon, zone: "storage" },
-      { id: "ingest", label: "文件摄取", icon: BookOpenIcon, zone: "storage" },
-      { id: "cost", label: "成本统计", icon: DollarIcon, zone: "storage" },
-      { id: "media", label: "媒体管理", icon: ImageIcon, zone: "storage" },
-      { id: "sandbox", label: "沙箱管理", icon: PlayIcon, zone: "storage" },
+      { id: "data-dir", labelKey: "settings.dataDir", icon: FolderOpenIcon, zone: "storage" },
+      { id: "files", labelKey: "settings.files", icon: FileIcon, zone: "storage" },
+      { id: "ingest", labelKey: "settings.ingest", icon: BookOpenIcon, zone: "storage" },
+      { id: "cost", labelKey: "settings.cost", icon: DollarIcon, zone: "storage" },
+      { id: "media", labelKey: "settings.media", icon: ImageIcon, zone: "storage" },
+      { id: "sandbox", labelKey: "settings.sandbox", icon: PlayIcon, zone: "storage" },
     ],
   },
 ];
@@ -357,7 +357,7 @@ function SettingsPage() {
       <aside className="w-52 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="px-4 pt-5 pb-3">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            设置
+            {t("settings.title")}
           </h2>
         </div>
         <nav className="pb-6">{renderSidebar()}</nav>
@@ -376,7 +376,7 @@ function SettingsPage() {
         {/* 分组标题 */}
         <div className="px-4 pt-3 pb-1">
           <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${group.badgeClass}`}>
-            {group.label}
+            {t(group.labelKey)}
           </span>
         </div>
         {/* 分组导航项 */}
@@ -394,7 +394,7 @@ function SettingsPage() {
               }`}
             >
               <IconComponent size={18} />
-              <span className="truncate">{item.label}</span>
+              <span className="truncate">{t(item.labelKey)}</span>
             </button>
           );
         })}

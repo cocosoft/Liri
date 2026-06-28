@@ -686,12 +686,15 @@ function SettingsPage() {
   }
 
   function renderBackendService() {
+    const statusText = backendStatus.running
+      ? `${t("settings.backendStatusRunning")} (${t("settings.backendPort")} ${backendStatus.port})`
+      : t("settings.backendStatusStopped");
     return (
-      <ConfigSection title="后端服务" description="管理本地后端服务的运行状态和端口" isDark={isDark}>
-        <ConfigItem label="状态" description={backendStatus.running ? `运行中 (端口 ${backendStatus.port})` : "已停止"} isDark={isDark}>
+      <ConfigSection title={t("settings.backendService")} description={t("settings.backendServiceDesc")} isDark={isDark}>
+        <ConfigItem label={t("settings.backendStatus")} description={statusText} isDark={isDark}>
           <span className={`inline-block w-2 h-2 rounded-full ${backendStatus.running ? "bg-green-500" : "bg-red-500"}`} />
         </ConfigItem>
-        <ConfigItem label="端口号" isDark={isDark}>
+        <ConfigItem label={t("settings.backendPort")} isDark={isDark}>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -705,9 +708,9 @@ function SettingsPage() {
               disabled={backendStatus.running}
               className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              应用端口
+              {t("settings.applyPort")}
             </button>
-            {portSaved && <span className="text-xs text-green-500">已保存</span>}
+            {portSaved && <span className="text-xs text-green-500">{t("settings.portSaved")}</span>}
           </div>
         </ConfigItem>
         {error && (
@@ -722,7 +725,7 @@ function SettingsPage() {
               disabled={loading}
               className="px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "处理中..." : "停止"}
+              {loading ? t("settings.processing") : t("settings.stop")}
             </button>
           ) : (
             <button
@@ -730,14 +733,14 @@ function SettingsPage() {
               disabled={loading}
               className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "处理中..." : "启动"}
+              {loading ? t("settings.processing") : t("settings.start")}
             </button>
           )}
           <button
             onClick={checkBackendStatus}
             className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50"
           >
-            刷新状态
+            {t("settings.refreshStatus")}
           </button>
         </div>
       </ConfigSection>

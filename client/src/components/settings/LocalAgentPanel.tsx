@@ -49,7 +49,7 @@ function LocalAgentPanel({
       isDark={isDark}
     >
       <div className="space-y-4">
-        <ConfigItem label="启用本地 Agent" isDark={isDark}>
+        <ConfigItem label={t("settings.localAgentEnable")} isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
             checked={localAgent.enabled}
@@ -61,7 +61,7 @@ function LocalAgentPanel({
           <>
             <div className={`h-px ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
 
-            <ConfigItem label="路由策略" isDark={isDark}>
+            <ConfigItem label={t("settings.localAgentRoutingStrategy")} isDark={isDark}>
               <SelectConfig
                 isDark={isDark}
                 value={localAgent.routing.strategy}
@@ -74,16 +74,16 @@ function LocalAgentPanel({
                   })
                 }
                 options={[
-                  { value: "cloud-first", label: "云端优先" },
-                  { value: "ollama-first", label: "Ollama 优先" },
-                  { value: "local-first", label: "本地优先" },
+                  { value: "cloud-first", label: t("settings.localAgentRoutingCloudFirst") },
+                  { value: "ollama-first", label: t("settings.localAgentRoutingOllamaFirst") },
+                  { value: "local-first", label: t("settings.localAgentRoutingLocalFirst") },
                 ]}
               />
             </ConfigItem>
 
             <ConfigItem
-              label="降级到云端"
-              description="本地模型不可用时自动切换到云端"
+              label={t("settings.localAgentFallbackToCloud")}
+              description={t("settings.localAgentFallbackToCloudDesc")}
               isDark={isDark}
             >
               <ToggleConfig
@@ -101,8 +101,8 @@ function LocalAgentPanel({
             </ConfigItem>
 
             <ConfigItem
-              label="性能指标"
-              description="显示本地 Agent 性能统计"
+              label={t("settings.localAgentEnableMetrics")}
+              description={t("settings.localAgentEnableMetricsDesc")}
               isDark={isDark}
             >
               <ToggleConfig
@@ -119,7 +119,7 @@ function LocalAgentPanel({
                 <div
                   className={`text-xs font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  绕过路由（直接执行，不经过 LocalAgent）
+                  {t("settings.localAgentBypassRoutes")}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {localAgent.bypassRoutes.map((route, i) => (
@@ -145,10 +145,10 @@ function LocalAgentPanel({
         <div
           className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}
         >
-          Ollama 配置
+          {t("settings.localAgentOllamaTitle")}
         </div>
 
-        <ConfigItem label="启用 Ollama" isDark={isDark}>
+        <ConfigItem label={t("settings.localAgentOllamaEnabled")} isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
             checked={ollama?.enabled || false}
@@ -158,7 +158,7 @@ function LocalAgentPanel({
 
         {ollama?.enabled && (
           <>
-            <ConfigItem label="服务地址" isDark={isDark}>
+            <ConfigItem label={t("settings.localAgentOllamaBaseUrl")} isDark={isDark}>
               <SelectConfig
                 isDark={isDark}
                 value={ollama.baseUrl}
@@ -185,7 +185,7 @@ function LocalAgentPanel({
               />
             </ConfigItem>
 
-            <ConfigItem label="超时时间 (ms)" isDark={isDark}>
+            <ConfigItem label={t("settings.localAgentOllamaTimeout")} isDark={isDark}>
               <SelectConfig
                 isDark={isDark}
                 value={String(ollama.timeout)}
@@ -193,10 +193,10 @@ function LocalAgentPanel({
                   onUpdateOllama({ timeout: parseInt(value, 10) })
                 }
                 options={[
-                  { value: "30000", label: "30秒" },
-                  { value: "60000", label: "60秒" },
-                  { value: "120000", label: "120秒" },
-                  { value: "300000", label: "300秒" },
+                  { value: "30000", label: t("settings.localAgentTimeout30s") },
+                  { value: "60000", label: t("settings.localAgentTimeout60s") },
+                  { value: "120000", label: t("settings.localAgentTimeout120s") },
+                  { value: "300000", label: t("settings.localAgentTimeout300s") },
                 ]}
               />
             </ConfigItem>

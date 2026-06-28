@@ -59,7 +59,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
               { value: "openai", label: "OpenAI" },
               { value: "anthropic", label: "Anthropic" },
               { value: "deepseek", label: "DeepSeek" },
-              { value: "ollama", label: "Ollama (本地)" },
+              { value: "ollama", label: t("settings.providersOllama") },
               { value: "azure", label: "Azure" },
             ]}
           />
@@ -70,7 +70,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
             isDark={isDark}
             value={config.model || ""}
             onChange={(value) => onUpdate({ model: value })}
-            placeholder="例如: gpt-4o, claude-3-opus, deepseek-v4-pro"
+            placeholder={t("settings.defaultModelPlaceholder")}
           />
         </ConfigItem>
 
@@ -81,7 +81,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
             <h4
               className={`text-sm font-medium mb-3 ${isDark ? "text-gray-200" : "text-gray-700"}`}
             >
-              DeepSeek 配置
+              {t("settings.aiConfigDeepseekTitle")}
             </h4>
             <div className="space-y-3">
               <ConfigItem label={t("settings.apiKey")} isDark={isDark}>
@@ -120,7 +120,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
             <h4
               className={`text-sm font-medium mb-3 ${isDark ? "text-gray-200" : "text-gray-700"}`}
             >
-              Anthropic 配置
+              {t("settings.aiConfigAnthropicTitle")}
             </h4>
             <div className="space-y-3">
               <ConfigItem label={t("settings.apiKey")} isDark={isDark}>
@@ -159,7 +159,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
             <h4
               className={`text-sm font-medium mb-3 ${isDark ? "text-gray-200" : "text-gray-700"}`}
             >
-              OpenAI 配置
+              {t("settings.aiConfigOpenaiTitle")}
             </h4>
             <div className="space-y-3">
               <ConfigItem label={t("settings.apiKey")} isDark={isDark}>

@@ -34,7 +34,7 @@ function AutoUpdatePanel({
       isDark={isDark}
     >
       <div className="space-y-4">
-        <ConfigItem label="启用自动更新" isDark={isDark}>
+        <ConfigItem label={t("settings.autoUpdateEnable")} isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
             checked={autoUpdate.enabled}
@@ -44,7 +44,7 @@ function AutoUpdatePanel({
 
         {autoUpdate.enabled && (
           <>
-            <ConfigItem label="检查间隔" isDark={isDark}>
+            <ConfigItem label={t("settings.autoUpdateCheckInterval")} isDark={isDark}>
               <SelectConfig
                 isDark={isDark}
                 value={String(autoUpdate.checkIntervalMs)}
@@ -52,16 +52,16 @@ function AutoUpdatePanel({
                   onUpdate({ checkIntervalMs: parseInt(value, 10) })
                 }
                 options={[
-                  { value: "3600000", label: "1小时" },
-                  { value: "14400000", label: "4小时" },
-                  { value: "43200000", label: "12小时" },
-                  { value: "86400000", label: "24小时" },
-                  { value: "604800000", label: "7天" },
+                  { value: "3600000", label: t("settings.autoUpdateInterval1h") },
+                  { value: "14400000", label: t("settings.autoUpdateInterval4h") },
+                  { value: "43200000", label: t("settings.autoUpdateInterval12h") },
+                  { value: "86400000", label: t("settings.autoUpdateInterval24h") },
+                  { value: "604800000", label: t("settings.autoUpdateInterval7d") },
                 ]}
               />
             </ConfigItem>
 
-            <ConfigItem label="更新通道" isDark={isDark}>
+            <ConfigItem label={t("settings.autoUpdateChannel")} isDark={isDark}>
               <SelectConfig
                 isDark={isDark}
                 value={autoUpdate.channel}
@@ -69,15 +69,15 @@ function AutoUpdatePanel({
                   onUpdate({ channel: value as AutoUpdateConfig["channel"] })
                 }
                 options={[
-                  { value: "stable", label: "稳定版 (Stable)" },
-                  { value: "beta", label: "测试版 (Beta)" },
+                  { value: "stable", label: t("settings.autoUpdateChannelStable") },
+                  { value: "beta", label: t("settings.autoUpdateChannelBeta") },
                 ]}
               />
             </ConfigItem>
 
             <ConfigItem
-              label="启动时检查"
-              description="应用启动时自动检查更新"
+              label={t("settings.autoUpdateCheckOnStartup")}
+              description={t("settings.autoUpdateCheckOnStartupDesc")}
               isDark={isDark}
             >
               <ToggleConfig
@@ -88,8 +88,8 @@ function AutoUpdatePanel({
             </ConfigItem>
 
             <ConfigItem
-              label="详细日志"
-              description="显示详细的更新检查日志"
+              label={t("settings.autoUpdateVerbose")}
+              description={t("settings.autoUpdateVerboseDesc")}
               isDark={isDark}
             >
               <ToggleConfig

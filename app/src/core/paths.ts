@@ -274,6 +274,14 @@ export function resolveGovernanceDir(
   return join(resolveDataDir(env), 'governance');
 }
 
+/** 本地模型存储目录（app/data/models/）
+ *  用于存放本地下载的 AI 模型文件（如 faster-whisper 语音识别模型）
+ *  这些文件体积大、由 HuggingFace 等源自动下载和缓存
+ */
+export function resolveModelsDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolveDataDir(env), 'models');
+}
+
 /** 配对存储目录（app/data/pairings/） */
 export function resolvePairingsDir(
   env: NodeJS.ProcessEnv = process.env
@@ -533,6 +541,7 @@ export function ensureDataDirectories(
     join(resolveGovernanceDir(env), 'audit'),
     join(resolveGovernanceDir(env), 'strategies'),
     resolvePairingsDir(env),
+    resolveModelsDir(env),
     resolvePyappHome(env),
     resolveUserMemoryDir(env),
     resolveKnowledgeDir(env),
@@ -574,6 +583,7 @@ export const SNAPSHOTS_DIR = resolveSnapshotsDir();
 export const LOGS_DIR = resolveLogsDir();
 export const ARTIFACTS_DIR = resolveArtifactsDir();
 export const GOVERNANCE_DIR = resolveGovernanceDir();
+export const MODELS_DIR = resolveModelsDir();
 export const PAIRINGS_DIR = resolvePairingsDir();
 export const USER_CONFIG_PATH = resolveUserConfigPath();
 export const USER_SETTINGS_PATH = resolveUserSettingsPath();

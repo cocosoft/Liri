@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "powershell -Command \"Start-Process -FilePath 'bun' -ArgumentList 'run','../../app/src/main.ts' -WindowStyle Hidden; npm run dev\"",
     "beforeBuildCommand": "npm run build"
   },
   "app": {

@@ -63,7 +63,9 @@ export type TaskType =
   | 'agent' // SubAgent / 自主代理任务
   | 'scheduled' // 定时任务
   | 'local' // 本地模型（Ollama 等）
-  | 'embedding'; // 文本向量化（知识库）
+  | 'embedding' // 文本向量化（知识库）
+  | 'image' // 图片生成（DALL-E / Stable Diffusion 等）
+  | 'video'; // 视频生成（Sora / Kling 等）
 
 /**
  * 默认任务分工配置
@@ -80,6 +82,8 @@ export const DEFAULT_TASKS: TaskModelConfig = {
   scheduled: 'deepseek-v4-pro',
   local: 'deepseek-v4-pro',
   embedding: 'deepseek-v4-pro',
+  image: 'dall-e-3',
+  video: 'sora-2',
 };
 
 /** 所有任务类型列表 */
@@ -93,6 +97,8 @@ export const ALL_TASK_TYPES: TaskType[] = [
   'scheduled',
   'local',
   'embedding',
+  'image',
+  'video',
 ];
 
 // ============================================================
@@ -110,6 +116,8 @@ export interface TaskModelConfig {
   scheduled?: string;
   local?: string;
   embedding?: string;
+  image?: string;
+  video?: string;
 }
 
 /**
@@ -176,6 +184,18 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
     label: '嵌入',
     description: '文本向量化（知识库）',
     icon: '📐',
+  },
+  {
+    type: 'image',
+    label: '生图',
+    description: '图片生成（DALL-E / Stable Diffusion 等）',
+    icon: '🖼️',
+  },
+  {
+    type: 'video',
+    label: '生视频',
+    description: '视频生成（Sora / Kling 等）',
+    icon: '🎬',
   },
 ];
 

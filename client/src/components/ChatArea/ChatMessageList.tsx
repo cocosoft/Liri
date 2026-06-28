@@ -286,7 +286,7 @@ export default function ChatMessageList({
   /** 匹配集用于高亮标记 */
   const matchedSet = useMemo(() => new Set(matchedIds), [matchedIds]);
 
-  /** 导出按钮 */
+  /** 导出 Markdown */
   const handleExportMarkdown = useCallback(() => {
     const md = exportAsMarkdown(messages, {
       user: t('chat.user'),
@@ -302,8 +302,9 @@ export default function ChatMessageList({
     a.click();
     URL.revokeObjectURL(url);
     setExportOpen(false);
-  }, [messages]);
+  }, [messages, t]);
 
+  /** 导出 JSON */
   const handleExportJson = useCallback(() => {
     const json = exportAsJson(messages);
     const blob = new Blob([json], { type: "application/json;charset=utf-8" });

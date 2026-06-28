@@ -29,6 +29,7 @@ import { writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
+import { resolveModelsDir } from '@modules/core/paths';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTProviderType,
@@ -99,7 +100,8 @@ def main():
     model = WhisperModel(
         config["model"],
         device=config["device"],
-        compute_type=config["compute_type"]
+        compute_type=config["compute_type"],
+        download_root=config.get("download_root")
     )
 
     sys.stdout.write(json.dumps({"status": "ready", "pid": config.get("pid", 0)}) + "\\n")
@@ -174,6 +176,7 @@ const DEFAULT_CONFIG = {
   vadFilter: true,
   vadMinSilenceMs: 500,
   pythonCmd: PYTHON_CMD,
+  hfEndpoint: '',
 };
 
 /** 允许的模型大小（白名单） */
@@ -213,6 +216,12 @@ export interface LocalSTTConfig {
   vadMinSilenceMs?: number;
   /** Python 可执行文件路径 */
   pythonCmd?: string;
+  /**
+   * HuggingFace 镜像端点
+   * 国内用户可设置为 https://hf-mirror.com 加速模型下载
+   * 留空则使用官方 huggingface.co
+   */
+  hfEndpoint?: string;
 }
 
 /**
@@ -511,11 +520,21 @@ export class LocalSTTProvider implements STTProvider {
       beam_size: this.config.beamSize,
       vad_filter: this.config.vadFilter,
       vad_min_silence_ms: this.config.vadMinSilenceMs,
+      download_root: resolveModelsDir(),
       pid: process.pid,
     });
 
+    const procEnv: Record<string, string> = {
+      ...(process.env as Record<string, string>),
+    };
+    // 国内用户可通过 hfEndpoint 配置 HuggingFace 镜像（如 https://hf-mirror.com）
+    if (this.config.hfEndpoint) {
+      procEnv['HF_ENDPOINT'] = this.config.hfEndpoint;
+    }
+
     const proc = spawn(this.config.pythonCmd!, [this._workerScriptPath!], {
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: procEnv,
     });
 
     this._workerProcess = proc;

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useVoiceStore } from "../../stores/voiceStore";
 import type { VoiceProvider } from "../../services/voiceService";
+import { voiceService } from "../../services/voiceService";
 
 interface VoiceSettingsProps {
   isDark: boolean;
@@ -11,6 +12,14 @@ const PROVIDER_LABELS: Record<VoiceProvider, string> = {
   gemini: "Google Gemini",
   openai: "OpenAI",
   webapi: "系统默认",
+};
+
+/** STT 引擎显示名称映射 */
+const STT_PROVIDER_LABELS: Record<string, string> = {
+  local: "本地 Whisper",
+  cloud: "OpenAI API",
+  stream: "流式 STT",
+  sensevoice: "SenseVoice 中文",
 };
 
 const DEFAULT_TRIGGERS = ["小鸟小鸟", "Hi Liri"];
@@ -61,6 +70,9 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
   const [localConfig, setLocalConfig] = useState(settings?.config);
   const [newTrigger, setNewTrigger] = useState("");
 
+  /** STT 引擎列表（从后端动态加载） */
+  const [sttProviders, setSttProviders] = useState<string[]>([]);
+
   /** 添加新唤醒词，更新 store */
   const addTrigger = useCallback(() => {
     const trimmed = newTrigger.trim();
@@ -89,6 +101,14 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
       setLocalConfig(settings.config);
     }
   }, [settings]);
+
+  /** 加载可用 STT 引擎列表 */
+  useEffect(() => {
+    voiceService.getProviders().then(setSttProviders).catch(() => {
+      // 加载失败时使用默认列表
+      setSttProviders(["local", "cloud", "stream"]);
+    });
+  }, []);
 
   const handleSave = async () => {
     if (localConfig) {
@@ -163,6 +183,45 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
               </button>
             ),
           )}
+        </div>
+      </div>
+
+      {/* STT 语音识别引擎选择 */}
+      <div>
+        <h3
+          className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
+        >
+          STT 识别引擎
+        </h3>
+        <p
+          className={`text-xs mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+        >
+          选择语音转文字使用的引擎
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {sttProviders.map((providerId) => {
+            const label = STT_PROVIDER_LABELS[providerId] || providerId;
+            const isSelected = localConfig.sttProviderId === providerId;
+            return (
+              <button
+                key={providerId}
+                onClick={() =>
+                  setLocalConfig({ ...localConfig, sttProviderId: providerId })
+                }
+                className={`p-3 rounded-lg border text-center transition-colors ${
+                  isSelected
+                    ? isDark
+                      ? "bg-green-900/30 border-green-500 text-green-400"
+                      : "bg-green-50 border-green-500 text-green-600"
+                    : isDark
+                      ? "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
+                      : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <span className="block text-sm font-medium">{label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

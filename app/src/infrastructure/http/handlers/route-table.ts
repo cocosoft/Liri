@@ -91,6 +91,12 @@ import {
   handleAuthPermissions,
 } from './auth-handlers';
 
+// Media handlers
+import {
+  handleMediaSubtitleGenerate,
+  handleMediaSubtitleDownload,
+} from './media-handlers';
+
 /**
  * 路由调度函数
  * @param req - HTTP 请求
@@ -2050,6 +2056,20 @@ export async function dispatchRoute(
   if (method === 'GET' && url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService' }));
+    return true;
+  }
+
+  // ---- Media Subtitle ----
+  if (method === 'POST' && url === '/v1/media/subtitle') {
+    await handleMediaSubtitleGenerate(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/media\/subtitle\/(.+)\/download$/)) {
+    await handleMediaSubtitleDownload(
+      req,
+      res,
+      url.match(/^\/v1\/media\/subtitle\/(.+)\/download$/)![1]
+    );
     return true;
   }
 

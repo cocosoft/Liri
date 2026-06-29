@@ -348,7 +348,12 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         if (audioBlob.size > 0 && onTranscribed) {
           useVoiceStore.setState({ isProcessing: true });
           try {
-            const result = await voiceService.transcribe(audioBlob);
+            // 从设置中读取用户选择的 STT 引擎
+            const sttProviderId =
+              useVoiceStore.getState().settings?.config?.sttProviderId;
+            const result = await voiceService.transcribe(audioBlob, {
+              providerId: sttProviderId || undefined,
+            });
             if (result.text && result.text.trim()) {
               onTranscribed(result.text);
               // 自动提交模式：转录完成后触发提交

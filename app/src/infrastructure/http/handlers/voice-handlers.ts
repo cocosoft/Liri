@@ -241,6 +241,7 @@ export async function handleGetVoiceSettings(
           voiceId: 'zh-CN-XiaoxiaoNeural',
           inputLanguage: config.language || 'zh-CN',
           outputLanguage: config.language || 'zh-CN',
+          sttProviderId: config.sttProvider || 'local',
         },
         wakeWords: [],
         hotkeys: {},
@@ -269,6 +270,7 @@ export async function handleUpdateVoiceSettings(
     voiceService.updateConfig({
       language:
         settings.config?.inputLanguage || settings.config?.outputLanguage,
+      sttProvider: settings.config?.sttProviderId,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -508,6 +510,23 @@ export async function handleListVoiceProviders(
       const { LocalSTTProvider } =
         await import('../../../services/voice/services/localSTTProvider');
       STTRegistry.register(new LocalSTTProvider());
+
+      // SenseVoice（中文优化，sherpa-onnx）
+      try {
+        const { SenseVoiceSTTProvider } =
+          await import('../../../services/voice/services/senseVoiceSTTProvider');
+        const svProvider = new SenseVoiceSTTProvider();
+        if (svProvider.isAvailable()) {
+          STTRegistry.register(svProvider);
+        }
+      } catch {
+        // sherpa-onnx 未安装时静默跳过
+      }
+
+      // 注册流式 STT 提供者
+      const { StreamSTTProvider } =
+        await import('../../../services/voice/services/streamSTTProvider');
+      STTRegistry.register(new StreamSTTProvider({}));
 
       const openAIApiKey = configManager.env('OPENAI_API_KEY');
       if (openAIApiKey) {

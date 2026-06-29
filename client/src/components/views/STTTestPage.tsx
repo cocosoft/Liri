@@ -26,6 +26,9 @@ interface HistoryItem {
   text: string;
   confidence: number;
   result: STTResult;
+  /** 字幕下载链接（仅 media/subtitle 端点返回） */
+  downloadSrt?: string;
+  downloadTxt?: string;
 }
 
 const MAX_HISTORY = 50;
@@ -194,6 +197,7 @@ function STTTestPage() {
 
   /**
    * 执行语音转录
+   * 音频文件使用 /v1/voice/transcribe，视频文件使用 /v1/media/subtitle
    */
   const handleTranscribe = useCallback(async () => {
     if (!audioFile) {
@@ -211,17 +215,53 @@ function STTTestPage() {
       setElapsed((prev) => prev + 1);
     }, 1000);
 
+    // 视频文件使用 media/subtitle 端点（含音频提取 + 转录 + 字幕生成）
+    const isVideo = audioFile.type.startsWith("video/");
+
     try {
       const parsedKeyterms = keyterms
         .split(",")
         .map((k) => k.trim())
         .filter((k) => k.length > 0);
 
-      const sttResult = await voiceService.transcribe(audioFile, {
-        providerId: providerId || undefined,
-        language: language || undefined,
-        keyterms: parsedKeyterms.length > 0 ? parsedKeyterms : undefined,
-      });
+      let sttResult: STTResult;
+      let downloadSrt: string | undefined;
+      let downloadTxt: string | undefined;
+
+      if (isVideo) {
+        // 调用 media/subtitle 端点（自动提取音频并转录）
+        const formData = new FormData();
+        formData.append("media", audioFile);
+
+        const response = await fetch("/v1/media/subtitle", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `服务器错误 (${response.status})`);
+        }
+
+        const data = await response.json();
+        sttResult = {
+          text: data.text,
+          confidence: data.segments?.[0]?.confidence ?? 0,
+          isFinal: true,
+          duration: data.duration,
+          language: data.language,
+          segments: data.segments,
+        };
+        downloadSrt = data.downloadSrt;
+        downloadTxt = data.downloadTxt;
+      } else {
+        // 音频文件使用原有 voice/transcribe 端点
+        sttResult = await voiceService.transcribe(audioFile, {
+          providerId: providerId || undefined,
+          language: language || undefined,
+          keyterms: parsedKeyterms.length > 0 ? parsedKeyterms : undefined,
+        });
+      }
 
       setResult(sttResult);
 
@@ -235,6 +275,8 @@ function STTTestPage() {
         text: sttResult.text || "",
         confidence: sttResult.confidence || 0,
         result: sttResult,
+        downloadSrt,
+        downloadTxt,
       };
       setHistory((prev) => [histItem, ...prev].slice(0, MAX_HISTORY));
     } catch (err) {
@@ -511,7 +553,7 @@ function STTTestPage() {
                   e.preventDefault();
                   e.stopPropagation();
                   const file = e.dataTransfer.files?.[0];
-                  if (file && file.type.startsWith("audio/")) {
+                  if (file && (file.type.startsWith("audio/") || file.type.startsWith("video/"))) {
                     setAudioFile(file);
                     setAudioUrl((prev) => {
                       if (prev) URL.revokeObjectURL(prev);
@@ -570,10 +612,10 @@ function STTTestPage() {
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                     />
                   </svg>
-                  选择音频文件
+                  选择媒体文件
                   <input
                     type="file"
-                    accept="audio/*"
+                    accept="audio/*,video/*"
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -817,6 +859,31 @@ function STTTestPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* 字幕下载按钮（视频文件转录后显示） */}
+                {history.length > 0 && history[0].downloadSrt && (
+                  <div className="flex items-center gap-3 mt-3">
+                    <a
+                      href={history[0].downloadSrt}
+                      download
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-blue-500 hover:bg-blue-600 text-white`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      下载 SRT 字幕
+                    </a>
+                    {history[0].downloadTxt && (
+                      <a
+                        href={history[0].downloadTxt}
+                        download
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-500 hover:bg-gray-600 text-white`}
+                      >
+                        下载 TXT 文本
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 {result.provider && typeof result.provider !== 'string' && (
                   <div

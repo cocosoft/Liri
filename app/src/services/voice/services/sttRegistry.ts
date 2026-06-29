@@ -35,6 +35,7 @@ import type {
 import { LocalSTTProvider } from './localSTTProvider';
 import { CloudSTTProvider } from './cloudSTTProvider';
 import { StreamSTTProvider } from './streamSTTProvider';
+import { SenseVoiceSTTProvider } from './senseVoiceSTTProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -846,6 +847,13 @@ export class STTRegistry {
     this.registerInstance(localProvider);
     if (localProvider.isAvailable()) {
       this.setDefaultProviderInstance(localProvider.id);
+    }
+
+    // SenseVoice（中文优化，sherpa-onnx，可用时优先级高于本地 Whisper）
+    const senseVoiceProvider = new SenseVoiceSTTProvider();
+    this.registerInstance(senseVoiceProvider);
+    if (senseVoiceProvider.isAvailable()) {
+      this.setDefaultProviderInstance(senseVoiceProvider.id);
     }
 
     if (cloudConfig?.apiKey) {

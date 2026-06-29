@@ -29,6 +29,8 @@ export interface AudioConfig {
   voiceId: string;
   inputLanguage: string;
   outputLanguage: string;
+  /** STT 引擎提供者 ID（如 "local"、"cloud"） */
+  sttProviderId: string;
 }
 
 /** 唤醒词配置 */

@@ -145,6 +145,8 @@
       "@modules/components/*": ["components/*"],
       "@modules/workspace": ["workspace"],
       "@modules/workspace/*": ["workspace/*"],
+      "@modules/workspaces": ["workspaces"],
+      "@modules/workspaces/*": ["workspaces/*"],
       "@shared/*": ["../../shared/*"]
     }
   },

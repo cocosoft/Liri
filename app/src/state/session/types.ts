@@ -8,10 +8,13 @@
 import type { TransitionRules } from '../engine/types';
 
 /**
- * 会话状态枚举
+ * 会话状态枚举（8 状态，旧版）
  *
- * 替代旧的 SessionStatus 枚举（在 session/types/Session.ts 中定义）。
- * 共 8 种状态，其中 ARCHIVED 和 ABORTED 为终态（出度为 0）。
+ * @deprecated 使用 {@link SimplifiedSessionState} 替代。
+ * 三阶段迁移进度：
+ *   Phase 1 ✅ — SimplifiedSessionState + toSimplifiedState() 已定义，并存
+ *   Phase 2 ⏳ — 待 ChatManager 拆分后逐文件迁移消费方
+ *   Phase 3 ⬜ — 全部迁移后删除此枚举
  */
 export enum SessionState {
   /** 空闲 — 初始状态 */
@@ -30,6 +33,42 @@ export enum SessionState {
   ARCHIVED = 'archived',
   /** 已中止 — 终态 */
   ABORTED = 'aborted',
+}
+
+/**
+ * 简化会话状态（对标 BA_REF 的 idle/running/requires_action）
+ *
+ * Phase 1 ✅: 新增类型，与旧 SessionState 枚举并存
+ * Phase 2 ⏳: 逐步迁移消费方使用此类型（待 ChatManager 拆分后执行，受影响文件见迁移清单）
+ * Phase 3 ⬜: 删除旧 SessionState 枚举中非核心状态
+ *
+ * 迁移清单（方案 Step 9）:
+ *   - session/types/Session.ts
+ *   - SessionStore.ts
+ *   - SessionStateMachine.ts
+ *   - SessionGateway.ts
+ *   - core/session/SessionSupervisor.ts
+ *   - state/engine/StateMachine.ts
+ */
+export type SimplifiedSessionState = 'idle' | 'running' | 'requires_action';
+
+/**
+ * 将旧 SessionState 映射为简化状态
+ */
+export function toSimplifiedState(state: SessionState): SimplifiedSessionState {
+  switch (state) {
+    case SessionState.IDLE:
+    case SessionState.COMPLETED:
+    case SessionState.ARCHIVED:
+    case SessionState.ABORTED:
+      return 'idle';
+    case SessionState.RUNNING:
+      return 'running';
+    case SessionState.REQUIRES_ACTION:
+    case SessionState.PAUSED:
+    case SessionState.ERROR:
+      return 'requires_action';
+  }
 }
 
 /**

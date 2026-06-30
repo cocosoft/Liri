@@ -17,7 +17,7 @@ import { createSimulatedBridgeApi } from './api/SimulatedBridgeApi.js';
 import { createPollManager } from './managers/PollManager.js';
 import { createSessionManager } from './managers/SessionManager.js';
 import { createHeartbeatManager } from './managers/HeartbeatManager.js';
-import { createWorktreeManager } from './managers/WorktreeManager.js';
+import { createWorkspaceGit } from '@modules/workspaces/WorkspaceGit.js';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
 /**
@@ -100,8 +100,7 @@ export class BridgeMain {
   private sessionManager: ReturnType<typeof createSessionManager> | null = null;
   private heartbeatManager: ReturnType<typeof createHeartbeatManager> | null =
     null;
-  private worktreeManager: ReturnType<typeof createWorktreeManager> | null =
-    null;
+  private worktreeManager: ReturnType<typeof createWorkspaceGit> | null = null;
   private abortController: AbortController | null = null;
   private isRunning = false;
 
@@ -174,7 +173,7 @@ export class BridgeMain {
         signal,
       });
 
-      this.worktreeManager = createWorktreeManager({
+      this.worktreeManager = createWorkspaceGit({
         baseDir: this.config.dir,
       });
 

@@ -35,7 +35,9 @@ import type {
 } from './runtime/types.js';
 import { getDefaultSessionStore } from './session.js';
 import type { AcpSessionStore } from './session.js';
-import { resolveLogger, type ILogger } from '@modules/core';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import type { Duplex } from 'node:stream';
@@ -45,7 +47,7 @@ import { AcpWsClient } from './AcpWsClient.js';
 import type { AcpClientMessage } from './AcpWsClient.js';
 import { AcpGateway } from './AcpGateway.js';
 
-const logger: ILogger = resolveLogger('acp');
+const logger = new Logger({ module: 'acp:ws', level: LogLevel.INFO });
 
 /**
  * ACP WebSocket 远程桥接服务器
@@ -237,158 +239,223 @@ export class AcpWebSocketServer {
    * 处理客户端消息
    */
   private async handleClientMessages(client: AcpWsClient): Promise<void> {
-    const runtime = this.gateway.getRuntime();
+    const otel = getOTelTracing();
+    const span = otel.startSpan('AcpWebSocketServer.handleClientMessages', {
+      'client.id': client.id,
+    });
 
-    let currentHandle: AcpRuntimeHandle | null = null;
+    try {
+      const runtime = this.gateway.getRuntime();
 
-    client.onMessage(async (text) => {
-      let message: AcpClientMessage;
-      try {
-        message = JSON.parse(text);
-      } catch {
-        client.send(
-          JSON.stringify({
-            type: 'error',
-            requestId: 'unknown',
-            payload: { message: '无效的 JSON 格式' },
-          })
-        );
-        return;
-      }
+      let currentHandle: AcpRuntimeHandle | null = null;
 
-      const { type, requestId, payload } = message;
-      const rid = requestId || crypto.randomUUID();
-
-      if (type === 'ping') {
-        client.send(
-          JSON.stringify({
-            type: 'pong',
-            requestId: rid,
-            payload: { timestamp: Date.now() },
-          })
-        );
-        return;
-      }
-
-      if (type === 'ensure_session') {
+      client.onMessage(async (text) => {
+        let message: AcpClientMessage;
         try {
-          currentHandle = await runtime.ensureSession({
-            sessionKey: (payload?.sessionKey as string) || crypto.randomUUID(),
-            agent: (payload?.agent as string) || 'acp-remote-client',
-            mode: (payload?.mode as AcpRuntimeSessionMode) || 'persistent',
-            cwd: payload?.cwd as string | undefined,
-          });
-          client.send(
-            JSON.stringify({
-              type: 'event',
-              requestId: rid,
-              payload: { handle: currentHandle },
-            })
-          );
-          client.send(
-            JSON.stringify({
-              type: 'done',
-              requestId: rid,
-              payload: { stopReason: 'success' },
-            })
-          );
-        } catch (error) {
+          message = JSON.parse(text);
+        } catch {
           client.send(
             JSON.stringify({
               type: 'error',
-              requestId: rid,
-              payload: {
-                message: error instanceof Error ? error.message : String(error),
-              },
-            })
-          );
-        }
-        return;
-      }
-
-      if (type === 'run_turn') {
-        if (!currentHandle) {
-          client.send(
-            JSON.stringify({
-              type: 'error',
-              requestId: rid,
-              payload: { message: '会话未建立，请先调用 ensure_session' },
+              requestId: 'unknown',
+              payload: { message: '无效的 JSON 格式' },
             })
           );
           return;
         }
 
-        try {
-          const iterable = runtime.runTurn({
-            handle: currentHandle,
-            text: (payload?.text as string) || '',
-            mode: (payload?.mode as AcpRuntimePromptMode) || 'prompt',
-            requestId: rid,
-          });
+        const { type, requestId, payload } = message;
+        const rid = requestId || crypto.randomUUID();
 
-          for await (const event of iterable) {
-            switch (event.type) {
-              case 'text_delta':
-                client.send(
-                  JSON.stringify({
-                    type: 'event',
-                    requestId: rid,
-                    payload: {
-                      eventType: 'text_delta',
-                      text: event.text,
-                      stream: event.stream,
-                      tag: event.tag,
-                    },
-                  })
-                );
-                break;
-              case 'status':
-                client.send(
-                  JSON.stringify({
-                    type: 'event',
-                    requestId: rid,
-                    payload: {
-                      eventType: 'status',
-                      text: event.text,
-                      tag: event.tag,
-                      used: event.used,
-                      size: event.size,
-                    },
-                  })
-                );
-                break;
-              case 'tool_call':
-                client.send(
-                  JSON.stringify({
-                    type: 'event',
-                    requestId: rid,
-                    payload: {
-                      eventType: 'tool_call',
-                      text: event.text,
-                      tag: event.tag,
-                      toolCallId: event.toolCallId,
-                      status: event.status,
-                      title: event.title,
-                    },
-                  })
-                );
-                break;
-              case 'error':
-                client.send(
-                  JSON.stringify({
-                    type: 'error',
-                    requestId: rid,
-                    payload: {
-                      message: event.message,
-                      code: event.code,
-                      retryable: event.retryable,
-                    },
-                  })
-                );
-                return;
-            }
+        if (type === 'ping') {
+          client.send(
+            JSON.stringify({
+              type: 'pong',
+              requestId: rid,
+              payload: { timestamp: Date.now() },
+            })
+          );
+          return;
+        }
+
+        if (type === 'ensure_session') {
+          try {
+            currentHandle = await runtime.ensureSession({
+              sessionKey:
+                (payload?.sessionKey as string) || crypto.randomUUID(),
+              agent: (payload?.agent as string) || 'acp-remote-client',
+              mode: (payload?.mode as AcpRuntimeSessionMode) || 'persistent',
+              cwd: payload?.cwd as string | undefined,
+            });
+            client.send(
+              JSON.stringify({
+                type: 'event',
+                requestId: rid,
+                payload: { handle: currentHandle },
+              })
+            );
+            client.send(
+              JSON.stringify({
+                type: 'done',
+                requestId: rid,
+                payload: { stopReason: 'success' },
+              })
+            );
+          } catch (error) {
+            await handleError(error, {
+              module: 'acp:ws',
+              action: 'ensureSession',
+              rethrow: false,
+            });
+            client.send(
+              JSON.stringify({
+                type: 'error',
+                requestId: rid,
+                payload: {
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                },
+              })
+            );
+          }
+          return;
+        }
+
+        if (type === 'run_turn') {
+          if (!currentHandle) {
+            client.send(
+              JSON.stringify({
+                type: 'error',
+                requestId: rid,
+                payload: { message: '会话未建立，请先调用 ensure_session' },
+              })
+            );
+            return;
           }
 
+          try {
+            const iterable = runtime.runTurn({
+              handle: currentHandle,
+              text: (payload?.text as string) || '',
+              mode: (payload?.mode as AcpRuntimePromptMode) || 'prompt',
+              requestId: rid,
+            });
+
+            for await (const event of iterable) {
+              switch (event.type) {
+                case 'text_delta':
+                  client.send(
+                    JSON.stringify({
+                      type: 'event',
+                      requestId: rid,
+                      payload: {
+                        eventType: 'text_delta',
+                        text: event.text,
+                        stream: event.stream,
+                        tag: event.tag,
+                      },
+                    })
+                  );
+                  break;
+                case 'status':
+                  client.send(
+                    JSON.stringify({
+                      type: 'event',
+                      requestId: rid,
+                      payload: {
+                        eventType: 'status',
+                        text: event.text,
+                        tag: event.tag,
+                        used: event.used,
+                        size: event.size,
+                      },
+                    })
+                  );
+                  break;
+                case 'tool_call':
+                  client.send(
+                    JSON.stringify({
+                      type: 'event',
+                      requestId: rid,
+                      payload: {
+                        eventType: 'tool_call',
+                        text: event.text,
+                        tag: event.tag,
+                        toolCallId: event.toolCallId,
+                        status: event.status,
+                        title: event.title,
+                      },
+                    })
+                  );
+                  break;
+                case 'error':
+                  client.send(
+                    JSON.stringify({
+                      type: 'error',
+                      requestId: rid,
+                      payload: {
+                        message: event.message,
+                        code: event.code,
+                        retryable: event.retryable,
+                      },
+                    })
+                  );
+                  return;
+              }
+            }
+
+            client.send(
+              JSON.stringify({
+                type: 'done',
+                requestId: rid,
+                payload: { stopReason: 'success' },
+              })
+            );
+          } catch (error) {
+            await handleError(error, {
+              module: 'acp:ws',
+              action: 'runTurn',
+              rethrow: false,
+            });
+            client.send(
+              JSON.stringify({
+                type: 'error',
+                requestId: rid,
+                payload: {
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                },
+              })
+            );
+          }
+          return;
+        }
+
+        if (type === 'cancel') {
+          if (currentHandle) {
+            await runtime.cancel({
+              handle: currentHandle,
+              reason: payload?.reason as string | undefined,
+            });
+          }
+          client.send(
+            JSON.stringify({
+              type: 'done',
+              requestId: rid,
+              payload: { stopReason: 'cancelled' },
+            })
+          );
+          return;
+        }
+
+        if (type === 'close') {
+          if (currentHandle) {
+            await runtime.close({
+              handle: currentHandle,
+              reason: (payload?.reason as string) || 'Client closed',
+            });
+            currentHandle = null;
+          }
           client.send(
             JSON.stringify({
               type: 'done',
@@ -396,79 +463,44 @@ export class AcpWebSocketServer {
               payload: { stopReason: 'success' },
             })
           );
-        } catch (error) {
-          client.send(
-            JSON.stringify({
-              type: 'error',
-              requestId: rid,
-              payload: {
-                message: error instanceof Error ? error.message : String(error),
-              },
-            })
-          );
+          client.close(1000, 'Session closed');
+          return;
         }
-        return;
-      }
 
-      if (type === 'cancel') {
-        if (currentHandle) {
-          await runtime.cancel({
-            handle: currentHandle,
-            reason: payload?.reason as string | undefined,
-          });
-        }
         client.send(
           JSON.stringify({
-            type: 'done',
+            type: 'error',
             requestId: rid,
-            payload: { stopReason: 'cancelled' },
+            payload: { message: `未知消息类型: ${type}` },
           })
         );
-        return;
-      }
+      });
 
-      if (type === 'close') {
+      client.onClose(() => {
         if (currentHandle) {
-          await runtime.close({
-            handle: currentHandle,
-            reason: (payload?.reason as string) || 'Client closed',
-          });
+          runtime
+            .close({
+              handle: currentHandle,
+              reason: 'Client disconnected',
+            })
+            .catch(() => {});
           currentHandle = null;
         }
-        client.send(
-          JSON.stringify({
-            type: 'done',
-            requestId: rid,
-            payload: { stopReason: 'success' },
-          })
+        logger.info(
+          `[ACP] 客户端已断开: ${client.id} (剩余 ${this.clients.size} 个)`
         );
-        client.close(1000, 'Session closed');
-        return;
-      }
+      });
 
-      client.send(
-        JSON.stringify({
-          type: 'error',
-          requestId: rid,
-          payload: { message: `未知消息类型: ${type}` },
-        })
-      );
-    });
-
-    client.onClose(() => {
-      if (currentHandle) {
-        runtime
-          .close({
-            handle: currentHandle,
-            reason: 'Client disconnected',
-          })
-          .catch(() => {});
-        currentHandle = null;
-      }
-      logger.info(
-        `[ACP] 客户端已断开: ${client.id} (剩余 ${this.clients.size} 个)`
-      );
-    });
+      otel.endSpan(span);
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'acp:ws',
+        action: 'handleClientMessages',
+        rethrow: false,
+      });
+    }
   }
 }
 

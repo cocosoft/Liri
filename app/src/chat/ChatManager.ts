@@ -27,6 +27,18 @@ import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator'
 
 const logger = new Logger({ level: LogLevel.INFO });
 
+/** 系统提示词中的上下文保持 + 行为约束规则 */
+const MEMORY_CONTEXT_RULES = `## 上下文保持规则
+你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若对话历史已被压缩，可在系统提示词的"记忆上下文"段落中查找用户信息。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。
+
+## 输出行为约束
+1. **语言统一**：始终使用与用户上一条消息相同的语言回答。
+2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \\\`\\\` 标签内（例如 \\\`让我分析一下...\\\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。
+3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。
+4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**
+5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。
+6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`;
+
 import type { ChatManager } from './ChatManagerInterface.js';
 
 /**
@@ -123,6 +135,11 @@ import type { FileOperation } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
+import { getSessionActivityTracker } from '../session/bootstrap/SessionSystemBootstrap';
+import { getSessionMemoryManager } from '../session/bootstrap/SessionSystemBootstrap';
+import { getSessionStateHydrator } from '../session/bootstrap/SessionSystemBootstrap';
+import { SessionMemoryExtractor } from '../session/memory/SessionMemoryExtractor';
+import { MEMORY_TEMPLATE } from '../session/memory/memoryTemplate';
 
 /** 非流式路径中待恢复的工具循环状态 */
 interface InteractionSavedState {
@@ -516,17 +533,31 @@ export class ChatManagerImpl implements ChatManager {
 
     // 注入当前会话目标，防止上下文截断后 LLM 丢失当前任务
     const currentGoal = this._extractCurrentGoal(session, currentMessage);
-    if (currentGoal) {
-      return (
-        prompt +
+    const memoryContext = this._getSessionMemoryContext(session.id);
+    const basePrompt = currentGoal
+      ? prompt +
         `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
-        `\n\n## 上下文保持规则\n你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若对话历史已被压缩，可在系统提示词的"记忆上下文"段落中查找用户信息。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`
-      );
+        `\n\n${MEMORY_CONTEXT_RULES}`
+      : prompt + `\n\n${MEMORY_CONTEXT_RULES}`;
+
+    return basePrompt + (memoryContext ? `\n\n${memoryContext}` : '');
+  }
+
+  /**
+   * 获取当前会话的记忆上下文，用于注入到系统提示词
+   * 记忆超过 200 字符时才注入，避免空模板污染 prompt
+   */
+  private _getSessionMemoryContext(sessionId: string): string {
+    try {
+      const memoryContent =
+        getSessionMemoryManager().getMemoryContext(sessionId);
+      if (memoryContent && memoryContent.length > 200) {
+        return memoryContent;
+      }
+    } catch {
+      // 记忆读取失败，静默跳过
     }
-    return (
-      prompt +
-      `\n\n## 上下文保持规则\n你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若对话历史已被压缩，可在系统提示词的"记忆上下文"段落中查找用户信息。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。\n\n## 输出行为约束\n1. **语言统一**：始终使用与用户上一条消息相同的语言回答。\n2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \`\` 标签内（例如 \`让我分析一下...\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。\n3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。\n4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。**\n5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。\n6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`
-    );
+    return '';
   }
 
   /**
@@ -568,6 +599,28 @@ export class ChatManagerImpl implements ChatManager {
     this.llmClient?.initialize();
     await this.sessionGateway.initialize();
     await this._loadSessionsFromGateway();
+
+    // 启动会话活跃度追踪（心跳 + 并发控制）
+    getSessionActivityTracker();
+
+    // Worktree 存储隔离：迁移旧版会话到 worktree 路径
+    try {
+      const { migrateSessionsToWorktree } = await import('../core/paths.js');
+      migrateSessionsToWorktree();
+    } catch {
+      // 非阻塞
+    }
+
+    // 连线 SessionLifecycle 事件 → 记忆/心跳自动化
+    try {
+      const { getGlobalEventBus } =
+        await import('../session/lifecycle/SessionLifecycleEventBus.js');
+      const { connectSessionHandlers } =
+        await import('../session/lifecycle/SessionEventHandlers.js');
+      connectSessionHandlers(getGlobalEventBus());
+    } catch {
+      // 非阻塞：事件连线失败不影响主流程
+    }
 
     // 启动回滚系统：清理中断轮次 + 配额管理
     await RollbackIntegration.onAppStart().catch((err) => {
@@ -650,6 +703,21 @@ export class ChatManagerImpl implements ChatManager {
             updatedAt: new Date(stored.updatedAt),
           };
           this._chatSessions.set(stored.id, chatSession);
+
+          // Session State Hydration: 从 transcript 恢复衍生状态
+          try {
+            const hydrated = getSessionStateHydrator().hydrate(chatSession);
+            if (hydrated.todos || hydrated.recentFiles.length > 0) {
+              chatSession.metadata = {
+                ...chatSession.metadata,
+                hydratedTodos: hydrated.todos,
+                hydratedRecentFiles: hydrated.recentFiles,
+                hydratedDecisions: hydrated.recentDecisions,
+              };
+            }
+          } catch {
+            // 回灌失败不影响会话加载
+          }
         } catch (e) {
           logger.warn('加载单个会话失败，跳过', {
             sessionId: stored.id,
@@ -1877,6 +1945,17 @@ export class ChatManagerImpl implements ChatManager {
 
     // 跨轮对话摘要：保存关键决策
     this._persistTurnSummary(session);
+
+    // Session Memory: 累计本轮 token + 工具调用，达到阈值则触发提炼
+    this._accumulateSessionMemory(
+      session.id,
+      content,
+      typeof assistantMessage.content === 'string'
+        ? assistantMessage.content
+        : '',
+      response.usage?.prompt_tokens || 0,
+      response.tool_calls?.length || 0
+    );
 
     // 检查是否需要触发 Council 辩论
     const shouldTriggerCouncil =
@@ -3258,6 +3337,15 @@ export class ChatManagerImpl implements ChatManager {
     // 跨轮对话摘要：保存关键决策
     this._persistTurnSummary(session);
 
+    // Session Memory: 累计本轮数据，达到阈值则触发提炼
+    this._accumulateSessionMemory(
+      session.id,
+      content,
+      accumulatedContent,
+      finalResponse?.usage?.inputTokens || 0,
+      finalResponse?.tool_calls?.length || 0
+    );
+
     options?.onComplete?.(assistantMessage);
     return assistantMessage;
   }
@@ -3862,6 +3950,9 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
     });
 
+    // 追踪会话活跃度
+    getSessionActivityTracker().startActivity(session.id);
+
     return session;
   }
 
@@ -4004,6 +4095,21 @@ export class ChatManagerImpl implements ChatManager {
           updatedAt: new Date(storedSession.updatedAt),
         };
         this._chatSessions.set(storedSession.id, chatSession);
+
+        // Session State Hydration
+        try {
+          const hydrated = getSessionStateHydrator().hydrate(chatSession);
+          if (hydrated.todos || hydrated.recentFiles.length > 0) {
+            chatSession.metadata = {
+              ...chatSession.metadata,
+              hydratedTodos: hydrated.todos,
+              hydratedRecentFiles: hydrated.recentFiles,
+              hydratedDecisions: hydrated.recentDecisions,
+            };
+          }
+        } catch {
+          // 回灌失败不影响
+        }
         return chatSession;
       }
     } catch (e) {
@@ -4078,6 +4184,9 @@ export class ChatManagerImpl implements ChatManager {
     if (this._currentSessionId === sessionId) {
       this._currentSessionId = null;
     }
+
+    // 停止会话活跃度追踪
+    getSessionActivityTracker().stopActivity(sessionId);
 
     // 同步删除持久化存储
     this.sessionGateway.deleteSession(sessionId).catch((e) => {
@@ -4772,6 +4881,112 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string
   ): Promise<import('./types/checkpoint').SessionCheckpoint | null> {
     return this._checkpointService.getLatestCheckpoint(sessionId);
+  }
+
+  /**
+   * Session Memory 累计 + 阈值检测 + 触发提炼
+   * 每轮对话后调用，fire-and-forget 不阻塞响应
+   */
+  private _accumulateSessionMemory(
+    sessionId: string,
+    userMessage: string,
+    assistantResponse: string,
+    tokens: number,
+    toolCalls: number
+  ): void {
+    try {
+      const mm = getSessionMemoryManager();
+      let memory = mm.loadMemory(sessionId);
+      if (memory.items.length === 0) {
+        mm.initMemory(sessionId);
+      }
+
+      const input = {
+        userMessage,
+        assistantResponse,
+        tokens,
+        toolCalls,
+      };
+      const result = mm.accumulateTurn(memory, input);
+
+      if (result.shouldTrigger) {
+        // fire-and-forget: LLM 智能提炼 → memory.md
+        const llmClient = this.llmClient;
+        const session = this._chatSessions.get(sessionId);
+        if (llmClient && session) {
+          setImmediate(async () => {
+            try {
+              // 构建最近对话文本
+              const recentMsgs = (session.messages || []).slice(-10);
+              const conversationText = recentMsgs
+                .map(
+                  (m) =>
+                    `[${m.role}]: ${typeof m.content === 'string' ? m.content.slice(0, 500) : ''}`
+                )
+                .join('\n');
+
+              const existingMemory =
+                mm.readRawMemory(sessionId) ||
+                MEMORY_TEMPLATE.replace(
+                  '{{lastExtraction}}',
+                  new Date().toISOString()
+                );
+
+              // LLM 提炼
+              const extractor = new SessionMemoryExtractor({
+                sendMessage: (msgs) =>
+                  llmClient
+                    .sendMessage(msgs as never)
+                    .then((r: { content: string }) => r.content),
+              });
+              const memoryContent = await extractor.extract(
+                conversationText,
+                existingMemory
+              );
+
+              mm.writeRawMemory(sessionId, memoryContent);
+              logger.info('Session Memory LLM 提炼完成', { sessionId });
+            } catch (err) {
+              logger.warn('Session Memory LLM 提炼失败', {
+                sessionId,
+                error: String(err),
+              });
+              // 降级：简单追加用户消息摘要
+              try {
+                mm.appendToMemory(result.memory, [
+                  {
+                    type: 'discussion' as const,
+                    content: userMessage.slice(0, 200),
+                  },
+                ]);
+              } catch {
+                // 降级也失败，放弃
+              }
+            }
+          });
+        } else {
+          // 无 LLM 可用：简单降级
+          setImmediate(() => {
+            try {
+              mm.appendToMemory(result.memory, [
+                {
+                  type: 'discussion' as const,
+                  content: userMessage.slice(0, 200),
+                },
+              ]);
+            } catch {
+              /* 忽略 */
+            }
+          });
+        }
+      }
+    } catch (err) {
+      // 记忆系统失败不影响主流程
+      logger.debug('Session Memory accumulation skipped', {
+        sessionId,
+        error: String(err),
+      });
+    }
   }
 
   /**

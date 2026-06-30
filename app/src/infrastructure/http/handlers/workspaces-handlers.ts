@@ -44,7 +44,7 @@ export async function handleListWorkspaces(
 ): Promise<void> {
   try {
     const { buildEntries } =
-      await import('@modules/commands/builtin/workspace/WorkspaceStorage');
+      await import('@modules/workspaces/WorkspaceStorage');
     const entries = await buildEntries();
 
     const workspaces = entries.map((entry) => ({
@@ -334,7 +334,7 @@ export async function resolveWorkspacePath(
 ): Promise<string | null> {
   try {
     const { buildEntries } =
-      await import('@modules/commands/builtin/workspace/WorkspaceStorage');
+      await import('@modules/workspaces/WorkspaceStorage');
     const entries = await buildEntries();
     const entry = entries.find((e) => e.meta.id === workspaceId);
     return entry ? entry.path : null;

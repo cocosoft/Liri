@@ -1,4 +1,6 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';
@@ -233,59 +235,84 @@ export class SessionManager {
     sessionId: string,
     trigger?: import('./archive/ArchiveTypes').ArchiveTrigger
   ): Promise<ArchiveResult> {
-    const archiver = this.getArchiver();
-    await archiver.initialize();
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionManager.archiveSession', {
+      'session.id': sessionId,
+    });
 
-    const session = await this.store.loadSession(sessionId);
-    if (!session) {
+    try {
+      const archiver = this.getArchiver();
+      await archiver.initialize();
+
+      const session = await this.store.loadSession(sessionId);
+      if (!session) {
+        otel.endSpan(span);
+        return {
+          sessionId,
+          success: false,
+          archivedAt: Date.now(),
+          error: 'Session not found',
+        };
+      }
+
+      const result = await archiver.archiveSession(
+        {
+          id: session.id,
+          status: session.state.currentState,
+          messageCount: (session.messages ?? []).filter(
+            (m) => m.type === 'user' || m.type === 'assistant'
+          ).length,
+          totalTokens: session.metadata?.tokenUsage?.totalTokens ?? 0,
+          createdAt: session.createdAt.getTime(),
+          updatedAt: session.updatedAt.getTime(),
+          lastActivityAt: session.updatedAt.getTime(),
+          toUnifiedSession() {
+            return {
+              id: session.id,
+              type: 'local' as never,
+              createdAt: session.createdAt.getTime(),
+              updatedAt: session.updatedAt.getTime(),
+              lastActivityAt: session.updatedAt.getTime(),
+              status: session.state.currentState as never,
+              metadata: {},
+            };
+          },
+          toUnifiedMessages(): UnifiedMessage[] {
+            return (session.messages ?? []).map((m) => ({
+              id: m.id,
+              sessionId: session.id,
+              type: 'assistant' as never,
+              role:
+                m.type === 'tool'
+                  ? MessageRole.TOOL
+                  : m.type === 'user'
+                    ? MessageRole.USER
+                    : MessageRole.ASSISTANT,
+              content: [{ type: ContentBlockType.TEXT, text: m.content }],
+              timestamp: m.createdAt.getTime(),
+            }));
+          },
+        },
+        trigger
+      );
+
+      otel.endSpan(span);
+      return result;
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:manager',
+        action: 'archiveSession',
+        rethrow: false,
+      });
       return {
         sessionId,
         success: false,
         archivedAt: Date.now(),
-        error: 'Session not found',
+        error: e instanceof Error ? e.message : String(e),
       };
     }
-
-    return archiver.archiveSession(
-      {
-        id: session.id,
-        status: session.state.currentState,
-        messageCount: (session.messages ?? []).filter(
-          (m) => m.type === 'user' || m.type === 'assistant'
-        ).length,
-        totalTokens: session.metadata?.tokenUsage?.totalTokens ?? 0,
-        createdAt: session.createdAt.getTime(),
-        updatedAt: session.updatedAt.getTime(),
-        lastActivityAt: session.updatedAt.getTime(),
-        toUnifiedSession() {
-          return {
-            id: session.id,
-            type: 'local' as never,
-            createdAt: session.createdAt.getTime(),
-            updatedAt: session.updatedAt.getTime(),
-            lastActivityAt: session.updatedAt.getTime(),
-            status: session.state.currentState as never,
-            metadata: {},
-          };
-        },
-        toUnifiedMessages(): UnifiedMessage[] {
-          return (session.messages ?? []).map((m) => ({
-            id: m.id,
-            sessionId: session.id,
-            type: 'assistant' as never,
-            role:
-              m.type === 'tool'
-                ? MessageRole.TOOL
-                : m.type === 'user'
-                  ? MessageRole.USER
-                  : MessageRole.ASSISTANT,
-            content: [{ type: ContentBlockType.TEXT, text: m.content }],
-            timestamp: m.createdAt.getTime(),
-          }));
-        },
-      },
-      trigger
-    );
   }
 
   /**
@@ -352,47 +379,77 @@ export class SessionManager {
   async compactNow(): Promise<
     { sessionId: string; success: boolean; error?: string }[]
   > {
-    if (!this.compactionBridge) {
-      logger.warn('CompactionBridge not set, cannot compact');
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionManager.compactNow');
+
+    try {
+      if (!this.compactionBridge) {
+        logger.warn('CompactionBridge not set, cannot compact');
+        otel.endSpan(span);
+        return [];
+      }
+
+      const sessionIds = await this.store.listSessions();
+      const results: { sessionId: string; success: boolean; error?: string }[] =
+        [];
+
+      for (const sessionId of sessionIds) {
+        try {
+          const session = await this.store.loadSession(sessionId);
+          if (!session) continue;
+          if (session.state.currentState !== 'active') continue;
+
+          const bridgeResult = await this.compactionBridge.beforeCompact(
+            session,
+            ''
+          );
+          if (!bridgeResult.proceed) continue;
+
+          const record = await this.compactionBridge.performCompact(
+            session,
+            '',
+            'manual'
+          );
+          results.push({
+            sessionId,
+            success: record.success,
+            error: record.error,
+          });
+        } catch (e) {
+          results.push({ sessionId, success: false, error: String(e) });
+          await handleError(e, {
+            module: 'session:manager',
+            action: 'compactNow:single',
+            rethrow: false,
+          });
+        }
+      }
+
+      otel.endSpan(span);
+      return results;
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:manager',
+        action: 'compactNow',
+        rethrow: false,
+      });
       return [];
     }
-
-    const sessionIds = await this.store.listSessions();
-    const results: { sessionId: string; success: boolean; error?: string }[] =
-      [];
-
-    for (const sessionId of sessionIds) {
-      try {
-        const session = await this.store.loadSession(sessionId);
-        if (!session) continue;
-        if (session.state.currentState !== 'active') continue;
-
-        const bridgeResult = await this.compactionBridge.beforeCompact(
-          session,
-          ''
-        );
-        if (!bridgeResult.proceed) continue;
-
-        const record = await this.compactionBridge.performCompact(
-          session,
-          '',
-          'manual'
-        );
-        results.push({
-          sessionId,
-          success: record.success,
-          error: record.error,
-        });
-      } catch (e) {
-        results.push({ sessionId, success: false, error: String(e) });
-      }
-    }
-
-    return results;
   }
 
   async pruneNow(): Promise<import('./SessionPruner').PruneResult> {
-    return this.pruner.prune();
+    try {
+      return await this.pruner.prune();
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:manager',
+        action: 'pruneNow',
+        rethrow: false,
+      });
+      throw e;
+    }
   }
 
   async getCacheStats(): Promise<{

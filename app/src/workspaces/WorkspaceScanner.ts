@@ -1,23 +1,37 @@
-﻿import * as fs from 'fs';
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * 工作空间文件扫描器
+ * 扫描 AGENTS.md / TOOLS.md / AGENTS 目录文件
+ */
+import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
+import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
+import type { WorkspaceFile, WorkspaceFiles } from './types';
+
+export type { WorkspaceFile, WorkspaceFiles };
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-export interface WorkspaceFile {
-  name: string;
-  content: string;
-  filePath: string;
-  mtimeMs: number;
-  truncated: boolean;
-}
-
-export interface WorkspaceFiles {
-  agentsMd: WorkspaceFile | null;
-  toolsMd: WorkspaceFile | null;
-  agentsDirFiles: WorkspaceFile[];
-}
 
 const MAX_FILE_CHARS = 12_000;
 const MAX_TOTAL_CHARS = 60_000;
@@ -138,15 +152,13 @@ export function scanWorkspaceFiles(cwd: string): WorkspaceFiles {
 
 /**
  * 剥离 Markdown 文件的 YAML frontmatter
- * 匹配开头的 ---\n...\n---\n 块
  */
 export function stripFrontmatter(content: string): string {
   return content.replace(/^---\n[\s\S]*?\n---\n/, '');
 }
 
 /**
- * head(70%) + tail(30%) 截断策略（对标 Hermes head/tail 截断）
- * 超出 maxChars 时保留开头 70% 和结尾 30%，中间插入截断标记
+ * head(70%) + tail(30%) 截断策略
  */
 export function headTailTruncate(
   content: string,
@@ -169,8 +181,8 @@ export function headTailTruncate(
 }
 
 /**
- * 扫描上下文文件内容中的注入威胁（对标 Hermes _scan_context_content()）
- * 检测到威胁时替换为 [BLOCKED: ...] 标记而非完全拒绝
+ * 扫描上下文文件内容中的注入威胁
+ * 检测到威胁时替换为 [BLOCKED: ...] 标记
  */
 export function scanContextContent(content: string, source: string): string {
   const detector = getPromptInjectionDetector();

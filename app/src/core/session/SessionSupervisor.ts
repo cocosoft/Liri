@@ -1,9 +1,11 @@
-﻿/**
+/**
  * SessionSupervisor 会话监管器
  * 负责会话生命周期管理：健康检查、空闲检测、自动回收
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { ResetPolicyDecider } from '@modules/session/policy/ResetPolicyDecider';
 import type { ResetPolicy } from '@modules/session/policy/ResetPolicy';
 
@@ -92,8 +94,8 @@ export class SessionSupervisor {
     }
 
     this.timer = setInterval(() => {
-      this.check().catch((err) => {
-        logger.error('[SessionSupervisor] 检查异常:', err);
+      this.check().catch((e) => {
+        handleError(e, { module: 'session:supervisor', action: 'check:timer' });
       });
     }, this.config.checkInterval);
 
@@ -122,47 +124,65 @@ export class SessionSupervisor {
    * 执行一次会话健康检查
    */
   async check(): Promise<void> {
-    if (this.disposed) {
-      return;
-    }
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionSupervisor.check');
 
-    const now = Date.now();
-    const sessions = await this.store.listSessions();
-
-    for (const session of sessions) {
-      const idleTime = now - session.lastActivityAt;
-
-      if (session.status === 'idle' || session.status === 'ended') {
-        if (idleTime >= this.config.forceRecycleThreshold) {
-          await this.store.deleteSession(session.id);
-        }
-        continue;
+    try {
+      if (this.disposed) {
+        otel.endSpan(span);
+        return;
       }
 
-      if (this.policyDecider && this.config.resetPolicy) {
-        const action = this.policyDecider.evaluate(
-          {
-            id: session.id,
-            lastActivityAt: session.lastActivityAt,
-            createdAt: session.createdAt,
-            status: session.status,
-          },
-          this.config.resetPolicy
-        );
+      const now = Date.now();
+      const sessions = await this.store.listSessions();
 
-        if (action.action === 'mark_idle') {
-          await this.store.markIdle(session.id);
-        } else if (action.action === 'reset') {
-          await this.store.markIdle(session.id);
-          if (!this.config.resetPolicy.preserveMetadata) {
-            logger.warn(`[SessionSupervisor] 会话 ${session.id} 每日重置触发`);
+      for (const session of sessions) {
+        const idleTime = now - session.lastActivityAt;
+
+        if (session.status === 'idle' || session.status === 'ended') {
+          if (idleTime >= this.config.forceRecycleThreshold) {
+            await this.store.deleteSession(session.id);
+          }
+          continue;
+        }
+
+        if (this.policyDecider && this.config.resetPolicy) {
+          const action = this.policyDecider.evaluate(
+            {
+              id: session.id,
+              lastActivityAt: session.lastActivityAt,
+              createdAt: session.createdAt,
+              status: session.status,
+            },
+            this.config.resetPolicy
+          );
+
+          if (action.action === 'mark_idle') {
+            await this.store.markIdle(session.id);
+          } else if (action.action === 'reset') {
+            await this.store.markIdle(session.id);
+            if (!this.config.resetPolicy.preserveMetadata) {
+              logger.warn(
+                `[SessionSupervisor] 会话 ${session.id} 每日重置触发`
+              );
+            }
+          }
+        } else {
+          if (idleTime >= this.config.staleThreshold) {
+            await this.store.markIdle(session.id);
           }
         }
-      } else {
-        if (idleTime >= this.config.staleThreshold) {
-          await this.store.markIdle(session.id);
-        }
       }
+
+      otel.endSpan(span);
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:supervisor',
+        action: 'check',
+        rethrow: false,
+      });
     }
   }
 

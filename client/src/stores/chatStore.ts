@@ -274,12 +274,21 @@ function shouldAutoRename(sessionId?: string): boolean {
 
 /**
  * 自动生成会话标题，失败时用用户消息前30字符作为降级标题
+ * 添加延迟 + 二次检查防御后端 autoGenerateTitle 的竞态条件
  */
 async function doAutoRename(
   sessionId: string,
   userMessage: string,
   assistantResponse: string,
 ): Promise<void> {
+  // 延迟 2 秒，给后端 fire-and-forget 的 autoGenerateTitle 时间先完成
+  await new Promise((r) => setTimeout(r, 2000));
+
+  // 二次检查：后端可能已通过 SSE 更新了标记
+  if (!shouldAutoRename(sessionId)) {
+    return;
+  }
+
   try {
     const title = await sessionService.generateTitle(
       sessionId,

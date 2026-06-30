@@ -5,6 +5,7 @@
 
 export type SessionEventType =
   | 'session:created'
+  | 'session:loaded'
   | 'session:activated'
   | 'session:paused'
   | 'session:resumed'
@@ -15,6 +16,7 @@ export type SessionEventType =
   | 'session:archived'
   | 'session:deleted'
   | 'session:expired'
+  | 'session:title_changed'
   | 'session:token_threshold'
   | 'session:error'
   | 'message:created'

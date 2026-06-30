@@ -1,10 +1,12 @@
-﻿/**
+/**
  * 会话存储迁移管理器
  * 支持跨版本会话数据结构升级
  * 对齐 OpenClaw config/sessions/store-migrations.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveDataDir, resolveSessionsDir } from '@modules/core';
@@ -41,23 +43,38 @@ export class SessionMigration {
   }
 
   async migrate(): Promise<MigrationResult[]> {
-    const results: MigrationResult[] = [];
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionMigration.migrate');
 
     try {
-      const sessionFiles = this.getSessionFiles();
-      logger.info(`发现 ${sessionFiles.length} 个会话文件待迁移`);
+      const results: MigrationResult[] = [];
 
-      for (const sessionFile of sessionFiles) {
-        for (const migration of this.migrations) {
-          const result = await this.migrateFile(sessionFile, migration);
-          results.push(result);
+      try {
+        const sessionFiles = this.getSessionFiles();
+        logger.info(`发现 ${sessionFiles.length} 个会话文件待迁移`);
+
+        for (const sessionFile of sessionFiles) {
+          for (const migration of this.migrations) {
+            const result = await this.migrateFile(sessionFile, migration);
+            results.push(result);
+          }
         }
+      } catch (error) {
+        logger.error('会话迁移失败', error as Error);
       }
-    } catch (error) {
-      logger.error('会话迁移失败', error as Error);
-    }
 
-    return results;
+      otel.endSpan(span);
+      return results;
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:migration',
+        action: 'migrate',
+        rethrow: false,
+      });
+      return [];
+    }
   }
 
   private async migrateFile(

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 策略选择器
  * 基于任务特征矩阵自动匹配最佳 Agent 策略
  */
@@ -261,3 +261,5 @@ export class StrategySelector {
     };
   }
 }
+
+export { TaskComplexity, ContextSize };

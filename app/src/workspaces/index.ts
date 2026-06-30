@@ -18,11 +18,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-export {
-  scanWorkspaceFiles,
-  readAgentsMd,
-  readToolsMd,
-  clearWorkspaceCache,
-  type WorkspaceFile,
-  type WorkspaceFiles,
-} from '@modules/workspaces/WorkspaceScanner';
+
+/**
+ * 统一工作空间管理模块导出
+ */
+export * from './types';
+export * from './WorkspaceRegistry';
+export * from './WorkspaceStorage';
+export * from './WorkspaceScanner';
+export * from './WorkspaceGit';

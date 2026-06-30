@@ -22,7 +22,7 @@
  * 工作区命令
  * 管理工作区
  */
-import type { Command } from '@modules/commands';
+import type { Command, CommandContext } from '@modules/commands';
 
 /**
  * workspace 命令定义
@@ -32,10 +32,34 @@ export const workspaceCommand: Command = {
   name: 'workspace',
   description: '工作空间管理（创建、切换、重命名、删除）',
   aliases: ['workspaces'],
-  argumentHint: '[list|new|open|close|rename|delete|info|help]',
+  argumentHint: '[list|new|open|close|rename|delete|info|enter|exit|help]',
   whenToUse: '当你需要管理工作区时',
-  load: async () =>
-    import('./Workspace.js').then((m) => ({
-      execute: m.default.execute.bind(m.default),
-    })),
+  load: async () => {
+    const { lifecycle, query, session } =
+      await import('@modules/workspaces/commands/index.js');
+    return {
+      execute: async (args: string, context: CommandContext) => {
+        const parts = args.trim().split(/\s+/);
+        const subcommand = (parts[0] || 'list').toLowerCase();
+        const rest = parts.slice(1).join(' ');
+
+        switch (subcommand) {
+          case 'new':
+          case 'close':
+          case 'rename':
+          case 'delete':
+            return lifecycle.execute(subcommand, rest, context);
+          case 'list':
+          case 'info':
+          case 'help':
+            return query.execute(subcommand, rest, context);
+          case 'enter':
+          case 'exit':
+            return session.execute(subcommand, rest, context);
+          default:
+            return query.execute('help', '', context);
+        }
+      },
+    };
+  },
 };

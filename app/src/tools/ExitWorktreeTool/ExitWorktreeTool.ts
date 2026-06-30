@@ -9,7 +9,7 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { exitWorktree } from '@modules/workspaces/commands/session';
 
 /**
  * 退出Worktree输入
@@ -124,107 +124,31 @@ export class ExitWorktreeTool extends BaseTool<
     }
 
     try {
-      // 获取当前分支
-      const currentBranch = execSync('git branch --show-current', {
-        encoding: 'utf8',
-        stdio: 'pipe',
-      }).trim();
+      const result = await exitWorktree(slug, remove, process.cwd());
 
-      // 获取git根目录
-      const gitRoot = execSync('git rev-parse --show-toplevel', {
-        encoding: 'utf8',
-        stdio: 'pipe',
-      }).trim();
-
-      // 获取主仓库路径
-      const mainWorktreePath = gitRoot;
-
-      // 检查是否在worktree中
-      const isInWorktree =
-        execSync('git rev-parse --is-inside-work-tree', {
-          encoding: 'utf8',
-          stdio: 'pipe',
-        }).trim() === 'true';
-
-      if (!isInWorktree) {
+      if (result.success) {
         return createToolResult(
           {
-            success: false,
-            message: 'Not in a git worktree',
+            success: true,
+            message: result.message || 'Worktree removed',
+            previous_branch: (result.data as Record<string, unknown>)
+              ?.previous_branch as string,
           },
           {
             newMessages: [
-              {
-                role: 'system',
-                content: '错误: 不在git worktree中',
-              },
+              { role: 'system', content: result.message || 'Worktree removed' },
             ],
           }
         );
-      }
-
-      // 获取worktree列表
-      const worktreeList = execSync('git worktree list --porcelain', {
-        encoding: 'utf8',
-        stdio: 'pipe',
-      });
-
-      // 查找匹配的worktree
-      const worktreeLines = worktreeList.split('\n');
-      let worktreePath = '';
-      for (const line of worktreeLines) {
-        if (line.startsWith('worktree ')) {
-          worktreePath = line.replace('worktree ', '').trim();
-          if (worktreePath.includes(slug)) {
-            break;
-          }
-        }
-      }
-
-      if (!worktreePath || !existsSync(worktreePath)) {
-        return createToolResult(
-          {
-            success: false,
-            message: `Worktree "${slug}" not found`,
-          },
-          {
-            newMessages: [
-              {
-                role: 'system',
-                content: `找不到worktree "${slug}"`,
-              },
-            ],
-          }
-        );
-      }
-
-      // 如果当前在worktree中，先返回主仓库
-      if (worktreePath === process.cwd()) {
-        process.chdir(mainWorktreePath);
-      }
-
-      // 删除worktree
-      if (remove) {
-        execSync(`git worktree remove "${worktreePath}"`, {
-          stdio: 'pipe',
-        });
-      } else {
-        execSync(`git worktree remove --force "${worktreePath}"`, {
-          stdio: 'pipe',
-        });
       }
 
       return createToolResult(
-        {
-          success: true,
-          message: `Worktree "${slug}" removed. Returned to main branch.`,
-          previous_branch: currentBranch,
-        },
+        { success: false, message: result.error || result.message || 'Failed' },
         {
           newMessages: [
             {
               role: 'system',
-              content: `Worktree "${slug}" 已移除。返回到主分支。`,
+              content: result.error || result.message || 'Failed',
             },
           ],
         }

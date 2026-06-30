@@ -39,7 +39,15 @@ export async function handleListSessions(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
-    const sessions = await coreAPI.listSessions();
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const lite = url.searchParams.get('lite') === 'true';
+
+    const sessions = lite
+      ? await coreAPI.listLiteSessions()
+      : await coreAPI.listSessions();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(sessions));
   } catch (err) {

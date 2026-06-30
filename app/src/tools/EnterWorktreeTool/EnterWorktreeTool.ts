@@ -9,8 +9,7 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { enterWorktree } from '@modules/workspaces/commands/session';
 
 /**
  * 进入Worktree输入
@@ -154,63 +153,35 @@ export class EnterWorktreeTool extends BaseTool<
     }
 
     try {
-      // 获取git根目录
-      const gitRoot = execSync('git rev-parse --show-toplevel', {
-        encoding: 'utf8',
-        stdio: 'pipe',
-      }).trim();
+      const result = await enterWorktree(slug, branch, process.cwd());
 
-      // 创建worktree路径
-      const worktreePath = join(gitRoot, '..', `${slug}-worktree`);
-
-      // 检查worktree是否已存在
-      if (existsSync(worktreePath)) {
+      if (result.success) {
         return createToolResult(
           {
-            success: false,
-            message: `Worktree "${slug}" already exists at ${worktreePath}`,
+            success: true,
+            message: result.message || 'Worktree created',
+            worktree_path: (result.data as Record<string, unknown>)
+              ?.worktree_path as string,
+            branch: (result.data as Record<string, unknown>)?.branch as string,
           },
           {
             newMessages: [
               {
                 role: 'system',
-                content: `Worktree "${slug}" 已存在于 ${worktreePath}`,
+                content: result.message || 'Worktree created',
               },
             ],
           }
         );
       }
 
-      // 创建分支名称
-      const branchName = branch || `worktree/${slug}`;
-
-      // 检查分支是否存在
-      try {
-        execSync(`git show-ref --verify --quiet refs/heads/${branchName}`, {
-          stdio: 'pipe',
-        });
-      } catch {
-        // 分支不存在，创建新分支
-        execSync(`git branch ${branchName}`, { stdio: 'pipe' });
-      }
-
-      // 创建worktree
-      execSync(`git worktree add "${worktreePath}" ${branchName}`, {
-        stdio: 'pipe',
-      });
-
       return createToolResult(
-        {
-          success: true,
-          message: `Worktree "${slug}" created at ${worktreePath}`,
-          worktree_path: worktreePath,
-          branch: branchName,
-        },
+        { success: false, message: result.error || result.message || 'Failed' },
         {
           newMessages: [
             {
               role: 'system',
-              content: `Worktree "${slug}" 已创建在 ${worktreePath}，基于分支 ${branchName}`,
+              content: result.error || result.message || 'Failed',
             },
           ],
         }

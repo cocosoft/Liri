@@ -1,7 +1,9 @@
-﻿import { promises as fs } from 'fs';
+import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -43,86 +45,125 @@ export class SessionLock {
     sessionId: string,
     customTimeout?: number
   ): Promise<LockAcquireResult> {
-    const lockFile = this.getLockFilePath(sessionId);
-    await this.ensureLockDir();
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionLock.acquire', {
+      'session.id': sessionId,
+    });
 
-    const timeout = customTimeout ?? this.timeout;
-    const startTime = Date.now();
+    try {
+      const lockFile = this.getLockFilePath(sessionId);
+      await this.ensureLockDir();
 
-    while (Date.now() - startTime < timeout) {
-      try {
-        const existing = await this.readLockFile(lockFile);
-        if (existing) {
-          if (this.isStale(existing.acquiredAt)) {
-            logger.warning(
-              `Stale lock detected for session ${sessionId}, attempting to break`
-            );
-            await this.releaseStale(sessionId, existing.holder);
+      const timeout = customTimeout ?? this.timeout;
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < timeout) {
+        try {
+          const existing = await this.readLockFile(lockFile);
+          if (existing) {
+            if (this.isStale(existing.acquiredAt)) {
+              logger.warning(
+                `Stale lock detected for session ${sessionId}, attempting to break`
+              );
+              await this.releaseStale(sessionId, existing.holder);
+              continue;
+            }
+
+            await this.sleep(this.retryInterval);
             continue;
           }
-
-          await this.sleep(this.retryInterval);
-          continue;
+        } catch {
+          // Lock file doesn't exist or can't be read, proceed to acquire
         }
-      } catch {
-        // Lock file doesn't exist or can't be read, proceed to acquire
-      }
 
-      const lockData = {
-        holder: this.instanceId,
-        acquiredAt: Date.now(),
-      };
-
-      try {
-        const fileHandle = await fs.open(lockFile, 'wx');
-        await fileHandle.writeFile(JSON.stringify(lockData), 'utf-8');
-        await fileHandle.close();
-
-        this.heldLocks.set(sessionId, {
+        const lockData = {
           holder: this.instanceId,
-          acquiredAt: lockData.acquiredAt,
-        });
-
-        return {
-          success: true,
-          holder: this.instanceId,
-          acquiredAt: lockData.acquiredAt,
+          acquiredAt: Date.now(),
         };
-      } catch (err: any) {
-        if (err.code === 'EEXIST' || err.code === 'EWOULDBLOCK') {
-          await this.sleep(this.retryInterval);
-          continue;
-        }
-        throw err;
-      }
-    }
 
-    const currentHolder = await this.getCurrentHolder(sessionId);
-    return { success: false, holder: currentHolder ?? undefined };
+        try {
+          const fileHandle = await fs.open(lockFile, 'wx');
+          await fileHandle.writeFile(JSON.stringify(lockData), 'utf-8');
+          await fileHandle.close();
+
+          this.heldLocks.set(sessionId, {
+            holder: this.instanceId,
+            acquiredAt: lockData.acquiredAt,
+          });
+
+          otel.endSpan(span);
+          return {
+            success: true,
+            holder: this.instanceId,
+            acquiredAt: lockData.acquiredAt,
+          };
+        } catch (err: any) {
+          if (err.code === 'EEXIST' || err.code === 'EWOULDBLOCK') {
+            await this.sleep(this.retryInterval);
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      const currentHolder = await this.getCurrentHolder(sessionId);
+      otel.endSpan(span);
+      return { success: false, holder: currentHolder ?? undefined };
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:lock',
+        action: 'acquire',
+        context: { sessionId },
+        rethrow: true,
+      });
+      throw e;
+    }
   }
 
   async release(sessionId: string): Promise<boolean> {
-    const held = this.heldLocks.get(sessionId);
-    if (!held) {
-      return false;
-    }
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionLock.release', {
+      'session.id': sessionId,
+    });
 
-    if (held.holder !== this.instanceId) {
-      logger.warning(
-        `Cannot release lock for session ${sessionId}: not the holder`
-      );
-      return false;
-    }
-
-    const lockFile = this.getLockFilePath(sessionId);
     try {
-      await fs.unlink(lockFile);
-    } catch {
-      // Lock file may already be deleted
-    }
+      const held = this.heldLocks.get(sessionId);
+      if (!held) {
+        otel.endSpan(span);
+        return false;
+      }
 
-    this.heldLocks.delete(sessionId);
-    return true;
+      if (held.holder !== this.instanceId) {
+        logger.warning(
+          `Cannot release lock for session ${sessionId}: not the holder`
+        );
+        otel.endSpan(span);
+        return false;
+      }
+
+      const lockFile = this.getLockFilePath(sessionId);
+      try {
+        await fs.unlink(lockFile);
+      } catch {
+        // Lock file may already be deleted
+      }
+
+      this.heldLocks.delete(sessionId);
+      otel.endSpan(span);
+      return true;
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:lock',
+        action: 'release',
+        context: { sessionId },
+        rethrow: true,
+      });
+      throw e;
+    }
   }
 
   async isLocked(sessionId: string): Promise<boolean> {

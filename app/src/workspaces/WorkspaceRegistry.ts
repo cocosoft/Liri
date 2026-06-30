@@ -1,11 +1,32 @@
-﻿/**
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
  * 工作空间注册表管理
  * 读写 ~/.pyapp/workspaces.json，维护所有工作空间的名称→路径映射
  */
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
-import type { WorkspaceRegistry } from './types';
+import type { WorkspaceRegistryData } from './types';
 import { resolvePyappHome } from '@modules/core';
 import os from 'os';
 
@@ -36,7 +57,7 @@ async function ensureRegistryDir(): Promise<void> {
 /**
  * 加载注册表
  */
-async function loadRegistry(): Promise<WorkspaceRegistry> {
+async function loadRegistry(): Promise<WorkspaceRegistryData> {
   const filePath = getRegistryPath();
   if (!existsSync(filePath)) {
     return {
@@ -47,7 +68,7 @@ async function loadRegistry(): Promise<WorkspaceRegistry> {
   }
   try {
     const raw = await readFile(filePath, 'utf8');
-    return JSON.parse(raw) as WorkspaceRegistry;
+    return JSON.parse(raw) as WorkspaceRegistryData;
   } catch {
     return {
       workspaces: {},
@@ -60,7 +81,7 @@ async function loadRegistry(): Promise<WorkspaceRegistry> {
 /**
  * 保存注册表
  */
-async function saveRegistry(registry: WorkspaceRegistry): Promise<void> {
+async function saveRegistry(registry: WorkspaceRegistryData): Promise<void> {
   await ensureRegistryDir();
   await writeFile(getRegistryPath(), JSON.stringify(registry, null, 2), 'utf8');
 }

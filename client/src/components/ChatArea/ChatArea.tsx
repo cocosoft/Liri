@@ -9,7 +9,6 @@ import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
-import ContextPanel from "./ContextPanel";
 
 function ChatArea() {
   const { t } = useTranslation();
@@ -210,9 +209,6 @@ function ChatArea() {
           containerRef={containerRef}
         />
       </div>
-
-      {/* 上下文面板 */}
-      <ContextPanel />
     </div>
   );
 }

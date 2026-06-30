@@ -1,4 +1,5 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
 import type { SessionStorage } from './SessionStorage';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -39,90 +40,101 @@ export class SessionPruner {
   }
 
   async prune(): Promise<PruneResult> {
-    const sessionIds = await this.storage.listSessions();
-    if (sessionIds.length === 0) {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionPruner.prune');
+
+    try {
+      const sessionIds = await this.storage.listSessions();
+      if (sessionIds.length === 0) {
+        otel.endSpan(span);
+        return {
+          deletedCount: 0,
+          deletedIds: [],
+          preservedCount: 0,
+          preservedIds: [],
+          reason: 'none',
+        };
+      }
+
+      const now = Date.now();
+      const cutoffTime = now - this.maxAgeDays * 24 * 60 * 60 * 1000;
+      const activeCutoff = now - this.activeBufferMinutes * 60 * 1000;
+
+      const sessionsWithTime: {
+        id: string;
+        updatedAt: number;
+        isActive: boolean;
+      }[] = [];
+
+      for (const id of sessionIds) {
+        const session = await this.storage.loadSession(id);
+        if (!session) continue;
+
+        const updatedAt =
+          session.updatedAt instanceof Date
+            ? session.updatedAt.getTime()
+            : new Date(session.updatedAt).getTime();
+
+        const isActive = this.excludeActive && updatedAt >= activeCutoff;
+        sessionsWithTime.push({ id, updatedAt, isActive });
+      }
+
+      sessionsWithTime.sort((a, b) => a.updatedAt - b.updatedAt);
+
+      let reason: PruneResult['reason'] = 'none';
+
+      let toDelete = new Set<string>();
+
+      const ageCandidates = sessionsWithTime.filter(
+        (s) => !s.isActive && s.updatedAt < cutoffTime
+      );
+      if (ageCandidates.length > 0) {
+        reason = 'age';
+        for (const s of ageCandidates) {
+          toDelete.add(s.id);
+        }
+      }
+
+      const remaining = sessionsWithTime.filter((s) => !toDelete.has(s.id));
+      if (remaining.length > this.maxSessions) {
+        reason = reason === 'age' ? 'both' : 'count';
+        const excess = remaining.slice(0, remaining.length - this.maxSessions);
+        for (const s of excess) {
+          toDelete.add(s.id);
+        }
+      }
+
+      const deletedIds: string[] = [];
+      for (const id of toDelete) {
+        try {
+          await this.storage.deleteSession(id);
+          deletedIds.push(id);
+        } catch (err) {
+          logger.error(`Failed to delete session ${id} during pruning`, err);
+        }
+      }
+
+      const preservedIds = sessionsWithTime
+        .filter((s) => !toDelete.has(s.id))
+        .map((s) => s.id);
+
+      logger.info(
+        `Session pruning completed: deleted ${deletedIds.length}, preserved ${preservedIds.length} (reason: ${reason})`
+      );
+
+      otel.endSpan(span);
       return {
-        deletedCount: 0,
-        deletedIds: [],
-        preservedCount: 0,
-        preservedIds: [],
-        reason: 'none',
+        deletedCount: deletedIds.length,
+        deletedIds,
+        preservedCount: preservedIds.length,
+        preservedIds,
+        reason,
       };
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      throw e;
     }
-
-    const now = Date.now();
-    const cutoffTime = now - this.maxAgeDays * 24 * 60 * 60 * 1000;
-    const activeCutoff = now - this.activeBufferMinutes * 60 * 1000;
-
-    const sessionsWithTime: {
-      id: string;
-      updatedAt: number;
-      isActive: boolean;
-    }[] = [];
-
-    for (const id of sessionIds) {
-      const session = await this.storage.loadSession(id);
-      if (!session) continue;
-
-      const updatedAt =
-        session.updatedAt instanceof Date
-          ? session.updatedAt.getTime()
-          : new Date(session.updatedAt).getTime();
-
-      const isActive = this.excludeActive && updatedAt >= activeCutoff;
-      sessionsWithTime.push({ id, updatedAt, isActive });
-    }
-
-    sessionsWithTime.sort((a, b) => a.updatedAt - b.updatedAt);
-
-    let reason: PruneResult['reason'] = 'none';
-
-    let toDelete = new Set<string>();
-
-    const ageCandidates = sessionsWithTime.filter(
-      (s) => !s.isActive && s.updatedAt < cutoffTime
-    );
-    if (ageCandidates.length > 0) {
-      reason = 'age';
-      for (const s of ageCandidates) {
-        toDelete.add(s.id);
-      }
-    }
-
-    const remaining = sessionsWithTime.filter((s) => !toDelete.has(s.id));
-    if (remaining.length > this.maxSessions) {
-      reason = reason === 'age' ? 'both' : 'count';
-      const excess = remaining.slice(0, remaining.length - this.maxSessions);
-      for (const s of excess) {
-        toDelete.add(s.id);
-      }
-    }
-
-    const deletedIds: string[] = [];
-    for (const id of toDelete) {
-      try {
-        await this.storage.deleteSession(id);
-        deletedIds.push(id);
-      } catch (err) {
-        logger.error(`Failed to delete session ${id} during pruning`, err);
-      }
-    }
-
-    const preservedIds = sessionsWithTime
-      .filter((s) => !toDelete.has(s.id))
-      .map((s) => s.id);
-
-    logger.info(
-      `Session pruning completed: deleted ${deletedIds.length}, preserved ${preservedIds.length} (reason: ${reason})`
-    );
-
-    return {
-      deletedCount: deletedIds.length,
-      deletedIds,
-      preservedCount: preservedIds.length,
-      preservedIds,
-      reason,
-    };
   }
 
   async getPruneEstimate(): Promise<{

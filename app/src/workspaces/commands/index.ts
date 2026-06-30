@@ -18,36 +18,13 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-/**
- * 工作空间元数据
- * 存储在每个工作空间目录下的 .workspace.json 中
- */
-export interface WorkspaceMeta {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  description: string;
-}
 
 /**
- * 工作空间条目
- * 用于列表展示，合并元数据与运行时统计
+ * 工作空间子命令注册入口
+ * 按职责分为三类：生命周期、查询、会话
  */
-export interface WorkspaceEntry {
-  name: string;
-  path: string;
-  meta: WorkspaceMeta;
-  fileCount: number;
-  isActive: boolean;
-}
 
-/**
- * 工作空间注册表
- * 存储于 ~/.pyapp/workspaces.json
- */
-export interface WorkspaceRegistry {
-  workspaces: Record<string, string>;
-  defaultRoot: string;
-  activeWorkspace: string | null;
-}
+export { default as lifecycle } from './lifecycle';
+export { default as query } from './query';
+export { default as session } from './session';
+export { enterWorktree, exitWorktree } from './session';

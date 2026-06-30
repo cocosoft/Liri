@@ -186,11 +186,86 @@ export function resolveDbPath(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveDataDir(env), 'app.db');
 }
 
-/** 会话存储 */
+/** 会话存储 — 按 worktree 隔离 */
 export function resolveSessionsDir(
   env: NodeJS.ProcessEnv = process.env
 ): string {
+  const worktreeHash = resolveWorktreeHash(env);
+  return join(resolveDataDir(env), 'sessions', worktreeHash);
+}
+
+/**
+ * 旧版会话存储路径（无 worktree 隔离），用于兼容迁移
+ */
+export function resolveLegacySessionsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
   return join(resolveDataDir(env), 'sessions');
+}
+
+/**
+ * 计算当前项目根目录的 worktree hash
+ * 对标 BA_REF sessionStorage.ts 的 worktree 感知存储隔离。
+ * 通过 PYAPP_PROJECT_DIR 环境变量获取项目目录，SHA256 前 8 位作为 hash。
+ * 若环境变量未设置，返回 'default' 表示非 worktree 模式。
+ */
+export function resolveWorktreeHash(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const projectDir = env.PYAPP_PROJECT_DIR;
+  if (!projectDir) return 'default';
+
+  const { createHash } = require('node:crypto');
+  return createHash('sha256').update(projectDir).digest('hex').slice(0, 8);
+}
+
+/**
+ * 会话存储迁移：从旧版平级路径迁移到 worktree 隔离路径
+ * 幂等操作 — 先移动文件 → 确认成功 → 写 `migrated_at` 标记
+ */
+export function migrateSessionsToWorktree(
+  env: NodeJS.ProcessEnv = process.env
+): void {
+  const {
+    existsSync,
+    renameSync,
+    mkdirSync,
+    writeFileSync,
+    readdirSync,
+  } = require('node:fs');
+  const { join } = require('node:path');
+  const legacyDir = resolveLegacySessionsDir(env);
+  const newDir = resolveSessionsDir(env);
+
+  // 已迁移：新路径存在
+  if (existsSync(newDir)) return;
+
+  // 无需迁移：旧路径不存在或无数据
+  if (!existsSync(legacyDir)) return;
+
+  const entries = readdirSync(legacyDir);
+  if (entries.length === 0) return;
+
+  // 幂等迁移：先创建目标目录，再逐项移动（不能 rename 父目录到自身子目录）
+  try {
+    mkdirSync(newDir, { recursive: true });
+    for (const entry of entries) {
+      const from = join(legacyDir, entry);
+      const to = join(newDir, entry);
+      try {
+        renameSync(from, to);
+      } catch {
+        // 单项移动失败，跳过
+      }
+    }
+    // 迁移成功标记
+    writeFileSync(
+      join(newDir, '.worktree_migrated_at'),
+      new Date().toISOString()
+    );
+  } catch {
+    // 迁移失败，静默降级
+  }
 }
 
 /** 会话转录 */

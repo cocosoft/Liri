@@ -330,6 +330,10 @@ async function handleStreamingChat(
       compressedTokens?: number;
     };
     if (d.status === 'completed') {
+      const tokenMsg =
+        d.originalTokens && d.compressedTokens
+          ? `\u2705 上下文压缩完成（${d.originalTokens} → ${d.compressedTokens} tokens）`
+          : `\u2705 上下文压缩完成`;
       res.write(
         `data: ${JSON.stringify({
           id: responseId,
@@ -340,7 +344,7 @@ async function handleStreamingChat(
           choices: [
             {
               index: 0,
-              delta: { content: '✅ 上下文压缩完成' },
+              delta: { content: tokenMsg },
               finish_reason: null,
             },
           ],

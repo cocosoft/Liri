@@ -1686,9 +1686,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           merged.push(file);
         }
       }
-      set({ messages: enhancedMessages, sessionFiles: merged, hasPendingQuestion: hasQuestion });
+      set({ messages: enhancedMessages, sessionFiles: merged, hasPendingQuestion: hasQuestion, streamingStatus: "", executionPhase: null });
     } else {
-      set({ messages: enhancedMessages, hasPendingQuestion: hasQuestion });
+      set({ messages: enhancedMessages, hasPendingQuestion: hasQuestion, streamingStatus: "", executionPhase: null });
     }
 
     // 释放会话切换锁，并刷新暂存的流式 chunk

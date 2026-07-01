@@ -215,6 +215,30 @@ export async function dispatchRoute(
     );
     return true;
   }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/compact$/)) {
+    await self['handleCompactSession'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/compact$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/prune$/)) {
+    await self['handlePruneSession'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/prune$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/memory$/)) {
+    await self['handleGetSessionMemory'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/memory$/)![1]
+    );
+    return true;
+  }
   if (method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
     await self['handleDeleteSession'](
       req,
@@ -2064,7 +2088,10 @@ export async function dispatchRoute(
     await handleMediaSubtitleGenerate(req, res);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/media\/subtitle\/(.+)\/download$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/media\/subtitle\/(.+)\/download$/)
+  ) {
     await handleMediaSubtitleDownload(
       req,
       res,

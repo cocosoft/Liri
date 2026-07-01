@@ -76,6 +76,9 @@ import {
   handleRenameSession,
   handleGenerateTitle,
   handleUpdateSessionMeta,
+  handleCompactSession,
+  handlePruneSession,
+  handleGetSessionMemory,
 } from './handlers/session-handlers';
 import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
 import {
@@ -705,6 +708,30 @@ export class LocalHTTPService {
     sessionId: string
   ): Promise<void> {
     return handleUpdateSessionMeta(this._handlerCtx, req, res, sessionId);
+  }
+
+  private async handleCompactSession(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleCompactSession(this._handlerCtx, req, res, sessionId);
+  }
+
+  private async handlePruneSession(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handlePruneSession(this._handlerCtx, req, res, sessionId);
+  }
+
+  private async handleGetSessionMemory(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleGetSessionMemory(this._handlerCtx, req, res, sessionId);
   }
 
   // ========== Tools Handlers (extracted to handlers/tools-handlers.ts) ==========

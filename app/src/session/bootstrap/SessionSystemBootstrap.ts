@@ -11,6 +11,7 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';
+import { globalEmbeddingManager } from '../../ai/embedding/EmbeddingManager';
 import { SessionActivityTracker } from '../activity/SessionActivityTracker';
 import { SessionStateHydrator } from '../hydration/SessionStateHydrator';
 import type { ChatSession } from '../../chat/types/session';
@@ -40,8 +41,12 @@ export function getSessionStateHydrator(): SessionStateHydrator {
  */
 export function getSessionMemoryManager(): SessionMemoryManager {
   if (!memoryManager) {
-    memoryManager = new SessionMemoryManager(resolveSessionsDir());
-    logger.info('SessionMemoryManager initialized');
+    memoryManager = new SessionMemoryManager(
+      resolveSessionsDir(),
+      undefined,
+      globalEmbeddingManager
+    );
+    logger.info('SessionMemoryManager initialized (with EmbeddingManager)');
   }
   return memoryManager;
 }

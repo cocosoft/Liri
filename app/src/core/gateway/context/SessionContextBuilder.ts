@@ -110,6 +110,38 @@ export class SessionContextBuilder {
   }
 
   /**
+   * 构建完整 LLM 上下文（含记忆注入）
+   * 在已有通道上下文基础上，附加记忆召回结果。
+   *
+   * @param session 通道会话
+   * @param message 消息上下文
+   * @param turnNumber 当前轮次编号
+   * @param memoryContext 记忆上下文文本（可选，来自 SessionMemoryManager）
+   */
+  buildFull(
+    session: ChannelSession,
+    message: MessageContext,
+    turnNumber: number = 0,
+    memoryContext?: string
+  ): BuiltSessionContext {
+    const base = this.build(session, message, turnNumber);
+
+    if (memoryContext) {
+      const parts = [base.text];
+      parts.push('');
+      parts.push('<session_memory>');
+      parts.push(memoryContext);
+      parts.push('</session_memory>');
+      return {
+        ...base,
+        text: parts.join('\n'),
+      };
+    }
+
+    return base;
+  }
+
+  /**
    * 从会话和消息上下文构建会话上下文
    *
    * @param session 通道会话

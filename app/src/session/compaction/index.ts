@@ -33,3 +33,6 @@ export {
   SessionCheckpointServiceAdapter,
   createWiredCompactionBridge,
 } from './ServiceAdapters';
+export { SummaryCompactor } from './SummaryCompactor';
+export { LayeredCompactor } from './LayeredCompactor';
+export { KeyInfoExtractor } from './KeyInfoExtractor';

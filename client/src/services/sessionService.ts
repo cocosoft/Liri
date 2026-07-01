@@ -259,4 +259,76 @@ export const sessionService = {
       return false;
     }
   },
+
+  compact: async (sessionId: string): Promise<unknown | null> => {
+    try {
+      const result = await http.post(`/v1/sessions/${sessionId}/compact`);
+      _isUsingFallback = false;
+      return result;
+    } catch {
+      logger.debug("compact 静默降级：API 不可用", { sessionId });
+      return null;
+    }
+  },
+
+  prune: async (sessionId: string): Promise<unknown | null> => {
+    try {
+      const result = await http.post(`/v1/sessions/${sessionId}/prune`);
+      _isUsingFallback = false;
+      return result;
+    } catch {
+      logger.debug("prune 静默降级：API 不可用", { sessionId });
+      return null;
+    }
+  },
+
+  getMemory: async (
+    sessionId: string,
+    query?: string,
+    topK?: number
+  ): Promise<{ items: unknown[]; sessionId: string } | null> => {
+    try {
+      const params = new URLSearchParams();
+      if (query) params.set('q', query);
+      if (topK) params.set('topK', String(topK));
+      const qs = params.toString();
+      const url = `/v1/sessions/${sessionId}/memory${qs ? `?${qs}` : ''}`;
+      const result = await http.get<{ items: unknown[]; sessionId: string }>(url);
+      _isUsingFallback = false;
+      return result;
+    } catch {
+      logger.debug("getMemory 静默降级：API 不可用", { sessionId });
+      return null;
+    }
+  },
+
+  /**
+   * 获取会话制品列表
+   * @param sessionId 会话ID
+   */
+  getArtifacts: async (sessionId: string): Promise<unknown[] | null> => {
+    try {
+      const result = await http.get<unknown[]>(`/v1/sessions/${sessionId}/artifacts`);
+      _isUsingFallback = false;
+      return result;
+    } catch {
+      logger.debug("getArtifacts 静默降级：API 不可用", { sessionId });
+      return null;
+    }
+  },
+
+  /**
+   * 批量删除会话
+   * @param ids 会话ID列表
+   */
+  batchDelete: async (ids: string[]): Promise<boolean> => {
+    try {
+      await http.post("/v1/sessions/batch-delete", { ids });
+      _isUsingFallback = false;
+      return true;
+    } catch {
+      logger.debug("batchDelete 静默降级：API 不可用", { ids });
+      return false;
+    }
+  },
 };

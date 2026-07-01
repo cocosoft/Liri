@@ -179,6 +179,8 @@ export interface Transcript {
   createdAt: number;
   updatedAt: number;
   version: string;
+  /** 产生该转录的 Agent 名称 */
+  agentName?: string;
 }
 
 /**

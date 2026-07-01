@@ -6,6 +6,7 @@ export interface Session {
   messageCount: number;
   roundCount: number;
   agentId?: string;
+  agentName?: string;
   source?: string;
   tokenUsage?: {
     totalInput: number;

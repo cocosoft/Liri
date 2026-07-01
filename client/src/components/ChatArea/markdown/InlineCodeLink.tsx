@@ -10,7 +10,8 @@
 import { useState, useEffect } from "react";
 import FileLink from "../FileLink";
 import { getBackendBaseUrl } from "../../../services/backendUrl";
-import { matchFilePath, pathResolveCache, pathResolvePending, setPathCache } from "./pathCache";
+import { matchFilePath, pathResolveCache, pathResolvePending, setPathCache, getCacheKey } from "./pathCache";
+import { useSessionStore } from "../../../stores/sessionStore";
 
 interface InlineCodeLinkProps {
   codeContent: string;
@@ -25,6 +26,7 @@ export function InlineCodeLink({
 }: InlineCodeLinkProps) {
   const [confirmedPath, setConfirmedPath] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const sessionId = useSessionStore((s) => s.currentSession?.id);
 
   useEffect(() => {
     if (!knownFilePaths || knownFilePaths.length === 0) return;
@@ -41,17 +43,19 @@ export function InlineCodeLink({
     const pathLike =
       /^(?:[A-Za-z]:)?[\\/]?(?:[\p{L}\p{N}\w\-.]+\\)*[\p{L}\p{N}\w\-.]+\.[a-zA-Z0-9]{1,10}$/u;
     if (pathLike.test(codeContent) && !checking) {
+      const cacheKey = sessionId ? getCacheKey(sessionId, codeContent) : codeContent;
+
       // 先查缓存（含别名匹配），命中则直接使用
-      const cached = pathResolveCache.get(codeContent);
+      const cached = pathResolveCache.get(cacheKey);
       if (cached) {
         setConfirmedPath(cached.canonical);
         return;
       }
       // 检查是否已有相同路径的请求在进行中
-      if (pathResolvePending.has(codeContent)) return;
+      if (pathResolvePending.has(cacheKey)) return;
 
       setChecking(true);
-      pathResolvePending.add(codeContent);
+      pathResolvePending.add(cacheKey);
       const baseUrl = getBackendBaseUrl();
       const encodedPath = encodeURIComponent(codeContent);
       fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`)
@@ -59,20 +63,25 @@ export function InlineCodeLink({
         .then((data) => {
           const resolved = data?.resolvedPath || null;
           if (resolved) {
-            setPathCache(codeContent, resolved);
+            if (sessionId) {
+              setPathCache(sessionId, codeContent, resolved);
+            } else {
+              // 无 sessionId 时退化为全局缓存
+              pathResolveCache.set(cacheKey, { canonical: resolved, aliases: new Set() });
+            }
             setConfirmedPath(resolved);
           } else {
-            pathResolveCache.set(codeContent, { canonical: '', aliases: new Set() });
+            pathResolveCache.set(cacheKey, { canonical: '', aliases: new Set() });
           }
         })
         .catch(() => {
-          pathResolveCache.set(codeContent, { canonical: '', aliases: new Set() });
+          pathResolveCache.set(cacheKey, { canonical: '', aliases: new Set() });
         })
         .finally(() => {
-          pathResolvePending.delete(codeContent);
+          pathResolvePending.delete(cacheKey);
         });
     }
-  }, [codeContent, knownFilePaths, checking]);
+  }, [codeContent, knownFilePaths, checking, sessionId]);
 
   if (confirmedPath) {
     return (

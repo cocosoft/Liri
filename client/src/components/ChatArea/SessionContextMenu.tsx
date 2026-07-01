@@ -4,6 +4,7 @@
  * 从 SessionHistorySidebar 中提取，包含：
  * - 重命名、复制 ID、固定/取消固定
  * - 导出 JSON / Markdown
+ * - 压缩、查看详情
  */
 interface SessionContextMenuProps {
   x: number;
@@ -14,6 +15,8 @@ interface SessionContextMenuProps {
   onCopyId: (sessionId: string) => void;
   onExport: (sessionId: string, format: "json" | "md") => void;
   onTogglePin: (sessionId: string) => void;
+  onCompact?: (sessionId: string) => void;
+  onShowDetail?: (sessionId: string) => void;
 }
 
 function SessionContextMenu({
@@ -25,6 +28,8 @@ function SessionContextMenu({
   onCopyId,
   onExport,
   onTogglePin,
+  onCompact,
+  onShowDetail,
 }: SessionContextMenuProps) {
   return (
     <div
@@ -44,6 +49,14 @@ function SessionContextMenu({
       >
         📋 复制会话 ID
       </button>
+      {onShowDetail && (
+        <button
+          onClick={() => onShowDetail(sessionId)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          ℹ️ 查看详情
+        </button>
+      )}
       <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
       <button
         onClick={() => onExport(sessionId, "json")}
@@ -58,6 +71,14 @@ function SessionContextMenu({
         📝 导出 Markdown
       </button>
       <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+      {onCompact && (
+        <button
+          onClick={() => onCompact(sessionId)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          🗜️ 压缩会话
+        </button>
+      )}
       <button
         onClick={() => onTogglePin(sessionId)}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

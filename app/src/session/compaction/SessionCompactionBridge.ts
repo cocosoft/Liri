@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SessionCompactionBridge — 将会话生命周期与 AutoCompactService 桥接
  *
  * 职责：
@@ -14,6 +14,9 @@ import type { Session } from '../models/Session';
 import type { CompactionRecord } from './CompactionRecord';
 import { createCompactionRecord } from './CompactionRecord';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { SummaryCompactor } from './SummaryCompactor';
+import { LayeredCompactor } from './LayeredCompactor';
+import { KeyInfoExtractor } from './KeyInfoExtractor';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -64,6 +67,16 @@ export class SessionCompactionBridge {
 
   constructor(config?: Partial<CompactionBridgeConfig>) {
     this.config = { ...DEFAULT_BRIDGE_CONFIG, ...config };
+    this.registerDefaultEngines();
+  }
+
+  /**
+   * 注册默认压缩引擎（SummaryCompactor, LayeredCompactor, KeyInfoExtractor）
+   */
+  private registerDefaultEngines(): void {
+    this.registerEngine(new SummaryCompactor());
+    this.registerEngine(new LayeredCompactor());
+    this.registerEngine(new KeyInfoExtractor());
   }
 
   setAutoCompactService(service: AutoCompactServiceRef): void {
@@ -111,12 +124,21 @@ export class SessionCompactionBridge {
       }
     }
 
-    const shouldCompact =
-      this.autoCompactService?.checkAndCompact(
+    // 优先使用 autoCompactService，若未配置则查询已注册的 engines
+    let shouldCompact = false;
+    if (this.autoCompactService) {
+      shouldCompact = this.autoCompactService.checkAndCompact(
         session.id,
         session.messages as never[],
         model
-      ).shouldCompact ?? false;
+      ).shouldCompact;
+    } else {
+      shouldCompact = this.engines.some(
+        (engine) =>
+          engine.checkAndCompact(session.id, session.messages, model)
+            .shouldCompact
+      );
+    }
 
     return {
       proceed: shouldCompact,
@@ -135,9 +157,11 @@ export class SessionCompactionBridge {
     const record = createCompactionRecord(session.id, type);
     record.beforeMessageCount = session.messages.length;
 
+    const startTime = Date.now();
+
+    // 优先使用 autoCompactService，若未配置则使用已注册的 engines
     if (this.autoCompactService) {
       try {
-        const startTime = Date.now();
         const result = await this.autoCompactService.performAutoCompact(
           session.id,
           session.messages as never[],
@@ -170,6 +194,33 @@ export class SessionCompactionBridge {
           error: String(e),
         });
       }
+    } else if (this.engines.length > 0) {
+      let anySuccess = false;
+      for (const engine of this.engines) {
+        try {
+          const result = await engine.performAutoCompact(
+            session.id,
+            session.messages,
+            model
+          );
+          if (result.success) {
+            anySuccess = true;
+          }
+        } catch (e) {
+          logger.warn('Engine compaction error', {
+            sessionId: session.id,
+            engine: engine.constructor.name,
+            error: String(e),
+          });
+        }
+      }
+      record.durationMs = Date.now() - startTime;
+      record.success = anySuccess;
+      record.afterMessageCount = session.messages.length;
+    } else {
+      record.durationMs = 0;
+      record.success = false;
+      record.error = 'No compaction engine available';
     }
 
     this.recordCompaction(record);

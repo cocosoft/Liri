@@ -346,7 +346,9 @@ export class SenseVoiceSTTProvider implements STTProvider {
     ) {
       this._lastModelConfig = null;
       this.restartWorker().catch((err) => {
-        logger.warn('SenseVoice 配置变更后重启工作进程失败', { error: String(err) });
+        logger.warn('SenseVoice 配置变更后重启工作进程失败', {
+          error: String(err),
+        });
       });
     }
   }
@@ -356,7 +358,10 @@ export class SenseVoiceSTTProvider implements STTProvider {
    * 通过检测 Python 环境和 sherpa-onnx 模块来判断
    */
   isAvailable(): boolean {
-    if (Date.now() - this._lastProbeAt < SenseVoiceSTTProvider.AVAILABILITY_TTL) {
+    if (
+      Date.now() - this._lastProbeAt <
+      SenseVoiceSTTProvider.AVAILABILITY_TTL
+    ) {
       return this._cachedAvailable;
     }
 
@@ -383,15 +388,17 @@ export class SenseVoiceSTTProvider implements STTProvider {
     options?: STTTranscribeOptions
   ): Promise<STTResult> {
     const audioPath = join(tmpdir(), `stt_sv_${randomUUID()}.wav`);
-    const language = options?.language
-      ? options.language.split('-')[0]
-      : 'zh';
+    const language = options?.language ? options.language.split('-')[0] : 'zh';
 
     const otel = getOTelTracing();
     return otel.wrap(
       {
         name: 'voice.sensevoice.stt.transcribe',
-        attributes: { model: this.config.model!, language, audioSize: audioData.length },
+        attributes: {
+          model: this.config.model!,
+          language,
+          audioSize: audioData.length,
+        },
       },
       async () => {
         try {
@@ -554,7 +561,9 @@ export class SenseVoiceSTTProvider implements STTProvider {
       logger.info('SenseVoice 工作进程已退出', { code, signal });
 
       this.rejectAllPending(
-        new Error(`SenseVoice 工作进程异常退出 (code=${code}, signal=${signal})`)
+        new Error(
+          `SenseVoice 工作进程异常退出 (code=${code}, signal=${signal})`
+        )
       );
 
       // 自动重启
@@ -563,7 +572,9 @@ export class SenseVoiceSTTProvider implements STTProvider {
         setTimeout(() => {
           if (!this._disposing) {
             this.startWorker().catch((err) => {
-              logger.error('重启 SenseVoice 工作进程失败', { error: String(err) });
+              logger.error('重启 SenseVoice 工作进程失败', {
+                error: String(err),
+              });
             });
           }
         }, RESTART_DELAY_MS);
@@ -725,7 +736,9 @@ export class SenseVoiceSTTProvider implements STTProvider {
           if (response.status === 'ok') {
             pending.resolve(JSON.stringify(response));
           } else {
-            pending.reject(new Error(response.message || 'SenseVoice 转录错误'));
+            pending.reject(
+              new Error(response.message || 'SenseVoice 转录错误')
+            );
           }
         }
       } catch (err) {
@@ -765,7 +778,11 @@ export class SenseVoiceSTTProvider implements STTProvider {
     }
 
     this._workerScriptPath = join(tmpDir, 'sensevoice_worker.py');
-    writeFileSync(this._workerScriptPath, buildSenseVoiceWorkerScript(), 'utf-8');
+    writeFileSync(
+      this._workerScriptPath,
+      buildSenseVoiceWorkerScript(),
+      'utf-8'
+    );
   }
 
   /**

@@ -11,6 +11,10 @@ export interface SessionSource {
   platform: SessionPlatform;
   chatType: SessionChatType;
   routingId?: string;
+  projectPath?: string;
+  repoUrl?: string;
+  branch?: string;
+  commitHash?: string;
   metadata?: Record<string, unknown>;
 }
 

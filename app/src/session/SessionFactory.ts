@@ -1,4 +1,4 @@
-﻿import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 import { Session } from './models/Session';
 import { SessionMetadata } from './models/SessionMetadata';
 import { SessionState } from './models/SessionState';
@@ -9,6 +9,7 @@ import type {
 } from './SessionStorage';
 import { MemoryStorage } from './storage/MemoryStorage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import type { SessionSource } from './key/SessionSource';
 
 /**
  * 会话工厂
@@ -38,6 +39,7 @@ export class SessionFactory {
     tags?: string[];
     mode?: string;
     initialState?: string;
+    source?: SessionSource;
   }): Promise<Session> {
     const id = uuidv4();
     const metadata = new SessionMetadata(
@@ -46,7 +48,15 @@ export class SessionFactory {
       options?.mode || 'default'
     );
     const state = new SessionState(options?.initialState || 'active');
-    const session = new Session(id, metadata, state);
+    const session = new Session(
+      id,
+      metadata,
+      state,
+      [],
+      undefined,
+      undefined,
+      options?.source
+    );
 
     await this.storage.saveSession(session);
     return session;

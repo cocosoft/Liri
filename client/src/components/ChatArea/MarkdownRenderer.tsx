@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
-import InlineCodeLink from './InlineCodeLink';
+import { InlineCodeLink } from './markdown/InlineCodeLink';
 import BlockContent from './BlockContent';
 import HeadingRenderer from './HeadingRenderer';
 import ListRenderer from './ListRenderer';

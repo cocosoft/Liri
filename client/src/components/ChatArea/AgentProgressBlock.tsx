@@ -8,7 +8,7 @@
  * - 执行计时
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 // ========== 类型定义 ==========
 
@@ -49,6 +49,8 @@ interface AgentProgressBlockProps {
   durationMs?: number;
   /** 进度百分比（0-100） */
   progress?: number;
+  /** 当前步骤描述 */
+  stepDescription?: string;
   /** 深色模式 */
   isDark: boolean;
 }
@@ -78,6 +80,7 @@ function AgentProgressBlock({
   error,
   durationMs,
   progress,
+  stepDescription,
   isDark,
 }: AgentProgressBlockProps) {
   // 流式文本拼接
@@ -123,6 +126,16 @@ function AgentProgressBlock({
   const config = STATUS_CONFIG[status];
   const progressValue = progress ?? (status === "completed" ? 100 : status === "thinking" ? 50 : 0);
 
+  // ETA 估算：当已耗时 > 10s 且进度 > 0 且 < 100 时估算剩余时间
+  const etaSec = useMemo(() => {
+    if (elapsed <= 10000 || progressValue <= 0 || progressValue >= 100) return null;
+    const rate = progressValue / elapsed;
+    if (rate <= 0) return null;
+    return Math.ceil((100 - progressValue) / rate / 1000);
+  }, [elapsed, progressValue]);
+
+  const isLongRunning = elapsed > 30000;
+
   return (
     <div
       className={`rounded-lg border p-3 ${
@@ -157,6 +170,23 @@ function AgentProgressBlock({
               style={{ width: `${progressValue}%` }}
             />
           </div>
+        </div>
+      )}
+
+      {/* 步骤描述 + ETA + 长时间运行提示 */}
+      {(status === "thinking" || status === "tool_call") && (
+        <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
+          {stepDescription && (
+            <span className="truncate">{stepDescription}</span>
+          )}
+          {etaSec !== null && (
+            <span className="shrink-0">预计剩余 {etaSec}s</span>
+          )}
+          {isLongRunning && (
+            <span className="shrink-0 text-yellow-600 dark:text-yellow-400 animate-pulse">
+              ⏳ 仍在执行中...
+            </span>
+          )}
         </div>
       )}
 

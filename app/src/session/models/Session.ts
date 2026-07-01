@@ -1,6 +1,7 @@
 import type { SessionMetadata } from './SessionMetadata';
 import type { SessionMessage } from './SessionMessage';
 import type { SessionState } from './SessionState';
+import type { SessionSource } from '../key/SessionSource';
 
 /**
  * 会话模型接口
@@ -35,6 +36,11 @@ export interface Session {
    * 会话消息列表
    */
   messages: SessionMessage[];
+
+  /**
+   * 会话来源信息
+   */
+  source?: SessionSource;
 }
 
 /**
@@ -54,7 +60,8 @@ export class Session implements Session {
     public state: SessionState,
     public messages: SessionMessage[] = [],
     public createdAt: Date = new Date(),
-    public updatedAt: Date = new Date()
+    public updatedAt: Date = new Date(),
+    public source?: SessionSource
   ) {}
 
   /**
@@ -111,6 +118,7 @@ export class Session implements Session {
       metadata: this.metadata.toJSON(),
       state: this.state.toJSON(),
       messages: this.messages.map((message) => message.toJSON()),
+      source: this.source ?? undefined,
     };
   }
 
@@ -126,7 +134,8 @@ export class Session implements Session {
       data.state,
       data.messages || [],
       new Date(data.createdAt),
-      new Date(data.updatedAt)
+      new Date(data.updatedAt),
+      data.source
     );
   }
 }

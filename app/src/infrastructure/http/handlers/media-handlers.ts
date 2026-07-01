@@ -11,7 +11,13 @@
 import type http from 'node:http';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
-import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  mkdirSync,
+} from 'fs';
 import { tmpdir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -22,10 +28,24 @@ const logger = new Logger({ module: 'http:media' });
 
 /** 支持的媒体文件扩展名 */
 const SUPPORTED_AUDIO_EXTS = new Set([
-  '.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.wma', '.opus', '.webm',
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.ogg',
+  '.m4a',
+  '.aac',
+  '.wma',
+  '.opus',
+  '.webm',
 ]);
 const SUPPORTED_VIDEO_EXTS = new Set([
-  '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
+  '.mp4',
+  '.mkv',
+  '.avi',
+  '.mov',
+  '.wmv',
+  '.flv',
+  '.webm',
 ]);
 
 /** 字幕生成结果缓存（内存中，应用重启即丢失） */
@@ -137,7 +157,11 @@ function generateTXT(segments: SubtitleEntry[]): string {
  * 根据转录音频时长将文本切分为固定间隔的字幕段落
  * STT 返回 segments 时直接使用；无 segments 时按 2 秒间隔切分
  */
-function buildSegments(text: string, duration: number, rawSegments?: Array<{ text: string; start: number; end: number }>): SubtitleEntry[] {
+function buildSegments(
+  text: string,
+  duration: number,
+  rawSegments?: Array<{ text: string; start: number; end: number }>
+): SubtitleEntry[] {
   if (rawSegments && rawSegments.length > 0) {
     return rawSegments.map((seg, i) => ({
       index: i + 1,
@@ -228,13 +252,17 @@ export async function handleMediaSubtitleGenerate(
         const success = await videoProcessor.extractAudio(inputPath, audioPath);
         if (!success || !existsSync(audioPath)) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: '视频音频提取失败，请确认 ffmpeg 已安装' }));
+          res.end(
+            JSON.stringify({ error: '视频音频提取失败，请确认 ffmpeg 已安装' })
+          );
           return;
         }
         // 清理视频临时文件
         try {
           unlinkSync(inputPath);
-        } catch { /* 清理失败不影响主流程 */ }
+        } catch {
+          /* 清理失败不影响主流程 */
+        }
       } else {
         audioPath = inputPath;
       }
@@ -242,15 +270,19 @@ export async function handleMediaSubtitleGenerate(
       // 读取音频数据并转录
       const audioData = readFileSync(audioPath);
 
-      const { STTRegistry } = await import('../../../services/voice/services/sttRegistry');
+      const { STTRegistry } =
+        await import('../../../services/voice/services/sttRegistry');
 
       // 确保默认提供者已注册
       if (STTRegistry.getAllProviders().length === 0) {
-        const { LocalSTTProvider } = await import('../../../services/voice/services/localSTTProvider');
+        const { LocalSTTProvider } =
+          await import('../../../services/voice/services/localSTTProvider');
         STTRegistry.register(new LocalSTTProvider());
       }
 
-      const sttResult = await STTRegistry.transcribe(audioData, { language: 'zh' });
+      const sttResult = await STTRegistry.transcribe(audioData, {
+        language: 'zh',
+      });
 
       // 构建字幕条目
       const segments = buildSegments(
@@ -274,7 +306,9 @@ export async function handleMediaSubtitleGenerate(
       // 清理音频临时文件
       try {
         unlinkSync(audioPath);
-      } catch { /* 清理失败不影响主流程 */ }
+      } catch {
+        /* 清理失败不影响主流程 */
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
@@ -291,12 +325,19 @@ export async function handleMediaSubtitleGenerate(
       );
     } catch (err) {
       // 清理临时文件
-      try { unlinkSync(inputPath); } catch { /* ignore */ }
+      try {
+        unlinkSync(inputPath);
+      } catch {
+        /* ignore */
+      }
       throw err;
     }
   } catch (err) {
     logger.error('媒体字幕生成失败', { error: String(err) });
-    void handleError(err, { module: 'http:media', action: 'subtitle_generate' });
+    void handleError(err, {
+      module: 'http:media',
+      action: 'subtitle_generate',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: '字幕生成失败' }));
   }
@@ -319,7 +360,10 @@ export async function handleMediaSubtitleDownload(
     }
 
     // 解析 format 查询参数
-    const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const urlObj = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
     const format = urlObj.searchParams.get('format') || 'srt';
 
     let content: string;
@@ -350,7 +394,10 @@ export async function handleMediaSubtitleDownload(
     res.end(content);
   } catch (err) {
     logger.error('字幕下载失败', { error: String(err) });
-    void handleError(err, { module: 'http:media', action: 'subtitle_download' });
+    void handleError(err, {
+      module: 'http:media',
+      action: 'subtitle_download',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: '下载失败' }));
   }

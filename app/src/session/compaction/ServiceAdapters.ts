@@ -9,6 +9,9 @@ import type {
   SessionCheckpointHandle,
 } from './SessionCompactionBridge';
 import { SessionCompactionBridge } from './SessionCompactionBridge';
+import { SummaryCompactor } from './SummaryCompactor';
+import { LayeredCompactor } from './LayeredCompactor';
+import { KeyInfoExtractor } from './KeyInfoExtractor';
 
 export class AutoCompactServiceAdapter implements AutoCompactServiceRef {
   constructor(private real: AutoCompactService) {}
@@ -57,14 +60,18 @@ export function createWiredCompactionBridge(): SessionCompactionBridge {
   const bridge = new SessionCompactionBridge();
 
   const autoCompactService = new AutoCompactService();
-  bridge.setAutoCompactService(
-    new AutoCompactServiceAdapter(autoCompactService)
-  );
+  const adapter = new AutoCompactServiceAdapter(autoCompactService);
+  bridge.setAutoCompactService(adapter);
 
   const checkpointService = getCheckpointService();
   bridge.setCheckpointService(
     new SessionCheckpointServiceAdapter(checkpointService)
   );
+
+  // 注册分层压缩策略引擎
+  bridge.registerEngine(new SummaryCompactor(100, 30, adapter));
+  bridge.registerEngine(new LayeredCompactor(80, 20, adapter));
+  bridge.registerEngine(new KeyInfoExtractor(60, adapter));
 
   return bridge;
 }

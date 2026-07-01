@@ -2,7 +2,8 @@
  * 文件路径解析缓存 — MarkdownRenderer V1/V2 共享
  * MIT License
  *
- * 模块级单例，避免同一条消息中重复请求相同路径
+ * 模块级单例，避免同一条消息中重复请求相同路径。
+ * 使用 sessionId 作为 key 前缀实现会话级隔离。
  */
 
 /** 缓存条目：存储规范路径及其别名集合 */
@@ -12,11 +13,19 @@ export interface PathCacheEntry {
   aliases: Set<string>;
 }
 
+/** 会话级缓存 key 前缀分隔符 */
+const SESSION_KEY_SEPARATOR = "::";
+
 /** 已解析路径缓存 */
 export const pathResolveCache = new Map<string, PathCacheEntry>();
 
 /** 进行中的请求去重集合 */
 export const pathResolvePending = new Set<string>();
+
+/** 生成带 sessionId 的缓存 key */
+export function getCacheKey(sessionId: string, filePath: string): string {
+  return `${sessionId}${SESSION_KEY_SEPARATOR}${filePath}`;
+}
 
 /**
  * 多级 fallback 文件路径匹配
@@ -49,9 +58,33 @@ export function matchFilePath(mention: string, knownPaths: string[]): string | n
 }
 
 /**
- * 向缓存添加条目，同时生成并存储别名（方便后续快速查找）
+ * 清除所有路径缓存（会话切换时调用，防止旧会话路径残留）
  */
-export function setPathCache(key: string, canonical: string): void {
+export function clearPathCache(): void {
+  pathResolveCache.clear();
+  pathResolvePending.clear();
+}
+
+/**
+ * 清除指定会话的路径缓存
+ */
+export function clearSessionPathCache(sessionId: string): void {
+  const prefix = `${sessionId}${SESSION_KEY_SEPARATOR}`;
+  for (const key of pathResolveCache.keys()) {
+    if (key.startsWith(prefix)) {
+      pathResolveCache.delete(key);
+    }
+  }
+}
+
+/**
+ * 向缓存添加条目，同时生成并存储别名（方便后续快速查找）
+ * @param sessionId 当前会话 ID，用于会话级隔离
+ * @param key 缓存 key（原始路径）
+ * @param canonical 规范路径
+ */
+export function setPathCache(sessionId: string, key: string, canonical: string): void {
+  const sessionKey = getCacheKey(sessionId, key);
   const aliases = new Set<string>();
   aliases.add(canonical.toLowerCase());
   // 无扩展名别名
@@ -64,13 +97,13 @@ export function setPathCache(key: string, canonical: string): void {
     suffix = suffix ? `${parts[i]}/${suffix}` : parts[i];
     aliases.add(suffix.toLowerCase());
   }
-  pathResolveCache.set(key, { canonical, aliases });
+  pathResolveCache.set(sessionKey, { canonical, aliases });
 
   // 同时用所有别名索引该条目，使后续查询能通过别名直接命中
   for (const alias of aliases) {
-    // 仅当别名键不存在或指向不同 canonical 时才覆盖
-    if (!pathResolveCache.has(alias) || pathResolveCache.get(alias)!.canonical !== canonical) {
-      pathResolveCache.set(alias, { canonical, aliases });
+    const aliasKey = getCacheKey(sessionId, alias);
+    if (!pathResolveCache.has(aliasKey) || pathResolveCache.get(aliasKey)!.canonical !== canonical) {
+      pathResolveCache.set(aliasKey, { canonical, aliases });
     }
   }
 }

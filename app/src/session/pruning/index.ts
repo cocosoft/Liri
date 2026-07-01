@@ -22,6 +22,9 @@ export { PruningDecider } from './PruningDecider';
 export type { PruningDecision } from './PruningDecider';
 export { CacheTTLPruner } from './CacheTTLPruner';
 export { SoftTrimmer } from './SoftTrimmer';
+export { AgeBasedPruner } from './AgeBasedPruner';
+export { CountBasedPruner } from './CountBasedPruner';
+export { BudgetBasedPruner } from './BudgetBasedPruner';
 export type {
   PruningStrategy,
   PruningResult,

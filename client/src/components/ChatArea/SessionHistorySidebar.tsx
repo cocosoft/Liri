@@ -2,9 +2,29 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
+import { sessionService } from "../../services/sessionService";
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
+
+/**
+ * 判断时间戳是否为今天
+ */
+function isToday(timestamp: number | string): boolean {
+  const date = new Date(timestamp);
+  const now = new Date();
+  return date.toDateString() === now.toDateString();
+}
+
+/**
+ * 判断时间戳是否在最近 N 天内
+ */
+function isWithinDays(timestamp: number | string, days: number): boolean {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const msPerDay = 86400000;
+  return (now.getTime() - date.getTime()) <= days * msPerDay;
+}
 
 /**
  * 会话来源渠道 → 显示名称映射
@@ -48,6 +68,7 @@ function SessionHistorySidebar() {
   const {
     sessions,
     currentSession,
+    switching,
     loadSessions,
     createSession,
     switchSession,
@@ -74,6 +95,7 @@ function SessionHistorySidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterTab, setFilterTab] = useState<"all" | "today" | "week" | "pinned">("all");
 
   // 窄屏（< 1024px）自动折叠侧栏（不覆盖用户手动设置）
   useEffect(() => {
@@ -101,6 +123,10 @@ function SessionHistorySidebar() {
     y: number;
     sessionId: string;
   } | null>(null);
+
+  // 会话详情弹窗状态
+  const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
+  const detailSession = detailSessionId ? sessions.find((s) => s.id === detailSessionId) : null;
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, sessionId: string) => {
@@ -155,6 +181,20 @@ function SessionHistorySidebar() {
     setContextMenu(null);
   };
 
+  const handleCompact = async (sessionId: string) => {
+    setContextMenu(null);
+    try {
+      await sessionService.compact(sessionId);
+    } catch {
+      // 静默降级，compact 失败不影响用户操作
+    }
+  };
+
+  const handleShowDetail = (sessionId: string) => {
+    setDetailSessionId(sessionId);
+    setContextMenu(null);
+  };
+
   const isPinned = (sessionId: string): boolean => {
     return pinnedSessionIds.includes(sessionId);
   };
@@ -175,6 +215,17 @@ function SessionHistorySidebar() {
   const filteredSessions = useMemo(() => {
     let result = sessions;
 
+    // 1. 过滤 tab：日期范围 / 固定
+    if (filterTab === "today") {
+      result = result.filter((s) => isToday(s.updatedAt));
+    } else if (filterTab === "week") {
+      result = result.filter((s) => isWithinDays(s.updatedAt, 7));
+    } else if (filterTab === "pinned") {
+      const pinnedSet = new Set(pinnedSessionIds);
+      result = result.filter((s) => pinnedSet.has(s.id));
+    }
+
+    // 2. 搜索过滤
     if (debouncedQuery.trim()) {
       const lower = debouncedQuery.toLowerCase();
       result = result.filter(
@@ -183,18 +234,25 @@ function SessionHistorySidebar() {
           s.id.toLowerCase().includes(lower),
       );
     }
-    // 固定会话优先
-    if (pinnedSessionIds.length > 0) {
+
+    // 3. 固定会话优先（非"已固定" tab 时）
+    if (filterTab !== "pinned" && pinnedSessionIds.length > 0) {
       const pinnedSet = new Set(pinnedSessionIds);
       const pinnedItems = result.filter((s) => pinnedSet.has(s.id));
       const normalItems = result.filter((s) => !pinnedSet.has(s.id));
       return [...pinnedItems, ...normalItems];
     }
     return result;
-  }, [sessions, debouncedQuery, pinnedSessionIds]);
+  }, [sessions, debouncedQuery, pinnedSessionIds, filterTab]);
 
-  // 虚拟列表计算：仅渲染可见区域 + overscan
+  // 虚拟列表计算：仅当会话数 > 50 时启用，减少小列表开销
+  const VIRTUAL_SCROLL_THRESHOLD = 50;
+  const useVirtualScroll = filteredSessions.length > VIRTUAL_SCROLL_THRESHOLD;
+
   const virtualList = useMemo(() => {
+    if (!useVirtualScroll) {
+      return { total: filteredSessions.length, visibleItems: filteredSessions, offsetY: 0, startIdx: 0 };
+    }
     const total = filteredSessions.length;
     const viewportHeight = listContainerRef.current?.clientHeight || 400;
     const overscan = 5;
@@ -394,6 +452,28 @@ function SessionHistorySidebar() {
         />
       </div>
 
+      {/* 过滤 tabs */}
+      <div className="flex gap-0.5 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700">
+        {(["all", "today", "week", "pinned"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setFilterTab(tab)}
+            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+              filterTab === tab
+                ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-medium"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            {tab === "all" ? t('chat.filterAll') : tab === "today" ? t('chat.filterToday') : tab === "week" ? t('chat.filterWeek') : t('chat.filterPinned')}
+          </button>
+        ))}
+      </div>
+
+      {/* 切换加载指示器 */}
+      {switching && (
+        <div className="h-0.5 bg-gradient-to-r from-blue-500 to-blue-300 animate-pulse" />
+      )}
+
       <div ref={listContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -406,8 +486,8 @@ function SessionHistorySidebar() {
         ) : filteredSessions.length === 0 ? (
           <p className="text-xs text-gray-400 text-center py-4">{t('chat.noResults')}</p>
         ) : (
-          <div style={{ height: virtualList.total * ESTIMATED_ITEM_HEIGHT, position: "relative" }}>
-            <div style={{ transform: `translateY(${virtualList.offsetY}px)` }}>
+          <div style={useVirtualScroll ? { height: virtualList.total * ESTIMATED_ITEM_HEIGHT, position: "relative" } : undefined}>
+            <div style={useVirtualScroll ? { transform: `translateY(${virtualList.offsetY}px)` } : undefined}>
               {virtualList.visibleItems.map((session) => (
                 <SessionListItem
                   key={session.id}
@@ -488,7 +568,80 @@ function SessionHistorySidebar() {
           onCopyId={handleCopyIdFromMenu}
           onExport={handleExportSession}
           onTogglePin={handlePinSession}
+          onCompact={handleCompact}
+          onShowDetail={handleShowDetail}
         />
+      )}
+
+      {/* 会话详情弹窗 */}
+      {detailSession && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => setDetailSessionId(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 w-80 max-w-[90vw]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-3">
+              {t('chat.sessionDetail')}
+            </h3>
+            <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+              <div className="flex justify-between">
+                <span>{t('chat.sessionId')}</span>
+                <span className="font-mono text-gray-800 dark:text-gray-200 max-w-[180px] truncate" title={detailSession.id}>
+                  {detailSession.id.slice(0, 8)}...
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t('chat.messageCount')}</span>
+                <span className="text-gray-800 dark:text-gray-200">{detailSession.messageCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t('chat.roundCount')}</span>
+                <span className="text-gray-800 dark:text-gray-200">{detailSession.roundCount}</span>
+              </div>
+              {detailSession.tokenUsage && (
+                <div className="flex justify-between">
+                  <span>{t('chat.tokenUsage')}</span>
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {detailSession.tokenUsage.totalInput + detailSession.tokenUsage.totalOutput}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>{t('chat.createdAt')}</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  {new Date(detailSession.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t('chat.updatedAt')}</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  {new Date(detailSession.updatedAt).toLocaleString()}
+                </span>
+              </div>
+              {detailSession.modelId && (
+                <div className="flex justify-between">
+                  <span>{t('chat.modelId')}</span>
+                  <span className="text-gray-800 dark:text-gray-200">{detailSession.modelId}</span>
+                </div>
+              )}
+              {detailSession.source && (
+                <div className="flex justify-between">
+                  <span>{t('chat.source')}</span>
+                  <span className="text-gray-800 dark:text-gray-200">{getSourceLabel(detailSession.source)}</span>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setDetailSessionId(null)}
+              className="mt-3 w-full px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+            >
+              {t('common.close')}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

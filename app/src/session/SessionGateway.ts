@@ -10,6 +10,8 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core';
+import { asyncContextStorage } from '../context/AsyncContextStorage';
+import type { SessionContext } from '../context/types/Context';
 import {
   createTranscriptManager,
   TranscriptManager,
@@ -511,6 +513,27 @@ export class SessionGateway {
    */
   async getSession(sessionId: string): Promise<UnifiedSession | null> {
     return this.storage.getSession(sessionId);
+  }
+
+  /**
+   * 在异步上下文中注入会话信息后执行回调
+   * 深层调用链可通过 getCurrentSessionContext() 获取当前会话
+   */
+  async runWithSession<T>(
+    sessionId: string,
+    userId: string,
+    fn: () => Promise<T>,
+    extra?: { agentName?: string; channelType?: string }
+  ): Promise<T> {
+    const ctx: SessionContext = {
+      type: 'session',
+      createdAt: new Date(),
+      sessionId,
+      userId,
+      agentName: extra?.agentName,
+      channelType: extra?.channelType,
+    };
+    return asyncContextStorage.run({ session: ctx }, fn);
   }
 
   /**

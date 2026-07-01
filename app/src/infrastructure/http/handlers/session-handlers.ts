@@ -419,3 +419,144 @@ export async function handleUpdateSessionMeta(
     }
   }
 }
+
+/**
+ * 处理触发会话压缩请求
+ * POST /v1/sessions/:id/compact
+ */
+export async function handleCompactSession(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    const sessionGateway = (coreAPI as unknown as Record<string, unknown>)
+      .sessionGateway as
+      | { compactSession: (id: string) => Promise<unknown> }
+      | undefined;
+
+    if (!sessionGateway?.compactSession) {
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'Session compaction not available',
+            type: 'not_implemented',
+          },
+        })
+      );
+      return;
+    }
+
+    const result = await sessionGateway.compactSession(sessionId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, result }));
+    ctx.broadcastEvent('session:compacted', { id: sessionId });
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * 处理触发会话修剪请求
+ * POST /v1/sessions/:id/prune
+ */
+export async function handlePruneSession(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    const sessionGateway = (coreAPI as unknown as Record<string, unknown>)
+      .sessionGateway as
+      | {
+          pruneNow: () => Promise<unknown>;
+          getPruneEstimate: () => Promise<unknown>;
+        }
+      | undefined;
+
+    if (!sessionGateway?.pruneNow) {
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'Session pruning not available',
+            type: 'not_implemented',
+          },
+        })
+      );
+      return;
+    }
+
+    const result = await sessionGateway.pruneNow();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, result }));
+    ctx.broadcastEvent('session:pruned', {});
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * 处理获取会话记忆请求
+ * GET /v1/sessions/:id/memory
+ */
+export async function handleGetSessionMemory(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const { getSessionMemoryManager } =
+      await import('../../../session/bootstrap/SessionSystemBootstrap');
+    const mm = getSessionMemoryManager();
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const query = url.searchParams.get('q') || undefined;
+    const topK = parseInt(url.searchParams.get('topK') || '5', 10);
+
+    let items;
+    if (query) {
+      items = await mm.searchMemory(sessionId, query, topK);
+    } else {
+      const memory = mm.loadMemory(sessionId);
+      items = memory.items;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ items, sessionId }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {} /* res可能已结束, 忽略 */
+    }
+  }
+}

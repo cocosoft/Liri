@@ -20,8 +20,17 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'session:memory' });
+
+/**
+ * 向量索引条目
+ */
+interface VectorEntry {
+  item: MemoryItem;
+  vector: number[];
+}
 
 // ============================================================================
 // 类型定义
@@ -114,17 +123,22 @@ _暂无记录_
 export class SessionMemoryManager {
   private config: MemoryThresholdConfig;
   private memoryDir: string;
+  private embeddingManager?: EmbeddingManager;
+  private vectorIndex: Map<string, VectorEntry[]> = new Map();
 
   /**
    * @param sessionsBaseDir 会话存储根目录（如 ~/.pyapp/data/sessions）
    * @param config 阈值配置
+   * @param embeddingManager 嵌入管理器（可选，用于向量搜索）
    */
   constructor(
     sessionsBaseDir: string,
-    config?: Partial<MemoryThresholdConfig>
+    config?: Partial<MemoryThresholdConfig>,
+    embeddingManager?: EmbeddingManager
   ) {
     this.memoryDir = sessionsBaseDir;
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.embeddingManager = embeddingManager;
 
     if (!existsSync(this.memoryDir)) {
       mkdirSync(this.memoryDir, { recursive: true });
@@ -253,6 +267,9 @@ export class SessionMemoryManager {
     }
     writeFileSync(path, markdown, 'utf-8');
 
+    // 异步触发向量化索引（不阻塞主流程）
+    this.indexMemoryItems(memory.sessionId, newItems).catch(() => {});
+
     logger.info('记忆提炼完成', {
       sessionId: memory.sessionId,
       newItems: newItems.length,
@@ -269,6 +286,77 @@ export class SessionMemoryManager {
     const memory = this.loadMemory(sessionId);
     if (memory.items.length === 0) return '';
     return this.buildMemoryContextText(memory);
+  }
+
+  /**
+   * 语义搜索会话记忆（向量召回）
+   * 若未配置 EmbeddingManager，回退到关键词匹配。
+   *
+   * @param sessionId 会话 ID
+   * @param query 搜索查询
+   * @param topK 返回结果数量
+   */
+  async searchMemory(
+    sessionId: string,
+    query: string,
+    topK: number = 5
+  ): Promise<MemoryItem[]> {
+    const memory = this.loadMemory(sessionId);
+    if (memory.items.length === 0) return [];
+
+    // 若无 EmbeddingManager，回退到关键词匹配
+    if (!this.embeddingManager) {
+      return this.keywordSearch(memory.items, query, topK);
+    }
+
+    try {
+      // 确保记忆项已索引
+      await this.ensureIndexed(sessionId, memory.items);
+
+      const queryVec = await this.embeddingManager.embedOne(query);
+      const entries = this.vectorIndex.get(sessionId) || [];
+
+      // 余弦相似度排序
+      const scored = entries.map((entry) => ({
+        item: entry.item,
+        score: this.cosineSimilarity(queryVec, entry.vector),
+      }));
+      scored.sort((a, b) => b.score - a.score);
+
+      return scored.slice(0, topK).map((s) => s.item);
+    } catch (err) {
+      logger.warn('向量搜索失败，回退到关键词搜索', {
+        sessionId,
+        error: String(err),
+      });
+      return this.keywordSearch(memory.items, query, topK);
+    }
+  }
+
+  /**
+   * 批量索引记忆项（在提炼后调用）
+   */
+  async indexMemoryItems(
+    sessionId: string,
+    items: MemoryItem[]
+  ): Promise<void> {
+    if (!this.embeddingManager || items.length === 0) return;
+
+    try {
+      const texts = items.map((i) => `[${i.type}] ${i.content}`);
+      const result = await this.embeddingManager.embed(texts);
+
+      const entries: VectorEntry[] = items.map((item, idx) => ({
+        item,
+        vector: result.embeddings[idx],
+      }));
+      this.vectorIndex.set(sessionId, entries);
+    } catch (err) {
+      logger.warn('记忆向量化失败，不影响主流程', {
+        sessionId,
+        error: String(err),
+      });
+    }
   }
 
   /**
@@ -297,6 +385,58 @@ export class SessionMemoryManager {
   }
 
   // ── 内部方法 ──
+
+  /**
+   * 关键词搜索（向量搜索的回退方案）
+   */
+  private keywordSearch(
+    items: MemoryItem[],
+    query: string,
+    topK: number
+  ): MemoryItem[] {
+    const queryLower = query.toLowerCase();
+    const scored = items.map((item) => {
+      const contentLower = item.content.toLowerCase();
+      let score = 0;
+      if (contentLower.includes(queryLower)) score += 10;
+      for (const word of queryLower.split(/\s+/)) {
+        if (contentLower.includes(word)) score += 1;
+      }
+      return { item, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored
+      .filter((s) => s.score > 0)
+      .slice(0, topK)
+      .map((s) => s.item);
+  }
+
+  /**
+   * 确保指定会话的记忆项已向量化索引
+   */
+  private async ensureIndexed(
+    sessionId: string,
+    items: MemoryItem[]
+  ): Promise<void> {
+    if (this.vectorIndex.has(sessionId)) return;
+    await this.indexMemoryItems(sessionId, items);
+  }
+
+  /**
+   * 余弦相似度计算
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom === 0 ? 0 : dot / denom;
+  }
 
   /**
    * 从 Markdown 文件解析记忆结构

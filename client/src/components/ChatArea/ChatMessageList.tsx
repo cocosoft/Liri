@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import ChatMessage from "./ChatMessage";
 import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
+import { useSessionStore } from "../../stores/sessionStore";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 
 /** 消息级别的轻量级错误降级 UI */
@@ -188,6 +189,7 @@ export default function ChatMessageList({
 }: ChatMessageListProps) {
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
+  const switching = useSessionStore((s) => s.switching);
 
   // 搜索状态
   const [searchOpen, setSearchOpen] = useState(false);
@@ -354,7 +356,7 @@ export default function ChatMessageList({
 
   // 空消息状态
   if (messages.length === 0) {
-    if (isStreaming) {
+    if (isStreaming || switching) {
       return <SkeletonMessageList count={2} />;
     }
 

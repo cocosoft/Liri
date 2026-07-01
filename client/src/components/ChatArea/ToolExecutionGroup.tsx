@@ -249,35 +249,51 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
             </button>
           ) : (
             <div className="px-2 py-1 flex flex-col gap-0.5">
+              {/* 时间线连接器：在左侧绘制垂直连接线 */}
               {toolcallFlat ? (
-                // 扁平化模式：ToolCallGroup inline 行内展示，无嵌套卡片
-                filteredBlocks.map((block) => {
-                  if (block.type === "tool_call" && block.toolCall) {
-                    return (
-                      <ToolCallGroup
-                        key={block.id}
-                        toolCall={block.toolCall}
-                        isStreaming={block.isStreaming}
-                        variant="inline"
-                      />
-                    );
-                  }
-                  if (block.type === "status") {
-                    return (
-                      <GroupStatusLine
-                        key={block.id}
-                        content={block.content}
-                        isStreaming={block.isStreaming}
-                      />
-                    );
-                  }
+                // 扁平化模式：ToolCallGroup inline 行内展示，带时间线连接
+                filteredBlocks.map((block, idx) => {
+                  const isLast = idx === filteredBlocks.length - 1;
+                  const blockStatus = block.type === "tool_call" && block.toolCall?.status
+                    ? block.toolCall.status
+                    : null;
+                  const timelineColor =
+                    blockStatus === "running" ? "border-blue-400" :
+                    blockStatus === "failed" ? "border-red-400" :
+                    "border-gray-300 dark:border-gray-600";
+
                   return (
-                    <MarkdownRenderer
-                      key={block.id}
-                      content={block.content}
-                      isStreaming={block.isStreaming}
-                      onPreviewFile={readFileToPreview}
-                    />
+                    <div key={block.id} className="flex gap-1.5">
+                      {/* 时间线 */}
+                      <div className="flex flex-col items-center w-3 shrink-0 pt-1">
+                        <div className={`w-2 h-2 rounded-full border-2 ${timelineColor} ${blockStatus === "running" ? "bg-blue-400 animate-pulse" : blockStatus === "failed" ? "bg-red-400" : "bg-gray-300 dark:bg-gray-600"}`} />
+                        {!isLast && <div className={`w-0.5 flex-1 min-h-[12px] ${timelineColor}`} />}
+                      </div>
+                      {/* 内容 */}
+                      <div className="flex-1 min-w-0">
+                        {block.type === "tool_call" && block.toolCall ? (
+                          <ToolCallGroup
+                            key={block.id}
+                            toolCall={block.toolCall}
+                            isStreaming={block.isStreaming}
+                            variant="inline"
+                          />
+                        ) : block.type === "status" ? (
+                          <GroupStatusLine
+                            key={block.id}
+                            content={block.content}
+                            isStreaming={block.isStreaming}
+                          />
+                        ) : (
+                          <MarkdownRenderer
+                            key={block.id}
+                            content={block.content}
+                            isStreaming={block.isStreaming}
+                            onPreviewFile={readFileToPreview}
+                          />
+                        )}
+                      </div>
+                    </div>
                   );
                 })
               ) : (

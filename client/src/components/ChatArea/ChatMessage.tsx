@@ -200,6 +200,12 @@ const ChatMessageMemo = memo(function ChatMessage({
           >
             {isUser ? t('chat.user') : t('chat.assistant')}
           </span>
+          {/* Agent 名称标签 */}
+          {!isUser && message.agentName && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
+              {message.agentName}
+            </span>
+          )}
           {/* 被回复标记 */}
           {hasReplies && (
             <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">

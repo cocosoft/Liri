@@ -9,6 +9,8 @@ export interface Message {
   toolCallId?: string;
   error?: string;
   replyToId?: string;
+  /** 产生该消息的 Agent 名称 */
+  agentName?: string;
   usage?: {
     inputTokens: number;
     outputTokens: number;

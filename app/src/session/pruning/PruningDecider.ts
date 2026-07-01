@@ -1,4 +1,4 @@
-﻿import type { Session } from '../models/Session';
+import type { Session } from '../models/Session';
 import type {
   PruningStrategy,
   PruningResult,
@@ -8,12 +8,22 @@ import type {
 import { DEFAULT_PRUNING_CONFIG } from './PruningStrategy';
 import { CacheTTLPruner } from './CacheTTLPruner';
 import { SoftTrimmer } from './SoftTrimmer';
+import { AgeBasedPruner } from './AgeBasedPruner';
+import { CountBasedPruner } from './CountBasedPruner';
+import { BudgetBasedPruner } from './BudgetBasedPruner';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 export interface PruningDecision {
-  action: 'skip' | 'ttl_prune' | 'soft_trim' | 'both';
+  action:
+    | 'skip'
+    | 'ttl_prune'
+    | 'soft_trim'
+    | 'age_prune'
+    | 'count_prune'
+    | 'budget_prune'
+    | 'multi';
   results: PruningResult[];
   reason: string;
 }
@@ -26,6 +36,9 @@ export class PruningDecider {
     this.config = { ...DEFAULT_PRUNING_CONFIG, ...config };
     this.registerStrategy(new CacheTTLPruner());
     this.registerStrategy(new SoftTrimmer());
+    this.registerStrategy(new AgeBasedPruner());
+    this.registerStrategy(new CountBasedPruner());
+    this.registerStrategy(new BudgetBasedPruner());
   }
 
   registerStrategy(strategy: PruningStrategy): void {
@@ -47,49 +60,51 @@ export class PruningDecider {
     }
 
     const results: PruningResult[] = [];
-    let action: PruningDecision['action'] = 'skip';
+    const appliedActions: string[] = [];
 
-    const ttlPruner = this.strategies.get('CacheTTLPruner');
-    const softTrimmer = this.strategies.get('SoftTrimmer');
+    for (const strategy of this.strategies.values()) {
+      if (strategy.shouldPrune(context)) {
+        const result = strategy.prune(context.session, this.config);
+        results.push(result);
+        appliedActions.push(strategy.name);
+      }
+    }
 
-    const ttlNeeded = ttlPruner?.shouldPrune(context) ?? false;
-    const trimNeeded = softTrimmer?.shouldPrune(context) ?? false;
+    if (appliedActions.length === 0) {
+      return { action: 'skip', results: [], reason: 'No pruning needed' };
+    }
 
-    if (ttlNeeded && trimNeeded) {
-      action = 'both';
-      const ttlResult = ttlPruner!.prune(context.session, this.config);
-      results.push(ttlResult);
-      const trimResult = softTrimmer!.prune(context.session, this.config);
-      results.push(trimResult);
-    } else if (ttlNeeded) {
-      action = 'ttl_prune';
-      const ttlResult = ttlPruner!.prune(context.session, this.config);
-      results.push(ttlResult);
-    } else if (trimNeeded) {
-      action = 'soft_trim';
-      const trimResult = softTrimmer!.prune(context.session, this.config);
-      results.push(trimResult);
+    if (appliedActions.length === 1) {
+      const actionMap: Record<string, PruningDecision['action']> = {
+        CacheTTLPruner: 'ttl_prune',
+        SoftTrimmer: 'soft_trim',
+        AgeBasedPruner: 'age_prune',
+        CountBasedPruner: 'count_prune',
+        BudgetBasedPruner: 'budget_prune',
+      };
+      const action = actionMap[appliedActions[0]] ?? 'multi';
+      return {
+        action,
+        results,
+        reason: `${action}: ${results.map((r) => r.reason).join('; ')}`,
+      };
     }
 
     return {
-      action,
+      action: 'multi',
       results,
-      reason:
-        action === 'skip'
-          ? 'No pruning needed'
-          : `${action}: ${results.map((r) => r.reason).join('; ')}`,
+      reason: `multi: ${results.map((r) => r.reason).join('; ')}`,
     };
   }
 
   estimateTokenSavings(context: PruningContext): number {
     let savings = 0;
 
-    const ttlPruner = this.strategies.get('CacheTTLPruner');
-    const softTrimmer = this.strategies.get('SoftTrimmer');
-
-    if (ttlPruner?.shouldPrune(context) ?? false) {
-      const result = ttlPruner!.prune(context.session, this.config);
-      savings += result.prunedTokenEstimate;
+    for (const strategy of this.strategies.values()) {
+      if (strategy.shouldPrune(context)) {
+        const result = strategy.prune(context.session, this.config);
+        savings += result.prunedTokenEstimate;
+      }
     }
 
     return savings;

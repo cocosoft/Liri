@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 对话转录管理器
  * 持久化完整对话历史到转录文件
  * 对齐 OpenClaw config/sessions/transcript.ts
@@ -22,6 +22,7 @@ export interface TranscriptEntry {
   content: string;
   timestamp: number;
   toolName?: string;
+  agentName?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -105,6 +106,17 @@ export class SessionTranscript {
   getRecentEntries(sessionId: string, count: number): TranscriptEntry[] {
     const all = this.getEntries(sessionId);
     return all.slice(-count);
+  }
+
+  /**
+   * 按 agent 名称过滤转录条目
+   * @param sessionId 会话ID
+   * @param agentName agent 名称
+   */
+  getEntriesByAgent(sessionId: string, agentName: string): TranscriptEntry[] {
+    return this.getEntries(sessionId).filter(
+      (entry) => entry.agentName === agentName
+    );
   }
 
   async flush(sessionId: string): Promise<void> {

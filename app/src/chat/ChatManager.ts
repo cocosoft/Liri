@@ -216,6 +216,8 @@ export class ChatManagerImpl implements ChatManager {
    * 当前会话ID（本地缓存）
    */
   private _currentSessionId: string | null = null;
+  /** 记录每个会话的离开时间戳，用于回切召回检测 */
+  private _sessionLeaveTimes = new Map<string, number>();
 
   /**
    * 会话内存缓存
@@ -4150,8 +4152,24 @@ export class ChatManagerImpl implements ChatManager {
       'session.id': sessionId,
     });
     try {
+      // 记录离开当前会话的时间戳（用于回切召回）
+      if (this._currentSessionId && this._currentSessionId !== sessionId) {
+        this._sessionLeaveTimes.set(this._currentSessionId, Date.now());
+      }
+
       await this._ensureSessionLoaded(sessionId);
       this._currentSessionId = sessionId;
+
+      // 检测回切：离开超过 30 秒时发射召回事件
+      const leaveTime = this._sessionLeaveTimes.get(sessionId);
+      if (leaveTime && (Date.now() - leaveTime) > 30_000) {
+        this._sessionLeaveTimes.delete(sessionId);
+        eventNotificationService.emitCustomEvent('agent:memory:recalling', {
+          sessionId,
+          awayMs: Date.now() - leaveTime,
+        });
+      }
+
       logger.info('会话切换成功', { sessionId });
       otel.endSpan(span);
     } catch (e) {

@@ -4162,7 +4162,7 @@ export class ChatManagerImpl implements ChatManager {
 
       // 检测回切：离开超过 30 秒时发射召回事件
       const leaveTime = this._sessionLeaveTimes.get(sessionId);
-      if (leaveTime && (Date.now() - leaveTime) > 30_000) {
+      if (leaveTime && Date.now() - leaveTime > 30_000) {
         this._sessionLeaveTimes.delete(sessionId);
         eventNotificationService.emitCustomEvent('agent:memory:recalling', {
           sessionId,

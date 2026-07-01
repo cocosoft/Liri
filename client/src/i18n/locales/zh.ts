@@ -92,6 +92,7 @@ const zh = {
     filterToday: "今日",
     filterWeek: "最近7天",
     filterPinned: "已固定",
+    agentFilter: "Agent",
     today: "今天",
     yesterday: "昨天",
     earlier: "更早",

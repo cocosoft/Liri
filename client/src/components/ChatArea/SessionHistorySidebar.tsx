@@ -95,7 +95,7 @@ function SessionHistorySidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTab, setFilterTab] = useState<"all" | "today" | "week" | "pinned">("all");
+  const [filterTab, setFilterTab] = useState<"all" | "today" | "week" | "pinned" | "agent">("all");
 
   // 窄屏（< 1024px）自动折叠侧栏（不覆盖用户手动设置）
   useEffect(() => {
@@ -223,6 +223,8 @@ function SessionHistorySidebar() {
     } else if (filterTab === "pinned") {
       const pinnedSet = new Set(pinnedSessionIds);
       result = result.filter((s) => pinnedSet.has(s.id));
+    } else if (filterTab === "agent") {
+      result = result.filter((s) => s.agentName && s.agentName.length > 0);
     }
 
     // 2. 搜索过滤
@@ -454,7 +456,7 @@ function SessionHistorySidebar() {
 
       {/* 过滤 tabs */}
       <div className="flex gap-0.5 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700">
-        {(["all", "today", "week", "pinned"] as const).map((tab) => (
+        {(["all", "today", "week", "pinned", "agent"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setFilterTab(tab)}
@@ -464,7 +466,7 @@ function SessionHistorySidebar() {
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
-            {tab === "all" ? t('chat.filterAll') : tab === "today" ? t('chat.filterToday') : tab === "week" ? t('chat.filterWeek') : t('chat.filterPinned')}
+            {tab === "all" ? t('chat.filterAll') : tab === "today" ? t('chat.filterToday') : tab === "week" ? t('chat.filterWeek') : tab === "agent" ? t('chat.agentFilter', 'Agent') : t('chat.filterPinned')}
           </button>
         ))}
       </div>

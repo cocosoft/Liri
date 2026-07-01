@@ -92,6 +92,7 @@ const en = {
     filterToday: "Today",
     filterWeek: "Last 7 days",
     filterPinned: "Pinned",
+    agentFilter: "Agent",
     today: "Today",
     yesterday: "Yesterday",
     earlier: "Earlier",

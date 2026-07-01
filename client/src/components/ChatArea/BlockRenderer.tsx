@@ -29,10 +29,11 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 interface BlockRendererProps {
   block: MessageBlock;
   sessionId?: string;
+  knownFilePaths?: string[];
   onQuestionResponse?: (content: string) => void;
 }
 
-function BlockRenderer({ block, sessionId, onQuestionResponse }: BlockRendererProps) {
+function BlockRenderer({ block, sessionId, knownFilePaths, onQuestionResponse }: BlockRendererProps) {
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
   const navigate = useNavigate();
   const backendReady = useWorkspaceStore((s) => s.backendReady);
@@ -104,6 +105,7 @@ function BlockRenderer({ block, sessionId, onQuestionResponse }: BlockRendererPr
           content={block.content}
           isStreaming={block.isStreaming ?? false}
           onPreviewFile={readFileToPreview}
+          knownFilePaths={knownFilePaths}
         />
       );
   }

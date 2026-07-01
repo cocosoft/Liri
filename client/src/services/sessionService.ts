@@ -1,5 +1,5 @@
 import type { Message, Session } from "../types";
-import { httpLegacy as http } from "./httpClient";
+import { http as apiHttp } from "./httpClient";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger("sessionService");
@@ -98,14 +98,18 @@ function flattenSession<S extends Session | null>(session: S): S {
 export const sessionService = {
   list: async (): Promise<Session[]> => {
     try {
-      const result = await http.get<Session[]>("/v1/sessions");
-      _isUsingFallback = false;
-      return result.map(flattenSession);
+      const res = await apiHttp.get<Session[]>("/v1/sessions");
+      if (res.ok) {
+        _isUsingFallback = false;
+        return (res.data ?? []).map(flattenSession);
+      }
+      logger.warn("获取会话列表失败", { error: res.error });
     } catch {
-      const result = await tryTauri<Session[]>("list_sessions");
-      if (result) return result.map(flattenSession);
-      return createMemorySessionService().list();
+      // 网络错误，尝试降级
     }
+    const result = await tryTauri<Session[]>("list_sessions");
+    if (result) return result.map(flattenSession);
+    return createMemorySessionService().list();
   },
 
   create: async (
@@ -117,48 +121,66 @@ export const sessionService = {
       if (options?.modelId) body.model = options.modelId;
       if (options?.workspaceId) body.workspaceId = options.workspaceId;
       if (options?.workspacePath) body.workspace_path = options.workspacePath;
-      const result = await http.post<Session>("/v1/sessions", body);
-      _isUsingFallback = false;
-      return flattenSession(result);
+      const res = await apiHttp.post<Session>("/v1/sessions", body);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return flattenSession(res.data as Session);
+      }
+      logger.warn("创建会话失败", { error: res.error });
     } catch {
-      const result = await tryTauri<Session>("create_session", { title });
-      if (result) return flattenSession(result);
-      return createMemorySessionService().create(title);
+      // 网络错误
     }
+    const result = await tryTauri<Session>("create_session", { title });
+    if (result) return flattenSession(result);
+    return createMemorySessionService().create(title);
   },
 
   switch: async (id: string): Promise<Session> => {
     try {
-      const result = await http.post<Session>(`/v1/sessions/${id}/switch`);
-      _isUsingFallback = false;
-      return flattenSession(result);
+      const res = await apiHttp.post<Session>(`/v1/sessions/${id}/switch`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return flattenSession(res.data as Session);
+      }
+      logger.warn("切换会话失败", { id, error: res.error });
     } catch {
-      const result = await tryTauri<Session>("switch_session", { id });
-      if (result) return flattenSession(result);
-      return createMemorySessionService().switch(id);
+      // 网络错误
     }
+    const result = await tryTauri<Session>("switch_session", { id });
+    if (result) return flattenSession(result);
+    return createMemorySessionService().switch(id);
   },
 
   delete: async (id: string): Promise<void> => {
     try {
-      await http.delete<void>(`/v1/sessions/${id}`);
-      _isUsingFallback = false;
+      const res = await apiHttp.delete<void>(`/v1/sessions/${id}`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return;
+      }
+      logger.warn("删除会话失败", { id, error: res.error });
     } catch {
-      const result = await tryTauri<void>("delete_session", { id });
-      if (result !== null) return;
-      return createMemorySessionService().delete(id);
+      // 网络错误
     }
+    const result = await tryTauri<void>("delete_session", { id });
+    if (result !== null) return;
+    return createMemorySessionService().delete(id);
   },
 
   rename: async (id: string, title: string): Promise<void> => {
     try {
-      await http.put<void>(`/v1/sessions/${id}`, { title });
-      _isUsingFallback = false;
+      const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
+      if (res.ok) {
+        _isUsingFallback = false;
+        return;
+      }
+      logger.warn("重命名会话失败", { id, error: res.error });
     } catch {
-      const result = await tryTauri<void>("rename_session", { id, title });
-      if (result !== null) return;
-      return createMemorySessionService().rename(id, title);
+      // 网络错误
     }
+    const result = await tryTauri<void>("rename_session", { id, title });
+    if (result !== null) return;
+    return createMemorySessionService().rename(id, title);
   },
 
   generateTitle: async (
@@ -167,73 +189,88 @@ export const sessionService = {
     assistantResponse: string,
   ): Promise<string | null> => {
     try {
-      const response = await http.post<{
+      const res = await apiHttp.post<{
         success: boolean;
         title: string | null;
       }>(`/v1/sessions/${sessionId}/title`, { userMessage, assistantResponse });
-      _isUsingFallback = false;
-      return response.title;
+      if (res.ok) {
+        _isUsingFallback = false;
+        return (res.data as { title: string | null })?.title ?? null;
+      }
+      logger.debug("generateTitle 静默降级", { sessionId, error: res.error });
     } catch {
-      const result = await tryTauri<{ title: string | null }>(
-        "generate_session_title",
-        {
-          sessionId,
-          userMessage,
-          assistantResponse,
-        },
-      );
-      return result?.title || null;
+      // 网络错误
     }
+    const result = await tryTauri<{ title: string | null }>(
+      "generate_session_title",
+      { sessionId, userMessage, assistantResponse },
+    );
+    return result?.title || null;
   },
 
   getCurrent: async (): Promise<Session | null> => {
     try {
-      const result = await http.get<Session | null>("/v1/sessions/current");
-      _isUsingFallback = false;
-      return flattenSession(result);
+      const res = await apiHttp.get<Session | null>("/v1/sessions/current");
+      if (res.ok) {
+        _isUsingFallback = false;
+        return flattenSession(res.data as Session | null);
+      }
+      logger.warn("获取当前会话失败", { error: res.error });
     } catch {
-      const result = await tryTauri<Session | null>("get_current_session");
-      if (result !== null) return flattenSession(result);
-      return createMemorySessionService().getCurrent();
+      // 网络错误
     }
+    const result = await tryTauri<Session | null>("get_current_session");
+    if (result !== null) return flattenSession(result);
+    return createMemorySessionService().getCurrent();
   },
 
   get: async (id: string): Promise<Session | null> => {
     try {
-      const result = await http.get<Session>(`/v1/sessions/${id}`);
-      _isUsingFallback = false;
-      return flattenSession(result);
+      const res = await apiHttp.get<Session>(`/v1/sessions/${id}`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return flattenSession(res.data as Session);
+      }
+      logger.warn("获取会话失败", { id, error: res.error });
     } catch {
-      const result = await tryTauri<Session | null>("get_session", { id });
-      if (result !== null) return flattenSession(result);
-      return createMemorySessionService()
-        .list()
-        .then((sessions) => sessions.find((s) => s.id === id) || null);
+      // 网络错误
     }
+    const result = await tryTauri<Session | null>("get_session", { id });
+    if (result !== null) return flattenSession(result);
+    return createMemorySessionService()
+      .list()
+      .then((sessions) => sessions.find((s) => s.id === id) || null);
   },
 
   getMessages: async (sessionId: string): Promise<Message[]> => {
     try {
-      const result = await http.get<Message[]>(`/v1/sessions/${sessionId}/messages`);
-      _isUsingFallback = false;
-      return result;
+      const res = await apiHttp.get<Message[]>(`/v1/sessions/${sessionId}/messages`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return res.data ?? [];
+      }
+      logger.warn("获取会话消息失败", { sessionId, error: res.error });
     } catch {
-      const result = await tryTauri<Message[]>("get_session_messages", {
-        sessionId,
-      });
-      if (result) return result;
-      return [];
+      // 网络错误
     }
+    const result = await tryTauri<Message[]>("get_session_messages", { sessionId });
+    if (result) return result;
+    return [];
   },
 
   clearAll: async (): Promise<void> => {
     try {
-      await http.delete<void>("/v1/sessions");
-      _isUsingFallback = false;
+      const res = await apiHttp.delete<void>("/v1/sessions");
+      if (res.ok) {
+        _isUsingFallback = false;
+        return;
+      }
+      logger.warn("清除所有会话失败", { error: res.error });
     } catch {
-      const result = await tryTauri<void>("clear_all_sessions");
-      if (result !== null) return;
+      // 网络错误
     }
+    const result = await tryTauri<void>("clear_all_sessions");
+    if (result !== null) return;
   },
 
   /**
@@ -250,36 +287,44 @@ export const sessionService = {
       if (meta.providerId !== undefined) body.provider_id = meta.providerId;
       if (meta.workspaceId !== undefined) body.workspace_id = meta.workspaceId;
       if (meta.tasksOverride !== undefined) body.tasks_override = meta.tasksOverride;
-      await http.patch(`/v1/sessions/${sessionId}/meta`, body);
-      _isUsingFallback = false;
-      return true;
+      const res = await apiHttp.patch(`/v1/sessions/${sessionId}/meta`, body);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return true;
+      }
     } catch {
-      // PATCH API 不可用，静默降级
-      logger.debug("updateSessionMeta 静默降级：PATCH API 不可用", { sessionId });
-      return false;
+      // 网络错误
     }
+    logger.debug("updateSessionMeta 静默降级：PATCH API 不可用", { sessionId });
+    return false;
   },
 
   compact: async (sessionId: string): Promise<unknown | null> => {
     try {
-      const result = await http.post(`/v1/sessions/${sessionId}/compact`);
-      _isUsingFallback = false;
-      return result;
+      const res = await apiHttp.post(`/v1/sessions/${sessionId}/compact`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return res.data;
+      }
     } catch {
-      logger.debug("compact 静默降级：API 不可用", { sessionId });
-      return null;
+      // 网络错误
     }
+    logger.debug("compact 静默降级：API 不可用", { sessionId });
+    return null;
   },
 
   prune: async (sessionId: string): Promise<unknown | null> => {
     try {
-      const result = await http.post(`/v1/sessions/${sessionId}/prune`);
-      _isUsingFallback = false;
-      return result;
+      const res = await apiHttp.post(`/v1/sessions/${sessionId}/prune`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return res.data;
+      }
     } catch {
-      logger.debug("prune 静默降级：API 不可用", { sessionId });
-      return null;
+      // 网络错误
     }
+    logger.debug("prune 静默降级：API 不可用", { sessionId });
+    return null;
   },
 
   getMemory: async (
@@ -293,13 +338,16 @@ export const sessionService = {
       if (topK) params.set('topK', String(topK));
       const qs = params.toString();
       const url = `/v1/sessions/${sessionId}/memory${qs ? `?${qs}` : ''}`;
-      const result = await http.get<{ items: unknown[]; sessionId: string }>(url);
-      _isUsingFallback = false;
-      return result;
+      const res = await apiHttp.get<{ items: unknown[]; sessionId: string }>(url);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return res.data as { items: unknown[]; sessionId: string } | null;
+      }
     } catch {
-      logger.debug("getMemory 静默降级：API 不可用", { sessionId });
-      return null;
+      // 网络错误
     }
+    logger.debug("getMemory 静默降级：API 不可用", { sessionId });
+    return null;
   },
 
   /**
@@ -308,13 +356,16 @@ export const sessionService = {
    */
   getArtifacts: async (sessionId: string): Promise<unknown[] | null> => {
     try {
-      const result = await http.get<unknown[]>(`/v1/sessions/${sessionId}/artifacts`);
-      _isUsingFallback = false;
-      return result;
+      const res = await apiHttp.get<unknown[]>(`/v1/sessions/${sessionId}/artifacts`);
+      if (res.ok) {
+        _isUsingFallback = false;
+        return res.data ?? null;
+      }
     } catch {
-      logger.debug("getArtifacts 静默降级：API 不可用", { sessionId });
-      return null;
+      // 网络错误
     }
+    logger.debug("getArtifacts 静默降级：API 不可用", { sessionId });
+    return null;
   },
 
   /**
@@ -323,12 +374,15 @@ export const sessionService = {
    */
   batchDelete: async (ids: string[]): Promise<boolean> => {
     try {
-      await http.post("/v1/sessions/batch-delete", { ids });
-      _isUsingFallback = false;
-      return true;
+      const res = await apiHttp.post("/v1/sessions/batch-delete", { ids });
+      if (res.ok) {
+        _isUsingFallback = false;
+        return true;
+      }
     } catch {
-      logger.debug("batchDelete 静默降级：API 不可用", { ids });
-      return false;
+      // 网络错误
     }
+    logger.debug("batchDelete 静默降级：API 不可用", { ids });
+    return false;
   },
 };

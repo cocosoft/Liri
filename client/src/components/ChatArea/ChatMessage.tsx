@@ -447,13 +447,16 @@ function AssistantMessage({
   message: Message;
   isStreaming?: boolean;
 }) {
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const knownPaths = useMemo(() => sessionFiles.map((f) => f.path), [sessionFiles]);
+
   // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
   const blocks =
     message.blocks && message.blocks.length > 0
       ? message.blocks
       : buildFallbackBlocks(message);
 
-  const renderedContent = renderBlocksWithGroups(blocks, message.session_id, (content) => {
+  const renderedContent = renderBlocksWithGroups(blocks, message.session_id, knownPaths, (content) => {
     // 非流式路径：QuestionBlock 提交后后端返回了最终内容，追加为新的 assistant 消息
     const newMsg: Message = {
       id: crypto.randomUUID(),
@@ -570,6 +573,7 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
 function renderBlocksWithGroups(
   blocks: MessageBlock[],
   sessionId?: string,
+  knownFilePaths?: string[],
   onQuestionResponse?: (content: string) => void,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
@@ -588,6 +592,7 @@ function renderBlocksWithGroups(
           key={block.id}
           block={block}
           sessionId={sessionId}
+          knownFilePaths={knownFilePaths}
           onQuestionResponse={onQuestionResponse}
         />,
       );

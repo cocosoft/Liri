@@ -867,6 +867,12 @@ export class ChatManagerImpl implements ChatManager {
       metadata: { ...(msg as Record<string, unknown>) },
     }));
     try {
+      // 通知前端：开始压缩
+      eventNotificationService.emitCustomEvent('agent:context:compressing', {
+        status: 'start',
+        sessionId,
+      });
+
       const compressResult =
         await this._contextCompressor.compress(compressibleMessages);
       if (
@@ -891,6 +897,14 @@ export class ChatManagerImpl implements ChatManager {
         logger.warn(
           `AI 摘要压缩完成: ${compressResult.originalTokenCount} → ${compressResult.compressedTokenCount} tokens (ratio=${compressResult.compressionRatio.toFixed(2)})`
         );
+
+        // 通知前端：压缩完成
+        eventNotificationService.emitCustomEvent('agent:context:compressed', {
+          status: 'completed',
+          sessionId,
+          originalTokens: compressResult.originalTokenCount,
+          compressedTokens: compressResult.compressedTokenCount,
+        });
 
         // 压缩后重新 sanitize，修复可能被破坏的 tool/tool_calls 配对
         this._sanitizeApiMessages(apiMessages);

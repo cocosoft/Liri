@@ -56,7 +56,7 @@ export interface QuestionData {
 }
 
 export interface StreamChunk {
-  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo" | "execution_phase" | "progress" | "deliverable" | "diff";
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo" | "execution_phase" | "progress" | "deliverable" | "diff" | "context_state";
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
@@ -312,6 +312,11 @@ export const chatService = {
               } else if (pyappType === "status") {
                 yield {
                   type: "status",
+                  content: chunk.choices?.[0]?.delta?.content || "",
+                };
+              } else if (pyappType === "context_state") {
+                yield {
+                  type: "context_state",
                   content: chunk.choices?.[0]?.delta?.content || "",
                 };
               } else if (pyappType === "error") {

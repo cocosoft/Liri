@@ -601,6 +601,21 @@ let _pendingSaveBlocks: MessageBlock[] | null = null;
 let hasPendingSave = false;
 let _saveIsFlushing = false;
 
+// 会话切换锁：setMessages 期间挂起流式写入，避免 loadSessions 覆盖流式数据
+let _sessionSwitchLock = false;
+// 会话切换锁期间的暂存区
+let _pendingSwitchChunks: Array<{ sessionId: string; assistantId: string; blocks: MessageBlock[] }> = [];
+
+// 会话消息缓存：避免快速切换时重复 fetch
+const _sessionMessageCache = new Map<string, Message[]>();
+const MAX_CACHED_SESSIONS = 5;
+const MAX_CACHED_MESSAGES_PER_SESSION = 100;
+
+/** 导出供 sessionStore 使用：获取缓存的会话消息 */
+export function _getCachedMessages(sessionId: string): Message[] | null {
+  return _sessionMessageCache.get(sessionId) ?? null;
+}
+
 async function flushSaveBlocks(): Promise<void> {
   // 重入锁：防止高频触发导致并发写入冲突
   if (_saveIsFlushing) return;
@@ -739,6 +754,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       get().enqueueMessage(content, sessionId);
       return;
     }
+
+    // 标记当前 session 缓存为 stale（发送新消息后缓存将过期）
+    const state = get();
+    const currentSid = sessionId ?? state.messages[0]?.session_id ?? '';
+    if (currentSid) _sessionMessageCache.delete(currentSid);
 
     set({ isSending: true, isInputBlocked: !messageQueueEnabled, error: null });
 
@@ -1016,6 +1036,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           blockBuilder.addStatus(chunk.content);
           set({ streamingStatus: chunk.content });
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "context_state") {
+          // 上下文状态事件（压缩/召回等），使用 status 块渲染
+          blockBuilder.addStatus(chunk.content);
+          set({ streamingStatus: chunk.content });
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "execution_phase" && chunk.executionPhase) {
           // 执行阶段推送：更新 executionPhase 状态 + 生成进度块
           const ep = chunk.executionPhase;
@@ -1147,7 +1172,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
         // J3：流式传输中实时防抖保存 blocks，使用闭包内局部变量避免竞态
         if (sessionId && updatedMsg.blocks && updatedMsg.blocks.length > 0) {
-          debouncedSaveBlocksLocal(sessionId, assistantId, updatedMsg.blocks);
+          // 会话切换锁：setMessages 期间暂存流式 chunk，避免覆盖
+          if (_sessionSwitchLock) {
+            _pendingSwitchChunks.push({ sessionId, assistantId, blocks: updatedMsg.blocks });
+          } else {
+            debouncedSaveBlocksLocal(sessionId, assistantId, updatedMsg.blocks);
+          }
           // 标记有未保存数据，保证 flushPendingSaves 仍可工作
           _pendingSaveSessionId = sessionId;
           _pendingSaveMessageId = assistantId;
@@ -1516,6 +1546,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
    *   5. 兜底：当无法定位边界时，按等分方式拆分
    */
   setMessages: (messages: Message[]) => {
+    // 会话切换锁：挂起流式写入，防止 loadSessions 覆盖流式数据
+    _sessionSwitchLock = true;
+
+    // 缓存写入：仅当传入完整消息列表时（非空且非增量更新）
+    // 使用第一条消息的 session_id 作为缓存 key
+    if (messages.length > 0 && messages[0].session_id) {
+      const cacheKey = messages[0].session_id;
+      // LRU 淘汰：缓存超过上限时删除最旧的
+      if (_sessionMessageCache.size >= MAX_CACHED_SESSIONS && !_sessionMessageCache.has(cacheKey)) {
+        const oldest = _sessionMessageCache.keys().next().value;
+        if (oldest) _sessionMessageCache.delete(oldest);
+      }
+      _sessionMessageCache.set(
+        cacheKey,
+        messages.slice(0, MAX_CACHED_MESSAGES_PER_SESSION),
+      );
+    }
+
     // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
     // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
     const toolResultsByCallId = new Map<string, string>();
@@ -1642,6 +1690,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     } else {
       set({ messages: enhancedMessages, hasPendingQuestion: hasQuestion });
     }
+
+    // 释放会话切换锁，并刷新暂存的流式 chunk
+    _sessionSwitchLock = false;
+    if (_pendingSwitchChunks.length > 0) {
+      // 暂存 chunk 的 sessionId 可能与当前会话不一致（跨会话切换），只标记待保存
+      const lastChunk = _pendingSwitchChunks[_pendingSwitchChunks.length - 1];
+      _pendingSaveSessionId = lastChunk.sessionId;
+      _pendingSaveMessageId = lastChunk.assistantId;
+      _pendingSaveBlocks = lastChunk.blocks;
+      hasPendingSave = true;
+      _pendingSwitchChunks = [];
+    }
   },
 }));
 
@@ -1715,9 +1775,24 @@ function rebuildBlocksFromContent(msg: Message): MessageBlock[] {
   // 统一规范化 tool_calls 格式
   const toolCalls = rawToolCalls.map(normalizeToolCall);
   const fullText = typeof msg.content === "string" ? msg.content : "";
+  let remainingText = fullText;
+
+  // 从 content 中提取 <think> 标签内容作为 thinking 块（切换会话后还原流式思考过程）
+  const thinkMatch = remainingText.match(/<think>([\s\S]*?)<\/think>/);
+  if (thinkMatch) {
+    newBlocks.push({
+      id: generateBlockId(),
+      type: "thinking",
+      content: thinkMatch[1].trim(),
+      isStreaming: false,
+      groupId: generateGroupId(),
+    });
+    // 移除已提取的 <think> 内容，剩余部分继续处理
+    remainingText = remainingText.replace(thinkMatch[0], "").trim();
+  }
 
   if (toolCalls.length === 0) {
-    if (fullText) {
+    if (remainingText) {
       newBlocks.push({
         id: generateBlockId(),
         type: "text",

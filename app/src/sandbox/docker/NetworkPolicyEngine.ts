@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 网络策略引擎
  * 对运行中的 Docker 容器执行端口/域名维度运行时网络策略
  * 端口白名单依赖容器内 iptables（需 NET_ADMIN 权限），域名黑名单通过 /etc/hosts 实现
@@ -8,7 +8,10 @@ import { execSync } from 'node:child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { DockerNetworkConfig } from './DockerNetworkPolicy';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:docker:networkPolicyEngine',
+  level: LogLevel.INFO,
+});
 
 /**
  * 网络策略应用结果

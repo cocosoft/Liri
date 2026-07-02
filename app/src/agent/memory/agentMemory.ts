@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 代理内存
  */
 
@@ -7,7 +7,10 @@ import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:memory:agentMemory',
+  level: LogLevel.INFO,
+});
 
 /**
  * 内存项接口

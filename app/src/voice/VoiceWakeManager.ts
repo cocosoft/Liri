@@ -15,7 +15,10 @@ import type { WakeWordResult } from './WakeWordEngine';
 import type { WakeDetectionResult } from './types';
 import { broadcastWakeEvent } from './WakeWebSocketServer';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:wakeManager',
+  level: LogLevel.INFO,
+});
 
 /** 唤醒词配置 */
 export interface VoiceWakeConfig {

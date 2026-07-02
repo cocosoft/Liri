@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 分类器集成
  * 负责集成分类器进行权限决策，判断工具使用是否安全
  */
@@ -13,7 +13,10 @@ import { PermissionContext } from '../types/PermissionContext';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:integrations:classifierIntegration',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工具安全白名单 - 只读工具不需要分类器检查

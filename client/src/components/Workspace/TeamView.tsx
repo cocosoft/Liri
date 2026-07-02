@@ -7,6 +7,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { workspaceService } from "@/services/workspaceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:teamView");
 
 interface TeamMember {
   id: string;
@@ -68,7 +71,7 @@ export const TeamView: React.FC = () => {
       const data = await workspaceService.getTeams(workspaceId) as Team[];
       setTeams(data);
     } catch (err) {
-      console.error("加载团队列表失败:", err);
+      logger.error("加载团队列表失败:", err);
     } finally {
       setLoading(false);
     }
@@ -91,7 +94,7 @@ export const TeamView: React.FC = () => {
       setShowCreate(false);
       loadTeams();
     } catch (err) {
-      console.error("创建团队失败:", err);
+      logger.error("创建团队失败:", err);
     }
   };
 
@@ -103,7 +106,7 @@ export const TeamView: React.FC = () => {
       if (selectedTeam?.id === teamId) setSelectedTeam(null);
       loadTeams();
     } catch (err) {
-      console.error("删除团队失败:", err);
+      logger.error("删除团队失败:", err);
     }
   };
 
@@ -124,7 +127,7 @@ export const TeamView: React.FC = () => {
       setShowAddMember(false);
       loadTeams();
     } catch (err) {
-      console.error("添加成员失败:", err);
+      logger.error("添加成员失败:", err);
     }
   };
 
@@ -135,7 +138,7 @@ export const TeamView: React.FC = () => {
       await workspaceService.removeTeamMember(workspaceId, teamId, memberId);
       loadTeams();
     } catch (err) {
-      console.error("移除成员失败:", err);
+      logger.error("移除成员失败:", err);
     }
   };
 
@@ -145,7 +148,7 @@ export const TeamView: React.FC = () => {
       await workspaceService.updateMemberRole(workspaceId, teamId, memberId, newRole);
       loadTeams();
     } catch (err) {
-      console.error("更新角色失败:", err);
+      logger.error("更新角色失败:", err);
     }
   };
 

@@ -8,6 +8,7 @@ import { sessionCoordinator, registerChatOperations } from "./sessionChatCoordin
 import { useFeatureFlagStore } from "./featureFlags";
 import { playWarningSound, playCompletionSound } from "../services/SoundService";
 import { createLogger } from "../utils/logger";
+import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("chatStore");
 
@@ -177,8 +178,8 @@ function addFilePathsFromBlocks(
               useChatStore.setState({ sessionFiles: updated });
             }
           }
-        }).catch(() => {
-          // 解析失败则保留原始路径
+        }).catch((e) => {
+          handleClientError(e, { module: 'stores:chatStore', action: 'addFilePaths:resolvePath' }, 'warn');
         });
       }
     }
@@ -299,6 +300,7 @@ async function doAutoRename(
     const finalTitle = title || userMessage.slice(0, 30) + (userMessage.length > 30 ? "…" : "");
     sessionCoordinator().renameSession(sessionId, finalTitle);
   } catch (_error) {
+    handleClientError(_error, { module: 'stores:chatStore', action: 'doAutoRename' }, 'warn');
     // LLM 生成标题失败，用用户消息前30字符降级
     const fallbackTitle =
       userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
@@ -635,7 +637,7 @@ async function flushSaveBlocks(): Promise<void> {
           blk as unknown as Array<Record<string, unknown>>,
         );
       } catch (err) {
-        logger.warn("保存 blocks 到后端失败", err);
+        handleClientError(err, { module: 'stores:chatStore', action: 'flushSaveBlocks' }, 'warn');
       }
     }
   } finally {
@@ -811,10 +813,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // 再执行自动重命名（不阻塞 UI 状态）
       if (shouldAutoRename(sessionId)) {
         doAutoRename(sessionId!, content, (response as Message).content).catch(
-          (e) => logger.warn("自动重命名失败", e),
+          (e) => handleClientError(e, { module: 'stores:chatStore', action: 'sendMessage:autoRename' }, 'warn'),
         );
       }
     } catch (error) {
+      handleClientError(error, { module: 'stores:chatStore', action: 'sendMessage' }, 'warn');
       set({ error: String(error), isSending: false, isInputBlocked: false });
     }
   },
@@ -877,7 +880,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const tryDequeue = () => {
       if (messageQueueEnabled && get().messageQueue.length > 0) {
         get().dequeueAndSend(sessionId).catch(
-          (e) => logger.warn("消息队列消费失败", e),
+          (e) => handleClientError(e, { module: 'stores:chatStore', action: 'streamMessage:dequeue' }, 'warn'),
         );
       }
     };
@@ -923,7 +926,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             blk as unknown as Array<Record<string, unknown>>,
           );
         } catch (err) {
-          logger.warn("防抖保存 blocks 到后端失败", err);
+          handleClientError(err, { module: 'stores:chatStore', action: 'streamMessage:saveBlocks' }, 'warn');
         }
       }
     };
@@ -1238,7 +1241,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               finalBlocks as unknown as Array<Record<string, unknown>>,
             );
           } catch (error) {
-            logger.warn("Failed to update message blocks:", error);
+            handleClientError(error, { module: 'stores:chatStore', action: 'streamMessage:finalSaveBlocks' }, 'warn');
           }
         }
       }
@@ -1252,13 +1255,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const assistantResponse =
           finalMI !== -1 ? finalMsgs[finalMI].content : "";
         doAutoRename(sessionId!, content, assistantResponse).catch(
-          (e) => logger.warn("流结束时自动重命名失败", e),
+          (e) => handleClientError(e, { module: 'stores:chatStore', action: 'streamMessage:autoRename' }, 'warn'),
         );
       }
 
       // 消息排队：自动消费队列中的下一条消息
       tryDequeue();
     } catch (error) {
+      handleClientError(error, { module: 'stores:chatStore', action: 'streamMessage' }, 'warn');
       if (!abortController.signal.aborted) {
         set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false, streamingStatus: "", abortController: null });
       } else {
@@ -1326,13 +1330,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         workMode = workState.mode;
       }
     } catch (err) {
-      logger.warn("workStore 不可用", err);
+      handleClientError(err, { module: 'stores:chatStore', action: 'regenerateMessage:getWorkMode' }, 'warn');
     }
 
     try {
       await get().streamMessage(content, sessionId || userMsg.session_id, workMode);
     } catch (error) {
-      logger.error("regenerateMessage: 重新生成失败", error);
+      handleClientError(error, { module: 'stores:chatStore', action: 'regenerateMessage' }, 'warn');
       set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false });
     }
   },
@@ -1384,7 +1388,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       await get().streamMessage(content, sessionId || userMsg.session_id);
     } catch (error) {
-      logger.error("retryFromError: 重试失败", error);
+      handleClientError(error, { module: 'stores:chatStore', action: 'retryFromError' }, 'warn');
       set({ error: String(error), isSending: false, isInputBlocked: false, isStreaming: false });
     }
   },
@@ -1401,7 +1405,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const messageQueueEnabled = useFeatureFlagStore.getState().flags.message_queue;
       if (messageQueueEnabled && get().messageQueue.length > 0) {
         get().dequeueAndSend().catch(
-          (e) => logger.warn("停止后消息队列消费失败", e),
+          (e) => handleClientError(e, { module: 'stores:chatStore', action: 'stopMessage:dequeue' }, 'warn'),
         );
       }
     }
@@ -1501,7 +1505,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       set({ previewFile: filePreview });
     } catch (err) {
-      logger.error("读取文件失败:", err);
+      handleClientError(err, { module: 'stores:chatStore', action: 'readFileToPreview' }, 'warn');
       set({
         previewFile: {
           path: filePath,
@@ -1526,7 +1530,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         setTimeout(() => reject(new Error('flushPendingSaves 超时')), 3000)
       );
       await Promise.race([flushSaveBlocks(), timeout]).catch((err) => {
-        logger.warn('flushPendingSaves 超时或失败', { error: String(err) });
+        handleClientError(err, { module: 'stores:chatStore', action: 'flushPendingSaves' }, 'warn');
         // 超时后重置锁，让会话切换继续
         _saveIsFlushing = false;
       });
@@ -1747,7 +1751,7 @@ function normalizeToolCall(tc: unknown): ToolCall {
     try {
       parsedArgs = typeof rawArgs === "string" ? JSON.parse(rawArgs || "{}") : (rawArgs as Record<string, unknown>) || {};
     } catch (err) {
-      logger.warn("tool_call 参数 JSON 解析失败", err);
+      handleClientError(err, { module: 'stores:chatStore', action: 'normalizeToolCall' }, 'warn');
       parsedArgs = { raw: rawArgs };
     }
     return {

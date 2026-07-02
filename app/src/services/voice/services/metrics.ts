@@ -8,9 +8,12 @@
  * 埋点位置由 MetricsHook 枚举定义，统一管理。
  */
 
-import { Logger } from '@modules/monitoring';
+import { Logger, getOTelMetrics } from '@modules/monitoring';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:metrics' });
+
+/** OTel 直方图：记录各埋点耗时分布 */
+const otelMetrics = getOTelMetrics();
 
 /** 埋点 Hook 枚举（统一管理所有埋点位置） */
 export enum MetricsHook {
@@ -137,6 +140,15 @@ export class TTSMetricsCollector {
       durationMs: Math.round(targetEntry.durationMs * 100) / 100,
       metadata: targetEntry.metadata,
     });
+
+    // 上报 OTel 直方图
+    otelMetrics.recordHistogram(
+      'voice.tts.duration_ms',
+      targetEntry.durationMs,
+      {
+        hook,
+      }
+    );
   }
 
   /**
@@ -156,6 +168,12 @@ export class TTSMetricsCollector {
       record.failure++;
     }
     this.healthScores.set(provider, record);
+
+    // 上报 OTel 计数器
+    otelMetrics.incrementCounter('voice.tts.provider.result', 1, {
+      provider,
+      result: success ? 'success' : 'failure',
+    });
   }
 
   /**

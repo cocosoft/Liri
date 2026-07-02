@@ -36,7 +36,7 @@ import type {
 import { SandboxConfigBuilder } from '@modules/sandbox/SandboxConfigBuilder';
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'http:chat', level: LogLevel.INFO });
 
 // ── 类型定义 ──────────────────────────────────────────────────────
 

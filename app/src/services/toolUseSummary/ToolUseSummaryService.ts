@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具使用摘要服务
  */
 
@@ -8,7 +8,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:toolUseSummary',
+  level: LogLevel.INFO,
+});
 
 export interface ToolInfo {
   name: string;

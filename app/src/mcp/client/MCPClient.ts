@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 提供与MCP服务器的连接、工具调用、资源管理等核心功能
  */
 
@@ -20,7 +20,10 @@ import type {
   MCPTransport,
 } from '../types/MCPTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'mcp:client:mCPClient',
+  level: LogLevel.INFO,
+});
 
 export class MCPClientImpl extends EventEmitter implements MCPClient {
   private transport: MCPTransport;

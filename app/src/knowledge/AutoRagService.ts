@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,7 +40,10 @@ import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
 import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai';
 import { IndexManager } from './IndexManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:autoRagService',
+  level: LogLevel.INFO,
+});
 
 /** 检索结果条目 */
 export interface RagResult {

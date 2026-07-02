@@ -844,7 +844,7 @@ export class ImageAnalysisTool extends BaseTool {
         await import('../ImageGenerateTool/ImageInputRouter');
       const router = new ImageInputRouter();
       const shrunk = await router.shrinkIfNeeded(imageBuffer, MAX_VISION_BYTES);
-      finalBuffer = shrunk.buffer;
+      finalBuffer = Buffer.from(shrunk.buffer);
     }
 
     return provider.analyzeImage({
@@ -1139,8 +1139,20 @@ export class ImageAnalysisTool extends BaseTool {
       params: Record<string, unknown>
     ) => Promise<{ success: boolean; result?: unknown; error?: string }>;
   } {
-    const guard = WorkerGuard.getInstance();
-    return guard.getWorker() as any;
+    const guard = getL2WorkerGuard();
+    if (!guard) {
+      throw new Error('Vision Worker not available');
+    }
+    return {
+      send: async (method: string, params: Record<string, unknown>) => {
+        try {
+          const result = await guard.request(method, params);
+          return { success: true, result };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
+        }
+      },
+    };
   }
 }
 

@@ -20,7 +20,7 @@ import { handleError } from '@modules/error';
 import { Logger, getOTelTracing } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:audio:pipeline' });
 
 /** 支持的音频格式类型 */
 export type PipelineFormat = 'wav' | 'pcm_s16le' | 'mp3' | 'opus';

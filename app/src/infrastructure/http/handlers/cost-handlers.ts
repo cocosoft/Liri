@@ -13,7 +13,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveWorkspacePath } from './workspaces-handlers';
 import type { CostReport } from '@modules/workspace/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'http:cost', level: LogLevel.INFO });
 
 /**
  * 获取成本报告

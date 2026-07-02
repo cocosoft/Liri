@@ -49,6 +49,8 @@ export type ProviderType =
   | 'vertex'
   | 'azure'
   | 'custom'
+  | 'openrouter'
+  | 'siliconflow'
   // 图像生成专用类型
   | 'fal'
   | 'stability'

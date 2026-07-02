@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 上下文缓存服务（统一实现）
  * 合并 root 和 services 两个版本的接口
  */
@@ -7,7 +7,10 @@ import fs from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { TTLCache } from '@modules/utils/cache';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context:contextCacheService',
+  level: LogLevel.INFO,
+});
 
 export interface CacheConfig {
   ttl: number;

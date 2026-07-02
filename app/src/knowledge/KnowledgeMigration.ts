@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 知识库迁移工具
  * 将旧路径 (app/docs/知识库/) 的知识迁移到新路径 (~/.pyapp/knowledge/)
  */
@@ -9,7 +9,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeMigration',
+  level: LogLevel.INFO,
+});
 
 export interface MigrationResult {
   migrated: number;

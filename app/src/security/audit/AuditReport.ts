@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 审计报告生成模块
  * 汇总所有审计维度发现，生成统一格式的安全审计报告
  * 对齐 OpenClaw security/audit.types.ts 的 SecurityAuditReport 结构
@@ -12,7 +12,10 @@ import type {
 } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditReport',
+  level: LogLevel.INFO,
+});
 
 /**
  * 生成审计摘要

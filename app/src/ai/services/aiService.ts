@@ -24,7 +24,7 @@ import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 import { configManager } from '../../config/index.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:service', level: LogLevel.INFO });
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;

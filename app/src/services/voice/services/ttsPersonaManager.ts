@@ -19,7 +19,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getDefaultConfigOverlay } from './ttsConfigOverlay';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:ttsPersona', level: LogLevel.INFO });
 
 /** TTS 上下文（方案 20：多工作区隔离） */
 export interface TTSContext {

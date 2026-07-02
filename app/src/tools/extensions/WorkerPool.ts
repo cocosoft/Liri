@@ -1,10 +1,10 @@
-﻿/**
+/**
  * 工作池
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:workerPool', level: LogLevel.INFO });
 
 /**
  * 任务接口

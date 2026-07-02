@@ -19,7 +19,7 @@ import type {
   TTSSpeakResult,
 } from './ttsProvider';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:openaiTTS', level: LogLevel.INFO });
 
 /** OpenAI TTS API 端点 */
 const OPENAI_TTS_ENDPOINT = 'api.openai.com';

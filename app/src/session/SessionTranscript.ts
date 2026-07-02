@@ -15,7 +15,10 @@ import {
 import { join } from 'node:path';
 import { resolveTranscriptsDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:transcript',
+  level: LogLevel.INFO,
+});
 
 export interface TranscriptEntry {
   role: 'user' | 'assistant' | 'system' | 'tool';

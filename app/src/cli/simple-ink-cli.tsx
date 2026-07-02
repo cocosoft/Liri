@@ -1,11 +1,14 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 //
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, Newline, Spacer, render } from '../ink';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cli:simple-ink-cli.tsx',
+  level: LogLevel.INFO,
+});
 
 /**
  * 主菜单组件

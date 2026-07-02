@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron 运行日志持久化
  * 对标 openclaw src/cron/run-log.ts
  */
@@ -7,7 +7,10 @@ import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { CronJob, CronJobResult, CronRunStatus } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:cron:runLog',
+  level: LogLevel.INFO,
+});
 
 export interface CronRunLogEntry {
   id: string;

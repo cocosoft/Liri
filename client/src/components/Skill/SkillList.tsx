@@ -9,6 +9,8 @@ interface SkillListProps {
   isDark: boolean;
   onSelect: (skill: Skill) => void;
   selectedId?: string | null;
+  /** 是否有活跃的过滤条件（用于区分空状态提示） */
+  hasActiveFilters?: boolean;
 }
 
 const STATUS_LABELS: Record<SkillStatus, string> = {
@@ -107,7 +109,7 @@ function SkillList({ skills, isDark, onSelect, selectedId }: SkillListProps) {
             d="M13 10V3L4 14h7v7l9-11h-7z"
           />
         </svg>
-        <p>暂无技能</p>
+        <p>{hasActiveFilters ? "当前过滤条件下无匹配技能" : "暂无技能"}</p>
       </div>
     );
   }

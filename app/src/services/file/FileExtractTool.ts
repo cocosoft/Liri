@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -28,7 +28,10 @@ import { resolveInboundDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:file:extract',
+  level: LogLevel.INFO,
+});
 
 /** 最大解压文件数（zip bomb 防护） */
 const MAX_EXTRACTED_FILES = 10000;

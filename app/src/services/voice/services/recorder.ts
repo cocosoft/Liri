@@ -22,7 +22,7 @@ import {
 } from './recordingDetector';
 import type { RecordingOptions, RecordingStateHandler } from '../models/types';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:recorder' });
 
 /** 录音方法 */
 export type RecordingMethod = 'ffmpeg' | 'sox' | 'arecord' | 'powershell';

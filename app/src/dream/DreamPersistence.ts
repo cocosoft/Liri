@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,10 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import type { DreamRecord } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'dream:dreamPersistence',
+  level: LogLevel.INFO,
+});
 
 const DREAM_RECORDS_FILE = 'dream_records.json';
 const MAX_RECORDS = 50;

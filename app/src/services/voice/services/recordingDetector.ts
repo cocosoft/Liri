@@ -14,7 +14,7 @@ import { isEnvTruthy } from '@modules/utils/envUtils';
 import { configManager } from '@modules/config';
 import type { VoiceDependencies } from '../models/types';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:recording:detector' });
 
 // ===========================================================
 // 常量

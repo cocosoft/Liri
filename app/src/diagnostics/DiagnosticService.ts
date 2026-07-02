@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 诊断系统
  * 实现安装类型检测、多安装实例检测和配置问题检测
  */
@@ -11,7 +11,10 @@ import { realpath } from 'fs/promises';
 import { configManager } from '@modules/config';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'diagnostics:service',
+  level: LogLevel.INFO,
+});
 
 /**
  * 安装类型

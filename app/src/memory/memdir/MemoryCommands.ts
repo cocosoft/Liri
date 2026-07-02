@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 记忆命令系统实现
  * 支持 /memory 命令、记忆文件选择器、自动记忆更新
  */
@@ -17,7 +17,10 @@ import {
 import { MemdirMemoryScanner } from './MemoryScanner';
 import type { RelevantMemoryResult } from './MemoryScanner';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:memdir:memoryCommands',
+  level: LogLevel.INFO,
+});
 
 /**
  * 记忆命令选项（来自CC源码）

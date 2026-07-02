@@ -3,7 +3,10 @@ import type { CompactionEngine } from './SessionCompactionBridge';
 import type { AutoCompactServiceRef } from './SessionCompactionBridge';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:summaryCompactor',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_SUMMARY_THRESHOLD = 100;
 const DEFAULT_SUMMARY_KEEP_RECENT = 30;

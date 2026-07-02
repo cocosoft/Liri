@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PTY 伪终端沙箱
  * 支持交互式命令执行
  * 对齐 OpenClaw agents/bash-tools.exec-runtime.ts
@@ -11,7 +11,10 @@ import type {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { spawn, type ChildProcess } from 'node:child_process';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:pTYSandbox',
+  level: LogLevel.INFO,
+});
 
 export interface PTYSandboxConfig {
   shell: string;

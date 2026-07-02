@@ -1,4 +1,4 @@
-﻿import { BaseConverter } from '../engine/BaseConverter';
+import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
@@ -6,7 +6,7 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tools:converter:html' });
 
 export class HtmlConverter extends BaseConverter {
   override readonly name: string = 'html';

@@ -1,10 +1,13 @@
-﻿/**
+/**
  * 消息总线
  */
 import { Message } from '../SubAgentCommunicator';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent:messageBus',
+  level: LogLevel.INFO,
+});
 
 /**
  * 消息订阅者

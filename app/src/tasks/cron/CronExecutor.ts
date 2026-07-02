@@ -12,7 +12,10 @@ import {
   RouteKey,
 } from '@modules/ai/router/resolveModelRoute.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:cronExecutor',
+  level: LogLevel.INFO,
+});
 
 export interface CronExecutorConfig {
   /** 模型（默认从环境变量读取） */

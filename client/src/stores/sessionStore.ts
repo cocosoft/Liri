@@ -4,6 +4,7 @@ import { Session } from "../types";
 import { sessionService } from "../services/sessionService";
 import { chatCoordinator, registerSessionOperations } from "./sessionChatCoordinator";
 import { createLogger } from "../utils/logger";
+import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("sessionStore");
 
@@ -57,6 +58,7 @@ export const useSessionStore = create<SessionStore>()(
           const currentSession = await sessionService.getCurrent();
           set({ sessions, currentSession, isLoading: false });
         } catch (error) {
+          handleClientError(error, { module: 'stores:sessionStore', action: 'loadSessions' }, 'warn');
           set({ error: String(error), isLoading: false });
         }
       },
@@ -71,8 +73,8 @@ export const useSessionStore = create<SessionStore>()(
             const { modelSwitchService } = await import("../services/modelSwitchService");
             const current = await modelSwitchService.getCurrent();
             modelId = current.modelId;
-          } catch {
-            // 静默降级
+          } catch (e) {
+            handleClientError(e, { module: 'stores:sessionStore', action: 'createSession:getModelId' }, 'warn');
           }
 
           // 获取当前模型的任务分工配置作为会话初始覆盖
@@ -81,8 +83,8 @@ export const useSessionStore = create<SessionStore>()(
             const { modelSwitchService } = await import("../services/modelSwitchService");
             const tasks = await modelSwitchService.getTasks();
             tasksOverride = tasks as Record<string, string>;
-          } catch {
-            // 静默降级
+          } catch (e) {
+            handleClientError(e, { module: 'stores:sessionStore', action: 'createSession:getTasks' }, 'warn');
           }
 
           // 获取当前工作空间作为会话绑定工作空间
@@ -93,8 +95,8 @@ export const useSessionStore = create<SessionStore>()(
             const ws = useWorkspaceStore.getState().currentWorkspace;
             workspaceId = ws?.id;
             workspacePath = ws?.path;
-          } catch {
-            // 静默降级
+          } catch (e) {
+            handleClientError(e, { module: 'stores:sessionStore', action: 'createSession:getWorkspace' }, 'warn');
           }
 
           const session = await sessionService.create(title, { modelId, workspaceId, workspacePath });
@@ -120,7 +122,7 @@ export const useSessionStore = create<SessionStore>()(
           });
           return session;
         } catch (error) {
-          logger.error("Failed to create session:", error);
+          handleClientError(error, { module: 'stores:sessionStore', action: 'createSession' }, 'warn');
           set({ error: String(error), isLoading: false });
           throw error;
         }
@@ -183,7 +185,9 @@ export const useSessionStore = create<SessionStore>()(
                 const parsed = JSON.parse(args);
                 const fp = parsed.file_path || parsed.path || parsed.filePath;
                 if (fp && typeof fp === 'string') filePaths.add(fp);
-              } catch { /* ignore parse errors */ }
+              } catch (e) {
+                handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:parseArgs' }, 'warn');
+              }
             } else if (args && typeof args === 'object') {
               const rargs = args as Record<string, unknown>;
               const fp = rargs.file_path || rargs.path || rargs.filePath;
@@ -220,9 +224,8 @@ export const useSessionStore = create<SessionStore>()(
             });
             await modelSwitchService.switch(enriched.modelId);
           }
-        } catch {
-          // 模型切换失败不阻断，保持当前模型
-          logger.warn("switchSession: 模型懒加载恢复失败", { id });
+        } catch (e) {
+          handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:lazyModelRestore' }, 'warn');
         }
       }
 
@@ -233,8 +236,8 @@ export const useSessionStore = create<SessionStore>()(
         // 通过 modelSwitchStore 更新本地状态（proxy 到 appStore）
         const { useModelSwitchStore } = await import("../stores/modelSwitchStore");
         useModelSwitchStore.getState().loadCurrent();
-      } catch {
-        // 静默降级
+      } catch (e) {
+        handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:refreshRoute' }, 'warn');
       }
 
       // 【联动工作空间】如果会话绑定了工作空间且与当前不同，同步切换
@@ -249,15 +252,15 @@ export const useSessionStore = create<SessionStore>()(
             });
             // 异步打开工作空间（不阻塞会话切换）
             wsState.openWorkspace(enriched.workspaceId).catch((err: unknown) => {
-              logger.warn("switchSession: 工作空间联动失败", { id, error: String(err) });
+              handleClientError(err, { module: 'stores:sessionStore', action: 'switchSession:workspaceLink' }, 'warn');
             });
           }
-        } catch {
-          // 静默降级
-          logger.warn("switchSession: 工作空间联动模块加载失败", { id });
+        } catch (e) {
+          handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:workspaceModuleLoad' }, 'warn');
         }
       }
     } catch (error) {
+      handleClientError(error, { module: 'stores:sessionStore', action: 'switchSession' }, 'warn');
       // 失败时回滚到上一个会话
       if (prevId) {
         set({ currentSession: get().sessions.find(s => s.id === prevId) ?? null });
@@ -290,6 +293,7 @@ export const useSessionStore = create<SessionStore>()(
         set({ sessions, isLoading: false });
       }
     } catch (error) {
+      handleClientError(error, { module: 'stores:sessionStore', action: 'deleteSession' }, 'warn');
       set({ error: String(error), isLoading: false });
     }
   },
@@ -308,6 +312,7 @@ export const useSessionStore = create<SessionStore>()(
               : current;
           set({ sessions, currentSession: updatedSession, isLoading: false });
         } catch (error) {
+          handleClientError(error, { module: 'stores:sessionStore', action: 'renameSession' }, 'warn');
           set({ error: String(error), isLoading: false });
         }
       },
@@ -321,6 +326,7 @@ export const useSessionStore = create<SessionStore>()(
       chatCoordinator().clearMessages();
       set({ sessions: [], currentSession: null, isLoading: false });
     } catch (error) {
+      handleClientError(error, { module: 'stores:sessionStore', action: 'clearAllSessions' }, 'warn');
       set({ error: String(error), isLoading: false });
     }},
   }),

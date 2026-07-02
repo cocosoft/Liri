@@ -19,7 +19,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:webSearch', level: LogLevel.INFO });
 
 /**
  * WebSearch 输入模式

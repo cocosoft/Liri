@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * MCP工具桥接器
  * 将MCP服务器的工具注册到主ToolManager中
@@ -7,7 +7,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:toolBridge',
+  level: LogLevel.INFO,
+});
 import { getToolManager } from '@modules/tools/ToolManager';
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';

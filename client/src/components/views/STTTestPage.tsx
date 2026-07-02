@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { voiceService, type STTResult } from "../../services/voiceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:sttTest");
 
 /**
  * 获取浏览器支持的录音 MIME type
@@ -369,7 +372,7 @@ function STTTestPage() {
     try {
       sessionStorage.setItem("stt_history", JSON.stringify(history));
     } catch {
-      console.warn("STT 历史记录存储失败，超出 sessionStorage 上限");
+      logger.warn("STT 历史记录存储失败，超出 sessionStorage 上限");
     }
   }, [history]);
 

@@ -18,7 +18,10 @@ import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
 import { KeyInfoExtractor } from './KeyInfoExtractor';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:compactionBridge',
+  level: LogLevel.INFO,
+});
 
 export interface CompactionBridgeConfig {
   enabled: boolean;

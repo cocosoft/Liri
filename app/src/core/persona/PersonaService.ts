@@ -19,7 +19,7 @@ import { SimpleMutex } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { PersonaBinding, CreatePersonaBindingInput } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'core:persona', level: LogLevel.INFO });
 
 /** 数据库表名 */
 const TABLE = 'persona_bindings';

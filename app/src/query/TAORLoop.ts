@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TAOR (Think-Act-Observe-Repeat) 循环编排器
  * 在 QueryEngine 基础上提供完整的 TAOR 生命周期管理
  * 整合 TokenBudget、StopHooks、ToolCallPartitioner
@@ -25,7 +25,7 @@ import { FileCheckpointStorage } from './FileCheckpointStorage.js';
 import { TAORPhase } from './types.js';
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'query:taorLoop' });
 
 export interface TAORPhaseInfo {
   phase: TAORPhase;

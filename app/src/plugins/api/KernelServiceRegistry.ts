@@ -1,4 +1,4 @@
-﻿/**
+/**
  * KernelServiceRegistry — 内核服务注册表
  * 采用服务定位器模式（非 DI 容器），提供对内核服务的统一访问入口
  * 支持按服务名称注册、按名称获取、检查所有注册服务
@@ -8,7 +8,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:api:kernelServiceRegistry',
+  level: LogLevel.INFO,
+});
 
 /**
  * 内核服务标识符枚举

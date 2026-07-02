@@ -6,7 +6,10 @@
  */
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'query:toolErrorCollector',
+  level: LogLevel.INFO,
+});
 
 /**
  * 结构化工具错误（对标 Hermes ToolError）

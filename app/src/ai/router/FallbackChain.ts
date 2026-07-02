@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2026 190615275@qq.com
+// Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@ import type { RouterModelRef, RouteDecision, RouterTier } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:fallback' });
 
@@ -116,6 +117,10 @@ export async function executeFallbackChain(
       const err = error instanceof Error ? error : new Error(String(error));
       errors.push(err);
 
+      await handleError(err, {
+        module: 'ai:fallbackChain',
+        action: 'executeFallbackChain',
+      });
       logger.warning('FallbackChain: 供应商不可用', {
         index: i,
         provider: ref.provider,

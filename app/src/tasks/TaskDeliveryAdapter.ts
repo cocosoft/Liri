@@ -1,4 +1,4 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { TaskStatus } from './types';
 import type { TaskState } from './types';
 import {
@@ -7,7 +7,10 @@ import {
   type DeliveryResult,
 } from '../chronos/delivery/DeliveryManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:deliveryAdapter',
+  level: LogLevel.INFO,
+});
 
 export interface TaskDeliveryConfig {
   taskId: string;

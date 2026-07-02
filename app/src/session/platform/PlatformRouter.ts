@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PlatformRouter — 多平台路由管理器
  *
  * 管理多个 PlatformAdapter 实例，提供统一路由：
@@ -17,7 +17,10 @@ import type {
 } from './PlatformAdapter';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:platformRouter',
+  level: LogLevel.INFO,
+});
 
 export interface PlatformRouteEntry {
   adapter: PlatformAdapter;

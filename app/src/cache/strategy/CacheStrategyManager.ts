@@ -1,7 +1,10 @@
-﻿//
+//
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cache:strategy:cacheStrategyManager',
+  level: LogLevel.INFO,
+});
 
 export enum StrategyType {
   LRU = 'LRU',

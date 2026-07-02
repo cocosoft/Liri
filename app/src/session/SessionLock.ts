@@ -5,7 +5,7 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'session:lock', level: LogLevel.INFO });
 
 export interface LockOptions {
   lockDir?: string;

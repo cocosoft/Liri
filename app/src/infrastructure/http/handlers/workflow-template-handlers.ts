@@ -15,7 +15,10 @@ import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { WorkflowTemplate } from '@modules/workspace/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'http:workflowTemplate',
+  level: LogLevel.INFO,
+});
 
 /** 内建工作流模板 */
 const BUILTIN_TEMPLATES: WorkflowTemplate[] = [

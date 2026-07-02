@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 技能服务 — SkillRegistry 的轻量封装
  *
  * 提供对外兼容接口（SkillDefinition），内部委托 SkillRegistry 管理存储。
@@ -11,7 +11,7 @@ import { dirname, isAbsolute, join, normalize, sep as pathSep } from 'path';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'skills:service' });
 
 import type {
   SkillDefinition,

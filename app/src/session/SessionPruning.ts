@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 会话修剪策略
  * 按时间/大小自动修剪旧会话
  * 对齐 OpenClaw config/sessions/store-pruning.ts
@@ -8,7 +8,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, unlinkSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'session:pruning', level: LogLevel.INFO });
 
 export interface PruningConfig {
   sessionsDir: string;

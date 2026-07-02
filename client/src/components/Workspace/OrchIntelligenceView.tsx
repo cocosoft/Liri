@@ -11,6 +11,9 @@
 import React, { useState, useEffect } from "react";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { workspaceService } from "../../services/workspaceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:orchIntelligence");
 
 /** Tab 类型 */
 type IntellTab = "impact" | "risks" | "decision" | "escalations" | "resources";
@@ -107,7 +110,7 @@ function ImpactPanel() {
       );
       setResult(res as ImpactResult);
     } catch (e) {
-      console.error("影响评估失败", e);
+      logger.error("影响评估失败", e);
     } finally {
       setLoading(false);
     }
@@ -201,7 +204,7 @@ function RiskPanel() {
       setRisks(data.risks);
       setSummary(data.summary);
     } catch (e) {
-      console.error("风险识别失败", e);
+      logger.error("风险识别失败", e);
     } finally {
       setLoading(false);
     }
@@ -285,7 +288,7 @@ function DecisionPanel() {
       );
       setResult(res as DecisionResult);
     } catch (e) {
-      console.error("决策分级失败", e);
+      logger.error("决策分级失败", e);
     } finally {
       setLoading(false);
     }
@@ -368,7 +371,7 @@ function EscalationsPanel() {
       const res = await workspaceService.getEscalations(currentWorkspace?.id || "");
       setEscalations(res as EscalationItem[]);
     } catch (e) {
-      console.error("获取异常列表失败", e);
+      logger.error("获取异常列表失败", e);
     } finally {
       setLoading(false);
     }
@@ -420,7 +423,7 @@ function ResourcesPanel() {
       const res = await workspaceService.getResources(currentWorkspace?.id || "");
       setResources(res as ResourceStatus[]);
     } catch (e) {
-      console.error("获取资源状态失败", e);
+      logger.error("获取资源状态失败", e);
     } finally {
       setLoading(false);
     }

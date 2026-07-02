@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Docker 镜像管理器
  * 管理 Docker 镜像的拉取、列表、删除、构建等操作
  */
@@ -6,7 +6,10 @@
 import { execSync } from 'node:child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:dockerManager',
+  level: LogLevel.INFO,
+});
 
 export interface DockerImageInfo {
   repository: string;

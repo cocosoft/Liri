@@ -47,6 +47,7 @@ import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
 import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '../channels/bootstrap/ChannelBootstrapper.js';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('repl');
 
@@ -198,6 +199,7 @@ export async function initializeChatManager(): Promise<ChatManager> {
     chatManager.setSubAgentManager(subAgentManager);
     logger.info('SubAgentManager initialized and injected into ChatManager');
   } catch (error) {
+    await handleError(error, { module: 'repl', action: 'subAgentInit' });
     logger.warn(
       'SubAgentManager initialization failed, continuing without it',
       {
@@ -220,6 +222,7 @@ export async function initializeChatManager(): Promise<ChatManager> {
       }
     }
   } catch (error) {
+    await handleError(error, { module: 'repl', action: 'sessionInit' });
     logger.warn('Session initialization issue, will use default', {
       error: String(error),
     });
@@ -292,6 +295,7 @@ export async function launchRepl(
       );
       profileCheckpoint('repl_http_service_end');
     } catch (error) {
+      await handleError(error, { module: 'repl', action: 'httpStart' });
       ui.showWarning(
         `HTTP API 服务启动失败: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -333,6 +337,7 @@ export async function launchRepl(
     logger.info('REPL 启动检查', { isOfflineMode, commandCount });
     profileCheckpoint('repl_startup_checks_end');
   } catch (error) {
+    await handleError(error, { module: 'repl', action: 'startupCheck' });
     ui.showWarning(
       `启动检查失败: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -393,7 +398,7 @@ export async function launchRepl(
       console.log();
     }
   } catch {
-    // 通道检测失败不影响 REPL 启动
+    // @ignore-catch: 通道检测失败不影响 REPL 启动
   }
 
   console.log();
@@ -406,6 +411,7 @@ export async function launchRepl(
     logger.info('已加载历史命令', { count: historyCount });
     profileCheckpoint('repl_load_history_end');
   } catch (error) {
+    await handleError(error, { module: 'repl', action: 'historyLoad' });
     ui.showWarning(
       `加载历史记录失败: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -427,7 +433,7 @@ export async function launchRepl(
         `场景模式: ${finalConfig.trustLevel === 'chat' ? '聊天' : finalConfig.trustLevel === 'work' ? '工作' : '开发'}`
       );
     } catch {
-      // 信任级别设置失败不阻塞 REPL 启动
+      // @ignore-catch: 信任级别设置失败不阻塞 REPL 启动
     }
   }
 
@@ -469,6 +475,7 @@ export async function launchRepl(
     await ensureGlobalCronSchedulerStarted({ executeJob: realExecutor });
     ui.showInfo('Cron 调度器已启动 (AI 执行引擎就绪)');
   } catch (cronError) {
+    await handleError(cronError, { module: 'repl', action: 'cronEngine' });
     // AI provider 不可用时仍启动占位调度器
     try {
       const { ensureGlobalCronSchedulerStarted } =
@@ -476,7 +483,7 @@ export async function launchRepl(
       await ensureGlobalCronSchedulerStarted();
       ui.showInfo('Cron 调度器已启动（默认执行模式）');
     } catch {
-      // 彻底启动失败，不阻塞 REPL
+      // @ignore-catch: 彻底启动失败，不阻塞 REPL
     }
     ui.showWarning(
       `Cron 调度器 AI 引擎不可用: ${cronError instanceof Error ? cronError.message : String(cronError)}`
@@ -494,14 +501,14 @@ export async function launchRepl(
       const { launchInkRepl } = await import('../ink/repl/index.js');
       await launchInkRepl(chatManager);
     } catch (error) {
-      logger.error('Ink REPL 启动失败', { error: String(error) });
+      await handleError(error, { module: 'repl', action: 'inkStart' });
     }
 
     if (localHTTPService && localHTTPService.isStarted()) {
       try {
         await localHTTPService.stop();
       } catch {
-        // ignore
+        // @ignore-catch: HTTP 服务关闭失败不影响退出流程
       }
     }
     ui.cleanup();
@@ -525,8 +532,7 @@ export async function launchRepl(
         }
       });
     } catch (error) {
-      // 忽略错误
-      console.error('加载命令失败:', error);
+      void handleError(error, { module: 'repl', action: 'loadCommands' });
     }
     return commands;
   }
@@ -603,7 +609,7 @@ export async function launchRepl(
     try {
       await historyManager.add(trimmedLine, 'repl-session');
     } catch (error) {
-      // 历史记录添加失败不影响命令执行
+      await handleError(error, { module: 'repl', action: 'historyAdd' });
       logger.warn('添加历史记录失败', { error: String(error) });
     }
 
@@ -680,6 +686,7 @@ export async function launchRepl(
             const modelId = record?.id || modelName;
             modelRouter.setCurrentModel(modelId);
           } catch {
+            // @ignore-catch: 模型查找失败，使用原始模型名
             modelRouter.setCurrentModel(modelName);
           }
           ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);
@@ -760,7 +767,7 @@ export async function launchRepl(
               }
             }
           } catch {
-            // 共享写入失败不影响主流程
+            // @ignore-catch: 共享写入失败不影响主流程
           }
 
           const currentSession = chatManager.getCurrentSession();
@@ -814,6 +821,7 @@ export async function launchRepl(
             ui.showWarning('未收到响应，请尝试再次发送');
           }
         } catch (error) {
+          await handleError(error, { module: 'repl', action: 'sendMessage' });
           ui.showError(
             `处理失败: ${error instanceof Error ? error.message : String(error)}`
           );
@@ -858,6 +866,7 @@ export async function launchRepl(
         isProcessing = false;
       }
     } catch (error) {
+      await handleError(error, { module: 'repl', action: 'commandExec' });
       ui.showError(
         `错误: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -899,6 +908,7 @@ export async function launchRepl(
     try {
       chatManager.cleanup();
     } catch (error) {
+      await handleError(error, { module: 'repl', action: 'chatCleanup' });
       ui.showWarning(
         `清理 ChatManager 失败: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -913,6 +923,7 @@ export async function launchRepl(
         await subAgentMgr.cleanup();
       }
     } catch (error) {
+      await handleError(error, { module: 'repl', action: 'subAgentCleanup' });
       ui.showWarning(
         `清理子Agent失败: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -924,6 +935,7 @@ export async function launchRepl(
         await localHTTPService.stop();
         ui.showInfo('HTTP API 服务已停止');
       } catch (error) {
+        await handleError(error, { module: 'repl', action: 'httpStopCleanup' });
         ui.showWarning(
           `停止 HTTP API 服务失败: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -997,10 +1009,7 @@ export async function executeOnce(
       }
     }
   } catch (error) {
-    logger.error(
-      'REPL 执行错误',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    await handleError(error, { module: 'repl', action: 'executeOnce' });
     console.error(
       chalk.red('错误:'),
       error instanceof Error ? error.message : String(error)
@@ -1075,6 +1084,7 @@ export async function executeFromPipe(): Promise<void> {
             console.log(chalk.white(response.content));
           }
         } catch (error) {
+          await handleError(error, { module: 'repl', action: 'pipeSend' });
           console.error(
             chalk.red('处理失败:'),
             error instanceof Error ? error.message : String(error)
@@ -1083,10 +1093,7 @@ export async function executeFromPipe(): Promise<void> {
       }
     }
   } catch (error) {
-    logger.error(
-      'REPL 执行错误',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    await handleError(error, { module: 'repl', action: 'pipeOuter' });
     console.error(
       chalk.red('错误:'),
       error instanceof Error ? error.message : String(error)

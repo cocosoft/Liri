@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent解析工具
  */
 
@@ -6,7 +6,10 @@ import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:agent:parseAgent',
+  level: LogLevel.INFO,
+});
 import { CustomAgentDefinition, SettingSource } from './types';
 import {
   parseAgentToolsFromFrontmatter,

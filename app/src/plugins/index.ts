@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -57,7 +57,7 @@ import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
 import type { Plugin, SkillContext } from '@modules/plugin-sdk';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'plugins:index', level: LogLevel.INFO });
 
 /**
  * 热加载管理器实例缓存（惰性加载，避免模块加载时的循环依赖）

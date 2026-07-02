@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MonitoringPlugin
  * 将 monitoring 模块包装为标准 Plugin，通过 PluginAPI 注册监控命令
  */
@@ -11,7 +11,10 @@ import {
   getMonitoringService,
 } from '../../monitoring/MonitoringService.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:bundled:monitoringPlugin',
+  level: LogLevel.INFO,
+});
 
 /**
  * MonitoringPlugin 元数据

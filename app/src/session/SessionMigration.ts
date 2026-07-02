@@ -11,7 +11,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveDataDir, resolveSessionsDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:migration',
+  level: LogLevel.INFO,
+});
 
 export interface MigrationVersion {
   from: string;

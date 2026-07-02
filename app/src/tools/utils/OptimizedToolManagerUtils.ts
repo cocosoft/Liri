@@ -9,7 +9,10 @@ import { profileCheckpoint } from '@modules/performance/StartupProfiler.js';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:optimizedUtils',
+  level: LogLevel.INFO,
+});
 
 /**
  * 延迟加载工具模块

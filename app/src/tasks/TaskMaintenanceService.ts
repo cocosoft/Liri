@@ -1,10 +1,13 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 import type { TaskRegistry } from './TaskRegistry';
 import type { TaskState, CleanupResult } from './types';
 import { TaskStatus, isTerminalTaskStatus } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:maintenance',
+  level: LogLevel.INFO,
+});
 
 export interface MaintenanceOptions {
   staleThresholdMs: number;

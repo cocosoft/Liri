@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,10 +31,13 @@
  *   trackUsage(response, { model, providerId, latencyMs });
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-import { getOTelLoggerAdapter } from '@modules/monitoring/otel/OTelLoggerAdapter.js';
+import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
+import { LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new OTelAwareLogger({
+  module: 'ai:usageTracker',
+  level: LogLevel.INFO,
+});
 
 /** 使用量追踪参数 */
 export interface TrackUsageParams {
@@ -143,22 +146,6 @@ export async function trackUsage(
         : undefined,
     });
 
-    // 输出 OTel 结构化日志（debug 级别，默认不可见）
-    const otelLogger = getOTelLoggerAdapter();
-    if (otelLogger && !isError) {
-      otelLogger.debug('API 调用', {
-        model: params.model,
-        providerId: params.providerId,
-        inputTokens,
-        outputTokens,
-        cacheReadTokens,
-        cacheCreationTokens,
-        costUSD,
-        latencyMs: params.latencyMs,
-        statusCode,
-      });
-    }
-
     // 同步数据到 CostTracker + LLMTracker（绕过 PostSampling 管道，直接在此处调用）
     if (!isError) {
       await syncToTrackers(params, {
@@ -169,11 +156,18 @@ export async function trackUsage(
         costUSD,
       });
 
-      // 实时日志输出（用户可见，便于监控 API 调用）
-      logger.info(
-        `API ${params.model} | in=${inputTokens} out=${outputTokens} ` +
-          `cache=${cacheReadTokens}/${cacheCreationTokens} cost=$${costUSD.toFixed(4)} | ${params.providerId || 'unknown'}`
-      );
+      // 实时日志输出（用户可见，自动注入 traceId/spanId）
+      logger.info('API 调用', {
+        model: params.model,
+        providerId: params.providerId || 'unknown',
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        costUSD,
+        latencyMs: params.latencyMs,
+        statusCode,
+      });
     }
   } catch (err) {
     // 使用量记录失败不阻塞主流程

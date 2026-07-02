@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 聊天会话元数据管理服务
  * 实现会话元数据的存储和变更通知
  */
@@ -7,7 +7,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import type { PermissionMode } from '../permission/PermissionMode';
 import type { RequiresActionDetails } from '../state/session/types.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:chatSessionMetadataManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 会话外部元数据

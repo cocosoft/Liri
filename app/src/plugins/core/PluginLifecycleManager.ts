@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责管理插件的完整生命周期和状态转换
  */
 
@@ -12,7 +12,10 @@ import {
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:core:pluginLifecycleManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 生命周期事件类型

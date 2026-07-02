@@ -12,7 +12,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import type { CommandContext } from '@modules/commands';
 import { createVoiceServiceBridge } from '../../../voice/VoiceServiceBridge';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'commands:voice', level: LogLevel.INFO });
 
 /**
  * 语音命令实现

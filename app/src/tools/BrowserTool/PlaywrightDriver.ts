@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Playwright 浏览器驱动
  * 为 BrowserTool 提供浏览器自动化能力
  * 对齐 OpenClaw browser tools
@@ -10,7 +10,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:playwrightDriver',
+  level: LogLevel.INFO,
+});
 
 export interface BrowserAction {
   action:

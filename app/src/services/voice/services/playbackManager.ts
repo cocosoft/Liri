@@ -28,7 +28,7 @@ import {
 } from './audioFormatConverter';
 import { decodeWav } from './audioPipeline';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:playback' });
 
 /** PlaybackManager 配置 */
 export interface PlaybackConfig {

@@ -5,6 +5,10 @@
  * 参照 cc_code backend/utils/imagePaste.ts
  */
 
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("clipboardService");
+
 /** 图片读取结果 */
 export interface ClipboardImageResult {
   /** Base64 编码的图片数据 */
@@ -36,7 +40,7 @@ export async function readImageFromClipboard(): Promise<ClipboardImageResult | n
         base64 = await readFromLinux();
         break;
       default:
-        console.warn('[clipboardService] 不支持的平台:', platform);
+        logger.warn('不支持的平台:', platform);
         return null;
     }
 
@@ -48,7 +52,7 @@ export async function readImageFromClipboard(): Promise<ClipboardImageResult | n
       size: base64.length,
     };
   } catch (err) {
-    console.warn('[clipboardService] 剪贴板读取失败:', err);
+    logger.warn('剪贴板读取失败:', err);
     return null;
   }
 }

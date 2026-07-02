@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,7 +40,10 @@ import { ClawHubInstaller } from './ClawHubInstaller';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { PluginRegistry } from '@modules/plugins/core/PluginRegistry';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:clawHubAdapter',
+  level: LogLevel.INFO,
+});
 
 /**
  * ClawHubAdapter 配置

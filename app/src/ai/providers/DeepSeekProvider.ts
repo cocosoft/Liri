@@ -50,7 +50,7 @@ import {
   type PendingToolCall,
 } from './BaseAIProvider';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:deepSeek', level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 

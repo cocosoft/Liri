@@ -6,7 +6,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:autoModeClassifier',
+  level: LogLevel.INFO,
+});
 
 /**
  * 分类器决策结果

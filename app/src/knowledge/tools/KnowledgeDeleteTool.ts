@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +34,10 @@ import { join } from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:tools:knowledgeDeleteTool',
+  level: LogLevel.INFO,
+});
 
 export class KnowledgeDeleteTool implements Tool {
   public name: string = 'knowledge_delete';

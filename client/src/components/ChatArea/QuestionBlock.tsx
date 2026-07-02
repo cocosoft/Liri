@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { QuestionData } from "../../types";
 import { chatService } from "../../services/chatService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:questionBlock");
 
 interface QuestionBlockProps {
   questionData: QuestionData;
@@ -65,7 +68,7 @@ function QuestionBlock({ questionData, sessionId, onResponse }: QuestionBlockPro
     setSubmitted(true);
 
     if (!result.success) {
-      console.warn("提交回答失败，但已标记为已提交", { questionId });
+      logger.warn("提交回答失败，但已标记为已提交", { questionId });
     }
 
     // 非流式路径：后端返回了最终响应内容，通过回调追加到消息列表

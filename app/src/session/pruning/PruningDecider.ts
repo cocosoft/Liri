@@ -13,7 +13,10 @@ import { CountBasedPruner } from './CountBasedPruner';
 import { BudgetBasedPruner } from './BudgetBasedPruner';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:pruningDecider',
+  level: LogLevel.INFO,
+});
 
 export interface PruningDecision {
   action:

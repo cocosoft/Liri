@@ -16,7 +16,10 @@ import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';
 import type { AcpRuntime } from '@modules/acp/runtime/types.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:moduleSetup',
+  level: LogLevel.INFO,
+});
 
 /**
  * 从环境变量中读取 ACP WebSocket 服务器配置

@@ -1,11 +1,14 @@
-﻿/**
+/**
  * Bash命令分类器
  * 专门用于分类Bash命令的安全性
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:classifiers:bashClassifier',
+  level: LogLevel.INFO,
+});
 
 /**
  * Bash分类结果

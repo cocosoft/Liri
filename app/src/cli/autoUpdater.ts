@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 自动更新模块
  * 检查和提示CLI应用更新
  */
@@ -10,7 +10,7 @@ import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
 import { UpdateDownloader } from './updater/UpdateDownloader';
 import { InstallManager } from './updater/InstallManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'cli:autoUpdater', level: LogLevel.INFO });
 
 export interface AutoUpdaterOptions {
   verbose?: boolean;

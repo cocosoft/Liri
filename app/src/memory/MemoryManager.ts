@@ -1,4 +1,4 @@
-﻿import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@modules/core';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 import {
@@ -40,7 +40,10 @@ import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:memoryManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 记忆管理器接口

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具工厂
  * 负责创建各种工具实例，支持基于功能标志的条件加载
  */
@@ -30,7 +30,7 @@ import { SearchToolImpl } from '../memory/tools/SearchTool';
 import { createUnifiedSearchService } from '../memory/services/UnifiedSearchService';
 import { MemoryManagerImpl } from '../memory/MemoryManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:factory', level: LogLevel.INFO });
 import { PowerShellTool } from './PowerShellTool/PowerShellTool';
 import { WebFetchTool } from './WebFetchTool/WebFetchTool';
 import { WebSearchTool } from './WebSearchTool/WebSearchTool';
@@ -105,6 +105,7 @@ import { AgentsListTool } from './AgentsListTool/AgentsListTool';
 import { UpdatePlanTool } from './UpdatePlanTool/UpdatePlanTool';
 import { TaskOutputTool } from './TaskOutputTool/TaskOutputTool';
 import { TimeTool } from './TimeTool/TimeTool';
+import { RecallMemoryTool } from './RecallMemoryTool/RecallMemoryTool';
 import { createUtilityTools } from './UtilityTools';
 import {
   createDecisionLoggerTool,
@@ -1350,6 +1351,11 @@ export function getAllBaseTools(): Tool[] {
   const timeTool = TimeTool.create();
   if (timeTool) {
     tools.push(timeTool);
+  }
+
+  const recallMemoryTool = RecallMemoryTool.create();
+  if (recallMemoryTool) {
+    tools.push(recallMemoryTool);
   }
 
   // === Phase 4: Expansion tools (5.2 工具数量追平首批) ===

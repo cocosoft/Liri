@@ -13,7 +13,7 @@ import {
 } from './types';
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'agent:strategySelector' });
 
 /**
  * 策略选择器

@@ -2,6 +2,9 @@
  * 图标组件 — 按需动态加载图标分类模块，按类别 chunk 分离
  */
 import { useState, useEffect, createElement, type ComponentType } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("icons");
 
 interface IconProps {
   name: string;
@@ -60,7 +63,7 @@ async function resolveIcon(lowerName: string): Promise<IconComponent | null> {
   }
 
   missingIcons.add(lowerName);
-  console.warn(`Icon "${lowerName}" not found in any category`);
+  logger.warn(`Icon "${lowerName}" not found in any category`);
   return null;
 }
 

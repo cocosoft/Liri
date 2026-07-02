@@ -106,7 +106,7 @@ import type {
 } from './archive/ArchiveTypes.js';
 import { UnifiedStorageAdapter } from './storage/UnifiedStorageAdapter.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'session:gateway', level: LogLevel.INFO });
 
 /**
  * 网关配置

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -72,7 +72,7 @@ export { CacheFactory, CacheNames } from './CacheFactory.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'cache:index', level: LogLevel.INFO });
 
 export async function initializeCacheSystem(): Promise<void> {
   try {

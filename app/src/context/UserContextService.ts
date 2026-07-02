@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 用户上下文服务
  * 实现用户上下文文件的读取和注入
  */
@@ -8,7 +8,10 @@ import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context:userContextService',
+  level: LogLevel.INFO,
+});
 
 const MAX_CONTEXT_FILE_SIZE = 50000; // 50KB
 

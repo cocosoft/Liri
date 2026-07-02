@@ -7,7 +7,12 @@ import path from 'path';
 import fs from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'performance:memory',
+  level: LogLevel.INFO,
+});
 
 /**
  * 内存快照配置
@@ -346,7 +351,7 @@ export class MemorySnapshotService {
    * 显示内存报告
    */
   public displayReport(): void {
-    console.log(this.generateReport());
+    logger.info(this.generateReport());
   }
 
   /**

@@ -20,7 +20,7 @@ import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
 import { TaskListV2 } from '@modules/components/TaskListV2';
 import type { TaskGroup, TaskItem } from '@modules/components/TaskListV2';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'cli:ink', level: LogLevel.INFO });
 
 /**
  * 主菜单组件

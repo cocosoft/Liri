@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责插件的发现、加载、验证和生命周期管理
  */
 
@@ -20,7 +20,10 @@ import {
   PluginEvent,
 } from '../types/PluginTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:core:pluginLoader',
+  level: LogLevel.INFO,
+});
 
 /**
  * 插件加载器

@@ -16,7 +16,7 @@ import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { SimpleMutex } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:todoWrite', level: LogLevel.INFO });
 
 /**
  * Todo 项状态

@@ -1,7 +1,10 @@
-﻿import { execSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:delivery:monitor:diskSpaceMonitor',
+  level: LogLevel.INFO,
+});
 
 export interface DiskInfo {
   drive: string;

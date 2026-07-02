@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   RemoteSetting,
   RemoteSettingsPayload,
   RemoteSettingsClientConfig,
@@ -6,7 +6,10 @@
 import { DEFAULT_REMOTE_SETTINGS_CONFIG } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:remoteSettingsClient',
+  level: LogLevel.INFO,
+});
 
 export class RemoteSettingsClient {
   private config: RemoteSettingsClientConfig;

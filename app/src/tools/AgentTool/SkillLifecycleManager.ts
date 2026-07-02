@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SkillLifecycleManager — 技能生命周期管理器
  *
  * 对标 Hermes curator.py 的自动状态转换逻辑。
@@ -16,7 +16,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:skillLifecycle',
+  level: LogLevel.INFO,
+});
 
 export enum SkillLifecycleState {
   ACTIVE = 'active',

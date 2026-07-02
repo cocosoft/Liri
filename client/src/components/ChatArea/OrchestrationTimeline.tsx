@@ -13,6 +13,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getBackendBaseUrl } from "../../services/backendUrl";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:orchTimeline");
 import type {
   TimelineEvent,
   SSETimelineEvent,
@@ -506,7 +509,7 @@ function OrchestrationTimeline({
       }
     } catch (err) {
       // 静默处理历史加载失败（不影响实时流）
-      console.warn("编排历史加载失败:", err);
+      logger.warn("编排历史加载失败", err);
     } finally {
       setHistoryLoading(false);
     }

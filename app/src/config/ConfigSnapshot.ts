@@ -1,4 +1,4 @@
-﻿import {
+import {
   writeFileSync,
   readFileSync,
   existsSync,
@@ -10,7 +10,7 @@ import { join } from 'path';
 import { Logger } from '@modules/monitoring';
 import { redactConfig } from './ConfigRedactor';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'config:snapshot' });
 
 export interface SnapshotMeta {
   timestamp: number;

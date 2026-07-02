@@ -25,11 +25,11 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'chat:manager', level: LogLevel.INFO });
 
 /** 系统提示词中的上下文保持 + 行为约束规则 */
 const MEMORY_CONTEXT_RULES = `## 上下文保持规则
-你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若对话历史已被压缩，可在系统提示词的"记忆上下文"段落中查找用户信息。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。
+你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。若需要回顾用户信息，请使用 recall_memory 工具查询。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。
 
 ## 输出行为约束
 1. **语言统一**：始终使用与用户上一条消息相同的语言回答。
@@ -535,31 +535,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // 注入当前会话目标，防止上下文截断后 LLM 丢失当前任务
     const currentGoal = this._extractCurrentGoal(session, currentMessage);
-    const memoryContext = this._getSessionMemoryContext(session.id);
     const basePrompt = currentGoal
       ? prompt +
         `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
         `\n\n${MEMORY_CONTEXT_RULES}`
       : prompt + `\n\n${MEMORY_CONTEXT_RULES}`;
 
-    return basePrompt + (memoryContext ? `\n\n${memoryContext}` : '');
-  }
-
-  /**
-   * 获取当前会话的记忆上下文，用于注入到系统提示词
-   * 记忆超过 200 字符时才注入，避免空模板污染 prompt
-   */
-  private _getSessionMemoryContext(sessionId: string): string {
-    try {
-      const memoryContent =
-        getSessionMemoryManager().getMemoryContext(sessionId);
-      if (memoryContent && memoryContent.length > 200) {
-        return memoryContent;
-      }
-    } catch {
-      // 记忆读取失败，静默跳过
-    }
-    return '';
+    return basePrompt;
   }
 
   /**

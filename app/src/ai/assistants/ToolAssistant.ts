@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具助手
  */
 
@@ -7,7 +7,10 @@ import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import { aiService } from '../services/aiService';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:assistants:toolAssistant',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工具推荐信息

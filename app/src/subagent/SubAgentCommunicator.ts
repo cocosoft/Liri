@@ -1,10 +1,13 @@
-﻿/**
+/**
  * 子agent通信器
  */
 import { SubAgent } from './types/SubAgent';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent:communicator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 消息

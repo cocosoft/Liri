@@ -9,7 +9,10 @@ import { handleError } from '@modules/error';
 import { ResetPolicyDecider } from '@modules/session/policy/ResetPolicyDecider';
 import type { ResetPolicy } from '@modules/session/policy/ResetPolicy';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:sessionSupervisor',
+  level: LogLevel.INFO,
+});
 
 /** 会话摘要信息（供监管器评估用） */
 export interface SessionSummary {

@@ -1,9 +1,9 @@
-﻿import { copyFileSync, existsSync, mkdirSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { Logger } from '@modules/monitoring';
 import { ConfigSnapshot } from './ConfigSnapshot';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'config:recovery' });
 
 export interface RecoveryResult {
   recovered: boolean;

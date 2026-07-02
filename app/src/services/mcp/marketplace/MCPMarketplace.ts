@@ -1,4 +1,4 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
@@ -17,7 +17,10 @@ import type {
 import type { ScopedMcpServerConfig } from '@modules/services/mcp/types';
 import { MCPServerStatus } from '@modules/services/mcp/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:marketplace',
+  level: LogLevel.INFO,
+});
 
 export class MCPMarketplace {
   readonly store: LocalServerStore;

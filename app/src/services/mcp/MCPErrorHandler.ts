@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * MCP错误处理
  * 负责定义和处理MCP系统的错误
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:errorHandler',
+  level: LogLevel.INFO,
+});
 
 /**
  * MCP错误类型

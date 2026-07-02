@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP配置管理
  * 负责加载、验证和管理MCP服务器配置
  */
@@ -8,7 +8,10 @@ import * as path from 'path';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:config',
+  level: LogLevel.INFO,
+});
 import {
   McpServerConfigSchema,
   McpJsonConfigSchema,

@@ -1,10 +1,11 @@
-﻿import { join } from 'path';
+import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
 import { Command } from 'commander';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { MemoryType } from '../types/MemoryType';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('MemoryCLI');
 
@@ -73,6 +74,8 @@ export class MemoryCLI {
           console.log(`Memory created successfully with ID: ${memory.id}`);
         } catch (error) {
           console.error('Error creating memory:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'memory:cli', action: 'create' });
         }
       });
 
@@ -96,6 +99,8 @@ export class MemoryCLI {
           });
         } catch (error) {
           console.error('Error listing memories:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'memory:cli', action: 'list' });
         }
       });
 
@@ -121,6 +126,8 @@ export class MemoryCLI {
           });
         } catch (error) {
           console.error('Error searching memories:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'memory:cli', action: 'search' });
         }
       });
 
@@ -151,6 +158,8 @@ export class MemoryCLI {
           }
         } catch (error) {
           console.error('Error getting memory:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'memory:cli', action: 'get' });
         }
       });
 
@@ -165,6 +174,8 @@ export class MemoryCLI {
           console.log(`Memory with ID ${id} deleted successfully`);
         } catch (error) {
           console.error('Error deleting memory:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'memory:cli', action: 'delete' });
         }
       });
 
@@ -187,6 +198,8 @@ export class MemoryCLI {
           console.log('='.repeat(80));
         } catch (error) {
           console.error('Error getting memory statistics:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'memory:cli', action: 'stats' });
         }
       });
   }

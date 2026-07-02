@@ -1,11 +1,11 @@
-﻿/**
+/**
  * Vim多光标模块
  * 支持多光标同时编辑
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'vim:multiCursor', level: LogLevel.INFO });
 
 export interface CursorPosition {
   line: number;

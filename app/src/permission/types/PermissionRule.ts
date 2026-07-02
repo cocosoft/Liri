@@ -1,11 +1,14 @@
-﻿/**
+/**
  * 权限行为枚举
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:types:permissionRule',
+  level: LogLevel.INFO,
+});
 
 export enum PermissionBehavior {
   /**

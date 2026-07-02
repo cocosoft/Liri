@@ -16,6 +16,7 @@
 import { basename, join, resolve } from 'path';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import * as os from 'os';
+import { Logger } from '@modules/monitoring';
 
 // ─── 环境变量键名 ─────────────────────────────
 
@@ -696,11 +697,13 @@ export const PROJECT_SETTINGS_PATH = resolveProjectSettingsPath();
  *
  * 仅打印 warning 不抛异常——路径错误不应阻塞启动。
  */
+const pathsLogger = new Logger({ module: 'core:paths' });
+
 export function validatePathConsistency(logger?: {
   warn: (msg: string) => void;
 }): void {
   const log = logger ?? {
-    warn: (msg: string) => console.warn('[路径验证]', msg),
+    warn: (msg: string) => pathsLogger.warn(`[路径验证] ${msg}`),
   };
 
   // 1. LIRI_HOME 必须已设置

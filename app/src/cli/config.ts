@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CLI配置管理模块
  * 支持配置文件解析、验证和管理
  *
@@ -16,7 +16,7 @@ import {
   getUserSettingsPath,
 } from '@modules/config/settings/userSettings';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'cli:config', level: LogLevel.INFO });
 
 export interface ConfigOptions {
   configDir?: string;

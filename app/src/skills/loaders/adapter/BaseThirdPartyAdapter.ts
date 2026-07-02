@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,7 +45,10 @@ import type {
 } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:baseAdapter',
+  level: LogLevel.INFO,
+});
 
 /**
  * 第三方技能适配器抽象基类

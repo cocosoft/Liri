@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'events';
+import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   HeartbeatRecord,
@@ -6,7 +6,7 @@ import type {
   HeartbeatManagerOptions,
 } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tasks:heartbeat', level: LogLevel.INFO });
 
 export class HeartbeatManager extends EventEmitter {
   private records: Map<string, HeartbeatRecord> = new Map();

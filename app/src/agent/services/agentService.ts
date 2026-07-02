@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 代理服务
  */
 
@@ -17,7 +17,10 @@ import {
 } from 'fs';
 import { AIModelType } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:services:agentService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 代理服务类

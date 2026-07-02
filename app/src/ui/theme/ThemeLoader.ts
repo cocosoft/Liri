@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 主题加载器
  *
  * 从内置主题目录和用户主题目录加载主题配置。
@@ -24,7 +24,7 @@ import {
 } from './ThemeSchema';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ui:themeLoader', level: LogLevel.INFO });
 
 /**
  * 内置主题目录（基于当前文件位置解析，独立于 CWD）

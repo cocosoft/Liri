@@ -9,6 +9,9 @@
 
 import { useState, useEffect } from "react";
 import { workspaceService } from "../../services/workspaceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:agentModelBinding");
 
 import { useTranslation } from "react-i18next";
 
@@ -70,7 +73,7 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
       setBindings(result.bindings);
       setAvailableModels(result.availableModels);
     } catch (err) {
-      console.warn("[AgentModelBindingConfig] 加载配置失败", err);
+      logger.warn("加载配置失败", err);
       setMessage({ type: "error", text: "加载配置失败" });
     } finally {
       setLoading(false);
@@ -92,7 +95,7 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
       setMessage({ type: "success", text: "保存成功" });
       setTimeout(() => setMessage(null), 2000);
     } catch (err) {
-      console.warn("[AgentModelBindingConfig] 保存失败", err);
+      logger.warn("保存失败", err);
       setMessage({ type: "error", text: "保存失败" });
     } finally {
       setSaving(false);

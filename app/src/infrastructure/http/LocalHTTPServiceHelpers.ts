@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LocalHTTPServiceHelpers.ts — HTTP 服务辅助方法（从 LocalHTTPService 提取）
  *
  * 包含通道注册表、动态注册、知识库种子、编译调度等辅助功能。
@@ -11,7 +11,10 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:localHTTPServiceHelpers',
+  level: LogLevel.INFO,
+});
 
 // ── 通道动态注册元信息表（26 通道全覆盖）──────────────────────────
 

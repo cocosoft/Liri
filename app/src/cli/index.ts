@@ -42,6 +42,7 @@ import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
 import { flush, getLogger } from '../monitoring/logs/Logger';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('cli');
 import { getThemeManager } from '@modules/system/theme';
@@ -149,7 +150,7 @@ program
   .command('read <file>')
   .description('Read file content')
   .option('-l, --lines <number>', 'Show first N lines', '50')
-  .action((filePath: string, options: { lines: string }) => {
+  .action(async (filePath: string, options: { lines: string }) => {
     try {
       const resolvedPath = resolve(filePath);
 
@@ -177,8 +178,7 @@ program
 
       console.log(chalk.cyan('─'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(chalk.red('✗'), `Read failed: ${(error as Error).message}`);
+      await handleError(error, { module: 'cli:index', action: 'read' });
       process.exit(1);
     }
   });
@@ -187,7 +187,7 @@ program
   .command('list [directory]')
   .description('List directory contents')
   .option('-a, --all', 'Show all files including hidden', false)
-  .action((dirPath: string = '.', options: { all: boolean }) => {
+  .action(async (dirPath: string = '.', options: { all: boolean }) => {
     try {
       const resolvedPath = resolve(dirPath);
 
@@ -217,8 +217,7 @@ program
 
       console.log(chalk.cyan('─'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(chalk.red('✗'), `List failed: ${(error as Error).message}`);
+      await handleError(error, { module: 'cli:index', action: 'list' });
       process.exit(1);
     }
   });
@@ -229,7 +228,10 @@ program
   .option('-d, --directory <path>', 'Search directory', '.')
   .option('-i, --ignore-case', 'Ignore case', false)
   .action(
-    (pattern: string, options: { directory: string; ignoreCase: boolean }) => {
+    async (
+      pattern: string,
+      options: { directory: string; ignoreCase: boolean }
+    ) => {
       try {
         const resolvedPath = resolve(options.directory);
 
@@ -263,10 +265,7 @@ program
 
         console.log(chalk.cyan('─'.repeat(60)));
       } catch (error: unknown) {
-        console.error(
-          chalk.red('✗'),
-          `Search failed: ${(error as Error).message}`
-        );
+        await handleError(error, { module: 'cli:index', action: 'search' });
         process.exit(1);
       }
     }
@@ -278,7 +277,7 @@ program
   .command('exec <command>')
   .description('Execute shell command')
   .option('-d, --directory <path>', 'Working directory', '.')
-  .action((command: string, options: { directory: string }) => {
+  .action(async (command: string, options: { directory: string }) => {
     try {
       console.log(chalk.cyan('─'.repeat(60)));
       console.log(chalk.bold('Execute Command'));
@@ -299,6 +298,7 @@ program
       console.error(chalk.red('✗'), `Execution failed:`);
       if (execErr.stdout) console.log((execErr.stdout as Buffer).toString());
       if (execErr.stderr) console.error((execErr.stderr as Buffer).toString());
+      await handleError(error, { module: 'cli:index', action: 'exec' });
       process.exit(1);
     }
   });
@@ -309,45 +309,43 @@ program
   .command('write <file> <content>')
   .description('Write content to file')
   .option('-f, --force', 'Overwrite existing file', false)
-  .action((filePath: string, content: string, options: { force: boolean }) => {
-    try {
-      const resolvedPath = resolve(filePath);
+  .action(
+    async (filePath: string, content: string, options: { force: boolean }) => {
+      try {
+        const resolvedPath = resolve(filePath);
 
-      if (existsSync(resolvedPath) && !options.force) {
-        console.error(chalk.red('✗'), `File already exists: ${filePath}`);
-        console.error(chalk.gray('  Use --force to overwrite'));
+        if (existsSync(resolvedPath) && !options.force) {
+          console.error(chalk.red('✗'), `File already exists: ${filePath}`);
+          console.error(chalk.gray('  Use --force to overwrite'));
+          process.exit(1);
+        }
+
+        console.log(chalk.cyan('─'.repeat(60)));
+        console.log(chalk.bold(`Write to: ${filePath}`));
+        console.log(chalk.cyan('─'.repeat(60)));
+
+        // 显示进度
+        showProgress(0, 100, 'Preparing...');
+        delay(100);
+        showProgress(50, 100, 'Writing content...');
+
+        writeFileSync(resolvedPath, content, 'utf-8');
+
+        showProgress(100, 100, 'Write completed');
+
+        console.log(chalk.green('✓'), 'File written successfully');
+        console.log(chalk.cyan('─'.repeat(60)));
+      } catch (error: unknown) {
+        await handleError(error, { module: 'cli:index', action: 'write' });
         process.exit(1);
       }
-
-      console.log(chalk.cyan('─'.repeat(60)));
-      console.log(chalk.bold(`Write to: ${filePath}`));
-      console.log(chalk.cyan('─'.repeat(60)));
-
-      // 显示进度
-      showProgress(0, 100, 'Preparing...');
-      delay(100);
-      showProgress(50, 100, 'Writing content...');
-
-      writeFileSync(resolvedPath, content, 'utf-8');
-
-      showProgress(100, 100, 'Write completed');
-
-      console.log(chalk.green('✓'), 'File written successfully');
-      console.log(chalk.cyan('─'.repeat(60)));
-    } catch (error: unknown) {
-      const e = error as Error;
-      console.error(
-        chalk.red('✗'),
-        `Write failed: ${(error as Error).message}`
-      );
-      process.exit(1);
     }
-  });
+  );
 
 program
   .command('edit <file> <oldString> <newString>')
   .description('Edit file content')
-  .action((filePath: string, oldString: string, newString: string) => {
+  .action(async (filePath: string, oldString: string, newString: string) => {
     try {
       const resolvedPath = resolve(filePath);
 
@@ -380,8 +378,7 @@ program
       console.log(chalk.green('✓'), 'File edited successfully');
       console.log(chalk.cyan('─'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(chalk.red('✗'), `Edit failed: ${(error as Error).message}`);
+      await handleError(error, { module: 'cli:index', action: 'edit' });
       process.exit(1);
     }
   });
@@ -389,7 +386,7 @@ program
 program
   .command('glob <pattern>')
   .description('Match files using glob pattern')
-  .action((pattern: string) => {
+  .action(async (pattern: string) => {
     try {
       console.log(chalk.cyan('─'.repeat(60)));
       console.log(chalk.bold(`Glob: ${pattern}`));
@@ -412,8 +409,7 @@ program
 
       console.log(chalk.cyan('─'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(chalk.red('✗'), `Glob failed: ${(error as Error).message}`);
+      await handleError(error, { module: 'cli:index', action: 'glob' });
       process.exit(1);
     }
   });
@@ -459,11 +455,7 @@ program
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(
-        chalk.red('✗'),
-        `Failed to list tools: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'toolList' });
       process.exit(1);
     }
   });
@@ -532,11 +524,7 @@ program
       console.log();
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(
-        chalk.red('✗'),
-        `Failed to show tool details: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'toolDetails' });
       process.exit(1);
     }
   });
@@ -581,11 +569,7 @@ program
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(
-        chalk.red('✗'),
-        `Failed to manage skills: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'skill' });
       process.exit(1);
     }
   });
@@ -705,11 +689,7 @@ program
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(
-        chalk.red('✗'),
-        `Failed to manage MCP: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'mcp' });
       process.exit(1);
     }
   });
@@ -736,11 +716,7 @@ program
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error: unknown) {
-      const e = error as Error;
-      console.error(
-        chalk.red('✗'),
-        `Failed to manage LSP: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'lsp' });
       process.exit(1);
     }
   });
@@ -963,10 +939,7 @@ program
           console.log(result.message);
         }
       } catch (error: unknown) {
-        console.error(
-          chalk.red('✗'),
-          `Docs command failed: ${(error as Error).message}`
-        );
+        await handleError(error, { module: 'cli:index', action: 'docs' });
       }
     }
   );
@@ -996,10 +969,7 @@ program
         );
         console.log(result.message);
       } catch (error: unknown) {
-        console.error(
-          chalk.red('✗'),
-          `Uninstall failed: ${(error as Error).message}`
-        );
+        await handleError(error, { module: 'cli:index', action: 'uninstall' });
       }
     }
   );
@@ -1020,10 +990,7 @@ program
       );
       console.log(result.message);
     } catch (error: unknown) {
-      console.error(
-        chalk.red('✗'),
-        `Onboard command failed: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'onboard' });
     }
   });
 
@@ -1044,10 +1011,7 @@ program
       );
       console.log(result.message);
     } catch (error: unknown) {
-      console.error(
-        chalk.red('✗'),
-        `Health command failed: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'health' });
     }
   });
 
@@ -1067,17 +1031,16 @@ program
       );
       console.log(result.message);
     } catch (error: unknown) {
-      console.error(
-        chalk.red('✗'),
-        `Tasks command failed: ${(error as Error).message}`
-      );
+      await handleError(error, { module: 'cli:index', action: 'tasks' });
     }
   });
 
 // 注册退出处理器
 process.on('exit', () => {
   exitHandler.exit(0);
-  flush().catch(() => {});
+  flush().catch(() => {
+    /* @ignore-catch: 日志刷新为清理操作，失败不影响退出流程 */
+  });
 });
 
 process.on('SIGINT', () => {
@@ -1098,7 +1061,9 @@ if (process.argv.length === 2) {
   program.help();
 
   // 检查更新（仅在显示帮助时）
-  autoUpdater.checkAndNotify().catch(() => {});
+  autoUpdater.checkAndNotify().catch(() => {
+    /* @ignore-catch: 自动更新检查为非关键路径 */
+  });
 }
 
 program.parse();
@@ -1143,7 +1108,7 @@ function searchInDirectory(
         }
       });
     } catch {
-      // Skip unreadable files
+      /* @ignore-catch: 跳过不可读文件 */
     }
   }
 
@@ -1164,7 +1129,7 @@ function searchInDirectory(
         }
       }
     } catch {
-      // Skip inaccessible directories
+      /* @ignore-catch: 跳过不可访问目录 */
     }
   }
 
@@ -1213,7 +1178,7 @@ function findFilesByPattern(pattern: string): string[] {
         }
       }
     } catch {
-      // Skip inaccessible directories
+      /* @ignore-catch: 跳过不可访问目录 */
     }
   }
 

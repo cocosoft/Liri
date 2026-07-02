@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 团队记忆同步服务
  * 负责团队记忆的完整同步流程
  */
@@ -13,7 +13,10 @@ import {
 } from '../scanners/MemorySecretScanner';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:services:teamMemorySyncService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 同步方向

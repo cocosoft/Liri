@@ -24,7 +24,7 @@ import type {
   STTStreamOptions,
 } from '../models/types';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:stt:stream' });
 
 /** KeepAlive 消息间隔（毫秒） */
 const KEEPALIVE_INTERVAL_MS = 8_000;

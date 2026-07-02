@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件化记忆系统（Memdir）实现
  * 支持分层记忆模型、记忆文件扫描、相关记忆检索
  */
@@ -10,7 +10,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:memdir:memdirService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 记忆类型（来自CC源码）

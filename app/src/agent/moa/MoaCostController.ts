@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MoA 成本控制器
  * 控制最大 Agent 数、每 Agent 最大 Token、预算上限
  */
@@ -9,7 +9,7 @@ import type {
   ScheduledTaskResult,
 } from './ParallelAgentScheduler';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'agent:moa:costController' });
 
 /**
  * 成本控制预算

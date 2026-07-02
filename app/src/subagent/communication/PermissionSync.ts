@@ -1,11 +1,14 @@
-﻿/**
+/**
  * 权限同步
  */
 import { PermissionRequest, PermissionResponse } from '../SubAgentCommunicator';
 import { TTLCache } from '@modules/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent:permissionSync',
+  level: LogLevel.INFO,
+});
 
 /**
  * 权限同步

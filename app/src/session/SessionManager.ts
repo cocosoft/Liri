@@ -35,7 +35,7 @@ import type {
 import { MessageRole, ContentBlockType } from './types/Message';
 import type { UnifiedMessage } from './types/Message';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'session:manager', level: LogLevel.INFO });
 
 export interface SessionManagerConfig {
   storageRootDir?: string;

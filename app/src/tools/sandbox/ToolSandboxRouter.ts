@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具沙箱路由
  * E-08: 将高风险工具操作自动路由到 Docker 沙箱环境执行
  *
@@ -24,7 +24,10 @@ import type {
   SandboxExecuteResult,
 } from '@modules/sandbox/SandboxTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:sandboxRouter',
+  level: LogLevel.INFO,
+});
 
 /**
  * 沙箱级别枚举

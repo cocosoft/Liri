@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import type { KnowledgeBase, KnowledgeFile } from "../../types";
 import { knowledgeService } from "../../services/knowledgeService";
 import FileUploadZone from "./FileUploadZone";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:knowledgeBaseList");
 
 interface KnowledgeBaseListProps {
   isDark: boolean;
@@ -79,7 +82,7 @@ function KnowledgeBaseList({
         onSelectBase(data[0].name);
       }
     } catch (err) {
-      console.error("加载知识库列表失败", err);
+      logger.error("加载知识库列表失败", err);
     } finally {
       setLoading(false);
     }
@@ -90,7 +93,7 @@ function KnowledgeBaseList({
       const data = await knowledgeService.listFiles(selectedBase || undefined);
       setFiles(data);
     } catch (err) {
-      console.error("加载知识文件失败", err);
+      logger.error("加载知识文件失败", err);
       setFiles([]);
     }
   }
@@ -164,7 +167,7 @@ function KnowledgeBaseList({
       }
       await loadBases();
     } catch (err) {
-      console.error("删除知识库失败", err);
+      logger.error("删除知识库失败", err);
     }
   }
 
@@ -179,7 +182,7 @@ function KnowledgeBaseList({
       setEditingBase(null);
       await loadBases();
     } catch (err) {
-      console.error("重命名知识库失败", err);
+      logger.error("重命名知识库失败", err);
     }
   }
 
@@ -242,7 +245,7 @@ function KnowledgeBaseList({
       clearSelection();
       loadFiles();
     } catch (err) {
-      console.error("批量删除失败", err);
+      logger.error("批量删除失败", err);
     }
   }
 
@@ -262,7 +265,7 @@ function KnowledgeBaseList({
       clearSelection();
       loadFiles();
     } catch (err) {
-      console.error("批量加标签失败", err);
+      logger.error("批量加标签失败", err);
       setBatchTagStatus("error");
     }
   }

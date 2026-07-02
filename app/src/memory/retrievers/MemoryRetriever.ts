@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 import { resolveDataDir, resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'memory:retriever', level: LogLevel.INFO });
 
 /**
  * 余弦相似度计算

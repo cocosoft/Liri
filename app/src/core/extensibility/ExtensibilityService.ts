@@ -32,7 +32,10 @@ import { ModuleManager, createModuleManager } from './ModuleManager.js';
 import { ConfigManager, createConfigManager } from './ConfigManager.js';
 import { EventBus, createEventBus } from '../events/EventBus.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:extensibility:extensibilityService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 可扩展性工具函数

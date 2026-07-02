@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 增强的MCP配置管理
  * 支持多种配置来源和验证
  */
@@ -14,7 +14,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:configManager',
+  level: LogLevel.INFO,
+});
 import {
   McpServerConfigSchema,
   McpJsonConfigSchema,

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42,7 +42,10 @@ import type {
 import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeRouter',
+  level: LogLevel.INFO,
+});
 
 /** 停用词集合 */
 const COMMON_STOP_WORDS = new Set([

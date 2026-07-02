@@ -1,4 +1,4 @@
-﻿/**
+/**
  * QueryEngine核心
  * 基于现有ChatManager和其他组件实现查询引擎核心功能
  */
@@ -43,6 +43,7 @@ import {
   createCostAnalyticsTracker,
   setCostAnalyticsTracker,
 } from '../analytics/CostAnalyticsTracker.js';
+import { createPostCallSummaryHook } from '../hooks/postSampling/PostCallSummaryHook.js';
 import {
   withRetry,
   categorizeAPIError,
@@ -71,7 +72,7 @@ import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'query:engine', level: LogLevel.INFO });
 
 /**
  * 查询状态枚举
@@ -1687,7 +1688,20 @@ export function createQueryEngine(
   chatManager: IChatManagerForQuery,
   config?: QueryEngineConfig
 ): QueryEngine {
-  return new QueryEngine(chatManager, config);
+  const engine = new QueryEngine(chatManager, config);
+
+  // 注册 AI 调用聚合日志 Hook（在每次 AI 调用后输出汇总日志）
+  try {
+    engine.registerPostSamplingHook(
+      'PostCallSummary',
+      createPostCallSummaryHook(),
+      { priority: 100 }
+    );
+  } catch {
+    // Hook 注册失败不阻塞引擎创建
+  }
+
+  return engine;
 }
 
 export default {

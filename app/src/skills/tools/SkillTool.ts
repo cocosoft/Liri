@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 支持Inline模式、Fork模式、权限检查、参数验证等功能
  */
 
@@ -8,7 +8,7 @@ import type { SkillDefinition, SkillSource } from '../utils/skillParser';
 import { SkillParser } from '../utils/skillParser';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'skills:tool', level: LogLevel.INFO });
 
 /**
  * 技能执行上下文

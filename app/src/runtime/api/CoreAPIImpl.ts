@@ -78,7 +78,7 @@ import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker
 import { recordCost } from '@modules/cost/CostMonitor.js';
 import { getCostMetricsBridge } from '@modules/cost/CostMetricsBridge.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'runtime:coreApi', level: LogLevel.INFO });
 
 let _coreApiInstance: CoreAPIImpl | null = null;
 

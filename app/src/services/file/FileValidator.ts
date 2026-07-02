@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -15,7 +15,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:file:validator',
+  level: LogLevel.INFO,
+});
 
 export interface ValidationResult {
   /** 是否通过校验 */

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * StateMachine — 泛型状态机引擎
  *
  * 提供状态转换校验、监听器通知、历史记录、快照序列化等核心能力。
@@ -17,7 +17,7 @@ import type {
   StateMachineConfig,
 } from './types';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'state:machine' });
 
 /**
  * 从规则表自动推导终态集合

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TaskFlowRegistry - 流程图级别编排器
  *
  * 职责：
@@ -19,7 +19,10 @@ import { TaskFlowStatus } from './types';
 import type { TaskFlowRecord, TaskFlowSyncMode } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:flowRegistry',
+  level: LogLevel.INFO,
+});
 
 export class TaskFlowRegistry {
   private flows: Map<string, TaskFlowRecord> = new Map();

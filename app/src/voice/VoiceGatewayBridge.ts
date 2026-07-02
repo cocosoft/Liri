@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VoiceGatewayBridge
  * 连接 GatewayServer 与 voice 子系统
  * 在 GatewayServer 的 /voice 端点上创建 VoiceSession
@@ -13,7 +13,10 @@ import type { VoiceConnection } from './types';
 import type { SessionManager } from '@modules/session/SessionManager';
 import type { TranscriptManager } from '@modules/session/TranscriptManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:gatewayBridge',
+  level: LogLevel.INFO,
+});
 
 /** 活跃的语音会话映射 */
 const sessions = new Map<string, VoiceSession>();

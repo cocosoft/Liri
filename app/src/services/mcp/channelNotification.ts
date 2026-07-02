@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 通道通知处理
  * 负责处理Claude AI的通道消息通知
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:channelNotification',
+  level: LogLevel.INFO,
+});
 import type { ConnectedMCPServer } from './types';
 
 // 通道权限方法名

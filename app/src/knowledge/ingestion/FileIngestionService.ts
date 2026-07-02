@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FileIngestionService - 文件自动摄取服务
  * 当文件被读取或上传时，自动将其内容整理到知识库 raw/ 目录，
  * 为后续 KnowledgeCompiler 编译和做梦整理提供原料。
@@ -13,7 +13,10 @@ import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config/ConfigManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:ingestion:fileIngestionService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 摄取来源

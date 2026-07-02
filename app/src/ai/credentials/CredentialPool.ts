@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 凭证池
  * 对标 Hermes agent/credential_pool.py
  * 实现 API Key 多凭证轮换和失败切换
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:credentials:credentialPool',
+  level: LogLevel.INFO,
+});
 
 /**
  * 凭证条目

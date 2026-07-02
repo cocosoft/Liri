@@ -1,8 +1,8 @@
-﻿import { Logger } from '@modules/monitoring';
+import { Logger } from '@modules/monitoring';
 import type { FileInfo } from './types';
 import path from 'path';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tools:converter:detector' });
 
 const EXTENSION_MIME_MAP: Record<string, string> = {
   '.txt': 'text/plain',

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 导入管理器
  * 统一管理模块导入，提供别名路径和批量导入功能
  */
@@ -9,7 +9,10 @@ import type { ModuleDefinition } from './moduleTypes';
 import { getRegistry } from './moduleTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'modules:importManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 导入管理器配置

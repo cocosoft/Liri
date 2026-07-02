@@ -1,5 +1,8 @@
 import { Component, type ReactNode } from "react";
 import { withTranslation, type WithTranslation } from "react-i18next";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:errorBoundary");
 
 interface ErrorBoundaryProps extends WithTranslation {
   /** 自定义 fallback UI，默认显示通用错误页 */
@@ -25,7 +28,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("[ErrorBoundary]", error, errorInfo.componentStack);
+    logger.error("Caught error: " + String(error), errorInfo.componentStack);
     this.props.onError?.(error, errorInfo.componentStack ?? "");
   }
 

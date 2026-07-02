@@ -1,7 +1,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:textPreprocessor',
+  level: LogLevel.INFO,
+});
 
 /**
  * TextPreprocessor

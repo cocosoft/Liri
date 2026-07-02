@@ -5,6 +5,12 @@
 
 import { analyticsService } from './AnalyticsService';
 import { performanceMonitoringService } from './PerformanceMonitoringService';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'analytics:intelligence',
+  level: LogLevel.INFO,
+});
 
 /**
  * 智能分析服务类
@@ -56,7 +62,7 @@ class IntelligentAnalysisService {
       this.performAnalysis();
     }, this.analysisInterval);
 
-    console.log('智能分析已启动');
+    logger.info('智能分析已启动');
   }
 
   /**
@@ -66,7 +72,7 @@ class IntelligentAnalysisService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('智能分析已停止');
+      logger.info('智能分析已停止');
     }
   }
 

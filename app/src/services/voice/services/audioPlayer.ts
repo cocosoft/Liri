@@ -21,7 +21,10 @@ import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type { AudioDevice } from './audioDeviceManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:audioPlayer',
+  level: LogLevel.INFO,
+});
 
 /** PCM 音频播放器状态 */
 export type AudioPlayerState = 'idle' | 'playing' | 'paused' | 'stopped';

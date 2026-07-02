@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VoiceChannelIntegration
  * 语音通道集成层
  * 将 VoiceServiceBridge 的能力暴露给消息通道系统（channels/）
@@ -12,7 +12,10 @@ import {
 } from '../services/voice/services/environmentRuntimeDetector';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:channelIntegration',
+  level: LogLevel.INFO,
+});
 
 /** 通道语音配置 */
 export interface VoiceChannelConfig {

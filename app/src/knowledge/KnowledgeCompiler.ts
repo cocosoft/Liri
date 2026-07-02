@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LLM 知识编译管道 (KnowledgeCompiler)
  * Many-to-many 编译范型 — 对标 Karpathy LLM Wiki 方法论
  *
@@ -27,7 +27,10 @@ import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeCompiler',
+  level: LogLevel.INFO,
+});
 
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件） */
 const COMPILABLE_EXTENSIONS = new Set([

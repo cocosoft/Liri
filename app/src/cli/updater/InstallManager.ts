@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 更新安装管理器
  * 处理更新包的校验、备份和安装
  */
@@ -8,7 +8,10 @@ import { join } from 'path';
 import { accessSync, constants, copyFileSync, unlinkSync } from 'fs';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cli:updater:installManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 安装结果

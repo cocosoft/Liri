@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,7 +38,10 @@ import { AIMessageRole } from '@modules/ai';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:tools:knowledgeSearchTool',
+  level: LogLevel.INFO,
+});
 
 export class KnowledgeSearchTool implements Tool {
   public name: string = 'knowledge_search';

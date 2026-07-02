@@ -1,11 +1,14 @@
-﻿/**
+/**
  * 代码生成工具
  * 用于生成常用的代码模板
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:codeGenerator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 代码生成选项

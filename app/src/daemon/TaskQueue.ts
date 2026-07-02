@@ -1,11 +1,11 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getMonitoringService } from '../monitoring/MonitoringService';
 import type { QueueBackend, QueuedTaskEntry } from './QueueBackend';
 import { InMemoryQueueBackend } from './QueueBackend';
 import { TaskPriority } from './TaskPriority';
 import type { Task, TaskResult } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'daemon:taskQueue', level: LogLevel.INFO });
 
 export { TaskPriority };
 export type { Task, TaskResult };

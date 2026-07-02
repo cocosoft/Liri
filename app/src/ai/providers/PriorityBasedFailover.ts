@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +34,10 @@ import { providerRegistry } from './ProviderRegistry';
 import type { ProviderRecord } from './ProviderManager';
 import { UsageTracker } from '../UsageTracker.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:providers:priorityBasedFailover',
+  level: LogLevel.INFO,
+});
 
 /** 故障转移配置 */
 export interface FailoverConfig {

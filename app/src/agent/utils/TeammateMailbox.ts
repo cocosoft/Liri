@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Teammate Mailbox系统
  * 提供结构化的团队消息传递，支持shutdown、plan_approval等消息类型
  * 参考CC源码 cc_code/backend/utils/teammateMailbox.ts 实现
@@ -16,7 +16,10 @@ import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:utils:teammateMailbox',
+  level: LogLevel.INFO,
+});
 
 /**
  * Mailbox消息类型

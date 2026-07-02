@@ -1,4 +1,4 @@
-﻿import type { Session } from '../models/Session';
+import type { Session } from '../models/Session';
 import type {
   PruningStrategy,
   PruningResult,
@@ -7,7 +7,10 @@ import type {
 } from './PruningStrategy';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:cachePruner',
+  level: LogLevel.INFO,
+});
 
 export class CacheTTLPruner implements PruningStrategy {
   readonly name = 'CacheTTLPruner';

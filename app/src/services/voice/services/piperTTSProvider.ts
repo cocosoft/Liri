@@ -33,7 +33,7 @@ import type {
   TTSSpeakResult,
 } from './ttsProvider';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:piperTTS', level: LogLevel.INFO });
 
 /** Piper 模型索引条目（方案 19） */
 export interface ModelIndexEntry {

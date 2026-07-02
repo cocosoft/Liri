@@ -1,4 +1,4 @@
-﻿import * as https from 'https';
+import * as https from 'https';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   RegistryAdapter,
@@ -9,7 +9,10 @@ import type {
   ThirdPartyRegistry,
 } from '../types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:smitheryAdapter',
+  level: LogLevel.INFO,
+});
 
 const SMITHERY_API_BASE = 'https://registry.smithery.ai/api/v1';
 

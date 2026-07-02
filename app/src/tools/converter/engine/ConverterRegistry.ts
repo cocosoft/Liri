@@ -1,4 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger } from '@modules/monitoring';
 import type { BaseConverter } from './BaseConverter';
@@ -9,7 +9,7 @@ import {
   PRIORITY_FALLBACK,
 } from './types';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tools:converter:registry' });
 
 const KNOWN_UNSUPPORTED_FORMATS: Record<string, string> = {
   '.doc': '不支持旧版 Word 格式（.doc），请将文件另存为 .docx 后重试',

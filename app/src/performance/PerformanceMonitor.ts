@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 性能监控面板
  *
  * 提供轻量级的性能数据查询接口：
@@ -21,7 +21,10 @@ import {
 } from '@modules/modules/LazyModuleStrategy';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'performance:performanceMonitor',
+  level: LogLevel.INFO,
+});
 
 /**
  * 延迟模块加载统计

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件信任审计模块
  * 验证已安装插件的来源、完整性和权限范围
  */
@@ -9,7 +9,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditPlugins',
+  level: LogLevel.INFO,
+});
 
 interface PluginMeta {
   name: string;

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron 投递重试队列
  * 基于 SQLite 持久化，支持指数退避重试、失败管理、统计查询
  */
@@ -7,7 +7,10 @@ import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { CronJob, CronJobResult } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:cron:deliveryQueue',
+  level: LogLevel.INFO,
+});
 
 const TABLE_DELIVERY_QUEUE = 'delivery_queue';
 

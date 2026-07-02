@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Worker Threads 沙箱实现
  * 使用 Node.js worker_threads 实现进程级隔离
  * 插件代码在独立的 Worker 线程中执行，崩溃不影响主进程
@@ -17,7 +17,7 @@ import {
 } from './SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'sandbox:worker', level: LogLevel.INFO });
 
 /**
  * Worker 消息类型

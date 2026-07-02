@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AudioDeviceManager
  * 音频设备选择管理
  *
@@ -16,7 +16,10 @@ import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import { resolvePyappHome, ensureDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:audioDevice',
+  level: LogLevel.INFO,
+});
 
 /** 音频设备信息 */
 export interface AudioDevice {

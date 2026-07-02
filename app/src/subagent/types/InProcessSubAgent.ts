@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 进程内子agent
  */
 import {
@@ -13,7 +13,10 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent:inProcess',
+  level: LogLevel.INFO,
+});
 
 /**
  * 进程内子agent

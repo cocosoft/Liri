@@ -54,20 +54,23 @@ function SkillPage() {
   const [skillContent, setSkillContent] = useState<SkillContent | null>(null);
 
   useEffect(() => {
-    // 当 Tab 切换时同步更新 sourceFilter
+    // Bug 1: Tab 切换时同步更新 sourceFilter 并清除 selectedSkill
     if (activeTab === "local") {
       setSourceFilter(null);
     } else {
       setSourceFilter(activeTab);
     }
+    setSelectedSkill(null);
   }, [activeTab]);
 
   useEffect(() => {
+    // Bug 7: 将 sourceFilter 传递到后端 API
     loadSkills({
       sortBy,
       sortOrder,
       category: categoryFilter || undefined,
       status: statusFilter === "all" ? undefined : statusFilter,
+      source: sourceFilter || undefined,
     });
     loadCategories();
   }, [
@@ -77,6 +80,7 @@ function SkillPage() {
     sortOrder,
     categoryFilter,
     statusFilter,
+    sourceFilter,
   ]);
 
   // 搜索 + 来源过滤后的技能列表
@@ -176,8 +180,14 @@ function SkillPage() {
       } else {
         await enableSkill(selectedSkill.id);
       }
-      loadSkills({ sortBy, sortOrder });
-      setSelectedSkill(null);
+      await loadSkills({ sortBy, sortOrder });
+      // Bug 3: 刷新 selectedSkill 而非清除，保持详情面板可见
+      const updated = useSkillStore.getState().skills.find(
+        (s) => s.id === selectedSkill.id,
+      );
+      if (updated) {
+        setSelectedSkill(updated);
+      }
     }
   };
 
@@ -467,6 +477,12 @@ function SkillPage() {
                 isDark={isDark}
                 onSelect={handleSelectSkill}
                 selectedId={selectedSkill?.id}
+                hasActiveFilters={
+                  searchQuery.trim() !== "" ||
+                  sourceFilter !== null ||
+                  categoryFilter !== "" ||
+                  statusFilter !== "all"
+                }
               />
             </div>
 

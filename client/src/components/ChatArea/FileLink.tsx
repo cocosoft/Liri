@@ -1,4 +1,7 @@
 import React, { useCallback, useState } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:fileLink");
 
 interface FileLinkProps {
   filePath: string;
@@ -28,7 +31,7 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
           await fetch(`/api/file/open?path=${encodedPath}`);
         }
       } catch (err) {
-        console.error("打开文件失败:", err);
+        logger.error("打开文件失败", err);
       } finally {
         setOpening(false);
       }
@@ -52,7 +55,7 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
           await fetch(`/api/file/open?path=${encodedPath}`);
         }
       } catch (err) {
-        console.error("打开文件失败:", err);
+        logger.error("打开文件失败", err);
       } finally {
         setOpening(false);
       }

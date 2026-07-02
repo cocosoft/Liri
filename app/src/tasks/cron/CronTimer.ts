@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron 动态定时器
  * 替代固定 setInterval 轮询，根据下次最早到期时间精确休眠
  * 对标 openclaw src/cron/service/timer.ts
@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tasks:cron:timer', level: LogLevel.INFO });
 
 const MAX_TIMER_DELAY_MS = 60_000; // 最大休眠时长 60s，防止长时间无 tick
 

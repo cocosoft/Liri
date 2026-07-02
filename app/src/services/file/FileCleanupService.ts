@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -18,7 +18,10 @@ import { handleError } from '@modules/error';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:file:cleanup',
+  level: LogLevel.INFO,
+});
 
 /** 软删除保留天数 */
 const SOFT_DELETE_RETENTION_DAYS = 30;

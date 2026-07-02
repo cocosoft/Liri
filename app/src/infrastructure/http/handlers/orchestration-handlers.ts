@@ -24,7 +24,10 @@ import { globalEventBus } from '../../../core/events/EventBus.js';
 import type { EventSubscription } from '../../../core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'http:orchestration',
+  level: LogLevel.INFO,
+});
 
 /** SSE 响应头 */
 const SSE_HEADERS = {

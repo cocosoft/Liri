@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI代理
  */
 
@@ -19,7 +19,7 @@ import { AIModelType, AIMessageRole } from '../ai';
 import aiService from '../ai';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'agent:agent', level: LogLevel.INFO });
 import {
   saveTrajectory,
   messagesToTrajectory,

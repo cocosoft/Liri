@@ -6,6 +6,9 @@ import type { LogEntry, LogSource } from "../../types";
 import type { SessionSummary, SessionDetail } from "../../services/monitorService";
 import SearchInput from "../common/SearchInput";
 import LogViewer from "../common/LogViewer";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:logViewer");
 
 type TabType = "logs" | "sessions" | "cost";
 
@@ -107,7 +110,7 @@ function LogViewerPage() {
       const result = await monitorService.getSessionDetail(sessionId);
       setSelectedSession(result);
     } catch (e) {
-      console.error("获取会话详情失败", e);
+      logger.error("获取会话详情失败", e);
     }
   }, []);
 
@@ -162,7 +165,7 @@ function LogViewerPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      console.error('导出日志失败', e);
+      logger.error('导出日志失败', e);
     }
   };
 

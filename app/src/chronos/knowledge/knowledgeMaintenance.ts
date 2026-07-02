@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 知识库定时维护任务
  * 通过 Chronos 调度系统定期执行：
  * 1. 编译 raw/ 目录的原始文件为结构化 wiki 文档
@@ -8,7 +8,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:knowledge:knowledgeMaintenance',
+  level: LogLevel.INFO,
+});
 
 /** 默认知识库维护 cron 表达式：每日凌晨 4 点 */
 export const DEFAULT_MAINTENANCE_CRON = '0 4 * * *';

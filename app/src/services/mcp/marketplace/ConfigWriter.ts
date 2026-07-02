@@ -1,4 +1,4 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -10,7 +10,10 @@ import type {
 } from '@modules/services/mcp/types';
 import type { ServerInstallConfig } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:configWriter',
+  level: LogLevel.INFO,
+});
 
 export class ConfigWriter {
   /**

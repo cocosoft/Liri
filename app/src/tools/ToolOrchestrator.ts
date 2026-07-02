@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具并行调度器
  * 负责并行执行多个工具，管理执行状态和依赖关系
  */
@@ -11,7 +11,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:orchestrator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工具执行任务

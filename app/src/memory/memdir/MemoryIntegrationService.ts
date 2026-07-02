@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 记忆系统集成服务
  * 将文件化记忆系统（Memdir）与现有数据库记忆系统集成
  */
@@ -18,7 +18,10 @@ import type {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:memdir:memoryIntegrationService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 集成记忆接口（结合文件化和数据库记忆）

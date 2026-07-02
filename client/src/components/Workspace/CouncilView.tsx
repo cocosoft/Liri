@@ -11,6 +11,9 @@ import React, { useEffect, useRef } from "react";
 import { useCouncilStore } from "../../stores/councilStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import type { CouncilStatementUI, CouncilPhaseUI } from "../../stores/councilStore";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:councilView");
 
 /** 阶段标签映射 */
 const PHASE_LABELS: Record<CouncilPhaseUI, string> = {
@@ -163,7 +166,7 @@ const EmptyState: React.FC = () => {
       const sessionId = result.sessionId;
       useAppStore.getState().startCouncil(sessionId, topic);
     } catch (err) {
-      console.error("手动创建 Council 失败", err);
+      logger.error("手动创建 Council 失败", err);
     }
   };
 

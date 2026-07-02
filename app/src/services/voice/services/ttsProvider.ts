@@ -35,7 +35,10 @@ export { TTSQueuePriority } from './ttsTypes';
 import { EdgeTTSProvider } from './edgeTTSProvider';
 export { EdgeTTSProvider };
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:ttsProvider',
+  level: LogLevel.INFO,
+});
 
 /**
  * TTS 缓存配置

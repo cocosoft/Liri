@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件和技能生态系统（薄代理层）
  *
  * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
@@ -45,7 +45,10 @@ import type {
   EcosystemConfig,
 } from '@modules/plugins/types/index.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:pluginEcosystem',
+  level: LogLevel.INFO,
+});
 
 export type { PluginInfo, SkillInfo, MarketplaceEntry, EcosystemConfig };
 

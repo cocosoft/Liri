@@ -13,7 +13,7 @@ import voiceService from '@modules/services/voice';
 import { globalEventBus } from '@modules/core';
 import type { EventSubscription } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:tts', level: LogLevel.INFO });
 
 /**
  * 令牌桶限流

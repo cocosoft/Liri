@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PrioritySessionLock — 优先级写入锁
  *
  * 在 SessionLock（文件级互斥）之上增加优先级队列：
@@ -17,7 +17,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { SessionLock } from '../SessionLock';
 import type { LockOptions, LockAcquireResult } from '../SessionLock';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:priorityLock',
+  level: LogLevel.INFO,
+});
 
 export type LockPriority = 'low' | 'normal' | 'high' | 'critical';
 

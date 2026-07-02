@@ -5,7 +5,10 @@ import {
   ImageFormatDetector,
 } from './ImageFormatDetector';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'media:imageSecurity',
+  level: LogLevel.INFO,
+});
 
 /**
  * 安全检测配置

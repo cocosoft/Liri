@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 配置热重载系统
  * 运行时监听配置变化并自动重载受影响模块
  * 对齐 OpenClaw config/config-reload.ts
@@ -9,7 +9,10 @@ import { watch, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:configReloader',
+  level: LogLevel.INFO,
+});
 
 export interface ConfigChangeEvent {
   filePath: string;

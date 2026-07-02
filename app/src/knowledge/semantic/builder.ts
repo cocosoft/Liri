@@ -36,7 +36,7 @@ import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry } from './store';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'knowledge:semantic:builder' });
 
 /** 构建器配置 */
 export interface BuildConfig {

@@ -41,7 +41,7 @@ import { createAbortController } from '../utils/abortController';
 import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'entrypoints:mcp', level: LogLevel.INFO });
 
 /**
  * 快速判断当前参数是否为 MCP 模式

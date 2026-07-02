@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * Agent内存管理器
  * 实现高级内存管理功能
@@ -8,7 +8,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:agent:memoryManager',
+  level: LogLevel.INFO,
+});
 import {
   AgentMemoryScope,
   getAgentMemoryDir,

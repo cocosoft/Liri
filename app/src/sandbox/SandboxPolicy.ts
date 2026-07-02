@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 沙箱安全策略
  * 定义工具白名单 / 黑名单，控制沙箱内可用的工具范围
  * 对齐 OpenClaw config/sessions/reset-policy.ts
@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'sandbox:policy', level: LogLevel.INFO });
 
 export interface SandboxToolPolicy {
   allowedTools: Set<string>;

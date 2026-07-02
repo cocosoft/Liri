@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 状态插件
  * 提供系统状态监控功能
  */
@@ -7,7 +7,10 @@ import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:bundled:statusPlugin',
+  level: LogLevel.INFO,
+});
 
 export interface SystemStatus {
   cpuUsage: number;

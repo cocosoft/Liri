@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron 核心调度器
  * 基于 SQLite 持久化实现跨进程安全的任务调度与执行
  */
@@ -20,7 +20,10 @@ import { CronTimer } from './CronTimer';
 import { resolveCronStaggerMs, resolveStaggerOffsetMs } from './CronStagger';
 import { CronAlertService } from './CronAlertService';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:cron:scheduler',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_MAX_MISSED_JOBS_PER_RESTART = 5;
 const DEFAULT_MAX_PARALLEL_JOBS = 5;

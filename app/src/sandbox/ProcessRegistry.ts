@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 进程注册表
  * 追踪沙箱内所有进程，支持 kill/signal/查询
  * 对齐 OpenClaw agents/bash-process-registry.ts
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:processRegistry',
+  level: LogLevel.INFO,
+});
 
 export interface ProcessInfo {
   pid: number;

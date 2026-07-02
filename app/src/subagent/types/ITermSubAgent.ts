@@ -1,4 +1,4 @@
-﻿/**
+/**
  * iTerm子agent
  */
 import {
@@ -13,7 +13,7 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'subagent:iTerm', level: LogLevel.INFO });
 
 /**
  * iTerm子agent

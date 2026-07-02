@@ -34,6 +34,7 @@ import type { JudgeResult, JudgeCloudConfig, RouterTier } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:judge' });
 
@@ -89,6 +90,7 @@ export class JudgeService {
           source: 'local',
         };
       } catch (error) {
+        await handleError(error, { module: 'ai:judge', action: 'classify' });
         logger.warning('JudgeService: LocalAgent 分类失败，回退云端', {
           error,
         });
@@ -103,6 +105,10 @@ export class JudgeService {
         otel.endSpan(span, SpanStatusCode.OK);
         return result;
       } catch (error) {
+        await handleError(error, {
+          module: 'ai:judge',
+          action: 'classifyCloud',
+        });
         logger.warning('JudgeService: 云端分类失败，使用兜底', { error });
       }
     }

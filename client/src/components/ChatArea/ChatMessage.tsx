@@ -1,4 +1,7 @@
 import React, { memo, useState, Suspense, useMemo } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:chatMessage");
 import { useTranslation } from "react-i18next";
 import type { Message, MessageBlock } from "../../types";
 import ToolExecutionGroup from "./ToolExecutionGroup";
@@ -152,7 +155,7 @@ const ChatMessageMemo = memo(function ChatMessage({
       const session = await createSession(branchTitle);
       await switchSession(session.id);
     } catch (err) {
-      console.error("[ChatMessage] 创建分支失败", err);
+      logger.error("创建分支失败", err);
     } finally {
       setBranching(false);
     }

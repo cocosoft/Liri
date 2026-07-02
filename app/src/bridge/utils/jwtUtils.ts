@@ -1,4 +1,4 @@
-﻿/**
+/**
  * JWT令牌管理工具
  * 负责JWT令牌的解析、验证和刷新
  */
@@ -7,7 +7,10 @@ import { decode, JwtPayload, verify } from 'jsonwebtoken';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:utils:jwtUtils',
+  level: LogLevel.INFO,
+});
 
 /**
  * 令牌刷新调度器选项

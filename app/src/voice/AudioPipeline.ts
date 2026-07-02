@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AudioPipeline
  * 音频缓冲区管理、PCM 编码/解码、分片处理
  * 支持 PCM 16kHz mono 格式，与 Gemini Live API 默认输入格式一致
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:audioPipeline',
+  level: LogLevel.INFO,
+});
 
 /** 音频格式常量 */
 export const AUDIO_FORMAT = {

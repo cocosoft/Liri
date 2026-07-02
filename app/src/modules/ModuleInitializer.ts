@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块初始化器
  * 统一管理模块的注册、初始化和生命周期
  */
@@ -26,7 +26,10 @@ import {
 } from '../performance/StartupProfiler';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'modules:moduleInitializer',
+  level: LogLevel.INFO,
+});
 
 /**
  * 模块初始化状态

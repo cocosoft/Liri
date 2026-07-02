@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文档版本管理服务
  * 提供文档版本控制、历史记录和回滚功能
  */
@@ -9,7 +9,10 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'docs:documentVersionService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 文档版本状态

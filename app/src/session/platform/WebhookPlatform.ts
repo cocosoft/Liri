@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebhookPlatform — Webhook 平台适配器
  *
  * 通过 HTTP Webhook 发送/接收消息，用于外部服务集成。
@@ -18,7 +18,10 @@ import type {
 } from './PlatformAdapter';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:webhookPlatform',
+  level: LogLevel.INFO,
+});
 
 export interface WebhookPlatformConfig extends PlatformConfig {
   settings: {

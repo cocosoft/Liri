@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * Claude AI集成
  * 负责与Claude AI MCP服务器的集成
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:claudeAI',
+  level: LogLevel.INFO,
+});
 import { mcpConnectionManager } from './MCPConnectionManager';
 import {
   registerChannelNotificationHandler,

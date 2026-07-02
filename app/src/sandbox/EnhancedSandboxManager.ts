@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 增强沙箱管理器
  * 提供智能安全分析、性能优化、威胁检测等高级功能
@@ -13,7 +13,10 @@ import {
 } from './SandboxTypes.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:enhancedSandboxManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 沙箱安全评估

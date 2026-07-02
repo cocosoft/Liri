@@ -1,4 +1,4 @@
-﻿/**
+/**
  * HTTP → WebSocket 升级工具
  * 使用 Node.js 内置 http + crypto + net 模块实现 RFC 6455
  */
@@ -13,7 +13,7 @@ import type {
   VoiceServerEvent,
 } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:upgrade', level: LogLevel.INFO });
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

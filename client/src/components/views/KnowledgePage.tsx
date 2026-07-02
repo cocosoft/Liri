@@ -3,6 +3,9 @@ import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { knowledgeService } from "../../services/knowledgeService";
 import type { KnowledgeFile, KnowledgeSearchResult } from "../../types";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:knowledge");
 import KnowledgeBaseList from "../Knowledge/KnowledgeBaseList";
 import KnowledgeEditor from "../Knowledge/KnowledgeEditor";
 import PendingCompilePanel from "../Knowledge/PendingCompilePanel";
@@ -88,7 +91,7 @@ function KnowledgePage() {
       setSelectedFile({ ...selectedFile, tags });
       setEditingTags(false);
     } catch (err) {
-      console.error("保存标签失败", err);
+      logger.error("保存标签失败", err);
     }
   }
 
@@ -133,7 +136,7 @@ function KnowledgePage() {
       });
       setIsEditing(false);
     } catch (err) {
-      console.error("保存失败", err);
+      logger.error("保存失败", err);
     }
   }
 
@@ -145,7 +148,7 @@ function KnowledgePage() {
       setSelectedFile(null);
       setIsEditing(false);
     } catch (err) {
-      console.error("删除失败", err);
+      logger.error("删除失败", err);
     }
   }
 

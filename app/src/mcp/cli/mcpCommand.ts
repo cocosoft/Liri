@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP CLI命令
  * 负责处理MCP相关的命令行操作
  */
@@ -9,6 +9,7 @@ import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('mcpCommand');
 
@@ -96,6 +97,11 @@ export function createMcpCommand(): Command {
           console.log(`Connected to MCP server: ${name}`);
         } catch (error) {
           console.error(`Failed to connect to MCP server: ${error}`);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, {
+            module: 'mcp:cli',
+            action: 'serverConnect',
+          });
         }
       } else {
         console.log(`MCP server not found: ${name}`);
@@ -112,6 +118,11 @@ export function createMcpCommand(): Command {
         console.log(`Disconnected from MCP server: ${name}`);
       } catch (error) {
         console.error(`Failed to disconnect from MCP server: ${error}`);
+        // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+        await handleError(error, {
+          module: 'mcp:cli',
+          action: 'serverDisconnect',
+        });
       }
     });
 
@@ -135,6 +146,8 @@ export function createMcpCommand(): Command {
           }
         } catch (error) {
           console.error(`Failed to get tools from server: ${error}`);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, { module: 'mcp:cli', action: 'toolList' });
         }
       } else {
         const serverInfos = serverManager.getServerInfos();
@@ -161,6 +174,8 @@ export function createMcpCommand(): Command {
         console.log(JSON.stringify(result, null, 2));
       } catch (error) {
         console.error(`Failed to call tool: ${error}`);
+        // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+        await handleError(error, { module: 'mcp:cli', action: 'toolCall' });
       }
     });
 

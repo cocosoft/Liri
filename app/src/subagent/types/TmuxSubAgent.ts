@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Tmux子agent
  */
 import {
@@ -14,7 +14,7 @@ import { execSync, exec } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'subagent:tmux', level: LogLevel.INFO });
 
 /**
  * Tmux子agent

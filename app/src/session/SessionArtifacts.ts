@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 会话制品管理器
  * 管理会话期间生成的代码文件、patch、diff等
  * 对齐 OpenClaw config/sessions/artifacts.ts
@@ -16,7 +16,10 @@ import {
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:artifacts',
+  level: LogLevel.INFO,
+});
 
 export type ArtifactType =
   | 'code'

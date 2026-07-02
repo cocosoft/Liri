@@ -1,4 +1,4 @@
-﻿import type { Message } from '../types/message';
+import type { Message } from '../types/message';
 import type { SessionMetadata, SessionState } from '../types/session';
 import type {
   SessionCheckpoint,
@@ -10,7 +10,7 @@ import type { CheckpointStorage } from '../types/checkpoint';
 import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'chat:sessionCheckpoint' });
 
 export class SessionCheckpointService implements CheckpointService {
   private storage: CheckpointStorage;

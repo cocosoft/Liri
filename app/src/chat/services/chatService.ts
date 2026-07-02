@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 聊天服务
  */
@@ -23,7 +23,10 @@ import { AIModelType } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:services:chatService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 聊天服务类

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 慢查询检测器
  * 检测执行时间超过阈值的查询，输出 WARN 日志并生成报告
  */
@@ -8,7 +8,7 @@ import { getQueryLogStore } from './QueryLogStore';
 import type { QueryLogStore } from './QueryLogStore';
 import type { QueryLogEntry, QueryLogStats } from './QueryLogTypes';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'query:slowQuery' });
 
 /** 默认慢查询阈值（毫秒） */
 const DEFAULT_SLOW_THRESHOLD_MS = 5000;

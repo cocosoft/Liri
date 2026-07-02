@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP服务器连接
  * 标准层连接管理，负责管理单个MCP服务器连接
  * 传输层和认证通过增强层组合使用 (via @modules/mcp/)
@@ -8,7 +8,10 @@ import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:connection',
+  level: LogLevel.INFO,
+});
 import { MCPServerConfig, MCPToolDefinition, MCPServerStatus } from './types';
 import { TransportFactory } from './TransportFactory';
 import { MCPTransport } from './transports/MCPTransport';

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,7 +37,10 @@ import { chunkText } from '@modules/knowledge/semantic/chunker';
 import { SemanticStore } from '@modules/knowledge/semantic/store';
 import type { IndexEntry } from '@modules/knowledge/semantic/store';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:semanticIndexUpdater',
+  level: LogLevel.INFO,
+});
 
 /** 知识变更事件载荷 */
 export interface KnowledgeChangedEvent {

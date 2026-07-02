@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,7 +36,7 @@ import type { SkillUsageTracker } from '../SkillUsageTracker';
 import type { SkillCurator } from '../SkillCurator';
 import type { SkillProvenanceTracker } from '../SkillProvenanceTracker';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'skills:lifecycle', level: LogLevel.INFO });
 
 /**
  * 技能生命周期配置

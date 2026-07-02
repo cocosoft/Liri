@@ -1,11 +1,14 @@
-﻿/**
+/**
  * MCP官方注册表
  * 预置常用MCP服务器配置，支持一键安装
  * */
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:officialRegistry',
+  level: LogLevel.INFO,
+});
 
 interface RegistryServer {
   name: string;

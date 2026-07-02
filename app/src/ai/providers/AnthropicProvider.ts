@@ -17,7 +17,7 @@ import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:anthropic', level: LogLevel.INFO });
 
 const BETA_HEADERS = {
   PROMPT_CACHING: 'prompt-caching-2024-07-24',

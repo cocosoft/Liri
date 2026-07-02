@@ -1,4 +1,4 @@
-﻿/**
+/**
  * KnowledgeCompileScheduler - 定时编译调度器
  * 对标 cron 定时任务模式，实现知识库 raw/ 目录的自动检测与编译
  *
@@ -11,7 +11,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { CompileResult } from './KnowledgeCompiler';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeCompileScheduler',
+  level: LogLevel.INFO,
+});
 
 export interface SchedulerConfig {
   /** 定时检查间隔（毫秒），默认 5 分钟 */

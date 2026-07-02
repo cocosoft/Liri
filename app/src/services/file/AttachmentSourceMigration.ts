@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -21,7 +21,10 @@ import { Database } from '@modules/core/external/sqlite3';
 import { existsSync, readFileSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:file:attachmentMigration',
+  level: LogLevel.INFO,
+});
 
 /** attachments_sources 记录 */
 interface AttachmentSourceRow {

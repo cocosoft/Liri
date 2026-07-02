@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 治理策略管理服务
  * 提供治理策略的定义、管理和应用功能
  * 参考CC源码: cc_code/backend/utils/sandbox/sandbox-adapter.ts
@@ -10,7 +10,10 @@ import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'governance:managers:governanceStrategyManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 治理策略类型

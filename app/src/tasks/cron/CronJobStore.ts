@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron 作业持久化存储（SQLite）
  * 使用 SQLite 替代 JSON 文件提供更可靠的并发访问
  */
@@ -15,7 +15,10 @@ import type {
 } from './types';
 import { validateCronTransition, isTerminalCronState } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:cron:jobStore',
+  level: LogLevel.INFO,
+});
 
 const TABLE_CRON_JOBS = 'cron_jobs';
 

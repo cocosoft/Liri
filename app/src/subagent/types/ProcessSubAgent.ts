@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 进程外子agent
  */
 import {
@@ -16,7 +16,7 @@ import { resolveProjectRoot } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'subagent:process', level: LogLevel.INFO });
 
 /**
  * 进程外子agent

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块依赖关系验证器
  * 验证模块间的依赖关系，检测循环依赖和缺失依赖
  */
@@ -20,7 +20,10 @@ import {
 } from '../modules/LazyModuleStrategy';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:dependencyValidator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 依赖关系验证结果

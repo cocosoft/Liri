@@ -1,4 +1,4 @@
-﻿import { join } from 'path';
+import { join } from 'path';
 import { Database } from 'sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { DatabaseError } from '@modules/error';
@@ -31,7 +31,10 @@ export interface SearchResult {
   score: number;
 }
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:sqliteStore',
+  level: LogLevel.INFO,
+});
 
 function rowToTaskState(row: any): TaskState {
   return {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块延迟加载策略管理器
  *
  * 将 40+ 模块按优先级分为两类：
@@ -19,7 +19,10 @@ import {
 } from '../performance/StartupProfiler';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'modules:lazyModuleStrategy',
+  level: LogLevel.INFO,
+});
 
 /**
  * 模块加载优先级

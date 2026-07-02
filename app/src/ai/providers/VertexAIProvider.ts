@@ -21,7 +21,7 @@ import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:vertexAI', level: LogLevel.INFO });
 
 const DEFAULT_REGION = 'us-central1';
 const TOKEN_URI = 'https://oauth2.googleapis.com/token';

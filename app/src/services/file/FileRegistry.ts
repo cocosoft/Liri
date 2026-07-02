@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -51,7 +51,10 @@ import {
   rowToFileRecord,
 } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:file:registry',
+  level: LogLevel.INFO,
+});
 
 /** 大文件阈值：超过此大小的文件跳过 MD5 去重（100MB） */
 const LARGE_FILE_THRESHOLD = 100 * 1024 * 1024;

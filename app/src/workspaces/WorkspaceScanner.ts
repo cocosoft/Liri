@@ -31,7 +31,10 @@ import type { WorkspaceFile, WorkspaceFiles } from './types';
 
 export type { WorkspaceFile, WorkspaceFiles };
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspaces:scanner',
+  level: LogLevel.INFO,
+});
 
 const MAX_FILE_CHARS = 12_000;
 const MAX_TOTAL_CHARS = 60_000;

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 邮箱系统
  */
 import { Message } from '../SubAgentCommunicator';
@@ -13,7 +13,7 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'subagent:mailbox', level: LogLevel.INFO });
 
 /**
  * 邮箱系统

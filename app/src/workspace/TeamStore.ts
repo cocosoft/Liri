@@ -12,7 +12,10 @@ import * as path from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { Team, TeamMember, TeamRole } from '@modules/workspace/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspace:teamStore',
+  level: LogLevel.INFO,
+});
 
 /** 团队角色权限映射 */
 const ROLE_PERMISSIONS: Record<TeamRole, string[]> = {

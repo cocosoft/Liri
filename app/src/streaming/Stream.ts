@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 流式响应处理器
  *
  * 提供流式数据的异步迭代器支持，集成事件系统以支持：
@@ -18,7 +18,7 @@ import {
   type StreamChunk,
 } from './types';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'streaming:stream' });
 
 /**
  * 指标自动发射配置

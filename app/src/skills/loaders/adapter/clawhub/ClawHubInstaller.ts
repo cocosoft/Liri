@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,10 @@ import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:clawHubInstaller',
+  level: LogLevel.INFO,
+});
 
 const MANIFEST_JSON = 'claw.json';
 

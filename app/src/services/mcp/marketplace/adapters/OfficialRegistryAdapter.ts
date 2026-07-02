@@ -1,4 +1,4 @@
-﻿import * as http from 'http';
+import * as http from 'http';
 import * as https from 'https';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
@@ -13,7 +13,10 @@ import type {
   ServerInstallConfig,
 } from '../types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:officialAdapter',
+  level: LogLevel.INFO,
+});
 
 const OFFICIAL_REGISTRY_API = 'https://registry.modelcontextprotocol.io/v0';
 

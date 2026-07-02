@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Skills CLI 命令
  * 基于 SkillRegistry 的统一命令行管理接口
  */
@@ -13,6 +13,7 @@ import { PluginSkillLoader } from '../loaders/sources/PluginSkillLoader';
 import { MCPSkillLoader } from '../loaders/sources/MCPSkillLoader';
 import { resolveUserSkillsDir, resolveDataDir } from '../../core/paths';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('skills');
 
@@ -113,6 +114,8 @@ export function registerSkillsCommands(program: Command): void {
         console.log(chalk.bold(`Total skills: ${skills.length}`));
       } catch (error: any) {
         console.error(chalk.red(`Error listing skills: ${error.message}`));
+        // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+        await handleError(error, { module: 'skills:cli', action: 'list' });
       }
     });
 
@@ -170,6 +173,8 @@ export function registerSkillsCommands(program: Command): void {
         console.log(chalk.cyan('═'.repeat(80)));
       } catch (error: any) {
         console.error(chalk.red(`Error getting skill info: ${error.message}`));
+        // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+        await handleError(error, { module: 'skills:cli', action: 'info' });
       }
     });
 
@@ -213,6 +218,8 @@ export function registerSkillsCommands(program: Command): void {
         console.log(chalk.cyan('═'.repeat(80)));
       } catch (error: any) {
         console.error(chalk.red(`Error running skill: ${error.message}`));
+        // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+        await handleError(error, { module: 'skills:cli', action: 'run' });
       }
     });
 
@@ -230,6 +237,8 @@ export function registerSkillsCommands(program: Command): void {
         );
       } catch (error: any) {
         console.error(chalk.red(`Error reloading skills: ${error.message}`));
+        // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+        await handleError(error, { module: 'skills:cli', action: 'reload' });
       }
     });
 }

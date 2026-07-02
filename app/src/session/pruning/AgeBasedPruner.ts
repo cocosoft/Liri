@@ -7,7 +7,10 @@ import type {
 } from './PruningStrategy';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:agePruner',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_MAX_MESSAGE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,7 +41,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:schema:schemaLoader',
+  level: LogLevel.INFO,
+});
 
 /** 默认 schema 目录名（用户知识库根目录下的隐藏目录） */
 const SCHEMA_DIR_NAME = '.schema';

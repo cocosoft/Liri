@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模型卫生审计模块
  * 检测 API key 泄露、弱认证配置、模型权限失控
  * 对齐 OpenClaw security/audit-model-hygiene.ts
@@ -10,7 +10,10 @@ import { resolveProjectRoot } from '@modules/core';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditModelHygiene',
+  level: LogLevel.INFO,
+});
 
 const API_KEY_PATTERNS: Array<{
   provider: string;

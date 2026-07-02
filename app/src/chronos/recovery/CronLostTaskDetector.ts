@@ -1,9 +1,12 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { parseCronExpression, computeNextCronRun } from '../cron';
 import { listAllCronTasks } from '../CronTasks';
 import type { ScheduledTask } from '../types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:recovery:cronLostTaskDetector',
+  level: LogLevel.INFO,
+});
 
 export interface MissedTaskInfo {
   taskId: string;

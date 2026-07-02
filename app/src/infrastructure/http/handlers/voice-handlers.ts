@@ -17,7 +17,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'http:voice', level: LogLevel.INFO });
 
 // ========== 语音会话内存存储 ==========
 

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +33,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { Module, ModuleState } from './types.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:extensibility:moduleManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 模块管理器

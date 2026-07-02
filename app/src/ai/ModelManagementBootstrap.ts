@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +34,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:modelManagementBootstrap',
+  level: LogLevel.INFO,
+});
 
 /** 环境变量 → Provider 映射 */
 interface EnvPreset {

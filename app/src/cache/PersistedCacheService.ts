@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 持久化缓存服务
  * 支持磁盘持久化、版本管理和并发控制的缓存
  */
@@ -11,7 +11,10 @@ import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveCacheDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cache:persistedCacheService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 缓存数据版本

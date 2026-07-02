@@ -1,4 +1,4 @@
-﻿import {
+import {
   getRegisteredSections,
   resolveSystemPromptSections,
   CACHE_BOUNDARY,
@@ -14,7 +14,7 @@ import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
 import type { PromptMode } from './types';
 export type { PromptMode };
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'prompt:assembler', level: LogLevel.INFO });
 
 const CORE_SECTION_NAMES = new Set([
   'identity',
@@ -30,7 +30,6 @@ const CONVERSATION_SECTION_NAMES = new Set([
   'toolUse',
   'taskNegotiation',
   'sessionContext',
-  'memoryContext',
 ]);
 
 export interface AssembleOptions {

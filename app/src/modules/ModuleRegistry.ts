@@ -12,7 +12,10 @@ import {
   initRegistry,
 } from './moduleTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'modules:moduleRegistry',
+  level: LogLevel.INFO,
+});
 
 export { ModuleCategory, type ModuleDefinition };
 

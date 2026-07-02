@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 知识库注册表 (KnowledgeBaseRegistry)
  *
  * 管理 ~/.pyapp/knowledge/ 下的知识库元数据。
@@ -38,7 +38,10 @@ interface RegistryData {
 const REGISTRY_VERSION = 1;
 const REGISTRY_FILENAME = '.pyapp-knowledge.json';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeBaseRegistry',
+  level: LogLevel.INFO,
+});
 
 export class KnowledgeBaseRegistry {
   private knowledgeRoot: string;

@@ -16,6 +16,9 @@ import { useCallback, useState } from "react";
 import { useChatStore } from "../stores/chatStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { useTranslation } from "react-i18next";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("hooks:useMessageDispatcher");
 
 interface MessageDispatcherResult {
   /** 发送消息，返回是否成功 */
@@ -51,7 +54,7 @@ export function useMessageDispatcher(): MessageDispatcherResult {
         await sendMessage(session.id, content);
         return true;
       } catch (error) {
-        console.error("[useMessageDispatcher] 发送消息失败:", error);
+        logger.error("发送消息失败:", error);
         return false;
       } finally {
         setIsDispatching(false);

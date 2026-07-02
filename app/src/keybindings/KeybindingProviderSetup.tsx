@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 按键绑定提供者设置
  * 用于将KeybindingProvider集成到应用中的设置工具
@@ -16,7 +16,10 @@ import type {
 } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'keybindings:keybindingProviderSetup.tsx',
+  level: LogLevel.INFO,
+});
 import {
   KeybindingProvider,
   useHandlerRegistryRef,

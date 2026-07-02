@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 上下文修改器队列
  * 管理工具执行后对上下文的修改
  */
@@ -6,7 +6,10 @@
 import type { ContextModifier } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:contextModifier',
+  level: LogLevel.INFO,
+});
 
 /**
  * 上下文修改器队列

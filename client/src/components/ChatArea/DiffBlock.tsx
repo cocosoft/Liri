@@ -1,5 +1,8 @@
 import { useState } from "react";
 import type { DiffData } from "../../types";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:diffBlock");
 
 interface DiffBlockProps {
   data: DiffData;
@@ -74,7 +77,7 @@ export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("[DiffBlock] 复制失败", err);
+      logger.error("复制失败", err);
     } finally {
       setApplying(false);
     }

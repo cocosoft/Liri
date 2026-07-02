@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 成本记录存储库
  * 提供 SQLite 持久化的成本记录存储，
  * 支持逐条记录、会话摘要和历史查询。
@@ -11,7 +11,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'cost:recordRepository' });
 
 export const COST_RECORDS_TABLE = 'cost_records';
 export const COST_SESSION_SUMMARY_TABLE = 'session_cost_summaries';

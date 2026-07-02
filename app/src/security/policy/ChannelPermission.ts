@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 通道权限管理
  *
  * 安全域：策略
@@ -10,7 +10,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:channelPermission',
+  level: LogLevel.INFO,
+});
 
 export type PermissionBehavior =
   | 'always_allow'

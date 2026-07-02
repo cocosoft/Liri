@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件健康监控器
  * 心跳检测 + 崩溃恢复
  * 监控每个插件的运行状态，检测无响应或崩溃后进行自动恢复
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:pluginHealthMonitor',
+  level: LogLevel.INFO,
+});
 
 /**
  * 插件健康状态

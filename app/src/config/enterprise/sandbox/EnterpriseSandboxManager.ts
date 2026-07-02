@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EnterpriseSandboxManager — 企业版沙箱管理器
  *
  * 基于现有沙箱系统之上，提供企业级特性：
@@ -29,7 +29,10 @@ import type {
   SandboxExecuteResult,
 } from '../../../sandbox/SandboxTypes.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:enterprise:sandbox:enterpriseSandboxManager',
+  level: LogLevel.INFO,
+});
 
 /** 沙箱实例状态 */
 export type SandboxStatus =

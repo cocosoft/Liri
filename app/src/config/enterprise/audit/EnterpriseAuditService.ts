@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EnterpriseAuditService — 企业版审计服务
  *
  * 提供全量审计日志的记录、查询、导出和自动清理。
@@ -11,7 +11,10 @@ import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveLogsDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:enterprise:audit:enterpriseAuditService',
+  level: LogLevel.INFO,
+});
 
 /** 审计事件类型 */
 export enum AuditEventType {

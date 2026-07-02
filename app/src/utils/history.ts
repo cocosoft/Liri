@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 命令历史记录管理
  */
 
@@ -7,7 +7,7 @@ import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'utils:history', level: LogLevel.INFO });
 
 /**
  * 历史记录项

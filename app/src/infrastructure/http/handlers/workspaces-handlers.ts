@@ -33,7 +33,7 @@ import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createChangeSetStore } from '@modules/workspace/ChangeSetStore';
 import { createProjectStore } from '@modules/workspace/ProjectStore';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'http:workspaces', level: LogLevel.INFO });
 
 // ========== Workspaces Handlers ==========
 

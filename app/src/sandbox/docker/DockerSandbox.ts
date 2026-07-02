@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Docker 沙箱实现
  * 在 Docker 容器内隔离执行命令，实现 Sandbox 接口
  * 支持容器生命周期管理、资源限制、卷挂载
@@ -25,7 +25,10 @@ import type {
 import { NetworkPolicyEngine, needsNetAdmin } from './NetworkPolicyEngine';
 
 const execAsync = promisify(exec);
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:docker:dockerSandbox',
+  level: LogLevel.INFO,
+});
 
 /**
  * Docker 沙箱专有配置键名（存放在 SandboxConfig.customConfig 中）

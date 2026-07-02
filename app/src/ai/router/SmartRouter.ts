@@ -69,6 +69,7 @@ import type { RouteKey as RouteKeyType } from './routes.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:smart-router' });
 
@@ -204,6 +205,10 @@ export class SmartRouter {
         tier = judgeResult.tier;
         reason = judgeResult.reason;
       } catch (error) {
+        await handleError(error, {
+          module: 'ai:smartRouter',
+          action: 'decide',
+        });
         logger.warning('SmartRouter: Judge 异常，使用默认 tier', { error });
         tier = this.config.defaultTier;
         reason = 'Judge 异常，使用默认 tier';
@@ -219,9 +224,13 @@ export class SmartRouter {
 
     // 层 6：持久化会话黏性
     if (sessionId && this.sessionStore) {
-      this.persistSession(sessionId, decision).catch((err) =>
-        logger.warning('SmartRouter: 会话持久化失败', { error: err })
-      );
+      this.persistSession(sessionId, decision).catch(async (err) => {
+        await handleError(err, {
+          module: 'ai:smartRouter',
+          action: 'persistSession',
+        });
+        logger.warning('SmartRouter: 会话持久化失败', { error: err });
+      });
     }
 
     logger.debug('SmartRouter: 决策完成', {
@@ -403,6 +412,10 @@ export class SmartRouter {
         };
       } catch (fallbackError) {
         // 回退链全部失败 → 用主决策 + 重试兜底
+        await handleError(fallbackError, {
+          module: 'ai:smartRouter',
+          action: 'execute',
+        });
         logger.warning('SmartRouter: 回退链全部失败，使用主决策重试', {
           error: (fallbackError as Error).message,
         });
@@ -481,6 +494,10 @@ export class SmartRouter {
         };
       }
     } catch (error) {
+      await handleError(error, {
+        module: 'ai:smartRouter',
+        action: 'trySessionSticky',
+      });
       logger.warning('SmartRouter: 会话黏性查询失败', { error });
     }
 
@@ -502,6 +519,10 @@ export class SmartRouter {
         decision.model
       );
     } catch (error) {
+      await handleError(error, {
+        module: 'ai:smartRouter',
+        action: 'persistSession',
+      });
       logger.warning('SmartRouter: 会话持久化失败', { error });
     }
   }

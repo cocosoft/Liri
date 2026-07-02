@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent配置管理器
  * 实现基于文件系统的配置管理
  */
@@ -8,7 +8,10 @@ import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:agent:configManager',
+  level: LogLevel.INFO,
+});
 import { CustomAgentDefinition, SettingSource } from './types';
 import { parseAgentsFromJson } from './parseAgent';
 import { getCwd } from '@modules/utils/cwd';

@@ -57,7 +57,7 @@ import type { TransportStreamEvent } from '../transports/types';
 import { configManager } from '@modules/config';
 import { repairModelJson } from '@modules/utils/json';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:baseProvider', level: LogLevel.INFO });
 
 /** TaskType → RouteKey 映射，用于 resolveModel 中的任务类型路由 */
 const TASK_TO_ROUTE: Record<string, RouteKeyType> = {

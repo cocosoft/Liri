@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Teammate管理器
  * 管理多个teammate的生命周期
  * */
@@ -16,7 +16,10 @@ import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent:teammateManager',
+  level: LogLevel.INFO,
+});
 
 export interface TeamManagerConfig {
   maxTeammates?: number;

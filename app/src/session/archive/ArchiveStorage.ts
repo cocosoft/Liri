@@ -1,11 +1,14 @@
-﻿import { promises as fs } from 'fs';
+import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { UnifiedSession } from '../types/Session';
 import type { UnifiedMessage } from '../types/Message';
 import type { ArchiveMetadata, ArchiveConfig } from './ArchiveTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:archiveStorage',
+  level: LogLevel.INFO,
+});
 
 export interface ArchivePayload {
   session: UnifiedSession;

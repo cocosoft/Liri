@@ -44,7 +44,7 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:openai', level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
@@ -79,7 +79,7 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /** 运行时更新 API Key（供 ProviderSyncService 从 DB 同步后注入） */
-  setApiKey(key: string): void {
+  override setApiKey(key: string): void {
     this.apiKey = key || '';
   }
 

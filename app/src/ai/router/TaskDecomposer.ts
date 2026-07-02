@@ -51,6 +51,7 @@
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -138,6 +139,10 @@ export class TaskDecomposer {
       try {
         return await this.llmDecompose(message);
       } catch (error) {
+        await handleError(error, {
+          module: 'ai:taskDecomposer',
+          action: 'decompose',
+        });
         logger.warning('TaskDecomposer: LLM 分解失败，回退简单分解', { error });
       }
     }
@@ -213,6 +218,10 @@ export class TaskDecomposer {
         reasoning: parsed.reasoning || 'LLM 自动分解',
       };
     } catch (error) {
+      handleError(error, {
+        module: 'ai:taskDecomposer',
+        action: 'parseDecomposition',
+      });
       logger.warning('TaskDecomposer: 解析分解结果失败', { error });
       throw error;
     }

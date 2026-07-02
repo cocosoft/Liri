@@ -5,6 +5,12 @@
 
 import os from 'os';
 import { analyticsService } from './AnalyticsService';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'analytics:performance',
+  level: LogLevel.INFO,
+});
 
 /**
  * 性能监控服务类
@@ -50,7 +56,7 @@ class PerformanceMonitoringService {
       this.collectSystemMetrics();
     }, this.samplingInterval);
 
-    console.log('性能监控已启动');
+    logger.info('性能监控已启动');
   }
 
   /**
@@ -60,7 +66,7 @@ class PerformanceMonitoringService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('性能监控已停止');
+      logger.info('性能监控已停止');
     }
   }
 

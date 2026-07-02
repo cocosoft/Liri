@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 内存预取队列
  * 异步预取记忆向量嵌入，减少搜索延迟
  * 支持优先级排序、并发限制、批量处理、自动重试
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:services:memoryPrefetchQueue',
+  level: LogLevel.INFO,
+});
 
 /**
  * 预取队列配置

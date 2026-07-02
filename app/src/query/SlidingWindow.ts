@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SlidingWindow — 滑动窗口消息裁剪
  *
  * 对标 CC_Code QueryEngine.ts 的滑动窗口模式：
@@ -13,7 +13,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { ChatMessage } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'query:slidingWindow',
+  level: LogLevel.INFO,
+});
 
 /**
  * 滑动窗口配置

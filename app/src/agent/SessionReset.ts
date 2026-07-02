@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent 会话重置
  * 按原因分类重置会话状态
  * 对齐 OpenClaw agents/harness/types.ts reset 参数
@@ -8,7 +8,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, unlinkSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:sessionReset',
+  level: LogLevel.INFO,
+});
 
 export type ResetReason =
   | 'new'

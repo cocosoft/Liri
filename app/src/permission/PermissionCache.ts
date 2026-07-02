@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限缓存和验证机制
  * 负责缓存权限检查结果和验证权限规则
  */
@@ -15,7 +15,10 @@ import {
   permissionRuleValueFromString,
 } from './types/PermissionRule';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:permissionCache',
+  level: LogLevel.INFO,
+});
 
 /**
  * 权限缓存键

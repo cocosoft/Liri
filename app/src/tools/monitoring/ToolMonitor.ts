@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具监控器
  * 负责工具执行的监控、统计和告警
  */
@@ -13,7 +13,7 @@ import {
 } from '../types/ToolTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:monitor', level: LogLevel.INFO });
 
 /**
  * 监控指标

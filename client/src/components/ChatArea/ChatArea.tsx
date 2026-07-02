@@ -9,6 +9,9 @@ import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:chatArea");
 
 function ChatArea() {
   const { t } = useTranslation();
@@ -79,7 +82,7 @@ function ChatArea() {
           .synthesizeSpeech(content)
           .then((audioUrl) => playResponse(audioUrl))
           .catch((err) =>
-            console.warn("自动 TTS 播放失败:", err),
+            logger.warn("自动 TTS 播放失败:", err),
           );
       }
     }

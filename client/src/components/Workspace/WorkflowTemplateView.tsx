@@ -5,6 +5,9 @@
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { workspaceService } from "@/services/workspaceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:workflowTemplate");
 
 interface WorkflowStep {
   id: string;
@@ -64,7 +67,7 @@ export const WorkflowTemplateView: React.FC = () => {
       const data = await workspaceService.getWorkflowTemplates() as WorkflowTemplate[];
       setTemplates(data);
     } catch (err) {
-      console.error("加载工作流模板失败:", err);
+      logger.error("加载工作流模板失败:", err);
     } finally {
       setLoading(false);
     }
@@ -97,7 +100,7 @@ export const WorkflowTemplateView: React.FC = () => {
       setShowCreate(false);
       loadTemplates();
     } catch (err) {
-      console.error("创建模板失败:", err);
+      logger.error("创建模板失败:", err);
     }
   };
 
@@ -109,7 +112,7 @@ export const WorkflowTemplateView: React.FC = () => {
       if (selectedTemplate?.id === templateId) setSelectedTemplate(null);
       loadTemplates();
     } catch (err) {
-      console.error("删除模板失败:", err);
+      logger.error("删除模板失败:", err);
     }
   };
 

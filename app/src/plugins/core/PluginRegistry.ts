@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责插件的注册、注销、查询和依赖管理
  * 支持回退加载机制（§5 向后兼容性保障 — 措施3）
  */
@@ -14,7 +14,10 @@ import {
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:core:pluginRegistry',
+  level: LogLevel.INFO,
+});
 
 /**
  * 回退加载器类型

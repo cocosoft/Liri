@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Stdio传输层
  * 基于标准输入输出与子进程通信
  */
@@ -9,7 +9,10 @@ import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:stdio',
+  level: LogLevel.INFO,
+});
 
 /**
  * Stdio传输层选项

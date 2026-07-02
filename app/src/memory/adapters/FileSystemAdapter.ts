@@ -1,9 +1,12 @@
-﻿import { promises as fs, Stats } from 'fs';
+import { promises as fs, Stats } from 'fs';
 import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:adapters:fileSystemAdapter',
+  level: LogLevel.INFO,
+});
 
 /**
  * 文件系统适配器接口

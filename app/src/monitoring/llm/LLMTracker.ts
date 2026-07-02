@@ -4,13 +4,12 @@
  */
 
 import { Logger, LogLevel } from '../logs/Logger.js';
+import { OTelAwareLogger } from '../logs/OTelAwareLogger.js';
 import {
   appendLogEntry,
   type StructuredLogEntry,
   type LogSource,
 } from '../logs/LogMemory.js';
-import { getOTelLoggerAdapter } from '../otel/OTelLoggerAdapter.js';
-import type { OTelLoggerAdapter } from '../otel/OTelLoggerAdapter.js';
 
 interface LLMCallRecord {
   requestId: string;
@@ -229,12 +228,8 @@ export class LLMTracker {
   private sessionStats = new Map<string, SessionLLMStats>();
   private sessionCalls = new Map<string, LLMCallRecord[]>();
   private logger = new Logger({ module: 'LLMTracker' });
+  private otelLogger = new OTelAwareLogger({ module: 'LLMTracker' });
   private scrubber = new SensitiveDataScrubber();
-  private otelLogger: OTelLoggerAdapter | null;
-
-  constructor() {
-    this.otelLogger = getOTelLoggerAdapter();
-  }
 
   /**
    * 记录 LLM 调用
@@ -356,21 +351,19 @@ export class LLMTracker {
       }
     );
 
-    // 输出 OTel 结构化日志（debug 级别，默认不可见）
-    if (this.otelLogger) {
-      this.otelLogger.debug('LLM 调用记录', {
-        sessionId: params.sessionId,
-        model: params.model,
-        provider: params.provider,
-        inputTokens: params.inputTokens,
-        outputTokens: params.outputTokens,
-        cacheReadTokens: params.cacheReadTokens,
-        cacheCreateTokens: params.cacheCreateTokens,
-        reasoningTokens: params.reasoningTokens,
-        costUsd: params.costUsd,
-        durationMs: params.durationMs,
-      });
-    }
+    // 输出 OTel 上下文感知的结构化日志（自动注入 traceId/spanId）
+    this.otelLogger.info('LLM 调用记录', {
+      sessionId: params.sessionId,
+      model: params.model,
+      provider: params.provider,
+      inputTokens: params.inputTokens,
+      outputTokens: params.outputTokens,
+      cacheReadTokens: params.cacheReadTokens,
+      cacheCreateTokens: params.cacheCreateTokens,
+      reasoningTokens: params.reasoningTokens,
+      costUsd: params.costUsd,
+      durationMs: params.durationMs,
+    });
   }
 
   /**

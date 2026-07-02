@@ -85,12 +85,10 @@ export class RegistryImageProvider implements ImageGenerationProvider {
   ): Promise<ImageGenerationResult> {
     const otel = getOTelTracing();
     const span = otel.startSpan('image.generate.provider', {
-      attributes: {
-        'provider.id': this.aiProvider.id,
-        'provider.name': this.name,
-        'provider.type': this.type,
-        'prompt.length': params.prompt.length,
-      },
+      'provider.id': this.aiProvider.id,
+      'provider.name': this.name,
+      'provider.type': this.type,
+      'prompt.length': params.prompt.length,
     });
 
     if (!this.aiProvider.generateImage) {
@@ -98,10 +96,7 @@ export class RegistryImageProvider implements ImageGenerationProvider {
         providerId: this.aiProvider.id,
         displayName: this.aiProvider.displayName,
       });
-      otel.endSpan(span, {
-        status: SpanStatusCode.ERROR,
-        message: 'no generateImage method',
-      });
+      otel.endSpan(span, SpanStatusCode.ERROR, 'no generateImage method');
       return {
         success: false,
         data: [],
@@ -134,10 +129,11 @@ export class RegistryImageProvider implements ImageGenerationProvider {
     }
     try {
       const result = await this.aiProvider.generateImage(params);
-      otel.endSpan(span, {
-        status: result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR,
-        message: result.error,
-      });
+      otel.endSpan(
+        span,
+        result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR,
+        result.error
+      );
       logger.info('RegistryImageProvider · 生成结果', {
         providerId: this.aiProvider.id,
         success: result.success,
@@ -148,7 +144,7 @@ export class RegistryImageProvider implements ImageGenerationProvider {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      otel.endSpan(span, { status: SpanStatusCode.ERROR, message: errorMsg });
+      otel.endSpan(span, SpanStatusCode.ERROR, errorMsg);
       logger.error('RegistryImageProvider · 生成异常', {
         providerId: this.aiProvider.id,
         error: errorMsg,

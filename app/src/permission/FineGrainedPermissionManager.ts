@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 细粒度权限管理器
  * 负责管理和检查细粒度权限
  */
@@ -23,7 +23,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { TTLCache } from '../utils/cache';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:fineGrainedPermissionManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 细粒度权限管理器类

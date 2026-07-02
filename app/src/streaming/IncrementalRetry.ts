@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 增量重试机制
  *
  * 流中断后从断点续传，包含：
@@ -13,7 +13,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { StreamState } from './types';
 import type { StreamStateMachine } from './StreamStateMachine';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'streaming:incrementalRetry' });
 
 /**
  * 流断点

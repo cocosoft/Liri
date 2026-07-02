@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 基于 Profile 的工具策略
  * 按 coding/messaging/minimal profile 过滤可用工具
  */
@@ -9,7 +9,10 @@ import { allowResult, denyResult } from './ToolPolicy';
 import { filterToolsByProfile, ToolClassifier } from './ToolCatalog';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:profilePolicy',
+  level: LogLevel.INFO,
+});
 
 export class ProfileBasedToolPolicy implements ToolPolicy {
   readonly name = 'ProfileBasedToolPolicy';

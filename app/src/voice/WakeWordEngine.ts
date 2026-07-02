@@ -28,7 +28,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { VadDetector } from '@modules/services/voice/services/vadDetector';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:wakeWord', level: LogLevel.INFO });
 
 /** 唤醒检测回调结果 */
 export interface WakeWordResult {

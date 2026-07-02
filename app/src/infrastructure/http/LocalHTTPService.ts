@@ -222,7 +222,7 @@ import {
   startCompileScheduler,
 } from './LocalHTTPServiceHelpers';
 import { broadcastEvent, stopSSE } from './LocalHTTPServiceSSE';
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'http:local', level: LogLevel.INFO });
 
 /**
  * LocalHTTPService 配置
@@ -4798,8 +4798,8 @@ export class LocalHTTPService {
         try {
           const sender = message.senderName || message.senderId || 'unknown';
           const label = channelType.toUpperCase();
-          console.log(`\n── [${label}] ${sender} ──`);
-          console.log(message.content);
+          logger.info(`[${label}] 收到消息: ${sender}`);
+          logger.debug(message.content);
 
           const coreAPI = getCoreAPI();
           const response = await coreAPI.chat({
@@ -4815,9 +4815,8 @@ export class LocalHTTPService {
           });
 
           if (response.content && plugin.outbound) {
-            console.log(`\n── [${label}] Liri ──`);
-            console.log(response.content);
-            console.log('');
+            logger.info(`[${label}] 回复消息`);
+            logger.debug(response.content);
 
             await plugin.outbound.sendText(
               message.conversationId ?? message.senderId,

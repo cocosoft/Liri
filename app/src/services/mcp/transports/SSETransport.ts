@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SSE传输层
  * 基于服务器发送事件的传输方式
  */
@@ -9,7 +9,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:sseTransport',
+  level: LogLevel.INFO,
+});
 
 /**
  * SSE传输层选项

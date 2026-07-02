@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LSP客户端
  */
 
@@ -13,7 +13,7 @@ import {
 } from './types/index.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:lspClient', level: LogLevel.INFO });
 
 /**
  * LSP客户端

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责插件的事件发布、订阅、过滤和路由
  */
 
@@ -6,7 +6,10 @@ import { EventEmitter } from 'events';
 import { PluginEvent, PluginEventType } from '../types/PluginTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:core:pluginEventSystem',
+  level: LogLevel.INFO,
+});
 
 /**
  * 事件处理器

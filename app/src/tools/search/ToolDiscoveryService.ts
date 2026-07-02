@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具发现服务
  * 动态发现和加载延迟工具
  * */
@@ -12,7 +12,10 @@ import {
 import { createToolRegistry } from '../ToolRegistry.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:discoveryService',
+  level: LogLevel.INFO,
+});
 
 export interface DeferredTool {
   name: string;

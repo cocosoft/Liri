@@ -7,6 +7,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { workspaceService } from "@/services/workspaceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:costView");
 
 interface CostReport {
   id: string;
@@ -51,7 +54,7 @@ export const CostView: React.FC = () => {
       setReport(reportData);
       setBudget(budgetData);
     } catch (err) {
-      console.error("加载成本数据失败:", err);
+      logger.error("加载成本数据失败", err);
     } finally {
       setLoading(false);
     }

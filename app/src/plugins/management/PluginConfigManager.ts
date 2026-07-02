@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责插件的配置管理、验证、存储和更新
  */
 
@@ -6,7 +6,10 @@ import { EventEmitter } from 'events';
 import { PluginConfig } from '../types/PluginTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:management:pluginConfigManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 配置验证结果

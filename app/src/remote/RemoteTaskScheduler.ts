@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 远程任务调度服务
  * 提供在远程服务器上调度和管理任务的功能
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'remote:taskScheduler',
+  level: LogLevel.INFO,
+});
 
 /**
  * 远程任务状态

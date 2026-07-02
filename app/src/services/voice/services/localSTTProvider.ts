@@ -38,7 +38,7 @@ import type {
   STTStreamOptions,
 } from '../models/types';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:stt:local' });
 
 /** 本地 STT 提供者标识 */
 const PROVIDER_ID = 'local';

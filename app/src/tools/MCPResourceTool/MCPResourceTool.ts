@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP资源工具
  * 参考CC源码 cc_code/backend/tools/MCPResourceTool/MCPResourceTool.ts 实现
  * 提供MCP资源的列表和读取功能
@@ -18,7 +18,10 @@ import { createToolResult } from '../types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:mcpResource',
+  level: LogLevel.INFO,
+});
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 
 /**

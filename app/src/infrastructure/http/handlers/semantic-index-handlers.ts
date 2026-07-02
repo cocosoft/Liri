@@ -23,7 +23,10 @@ import type http from 'node:http';
 import { sendError, readRequestBody } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'http:semanticIndex',
+  level: LogLevel.INFO,
+});
 
 // ========== SemanticIndex Handlers ==========
 

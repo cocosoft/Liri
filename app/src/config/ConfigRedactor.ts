@@ -1,6 +1,6 @@
-﻿import { Logger } from '@modules/monitoring';
+import { Logger } from '@modules/monitoring';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'config:redactor' });
 
 const SENSITIVE_KEY_PATTERNS: RegExp[] = [
   /^api[_-]?key$/i,

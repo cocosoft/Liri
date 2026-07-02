@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限包装器
  * 对标 CC Code QueryEngine 中 wrappedCanUseTool 模式
  *
@@ -7,7 +7,10 @@
  */
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:permissionWrapper',
+  level: LogLevel.INFO,
+});
 
 /**
  * 权限检查行为类型

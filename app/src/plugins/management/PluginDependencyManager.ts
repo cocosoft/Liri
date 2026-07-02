@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责插件的依赖解析、版本管理、冲突检测等
  */
 
@@ -11,7 +11,10 @@ import {
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:management:pluginDependencyManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 依赖解析结果

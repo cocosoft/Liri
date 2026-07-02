@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 兼容性验证器
  * 验证重构后的Core模块与现有系统的兼容性
  */
@@ -12,7 +12,10 @@ import {
   ModuleDefinition,
 } from './ModuleDependencyManager.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:compatibilityValidator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 兼容性测试结果

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 对话洞察生成器
  * 对标 Hermes agent/insights.py
  * 分析对话内容，提取关键决策、重要变更、风险提示
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:insightGenerator',
+  level: LogLevel.INFO,
+});
 
 export interface ConversationInsight {
   type: 'decision' | 'change' | 'risk' | 'summary';

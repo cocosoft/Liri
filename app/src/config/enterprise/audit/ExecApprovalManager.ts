@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ExecApprovalManager — 工具执行审批管理器
  *
  * 职责：桥接权限系统的 "ASK" 决策与企业版 ApprovalWorkflow。
@@ -22,7 +22,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:enterprise:audit:execApprovalManager',
+  level: LogLevel.INFO,
+});
 
 /** 审批状态 */
 export type ExecApprovalStatus =

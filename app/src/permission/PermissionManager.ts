@@ -53,7 +53,10 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:manager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 权限管理器类

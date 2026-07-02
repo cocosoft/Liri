@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Transcript管理器
  */
 
@@ -26,7 +26,10 @@ import type {
 import { isTranscriptMessage, isChainParticipant } from './types/Transcript.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:transcriptManager',
+  level: LogLevel.INFO,
+});
 
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 

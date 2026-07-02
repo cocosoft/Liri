@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 团队助手工具
  * 提供团队文件管理、路径权限等功能
  * 参考CC源码 cc_code/backend/utils/swarm/teamHelpers.ts 实现
@@ -10,7 +10,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'agent:teamHelper', level: LogLevel.INFO });
 
 /**
  * 团队目录配置

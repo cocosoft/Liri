@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件安全扫描器
  * 检测插件中的危险模式和潜在安全风险
  * 参考CC源码 cc_code/backend/utils/plugins/validatePlugin.ts 实现
@@ -8,7 +8,10 @@ import { readFile, readdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:utils:pluginSecurityScanner',
+  level: LogLevel.INFO,
+});
 
 /**
  * 危险模式类型

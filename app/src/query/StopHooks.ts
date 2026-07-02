@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 停止钩子系统（参考CC源码 query/stopHooks.ts）
  * 在查询停止时执行自定义钩子函数
  * 支持同步和异步钩子，支持优先级排序
@@ -6,7 +6,7 @@
 
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'query:stopHooks' });
 
 export type StopHookReason =
   | 'completed'

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 域管理器 — DomainManager
  *
  * 管理 ~/.pyapp/knowledge/domains/ 下的多域知识库。
@@ -17,7 +17,10 @@ import {
   resolveDomainSchemaDir,
 } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:domain:domainManager',
+  level: LogLevel.INFO,
+});
 
 /** 域描述信息 */
 export interface DomainInfo {

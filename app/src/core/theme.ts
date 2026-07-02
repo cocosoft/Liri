@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 主题系统
  * 提供不同的视觉主题选项
  */
@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolveDataDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'core:theme', level: LogLevel.INFO });
 
 /**
  * 主题接口

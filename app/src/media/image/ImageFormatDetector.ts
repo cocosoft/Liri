@@ -1,7 +1,10 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import fs from 'node:fs';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'media:image:imageFormatDetector',
+  level: LogLevel.INFO,
+});
 
 /**
  * 已知图片格式的魔数签名

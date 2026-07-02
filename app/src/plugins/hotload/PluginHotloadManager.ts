@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件热加载管理器
  * 监听插件目录文件变更，自动触发插件的卸载→加载→激活流水线
  * 支持状态备份和回滚，重载失败时恢复旧状态
@@ -29,7 +29,7 @@ import {
   type ActivationContext,
 } from '../lifecycle/ActivationContext';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'plugins:hotload', level: LogLevel.INFO });
 
 /**
  * 插件热加载事件类型

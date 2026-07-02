@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,7 +35,10 @@ import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core';
 import type { FieldDef } from '@modules/knowledge/schema/SchemaLoader';
 import { load } from 'js-yaml';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:lint:wikiLinter',
+  level: LogLevel.INFO,
+});
 
 // ---------------------------------------------------------------------------
 // 类型定义

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 安全审计管理器
  * 负责记录和管理安全审计日志
  */
@@ -10,7 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '../../monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'security:auditManager' });
 
 /**
  * 审计事件类型

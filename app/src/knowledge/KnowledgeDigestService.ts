@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 预编译摘要持久化 (KnowledgeDigestService)
  * 对标 OpenClaw vault 双缓存架构：文件系统 + digest 缓存
  *
@@ -14,7 +14,10 @@ import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeDigestService',
+  level: LogLevel.INFO,
+});
 
 export interface DocDigest {
   path: string;

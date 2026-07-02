@@ -1,6 +1,9 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:delivery:adapter:deliveryAdapter',
+  level: LogLevel.INFO,
+});
 
 export interface DeliveryMessage {
   taskId: string;

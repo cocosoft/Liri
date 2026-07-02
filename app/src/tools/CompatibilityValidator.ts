@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 兼容性验证工具
  * 验证模块管理系统与现有代码的兼容性
  */
@@ -9,7 +9,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:compatibilityValidator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 兼容性验证结果

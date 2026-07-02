@@ -5,6 +5,9 @@ import {
   type FileDetectResult,
   type ConvertFileOptions,
 } from "../services/fileService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("fileStore");
 
 type FileViewMode = 'directory' | 'registry';
 
@@ -175,7 +178,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       const workspaces = await fileService.listWorkspaces();
       set({ workspaces });
     } catch (e) {
-      console.error("Failed to load workspaces:", e);
+      logger.error("Failed to load workspaces:", e);
     }
   },
 
@@ -259,7 +262,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       set({ fileStats: stats });
     } catch (e) {
       // stats 加载失败不阻塞 UI
-      console.warn('Failed to fetch file stats:', e);
+      logger.warn('Failed to fetch file stats:', e);
     }
   },
 }));

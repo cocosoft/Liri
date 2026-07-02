@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -21,7 +21,7 @@ import { resolveInboundBaseDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'services:file:gc', level: LogLevel.INFO });
 
 export interface GCResult {
   /** 扫描的文件总数 */

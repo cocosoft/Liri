@@ -14,7 +14,10 @@ import { PermissionContext } from './types/PermissionContext';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:checker',
+  level: LogLevel.INFO,
+});
 
 /**
  * 超时自动拒绝配置

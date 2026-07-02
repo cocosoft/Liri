@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RuntimeConfigSnapshot 运行时配置快照
  *
  * 对标 OpenClaw runtime-snapshot.ts
@@ -9,7 +9,10 @@
 import { createHash } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.DEBUG });
+const logger = new Logger({
+  module: 'config:runtimeConfigSnapshot',
+  level: LogLevel.DEBUG,
+});
 
 // ─── 类型定义 ─────────────────────────────────
 

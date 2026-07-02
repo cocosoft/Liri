@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP管理器
  * 负责管理MCP系统的高级功能
  */
@@ -8,7 +8,10 @@ import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import type { MCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'mcp:managers:mCPManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 通道通知监听器

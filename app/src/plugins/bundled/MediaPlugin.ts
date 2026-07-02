@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MediaPlugin
  * 多媒体 Bundled 插件
  * 将 image/voice 工具封装为插件接口，供插件系统发现和调用
@@ -11,7 +11,10 @@ import { ImageGenerateTool } from '../../tools/ImageGenerateTool/ImageGenerateTo
 import { ImageAnalysisTool } from '../../tools/ImageAnalysisTool/ImageAnalysisTool.js';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:bundled:mediaPlugin',
+  level: LogLevel.INFO,
+});
 
 /**
  * MediaPlugin 元数据

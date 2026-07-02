@@ -31,9 +31,8 @@
  */
 
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
+import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
-  ChatMessage,
-  ChatResponse,
   ChatOptions,
   ThinkingProviderChunk,
   ProviderConfig,
@@ -64,21 +63,21 @@ export class OpenAICodexProvider extends BaseAIProvider {
   ): Promise<ChatResponse> {
     throw new AppError(
       'OpenAI Codex 仅支持图像生成，不支持文本对话。请使用标准 OpenAI Provider 进行对话。',
-      'NOT_SUPPORTED',
-      ErrorCategory.CONFIGURATION,
-      ErrorSeverity.MEDIUM
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'NOT_SUPPORTED'
     );
   }
 
-  async chatStream(
+  async *chatStream(
     _messages: ChatMessage[],
     _options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     throw new AppError(
       'OpenAI Codex 仅支持图像生成，不支持文本对话',
-      'NOT_SUPPORTED',
-      ErrorCategory.CONFIGURATION,
-      ErrorSeverity.MEDIUM
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'NOT_SUPPORTED'
     );
   }
 
@@ -86,7 +85,7 @@ export class OpenAICodexProvider extends BaseAIProvider {
     return ['gpt-image-2', 'gpt-image-1.5'];
   }
 
-  validateConfig(_config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(_config: ProviderConfig): ProviderValidationResult {
     // Codex Provider 使用 OAuth 令牌而非 API Key
     if (!this.accessToken) {
       return {
@@ -98,7 +97,7 @@ export class OpenAICodexProvider extends BaseAIProvider {
     return { valid: true, errors: [], warnings: [] };
   }
 
-  setApiKey(key: string): void {
+  override setApiKey(key: string): void {
     this.accessToken = key;
   }
 

@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -12,7 +13,15 @@ import { imageFormatDetector } from './ImageFormatDetector';
 const logger = new Logger({ level: LogLevel.INFO, module: 'media:image' });
 
 /** 图片格式 */
-export type ImageFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'bmp' | 'svg';
+export type ImageFormat =
+  | 'png'
+  | 'jpeg'
+  | 'webp'
+  | 'gif'
+  | 'bmp'
+  | 'svg'
+  | 'heic'
+  | 'heif';
 
 /** 图片尺寸 */
 export interface ImageDimensions {
@@ -436,7 +445,7 @@ export class ImageProcessor {
     const outPath = outputPath || inputPath.replace(/\.(heic|heif)$/i, '.jpg');
 
     try {
-      await this.sharp(inputPath).jpeg({ quality: 90 }).toFile(outPath);
+      await sharp(inputPath).jpeg({ quality: 90 }).toFile(outPath);
 
       logger.info('ImageProcessor.convertHeic()', {
         inputPath,
@@ -459,9 +468,9 @@ export class ImageProcessor {
       } catch {
         throw new AppError(
           `HEIC 格式转换失败。请确保安装了 sharp (libheif) 或 ImageMagick。${(error as Error).message}`,
-          'IMAGE_CONVERT_ERROR',
-          ErrorCategory.SYSTEM,
-          ErrorSeverity.MEDIUM
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.MEDIUM,
+          'IMAGE_CONVERT_ERROR'
         );
       }
     }
@@ -479,7 +488,7 @@ export class ImageProcessor {
 
     try {
       // sharp 的 rotate() 会自动读取并应用 EXIF Orientation
-      await this.sharp(inputPath)
+      await sharp(inputPath)
         .rotate() // auto-orient based on EXIF
         .toFile(outPath + '.tmp');
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 更新包下载器
  * 下载 GitHub Release 资源包到本地临时目录
  */
@@ -8,7 +8,10 @@ import { createWriteStream, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cli:updater:updateDownloader',
+  level: LogLevel.INFO,
+});
 
 /**
  * 下载结果

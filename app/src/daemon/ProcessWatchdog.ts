@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 进程看门狗
  * 监控守护进程，崩溃自动重启
  * 对齐 OpenClaw gateway watchdog
@@ -7,7 +7,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { spawn, type ChildProcess } from 'node:child_process';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'daemon:processWatchdog',
+  level: LogLevel.INFO,
+});
 
 export interface WatchdogConfig {
   command: string;

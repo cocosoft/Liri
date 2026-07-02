@@ -21,7 +21,7 @@ import type {
   STTStreamOptions,
 } from '../models/types';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:stt:cloud' });
 
 /** OpenAI Whisper API 端点 */
 const OPENAI_STT_ENDPOINT = 'api.openai.com';

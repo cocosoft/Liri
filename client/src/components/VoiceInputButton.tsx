@@ -1,5 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:voiceInput");
 import { useVoiceStore } from "../stores/voiceStore";
 import { voiceService } from "../services/voiceService";
 
@@ -364,7 +367,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
               useVoiceStore.setState({ subtitleStatus: "done" });
             }
           } catch (err) {
-            console.error("语音转录失败:", err);
+            logger.error("语音转录失败", err);
             useVoiceStore.setState({
               voiceError:
                 err instanceof Error ? err.message : t("voice.sttFailed"),
@@ -385,7 +388,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
       // 同步启动浏览器 SpeechRecognition 获取实时字幕
       startSubtitleRecognition();
     } catch (e) {
-      console.error("无法启动录音:", e);
+      logger.error("无法启动录音", e);
       setMicWarning(t("voice.micAccessFailed"))
     }
   };

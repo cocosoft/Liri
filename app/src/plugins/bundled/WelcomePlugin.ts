@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 欢迎插件
  * 提供欢迎信息和快速入门指南
  */
@@ -7,7 +7,10 @@ import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:bundled:welcomePlugin',
+  level: LogLevel.INFO,
+});
 
 export const WelcomePluginMetadata: PluginMetadata = {
   id: 'welcome',

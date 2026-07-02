@@ -15,7 +15,10 @@ import type {
 } from './VoiceToolBridge';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:commandRouter',
+  level: LogLevel.INFO,
+});
 
 /** 命令动作类型 */
 export type CommandActionType = 'tool_exec' | 'system_command' | 'custom';

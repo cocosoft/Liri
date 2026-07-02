@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具执行器
  * 负责工具的执行、权限检查、输入验证等功能
  */
@@ -19,7 +19,7 @@ import {
   createSandboxManager,
 } from '../sandbox/SandboxImpl';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:executor', level: LogLevel.INFO });
 import {
   SandboxPlatform,
   createDefaultSandboxConfig,

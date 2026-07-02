@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 和弦拦截器
  * 全局和弦键拦截器，在所有子组件之前注册useInput
  *
@@ -9,7 +9,10 @@ import React, { useEffect } from 'react';
 import { useKeybindingContext } from './KeybindingContext.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'keybindings:chordInterceptor.tsx',
+  level: LogLevel.INFO,
+});
 
 /**
  * 和弦拦截器组件

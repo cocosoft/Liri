@@ -56,7 +56,7 @@ import {
   SILENCE_THRESHOLD,
 } from './recordingDetector';
 
-const logger = new Logger({});
+const logger = new Logger({ module: 'voice:service' });
 
 /**
  * 日志采样配置（方案 17）

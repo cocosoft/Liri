@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Core模块重构功能测试
  * 验证重构后的模块依赖管理、并行加载和配置管理功能
  */
@@ -16,7 +16,10 @@ import {
   SecurityLevel,
 } from './RemoteConfigManager.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:coreModuleRefactorTest',
+  level: LogLevel.INFO,
+});
 
 /**
  * 综合测试类

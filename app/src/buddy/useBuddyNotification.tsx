@@ -2,6 +2,12 @@ import React, { useEffect } from 'react';
 import { Text } from '../components/ink.js';
 import { getRainbowColor } from '../utils/thinking';
 import { getGlobalConfig } from '@modules/config';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'buddy:notification',
+  level: LogLevel.INFO,
+});
 
 export function isBuddyTeaserWindow(): boolean {
   const d = new Date();
@@ -34,7 +40,7 @@ export function useBuddyNotification(): void {
     if (config.companion) return;
 
     const timeout = setTimeout(() => {
-      console.log('/buddy - 试试/buddy命令来孵化一个伙伴！');
+      logger.info('/buddy - 试试/buddy命令来孵化一个伙伴！');
     }, 5000);
 
     return () => clearTimeout(timeout);

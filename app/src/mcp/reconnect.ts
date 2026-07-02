@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +34,7 @@ import { Logger } from '@modules/monitoring';
 import { classifyToolListDrift, isDriftAcceptable } from './drift';
 import type { DriftKind, McpToolSpec } from './drift';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'mcp:reconnect' });
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 

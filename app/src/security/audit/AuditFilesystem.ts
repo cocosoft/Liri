@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件系统安全审计模块
  * 检查敏感路径权限、Windows ACL、密钥文件暴露
  */
@@ -9,7 +9,10 @@ import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditFilesystem',
+  level: LogLevel.INFO,
+});
 
 /**
  * 敏感文件路径（相对于 resolveDataDir()）

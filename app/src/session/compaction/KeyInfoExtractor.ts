@@ -3,7 +3,10 @@ import type { CompactionEngine } from './SessionCompactionBridge';
 import type { AutoCompactServiceRef } from './SessionCompactionBridge';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:keyInfoExtractor',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_THRESHOLD = 60;
 

@@ -8,6 +8,9 @@ import PdcaPipeline from "../Agent/PdcaPipeline";
 import KanbanBoard from "../Agent/KanbanBoard";
 import { SkeletonCard } from "../common/Skeleton";
 import PlansPanel from "./PlansPanel";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:taskCenter");
 
 function TaskCenterPage() {
   const {
@@ -130,7 +133,7 @@ function TaskCenterPage() {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
     } catch (e) {
-      console.warn("Failed to save draft:", e);
+      logger.warn("Failed to save draft:", e);
     }
   };
 
@@ -150,7 +153,7 @@ function TaskCenterPage() {
         };
       }
     } catch (e) {
-      console.warn("Failed to load draft:", e);
+      logger.warn("Failed to load draft:", e);
     }
     return {
       name: "",
@@ -170,7 +173,7 @@ function TaskCenterPage() {
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch (e) {
-      console.warn("Failed to clear draft:", e);
+      logger.warn("Failed to clear draft:", e);
     }
   };
 

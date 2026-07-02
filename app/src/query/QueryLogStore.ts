@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 查询日志存储
  * 基于 SQLite 的查询日志持久化，记录每次 API 调用、工具调用和完整查询的执行信息
  */
@@ -16,7 +16,7 @@ import type {
   QueryLogStats,
 } from './QueryLogTypes';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'query:logStore' });
 
 const QUERY_LOG_TABLE = 'query_logs';
 

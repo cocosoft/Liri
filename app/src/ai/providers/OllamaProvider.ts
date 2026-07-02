@@ -16,7 +16,7 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'ai:ollama', level: LogLevel.INFO });
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 

@@ -23,7 +23,10 @@ import type {
   OrchStepCompletedData,
 } from '../events/OrchestrationEvents.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:dagExecutor',
+  level: LogLevel.INFO,
+});
 
 /**
  * 超时错误

@@ -1,9 +1,12 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 import type { TaskState } from './types';
 import { TaskStatus } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:persistentQueue',
+  level: LogLevel.INFO,
+});
 
 export interface QueueEntry {
   taskId: string;

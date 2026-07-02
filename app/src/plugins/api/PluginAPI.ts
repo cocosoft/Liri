@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件API实现
  * 提供插件使用的核心 API 接口，集成 KernelServiceRegistry
  * 支持基于插件 ID 的访问控制，插件只能通过 IPluginAPI 访问内核服务
@@ -15,7 +15,10 @@ import {
 } from './KernelServiceRegistry';
 import type { PluginEvent, PluginEventType } from '../types/PluginTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:api:pluginAPI',
+  level: LogLevel.INFO,
+});
 
 /**
  * 插件工具类型定义，替代 any

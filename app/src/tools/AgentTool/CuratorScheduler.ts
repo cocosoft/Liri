@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CuratorScheduler — 后台技能维护编排器
  *
  * 对标 Hermes agent/curator.py 的空闲触发调度模式。
@@ -17,7 +17,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:curatorScheduler',
+  level: LogLevel.INFO,
+});
 
 /** 调度器配置 */
 export interface CuratorConfig {

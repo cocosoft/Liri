@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent加载器
  * 负责从不同来源加载Agent定义
  */
@@ -16,7 +16,7 @@ import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'agent:agentLoader' });
 
 /**
  * 将新格式的Agent定义转换为内部格式

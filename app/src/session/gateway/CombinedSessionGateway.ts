@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CombinedSessionGateway — 跨 Agent 会话聚合网关
  *
  * 聚合多个 SessionGateway 实例，每个实例代表一個 Agent/Scope。
@@ -26,7 +26,10 @@ import type {
 import type { UnifiedMessage } from '../types/Message';
 import type { Transcript } from '../types/Transcript';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:combinedGateway',
+  level: LogLevel.INFO,
+});
 
 export const DEFAULT_AGENT_ID = 'default';
 

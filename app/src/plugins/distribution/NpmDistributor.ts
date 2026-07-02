@@ -1,4 +1,4 @@
-﻿/**
+/**
  * NPM 插件分发器
  * 从 npm registry 安装/更新/卸载插件
  * 对齐 OpenClaw 插件分发机制
@@ -17,7 +17,10 @@ import {
 import { join } from 'node:path';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:distribution:npmDistributor',
+  level: LogLevel.INFO,
+});
 
 export interface NpmInstallResult {
   success: boolean;

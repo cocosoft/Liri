@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 主动式规则建议引擎
  * 持续监听审计事件，自动检测模式并生成可执行的治理规则建议
  * 弥补 IntelligentGovernanceAnalyzer 仅输出文本建议、不生成可执行规则的差距
@@ -16,7 +16,10 @@ import {
   type GovernanceStrategy,
 } from './managers/GovernanceStrategyManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'governance:ruleSuggestionEngine',
+  level: LogLevel.INFO,
+});
 
 /**
  * 建议来源模式类型

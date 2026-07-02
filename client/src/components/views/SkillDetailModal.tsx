@@ -95,6 +95,26 @@ export function SkillDetailModal({
             {skill.description || t("skill.noDescription")}
           </p>
 
+          {/* Bug 13: 展示 Readme 内容 */}
+          {skill.readme && (
+            <div>
+              <span
+                className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
+                说明文档
+              </span>
+              <div
+                className={`mt-1 p-3 rounded-lg text-sm max-h-48 overflow-y-auto whitespace-pre-wrap ${
+                  isDark
+                    ? "bg-gray-700 text-gray-300"
+                    : "bg-gray-50 text-gray-600"
+                }`}
+              >
+                {skill.readme}
+              </div>
+            </div>
+          )}
+
           <div
             className={`grid grid-cols-2 gap-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >

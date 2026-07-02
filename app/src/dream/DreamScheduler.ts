@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,10 @@ import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'dream:dreamScheduler',
+  level: LogLevel.INFO,
+});
 
 export type DreamTriggerCallback = (
   source: DreamTriggerSource

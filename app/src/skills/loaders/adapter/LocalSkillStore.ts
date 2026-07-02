@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,10 @@ import { resolveUserSkillsDir } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:localStore',
+  level: LogLevel.INFO,
+});
 
 /**
  * 技能索引文件结构

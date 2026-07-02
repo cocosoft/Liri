@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,7 +39,10 @@ import {
   PluginLoaderOptions,
 } from './types.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:extensibility:pluginLoader',
+  level: LogLevel.INFO,
+});
 
 /**
  * 插件加载器

@@ -30,7 +30,7 @@ import {
 } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tasks:longRunning' });
 
 /** PDCA 阶段 */
 export type PdcaPhase = 'plan' | 'execute' | 'review' | 'decide' | 'completed';

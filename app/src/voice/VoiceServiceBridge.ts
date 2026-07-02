@@ -168,7 +168,10 @@ export interface VoiceBridgeStatus {
   };
 }
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:serviceBridge',
+  level: LogLevel.INFO,
+});
 
 /** 默认桥接配置 */
 const DEFAULT_BRIDGE_CONFIG: VoiceBridgeConfig = {

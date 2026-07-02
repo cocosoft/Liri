@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -112,7 +112,7 @@ import { Logger } from '../monitoring/logs/Logger.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'cost:index' });
 
 /**
  * 初始化成本跟踪系统

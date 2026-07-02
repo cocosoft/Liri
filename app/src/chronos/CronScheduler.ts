@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron调度器核心
  *
  * @deprecated 此调度器为旧版 JSON 文件持久化实现，请使用 @modules/tasks/cron/CronScheduler（基于 SQLite 持久化）。
@@ -40,7 +40,10 @@ import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:cronScheduler',
+  level: LogLevel.INFO,
+});
 
 const CHECK_INTERVAL_MS = 1000;
 const LOCK_PROBE_INTERVAL_MS = 5000;

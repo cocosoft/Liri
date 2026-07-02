@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限更新管理器
  * 支持运行时动态更新权限规则
  * 参考CC源码 cc_code/backend/utils/permissions/permissionUpdate.ts 实现
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:utils:permissionUpdate',
+  level: LogLevel.INFO,
+});
 import type { PermissionRule } from '../types/PermissionRule.js';
 
 /**

@@ -6,6 +6,8 @@ import { knowledgeService } from "../services/knowledgeService";
 import { modelService } from "../services/modelService";
 import { cronService } from "../services/cronService";
 import { buddyService } from "../services/buddyService";
+import { createLogger } from "@/utils/logger";
+import { handleClientError } from "@/utils/handleError";
 import {
   voiceService,
   connectVoiceWebSocket,
@@ -372,6 +374,8 @@ export interface AppStore {
 // Store 创建
 // ============================================================
 
+const logger = createLogger("appStore");
+
 export const useAppStore = create<AppStore>((set, get) => ({
   // ---- 导航 ----
   activePage: "home",
@@ -435,6 +439,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         authLoading: false,
       });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'login' }, 'warn');
       set({
         authError: e instanceof Error ? e.message : "登录失败",
         authLoading: false,
@@ -454,6 +459,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         authLoading: false,
       });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'register' }, 'warn');
       set({
         authError: e instanceof Error ? e.message : "注册失败",
         authLoading: false,
@@ -489,7 +495,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         isAuthenticated: !!user,
         authLoading: false,
       });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'checkAuth' }, 'warn');
       set({
         user: null,
         isAuthenticated: false,
@@ -511,6 +518,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const apiKeys = await authService.listApiKeys();
       set({ apiKeys, apiKeyLoading: false });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadApiKeys' }, 'warn');
       set({
         apiKeyError: e instanceof Error ? e.message : "获取API密钥列表失败",
         apiKeyLoading: false,
@@ -528,6 +536,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }));
       return result.key;
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'createApiKey' }, 'warn');
       set({
         apiKeyError: e instanceof Error ? e.message : "创建API密钥失败",
         apiKeyLoading: false,
@@ -545,6 +554,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         apiKeyLoading: false,
       }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'deleteApiKey' }, 'warn');
       set({
         apiKeyError: e instanceof Error ? e.message : "删除API密钥失败",
         apiKeyLoading: false,
@@ -579,6 +589,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       ]);
       set({ usageSummary: summary, usageTrends: trends, usageModelStats: modelStats, usageProviderStats: providerStats, usageLoading: false });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadUsageAll' }, 'warn');
       set({
         usageError: e instanceof Error ? e.message : "获取使用量统计失败",
         usageLoading: false,
@@ -615,6 +626,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         modelSwitchLoading: false,
       });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadCurrentModel' }, 'warn');
       set({
         modelSwitchError: e instanceof Error ? e.message : "获取当前模型失败",
         modelSwitchLoading: false,
@@ -632,6 +644,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 	      const model = get().models.find((m) => m.id === modelId);
 	      set({ currentModelId: modelId, currentModelName: model?.modelId || model?.name || modelId, tasks });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'switchModel' }, 'warn');
       set({ modelSwitchError: e instanceof Error ? e.message : "切换模型失败" });
     }
   },
@@ -641,6 +654,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const tasks = await modelSwitchService.getTasks();
       set({ tasks });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadModelTasks' }, 'warn');
       set({ modelSwitchError: e instanceof Error ? e.message : "获取任务策略失败" });
     }
   },
@@ -651,6 +665,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await modelSwitchService.saveTasks(tasks);
       set({ tasks });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'saveModelTasks' }, 'warn');
       set({ modelSwitchError: e instanceof Error ? e.message : "保存任务策略失败" });
     }
   },
@@ -666,6 +681,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const items = await knowledgeService.list();
       set({ knowledgeItems: items, knowledgeLoading: false });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadKnowledge' }, 'warn');
       set({ knowledgeError: String(e), knowledgeLoading: false });
     }
   },
@@ -675,6 +691,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const created = await knowledgeService.create(item);
       set((state) => ({ knowledgeItems: [...state.knowledgeItems, created] }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'createKnowledge' }, 'warn');
       set({ knowledgeError: String(e) });
     }
   },
@@ -686,6 +703,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         knowledgeItems: state.knowledgeItems.map((i) => (i.id === id ? updated : i)),
       }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'updateKnowledge' }, 'warn');
       set({ knowledgeError: String(e) });
     }
   },
@@ -695,6 +713,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await knowledgeService.delete(id);
       set((state) => ({ knowledgeItems: state.knowledgeItems.filter((i) => i.id !== id) }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'deleteKnowledge' }, 'warn');
       set({ knowledgeError: String(e) });
     }
   },
@@ -710,6 +729,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const models = await modelService.list();
       set({ models, modelLoading: false });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadModels' }, 'warn');
       set({ modelError: e instanceof Error ? e.message : "获取模型列表失败", modelLoading: false });
     }
   },
@@ -722,6 +742,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }));
       return enabled;
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'toggleModel' }, 'warn');
       set({ modelError: e instanceof Error ? e.message : "切换模型状态失败" });
       throw e;
     }
@@ -732,6 +753,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await modelService.remove(id);
       set((state) => ({ models: state.models.filter((m) => m.id !== id) }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'deleteModel' }, 'warn');
       set({ modelError: e instanceof Error ? e.message : "删除模型失败" });
       throw e;
     }
@@ -845,8 +867,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({ councilEventSource: null });
     });
 
-    es.addEventListener("error", () => {
-      // SSE 连接异常，不改变状态，浏览器会自动重连
+    es.addEventListener("error", (e) => {
+      handleClientError(e instanceof ErrorEvent ? e : new Error('SSE 连接异常'), { module: 'stores:appStore', action: 'councilSSE' }, 'warn');
     });
 
     set({ councilEventSource: es });
@@ -936,6 +958,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const tasks = await cronService.list();
       set({ cronTasks: tasks, cronLoading: false });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadCronTasks' }, 'warn');
       set({ cronError: String(e), cronLoading: false });
     }
   },
@@ -945,7 +968,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const status = await cronService.getStatus();
       set({ cronSchedulerStatus: status, cronStatusLoading: false });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadCronStatus' }, 'warn');
       set({ cronSchedulerStatus: null, cronStatusLoading: false });
     }
   },
@@ -956,6 +980,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const created = await cronService.create(task as any);
       set((state) => ({ cronTasks: [...state.cronTasks, created] }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'createCronTask' }, 'warn');
       set({ cronError: String(e) });
     } finally {
       set({ cronSaving: false });
@@ -970,6 +995,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         cronTasks: state.cronTasks.map((t) => (t.id === id ? updated : t)),
       }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'updateCronTask' }, 'warn');
       set({ cronError: String(e) });
     } finally {
       set({ cronSaving: false });
@@ -982,6 +1008,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await cronService.delete(id);
       set((state) => ({ cronTasks: state.cronTasks.filter((t) => t.id !== id) }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'deleteCronTask' }, 'warn');
       set({ cronError: String(e) });
     } finally {
       set({ cronSaving: false });
@@ -996,6 +1023,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         cronTasks: state.cronTasks.map((t) => (t.id === id ? updated : t)),
       }));
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'toggleCronTask' }, 'warn');
       set({ cronError: String(e) });
     } finally {
       set({ cronSaving: false });
@@ -1007,6 +1035,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       await cronService.runNow(id);
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'runCronTaskNow' }, 'warn');
       set({ cronError: String(e) });
     } finally {
       set({ cronSaving: false });
@@ -1035,6 +1064,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const status = await chatService.getBackendStatus();
       set({ backendStatus: status, backendIsChecking: false, backendError: null });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'checkBackendStatus' }, 'warn');
       set({ backendStatus: { running: false, port: null }, backendIsChecking: false, backendError: e instanceof Error ? e.message : String(e) });
     }
   },
@@ -1046,6 +1076,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const status = await chatService.startBackend();
         set({ backendStatus: status });
       } catch (e) {
+        handleClientError(e, { module: 'stores:appStore', action: 'startBackend' }, 'warn');
         set({ backendError: e instanceof Error ? e.message : String(e) });
       }
     } else {
@@ -1060,6 +1091,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         await chatService.stopBackend();
         set({ backendStatus: { running: false, port: null } });
       } catch (e) {
+        handleClientError(e, { module: 'stores:appStore', action: 'stopBackend' }, 'warn');
         set({ backendError: e instanceof Error ? e.message : String(e) });
       }
     } else {
@@ -1082,6 +1114,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const companion = await buddyService.getBuddy(name);
       set({ buddyCompanion: companion, buddyLoading: false });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadBuddy' }, 'warn');
       set({ buddyError: String(e), buddyLoading: false });
     }
   },
@@ -1092,6 +1125,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const result = await buddyService.interact(action, name);
       set({ buddyCompanion: result.companion, buddyLastInteraction: result });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'buddyInteract' }, 'warn');
       set({ buddyError: String(e) });
     }
   },
@@ -1101,6 +1135,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const stats = await buddyService.getStats();
       set({ buddyStats: stats });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadBuddyStats' }, 'warn');
       set({ buddyError: String(e) });
     }
   },
@@ -1141,6 +1176,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const settings = await voiceService.getSettings();
       set({ voiceSettings: settings, voiceError: null });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadVoiceSettings' }, 'warn');
       set({ voiceError: e instanceof Error ? e.message : "加载语音设置失败" });
     }
   },
@@ -1153,6 +1189,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const updated = await voiceService.updateSettings({ ...voiceSettings, ...updates });
       set({ voiceSettings: updated });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'updateVoiceSettings' }, 'warn');
       set({ voiceError: e instanceof Error ? e.message : "更新语音设置失败" });
     } finally {
       set({ voiceIsProcessing: false });
@@ -1188,7 +1225,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       await connectVoiceWebSocket();
       set({ voiceWsConnected: true, voiceSessionState: "connected" });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'connectVoiceWebSocket' }, 'warn');
       set({ voiceWsConnected: false });
     }
   },
@@ -1209,6 +1247,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const session = await voiceService.startSession();
       set({ voiceCurrentSession: session, voiceSessionState: "active" });
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'startRecording' }, 'warn');
       set({ voiceError: e instanceof Error ? e.message : "开始录音失败", voiceIsRecording: false });
     }
   },
@@ -1224,6 +1263,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // P2-2: 断开 WebSocket 连接
       get().disconnectVoiceWebSocket();
     } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'stopRecording' }, 'warn');
       set({ voiceError: e instanceof Error ? e.message : "停止录音失败" });
     } finally {
       set({ voiceIsProcessing: false });
@@ -1243,7 +1283,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       audio.onended = () => set({ voiceIsPlaying: false });
       audio.onerror = () => { set({ voiceIsPlaying: false, voiceError: "音频播放失败" }); };
       await audio.play();
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'playResponse' }, 'warn');
       set({ voiceIsPlaying: false, voiceError: "音频播放失败" });
     }
   },
@@ -1268,13 +1309,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
           // 连接唤醒词 WS，监听 wakeword_detected 事件
           await get().connectWakeWordWebSocket();
         }
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: 'stores:appStore', action: 'toggleWakeWord:start' }, 'warn');
         set({ wakeWordEnabled: false, wakeWordListening: false });
       }
     } else {
       try {
         await fetch('/v1/voice/wake/stop', { method: 'POST' });
-      } catch { /* ignore */ }
+      } catch (e) {
+        handleClientError(e, { module: 'stores:appStore', action: 'toggleWakeWord:stop' }, 'warn');
+      }
       get().disconnectWakeWordWebSocket();
       set({ wakeWordListening: false, wakeWordTriggered: null });
     }
@@ -1288,7 +1332,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ triggers }),
       });
-    } catch { /* 后端暂未就绪 */ }
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'setWakeWordTriggers' }, 'warn');
+    }
   },
 
   connectWakeWordWebSocket: async () => {
@@ -1304,8 +1350,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       // 如果当前不在录音中，自动开始录音
       if (!store.voiceIsRecording && !store.voiceIsProcessing) {
-        store.startRecording().catch(() => {
-          // 录音失败不阻塞唤醒
+        store.startRecording().catch((e) => {
+          handleClientError(e, { module: 'stores:appStore', action: 'wakeWordAutoRecord' }, 'warn');
         });
       }
     });
@@ -1318,7 +1364,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       await connectWakeWordWebSocket();
       set({ wakeWsConnected: true });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'connectWakeWordWebSocket' }, 'warn');
       set({ wakeWsConnected: false });
     }
   },
@@ -1333,8 +1380,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const providers = await voiceService.getTTSProviders();
       set({ ttsProviders: providers });
-    } catch {
-      // 后端未就绪时保持空列表
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadTTSProviders' }, 'warn');
     }
   },
 
@@ -1342,8 +1389,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const voices = await voiceService.getVoices(provider);
       set({ ttsVoices: voices });
-    } catch {
-      // 后端未就绪时保持空列表
+    } catch (e) {
+      handleClientError(e, { module: 'stores:appStore', action: 'loadTTSVoices' }, 'warn');
     }
   },
 
@@ -1374,11 +1421,7 @@ if (import.meta.env.DEV) {
     }
 
     if (changed.length > 0) {
-      console.log(
-        `%c[appStore] %c${changed.join(", ")}`,
-        "color:#8b5cf6;font-weight:bold",
-        "color:#a78bfa",
-      );
+      logger.info(`changed: ${changed.join(", ")}`);
     }
   });
 }

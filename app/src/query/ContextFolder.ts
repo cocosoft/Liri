@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +33,7 @@ import type { ChatMessage } from '../tools/repair/types';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'query:contextFolder' });
 
 // ─── 折叠阈值常量 ────────────────────────────────────────────────────────────
 

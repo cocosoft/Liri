@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 命令管理
  * 负责处理MCP服务器的命令功能
@@ -6,7 +6,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:commandManager',
+  level: LogLevel.INFO,
+});
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 /**

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CrashRecoveryManager — 会话崩溃恢复管理器
  *
  * 在应用启动时检测上次异常中断的会话（Status=RUNNING/ACTIVE），
@@ -16,7 +16,10 @@ import { SessionStatus } from '../types/Session';
 import type { UnifiedSession } from '../types/Session';
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:crashRecovery',
+  level: LogLevel.INFO,
+});
 
 export const DEFAULT_STALE_THRESHOLD_MS = 30 * 60 * 1000;
 export const DEFAULT_RECOVERY_DELAY_MS = 5_000;

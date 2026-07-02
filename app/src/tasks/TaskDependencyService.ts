@@ -1,9 +1,12 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { TaskDependency } from './types';
 import { TaskStatus } from './types';
 import type { TaskRegistry } from './TaskRegistry';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:dependencyService',
+  level: LogLevel.INFO,
+});
 
 export class TaskDependencyService {
   private registry: TaskRegistry;

@@ -2,7 +2,7 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import type { SessionStorage } from './SessionStorage';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'session:pruner', level: LogLevel.INFO });
 
 export interface PrunerOptions {
   maxSessions?: number;

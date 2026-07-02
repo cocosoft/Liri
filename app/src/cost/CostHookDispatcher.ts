@@ -8,7 +8,10 @@ import { costMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager';
 import { Logger, LogLevel } from '../monitoring/logs/Logger';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cost:costHookDispatcher',
+  level: LogLevel.INFO,
+});
 
 /**
  * Cost Hook 数据

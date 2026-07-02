@@ -1,6 +1,9 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:cache',
+  level: LogLevel.INFO,
+});
 import type { ICache, CacheStats } from '@modules/cache/types';
 import type { Command } from '@modules/commands';
 import type { ServerResource, SerializedTool } from './types';

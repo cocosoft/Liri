@@ -10,7 +10,10 @@ import { configManager } from '@modules/config';
 import path from 'path';
 import fs from 'fs';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'performance:slowOp',
+  level: LogLevel.INFO,
+});
 
 /**
  * 慢操作配置
@@ -339,7 +342,7 @@ export class SlowOperationDetector {
    * 显示慢操作报告
    */
   public displayReport(): void {
-    console.log(this.generateReport());
+    logger.info(this.generateReport());
   }
 
   /**

@@ -1,5 +1,8 @@
 import { httpLegacy as http } from "./httpClient";
 import type { WorkItem } from "../stores/workStore";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("workspaceService");
 
 /** 工作空间信息 */
 export interface WorkspaceInfo {
@@ -196,7 +199,7 @@ export const workspaceService = {
     try {
       return await http.get<WorkspaceInfo>(`/v1/workspaces/${id}`);
     } catch (err) {
-      console.warn("[workspaceService] 获取工作空间信息失败", err);
+      logger.warn("获取工作空间信息失败", err);
       return null;
     }
   },

@@ -3,6 +3,9 @@ import { workspaceService } from "../services/workspaceService";
 import type { WorkspaceListItem } from "../services/workspaceService";
 import { useWorkStore } from "./workStore";
 import type { WorkItem, WorkItemStatus } from "./workStore";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("workspaceStore");
 
 /** 执行阶段数据（与 chatStore.executionPhase 结构一致） */
 interface ExecutionPhaseData {
@@ -93,7 +96,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       list.sort((a, b) => b.updatedAt - a.updatedAt);
       set({ workspaces: list });
     } catch (err) {
-      console.warn("[workspaceStore] 获取工作空间列表失败", err);
+      logger.warn("获取工作空间列表失败", err);
       set({ workspaces: [] });
     }
   },
@@ -215,7 +218,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const mode = useWorkStore.getState().mode;
     // TODO: Phase 1-C 后端对接时，通过 SSE/WebSocket 发送模式切换事件
     // 当前骨架阶段仅记录日志
-    console.log(`[workspaceStore] Plan/Do 模式切换为: ${mode}`);
+    logger.info(`Plan/Do 模式切换为: ${mode}`);
   },
 
   /** 重置状态 */

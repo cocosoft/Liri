@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PromptCache 管理器
  *
  * 配置 Anthropic prompt prefix caching 策略，
@@ -12,7 +12,7 @@
 
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'ai:promptCache' });
 
 /** 缓存命中的统计 */
 export interface CacheStats {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 安全审计引擎
  * 统一编排所有审计维度，支持快速模式和深度模式
  */
@@ -18,7 +18,10 @@ import { buildAuditReport } from './AuditReport';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditEngine',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_DEEP_TIMEOUT_MS = 30000;
 

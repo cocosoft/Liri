@@ -6,7 +6,7 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelMetrics } from '../monitoring/otel/OTelMetrics.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'agent:telemetry', level: LogLevel.INFO });
 
 export interface TurnMetrics {
   turnNumber: number;

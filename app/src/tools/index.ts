@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,7 +29,7 @@ export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 import { feature } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:index', level: LogLevel.INFO });
 import { ToolManager, globalToolManager } from './core/ToolManager';
 import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';

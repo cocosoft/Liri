@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ConsolePlatform — 控制台平台适配器
  *
  * 将消息输出到 stdio，用于 CLI/REPL 模式。
@@ -16,7 +16,10 @@ import type {
 } from './PlatformAdapter';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:consolePlatform',
+  level: LogLevel.INFO,
+});
 
 export class ConsolePlatform implements PlatformAdapter {
   readonly platformName: string;

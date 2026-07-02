@@ -10,7 +10,10 @@ import { MessageServiceImpl } from '../chat/services/MessageService.js';
 import { ErrorHandler } from '../core/utils/ErrorHandler.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:enhancedSystem',
+  level: LogLevel.INFO,
+});
 import {
   PerformanceProfiler,
   createPerformanceProfiler,

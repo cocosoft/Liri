@@ -1,4 +1,4 @@
-﻿/**
+/**
  * StateMachineRegistry — 状态机实例注册中心
  *
  * 统一管理应用中长生命周期状态机实例的创建、查找、销毁。
@@ -17,7 +17,7 @@
 import { Logger } from '@modules/monitoring';
 import type { StateMachine } from './StateMachine';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'state:registry' });
 
 /**
  * 注册中心配置

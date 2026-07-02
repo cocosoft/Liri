@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,10 @@ import type { Skill } from '@modules/skills/types';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:clawHubConverter',
+  level: LogLevel.INFO,
+});
 
 /**
  * claw.json 清单文件结构

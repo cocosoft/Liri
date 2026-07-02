@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RemoteSkillHubAdapter
  * 配置驱动的远程技能市场适配器
  *
@@ -21,7 +21,10 @@ import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';
 import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill, ThirdPartySkillMeta } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:remoteHubAdapter',
+  level: LogLevel.INFO,
+});
 
 /** 目录下存储的元数据文件名 */
 const SKILL_MD_FILENAME = 'SKILL.md';

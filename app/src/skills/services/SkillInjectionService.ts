@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 技能注入服务
  * 三级缓存 + 条件激活
  * 管理技能的加载、缓存、条件匹配和系统提示注入
@@ -19,7 +19,7 @@ import {
 } from '../SkillConditionMatcher';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'skills:injection', level: LogLevel.INFO });
 
 /**
  * 技能注入配置

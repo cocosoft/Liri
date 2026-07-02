@@ -8,7 +8,10 @@ import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:managerUtils',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工具加载器类型

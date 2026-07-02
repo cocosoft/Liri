@@ -7,7 +7,10 @@ import type {
 } from './PruningStrategy';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:countPruner',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_MAX_MESSAGES = 500;
 

@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import { authService, type Permission } from "../../services/authService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:permission");
 
 interface UserPermission {
   id: string;
@@ -108,7 +111,7 @@ function PermissionPage() {
         })),
       );
     } catch (e) {
-      console.error("加载权限失败，使用默认配置", e);
+      logger.error("加载权限失败，使用默认配置", e);
       setSystemPermissions([
         {
           id: "network",

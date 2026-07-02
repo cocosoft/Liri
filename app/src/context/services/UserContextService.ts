@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 用户上下文收集服务
  * 提供用户级别的上下文信息收集功能
  * 参考CC源码: cc_code/backend/context.ts
@@ -11,7 +11,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { TTLCache } from '@modules/utils/cache';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context:userContext',
+  level: LogLevel.INFO,
+});
 
 /**
  * 用户上下文信息

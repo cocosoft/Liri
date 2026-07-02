@@ -9,7 +9,7 @@
 import { Logger } from '@modules/monitoring';
 import type { ScheduledTaskResult } from './ParallelAgentScheduler';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'agent:moa:resultAggregator' });
 
 /**
  * 聚合策略枚举

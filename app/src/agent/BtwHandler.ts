@@ -1,4 +1,4 @@
-﻿/**
+/**
  * BtwHandler — "顺便问"侧问处理器
  *
  * 对标 OpenClaw agents/btw.ts 的侧问机制：
@@ -19,7 +19,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import type { ChatMessage } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'agent:btwHandler', level: LogLevel.INFO });
 
 /**
  * BtwHandler 配置

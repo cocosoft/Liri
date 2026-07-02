@@ -1,4 +1,4 @@
-﻿//
+//
 import { GrowthBook } from '@growthbook/growthbook';
 import type {
   GrowthBookUserAttributes,
@@ -8,7 +8,10 @@ import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:growthbook:client',
+  level: LogLevel.INFO,
+});
 
 export type FeatureRefreshListener = () => void | Promise<void>;
 

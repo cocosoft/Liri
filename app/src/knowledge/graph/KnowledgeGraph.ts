@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,7 +41,10 @@ import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:graph:knowledgeGraph',
+  level: LogLevel.INFO,
+});
 
 /** kg_edges 表名 */
 export const KG_EDGES_TABLE = 'kg_edges';

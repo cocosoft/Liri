@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 请求重试机制
  * 为API调用提供自动重试能力，支持指数退避
  *
@@ -17,7 +17,7 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'utils:withRetry', level: LogLevel.INFO });
 
 export interface RetryConfig {
   maxRetries: number;

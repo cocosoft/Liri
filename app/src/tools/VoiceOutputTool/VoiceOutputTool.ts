@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 语音输出工具
  */
 
@@ -9,7 +9,10 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
 import voiceService from '@modules/services/voice';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:voiceOutput',
+  level: LogLevel.INFO,
+});
 
 const VOICE_OUTPUT_PARAMS = [
   {

@@ -3,8 +3,13 @@
  * 用于生成和展示性能报告
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { getPerformanceConfig } from './PerformanceConfig.js';
+
+const logger = new Logger({
+  module: 'performance:reporter',
+  level: LogLevel.INFO,
+});
 import { analyzePerformance } from './PerformanceAnalyzer.js';
 import { generateMemoryReport } from './MemoryManager.js';
 import { getSlowOperations } from '../bootstrap/state.js';
@@ -174,11 +179,10 @@ export class PerformanceReporter {
 
     try {
       await fs.writeFile(filePath, report, 'utf8');
-      logForDebugging(`性能报告已保存到 ${filePath}`);
+      logger.info(`性能报告已保存到 ${filePath}`);
     } catch (error) {
-      logForDebugging(
-        `保存性能报告失败: ${error instanceof Error ? error.message : String(error)}`,
-        { level: 'error' }
+      logger.error(
+        `保存性能报告失败: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -189,7 +193,7 @@ export class PerformanceReporter {
    */
   printReport(): void {
     const report = this.generateFormattedReport();
-    console.log(report);
+    logger.info(report);
   }
 
   /**

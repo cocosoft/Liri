@@ -294,8 +294,8 @@ export class MonitoringService {
           this.addMetric('system.load.5m', loadAvg[1]);
           this.addMetric('system.load.15m', loadAvg[2]);
         } catch (error) {
-          // 忽略错误
-          console.error('获取系统负载失败:', error);
+          // @ignore-catch: 非关键监控指标收集，系统负载获取失败不影响主流程
+          logger.error('获取系统负载失败', error);
         }
       }
 
@@ -445,8 +445,8 @@ export class MonitoringService {
         // 解析输出（暂未实现）
       }
     } catch (error) {
-      // 忽略错误
-      console.error('执行失败:', error);
+      // @ignore-catch: 非关键磁盘信息收集，仅 Unix 系统可用，获取失败不影响主流程
+      logger.error('磁盘信息获取失败', error);
     }
 
     return {
@@ -594,7 +594,7 @@ export class MonitoringService {
    * 显示监控报告
    */
   displayReport(): void {
-    console.log(this.generateReport());
+    logger.info(this.generateReport());
   }
 }
 

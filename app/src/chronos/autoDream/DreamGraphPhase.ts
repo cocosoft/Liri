@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -44,7 +44,10 @@ import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 import { SchemaLoader } from '@modules/knowledge/schema/SchemaLoader';
 import { DomainManager } from '@modules/knowledge/domain/DomainManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:autoDream:dreamGraphPhase',
+  level: LogLevel.INFO,
+});
 
 /** [[link]] 双链正则 */
 const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;

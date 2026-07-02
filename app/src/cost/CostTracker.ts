@@ -1,10 +1,10 @@
-﻿//
+//
 /**
  * 成本跟踪器
  * 用于跟踪和计算模型使用的成本，参考CC源码的实现
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { OTelAwareLogger } from '../monitoring/logs/OTelAwareLogger.js';
 import {
   calculateModelCost,
   formatCost,
@@ -14,8 +14,6 @@ import {
   resetUnknownModelFlag,
 } from './ModelPricing.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
-import { getOTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
-import type { OTelLoggerAdapter } from '../monitoring/otel/OTelLoggerAdapter.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 
@@ -58,6 +56,7 @@ export class CostTracker {
   private startTime: number = Date.now();
   private recordRepository: CostRecordRepository | null = null;
   private currentSessionId: string = '';
+  private otelLogger = new OTelAwareLogger({ module: 'cost:tracker' });
 
   /**
    * 设置成本记录存储库
@@ -77,13 +76,6 @@ export class CostTracker {
    */
   setSessionId(sessionId: string): void {
     this.currentSessionId = sessionId;
-  }
-
-  /**
-   * 获取 OTelLoggerAdapter 实例（未初始化时返回 null）
-   */
-  private getOtelLogger(): OTelLoggerAdapter | null {
-    return getOTelLoggerAdapter();
   }
 
   /**
@@ -157,31 +149,19 @@ export class CostTracker {
     };
     globalEventBus.publish(SystemEvents.COST_RECORDED, eventData);
 
-    logForDebugging(`添加成本: ${formatCost(cost)} (${canonicalModelName})`, {
+    // 输出 OTel 上下文感知的结构化日志（自动注入 traceId/spanId）
+    const level = cost === 0 ? 'warn' : 'info';
+    this.otelLogger[level]('成本累加', {
+      modelName: canonicalModelName,
+      costUSD: cost,
+      totalCostUSD: this.totalCostUSD,
       inputTokens,
       outputTokens,
       cacheReadTokens,
       cacheCreationTokens,
-      webSearchRequests,
+      hasUnknownPricing: hasUnknownModel(),
       isFastMode,
     });
-
-    // 输出 OTel 结构化日志（debug 级别，默认不可见）
-    const otelLogger = this.getOtelLogger();
-    if (otelLogger) {
-      const level: 'debug' | 'warn' = cost === 0 ? 'warn' : 'debug';
-      otelLogger[level]('成本累加', {
-        modelName: canonicalModelName,
-        costUSD: cost,
-        totalCostUSD: this.totalCostUSD,
-        inputTokens,
-        outputTokens,
-        cacheReadTokens,
-        cacheCreationTokens,
-        hasUnknownPricing: hasUnknownModel(),
-        isFastMode,
-      });
-    }
 
     return cost;
   }
@@ -212,15 +192,10 @@ export class CostTracker {
         sessionId: this.currentSessionId || undefined,
       });
     } catch (error) {
-      logForDebugging('持久化成本记录失败', { error });
-
-      const otelLogger = this.getOtelLogger();
-      if (otelLogger) {
-        otelLogger.warn('成本持久化失败', {
-          error: error instanceof Error ? error.message : String(error),
-          totalCostUSD: this.totalCostUSD,
-        });
-      }
+      this.otelLogger.warn('成本持久化失败', {
+        error: error instanceof Error ? error.message : String(error),
+        totalCostUSD: this.totalCostUSD,
+      });
     }
   }
 
@@ -335,12 +310,7 @@ export class CostTracker {
     this.modelUsage.clear();
     this.startTime = Date.now();
     resetUnknownModelFlag();
-    logForDebugging('成本跟踪已重置');
-
-    const otelLogger = this.getOtelLogger();
-    if (otelLogger) {
-      otelLogger.info('成本跟踪已重置');
-    }
+    this.otelLogger.info('成本跟踪已重置');
   }
 
   /**

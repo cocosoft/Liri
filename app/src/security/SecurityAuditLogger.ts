@@ -19,7 +19,10 @@ import { homedir, tmpdir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditLogger',
+  level: LogLevel.INFO,
+});
 
 /** 会话上下文信息 */
 export interface AuditSessionContext {

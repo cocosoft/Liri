@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 帮助插件
  * 提供系统帮助和命令说明
  */
@@ -7,7 +7,10 @@ import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:bundled:helpPlugin',
+  level: LogLevel.INFO,
+});
 
 export const HelpPluginMetadata: PluginMetadata = {
   id: 'help',

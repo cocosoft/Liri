@@ -8,7 +8,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Logger } from '../../monitoring/logs/Logger';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'security:scanner' });
 
 /**
  * 安全漏洞类型

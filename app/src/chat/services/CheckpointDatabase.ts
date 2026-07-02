@@ -1,4 +1,4 @@
-﻿import { join } from 'path';
+import { join } from 'path';
 import { Database } from 'sqlite3';
 import type { SessionCheckpoint } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
@@ -7,7 +7,7 @@ import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'chat:checkpoint' });
 
 export class CheckpointDatabase implements CheckpointStorage {
   private db: Database | null = null;

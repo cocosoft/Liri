@@ -1,7 +1,10 @@
-﻿import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'node:events';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:event-driven:cronEventTrigger',
+  level: LogLevel.INFO,
+});
 
 export type TriggerEvent =
   | 'task.completed'

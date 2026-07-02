@@ -25,13 +25,11 @@
  * 提供 FAL.ai 的图像生成能力，支持 FLUX、Z-Image、Ideogram、Recraft 等多款模型。
  * 纯生图 Provider，chat/chatStream 方法抛 NOT_SUPPORTED。
  *
- * 参照：hermes/hermes/tools/image_generation_tool.py FAL_MODELS
  */
 
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
+import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
-  ChatMessage,
-  ChatResponse,
   ChatOptions,
   ThinkingProviderChunk,
   ProviderConfig,
@@ -125,21 +123,21 @@ export class FALProvider extends BaseAIProvider {
   ): Promise<ChatResponse> {
     throw new AppError(
       'FAL.ai 仅支持图像生成，不支持文本对话',
-      'NOT_SUPPORTED',
-      ErrorCategory.CONFIGURATION,
-      ErrorSeverity.MEDIUM
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'NOT_SUPPORTED'
     );
   }
 
-  async chatStream(
+  async *chatStream(
     _messages: ChatMessage[],
     _options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     throw new AppError(
       'FAL.ai 仅支持图像生成，不支持文本对话',
-      'NOT_SUPPORTED',
-      ErrorCategory.CONFIGURATION,
-      ErrorSeverity.MEDIUM
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'NOT_SUPPORTED'
     );
   }
 
@@ -147,11 +145,11 @@ export class FALProvider extends BaseAIProvider {
     return FAL_MODELS.map((m) => m.id);
   }
 
-  validateConfig(_config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(_config: ProviderConfig): ProviderValidationResult {
     return { valid: true, errors: [], warnings: [] };
   }
 
-  setApiKey(key: string): void {
+  override setApiKey(key: string): void {
     this.apiKey = key;
   }
 
@@ -304,13 +302,13 @@ export class FALProvider extends BaseAIProvider {
   }
 
   /** 解析 API Key（优先注入的 → 环境变量） */
-  private resolveApiKey(): string | null {
+  override resolveApiKey(): string | undefined {
     if (this.apiKey) return this.apiKey;
 
     for (const envKey of ['FAL_API_KEY', 'FAL_KEY']) {
       const val = process.env[envKey];
       if (val) return val;
     }
-    return null;
+    return undefined;
   }
 }

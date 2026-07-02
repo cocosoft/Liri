@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块迁移工具
  * 帮助将现有模块迁移到新的模块管理系统
  */
@@ -9,7 +9,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:moduleMigration',
+  level: LogLevel.INFO,
+});
 
 /**
  * 模块迁移分析结果

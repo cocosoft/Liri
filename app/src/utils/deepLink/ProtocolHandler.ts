@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 深度链接协议处理器
  *
  * 解析 claude-cli:// 或 pyapp:// URI 协议
@@ -14,7 +14,7 @@ import { launchInTerminal } from './TerminalLauncher';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'utils:deepLink', level: LogLevel.INFO });
 
 export const DEEP_LINK_PROTOCOL = 'pyapp';
 

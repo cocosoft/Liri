@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 配置管理服务
  * 实现基于GrowthBook的配置管理和配置热更新
@@ -8,7 +8,10 @@
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:service:configService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 配置项

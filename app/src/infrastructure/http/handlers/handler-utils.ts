@@ -39,7 +39,10 @@ import {
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'http:handlerUtils',
+  level: LogLevel.INFO,
+});
 
 // ── broadcastEvent DI ────────────────────────────────────────────
 

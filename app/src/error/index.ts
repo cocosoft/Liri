@@ -83,22 +83,22 @@ export * from './context';
 export { handleError } from './handleError';
 export type { HandleErrorOptions } from './handleError';
 
+import { Logger } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'error:system' });
+
 // 高级错误分析（预留）
 
 /**
  * 初始化错误处理系统
  */
 export function initializeErrorSystem(): void {
-  // 有意使用 console 避免与 monitoring 的循环依赖
-  // eslint-disable-next-line no-console
-  console.info('[ErrorSystem] 错误处理系统初始化完成');
+  logger.info('[ErrorSystem] 错误处理系统初始化完成');
 }
 
 /**
  * 关闭错误处理系统
  */
 export function shutdownErrorSystem(): void {
-  // 有意使用 console 避免与 monitoring 的循环依赖
-  // eslint-disable-next-line no-console
-  console.info('[ErrorSystem] 错误处理系统已关闭');
+  logger.info('[ErrorSystem] 错误处理系统已关闭');
 }

@@ -43,6 +43,7 @@
 
 import { configManager } from '@modules/config/ConfigManager';
 import type { ModelConfig } from '@modules/config/types';
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
@@ -306,6 +307,10 @@ export class ModelRouter {
         `ModelRouter: 已预加载 ${this.uuidToModelName.size} 条 UUID→模型名映射`
       );
     } catch (err) {
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'preloadUuidCache',
+      });
       logger.warning('ModelRouter: UUID 缓存预加载失败', {
         error: (err as Error).message,
       });
@@ -410,6 +415,7 @@ export class ModelRouter {
       }
     } catch (err) {
       // registry 不可用时，返回 modelKey 原值
+      handleError(err, { module: 'ai:modelRouter', action: 'resolveMapped' });
       logger.warning('ModelRouter: resolveMapped 失败，回退到原始模型名', {
         error: (err as Error).message,
       });
@@ -587,12 +593,27 @@ export class ModelRouter {
       }
 
       if (Object.keys(tasks).length > 0) {
-        this.setTasks(tasks as TaskModelConfig);
-        logger.info('ModelRouter: 自动发现完成，已填充任务分工', tasks);
+        // 合并而非覆盖：用户手动配置的任务优先保留，仅填充空位
+        const existing = this.readTasks();
+        const merged: Record<string, string> = { ...tasks };
+        for (const [key, val] of Object.entries(existing)) {
+          if (val) merged[key] = val;
+        }
+        this.setTasks(merged as TaskModelConfig);
+        logger.info('ModelRouter: 自动发现完成，已合并任务分工', {
+          discovered: Object.keys(tasks),
+          existing: Object.keys(existing).filter(
+            (k) => (existing as Record<string, string | undefined>)[k]
+          ),
+        });
       } else {
         logger.info('ModelRouter: 自动发现完成（无匹配模型）');
       }
     } catch (err) {
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'runAutoDiscover',
+      });
       logger.warn('ModelRouter: 自动发现异常', {
         error: (err as Error).message,
       });
@@ -647,6 +668,10 @@ export class ModelRouter {
         logger.info('ModelRouter: 已完成旧任务配置的 UUID 迁移');
       }
     } catch (err) {
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'migrateLegacyTaskConfig',
+      });
       logger.warning('ModelRouter: 旧任务配置 UUID 迁移失败，下次启动重试', {
         error: (err as Error).message,
       });
@@ -730,6 +755,10 @@ export class ModelRouter {
         }
       }
     } catch (err) {
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'validateTaskAssignment',
+      });
       logger.warning('ModelRouter: 任务分工校验异常', {
         error: (err as Error).message,
       });

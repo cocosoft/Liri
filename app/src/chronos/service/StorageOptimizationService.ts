@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 存储优化服务
  * 实现文件系统存储和缓存机制，优化数据库访问
  */
@@ -16,7 +16,10 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { resolveDataDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:service:storageOptimizationService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 缓存项

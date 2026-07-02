@@ -1,4 +1,4 @@
-﻿import {
+import {
   AIAgent,
   AgentConfig,
   AgentState,
@@ -12,7 +12,10 @@ import { AgentConfigManager } from './AgentConfigManager';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:managers:multiSourceAgentManager',
+  level: LogLevel.INFO,
+});
 
 interface AgentPoolConfig {
   minSize: number;

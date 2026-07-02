@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SandboxPolicy — 企业版沙箱策略
  *
  * 定义沙箱操作权限的細粒度策略规则。
@@ -7,7 +7,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:enterprise:sandbox:sandboxPolicy',
+  level: LogLevel.INFO,
+});
 
 /** 策略规则条件操作符 */
 export type ConditionOperator =

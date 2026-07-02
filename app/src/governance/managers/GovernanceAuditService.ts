@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 治理审计服务
  * 提供审计事件的持久化存储、查询和分析功能
@@ -16,7 +16,10 @@ import type {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'governance:managers:governanceAuditService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 审计事件

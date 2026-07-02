@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -44,7 +44,7 @@ import type {
   RepairResult,
 } from './types';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tools:repair' });
 
 /**
  * 工具调用修复管道

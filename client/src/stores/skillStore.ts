@@ -11,7 +11,7 @@ import {
 
 // ─── 技能市场筛选类型 ──────────────────────────────────
 
-type SourceFilter = "all" | "clawhub" | "local" | "plugin" | "mcp";
+type SourceFilter = string;
 
 // ─── 技能市场统计类型 ──────────────────────────────────
 
@@ -103,12 +103,39 @@ function computeStats(installed: InstalledSkill[]): SkillMarketStats {
 
 // ─── 内存中的 hasUpdate 追踪 ──────────────────────────
 
-const installedTimestamps: Map<string, number> = new Map();
+const INSTALLED_TIMESTAMPS_KEY = "pyapp_skill_installed_timestamps";
 const UPDATE_CHECK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Bug 6: 从 localStorage 加载已安装时间戳，避免重启后失效 */
+function loadTimestamps(): Map<string, number> {
+  try {
+    const raw = localStorage.getItem(INSTALLED_TIMESTAMPS_KEY);
+    if (raw) {
+      return new Map(JSON.parse(raw));
+    }
+  } catch {
+    // 解析失败则重新开始
+  }
+  return new Map();
+}
+
+function saveTimestamps(timestamps: Map<string, number>): void {
+  try {
+    localStorage.setItem(
+      INSTALLED_TIMESTAMPS_KEY,
+      JSON.stringify([...timestamps.entries()]),
+    );
+  } catch {
+    // localStorage 不可用时静默降级
+  }
+}
+
+const installedTimestamps = loadTimestamps();
 
 function checkHasUpdate(skill: InstalledSkill): boolean {
   if (!installedTimestamps.has(skill.meta.id)) {
     installedTimestamps.set(skill.meta.id, skill.installedAt);
+    saveTimestamps(installedTimestamps);
     return false;
   }
   return Date.now() - installedTimestamps.get(skill.meta.id)! > UPDATE_CHECK_MS;

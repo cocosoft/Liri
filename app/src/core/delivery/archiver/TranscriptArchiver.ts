@@ -1,4 +1,4 @@
-﻿import { readdir, stat, rename, mkdir } from 'fs/promises';
+import { readdir, stat, rename, mkdir } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { resolveDataDir } from '@modules/core';
 import { createGzip } from 'node:zlib';
@@ -6,7 +6,10 @@ import { createReadStream, createWriteStream, existsSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:delivery:archiver:transcriptArchiver',
+  level: LogLevel.INFO,
+});
 
 export interface ArchiveResult {
   archivedCount: number;

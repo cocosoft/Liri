@@ -1,10 +1,11 @@
-﻿/**
+/**
  * 退出处理模块
  * 处理CLI退出流程
  */
 
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('exit');
 
@@ -58,6 +59,7 @@ export class ExitHandler {
       process.exit(0);
     } catch (error) {
       console.error(chalk.red('✗'), `Error during exit: ${error}`);
+      await handleError(error, { module: 'cli:exit', action: 'exit' });
       process.exit(1);
     }
   }
@@ -75,6 +77,7 @@ export class ExitHandler {
       process.exit(0);
     } catch (error) {
       console.error(chalk.red('✗'), `Error during exit: ${error}`);
+      await handleError(error, { module: 'cli:exit', action: 'forceExit' });
       process.exit(1);
     }
   }
@@ -109,6 +112,11 @@ export class ExitHandler {
         await handler();
       } catch (error) {
         console.warn(chalk.yellow('⚠'), `Exit handler failed: ${error}`);
+        // @ignore-catch — 单个退出处理器的失败不应阻止其他处理器执行
+        await handleError(error, {
+          module: 'cli:exit',
+          action: 'handlerFailed',
+        });
       }
     }
   }

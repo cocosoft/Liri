@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 知识库健康检查器 (KnowledgeLinter)
  * 对标 CC/OpenClaw 文档检查实践，对知识库做 6 类诊断：
  *   A. 结构完整性 — frontmatter/title 必填字段
@@ -16,7 +16,10 @@ import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'knowledge:knowledgeLinter',
+  level: LogLevel.INFO,
+});
 
 export interface LintResult {
   /** 文档总数 */

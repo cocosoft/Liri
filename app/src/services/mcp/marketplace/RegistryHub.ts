@@ -1,4 +1,4 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   RegistryAdapter,
   RegistryType,
@@ -14,7 +14,10 @@ import { GitHubRegistryAdapter } from './adapters/GitHubRegistryAdapter';
 import { SmitheryRegistryAdapter } from './adapters/SmitheryRegistryAdapter';
 import { NPMRegistryAdapter } from './adapters/NPMRegistryAdapter';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:registryHub',
+  level: LogLevel.INFO,
+});
 
 export class RegistryHub {
   private adapters: Map<string, RegistryAdapter> = new Map();

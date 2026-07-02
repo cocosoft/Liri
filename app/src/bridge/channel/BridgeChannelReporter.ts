@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bridge-Channel 结果上报器
  *
  * 职责：Bridge 任务执行完成时，通过 Channel 向用户推送结果。
@@ -12,7 +12,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId } from '@modules/channels/types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:channel:bridgeChannelReporter',
+  level: LogLevel.INFO,
+});
 
 export type TaskReportStatus =
   | 'submitted'

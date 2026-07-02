@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Notebook管理
  */
 
@@ -17,7 +17,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'tools:notebook', level: LogLevel.INFO });
 
 /**
  * Notebook管理器

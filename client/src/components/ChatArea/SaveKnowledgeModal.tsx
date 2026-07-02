@@ -7,6 +7,9 @@
  * - 取消和保存按钮
  */
 import { useState } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:saveKnowledge");
 
 interface SaveKnowledgeModalProps {
   isDark: boolean;
@@ -30,7 +33,7 @@ function SaveKnowledgeModal({ isDark, initialTitle, onClose, onSave }: SaveKnowl
         onClose();
       }, 1500);
     } catch (err) {
-      console.warn("[SaveKnowledgeModal] 保存知识失败", err);
+      logger.warn("保存知识失败", err);
       setSaveStatus("error");
     }
   };

@@ -1,4 +1,4 @@
-﻿import { promises as fs } from 'fs';
+import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { Session } from '../models/Session';
@@ -11,7 +11,10 @@ import type {
 } from '../SessionStorage';
 import { resolveSessionsDir } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:fileStorage',
+  level: LogLevel.INFO,
+});
 
 /**
  * 文件系统存储实现

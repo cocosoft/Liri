@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AuthChain — 企业版认证链
  *
  * 采用责任链模式，支持多种认证方式按序尝试。
@@ -16,7 +16,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '../../ConfigManager.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'config:authChain', level: LogLevel.INFO });
 
 /** 认证来源 */
 export type AuthSource = 'api_key' | 'oauth' | 'saml' | 'ldap' | 'jwt' | 'mtls';

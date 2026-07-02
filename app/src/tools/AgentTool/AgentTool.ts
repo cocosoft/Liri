@@ -62,7 +62,7 @@ function getAllTools(): Tool[] {
   return _getAllTools();
 }
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tools:agentTool' });
 
 /**
  * AgentTool参数定义

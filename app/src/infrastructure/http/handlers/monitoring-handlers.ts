@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,7 +36,10 @@ import {
   getDiskInfoAsync,
 } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:monitoring-handlers',
+  level: LogLevel.INFO,
+});
 
 // ── 指标数据环形缓冲区 ────────────────────────────────────────────
 

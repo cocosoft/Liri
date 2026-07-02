@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 图片消毒策略
  * 对标 OpenClaw sanitize_image 功能：移除 EXIF 元数据、限制尺寸、检测风险内容
  * 使用内置模块实现，无第三方依赖
@@ -8,7 +8,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:imageSanitization',
+  level: LogLevel.INFO,
+});
 
 /**
  * 图片消毒结果

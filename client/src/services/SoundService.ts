@@ -11,6 +11,9 @@
  */
 
 import { useConfigStore } from "../stores/configStore";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("services:soundService");
 
 /** AudioContext 运行环境是否可用 */
 let audioAvailable = true;
@@ -40,7 +43,7 @@ function getContext(): AudioContext | null {
     }
     return audioCtx;
   } catch (e) {
-    console.warn("[SoundService] AudioContext 不可用，静默降级", e);
+    logger.warn("AudioContext 不可用，静默降级", e);
     audioAvailable = false;
     return null;
   }

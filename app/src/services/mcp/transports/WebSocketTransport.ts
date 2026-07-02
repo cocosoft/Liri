@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebSocket传输层
  * 基于WebSocket的传输方式
  */
@@ -9,7 +9,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:wsTransport',
+  level: LogLevel.INFO,
+});
 
 interface WebSocketTransportOptions {
   url: string;

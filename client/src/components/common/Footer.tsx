@@ -8,6 +8,9 @@ import {
 } from "../../services/monitorService";
 import { costService, type CostSummary } from "../../services/costService";
 import ModelSwitcher from "../modelAdmin/ModelSwitcher";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:footer");
 
 function Footer() {
   const { t } = useTranslation();
@@ -40,7 +43,7 @@ function Footer() {
         const data = await monitorService.getSummary();
         setSummary(data);
       } catch (err) {
-        console.error("[Footer] 获取监控摘要失败:", err);
+        logger.error("获取监控摘要失败:", err);
       }
     };
     fetchSummary();
@@ -54,7 +57,7 @@ function Footer() {
         const data = await costService.getCostSummary();
         setCostSummary(data);
       } catch (err) {
-        console.error("[Footer] 获取成本摘要失败:", err);
+        logger.error("获取成本摘要失败:", err);
       }
     };
     fetchCostSummary();

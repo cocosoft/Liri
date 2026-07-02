@@ -1,4 +1,4 @@
-﻿/**
+/**
  * memory-handlers.ts — 记忆系统 HTTP 处理器（从 LocalHTTPService 提取）
  */
 
@@ -15,7 +15,10 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:memory-handlers',
+  level: LogLevel.INFO,
+});
 
 // ---- Memory Manager Singleton ----
 

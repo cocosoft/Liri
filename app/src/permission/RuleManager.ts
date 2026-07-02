@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 规则管理器
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
@@ -17,7 +17,10 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:ruleManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 规则上下文接口

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 聊天历史
  */
 
@@ -7,7 +7,10 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:history:chatHistory',
+  level: LogLevel.INFO,
+});
 
 /**
  * 聊天历史类

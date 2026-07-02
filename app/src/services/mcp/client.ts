@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP客户端管理
  * 负责服务器连接、工具获取、错误处理等
  */
@@ -7,7 +7,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:client',
+  level: LogLevel.INFO,
+});
 import type {
   MCPServerConnection,
   ScopedMcpServerConfig,

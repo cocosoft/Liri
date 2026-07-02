@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * Agent权限同步管理器
  * 负责在团队中同步和传播权限设置
@@ -7,7 +7,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:utils:permissionSyncManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 权限更新类型

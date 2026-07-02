@@ -39,7 +39,10 @@ import { SenseVoiceSTTProvider } from './senseVoiceSTTProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'voice:sttRegistry',
+  level: LogLevel.INFO,
+});
 
 /**
  * 信号量队列统计

@@ -10,12 +10,16 @@ import ConfirmDialog from "../common/ConfirmDialog";
 
 /** 来源过滤选项 */
 const SOURCE_OPTIONS: {
-  value: "all" | "clawhub" | "local" | "plugin" | "mcp";
+  value: string;
   label: string;
   dotColor: string;
 }[] = [
   { value: "all", label: "全部", dotColor: "" },
   { value: "clawhub", label: "ClawHub", dotColor: "bg-green-500" },
+  { value: "github", label: "GitHub", dotColor: "bg-gray-500" },
+  { value: "hermes", label: "Hermes", dotColor: "bg-blue-500" },
+  { value: "gitee", label: "Gitee", dotColor: "bg-red-500" },
+  { value: "skillhub", label: "SkillHub", dotColor: "bg-purple-500" },
   { value: "local", label: "本地", dotColor: "bg-blue-500" },
   { value: "plugin", label: "插件", dotColor: "bg-purple-500" },
   { value: "mcp", label: "MCP", dotColor: "bg-cyan-500" },
@@ -78,19 +82,27 @@ function SkillMarketPage() {
   const [showAddSource, setShowAddSource] = useState(false);
   const [newSourceName, setNewSourceName] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
+  const isMounted = useRef(false);
+  const [isLoadingHome, setIsLoadingHome] = useState(true);
 
   // ── 首次加载 ──────────────────────────────────────
 
   useEffect(() => {
-    loadInstalled();
-    loadRecommended();
-    loadCategories();
-    loadSources();
+    Promise.all([loadInstalled(), loadRecommended(), loadCategories(), loadSources()]).finally(() => {
+      setIsLoadingHome(false);
+    });
   }, [loadInstalled, loadRecommended, loadCategories, loadSources]);
+
+  useEffect(() => {
+    isMounted.current = true;
+  }, []);
 
   // ── 搜索防抖 ──────────────────────────────────────
 
   useEffect(() => {
+    // Bug 4: 跳过初始挂载时的空搜索
+    if (!isMounted.current) return;
+
     const timer = setTimeout(() => {
       setSearchQuery(localSearch);
       if (localSearch.trim()) {
@@ -257,6 +269,13 @@ function SkillMarketPage() {
           return;
         }
 
+        // Bug 9: 导入前检查重名
+        const existingNames = new Set(installed.map((s) => s.meta.name));
+        const duplicates = skills.filter((s) => existingNames.has(s.name));
+        if (duplicates.length > 0) {
+          addToast("warn", `以下技能已存在，将被覆盖: ${duplicates.map((d) => d.name).join(", ")}`);
+        }
+
         await skillService.importSkills(skills);
         await loadInstalled();
         addToast("success", t("skill.importSuccess", { count: skills.length }));
@@ -331,6 +350,13 @@ function SkillMarketPage() {
     (safePage - 1) * pageSize,
     safePage * pageSize,
   );
+
+  // Bug 11: 当 filteredResults 变化导致总页数减少时，同步 page 到 safePage
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(safePage);
+    }
+  }, [filteredResults.length, pageSize, page, totalPages, safePage, setPage]);
 
   // ── 渲染搜索结果行 ────────────────────────────────
 
@@ -883,6 +909,47 @@ function SkillMarketPage() {
         ) : (
           // ── 首页发现区 ──
           <div className="space-y-6">
+            {/* Bug 10: 骨架屏加载态 */}
+            {isLoadingHome ? (
+              <>
+                <div>
+                  <div className={`h-4 w-24 rounded mb-3 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className={`p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-8 h-8 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          <div className="flex-1 space-y-1.5">
+                            <div className={`h-3 w-24 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                            <div className={`h-2.5 w-16 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 mb-3">
+                          <div className={`h-2.5 w-full rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          <div className={`h-2.5 w-3/4 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                        </div>
+                        <div className={`h-7 w-full rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className={`h-4 w-24 rounded mb-3 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                  <div className={`rounded-lg border divide-y ${isDark ? "bg-gray-800 border-gray-700 divide-gray-700" : "bg-white border-gray-200 divide-gray-200"}`}>
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="px-4 py-3 flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex-shrink-0 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                        <div className="flex-1 space-y-1.5">
+                          <div className={`h-3 w-32 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          <div className={`h-2.5 w-20 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
             {/* 推荐技能 */}
             {recommended.length > 0 && (
               <div>
@@ -1117,6 +1184,8 @@ function SkillMarketPage() {
                 </p>
               </div>
             )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1151,7 +1220,7 @@ function SkillMarketPage() {
       <ConfirmDialog
         open={uninstallTarget !== null}
         title="卸载技能"
-        message={`确定要卸载此技能吗？此操作不可撤销。`}
+        message={`确定要卸载技能「${uninstallTarget ? (installed.find((s) => s.meta.id === uninstallTarget)?.meta.name ?? uninstallTarget) : ""}」吗？此操作不可撤销。`}
         confirmText="卸载"
         variant="danger"
         onConfirm={handleUninstall}

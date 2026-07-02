@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GitHub Release 信息获取器
  * 从 GitHub Releases API 获取最新版本信息
  */
@@ -23,7 +23,10 @@ export interface UpdateInfo {
   releaseChannel?: UpdateChannel;
 }
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cli:updater:gitHubReleaseFetcher',
+  level: LogLevel.INFO,
+});
 
 /**
  * GitHub API 返回的 Release 结构

@@ -14,7 +14,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { TTSSpeakOptions } from './ttsProvider';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:ttsConfig', level: LogLevel.INFO });
 
 /**
  * TTS 全局默认配置

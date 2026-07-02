@@ -27,7 +27,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:toolCatalog',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工具 Profile 类型

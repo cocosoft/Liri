@@ -193,10 +193,10 @@ export class ImageGenerateTool extends BaseTool {
 
         if (imageProviders.length === 0) {
           throw new AppError(
-            'NO_IMAGE_PROVIDER',
             '未找到图像生成 Provider，请先在 Provider 管理中注册（如 OpenAI DALL-E、Stability AI 等）',
             ErrorCategory.CONFIGURATION,
-            ErrorSeverity.HIGH
+            ErrorSeverity.HIGH,
+            'NO_IMAGE_PROVIDER'
           );
         }
 
@@ -275,22 +275,17 @@ export class ImageGenerateTool extends BaseTool {
 
     const otel = getOTelTracing();
     const span = otel.startSpan('image.generate', {
-      attributes: {
-        'tool.name': this.name,
-        'image.prompt_length': params.prompt?.length ?? 0,
-        'image.count': params.n ?? 1,
-        'image.size': params.size ?? '1024x1024',
-        'image.provider': params.provider ?? 'auto',
-      },
+      'tool.name': this.name,
+      'image.prompt_length': params.prompt?.length ?? 0,
+      'image.count': params.n ?? 1,
+      'image.size': params.size ?? '1024x1024',
+      'image.provider': params.provider ?? 'auto',
     });
 
     try {
       if (!params.prompt || typeof params.prompt !== 'string') {
         logger.warn('ImageGenerateTool · 缺少提示词');
-        otel.endSpan(span, {
-          status: SpanStatusCode.ERROR,
-          message: 'missing prompt',
-        });
+        otel.endSpan(span, SpanStatusCode.ERROR, 'missing prompt');
         return {
           success: false,
           error: 'prompt is required and must be a string',
@@ -300,16 +295,13 @@ export class ImageGenerateTool extends BaseTool {
       const count = params.n ?? 1;
       if (count < 1 || count > 4) {
         logger.warn('ImageGenerateTool · 数量超出范围', { n: count });
-        otel.endSpan(span, {
-          status: SpanStatusCode.ERROR,
-          message: 'invalid count',
-        });
+        otel.endSpan(span, SpanStatusCode.ERROR, 'invalid count');
         return { success: false, error: 'n must be between 1 and 4' };
       }
 
       // P3-1: 分辨率自动推断（参照 openclaw）
       // 如果有输入参考图且未指定 resolution，自动从图片尺寸推断
-      if (!params.resolution && (params as any).inputImage) {
+      if (!(params as any).resolution && (params as any).inputImage) {
         try {
           const { imageFormatDetector } =
             await import('../../media/image/ImageFormatDetector');
@@ -339,24 +331,27 @@ export class ImageGenerateTool extends BaseTool {
           provider: params.provider,
         });
         const result = await this.executeWithSpecificProvider(params);
-        otel.endSpan(span, {
-          status: result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR,
-        });
+        otel.endSpan(
+          span,
+          result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
+        );
         return result;
       }
 
       // 新方式：走 fallback 链
       logger.info('ImageGenerateTool · 走 Router 模式');
       const result = await this.executeWithRouter(params);
-      otel.endSpan(span, {
-        status: result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR,
-      });
+      otel.endSpan(
+        span,
+        result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
+      );
       return result;
     } catch (error) {
-      otel.endSpan(span, {
-        status: SpanStatusCode.ERROR,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      otel.endSpan(
+        span,
+        SpanStatusCode.ERROR,
+        error instanceof Error ? error.message : String(error)
+      );
       logger.error('ImageGenerateTool · execute() 异常', {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,

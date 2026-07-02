@@ -28,6 +28,7 @@
 
 import type http from 'node:http';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelCapability } from './models/types';
@@ -59,6 +60,7 @@ async function parseBody(req: http.IncomingMessage): Promise<unknown> {
         const raw = Buffer.concat(chunks).toString('utf-8');
         resolve(raw ? JSON.parse(raw) : {});
       } catch (err) {
+        // @ignore-catch: 请求 body JSON 解析失败，非关键操作
         logger.warning('请求 body JSON 解析失败', {
           error: (err as Error).message,
         });
@@ -105,7 +107,10 @@ async function handleListProviders(
     const providers = await providerManager.listProviders();
     sendJson(res, { data: providers });
   } catch (err) {
-    logger.error('获取供应商列表失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listProviders',
+    });
     sendError(res, `获取供应商列表失败: ${(err as Error).message}`, 500);
   }
 }
@@ -126,7 +131,10 @@ async function handleGetProvider(
     }
     sendJson(res, { data: p });
   } catch (err) {
-    logger.error('获取供应商失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getProvider',
+    });
     sendError(res, `获取供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -158,7 +166,10 @@ async function handleAddProvider(
 
     sendJson(res, { data: created }, 201);
   } catch (err) {
-    logger.error('添加供应商失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'createProvider',
+    });
     sendError(res, `添加供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -186,7 +197,10 @@ async function handleUpdateProvider(
 
     sendJson(res, { data: updated });
   } catch (err) {
-    logger.error('更新供应商失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'updateProvider',
+    });
     sendError(res, `更新供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -212,7 +226,10 @@ async function handleDeleteProvider(
     }
     sendJson(res, { success: true });
   } catch (err) {
-    logger.error('删除供应商失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'deleteProvider',
+    });
     sendError(res, `删除供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -245,7 +262,10 @@ async function handleToggleProvider(
 
     sendJson(res, { data: updated });
   } catch (err) {
-    logger.error('切换供应商状态失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'toggleProvider',
+    });
     sendError(res, `切换供应商状态失败: ${(err as Error).message}`, 500);
   }
 }
@@ -267,7 +287,10 @@ async function handleProviderStats(
       },
     });
   } catch (err) {
-    logger.error('获取统计失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getProviderStats',
+    });
     sendError(res, `获取统计失败: ${(err as Error).message}`, 500);
   }
 }
@@ -294,7 +317,10 @@ async function handleProviderTest(
     const results = await testEndpoints([p.baseUrl]);
     sendJson(res, { data: { provider: p.name, results } });
   } catch (err) {
-    logger.error('测速失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'testProvider',
+    });
     sendError(res, `测速失败: ${(err as Error).message}`, 500);
   }
 }
@@ -346,7 +372,10 @@ async function handleProviderModels(
     );
     sendJson(res, result);
   } catch (err) {
-    logger.error('获取模型列表失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'fetchProviderModels',
+    });
     sendError(res, `获取模型列表失败: ${(err as Error).message}`, 500);
   }
 }
@@ -374,7 +403,10 @@ async function handleUsageSummary(
     );
     sendJson(res, { data: summary });
   } catch (err) {
-    logger.error('获取用量概览失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getUsageSummary',
+    });
     sendError(res, `获取用量概览失败: ${(err as Error).message}`, 500);
   }
 }
@@ -398,7 +430,10 @@ async function handleUsageTrend(
     );
     sendJson(res, { data: trends });
   } catch (err) {
-    logger.error('获取每日趋势失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getUsageTrend',
+    });
     sendError(res, `获取每日趋势失败: ${(err as Error).message}`, 500);
   }
 }
@@ -420,7 +455,10 @@ async function handleUsageModelStats(
     );
     sendJson(res, { data: stats });
   } catch (err) {
-    logger.error('获取模型统计失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getUsageModelStats',
+    });
     sendError(res, `获取模型统计失败: ${(err as Error).message}`, 500);
   }
 }
@@ -442,7 +480,10 @@ async function handleUsageProviderStats(
     );
     sendJson(res, { data: stats });
   } catch (err) {
-    logger.error('获取供应商统计失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getUsageProviderStats',
+    });
     sendError(res, `获取供应商统计失败: ${(err as Error).message}`, 500);
   }
 }
@@ -467,7 +508,10 @@ async function handleUsageLogs(
     );
     sendJson(res, { data: result });
   } catch (err) {
-    logger.error('获取请求日志失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getUsageLogs',
+    });
     sendError(res, `获取请求日志失败: ${(err as Error).message}`, 500);
   }
 }
@@ -573,7 +617,7 @@ async function handleBatchBalances(
               });
             }
           } catch (err) {
-            // 单个查询失败不影响其他，记录日志
+            // @ignore-catch: 单个供应商余额查询失败不影响其他
             logger.warning('单个供应商余额查询失败', {
               providerId: p.id,
               error: (err as Error).message,
@@ -589,11 +633,15 @@ async function handleBatchBalances(
     // 后台执行刷新
     if (refreshPromises.length > 0) {
       Promise.all(refreshPromises).catch((er: unknown) => {
+        // @ignore-catch: 非关键缓存刷新 // @ignore-catch: 非关键后台余额刷新
         logger.warning('批量余额刷新失败', { error: (er as Error).message });
       });
     }
   } catch (err) {
-    logger.error('批量余额查询失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getBatchBalances',
+    });
     sendError(res, `批量余额查询失败: ${(err as Error).message}`, 500);
   }
 }
@@ -635,7 +683,10 @@ async function handleBalanceQuery(
     const result = await checkBalance(baseUrl, apiKey);
     sendJson(res, { data: result });
   } catch (err) {
-    logger.error('余额查询失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'queryBalance',
+    });
     sendError(res, `余额查询失败: ${(err as Error).message}`, 500);
   }
 }
@@ -652,7 +703,10 @@ async function handleListPricing(
     const pricing = await modelPricingService.getAllPricing();
     sendJson(res, { data: pricing });
   } catch (err) {
-    logger.error('获取定价列表失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listPricing',
+    });
     sendError(res, `获取定价列表失败: ${(err as Error).message}`, 500);
   }
 }
@@ -682,13 +736,17 @@ async function handleUpsertPricing(
     ModelRegistry.getInstance()
       .refreshDbPricing()
       .catch((er: unknown) => {
+        // @ignore-catch: 非关键缓存刷新
         logger.warning('refreshDbPricing 失败', {
           error: (er as Error).message,
         });
       });
     sendJson(res, { data: record }, 201);
   } catch (err) {
-    logger.error('更新定价失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'upsertPricing',
+    });
     sendError(res, `更新定价失败: ${(err as Error).message}`, 500);
   }
 }
@@ -708,13 +766,17 @@ async function handleDeletePricing(
     ModelRegistry.getInstance()
       .refreshDbPricing()
       .catch((er: unknown) => {
+        // @ignore-catch: 非关键缓存刷新
         logger.warning('refreshDbPricing 失败', {
           error: (er as Error).message,
         });
       });
     sendJson(res, { success: ok });
   } catch (err) {
-    logger.error('删除定价失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'deletePricing',
+    });
     sendError(res, `删除定价失败: ${(err as Error).message}`, 500);
   }
 }
@@ -763,6 +825,7 @@ async function handleCreateCustomModel(
     });
     // 刷新 ModelRegistry 定价缓存
     registry.refreshDbPricing().catch((er: unknown) => {
+      // @ignore-catch: 非关键缓存刷新
       logger.warning('refreshDbPricing 失败(registry)', {
         error: (er as Error).message,
       });
@@ -771,6 +834,7 @@ async function handleCreateCustomModel(
     // 刷新 ModelRouter UUID 缓存
     const { modelRouter } = await import('./modelRouter.js');
     modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      // @ignore-catch: 非关键缓存刷新
       logger.warning('invalidateUuidCache 失败', {
         error: (er as Error).message,
       });
@@ -778,7 +842,10 @@ async function handleCreateCustomModel(
 
     sendJson(res, { data: record }, 201);
   } catch (err) {
-    logger.error('创建模型失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'createModel',
+    });
     sendError(res, `创建模型失败: ${(err as Error).message}`, 500);
   }
 }
@@ -821,6 +888,7 @@ async function handleBulkImportModels(
     // 刷新 ModelRegistry 定价缓存
     const registry = ModelRegistry.getInstance();
     registry.refreshDbPricing().catch((er: unknown) => {
+      // @ignore-catch: 非关键缓存刷新
       logger.warning('refreshDbPricing 失败(registry)', {
         error: (er as Error).message,
       });
@@ -829,6 +897,7 @@ async function handleBulkImportModels(
     // 刷新 ModelRouter UUID 缓存
     const { modelRouter } = await import('./modelRouter.js');
     modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      // @ignore-catch: 非关键缓存刷新
       logger.warning('invalidateUuidCache 失败', {
         error: (er as Error).message,
       });
@@ -836,7 +905,10 @@ async function handleBulkImportModels(
 
     sendJson(res, { data: { imported } }, 201);
   } catch (err) {
-    logger.error('批量导入失败', { error: String(err) });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'bulkImportModels',
+    });
     sendError(res, `批量导入失败: ${(err as Error).message}`, 500);
   }
 }
@@ -859,6 +931,7 @@ async function handleToggleModel(
     ModelRegistry.getInstance()
       .refreshDbPricing()
       .catch((er: unknown) => {
+        // @ignore-catch: 非关键缓存刷新
         logger.warning('refreshDbPricing 失败', {
           error: (er as Error).message,
         });
@@ -866,6 +939,7 @@ async function handleToggleModel(
     // 刷新 ModelRouter UUID 缓存
     const { modelRouter } = await import('./modelRouter.js');
     modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      // @ignore-catch: 非关键缓存刷新
       logger.warning('invalidateUuidCache 失败', {
         error: (er as Error).message,
       });
@@ -874,7 +948,10 @@ async function handleToggleModel(
       data: { id, modelId: result.modelId, enabled: result.enabled },
     });
   } catch (err) {
-    logger.error('切换模型状态失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'toggleModel',
+    });
     sendError(res, `切换模型状态失败: ${(err as Error).message}`, 500);
   }
 }
@@ -897,6 +974,7 @@ async function handleDeleteModel(
     ModelRegistry.getInstance()
       .refreshDbPricing()
       .catch((er: unknown) => {
+        // @ignore-catch: 非关键缓存刷新
         logger.warning('refreshDbPricing 失败', {
           error: (er as Error).message,
         });
@@ -904,13 +982,17 @@ async function handleDeleteModel(
     // 刷新 ModelRouter UUID 缓存
     const { modelRouter } = await import('./modelRouter.js');
     modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      // @ignore-catch: 非关键缓存刷新
       logger.warning('invalidateUuidCache 失败', {
         error: (er as Error).message,
       });
     });
     sendJson(res, { success: true });
   } catch (err) {
-    logger.error('删除模型失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'deleteModel',
+    });
     sendError(res, `删除模型失败: ${(err as Error).message}`, 500);
   }
 }
@@ -928,7 +1010,10 @@ async function handleListAppConfigs(
     const configs = await appModelConfigService.getAllConfigs();
     sendJson(res, { data: configs });
   } catch (err) {
-    logger.error('获取应用配置失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listAppConfigs',
+    });
     sendError(res, `获取应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -950,7 +1035,10 @@ async function handleGetAppConfig(
     }
     sendJson(res, { data: config });
   } catch (err) {
-    logger.error('获取应用配置失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getAppConfig',
+    });
     sendError(res, `获取应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -974,7 +1062,10 @@ async function handleSetAppConfig(
     });
     sendJson(res, { data: config });
   } catch (err) {
-    logger.error('设置应用配置失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'setAppConfig',
+    });
     sendError(res, `设置应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -992,7 +1083,10 @@ async function handleDeleteAppConfig(
     await appModelConfigService.deleteConfig(appType);
     sendJson(res, { success: true });
   } catch (err) {
-    logger.error('删除应用配置失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'deleteAppConfig',
+    });
     sendError(res, `删除应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1122,7 +1216,10 @@ async function handleListModels(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ object: 'list', data: models }));
   } catch (err) {
-    logger.error('获取模型列表失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listModels',
+    });
     otel.endSpan(span, SpanStatusCode.ERROR, (err as Error).message);
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
@@ -1205,7 +1302,10 @@ async function handleSystemSkillFileContent(
     });
     res.end(content);
   } catch (err) {
-    logger.error('获取技能文件内容失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getSkillFileContent',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: { message: '读取文件失败' } }));
   }
@@ -1249,7 +1349,10 @@ async function handleTestModel(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, response: result }));
   } catch (err) {
-    logger.error('测试模型失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'testModel',
+    });
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: false, error: (err as Error).message }));
   }
@@ -1306,7 +1409,10 @@ async function handleGetCurrentModel(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(response));
   } catch (err) {
-    logger.error('获取当前模型信息失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getCurrentModel',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1348,7 +1454,10 @@ async function handleSwitchModel(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    logger.error('切换模型失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'switchModel',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1367,7 +1476,10 @@ async function handleGetTaskDefinitions(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(TASK_DEFINITIONS));
   } catch (err) {
-    logger.error('获取任务定义失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getTaskDefinitions',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1393,7 +1505,10 @@ async function handleGetTasks(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ tasks, modelNames }));
   } catch (err) {
-    logger.error('获取任务分工失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getTasks',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1414,7 +1529,10 @@ async function handleSaveTasks(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    logger.error('保存任务分工失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'updateTasks',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1434,7 +1552,10 @@ async function handleValidateTasks(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ valid: issues.length === 0, issues }));
   } catch (err) {
-    logger.error('校验任务分工失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'validateTasks',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1457,7 +1578,10 @@ async function handleSetDefaultModel(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    logger.error('设置默认模型失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'setDefaultModel',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1475,7 +1599,10 @@ async function handleListPresets(
     const grouped = getPresetsByCategory();
     sendJson(res, { data: grouped });
   } catch (err) {
-    logger.error('获取预设失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listPresets',
+    });
     sendError(res, `获取预设失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1494,7 +1621,7 @@ async function handleGetSoul(
     const content = readSoulMd();
     sendJson(res, { data: { content } });
   } catch (err) {
-    logger.error('读取人格定义失败', { error: (err as Error).message });
+    await handleError(err, { module: 'ai:modelManagement', action: 'getSoul' });
     sendError(res, `读取人格定义失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1516,7 +1643,7 @@ async function handlePutSoul(
     writeSoulMd(content);
     sendJson(res, { data: { success: true } });
   } catch (err) {
-    logger.error('保存人格定义失败', { error: (err as Error).message });
+    await handleError(err, { module: 'ai:modelManagement', action: 'putSoul' });
     sendError(res, `保存人格定义失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1533,7 +1660,7 @@ async function handleGetUser(
     const content = readUserMd();
     sendJson(res, { data: { content } });
   } catch (err) {
-    logger.error('读取用户身份失败', { error: (err as Error).message });
+    await handleError(err, { module: 'ai:modelManagement', action: 'getUser' });
     sendError(res, `读取用户身份失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1555,7 +1682,7 @@ async function handlePutUser(
     writeUserMd(content);
     sendJson(res, { data: { success: true } });
   } catch (err) {
-    logger.error('保存用户身份失败', { error: (err as Error).message });
+    await handleError(err, { module: 'ai:modelManagement', action: 'putUser' });
     sendError(res, `保存用户身份失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1750,8 +1877,9 @@ export async function tryHandleRoute(
       try {
         await route.handler(req, res, match);
       } catch (err) {
-        logger.error(`路由处理错误: ${method} ${url}`, {
-          error: (err as Error).message,
+        await handleError(err, {
+          module: 'ai:modelManagement',
+          action: 'routeHandler',
         });
         if (!res.headersSent) {
           sendError(

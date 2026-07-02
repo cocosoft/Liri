@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ApprovalWorkflow — 企业版审批工作流
  *
  * 支持多级审批、自动升级、SLA 监控、审批策略配置。
@@ -10,7 +10,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:enterprise:audit:approvalWorkflow',
+  level: LogLevel.INFO,
+});
 
 /** 审批状态 */
 export type ApprovalStatus =

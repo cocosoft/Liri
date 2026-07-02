@@ -1,5 +1,13 @@
 // Global type declarations for Ink
 
+declare module 'bun:test' {
+  export function test(name: string, fn: () => void | Promise<void>): void;
+  export function describe(name: string, fn: () => void): void;
+  export function expect(value: unknown): any;
+  export function beforeEach(fn: () => void | Promise<void>): void;
+  export function afterEach(fn: () => void | Promise<void>): void;
+}
+
 declare module '*.tsx' {
   import React from 'react';
   const Component: React.FC<any>;
@@ -30,6 +38,12 @@ declare const Bun: {
         options?: { hard?: boolean; wordWrap?: boolean; trim?: boolean }
       ) => string)
     | undefined;
+  file: (path: string) => {
+    exists: () => Promise<boolean>;
+    text: () => Promise<string>;
+    json: () => Promise<unknown>;
+    arrayBuffer: () => Promise<ArrayBuffer>;
+  };
 };
 
 declare module 'lodash-es/noop.js' {

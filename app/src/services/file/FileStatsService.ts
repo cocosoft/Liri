@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -19,7 +19,10 @@ import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 import type { FileStats } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:file:stats',
+  level: LogLevel.INFO,
+});
 
 /** 缓存默认 TTL（毫秒） */
 const DEFAULT_TTL_MS = 60_000; // 1 分钟

@@ -45,7 +45,7 @@ import {
 } from '@modules/bootstrap/StartupYamlLoader.js';
 import type { StartupConfig } from '@modules/bootstrap/StartupConfig.js';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'entrypoints:init', level: LogLevel.INFO });
 
 /** 全局 startup 配置引用 */
 let _startupConfig: StartupConfig | null = null;

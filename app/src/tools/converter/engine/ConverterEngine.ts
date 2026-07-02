@@ -1,4 +1,4 @@
-﻿import { Logger } from '@modules/monitoring';
+import { Logger } from '@modules/monitoring';
 import type {
   ConversionResult,
   ConversionContext,
@@ -26,7 +26,7 @@ import { IpynbConverter } from '../converters/IpynbConverter';
 import { RssConverter } from '../converters/RssConverter';
 import { OutlookMsgConverter } from '../converters/OutlookMsgConverter';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'tools:converter:engine' });
 
 export class ConverterEngine {
   private static instance: ConverterEngine;

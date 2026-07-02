@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 配置审计模块
  * 检查配置安全性：危险配置项、弱认证、不安全的默认值
  * 对齐 OpenClaw security/audit-gateway-config.ts + dangerous-config-flags.ts
@@ -7,7 +7,10 @@
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:auditConfig',
+  level: LogLevel.INFO,
+});
 
 const DANGEROUS_CONFIG_PATTERNS = [
   {

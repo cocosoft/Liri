@@ -1,8 +1,11 @@
-﻿import { watch, type FSWatcher } from 'node:fs';
+import { watch, type FSWatcher } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:watcher:cronFileWatcher',
+  level: LogLevel.INFO,
+});
 
 export type CronFileChangeCallback = (
   event: 'change' | 'rename',

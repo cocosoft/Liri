@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 并行工具执行器
  * 对标 Hermes agent_loop.py（ThreadPoolExecutor 并行模式）
  *
@@ -9,7 +9,10 @@ import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'query:parallelToolExecutor',
+  level: LogLevel.INFO,
+});
 
 /**
  * 单个工具执行结果

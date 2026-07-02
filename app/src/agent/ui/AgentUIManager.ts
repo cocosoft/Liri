@@ -1,4 +1,4 @@
-﻿//
+//
 import {
   AIAgent,
   AgentState,
@@ -8,7 +8,10 @@ import {
 } from '../models/types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:ui:agentUIManager',
+  level: LogLevel.INFO,
+});
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 interface AgentCommand {

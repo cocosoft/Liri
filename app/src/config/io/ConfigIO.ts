@@ -8,7 +8,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:io:configIO',
+  level: LogLevel.INFO,
+});
 
 /**
  * 配置格式

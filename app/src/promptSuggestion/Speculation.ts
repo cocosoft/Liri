@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Speculation 超前执行模块
  */
 
@@ -16,7 +16,10 @@ import {
   MAX_SPECULATION_MESSAGES,
 } from './types';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'promptSuggestion:speculation',
+  level: LogLevel.INFO,
+});
 
 let currentState: SpeculationState = { ...IDLE_SPECULATION_STATE };
 

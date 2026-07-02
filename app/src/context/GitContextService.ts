@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Git状态服务
  * 实现Git状态注入到系统提示
  */
@@ -10,7 +10,7 @@ import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'context:git', level: LogLevel.INFO });
 
 const execAsync = promisify(exec);
 

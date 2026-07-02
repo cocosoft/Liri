@@ -1,8 +1,8 @@
-﻿import { Logger } from '@modules/monitoring';
+import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'security:utils' });
 
 function isDangerousCommand(command: string): boolean {
   const dangerousPatterns = [

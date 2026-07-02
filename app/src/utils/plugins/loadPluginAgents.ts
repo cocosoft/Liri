@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 从插件加载Agent定义
  */
@@ -7,7 +7,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:loadPluginAgents',
+  level: LogLevel.INFO,
+});
 import { PluginAgentDefinition } from '@modules/services/agent/types';
 import {
   parseAgentFromMarkdown,

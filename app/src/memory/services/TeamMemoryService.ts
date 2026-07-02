@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 团队记忆服务
  * 负责团队记忆的同步和管理
  * 支持项目级、团队级和用户级记忆路径
@@ -25,7 +25,10 @@ import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import matter from 'gray-matter';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:services:teamMemoryService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 记忆路径类型枚举

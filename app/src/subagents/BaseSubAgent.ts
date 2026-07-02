@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 子代理基类
  * 实现子代理接口的通用功能
  */
@@ -18,7 +18,7 @@ import { ToolRegistry, createToolRegistry } from '../tools/ToolRegistry';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ module: 'subagents:base', level: LogLevel.INFO });
 
 /**
  * 子代理基类

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SessionTokenTracker — 会话级别令牌追踪桥接器
  *
  * 职责：
@@ -18,7 +18,10 @@ import {
 } from './models/SessionTokenUsage';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:tokenTracker',
+  level: LogLevel.INFO,
+});
 
 export interface TokenUsageInput {
   inputTokens: number;

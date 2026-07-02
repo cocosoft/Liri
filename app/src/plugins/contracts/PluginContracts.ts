@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件契约系统
  * 定义每个插件分类的接口契约，插件必须满足对应契约才能激活
  * 对齐 OpenClaw plugins/contracts/ 设计
@@ -11,7 +11,10 @@ import {
 } from '@modules/plugins/categories/PluginCategories';
 import type { PluginCapability } from '@modules/plugins/categories/PluginCategories';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:contracts:pluginContracts',
+  level: LogLevel.INFO,
+});
 
 export interface PluginContract {
   capability: PluginCapability;

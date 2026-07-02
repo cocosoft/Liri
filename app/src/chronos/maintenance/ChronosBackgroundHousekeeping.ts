@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Chronos后台维护模块
  * 负责Chronos系统的后台维护任务调度
  */
@@ -18,7 +18,10 @@ import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '../../core/delivery/archiver/TranscriptArchiver';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:maintenance:chronosBackgroundHousekeeping',
+  level: LogLevel.INFO,
+});
 
 const RECURRING_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const BALANCE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;

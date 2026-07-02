@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限钩子服务
  * 负责管理和执行权限请求钩子
  */
@@ -13,7 +13,10 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:permissionHookService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 权限钩子服务类

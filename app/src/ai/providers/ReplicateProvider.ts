@@ -30,9 +30,8 @@
  */
 
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
+import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
-  ChatMessage,
-  ChatResponse,
   ChatOptions,
   ThinkingProviderChunk,
   ProviderConfig,
@@ -67,21 +66,21 @@ export class ReplicateProvider extends BaseAIProvider {
   ): Promise<ChatResponse> {
     throw new AppError(
       'Replicate 仅支持图像生成，不支持文本对话',
-      'NOT_SUPPORTED',
-      ErrorCategory.CONFIGURATION,
-      ErrorSeverity.MEDIUM
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'NOT_SUPPORTED'
     );
   }
 
-  async chatStream(
+  async *chatStream(
     _messages: ChatMessage[],
     _options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     throw new AppError(
       'Replicate 仅支持图像生成，不支持文本对话',
-      'NOT_SUPPORTED',
-      ErrorCategory.CONFIGURATION,
-      ErrorSeverity.MEDIUM
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'NOT_SUPPORTED'
     );
   }
 
@@ -93,11 +92,11 @@ export class ReplicateProvider extends BaseAIProvider {
     ];
   }
 
-  validateConfig(_config: ProviderConfig): ProviderValidationResult {
+  override validateConfig(_config: ProviderConfig): ProviderValidationResult {
     return { valid: true, errors: [], warnings: [] };
   }
 
-  setApiKey(key: string): void {
+  override setApiKey(key: string): void {
     this.apiKey = key;
   }
 

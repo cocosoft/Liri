@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent源管理器
  * 负责从不同来源加载Agent定义，支持热加载
  */
@@ -8,7 +8,10 @@ import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:managers:agentSourceManager',
+  level: LogLevel.INFO,
+});
 import {
   loadUserAgents,
   loadProjectAgents,

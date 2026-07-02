@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件系统与网络隔离管理器
  * 提供受限的文件系统代理和网络访问控制
  * 插件文件操作和网络请求需经过此管理器审批
@@ -9,7 +9,10 @@ import { existsSync, statSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:isolationManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 文件系统操作类型

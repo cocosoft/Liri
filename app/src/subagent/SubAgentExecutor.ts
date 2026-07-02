@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 子agent执行器
  */
 import { SubAgent, SubAgentTask, SubAgentResult } from './types/SubAgent';
@@ -6,7 +6,10 @@ import { ToolResult, ToolExecutionStatus } from '../tools/types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent:executor',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工具调用

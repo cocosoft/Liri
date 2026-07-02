@@ -6,7 +6,7 @@
 import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger();
+const logger = new Logger({ module: 'agent:moa:parallelScheduler' });
 
 /**
  * 信号量 — 控制最大并发数

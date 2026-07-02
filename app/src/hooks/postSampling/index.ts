@@ -23,3 +23,4 @@
  */
 
 export * from './MemoryExtractionHook';
+export * from './PostCallSummaryHook';

@@ -1,4 +1,4 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import {
   writeFileSync,
   readFileSync,
@@ -15,7 +15,10 @@ import {
 } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'components:attachments',
+  level: LogLevel.INFO,
+});
 
 /**
  * 附件类型

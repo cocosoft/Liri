@@ -7,6 +7,9 @@
 import React, { useState, useEffect } from "react";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { workspaceService } from "../../services/workspaceService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:ruleView");
 
 /** 专业领域 */
 type Specialization = "all" | "security" | "performance" | "architecture" | "data" | "frontend" | "backend" | "test" | "custom";
@@ -65,7 +68,7 @@ export const RuleView: React.FC = () => {
       const res = await workspaceService.listRules(currentWorkspace.id);
       setRules(res as RuleItem[]);
     } catch (e) {
-      console.error("加载规则列表失败", e);
+      logger.error("加载规则列表失败", e);
     } finally {
       setLoading(false);
     }
@@ -79,7 +82,7 @@ export const RuleView: React.FC = () => {
       const data = res as { overview: string };
       setOverview(data.overview);
     } catch (e) {
-      console.error("加载规则总览失败", e);
+      logger.error("加载规则总览失败", e);
     }
   };
 
@@ -108,7 +111,7 @@ export const RuleView: React.FC = () => {
       await loadRules();
       await loadOverview();
     } catch (e) {
-      console.error("保存规则失败", e);
+      logger.error("保存规则失败", e);
     } finally {
       setSaving(false);
     }

@@ -24,7 +24,10 @@ export type {
   SessionCheckpointHandle,
   SessionCheckpointService,
 } from './SessionCompactionBridge';
-export type { AutoCompactServiceRef, CompactionEngine } from './CompactionTypes';
+export type {
+  AutoCompactServiceRef,
+  CompactionEngine,
+} from './CompactionTypes';
 export { createCompactionRecord } from './CompactionRecord';
 export type { CompactionRecord } from './CompactionRecord';
 export {

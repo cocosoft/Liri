@@ -13,7 +13,10 @@
 import type { Session } from '../models/Session';
 import type { CompactionRecord } from './CompactionRecord';
 import { createCompactionRecord } from './CompactionRecord';
-import type { CompactionEngine, AutoCompactServiceRef } from './CompactionTypes';
+import type {
+  CompactionEngine,
+  AutoCompactServiceRef,
+} from './CompactionTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';

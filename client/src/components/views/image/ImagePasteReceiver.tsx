@@ -5,7 +5,7 @@
  * 与 clipboardService.ts + ImageUploadDrop 配合使用。
  */
 import { useEffect, useCallback } from 'react';
-import { readImageFromClipboard } from '../../../../services/clipboardService';
+import { readImageFromClipboard } from '../../../services/clipboardService';
 
 interface ImagePasteReceiverProps {
   /** 粘贴成功回调 */

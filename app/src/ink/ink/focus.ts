@@ -1,6 +1,6 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import type { DOMElement } from './dom.js';
+import type { DOMElement } from './dom-types.js';
 import { FocusEvent } from './events/focus-event.js';
 
 const MAX_FOCUS_STACK = 32;
@@ -187,5 +187,5 @@ export function getRootNode(node: DOMElement): DOMElement {
  * Like browser's `node.ownerDocument` — focus belongs to the root.
  */
 export function getFocusManager(node: DOMElement): FocusManager {
-  return getRootNode(node).focusManager!;
+  return getRootNode(node).focusManager as FocusManager;
 }

@@ -4,7 +4,7 @@ import { applyColor } from './colorize.js';
 import type { DOMNode } from './dom.js';
 import type Output from './output.js';
 import { stringWidth } from './stringWidth.js';
-import type { Color } from './styles.js';
+import type { Color } from './style-types.js';
 
 export type BorderTextOptions = {
   content: string; // Pre-rendered string with ANSI color codes

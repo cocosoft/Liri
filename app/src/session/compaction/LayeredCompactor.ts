@@ -1,5 +1,8 @@
 import type { Session } from '../models/Session';
-import type { CompactionEngine, AutoCompactServiceRef } from './CompactionTypes';
+import type {
+  CompactionEngine,
+  AutoCompactServiceRef,
+} from './CompactionTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({

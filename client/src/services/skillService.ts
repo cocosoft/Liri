@@ -64,6 +64,7 @@ export interface Skill {
 export interface SkillListParams {
   category?: string;
   status?: SkillStatus;
+  source?: SkillSource;
   sortBy?: "createdAt" | "updatedAt" | "usageCount";
   sortOrder?: "asc" | "desc";
   limit?: number;

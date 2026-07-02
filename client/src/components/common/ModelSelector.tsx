@@ -34,7 +34,7 @@ export default function ModelSelector({
   type,
   value,
   onChange,
-  placeholder = "Select model",
+  placeholder: _placeholder = "Select model",
   className = "",
   label,
   disabled = false,

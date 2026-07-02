@@ -647,7 +647,7 @@ const en = {
     showCode: "Show code",
     showPreview: "Show preview",
     imageTools: "Image",
-    model: "Image Model",
+    imageModel: "Image Model",
     dropOrClick: "Drop or click to upload",
     dropHere: "Drop image here",
     uploading: "Uploading",

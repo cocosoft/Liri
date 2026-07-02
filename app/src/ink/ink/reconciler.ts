@@ -36,6 +36,7 @@ import {
 import { Dispatcher } from './events/dispatcher.js';
 import { EVENT_HANDLER_PROPS } from './events/event-handlers.js';
 import { getFocusManager, getRootNode } from './focus.js';
+import type { FocusManager } from './focus.js';
 import { LayoutDisplay } from './layout/node.js';
 import applyStyles, { type Styles, type TextStyles } from './styles.js';
 
@@ -467,7 +468,9 @@ const reconciler: any = createReconciler({
     cleanupYogaNode(removeNode);
     if (removeNode.nodeName !== '#text') {
       const root = getRootNode(node);
-      root.focusManager!.handleNodeRemoved(removeNode, root);
+      (
+        root.focusManager as import('./focus.js').FocusManager
+      ).handleNodeRemoved(removeNode, root);
     }
   },
   // React 19 required methods

@@ -273,7 +273,7 @@ function SkillMarketPage() {
         const existingNames = new Set(installed.map((s) => s.meta.name));
         const duplicates = skills.filter((s) => existingNames.has(s.name));
         if (duplicates.length > 0) {
-          addToast("warn", `以下技能已存在，将被覆盖: ${duplicates.map((d) => d.name).join(", ")}`);
+          addToast("warning", `以下技能已存在，将被覆盖: ${duplicates.map((d) => d.name).join(", ")}`);
         }
 
         await skillService.importSkills(skills);

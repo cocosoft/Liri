@@ -1,6 +1,6 @@
 import { configManager } from '@modules/config';
 import chalk from 'chalk';
-import type { Color, TextStyles } from './styles.js';
+import type { Color, TextStyles } from './style-types.js';
 
 /**
  * xterm.js (VS Code, Cursor, code-server, Coder) has supported truecolor

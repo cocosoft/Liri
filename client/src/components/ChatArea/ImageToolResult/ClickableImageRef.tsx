@@ -20,8 +20,8 @@ interface ClickableImageRefProps {
 export function ClickableImageRef({
   src,
   alt = '图片',
-  thumbWidth = 200,
-  thumbHeight = 200,
+  thumbWidth: _thumbWidth = 200,
+  thumbHeight: _thumbHeight = 200,
 }: ClickableImageRefProps) {
   const [isOpen, setIsOpen] = useState(false);
 

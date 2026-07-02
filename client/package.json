@@ -1,6 +1,6 @@
 {
   "name": "liri-client",
-  "version": "0.4.10",
+  "version": "0.4.20",
   "description": "Liri Desktop Client",
   "homepage": "https://openliri.com",
   "type": "module",

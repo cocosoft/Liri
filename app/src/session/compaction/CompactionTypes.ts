@@ -18,20 +18,38 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-export { SessionCompactionBridge } from './SessionCompactionBridge';
-export type {
-  CompactionBridgeConfig,
-  SessionCheckpointHandle,
-  SessionCheckpointService,
-} from './SessionCompactionBridge';
-export type { AutoCompactServiceRef, CompactionEngine } from './CompactionTypes';
-export { createCompactionRecord } from './CompactionRecord';
-export type { CompactionRecord } from './CompactionRecord';
-export {
-  AutoCompactServiceAdapter,
-  SessionCheckpointServiceAdapter,
-  createWiredCompactionBridge,
-} from './ServiceAdapters';
-export { SummaryCompactor } from './SummaryCompactor';
-export { LayeredCompactor } from './LayeredCompactor';
-export { KeyInfoExtractor } from './KeyInfoExtractor';
+
+import type { Session } from '../models/Session';
+
+/**
+ * 压缩引擎接口 — 各压缩策略实现此接口
+ * 由 SessionCompactionBridge 管理和调度
+ */
+export interface CompactionEngine {
+  checkAndCompact(
+    sessionId: string,
+    messages: Session['messages'],
+    model: string
+  ): { shouldCompact: boolean };
+  performAutoCompact(
+    sessionId: string,
+    messages: Session['messages'],
+    model: string
+  ): Promise<{ success: boolean; error?: string }>;
+}
+
+/**
+ * AutoCompactService 引用接口 — 避免直接依赖 services/compact 模块
+ */
+export interface AutoCompactServiceRef {
+  checkAndCompact(
+    sessionId: string,
+    messages: unknown[],
+    model: string
+  ): { shouldCompact: boolean };
+  performAutoCompact(
+    sessionId: string,
+    messages: unknown[],
+    model: string
+  ): Promise<{ success: boolean; error?: string }>;
+}

@@ -4,10 +4,10 @@ import {
   getCheckpointService,
 } from '@modules/chat/services/SessionCheckpointService';
 import type {
-  AutoCompactServiceRef,
   SessionCheckpointService,
   SessionCheckpointHandle,
 } from './SessionCompactionBridge';
+import type { AutoCompactServiceRef } from './CompactionTypes';
 import { SessionCompactionBridge } from './SessionCompactionBridge';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';

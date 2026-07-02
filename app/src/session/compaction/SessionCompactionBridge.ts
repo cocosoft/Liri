@@ -13,6 +13,7 @@
 import type { Session } from '../models/Session';
 import type { CompactionRecord } from './CompactionRecord';
 import { createCompactionRecord } from './CompactionRecord';
+import type { CompactionEngine, AutoCompactServiceRef } from './CompactionTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
@@ -48,17 +49,8 @@ export interface CompactionSessionService {
   createCheckpoint(sessionId: string): Promise<SessionCheckpointHandle | null>;
 }
 
-export interface CompactionEngine {
-  checkAndCompact(
-    sessionId: string,
-    messages: Session['messages'],
-    model: string
-  ): { shouldCompact: boolean };
-  performAutoCompact(
-    sessionId: string,
-    messages: Session['messages'],
-    model: string
-  ): Promise<{ success: boolean; error?: string }>;
+export interface SessionCheckpointService {
+  createCheckpoint(sessionId: string): Promise<SessionCheckpointHandle | null>;
 }
 
 export class SessionCompactionBridge {
@@ -259,17 +251,4 @@ export class SessionCompactionBridge {
 
 export interface SessionCheckpointService {
   createCheckpoint(sessionId: string): Promise<SessionCheckpointHandle | null>;
-}
-
-export interface AutoCompactServiceRef {
-  checkAndCompact(
-    sessionId: string,
-    messages: unknown[],
-    model: string
-  ): { shouldCompact: boolean };
-  performAutoCompact(
-    sessionId: string,
-    messages: unknown[],
-    model: string
-  ): Promise<{ success: boolean; error?: string }>;
 }

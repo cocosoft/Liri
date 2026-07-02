@@ -250,6 +250,7 @@ export type {
   JudgeResult,
 } from './router';
 export { ALL_ROUTER_TIERS } from './router';
+export { resolveModelRoute, RouteKey } from './router';
 
 // middleware/ — 统一中间件管道
 export {

@@ -670,7 +670,7 @@ export class CoreAPIImpl implements CoreAPI {
         output?: unknown;
         data?: unknown;
         result?: unknown;
-        error?: unknown;
+        error?: string | null;
         success: boolean;
       };
 

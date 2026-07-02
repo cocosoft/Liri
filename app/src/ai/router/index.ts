@@ -58,3 +58,4 @@ export type {
   RouterModelRef,
 } from './types.js';
 export { ALL_ROUTER_TIERS } from './types.js';
+export { resolveModelRoute, RouteKey } from './resolveModelRoute.js';

@@ -18,10 +18,9 @@ import {
   unlinkSync,
   mkdirSync,
 } from 'fs';
-import { tmpdir } from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveTempDir, resolveDownloadsDir } from '@modules/core/paths';
+import { resolveTempDir } from '@modules/core/paths';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
 
 const logger = new Logger({ module: 'http:media' });

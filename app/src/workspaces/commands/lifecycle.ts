@@ -40,7 +40,7 @@ export default {
   async execute(
     subcommand: string,
     args: string,
-    context: CommandContext
+    _context: CommandContext
   ): Promise<CommandResult> {
     try {
       switch (subcommand) {

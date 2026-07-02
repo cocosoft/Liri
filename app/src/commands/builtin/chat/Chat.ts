@@ -22,10 +22,7 @@ import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
 import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '@modules/ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('Chat');

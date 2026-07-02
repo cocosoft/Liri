@@ -19,6 +19,7 @@
 
 import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolvePyappHome } from '@modules/core/paths';
 
 // ============================================================================
 // 类型定义
@@ -241,11 +242,9 @@ export class SessionActivityTracker {
   }
 
   private getPidPath(sessionId: string): string {
+    const pyappHome = resolvePyappHome();
     return join(
-      this.config.pidDir.replace(
-        '~/.pyapp',
-        process.env.PYAPP_HOME || join(process.env.HOME || '', '.pyapp')
-      ),
+      this.config.pidDir.replace(/^~\/\.pyapp/, pyappHome),
       `${sessionId}.pid`
     );
   }

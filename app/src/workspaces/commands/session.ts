@@ -29,8 +29,6 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
-import { createWorkspaceGit } from '../WorkspaceGit';
-
 const logger = getLogger('Workspace');
 
 /**

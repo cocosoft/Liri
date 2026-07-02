@@ -13,11 +13,8 @@ import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import { LocalEmbeddingProvider } from './providers/LocalEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
 import { configManager } from '@modules/config';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '@modules/ai/router/resolveModelRoute.js';
 import { providerRegistry } from '@modules/ai';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 
 /**
  * 嵌入模型配置

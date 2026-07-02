@@ -7,10 +7,7 @@ import type { CronJob, CronJobResult } from './types';
 import type { AIProvider, ChatOptions } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '@modules/ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 
 const logger = new Logger({
   module: 'tasks:cronExecutor',

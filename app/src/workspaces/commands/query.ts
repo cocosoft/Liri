@@ -49,7 +49,7 @@ export default {
   async execute(
     subcommand: string,
     args: string,
-    context: CommandContext
+    _context: CommandContext
   ): Promise<CommandResult> {
     switch (subcommand) {
       case 'list':

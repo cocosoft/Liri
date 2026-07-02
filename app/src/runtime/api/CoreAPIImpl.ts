@@ -61,11 +61,7 @@ import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { modelRouter } from '@modules/ai';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '@modules/ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
@@ -665,19 +661,26 @@ export class CoreAPIImpl implements CoreAPI {
     });
 
     try {
-      const result = (await this.toolManager.executeTool(
+      const rawResult = await this.toolManager.executeTool(
         toolCall.name,
         toolCall.arguments as Record<string, unknown>,
         { sessionId }
-      )) as { output?: unknown; success: boolean };
+      );
+      const result = rawResult as {
+        output?: unknown;
+        data?: unknown;
+        result?: unknown;
+        error?: unknown;
+        success: boolean;
+      };
 
       const response = {
         toolCallId: toolCall.id,
         toolName: toolCall.name,
         success: result.success ?? true,
-        data: (result as any).data ?? null,
-        result: (result as any).output ?? (result as any).result ?? null,
-        error: (result as any).error ?? null,
+        data: result.data ?? null,
+        result: result.output ?? result.result ?? null,
+        error: result.error ?? null,
         executionTime: Date.now() - startTime,
       };
       logger.info('CoreAPIImpl.executeTool() 出口', {

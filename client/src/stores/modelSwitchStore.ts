@@ -9,7 +9,8 @@ import { useAppStore } from "./appStore";
 import type { CurrentModelInfo, TaskModelConfig } from "../types";
 
 interface ModelSwitchSlice {
-  currentModelId: string;
+  currentModelId: string;     // UUID（内部标识符）
+  currentModelName: string;   // 模型名（显示用）
   currentProvider: string;
   routerTier: string;
   routingMode: "dynamic" | "static" | "off";
@@ -26,6 +27,7 @@ interface ModelSwitchSlice {
 
 function mapSlice(s: {
   currentModelId: string;
+  currentModelName: string;
   currentProvider: string;
   routerTier: string;
   routingMode: "dynamic" | "static" | "off";
@@ -41,6 +43,7 @@ function mapSlice(s: {
 }): ModelSwitchSlice {
   return {
     currentModelId: s.currentModelId,
+    currentModelName: s.currentModelName,
     currentProvider: s.currentProvider,
     routerTier: s.routerTier,
     routingMode: s.routingMode,
@@ -60,6 +63,7 @@ export function useModelSwitchStore(): ModelSwitchSlice;
 export function useModelSwitchStore<T>(selector: (slice: ModelSwitchSlice) => T): T;
 export function useModelSwitchStore(selector?: any): any {
   const currentModelId = useAppStore((s) => s.currentModelId);
+  const currentModelName = useAppStore((s) => s.currentModelName);
   const currentProvider = useAppStore((s) => s.currentProvider);
   const routerTier = useAppStore((s) => s.routerTier);
   const routingMode = useAppStore((s) => s.routingMode);
@@ -73,7 +77,7 @@ export function useModelSwitchStore(selector?: any): any {
   const loadTasks = useAppStore((s) => s.loadModelTasks);
   const saveTasks = useAppStore((s) => s.saveModelTasks);
   const slice = {
-    currentModelId, currentProvider, routerTier, routingMode,
+    currentModelId, currentModelName, currentProvider, routerTier, routingMode,
     costThisSession, availableTasks, tasks,
     isLoading, error,
     loadCurrent, switchModel, loadTasks, saveTasks,

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -375,14 +375,21 @@ const CORE_TOOL_DEFINITIONS: CoreToolDefinition[] = [
   {
     id: 'image',
     label: 'image',
-    description: 'Image understanding and analysis',
+    description:
+      'Analyze and understand images. Supports metadata extraction (EXIF, dimensions, format), ' +
+      'color analysis, OCR text recognition, object detection, content description (via AI vision), ' +
+      'and image similarity comparison. Use when user asks about an image, needs image info, or references a picture.',
     sectionId: 'media',
     profiles: ['coding'],
   },
   {
     id: 'image_generate',
     label: 'image_generate',
-    description: 'Generate images from prompts',
+    description:
+      'Generate AI images from text descriptions. Supports multiple providers (DALL-E 3, Stability AI, ' +
+      'Replicate Flux, SD WebUI local) with automatic fallback. Use when user asks to "draw", "create", ' +
+      '"generate", or "make" an image/picture/visual. Supports size (256x256 to 1792x1024), quality (standard/hd), ' +
+      'and style (vivid/natural) options. Cost: ~$0.04/image (DALL-E 3 standard).',
     sectionId: 'media',
     profiles: ['coding'],
   },

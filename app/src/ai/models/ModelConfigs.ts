@@ -223,7 +223,7 @@ export function getModelCapabilities(modelName: string): ModelCapability[] {
     const config = ALL_MODEL_CONFIGS[modelKey];
     return config.capabilities ?? [];
   }
-  return [ModelCapability.STREAMING];
+  return [];
 }
 
 /**
@@ -237,6 +237,14 @@ export function modelSupportsCapability(
   capability: ModelCapability
 ): boolean {
   return getModelCapabilities(modelName).includes(capability);
+}
+
+/**
+ * 获取模型的上下文窗口大小
+ * 从 YAML 配置读取真实的 contextWindow，找不到时返回 65536
+ */
+export function getModelContextWindow(modelName: string): number {
+  return ALL_MODEL_CONFIGS[modelName]?.contextWindow ?? 65536;
 }
 
 /**

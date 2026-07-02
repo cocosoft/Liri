@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,8 +32,10 @@
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { JudgeResult, JudgeCloudConfig, RouterTier } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:judge' });
 
 /** 四级分类的 prompt 模板（极简，单次生成，非流式） */
 const CLASSIFY_PROMPT_TEMPLATE = `You are a query complexity classifier. Classify the user's message into one of four tiers:
@@ -67,11 +69,19 @@ export class JudgeService {
    * 优先级：LocalAgent（本地模型）> 云端 LLM > 兜底（'medium'）
    */
   async classify(message: string): Promise<JudgeResult> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ai.judge.classify', {
+      'message.length': message.length,
+      has_local: !!this.classifyLocal,
+      has_cloud: !!(this.cloudJudge && this.cloudProvider),
+    });
+
     // 优先级 1：LocalAgent 可用 → 委托本地模型
     if (this.classifyLocal) {
       try {
         const tier = await this.classifyLocal(message);
         logger.debug('JudgeService: LocalAgent 分类完成', { tier });
+        otel.endSpan(span, SpanStatusCode.OK);
         return {
           tier,
           confidence: 0.8,
@@ -89,7 +99,9 @@ export class JudgeService {
     // 优先级 2：云端 Judge 配置 → 调云端 LLM
     if (this.cloudJudge && this.cloudProvider) {
       try {
-        return await this.classifyCloud(message);
+        const result = await this.classifyCloud(message);
+        otel.endSpan(span, SpanStatusCode.OK);
+        return result;
       } catch (error) {
         logger.warning('JudgeService: 云端分类失败，使用兜底', { error });
       }
@@ -97,6 +109,7 @@ export class JudgeService {
 
     // 兜底
     logger.debug('JudgeService: 无可用 Judge，使用兜底 tier=medium');
+    otel.endSpan(span, SpanStatusCode.OK);
     return {
       tier: 'medium',
       confidence: 0.5,

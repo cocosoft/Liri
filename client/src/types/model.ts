@@ -1,9 +1,10 @@
 export interface ModelInfo {
-  id: string;
+  id: string;        // UUID（后端返回）—— BREAKING CHANGE: 原为模型名
+  modelId: string;   // 模型名（新增）
   name: string;
   provider: string;
   providerId?: string;
-  type: "chat" | "embedding" | "image";
+  type: "chat" | "embedding" | "image" | "video" | "voice";
   context_length: number;
   enabled: boolean;
   requiresAuth?: boolean;
@@ -75,7 +76,8 @@ export interface EndpointLatency {
 }
 
 export interface CurrentModelInfo {
-  modelId: string;
+  modelId: string;    // 模型名
+  modelUuid: string;  // UUID（新增）
   provider: string;
   routerTier?: string;
   routingMode?: 'dynamic' | 'static' | 'off';
@@ -94,6 +96,12 @@ export interface TaskModelConfig {
   scheduled?: string;
   local?: string;
   embedding?: string;
+  image?: string;
+  vision?: string;
+  video?: string;
+  tts?: string;
+  stt?: string;
+  reranking?: string;
 }
 
 export interface TaskDefinition {

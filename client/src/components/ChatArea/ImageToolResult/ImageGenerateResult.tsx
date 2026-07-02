@@ -30,7 +30,9 @@ export default function ImageGenerateResult({ data }: Props) {
     setViewerOpen(true);
   };
 
-  const imageUrls = images.map((img) => img.url || "");
+  // 优先使用本地持久化 URL（刷新后不丢失），fallback 到远程 URL
+  const imageUrls = images.map((img) => img.localUrl || img.url || "");
+  const getSrc = (img: Record<string, string>) => img.localUrl || img.url || "";
 
   return (
     <div className="space-y-2">
@@ -52,7 +54,7 @@ export default function ImageGenerateResult({ data }: Props) {
             title={img.alt || `${t("image.title")} ${i + 1}`}
           >
             <img
-              src={img.url}
+              src={getSrc(img)}
               alt={img.alt || `${t("image.title")} ${i + 1}`}
               className="w-full h-auto object-cover"
               loading="lazy"

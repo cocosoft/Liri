@@ -1,0 +1,71 @@
+{
+  "1": {
+    "inputs": { "ckpt_name": "flux1-dev.safetensors" },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Load Checkpoint" }
+  },
+  "2": {
+    "inputs": { "text": "{prompt}", "clip": ["1", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive Prompt" }
+  },
+  "3": {
+    "inputs": { "text": "{negative_prompt}", "clip": ["1", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative Prompt" }
+  },
+  "4": {
+    "inputs": { "image": "input_image.png", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Load Image" }
+  },
+  "5": {
+    "inputs": { "image": "mask_image.png", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Load Mask" }
+  },
+  "6": {
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Latent Image" }
+  },
+  "7": {
+    "inputs": { "pixels": ["4", 0], "vae": ["1", 2] },
+    "class_type": "VAEEncode",
+    "_meta": { "title": "VAE Encode (Image)" }
+  },
+  "8": {
+    "inputs": {
+      "operation": "convert mask to image",
+      "mask": ["5", 0]
+    },
+    "class_type": "MaskToImage",
+    "_meta": { "title": "Mask to Image" }
+  },
+  "9": {
+    "inputs": { "destination": ["7", 0], "source": ["8", 0], "mask": ["5", 0] },
+    "class_type": "SetLatentNoiseMask",
+    "_meta": { "title": "Set Latent Noise Mask" }
+  },
+  "10": {
+    "inputs": {
+      "seed": 0, "steps": 25, "cfg": 4.0,
+      "sampler_name": "euler", "scheduler": "normal",
+      "denoise": 0.75, "model": ["1", 0],
+      "positive": ["2", 0], "negative": ["3", 0],
+      "latent_image": ["6", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "KSampler" }
+  },
+  "11": {
+    "inputs": { "samples": ["10", 0], "vae": ["1", 2] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode" }
+  },
+  "12": {
+    "inputs": { "filename_prefix": "ComfyUI_inpaint", "images": ["11", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save Image" }
+  }
+}

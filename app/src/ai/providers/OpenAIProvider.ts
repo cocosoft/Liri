@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -78,6 +78,11 @@ export class OpenAIProvider extends BaseAIProvider {
     }
   }
 
+  /** 运行时更新 API Key（供 ProviderSyncService 从 DB 同步后注入） */
+  setApiKey(key: string): void {
+    this.apiKey = key || '';
+  }
+
   async chat(
     messages: ChatMessage[],
     options?: {
@@ -87,7 +92,7 @@ export class OpenAIProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const requestBody = this.transport!.buildRequest({
       model,
       messages,
@@ -141,7 +146,7 @@ export class OpenAIProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const requestBody = this.transport!.buildRequest({
       model,
       messages,
@@ -314,19 +319,60 @@ export class OpenAIProvider extends BaseAIProvider {
     params: import('./AIProvider').ImageGenerationParams
   ): Promise<import('./AIProvider').ImageGenerationResult> {
     const startTime = Date.now();
+    // 模型来源：调用方传入 > modelRouter 配置 > 报错
+    let model = params.model || this.options.defaultModel;
+
+    // P3-2: 透明背景自动路由 — gpt-image-2 不支持透明背景，自动切换为 gpt-image-1.5
+    if (
+      params.format === 'png' &&
+      params.quality === 'standard' &&
+      model === 'gpt-image-2' &&
+      (params as any).background === 'transparent'
+    ) {
+      logger.info('OpenAIProvider.generateImage() · 透明背景自动路由', {
+        from: model,
+        to: 'gpt-image-1.5',
+      });
+      model = 'gpt-image-1.5';
+    }
+
+    if (!model) {
+      logger.warn('OpenAIProvider.generateImage() · 未配置生图模型', {
+        providerId: this.id,
+        hasDefaultModel: !!this.options.defaultModel,
+      });
+      return {
+        success: false,
+        data: [],
+        error:
+          'No image generation model configured. Please set a model in model management.',
+        durationMs: 0,
+      };
+    }
+
+    logger.info('OpenAIProvider.generateImage()', {
+      providerId: this.id,
+      model,
+      baseUrl: this.baseUrl,
+      prompt: params.prompt.slice(0, 50),
+      size: params.size,
+    });
 
     const body: Record<string, unknown> = {
-      model: 'dall-e-3',
+      model,
       prompt: params.prompt,
       n: params.n ?? 1,
       size: params.size ?? '1024x1024',
-      quality: params.quality ?? 'standard',
-      style: params.style ?? 'vivid',
-      response_format: 'b64_json',
     };
 
-    if (body.quality === 'hd' && body.size === '1024x1024') {
-      body.size = '1792x1024';
+    // DALL-E 专有参数（仅当模型名匹配 dall-e 时附加）
+    if (model.toLowerCase().startsWith('dall-e')) {
+      body.quality = params.quality ?? 'standard';
+      body.style = params.style ?? 'vivid';
+      body.response_format = 'b64_json';
+      if (body.quality === 'hd' && body.size === '1024x1024') {
+        body.size = '1792x1024';
+      }
     }
 
     try {
@@ -345,7 +391,7 @@ export class OpenAIProvider extends BaseAIProvider {
         return {
           success: false,
           data: [],
-          error: `DALL-E API error (${response.status}): ${errorBody}`,
+          error: `Image generation API error (${response.status}): ${errorBody}`,
           durationMs: Date.now() - startTime,
         };
       }
@@ -360,14 +406,14 @@ export class OpenAIProvider extends BaseAIProvider {
           b64_json: img.b64_json,
           alt: params.prompt,
         })),
-        model: 'dall-e-3',
+        model: model,
         durationMs: Date.now() - startTime,
       };
     } catch (error) {
       return {
         success: false,
         data: [],
-        error: `DALL-E generation failed: ${(error as Error).message}`,
+        error: `Image generation failed: ${(error as Error).message}`,
         durationMs: Date.now() - startTime,
       };
     }

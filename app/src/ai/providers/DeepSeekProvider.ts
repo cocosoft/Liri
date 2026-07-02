@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -120,7 +120,7 @@ export class DeepSeekProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
 
     const requestBody = this.transport!.buildRequest({
       model,
@@ -164,7 +164,7 @@ export class DeepSeekProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
 
     const requestBody = this.transport!.buildRequest({
       model,

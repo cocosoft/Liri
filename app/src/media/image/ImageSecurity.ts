@@ -1,4 +1,4 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import fs from 'node:fs';
 import {
   imageFormatDetector,
@@ -10,6 +10,7 @@ const logger = new Logger({ level: LogLevel.INFO });
 /**
  * 安全检测配置
  */
+/** 安全检查配置 */
 export interface SecurityConfig {
   /** 最大文件字节数（默认 20MB） */
   maxFileSize: number;
@@ -17,6 +18,8 @@ export interface SecurityConfig {
   maxWidth: number;
   /** 最大高度像素 */
   maxHeight: number;
+  /** 最大像素总数（默认 25M） */
+  maxPixels: number;
   /** 允许的格式白名单 */
   allowedFormats: string[];
   /** 是否禁用外部 URL */
@@ -44,6 +47,7 @@ const DEFAULT_CONFIG: SecurityConfig = {
   maxFileSize: 20 * 1024 * 1024,
   maxWidth: 8192,
   maxHeight: 8192,
+  maxPixels: 25_000_000, // P3-3: 25M 像素上限
   allowedFormats: ['png', 'jpeg', 'gif', 'webp', 'bmp'],
   blockExternalUrls: true,
 };
@@ -216,6 +220,16 @@ export class ImageSecurity {
           name: 'dimensions',
           passed: false,
           detail: `Dimensions ${dims.width}x${dims.height} exceed limit ${this.config.maxWidth}x${this.config.maxHeight}`,
+        };
+      }
+
+      // P3-3: 像素总数检查
+      const totalPixels = dims.width * dims.height;
+      if (totalPixels > this.config.maxPixels) {
+        return {
+          name: 'dimensions',
+          passed: false,
+          detail: `Total pixels ${totalPixels.toLocaleString()} exceed limit ${this.config.maxPixels.toLocaleString()}`,
         };
       }
 

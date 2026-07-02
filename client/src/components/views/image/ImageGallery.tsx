@@ -192,6 +192,11 @@ export function useImageGallery() {
     }
   }, [page, pageSize, hasMore, loadingMore]);
 
+  const prepend = useCallback((newImages: ImageItem[]) => {
+    setImages((prev) => [...newImages, ...prev]);
+    setTotal((t) => t + newImages.length);
+  }, []);
+
   return {
     images,
     total,
@@ -200,5 +205,6 @@ export function useImageGallery() {
     loadingMore,
     loadMore,
     refresh: loadInitial,
+    prepend,
   } as const;
 }

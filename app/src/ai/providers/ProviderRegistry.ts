@@ -1,4 +1,4 @@
-﻿import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 
@@ -167,6 +167,19 @@ export class ProviderRegistry {
   /** 移除 Provider 类型别名 */
   removeProviderTypeAlias(providerType: string): void {
     this.providerTypeToId.delete(providerType);
+  }
+
+  /**
+   * 反向查找：根据 registryId（如 db:uuid）获取 providerType（如 'openai'）
+   * 用于 ImageGenerateTool 等需要知道 Provider 类型的场景
+   */
+  getProviderTypeById(registryId: string): string | undefined {
+    for (const [type, id] of this.providerTypeToId) {
+      if (id === registryId) return type;
+    }
+    // 回退：直接 ID 匹配（如 'openai'、'stability' 等硬编码注册的 Provider）
+    if (this.providers.has(registryId)) return registryId;
+    return undefined;
   }
 
   /**

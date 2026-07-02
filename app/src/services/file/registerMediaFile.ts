@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MIT License
  * Copyright (c) 2026 190615273@qq.com
  *
@@ -8,9 +8,6 @@
  * 将远程 URL 内容下载到本地 media/generated/ 目录并注册到 FileRegistry。
  */
 
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { resolveMediaDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';
@@ -22,7 +19,7 @@ import type { MediaType } from './types';
  * @param prompt    生成提示词（用于描述字段）
  * @param mediaType 媒体子类型（'image' | 'video' | 'music'）
  * @param format    文件扩展名（'png' | 'jpeg' | 'mp4' | 'mp3' 等）
- * @returns 注册结果，包含 fileId
+ * @returns 注册结果，包含 fileId 和本地保存路径
  */
 export async function registerGeneratedMedia(
   url: string,
@@ -39,12 +36,7 @@ export async function registerGeneratedMedia(
     const arrayBuffer = await response.arrayBuffer();
     const content = Buffer.from(arrayBuffer);
 
-    // Step 2: 确定保存路径
-    const mediaDir = resolveMediaDir();
-    const subDir = join(mediaDir, 'generated', mediaType);
-    await mkdir(subDir, { recursive: true });
-
-    // Step 3: 注册到 FileRegistry（写入 media 分区）
+    // Step 2: 注册到 FileRegistry（路径由 FileRegistry.resolveSavedPath 决定）
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
     const result = await registry.registerFile({
@@ -58,6 +50,7 @@ export async function registerGeneratedMedia(
       mediaType,
     });
 
+    // savedPath 已是相对于 media/ 的路径，如 "images/xxx.png"
     return { fileId: result.fileId, savedPath: result.savedPath };
   } catch {
     return null;

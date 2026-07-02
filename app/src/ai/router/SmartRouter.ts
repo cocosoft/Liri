@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -59,9 +59,18 @@ import { OrchEngine } from './OrchEngine.js';
 import type { OrchResult } from './OrchEngine.js';
 import { AdaptiveRouter } from './AdaptiveRouter.js';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
+import {
+  RouteKey,
+  ROUTE_TO_TASK,
+  JUDGE_ROUTES,
+  CAPABILITY_ROUTES,
+} from './routes.js';
+import type { RouteKey as RouteKeyType } from './routes.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:smart-router' });
 
 /**
  * 全局活跃路由层级（用于前端状态栏展示）
@@ -156,15 +165,26 @@ export class SmartRouter {
     sessionId?: string,
     options?: { skipJudge?: boolean; tierHint?: RouterTier }
   ): Promise<RouteDecision> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ai.smart-router.decide', {
+      'message.length': message.length,
+      'session.id': sessionId ?? '',
+      skip_judge: options?.skipJudge ?? false,
+    });
+
     // 层 1：开关检测
     if (!this.config.enabled) {
+      otel.endSpan(span, SpanStatusCode.OK);
       return this.fallbackToModelRouter(message, '用户已关闭智能路由');
     }
 
     // 层 3：会话黏性（跳过分级+Judge）
     if (sessionId && this.config.sessionSticky !== false) {
       const sticky = await this.trySessionSticky(sessionId);
-      if (sticky) return sticky;
+      if (sticky) {
+        otel.endSpan(span, SpanStatusCode.OK);
+        return sticky;
+      }
     }
 
     // 层 4：LLM Judge 分级
@@ -210,7 +230,63 @@ export class SmartRouter {
       provider: decision.provider,
     });
 
+    otel.endSpan(span, SpanStatusCode.OK);
+
     return decision;
+  }
+
+  /**
+   * 统一路由入口：根据 RouteKey 解析模型决策
+   *
+   * 替代各处散落的 modelRouter.resolve(taskType)，成为全系统唯一路由入口。
+   *
+   * 路由逻辑：
+   * - chat 类 route（chat/coding/translation/agent/scheduled）→ 走 decide() Judge 分级
+   * - 能力 route（image/embedding/vision/video/tts/stt/reranking）→ 从 modelRouter 直接取
+   * - 开关关闭时 → 全部回退 modelRouter
+   *
+   * @param route - 路由键
+   * @param options - 可选：message（chat 类需要）、sessionId、providerId
+   * @returns 路由决策
+   */
+  resolve(
+    route: RouteKeyType,
+    options?: {
+      message?: string;
+      sessionId?: string;
+      providerId?: string;
+    }
+  ): Promise<RouteDecision> {
+    // 开关关闭 → 全部回退 ModelRouter 静态路由
+    if (!this.config.enabled) {
+      const taskType = ROUTE_TO_TASK[route];
+      const model = this.modelRouter.resolve(taskType);
+      return Promise.resolve({
+        provider: options?.providerId ?? '',
+        model,
+        tier: 'medium',
+        reason: `SmartRouter 关闭 → ModelRouter.${taskType} → ${model}`,
+        fastPath: true,
+      });
+    }
+
+    // 能力路由：直接从 modelRouter 取（不需要 Judge 分级）
+    if ((CAPABILITY_ROUTES as string[]).includes(route)) {
+      const taskType = ROUTE_TO_TASK[route];
+      const model = this.modelRouter.resolve(taskType);
+      logger.debug(`SmartRouter: 能力路由 ${route} → ${model}`);
+      return Promise.resolve({
+        provider: options?.providerId ?? '',
+        model,
+        tier: 'medium',
+        reason: `能力路由: ${route} → ${model}`,
+        fastPath: true,
+      });
+    }
+
+    // chat 类路由：走 decide() 进行 Judge 分级
+    const message = options?.message ?? '';
+    return this.decide(message, options?.sessionId);
   }
 
   /**
@@ -244,27 +320,34 @@ export class SmartRouter {
   /**
    * 执行路由决策（带 FallbackChain + RetryPolicy）
    *
-   * 1. 先用 decide() 获取主决策
-   * 2. 如有 fallback 配置，尝试回退链
-   * 3. 执行时带重试策略（零用量/瞬态）
+   * 统一入口：通过 RouteKey 解析模型决策，再包裹 FallbackChain + RetryPolicy 执行。
+   * 替代各处散落的"先 resolve 再手动执行"模式。
    *
-   * @param message - 用户消息
-   * @param executeFn - 实际调用 provider 的函数
-   * @param sessionId - 可选：会话 ID
-   * @returns 执行结果
+   * 管线：resolve(route) → FallbackChain → RetryPolicy → executeFn
+   *
+   * @param route - 路由键（chat/image/embedding/...）
+   * @param executeFn - 实际调用 provider 的函数，接收决策返回可重试响应
+   * @param options - 可选：message（chat 类 Judge 需要）、sessionId
+   * @returns 执行结果（含决策、响应、回退/重试信息）
    */
   async execute(
-    message: string,
+    route: RouteKeyType,
     executeFn: (decision: RouteDecision) => Promise<RetryableResponse>,
-    sessionId?: string
+    options?: {
+      message?: string;
+      sessionId?: string;
+    }
   ): Promise<{
     decision: RouteDecision;
     response: RetryableResponse;
     didFallback: boolean;
     retryCount: number;
   }> {
-    // 1. 获取主决策
-    const primaryDecision = await this.decide(message, sessionId);
+    // 1. 通过统一路由入口获取主决策
+    const primaryDecision = await this.resolve(route, {
+      message: options?.message,
+      sessionId: options?.sessionId,
+    });
 
     // 2. 如果启用了 fallback 链，构建回退执行
     if (

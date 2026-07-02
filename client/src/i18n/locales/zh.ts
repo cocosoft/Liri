@@ -649,6 +649,7 @@ const zh = {
     showCode: "查看代码",
     showPreview: "查看预览",
     imageTools: "图像",
+    model: "生图模型",
     dropOrClick: "拖拽或点击上传",
     dropHere: "拖放图片到此处",
     uploading: "上传中",

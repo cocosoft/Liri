@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -190,12 +190,15 @@ export async function handleRouterUpdateConfig(
     // 更新运行时
     router.updateConfig(config);
 
-    // 持久化到 GlobalConfig，使重启后配置不丢失
+    // 持久化到 GlobalConfig.models.router，使重启后配置不丢失
     const { configManager } = await import('@modules/config/ConfigManager');
-    const current =
-      configManager.getConfigValue<Record<string, unknown>>('models.router') ||
-      {};
-    configManager.setConfigValue('models.router', { ...current, ...config });
+    configManager.saveGlobalConfig((globalCfg) => ({
+      ...globalCfg,
+      models: {
+        ...globalCfg.models,
+        router: { ...globalCfg.models?.router, ...config },
+      },
+    }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));

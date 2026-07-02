@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,7 +47,9 @@ import type {
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { modelRouter, type TaskType } from '../modelRouter';
+import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
+import type { RouteKey as RouteKeyType } from '../router/routes.js';
+import type { TaskType } from '../modelRouter';
 import { ModelRegistry } from '../models/ModelRegistry';
 import type { APIProvider } from '../models/ModelConfigs';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
@@ -56,6 +58,15 @@ import { configManager } from '@modules/config';
 import { repairModelJson } from '@modules/utils/json';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/** TaskType → RouteKey 映射，用于 resolveModel 中的任务类型路由 */
+const TASK_TO_ROUTE: Record<string, RouteKeyType> = {
+  chat: RouteKey.CHAT,
+  agent: RouteKey.AGENT,
+  scheduled: RouteKey.SCHEDULED,
+  coding: RouteKey.CODING,
+  translation: RouteKey.TRANSLATION,
+};
 
 // ============================================================
 // SSE 格式枚举
@@ -199,21 +210,25 @@ export abstract class BaseAIProvider implements AIProvider {
    * @param options - 本次调用的 ChatOptions
    * @returns 模型名（非空）
    */
-  resolveModel(taskType?: TaskType, options?: ChatOptions): string {
+  async resolveModel(
+    taskType?: TaskType,
+    options?: ChatOptions
+  ): Promise<string> {
     // 1. ChatOptions 中的 model 优先
     if (options?.model) return options.model;
 
     // 2. 构造函数默认模型
     if (this.options.defaultModel) return this.options.defaultModel;
 
-    // 3. ModelRouter 带任务类型解析
+    // 3. 统一模型路由：带任务类型解析
     if (taskType) {
-      const mapped = modelRouter.resolveMapped(taskType, this.id);
+      const route = TASK_TO_ROUTE[taskType] ?? RouteKey.CHAT;
+      const mapped = await resolveModelRoute(route);
       if (mapped) return mapped;
     }
 
-    // 4. 再试一次无 taskType 的 chat 任务
-    const model = modelRouter.resolve('chat');
+    // 4. 再试一次无 taskType 的 chat 路由
+    const model = await resolveModelRoute(RouteKey.CHAT);
     if (model) return model;
 
     throw new AppError(

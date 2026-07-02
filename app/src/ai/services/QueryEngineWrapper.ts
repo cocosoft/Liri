@@ -30,7 +30,7 @@ import {
   createIntegrationAdapter,
 } from '../localAgent/QueryEngineIntegrationAdapter.js';
 import { SmartRouter } from '../router/SmartRouter.js';
-import type { RouteDecision } from '../router/types.js';
+import { RouteKey } from '../router/routes.js';
 
 export interface QueryEngineWrapperConfig {
   client: AIProvider;
@@ -104,7 +104,9 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     if (input) {
       // SmartRouter 决策（优先于 LocalAgent 预分类）
       if (this.smartRouter?.isEnabled()) {
-        const decision = await this.smartRouter.decide(input);
+        const decision = await this.smartRouter.resolve(RouteKey.CHAT, {
+          message: input,
+        });
         modelOverride = decision.model;
       } else {
         const localAgentResult = await this.integrationAdapter.process(
@@ -208,13 +210,27 @@ export class QueryEngineWrapper implements IQueryEngineCore {
       return this.executeDirectQuery(params);
     }
 
-    // SmartRouter 决策管线（优先）
+    // SmartRouter 决策管线（优先）：带 FallbackChain + RetryPolicy
     if (this.smartRouter?.isEnabled()) {
-      const decision = await this.smartRouter.decide(input);
-      return this.executeDirectQuery({
-        ...params,
-        model: decision.model || params.model,
-      });
+      let actualResult: QueryResult | null = null;
+
+      await this.smartRouter.execute(
+        RouteKey.CHAT,
+        async (decision) => {
+          actualResult = await this.executeDirectQuery({
+            ...params,
+            model: decision.model || params.model,
+          });
+          return {
+            success: !actualResult.error,
+            content: actualResult.message?.content,
+            error: actualResult.error,
+          };
+        },
+        { message: input }
+      );
+
+      return actualResult!;
     }
 
     // 原有 LocalAgent 预分类路径

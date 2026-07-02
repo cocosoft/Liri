@@ -62,6 +62,10 @@ import { coordinator as defaultCoordinator } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '@modules/ai/router/resolveModelRoute.js';
 import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
@@ -230,7 +234,7 @@ export class CoreAPIImpl implements CoreAPI {
       await syncDBProvidersToRegistry();
 
       // 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
-      const currentModel = modelRouter.resolve('chat');
+      const currentModel = await resolveModelRoute(RouteKey.CHAT);
       let provider = currentModel
         ? providerRegistry.getByModel(currentModel)
         : undefined;
@@ -300,7 +304,10 @@ export class CoreAPIImpl implements CoreAPI {
   ): Promise<{ model: string; tier: string }> {
     if (this.smartRouter?.isEnabled()) {
       try {
-        const decision = await this.smartRouter.decide(content, sessionId);
+        const decision = await this.smartRouter.resolve(RouteKey.CHAT, {
+          message: content,
+          sessionId,
+        });
         this.lastRouteDecision = {
           ...decision,
           target: decision.target ?? 'cloud',
@@ -312,7 +319,7 @@ export class CoreAPIImpl implements CoreAPI {
         logger.warning('SmartRouter 决策失败，回退 modelRouter', { error });
       }
     }
-    return { model: modelRouter.resolve('chat'), tier: 'fallback' };
+    return { model: await resolveModelRoute(RouteKey.CHAT), tier: 'fallback' };
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -493,6 +500,21 @@ export class CoreAPIImpl implements CoreAPI {
               sessionId: finalSessionId,
             } as ChatStreamChunk);
 
+            // 图像工具：流式返回进度状态，前端展示友好提示
+            if (toolName === 'image_generate') {
+              pendingEvents.push({
+                type: 'status',
+                content: '🎨 AI is generating an image...',
+                sessionId: finalSessionId,
+              } as ChatStreamChunk);
+            } else if (toolName === 'image_analyze' || toolName === 'image') {
+              pendingEvents.push({
+                type: 'status',
+                content: '🔍 AI is analyzing the image...',
+                sessionId: finalSessionId,
+              } as ChatStreamChunk);
+            }
+
             pendingEvents.push({
               type: 'tool_call',
               content: '',
@@ -636,6 +658,11 @@ export class CoreAPIImpl implements CoreAPI {
     toolCall: ToolCallSpec
   ): Promise<ToolResult> {
     const startTime = Date.now();
+    logger.info('CoreAPIImpl.executeTool() 入口', {
+      toolName: toolCall.name,
+      sessionId,
+      hasArgs: !!toolCall.arguments,
+    });
 
     try {
       const result = (await this.toolManager.executeTool(
@@ -644,21 +671,39 @@ export class CoreAPIImpl implements CoreAPI {
         { sessionId }
       )) as { output?: unknown; success: boolean };
 
-      return {
+      const response = {
         toolCallId: toolCall.id,
         toolName: toolCall.name,
-        result: result.output ?? null,
-        error: null,
+        success: result.success ?? true,
+        data: (result as any).data ?? null,
+        result: (result as any).output ?? (result as any).result ?? null,
+        error: (result as any).error ?? null,
         executionTime: Date.now() - startTime,
       };
+      logger.info('CoreAPIImpl.executeTool() 出口', {
+        toolName: toolCall.name,
+        success: response.success,
+        hasData: !!response.data,
+        error: response.error,
+        executionTime: response.executionTime,
+      });
+      return response;
     } catch (error) {
-      return {
+      const errorResponse = {
         toolCallId: toolCall.id,
         toolName: toolCall.name,
+        success: false,
+        data: null,
         result: null,
         error: error instanceof Error ? error.message : String(error),
         executionTime: Date.now() - startTime,
       };
+      logger.error('CoreAPIImpl.executeTool() 异常', {
+        toolName: toolCall.name,
+        error: errorResponse.error,
+        executionTime: errorResponse.executionTime,
+      });
+      return errorResponse;
     }
   }
 

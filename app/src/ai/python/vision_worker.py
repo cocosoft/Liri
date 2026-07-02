@@ -372,6 +372,240 @@ def handle_health(_params):
 
 
 # ---------------------------------------------------------------------------
+#  SAM 分割 & Depth 估计 (P1-7: 高级视觉扩展)
+# ---------------------------------------------------------------------------
+
+_sam_predictor = None
+
+
+def _get_sam_predictor():
+    """懒加载 SAM (Segment Anything Model) 预测器"""
+    global _sam_predictor
+    if _sam_predictor is None:
+        _check_module("segment_anything", "segment-anything")
+        from segment_anything import sam_model_registry, SamPredictor
+        import torch
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # 使用轻量级 ViT-B 模型
+        model = sam_model_registry["vit_b"]()
+        model.to(device)
+        _sam_predictor = SamPredictor(model)
+    return _sam_predictor
+
+
+def handle_sam_segment(params):
+    """
+    SAM 图像分割
+    参数: image_path (str), points (可选 [(x,y), ...]), labels (可选 [1/-1, ...])
+    返回: 分割 mask 的 base64 编码
+    """
+    image_path = params.get("image_path")
+    if not image_path:
+        return _error("INVALID_PARAMS", "image_path is required")
+
+    try:
+        import cv2
+        import base64
+
+        image = cv2.imread(image_path)
+        if image is None:
+            return _error("IMAGE_ERROR", f"Cannot read image: {image_path}")
+
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        predictor = _get_sam_predictor()
+        predictor.set_image(image)
+
+        # 如果有用户提供的点，使用点提示；否则全图分割
+        points = params.get("points")
+        if points:
+            import numpy as np
+            input_points = np.array(points)
+            input_labels = np.array(params.get("labels", [1] * len(points)))
+            masks, scores, _ = predictor.predict(
+                point_coords=input_points,
+                point_labels=input_labels,
+                multimask_output=False,
+            )
+        else:
+            # 自动全图分割（简化版：取中心点做提示）
+            h, w = image.shape[:2]
+            predictor.point_coords = None
+            masks, scores, _ = predictor.predict(
+                box=None,
+                multimask_output=True,
+            )
+
+        if masks is None or len(masks) == 0:
+            return _error("SEGMENT_FAILED", "No masks generated")
+
+        # 取最高置信度的 mask，编码为 PNG base64
+        best_mask = masks[scores.argmax()] if len(scores) > 0 else masks[0]
+        mask_image = (best_mask * 255).astype("uint8")
+        _, buffer = cv2.imencode(".png", mask_image)
+        mask_b64 = base64.b64encode(buffer).decode("utf-8")
+
+        return {
+            "masks": [mask_b64],
+            "scores": scores.tolist() if len(scores) > 0 else [1.0],
+        }
+    except Exception as e:
+        return _error("SAM_ERROR", str(e))
+
+
+_midas_model = None
+_midas_transform = None
+
+
+def _get_midas():
+    """懒加载 MiDaS 深度估计模型"""
+    global _midas_model, _midas_transform
+    if _midas_model is None:
+        import torch
+
+        try:
+            # 优先使用 torch.hub 加载轻量 MiDaS small
+            _midas_model = torch.hub.load("intel-isl/MiDaS", "MiDaS_small")
+            _midas_transform = torch.hub.load("intel-isl/MiDaS", "transforms").small_transform
+        except Exception:
+            _check_module("timm", "timm")
+            _midas_model = torch.hub.load("intel-isl/MiDaS", "MiDaS_small", trust_repo=True)
+            _midas_transform = torch.hub.load("intel-isl/MiDaS", "transforms", trust_repo=True).small_transform
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        _midas_model.to(device)
+        _midas_model.eval()
+
+    return _midas_model, _midas_transform
+
+
+def handle_depth_estimate(params):
+    """
+    MiDaS 单图深度估计
+    参数: image_path (str)
+    返回: 深度灰度图的 base64 编码
+    """
+    image_path = params.get("image_path")
+    if not image_path:
+        return _error("INVALID_PARAMS", "image_path is required")
+
+    try:
+        import cv2
+        import torch
+        import numpy as np
+        import base64
+
+        img = cv2.imread(image_path)
+        if img is None:
+            return _error("IMAGE_ERROR", f"Cannot read image: {image_path}")
+
+        model, transform = _get_midas()
+        device = next(model.parameters()).device
+
+        input_batch = transform(img).to(device)
+
+        with torch.no_grad():
+            prediction = model(input_batch)
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1),
+                size=img.shape[:2],
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze()
+
+        depth = prediction.cpu().numpy()
+
+        # 归一化到 0-255
+        depth_min = depth.min()
+        depth_max = depth.max()
+        if depth_max - depth_min > 0:
+            depth_normalized = ((depth - depth_min) / (depth_max - depth_min)) * 255
+        else:
+            depth_normalized = np.zeros_like(depth)
+
+        depth_uint8 = depth_normalized.astype("uint8")
+        _, buffer = cv2.imencode(".png", depth_uint8)
+        depth_b64 = base64.b64encode(buffer).decode("utf-8")
+
+        return {
+            "depth_image": depth_b64,
+            "min_depth": float(depth_min),
+            "max_depth": float(depth_max),
+        }
+    except Exception as e:
+        return _error("DEPTH_ERROR", str(e))
+
+
+def handle_extract_frames(params):
+    """
+    使用 ffmpeg 提取视频关键帧 (P1-3)
+    参数: video_path (str), max_frames (int, 默认10), output_dir (str)
+    返回: frames 文件路径列表
+    """
+    import subprocess
+    import os
+    import tempfile
+
+    video_path = params.get("video_path")
+    if not video_path or not os.path.isfile(video_path):
+        return _error("INVALID_PARAMS", "video_path is required and must exist")
+
+    max_frames = params.get("max_frames", 10)
+    output_dir = params.get("output_dir") or tempfile.mkdtemp(prefix="video_frames_")
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_pattern = os.path.join(output_dir, "frame-%04d.jpg")
+
+    try:
+        # 优先使用 scene 检测，失败则均匀间隔
+        cmd = [
+            "ffmpeg", "-y", "-i", video_path,
+            "-vf", "select='gt(scene,0.3)',scale=1024:-1",
+            "-vsync", "vfr",
+            "-frames:v", str(max_frames),
+            output_pattern,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+
+        if result.returncode != 0:
+            # 回退: 均匀间隔抽取
+            fps_cmd = ["ffprobe", "-v", "quiet", "-print_format", "json",
+                       "-show_format", video_path]
+            probe = subprocess.run(fps_cmd, capture_output=True, text=True, timeout=10)
+            duration = 60
+            if probe.returncode == 0:
+                import json as _json
+                info = _json.loads(probe.stdout)
+                duration = float(info.get("format", {}).get("duration", 60))
+
+            interval = max(1, duration / max_frames)
+            cmd2 = [
+                "ffmpeg", "-y", "-i", video_path,
+                "-vf", f"fps=1/{interval},scale=1024:-1",
+                "-frames:v", str(max_frames),
+                output_pattern,
+            ]
+            subprocess.run(cmd2, capture_output=True, text=True, timeout=180)
+
+        # 收集输出帧
+        frames = sorted([
+            os.path.join(output_dir, f)
+            for f in os.listdir(output_dir)
+            if f.startswith("frame-") and f.endswith(".jpg")
+        ])
+
+        return {
+            "frames": frames,
+            "frame_count": len(frames),
+            "output_dir": output_dir,
+        }
+    except FileNotFoundError:
+        return _error("FFMPEG_NOT_FOUND", "ffmpeg 不可用，请安装 ffmpeg")
+    except Exception as e:
+        return _error("EXTRACT_ERROR", str(e))
+
+
+# ---------------------------------------------------------------------------
 #  消息分发
 # ---------------------------------------------------------------------------
 
@@ -382,6 +616,9 @@ HANDLERS = {
     "object_detection": handle_object_detection,
     "image_similarity": handle_image_similarity,
     "health": handle_health,
+    "sam_segment": handle_sam_segment,
+    "depth_estimate": handle_depth_estimate,
+    "extract_frames": handle_extract_frames,
 }
 
 

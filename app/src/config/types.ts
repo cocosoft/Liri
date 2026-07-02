@@ -85,6 +85,15 @@ export interface ModelConfig {
     tiers: Record<string, { model: string; providerHint?: string }>;
     defaultTier: 'simple' | 'medium' | 'complex' | 'reasoning';
     sessionSticky?: boolean;
+    fallback?: Array<{ provider: string; model: string }>;
+    zeroUsageRetry?: { enabled: boolean; maxAttempts: number };
+    transientRetry?: {
+      enabled: boolean;
+      maxAttempts: number;
+      baseDelayMs: number;
+      maxDelayMs: number;
+    };
+    stats?: { enabled: boolean };
   };
 }
 

@@ -6,6 +6,7 @@ import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { imageService, clearImageCache } from "../../services/imageService";
+import ModelSelector from "../common/ModelSelector";
 import ImageToolPanel from "./image/ImageToolPanel";
 import ImageGallery, { useImageGallery } from "./image/ImageGallery";
 import ImageUploadDrop from "./image/ImageUploadDrop";
@@ -23,16 +24,32 @@ function ImagePage() {
 
   const loading = gallery.loading || toolLoading;
 
+  // 模型选择
+  const [selectedModel, setSelectedModel] = useState<string>("");
+
   const handleToolExecute = useCallback(
     async (toolName: string, args: Record<string, unknown>) => {
       const startedAt = Date.now();
       setToolLoading(true);
       setError(null);
       try {
+        // 注入选中的模型（优先 ModelSelector，回退到 tool form 中的 model 字段）
+        const resolvedModel = selectedModel || (args.model as string | undefined);
+        const mergedArgs = resolvedModel ? { ...args, model: resolvedModel } : args;
+        let galleryUpdated = false;
         switch (toolName) {
-          case "image_generate":
-            await imageService.generate(args.prompt as string, args as Record<string, unknown>);
+          case "image_generate": {
+            const result = await imageService.generate(mergedArgs.prompt as string, mergedArgs as Record<string, unknown>);
+            // 直接将生成结果注入图库
+            if (result.images?.length > 0) {
+              gallery.prepend(result.images.map((img) => ({
+                path: img.url,
+                url: img.url,
+              })));
+              galleryUpdated = true;
+            }
             break;
+          }
           case "image_analysis":
             await imageService.analyze(
               args.inputPath as string,
@@ -47,15 +64,23 @@ function ImagePage() {
               args as Record<string, unknown>
             );
             break;
-          case "image_svg_generate":
-            await imageService.generate(args.prompt as string, args as Record<string, unknown>);
+          case "image_svg_generate": {
+            const result = await imageService.generate(mergedArgs.prompt as string, mergedArgs as Record<string, unknown>);
+            if (result.images?.length > 0) {
+              gallery.prepend(result.images.map((img) => ({
+                path: img.url,
+                url: img.url,
+              })));
+              galleryUpdated = true;
+            }
             break;
+          }
           case "canvas":
             break;
         }
         addHistory({ toolName, args, success: true, startedAt, completedAt: Date.now() });
         clearImageCache();
-        gallery.refresh();
+        if (!galleryUpdated) gallery.refresh();
       } catch (err) {
         addHistory({ toolName, args, success: false, error: err instanceof Error ? err.message : String(err), startedAt, completedAt: Date.now() });
         setError(err instanceof Error ? err.message : t("image.toolExecutionFailed"));
@@ -112,6 +137,13 @@ function ImagePage() {
       {/* Main content */}
       <div className="flex-1 overflow-hidden flex">
         <div className="w-64 shrink-0 overflow-y-auto border-r border-gray-700/20 p-3 space-y-4">
+          {/* 生图模型选择器 */}
+          <ModelSelector
+            type="image"
+            value={selectedModel}
+            onChange={setSelectedModel}
+            label={t("image.model")}
+          />
           <ImageToolPanel onExecute={handleToolExecute} loading={loading} />
           <ImageUploadDrop onUploaded={handleUploaded} />
           <TaskHistoryPanel onResume={handleResume} />

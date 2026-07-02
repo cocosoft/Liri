@@ -126,7 +126,7 @@ function TaskAssignment() {
                       <optgroup key={provider} label={provider}>
                         {available.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.name || m.id}
+                            {m.name || m.modelId || m.id}
                           </option>
                         ))}
                       </optgroup>

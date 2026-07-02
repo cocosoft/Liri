@@ -1,4 +1,4 @@
-﻿import type { Memory } from '../types/Memory';
+import type { Memory } from '../types/Memory';
 import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs/promises';
 import path from 'path';
@@ -356,9 +356,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * 获取当前嵌入模型名称
    * 从全局嵌入管理器中读取当前使用的模型名
    */
-  private getEmbeddingModelName(): string {
+  private async getEmbeddingModelName(): Promise<string> {
     try {
-      return globalEmbeddingManager.getProvider().modelName;
+      const provider = await globalEmbeddingManager.getProvider();
+      return provider.modelName;
     } catch {
       return 'unknown';
     }
@@ -378,7 +379,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const emb = await globalEmbeddingManager.embedOne(textToEmbed);
     this.vectorCache.set(itemId, {
       vector: Array.from(emb),
-      model: this.getEmbeddingModelName(),
+      model: await this.getEmbeddingModelName(),
     });
   }
 
@@ -1010,7 +1011,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const resultLimit = limit ?? this.searchConfig.query.maxResults;
     const minScore = threshold ?? this.searchConfig.query.minScore;
     const queryEmb = await globalEmbeddingManager.embedOne(query);
-    const currentModel = this.getEmbeddingModelName();
+    const currentModel = await this.getEmbeddingModelName();
     const results: SimilarMemoryResult[] = [];
 
     for (const item of this.memoryIndex.values()) {

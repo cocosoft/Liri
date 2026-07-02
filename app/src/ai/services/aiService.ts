@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI服务（已整合LLM模块）
  */
 
@@ -23,7 +23,6 @@ import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 import { configManager } from '../../config/index.js';
-import { modelRouter } from '../modelRouter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -258,7 +257,7 @@ export function createAIService(
   config: Partial<AIServiceConfig> = {}
 ): AIService {
   const defaultConfig: AIServiceConfig = {
-    defaultModel: modelRouter.resolve('chat'),
+    defaultModel: '',
     apiKey:
       configManager.env('ANTHROPIC_API_KEY') ||
       configManager.env('OPENAI_API_KEY') ||
@@ -292,7 +291,7 @@ export function createAIServiceWithScrubbing(
   pipeline?: ScrubberPipeline
 ): AIServiceImpl {
   const service = new AIServiceImpl({
-    defaultModel: modelRouter.resolve('chat'),
+    defaultModel: '',
     apiKey:
       configManager.env('ANTHROPIC_API_KEY') ||
       configManager.env('OPENAI_API_KEY') ||

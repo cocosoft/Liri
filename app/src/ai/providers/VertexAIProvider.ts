@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Vertex AI Provider — Google Vertex AI API 适配
  *
  * 复用 GeminiTransport 处理消息转换和响应归一化，
@@ -86,7 +86,7 @@ export class VertexAIProvider extends BaseAIProvider {
     }
   ): Promise<ChatResponse> {
     const model =
-      options?.model || this.defaultModel || this.resolveModel('chat');
+      options?.model || this.defaultModel || (await this.resolveModel('chat'));
     const { systemPrompt } = this.adapter.splitMessages(messages);
     const token = await this.getAccessToken();
 
@@ -148,7 +148,7 @@ export class VertexAIProvider extends BaseAIProvider {
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const model =
-      options?.model || this.defaultModel || this.resolveModel('chat');
+      options?.model || this.defaultModel || (await this.resolveModel('chat'));
     const { systemPrompt } = this.adapter.splitMessages(messages);
     const token = await this.getAccessToken();
 

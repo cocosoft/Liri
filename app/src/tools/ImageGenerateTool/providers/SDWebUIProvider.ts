@@ -13,16 +13,22 @@ import type {
   CostEstimate,
   ProviderConfig,
 } from '../types';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'tools:imageGenerate',
+});
 
 export class SDWebUIProvider implements ImageGenerationProvider {
   readonly name = 'SD WebUI (Local)';
   readonly type = 'sdwebui' as const;
 
-  private endpoint: string;
+  /** 本地 SD WebUI 地址，默认绑定 127.0.0.1（安全） */
+  private readonly endpoint: string;
 
-  constructor(config: ProviderConfig) {
-    // 默认仅绑定 127.0.0.1（安全）
-    this.endpoint = config.endpoint ?? 'http://127.0.0.1:7860';
+  constructor(config?: ProviderConfig) {
+    this.endpoint = config?.endpoint ?? 'http://127.0.0.1:7860';
   }
 
   /** 本地 SD WebUI 免费 */
@@ -58,6 +64,12 @@ export class SDWebUIProvider implements ImageGenerationProvider {
     };
 
     try {
+      logger.info('SDWebUIProvider · 请求本地 SD WebUI 生成图像', {
+        endpoint: this.endpoint,
+        prompt: params.prompt.slice(0, 80),
+        size: params.size,
+      });
+
       const response = await fetch(`${this.endpoint}/sdapi/v1/txt2img`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,6 +79,10 @@ export class SDWebUIProvider implements ImageGenerationProvider {
 
       if (!response.ok) {
         const errorBody = await response.text();
+        logger.warn('SDWebUIProvider · API 错误', {
+          status: response.status,
+          error: errorBody,
+        });
         return {
           success: false,
           data: [],
@@ -79,6 +95,7 @@ export class SDWebUIProvider implements ImageGenerationProvider {
       const images64 = data.images as string[] | undefined;
 
       if (!images64 || images64.length === 0) {
+        logger.warn('SDWebUIProvider · 无图像返回');
         return {
           success: false,
           data: [],
@@ -86,6 +103,11 @@ export class SDWebUIProvider implements ImageGenerationProvider {
           durationMs: Date.now() - startTime,
         };
       }
+
+      logger.info('SDWebUIProvider · 生成成功', {
+        count: images64.length,
+        durationMs: Date.now() - startTime,
+      });
 
       return {
         success: true,
@@ -98,6 +120,9 @@ export class SDWebUIProvider implements ImageGenerationProvider {
         durationMs: Date.now() - startTime,
       };
     } catch (error) {
+      logger.error('SDWebUIProvider · 生成异常', {
+        error: (error as Error).message,
+      });
       return {
         success: false,
         data: [],

@@ -441,13 +441,15 @@ function SettingsPage() {
             <LocalAgentPanel
               isDark={isDark}
               localAgent={
-                ((config.ai as Record<string, unknown>)?.localAgent || {
-                  enabled: false,
-                  routing: {
-                    strategy: "cloud-first" as const,
-                    fallbackToCloud: true,
-                  },
-                }) as unknown as Parameters<
+                (() => {
+                  const raw = (config.ai as Record<string, unknown>)?.localAgent as Record<string, unknown> | undefined;
+                  // 深合并默认值，确保 routing 不会因残缺的已存储数据而丢失
+                  return {
+                    enabled: false,
+                    routing: { strategy: "cloud-first" as const, fallbackToCloud: true },
+                    ...(raw || {}),
+                  };
+                })() as unknown as Parameters<
                   typeof LocalAgentPanel
                 >[0]["localAgent"]
               }
@@ -468,6 +470,8 @@ function SettingsPage() {
                 setConfig("ai", {
                   ...((config.ai as object) || {}),
                   localAgent: {
+                    // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
+                    routing: { strategy: "cloud-first" as const, fallbackToCloud: true },
                     ...(((config.ai as Record<string, unknown>)
                       ?.localAgent as object) || {}),
                     ...u,
@@ -478,6 +482,8 @@ function SettingsPage() {
                 setConfig("ai", {
                   ...((config.ai as object) || {}),
                   localAgent: {
+                    // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
+                    routing: { strategy: "cloud-first" as const, fallbackToCloud: true },
                     ...(((config.ai as Record<string, unknown>)
                       ?.localAgent as object) || {}),
                     ollama: {

@@ -96,6 +96,8 @@ import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
 import { ChannelTool } from './ChannelTool/ChannelTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
 import { ImageSvgTool } from './ImageSvgTool/ImageSvgTool';
+import { VideoAnalysisTool } from './VideoAnalysisTool/VideoAnalysisTool';
+import { BrowserVisionTool } from './BrowserVisionTool/BrowserVisionTool';
 import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
 import { VideoGenerateTool } from './VideoGenerateTool/VideoGenerateTool';
 import { McpAuthTool } from './McpAuthTool/McpAuthTool';
@@ -938,6 +940,20 @@ export class ToolFactory {
   }
 
   /**
+   * 创建视频分析工具
+   */
+  createVideoAnalysisTool(): Tool {
+    return new VideoAnalysisTool();
+  }
+
+  /**
+   * 创建浏览器截图视觉分析工具
+   */
+  createBrowserVisionTool(): Tool {
+    return new BrowserVisionTool();
+  }
+
+  /**
    * 创建 SVG 生成工具
    */
   createImageSvgTool(): Tool {
@@ -1284,6 +1300,16 @@ export function getAllBaseTools(): Tool[] {
   const imageGenerateTool = new ImageGenerateTool();
   if (imageGenerateTool) {
     tools.push(imageGenerateTool);
+  }
+
+  const videoAnalysisTool = new VideoAnalysisTool();
+  if (videoAnalysisTool) {
+    tools.push(videoAnalysisTool);
+  }
+
+  const browserVisionTool = new BrowserVisionTool();
+  if (browserVisionTool) {
+    tools.push(browserVisionTool);
   }
 
   const imageSvgTool = new ImageSvgTool();

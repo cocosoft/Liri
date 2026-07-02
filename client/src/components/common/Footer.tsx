@@ -13,7 +13,7 @@ function Footer() {
   const { t } = useTranslation();
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();
-  const { currentModelId, routerTier, routingMode, loadCurrent } =
+  const { currentModelName, routerTier, routingMode, loadCurrent } =
     useModelSwitchStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showModelSwitcher, setShowModelSwitcher] = useState(false);
@@ -104,7 +104,7 @@ function Footer() {
   /** 复制模型名称到剪贴板 */
   const copyModelName = async () => {
     try {
-      await navigator.clipboard.writeText(currentModelId);
+      await navigator.clipboard.writeText(currentModelName);
     } catch {
       // 静默失败
     }
@@ -183,7 +183,7 @@ function Footer() {
                 className="text-gray-700 dark:text-gray-300 font-medium max-w-[120px] truncate inline-block"
                 onDoubleClick={copyModelName}
               >
-                {currentModelId}
+                {currentModelName}
               </span>
               {routingMode === 'dynamic' && routerTier ? (
                 <span className="px-1 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">

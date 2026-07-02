@@ -15,7 +15,10 @@ import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
-import { modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '@modules/ai/router/resolveModelRoute.js';
 
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
@@ -170,7 +173,7 @@ export class SubAgentEngine {
     }
 
     try {
-      const agentModel = modelRouter.resolve('agent');
+      const agentModel = await resolveModelRoute(RouteKey.AGENT);
       let llmClient = agentModel
         ? providerRegistry.getByModel(agentModel)
         : undefined;
@@ -504,7 +507,9 @@ export class SubAgentEngine {
     model?: string
   ): Promise<ChatResponse> {
     const resolvedModel =
-      model || this.config.defaultModel || modelRouter.resolve('agent');
+      model ||
+      this.config.defaultModel ||
+      (await resolveModelRoute(RouteKey.AGENT));
     const maxRetries = 2;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {

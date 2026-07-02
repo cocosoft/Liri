@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ollama (Local) 提供商
  * Ollama /api/chat 格式
  */
@@ -58,7 +58,7 @@ export class OllamaProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
@@ -112,7 +112,7 @@ export class OllamaProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
@@ -250,7 +250,7 @@ export class OllamaProvider extends BaseAIProvider {
     promptEvalCount?: number;
     evalCount?: number;
   }> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 

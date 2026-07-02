@@ -17,13 +17,15 @@ export interface ImageGenerationProvider {
   /** Provider 名称 */
   readonly name: string;
   /** Provider 类型标识 */
-  readonly type: 'openai' | 'stability' | 'sdwebui' | 'replicate';
+  readonly type: 'openai' | 'stability' | 'sdwebui' | 'replicate' | 'fal';
 
   /** 执行图片生成 */
   generate(params: ImageGenerationParams): Promise<ImageGenerationResult>;
 
-  /** 估算费用 */
-  estimateCost(params: ImageGenerationParams): CostEstimate;
+  /** 估算费用（支持异步，可接入 ModelRegistry 动态定价） */
+  estimateCost(
+    params: ImageGenerationParams
+  ): CostEstimate | Promise<CostEstimate>;
 }
 
 // ============================================================
@@ -53,7 +55,7 @@ export interface CostRecord {
 /** Provider 配置项 */
 export interface ProviderConfig {
   name: string;
-  type: 'openai' | 'stability' | 'sdwebui' | 'replicate';
+  type: 'openai' | 'stability' | 'sdwebui' | 'replicate' | 'fal';
   apiKey?: string;
   endpoint?: string;
   enabled: boolean;
@@ -117,6 +119,7 @@ export function getDefaultGenerationConfig(): ImageGenerationConfig {
   return {
     providers: [
       { name: 'OpenAI DALL-E 3', type: 'openai', enabled: true },
+      { name: 'FAL.ai', type: 'fal', enabled: false },
       { name: 'Stability AI', type: 'stability', enabled: false },
       { name: 'SD WebUI (Local)', type: 'sdwebui', enabled: false },
       { name: 'Replicate Flux', type: 'replicate', enabled: false },

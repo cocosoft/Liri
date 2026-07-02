@@ -451,7 +451,20 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   // 解析 --model 参数并设为全局模型
   const modelArg = parseModelFromArgs(options.args);
   if (modelArg) {
-    modelRouter.setCurrentModel(modelArg);
+    // 将模型名转换为 UUID 存储，保持 config.json 一致性
+    try {
+      const { modelPricingService } =
+        await import('./ai/models/ModelPricingService');
+      await modelPricingService.initialize();
+      const record = await modelPricingService.getPricing(modelArg);
+      const modelId = record?.id || modelArg;
+      modelRouter.setCurrentModel(modelId);
+      if (record?.id) {
+        logger.info(`CLI --model ${modelArg} → UUID ${record.id}`);
+      }
+    } catch {
+      modelRouter.setCurrentModel(modelArg);
+    }
   }
 
   const httpPort = parseHttpPortFromArgs(options.args) || 7890;
@@ -886,21 +899,35 @@ export async function launch(options: LaunchOptions): Promise<void> {
         const { configManager } = await import('@modules/config/ConfigManager');
 
         // 从 configManager 读取路由配置，若无则使用默认值
-        const routerCfg = (configManager.getConfigValue<
-          Record<string, unknown>
-        >('models.router') || {}) as Partial<
-          import('@modules/ai/router/types').RouterConfig
-        >;
+        const savedRouter = (configManager.getGlobalConfig().models?.router ??
+          {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
         const routerConfig: import('@modules/ai/router/types').RouterConfig = {
-          enabled: routerCfg?.enabled !== false,
-          defaultTier: routerCfg?.defaultTier || 'medium',
-          sessionSticky: routerCfg?.sessionSticky !== false,
+          enabled: savedRouter.enabled !== false,
+          defaultTier: savedRouter.defaultTier || 'medium',
+          sessionSticky: savedRouter.sessionSticky !== false,
           tiers: {
-            simple: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
-            medium: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
-            complex: { model: 'deepseek-v4-pro', providerHint: 'deepseek' },
-            reasoning: { model: 'deepseek-reasoner', providerHint: 'deepseek' },
+            simple: savedRouter.tiers?.simple ?? {
+              model: 'deepseek-v4-flash',
+              providerHint: 'deepseek',
+            },
+            medium: savedRouter.tiers?.medium ?? {
+              model: 'deepseek-v4-flash',
+              providerHint: 'deepseek',
+            },
+            complex: savedRouter.tiers?.complex ?? {
+              model: 'deepseek-v4-pro',
+              providerHint: 'deepseek',
+            },
+            reasoning: savedRouter.tiers?.reasoning ?? {
+              model: 'deepseek-reasoner',
+              providerHint: 'deepseek',
+            },
           },
+          fallback: savedRouter.fallback,
+          judge: savedRouter.judge,
+          zeroUsageRetry: savedRouter.zeroUsageRetry,
+          transientRetry: savedRouter.transientRetry,
+          stats: savedRouter.stats,
         };
 
         const smartRouter = new SmartRouter({

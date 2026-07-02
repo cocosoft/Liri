@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -82,7 +82,7 @@ export class GoogleProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
     const requestBody = this.transport!.buildRequest({
@@ -139,7 +139,7 @@ export class GoogleProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
     const requestBody = this.transport!.buildRequest({

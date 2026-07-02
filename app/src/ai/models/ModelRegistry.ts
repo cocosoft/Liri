@@ -19,6 +19,12 @@ import {
   loadModelsConfig,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
+
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:registry' });
 
 const API_PROVIDER_KEYS: APIProvider[] = [
   'firstParty',
@@ -108,6 +114,9 @@ export class ModelRegistry {
 
   /** 从 ModelPricingService（DB）加载定价到内存缓存 */
   async loadDbPricing(): Promise<void> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('model.registry.loadPricing', {});
+
     try {
       const { modelPricingService } =
         await import('@modules/ai/models/ModelPricingService.js');
@@ -120,8 +129,12 @@ export class ModelRegistry {
           outputPer1M: rec.outputCostPerMillion,
         });
       }
-    } catch {
-      // DB 不可用时持有空 Map，getModelPricing 返回 null
+      otel.endSpan(span, SpanStatusCode.OK);
+    } catch (err) {
+      logger.warning('DB 定价加载失败，将使用空缓存', {
+        error: (err as Error).message,
+      });
+      otel.endSpan(span, SpanStatusCode.ERROR, (err as Error).message);
     }
   }
 
@@ -296,8 +309,10 @@ export class ModelRegistry {
           outputPer1M: dbPricing.outputCostPerMillion,
         };
       }
-    } catch {
-      // DB 不可用时回退
+    } catch (err) {
+      logger.warning('DB 实时定价查询失败，回退到缓存', {
+        error: (err as Error).message,
+      });
     }
     return this.getModelPricing(modelName);
   }

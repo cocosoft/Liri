@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Anthropic (Claude) 提供商
  * 使用 Messages API + fetch，取代 @anthropic-ai/sdk
  */
@@ -100,7 +100,7 @@ export class AnthropicProvider extends BaseAIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     const model =
-      options?.model || this.config.model || this.resolveModel('chat');
+      options?.model || this.config.model || (await this.resolveModel('chat'));
 
     return this.withRetry(async () => {
       return this.sendRequest(model, messages, options);
@@ -112,7 +112,7 @@ export class AnthropicProvider extends BaseAIProvider {
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     const model =
-      options?.model || this.config.model || this.resolveModel('chat');
+      options?.model || this.config.model || (await this.resolveModel('chat'));
     const apiKey = this.resolveApiKey() || this.config.apiKey || '';
     const baseUrl = (
       this.resolveBaseUrl() || 'https://api.anthropic.com'

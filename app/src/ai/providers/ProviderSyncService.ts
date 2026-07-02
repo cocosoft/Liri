@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,12 +39,15 @@ import { GrokProvider } from './GrokProvider';
 import { BedrockProvider } from './BedrockProvider';
 import { VertexAIProvider } from './VertexAIProvider';
 import { AzureOpenAIProvider } from './AzureOpenAIProvider';
+import { FALProvider } from './FALProvider';
+import { StabilityProvider } from './StabilityProvider';
+import { ReplicateProvider } from './ReplicateProvider';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord, ProviderType } from './ProviderManager';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:provider-sync' });
 
 /** DB providerType → AIProvider 构造函数映射 */
 function createProviderByType(
@@ -135,8 +138,87 @@ function createProviderByType(
         },
         config
       );
-    default:
-      // custom → 默认用 OpenAI 兼容格式
+    // 图像生成专用 Provider
+    case 'fal':
+      return new FALProvider({
+        providerId: 'fal',
+        displayName: 'FAL.ai',
+        defaultBaseUrl: 'https://fal.run',
+        envApiKey: 'FAL_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
+    case 'stability':
+      return new StabilityProvider({
+        providerId: 'stability',
+        displayName: 'Stability AI',
+        defaultBaseUrl: 'https://api.stability.ai',
+        envApiKey: 'STABILITY_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
+    case 'replicate':
+      return new ReplicateProvider({
+        providerId: 'replicate',
+        displayName: 'Replicate',
+        defaultBaseUrl: 'https://api.replicate.com/v1',
+        envApiKey: 'REPLICATE_API_TOKEN',
+        defaultModel: (config?.model as string) || '',
+      });
+    case 'comfy':
+      // ComfyUI 延迟导入（避免启动时必然加载）
+
+      const { ComfyUIProvider } =
+        require('./ComfyUIProvider') as typeof import('./ComfyUIProvider');
+      return new ComfyUIProvider({
+        providerId: 'comfy',
+        displayName: 'ComfyUI (本地)',
+        defaultBaseUrl: (config?.baseUrl as string) || 'http://127.0.0.1:8188',
+        defaultModel: (config?.model as string) || '',
+      });
+    case 'openrouter': {
+      // OpenRouter 不支持 /images/generations 端点，覆写 generateImage 给出明确指引
+      const provider = new OpenAIProvider({
+        providerId: 'openrouter',
+        displayName: 'OpenRouter',
+        defaultBaseUrl:
+          (config?.baseUrl as string) || 'https://openrouter.ai/api/v1',
+        envApiKey: 'OPENROUTER_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
+      // OpenRouter 的 chat completions 可返回图片，但不支持标准 /images/generations
+      // 请使用 OpenAI / FAL / Stability / Replicate / ComfyUI 作为生图 Provider
+      provider.generateImage = async () => ({
+        success: false,
+        data: [],
+        error:
+          'OpenRouter 不支持图像生成端点。请在模型管理 → 供应商中添加 OpenAI / FAL / Stability / Replicate / ComfyUI，并在任务分工中将其设为生图模型。',
+        durationMs: 0,
+      });
+      return provider;
+    }
+    case 'siliconflow': {
+      // SiliconFlow 不支持 /images/generations 端点，覆写 generateImage 给出明确指引
+      const provider = new OpenAIProvider({
+        providerId: 'siliconflow',
+        displayName: 'SiliconFlow (硅基流动)',
+        defaultBaseUrl:
+          (config?.baseUrl as string) || 'https://api.siliconflow.cn/v1',
+        envApiKey: 'SILICONFLOW_API_KEY',
+        defaultModel: (config?.model as string) || '',
+      });
+      // 请使用 OpenAI / FAL / Stability / Replicate / ComfyUI 作为生图 Provider
+      provider.generateImage = async () => ({
+        success: false,
+        data: [],
+        error:
+          'SiliconFlow 不支持图像生成端点。请在模型管理 → 供应商中添加 OpenAI / FAL / Stability / Replicate / ComfyUI，并在任务分工中将其设为生图模型。',
+        durationMs: 0,
+      });
+      return provider;
+    }
+    default: {
+      // custom / unknown → 默认用 OpenAI 兼容格式
+      // generateImage() 自然继承 OpenAIProvider 的实现（调 /v1/images/generations）
+      // 对 OpenRouter、SiliconFlow 等兼容 Provider 有效
       return new OpenAIProvider({
         providerId: 'custom',
         displayName: 'Custom OpenAI-compatible',
@@ -145,6 +227,7 @@ function createProviderByType(
         envApiKey: 'OPENAI_API_KEY',
         defaultModel: (config?.model as string) || '',
       });
+    }
   }
 }
 
@@ -153,7 +236,7 @@ function createProviderByType(
  */
 function recordToConfig(record: ProviderRecord): ProviderConfig {
   const config: ProviderConfig = {
-    apiKey: record.apiKey || configManager.env('DEEPSEEK_API_KEY') || '',
+    apiKey: record.apiKey || '',
     baseUrl: record.baseUrl,
   };
 

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,7 +40,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:pricing' });
 
 const REGISTRY_TABLE = 'model_registry';
 const OLD_PRICING_TABLE = 'model_pricing';
@@ -188,6 +188,7 @@ export class ModelPricingService {
       await this.createRegistryTable();
       await this.migrateOldPricingTable();
       await this.seedFromYamlIfEmpty();
+      await this.migrateBackfillUUIDs();
 
       this.initialized = true;
       logger.info(
@@ -249,7 +250,58 @@ export class ModelPricingService {
       );
     });
 
+    // UUID 唯一索引（仅非空值）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_model_registry_id ON ${REGISTRY_TABLE}(id) WHERE id IS NOT NULL AND id != ''`,
+        () => resolve()
+      );
+    });
+
     logger.info('model_registry 表创建/验证完成');
+  }
+
+  /** Promise 化 db.run */
+  private runAsync(sql: string, params: any[] = []): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.db!.run(sql, params, (err: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  /** 为存量记录回填 UUID（事务包裹，避免逐条 COMMIT） */
+  private async migrateBackfillUUIDs(): Promise<void> {
+    const rows = await new Promise<{ model_id: string }[]>(
+      (resolve, reject) => {
+        this.db!.all(
+          `SELECT model_id FROM ${REGISTRY_TABLE} WHERE id = '' OR id IS NULL`,
+          (err: Error | null, rows: any[]) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      }
+    );
+
+    if (rows.length === 0) return;
+
+    logger.info(`开始为 ${rows.length} 条模型记录回填 UUID`);
+    await this.runAsync('BEGIN TRANSACTION');
+    try {
+      for (const row of rows) {
+        await this.runAsync(
+          `UPDATE ${REGISTRY_TABLE} SET id = ? WHERE model_id = ?`,
+          [randomUUID(), row.model_id]
+        );
+      }
+      await this.runAsync('COMMIT');
+      logger.info(`已完成 ${rows.length} 条模型记录 UUID 回填`);
+    } catch (err) {
+      await this.runAsync('ROLLBACK').catch(() => {});
+      throw err;
+    }
   }
 
   /** 迁移旧 model_pricing 表数据到 model_registry，然后删除旧表 */
@@ -324,14 +376,16 @@ export class ModelPricingService {
     let migrated = 0;
     for (const old of oldRows) {
       try {
+        const id = randomUUID();
         await new Promise<void>((resolve, reject) => {
           this.db!.run(
             `INSERT OR IGNORE INTO ${REGISTRY_TABLE}
-             (model_id, display_name, input_price, output_price,
+             (id, model_id, display_name, input_price, output_price,
               cache_read_price, cache_write_price, provider_id,
               enabled, is_custom, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
+              id,
               old.model_id,
               old.display_name || '',
               (old.input_price as number) ||
@@ -413,16 +467,18 @@ export class ModelPricingService {
       for (const [key, entry] of Object.entries(data.models)) {
         const providerMappings = entry.providers || {};
         const capabilities = entry.capabilities || [];
+        const id = randomUUID();
 
         await new Promise<void>((resolve, reject) => {
           this.db!.run(
             `INSERT OR IGNORE INTO ${REGISTRY_TABLE}
-             (model_id, display_name, context_window, max_output_tokens,
+             (id, model_id, display_name, context_window, max_output_tokens,
               capabilities, provider_mappings,
               input_price, output_price, cache_read_price, cache_write_price,
               provider_id, enabled, is_custom, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
             [
+              id,
               key,
               entry.displayName || key,
               entry.contextWindow || 128000,
@@ -655,17 +711,62 @@ export class ModelPricingService {
   /** 删除模型（不限 is_custom） */
   async deleteModel(modelId: string): Promise<boolean> {
     this.ensureInitialized();
+    const existing = await this.getPricing(modelId);
+    if (!existing) return false;
 
-    return new Promise<boolean>((resolve, reject) => {
-      this.db!.run(
-        `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
-        [modelId],
-        function (this: any, err: Error | null) {
+    await this.runAsync(`DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ?`, [
+      modelId,
+    ]);
+    return true;
+  }
+
+  /** 按 UUID 查询模型记录 */
+  async getPricingById(id: string): Promise<ModelPricingRecord | undefined> {
+    this.ensureInitialized();
+
+    return new Promise<ModelPricingRecord | undefined>((resolve, reject) => {
+      this.db!.get(
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE id = ?`,
+        [id],
+        (err: Error | null, row: any) => {
           if (err) reject(err);
-          else resolve(this.changes > 0);
+          else if (!row) resolve(undefined);
+          else resolve(rowToRecord(row as Record<string, unknown>));
         }
       );
     });
+  }
+
+  /** 按 UUID 切换模型启用/停用 */
+  async toggleModelById(
+    id: string
+  ): Promise<{ modelId: string; enabled: boolean } | null> {
+    this.ensureInitialized();
+    const record = await this.getPricingById(id);
+    if (!record) return null;
+
+    const newEnabled = record.enabled ? 0 : 1;
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(
+        `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE id = ?`,
+        [newEnabled, Math.floor(Date.now() / 1000), id],
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+    return { modelId: record.modelId, enabled: newEnabled === 1 };
+  }
+
+  /** 按 UUID 删除模型 */
+  async deleteModelById(id: string): Promise<boolean> {
+    this.ensureInitialized();
+    const existing = await this.getPricingById(id);
+    if (!existing) return false;
+
+    await this.runAsync(`DELETE FROM ${REGISTRY_TABLE} WHERE id = ?`, [id]);
+    return true;
   }
 
   /** 获取模型计数 */
@@ -696,16 +797,17 @@ export class ModelPricingService {
       for (const [key, entry] of Object.entries(data.models)) {
         const providerMappings = JSON.stringify(entry.providers || {});
         const capabilities = JSON.stringify(entry.capabilities || []);
+        const id = randomUUID();
 
-        // UPSERT: 只覆盖 is_custom=0 的种子行
+        // UPSERT: 只覆盖 is_custom=0 的种子行，不更新 id 字段
         await new Promise<void>((resolve, reject) => {
           this.db!.run(
             `INSERT INTO ${REGISTRY_TABLE}
-             (model_id, display_name, context_window, max_output_tokens,
+             (id, model_id, display_name, context_window, max_output_tokens,
               capabilities, provider_mappings,
               input_price, output_price, cache_read_price, cache_write_price,
               provider_id, enabled, is_custom, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
              ON CONFLICT(model_id) DO UPDATE SET
               display_name = excluded.display_name,
               context_window = excluded.context_window,
@@ -720,6 +822,7 @@ export class ModelPricingService {
               updated_at = excluded.updated_at
              WHERE is_custom = 0`,
             [
+              id,
               key,
               entry.displayName || key,
               entry.contextWindow || 128000,

@@ -38,7 +38,7 @@ export const TOOL_REGISTRY: Record<string, ToolRegistration> = {
       params: [
         { name: "prompt", type: "string", descriptionKey: "image.prompt", required: true },
         { name: "negativePrompt", type: "string", descriptionKey: "image.negativePrompt", required: false },
-        { name: "size", type: "string", enum: ["256x256", "512x512", "1024x1024", "1024x1792", "1792x1024"], descriptionKey: "image.size", required: false, default: "1024x1024" },
+        { name: "size", type: "string", descriptionKey: "image.size", required: false, default: "1024x1024" },
         { name: "quality", type: "string", enum: ["standard", "hd"], descriptionKey: "image.quality", required: false, default: "standard" },
         { name: "style", type: "string", enum: ["vivid", "natural"], descriptionKey: "image.style", required: false, default: "vivid" },
         { name: "n", type: "number", descriptionKey: "image.numberOfImages", required: false, default: 1 },

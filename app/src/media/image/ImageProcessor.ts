@@ -418,8 +418,82 @@ export class ImageProcessor {
       'gif',
       'bmp',
       'svg',
+      'heic',
+      'heif',
     ];
     return supported.includes(format as ImageFormat);
+  }
+
+  // ============================================================
+  // P2-1: HEIC 转换 + EXIF 方向归一化
+  // ============================================================
+
+  /**
+   * HEIC → JPEG 转换
+   * 使用 sharp 的 heic 解码能力（需 sharp 版本 >= 0.33 且系统有 libheif）
+   */
+  async convertHeic(inputPath: string, outputPath?: string): Promise<string> {
+    const outPath = outputPath || inputPath.replace(/\.(heic|heif)$/i, '.jpg');
+
+    try {
+      await this.sharp(inputPath).jpeg({ quality: 90 }).toFile(outPath);
+
+      logger.info('ImageProcessor.convertHeic()', {
+        inputPath,
+        outputPath: outPath,
+      });
+      return outPath;
+    } catch (error) {
+      logger.warn(
+        'ImageProcessor.convertHeic() · sharp 不支持 heic，尝试 sips/ImageMagick',
+        {
+          error: (error as Error).message,
+        }
+      );
+
+      // 回退：尝试系统命令
+      try {
+        const { execSync } = await import('node:child_process');
+        execSync(`magick "${inputPath}" "${outPath}"`, { timeout: 15000 });
+        return outPath;
+      } catch {
+        throw new AppError(
+          `HEIC 格式转换失败。请确保安装了 sharp (libheif) 或 ImageMagick。${(error as Error).message}`,
+          'IMAGE_CONVERT_ERROR',
+          ErrorCategory.SYSTEM,
+          ErrorSeverity.MEDIUM
+        );
+      }
+    }
+  }
+
+  /**
+   * EXIF 方向归一化
+   * 读取 JPEG EXIF Orientation 标签，自动旋转/翻转图片到正确方向
+   */
+  async normalizeExifOrientation(
+    inputPath: string,
+    outputPath?: string
+  ): Promise<string> {
+    const outPath = outputPath || inputPath;
+
+    try {
+      // sharp 的 rotate() 会自动读取并应用 EXIF Orientation
+      await this.sharp(inputPath)
+        .rotate() // auto-orient based on EXIF
+        .toFile(outPath + '.tmp');
+
+      fs.renameSync(outPath + '.tmp', outPath);
+      logger.info('ImageProcessor.normalizeExifOrientation() · 完成', {
+        outPath,
+      });
+      return outPath;
+    } catch (error) {
+      logger.warn('ImageProcessor.normalizeExifOrientation() · 失败', {
+        error: (error as Error).message,
+      });
+      return inputPath; // 归一化失败时返回原文件
+    }
   }
 }
 

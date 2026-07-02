@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Moonshot AI 提供商（Kimi）
  * OpenAI 兼容 API
  */
@@ -86,7 +86,7 @@ export class MoonshotProvider extends BaseAIProvider {
   ): Promise<ChatResponse> {
     const apiKey =
       this.resolveApiKey() || configManager.env('MOONSHOT_API_KEY') || '';
-    const model = this.resolveModel('chat', options);
+    const model = await this.resolveModel('chat', options);
 
     const requestBody = this.transport!.buildRequest({
       model,

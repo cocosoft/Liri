@@ -5975,7 +5975,7 @@ export class LocalHTTPService {
       });
       await store.load();
 
-      globalEmbeddingManager.initialize();
+      await globalEmbeddingManager.initialize();
       const embedding = await globalEmbeddingManager.embedOne(query);
       if (embedding.length === 0) {
         res.writeHead(500, { 'Content-Type': 'application/json' });

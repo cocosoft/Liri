@@ -15,10 +15,16 @@ import { randomUUID } from 'node:crypto';
 import type { HandlerCtx } from './handler-utils';
 import { readRawBody, parseMultipartBody } from './handler-utils';
 import { handleError } from '@modules/error';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir, resolveMediaDir } from '@modules/core/paths';
 
-/** 图片输出根目录 */
+/** 图片输出根目录（上传） */
 const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
+
+/** 图片媒体根目录（AI 生成持久化） */
+const MEDIA_IMAGES_ROOT = path.join(resolveMediaDir(), 'images');
+
+/** 所有需要扫描的图片目录 */
+const IMAGE_ROOTS = [IMAGES_ROOT, MEDIA_IMAGES_ROOT];
 
 /** MIME 类型映射 */
 const MIME_MAP: Record<string, string> = {
@@ -40,13 +46,33 @@ function getMimeType(filePath: string): string {
 }
 
 /**
- * 路径遍历安全检查
- * 确保请求的路径在 IMAGES_ROOT 范围内
+ * 路径遍历安全检查 — 检查请求路径是否在任意根目录内
  */
-function isPathSafe(requestedPath: string): boolean {
-  const resolved = path.resolve(IMAGES_ROOT, requestedPath);
-  // 规范化后必须在 IMAGES_ROOT 内
-  return resolved.startsWith(IMAGES_ROOT) && !resolved.includes('..');
+function isAnyRootSafe(requestedPath: string): boolean {
+  // 去前缀后检查
+  let resolvedPath: string;
+  if (requestedPath.startsWith('media/')) {
+    const subPath = requestedPath.slice('media/'.length);
+    resolvedPath = path.resolve(MEDIA_IMAGES_ROOT, subPath);
+    return resolvedPath.startsWith(MEDIA_IMAGES_ROOT);
+  }
+  resolvedPath = path.resolve(IMAGES_ROOT, requestedPath);
+  return resolvedPath.startsWith(IMAGES_ROOT);
+}
+
+/**
+ * 解析请求路径到完整文件路径
+ */
+function resolveFullPath(requestedPath: string): string | null {
+  if (requestedPath.startsWith('media/')) {
+    const subPath = requestedPath.slice('media/'.length);
+    const p = path.resolve(MEDIA_IMAGES_ROOT, subPath);
+    if (!p.startsWith(MEDIA_IMAGES_ROOT)) return null;
+    return p;
+  }
+  const p = path.resolve(IMAGES_ROOT, requestedPath);
+  if (!p.startsWith(IMAGES_ROOT)) return null;
+  return p;
 }
 
 /**
@@ -91,14 +117,19 @@ export async function handleImageStatic(
   filePath: string
 ): Promise<void> {
   try {
-    // 安全检查：拒绝路径遍历
-    if (!isPathSafe(filePath)) {
+    // 安全检查
+    if (!isAnyRootSafe(filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Access denied' }));
       return;
     }
 
-    const fullPath = path.resolve(IMAGES_ROOT, filePath);
+    const fullPath = resolveFullPath(filePath);
+    if (!fullPath) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Image not found' }));
+      return;
+    }
 
     // 文件存在性检查
     if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
@@ -210,6 +241,7 @@ export async function handleImageUpload(
 /**
  * GET /v1/images/list?page=1&pageSize=50
  * 列出已生成的图片文件（支持分页）
+ * 同时扫描 output/images/（上传）和 media/images/（AI 生成持久化）
  */
 export async function handleImageList(
   ctx: HandlerCtx,
@@ -217,7 +249,6 @@ export async function handleImageList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    // 解析分页参数
     const rawUrl = req.url || '/';
     const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
     const page = Math.max(
@@ -229,23 +260,38 @@ export async function handleImageList(
       Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '50', 10))
     );
 
-    const files: string[] = [];
+    // 收集所有图片根目录下的文件
+    const files: Array<{ relativePath: string; urlPrefix: string }> = [];
 
-    if (fs.existsSync(IMAGES_ROOT)) {
-      collectImageFiles(IMAGES_ROOT, IMAGES_ROOT, files);
+    for (const root of IMAGE_ROOTS) {
+      if (!fs.existsSync(root)) continue;
+
+      // 为 media 目录下的文件添加 media/ 前缀
+      const isMediaRoot = root === MEDIA_IMAGES_ROOT;
+      const localFiles: string[] = [];
+      collectImageFiles(root, root, localFiles);
+
+      for (const f of localFiles) {
+        const displayPath = isMediaRoot
+          ? `media/${f.replace(/\\/g, '/')}`
+          : f.replace(/\\/g, '/');
+        files.push({
+          relativePath: displayPath,
+          urlPrefix: isMediaRoot ? 'media/' : '',
+        });
+      }
     }
 
-    // 按路径排序（日期目录 + 文件名，天然按时间排序）
-    files.sort().reverse();
+    // 按路径排序
+    files.sort((a, b) => b.relativePath.localeCompare(a.relativePath));
 
     const total = files.length;
     const startIdx = (page - 1) * pageSize;
     const paged = files.slice(startIdx, startIdx + pageSize);
 
-    // 构建完整 URL
     const images = paged.map((f) => ({
-      path: f.replace(/\\/g, '/'),
-      url: `/v1/images/static/${f.replace(/\\/g, '/')}`,
+      path: f.relativePath,
+      url: `/v1/images/static/${f.relativePath}`,
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

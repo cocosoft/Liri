@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615275@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,8 +28,10 @@
 
 import type { RouterModelRef, RouteDecision, RouterTier } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:fallback' });
 
 export interface FallbackChainOptions {
   /** 回退链配置列表 */
@@ -71,9 +73,17 @@ export async function executeFallbackChain(
   const errors: Error[] = [];
   let didFallback = false;
 
+  const otel = getOTelTracing();
+  const span = otel.startSpan('ai.fallback.execute', {
+    'fallback.count': fallbacks.length,
+    'fallback.tier': tier,
+    'fallback.timeout_ms': timeoutMs,
+  });
+
   // 先尝试验证主 provider（第一个 fallback 项即主 provider，由 SmartRouter 传入）
   // 如果 fallbacks 为空，直接返回可处理的空结果
   if (fallbacks.length === 0) {
+    otel.endSpan(span, SpanStatusCode.ERROR, 'no fallbacks');
     throw new Error('FallbackChain: 无可用的回退供应商');
   }
 
@@ -98,6 +108,8 @@ export async function executeFallbackChain(
         });
       }
 
+      otel.endSpan(span, SpanStatusCode.OK);
+
       return { decision, didFallback, attemptedIndexes, errors };
     } catch (error) {
       clearTimeout(undefined as unknown as ReturnType<typeof setTimeout>);
@@ -118,8 +130,7 @@ export async function executeFallbackChain(
 
   // 所有供应商都失败
   const lastError = errors[errors.length - 1] ?? new Error('全部回退失败');
-  throw new AggregateError(
-    errors,
-    `FallbackChain: ${fallbacks.length} 个供应商全部不可用: ${lastError.message}`
-  );
+  const aggregateMsg = `FallbackChain: ${fallbacks.length} 个供应商全部不可用: ${lastError.message}`;
+  otel.endSpan(span, SpanStatusCode.ERROR, aggregateMsg);
+  throw new AggregateError(errors, aggregateMsg);
 }

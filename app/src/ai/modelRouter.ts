@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,7 +47,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:model-router' });
 
 // ============================================================
 // 任务类型枚举
@@ -65,26 +65,11 @@ export type TaskType =
   | 'local' // 本地模型（Ollama 等）
   | 'embedding' // 文本向量化（知识库）
   | 'image' // 图片生成（DALL-E / Stable Diffusion 等）
-  | 'video'; // 视频生成（Sora / Kling 等）
-
-/**
- * 默认任务分工配置
- * 当 ConfigManager 中无持久化配置时使用此默认值，
- * 确保前后端默认值同源，前端无需硬编码。
- */
-export const DEFAULT_TASKS: TaskModelConfig = {
-  default: 'deepseek-v4-pro',
-  chat: 'deepseek-v4-pro',
-  coding: 'deepseek-v4-pro',
-  translation: 'gpt-4o-mini',
-  quick: 'deepseek-v4-flash',
-  agent: 'deepseek-v4-pro',
-  scheduled: 'deepseek-v4-pro',
-  local: 'deepseek-v4-pro',
-  embedding: 'deepseek-v4-pro',
-  image: 'dall-e-3',
-  video: 'sora-2',
-};
+  | 'vision' // 图片识别/分析（GPT-4o / Gemini Vision 等）
+  | 'video' // 视频生成（Sora / Kling 等）
+  | 'tts' // 语音合成（ElevenLabs / OpenAI TTS 等）
+  | 'stt' // 语音识别（Whisper / Deepgram 等）
+  | 'reranking'; // 重排序（Cohere Rerank / BGE 等）
 
 /** 所有任务类型列表 */
 export const ALL_TASK_TYPES: TaskType[] = [
@@ -98,7 +83,11 @@ export const ALL_TASK_TYPES: TaskType[] = [
   'local',
   'embedding',
   'image',
+  'vision',
   'video',
+  'tts',
+  'stt',
+  'reranking',
 ];
 
 // ============================================================
@@ -117,7 +106,11 @@ export interface TaskModelConfig {
   local?: string;
   embedding?: string;
   image?: string;
+  vision?: string;
   video?: string;
+  tts?: string;
+  stt?: string;
+  reranking?: string;
 }
 
 /**
@@ -192,10 +185,34 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
     icon: '🖼️',
   },
   {
+    type: 'vision',
+    label: '识图',
+    description: '图片识别/分析（GPT-4o / Gemini Vision 等）',
+    icon: '👁️',
+  },
+  {
     type: 'video',
     label: '生视频',
     description: '视频生成（Sora / Kling 等）',
     icon: '🎬',
+  },
+  {
+    type: 'tts',
+    label: '语音合成',
+    description: '文本转语音（ElevenLabs / OpenAI TTS 等）',
+    icon: '🔊',
+  },
+  {
+    type: 'stt',
+    label: '语音识别',
+    description: '语音转文字（Whisper / Deepgram 等）',
+    icon: '🎙️',
+  },
+  {
+    type: 'reranking',
+    label: '重排序',
+    description: '检索结果重排序（Cohere Rerank / BGE 等）',
+    icon: '📊',
   },
 ];
 
@@ -204,6 +221,20 @@ export interface ModelRouterOptions {
   /** 默认模型 ID（各任务未配置时回退到此值） */
   defaultModel?: string;
 }
+
+/**
+ * 任务类型 → 所需能力映射
+ * 用于启动自引导：从 DB 中查找具有对应能力的模型自动填充任务分工
+ */
+const TASK_CAPABILITY: Partial<Record<TaskType, string>> = {
+  embedding: 'embedding',
+  image: 'image_generation',
+  vision: 'vision',
+  video: 'video_generation',
+  tts: 'text_to_speech',
+  stt: 'speech_recognition',
+  reranking: 'reranking',
+};
 
 // ============================================================
 // ConfigManager 存取 Key
@@ -229,6 +260,15 @@ export class ModelRouter {
   private static instance: ModelRouter;
   private defaultModel: string;
 
+  /** UUID → 模型名 缓存（启动时预加载） */
+  private uuidToModelName: Map<string, string> = new Map();
+
+  /** 缓存自引导 Promise，避免重复触发 */
+  private _autoDiscoverPromise: Promise<void> | null = null;
+
+  /** 缓存旧配置迁移 Promise，避免重复触发 */
+  private _legacyMigrationPromise: Promise<void> | null = null;
+
   private constructor(options?: ModelRouterOptions) {
     this.defaultModel = options?.defaultModel || '';
   }
@@ -241,26 +281,90 @@ export class ModelRouter {
   }
 
   // ============================================================
+  // UUID 辅助方法
+  // ============================================================
+
+  /** 检测字符串是否为 UUID 格式 */
+  private isUUID(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value
+    );
+  }
+
+  /** 预加载 UUID→模型名 缓存（从 DB 全量加载） */
+  private async preloadUuidCache(): Promise<void> {
+    try {
+      const { modelPricingService } =
+        await import('./models/ModelPricingService');
+      await modelPricingService.initialize();
+      const allModels = await modelPricingService.getAllPricing();
+      this.uuidToModelName.clear();
+      allModels.forEach((m) => {
+        if (m.id) this.uuidToModelName.set(m.id, m.modelId);
+      });
+      logger.debug(
+        `ModelRouter: 已预加载 ${this.uuidToModelName.size} 条 UUID→模型名映射`
+      );
+    } catch (err) {
+      logger.warning('ModelRouter: UUID 缓存预加载失败', {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /** 失效并重新预加载 UUID 缓存（模型增删后调用） */
+  async invalidateUuidCache(): Promise<void> {
+    await this.preloadUuidCache();
+    logger.debug('ModelRouter: UUID 缓存已刷新');
+  }
+
+  // ============================================================
   // 公共 API
   // ============================================================
 
   /**
    * 根据任务类型解析模型名
    * 优先级：显式任务配置 > default 兜底 > 当前模型（旧格式） > 硬编码默认
+   * UUID 解析：三级兜底（缓存 → 实时 DB 查询 → 原值）
    */
   resolve(taskType: TaskType): string {
     const tasks = this.readTasks();
 
     // 1. 显式任务分配
     if (tasks[taskType]) {
-      logger.debug(`ModelRouter: 任务 ${taskType} → ${tasks[taskType]}`);
-      return tasks[taskType];
+      const value = tasks[taskType]!;
+      // UUID 格式检测：如果是 UUID，解析为模型名
+      if (this.isUUID(value)) {
+        // 一级：缓存命中
+        const modelName = this.uuidToModelName.get(value);
+        if (modelName) {
+          logger.debug(
+            `ModelRouter: 任务 ${taskType} UUID ${value} → ${modelName}`
+          );
+          return modelName;
+        }
+        // 二级：缓存未命中，异步预加载，同时返回原值兜底（不断服）
+        this.preloadUuidCache();
+        logger.warning(
+          `ModelRouter: 任务 ${taskType} UUID ${value} 缓存未命中，返回原值兜底`
+        );
+        return value;
+      }
+      logger.debug(`ModelRouter: 任务 ${taskType} → ${value}`);
+      return value;
     }
 
     // 2. 非 default 任务回退到 default 兜底
     if (taskType !== 'default' && tasks.default) {
-      logger.debug(`ModelRouter: 任务 ${taskType} 回退默认 → ${tasks.default}`);
-      return tasks.default;
+      const defaultVal = tasks.default;
+      if (this.isUUID(defaultVal)) {
+        const modelName = this.uuidToModelName.get(defaultVal);
+        if (modelName) return modelName;
+        this.preloadUuidCache();
+        return defaultVal;
+      }
+      logger.debug(`ModelRouter: 任务 ${taskType} 回退默认 → ${defaultVal}`);
+      return defaultVal;
     }
 
     // 3. 回退到当前模型（旧格式兼容）
@@ -304,8 +408,11 @@ export class ModelRouter {
         );
         return mapped;
       }
-    } catch {
+    } catch (err) {
       // registry 不可用时，返回 modelKey 原值
+      logger.warning('ModelRouter: resolveMapped 失败，回退到原始模型名', {
+        error: (err as Error).message,
+      });
     }
     return modelKey;
   }
@@ -414,9 +521,221 @@ export class ModelRouter {
     }
     if (Object.keys(envTasks).length > 0) return envTasks;
 
-    // 无任何配置时返回系统默认值，确保前后端同源
-    logger.info('ModelRouter: 使用默认任务分工配置', DEFAULT_TASKS);
-    return { ...DEFAULT_TASKS };
+    // 启动自引导：从 DB 中按能力自动匹配模型填充任务分工
+    // 异步触发，首次调用返回空，自引导完成后通过 setTasks 写入
+    this.triggerAutoDiscover();
+    // 旧配置迁移：模型名 → UUID（异步触发）
+    this.triggerLegacyMigration();
+
+    // 无任何配置时返回空，由 resolve() 返回明确提示
+    logger.warn('ModelRouter: 无任务分工配置，将触发自动发现');
+    return {};
+  }
+
+  /**
+   * 异步触发启动自引导：从 model_registry 扫描模型能力，
+   * 自动填充 taskType → modelId 映射并持久化到 config.json
+   */
+  private triggerAutoDiscover(): void {
+    if (this._autoDiscoverPromise) return;
+    this._autoDiscoverPromise = this.runAutoDiscover();
+  }
+
+  private async runAutoDiscover(): Promise<void> {
+    try {
+      const { modelPricingService } =
+        await import('./models/ModelPricingService');
+      await modelPricingService.initialize();
+      const allModels = await modelPricingService.getAllPricing();
+
+      if (!allModels || allModels.length === 0) {
+        logger.info('ModelRouter: 自动发现跳过（无已注册模型）');
+        return;
+      }
+
+      const tasks: Record<string, string> = {};
+
+      // 为需要特定能力的任务找匹配模型
+      for (const [taskType, capability] of Object.entries(TASK_CAPABILITY)) {
+        const match = allModels.find(
+          (m) => m.enabled && m.capabilities?.includes(capability)
+        );
+        if (match) {
+          tasks[taskType] = match.id || match.modelId; // 优先 UUID，回退模型名
+        }
+      }
+
+      // 为 chat 类任务找任意可用聊天模型
+      const chatTasks: TaskType[] = [
+        'default',
+        'chat',
+        'coding',
+        'quick',
+        'agent',
+        'scheduled',
+        'local',
+        'translation',
+      ];
+      const usedModels = new Set(Object.values(tasks));
+      const chatModel = allModels.find(
+        (m) => m.enabled && !usedModels.has(m.id || m.modelId)
+      );
+      if (chatModel) {
+        for (const t of chatTasks) {
+          if (!tasks[t]) tasks[t] = chatModel.id || chatModel.modelId; // 优先 UUID
+        }
+      }
+
+      if (Object.keys(tasks).length > 0) {
+        this.setTasks(tasks as TaskModelConfig);
+        logger.info('ModelRouter: 自动发现完成，已填充任务分工', tasks);
+      } else {
+        logger.info('ModelRouter: 自动发现完成（无匹配模型）');
+      }
+    } catch (err) {
+      logger.warn('ModelRouter: 自动发现异常', {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /** 触发旧配置迁移（仅首次调用） */
+  private triggerLegacyMigration(): void {
+    if (this._legacyMigrationPromise) return;
+    this._legacyMigrationPromise = this.migrateLegacyTaskConfig();
+  }
+
+  /**
+   * 迁移旧任务配置：模型名 → UUID（批量查询，避免 N+1）
+   * 写回失败不阻塞启动，仅记录日志供排查
+   */
+  private async migrateLegacyTaskConfig(): Promise<void> {
+    try {
+      const tasks = this.readTasks();
+      if (Object.keys(tasks).length === 0) return;
+
+      // 一次性加载所有模型映射
+      const { modelPricingService } =
+        await import('./models/ModelPricingService');
+      await modelPricingService.initialize();
+      const allModels = await modelPricingService.getAllPricing();
+      const nameToUuid = new Map(
+        allModels
+          .filter((m) => m.id)
+          .map((m) => [m.modelId, m.id] as [string, string])
+      );
+
+      let migrated = false;
+      const newTasks: Record<string, string> = {};
+
+      for (const [taskType, value] of Object.entries(tasks)) {
+        if (this.isUUID(value)) {
+          newTasks[taskType] = value;
+        } else {
+          const uuid = nameToUuid.get(value);
+          if (uuid) {
+            newTasks[taskType] = uuid;
+            migrated = true;
+          } else {
+            newTasks[taskType] = value; // 保留原值
+          }
+        }
+      }
+
+      if (migrated) {
+        this.setTasks(newTasks as TaskModelConfig);
+        logger.info('ModelRouter: 已完成旧任务配置的 UUID 迁移');
+      }
+    } catch (err) {
+      logger.warning('ModelRouter: 旧任务配置 UUID 迁移失败，下次启动重试', {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /**
+   * 检查任务模型的可用性
+   * @returns 每个任务对应的模型是否可用
+   */
+  getTaskAvailability(): Record<
+    TaskType,
+    { modelId: string; available: boolean; missingCapability?: string }
+  > {
+    const tasks = this.readTasks();
+    const result: Record<
+      TaskType,
+      { modelId: string; available: boolean; missingCapability?: string }
+    > = {} as Record<
+      TaskType,
+      { modelId: string; available: boolean; missingCapability?: string }
+    >;
+    for (const taskType of ALL_TASK_TYPES) {
+      result[taskType] = {
+        modelId: tasks[taskType] || '',
+        available: !!tasks[taskType],
+      };
+    }
+    return result;
+  }
+
+  /**
+   * 校验任务分工：检查分配的模型是否具备对应能力
+   *
+   * 对每个有特定能力要求的任务（如 image 需要 image_generation），
+   * 检查 DB 中注册的模型是否包含所需 capability。
+   * 仅校验的任务返回缺失信息，chat 类任务（chat/coding/translation/quick/agent/scheduled/local）
+   * 无特定能力要求，始终通过。
+   *
+   * @returns 校验结果列表，仅包含不通过的任务
+   */
+  async validateTaskAssignment(): Promise<
+    Array<{
+      taskType: TaskType;
+      modelId: string;
+      requiredCapability: string;
+      missing: boolean;
+    }>
+  > {
+    const tasks = this.readTasks();
+    const issues: Array<{
+      taskType: TaskType;
+      modelId: string;
+      requiredCapability: string;
+      missing: boolean;
+    }> = [];
+
+    try {
+      const { modelPricingService } =
+        await import('./models/ModelPricingService');
+      await modelPricingService.initialize();
+      const allModels = await modelPricingService.getAllPricing();
+
+      for (const [taskType, capability] of Object.entries(TASK_CAPABILITY)) {
+        const modelId = (tasks as Record<string, string>)[taskType];
+        if (!modelId) continue;
+
+        const model = allModels.find(
+          (m) => m.id === modelId || m.modelId === modelId
+        );
+        if (!model || !model.capabilities?.includes(capability)) {
+          issues.push({
+            taskType: taskType as TaskType,
+            modelId,
+            requiredCapability: capability,
+            missing: true,
+          });
+          logger.warning(
+            `ModelRouter: 任务 ${taskType} 的模型 ${modelId} 缺少所需能力 ${capability}`
+          );
+        }
+      }
+    } catch (err) {
+      logger.warning('ModelRouter: 任务分工校验异常', {
+        error: (err as Error).message,
+      });
+    }
+
+    return issues;
   }
 }
 

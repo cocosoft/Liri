@@ -41,6 +41,7 @@ import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { getConfig, configManager } from '../config/index.js';
 import { modelRouter } from '../ai/modelRouter.js';
+import { resolveModelRoute, RouteKey } from '../ai/router/resolveModelRoute.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
 import { isOfflineMode } from './shared-state.js';
@@ -119,7 +120,7 @@ export async function initializeChatManager(): Promise<ChatManager> {
   await syncDBProvidersToRegistry();
 
   // Step 2: 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
-  const currentModel = modelRouter.resolve('chat');
+  const currentModel = await resolveModelRoute(RouteKey.CHAT);
   let provider = currentModel
     ? providerRegistry.getByModel(currentModel)
     : undefined;
@@ -442,7 +443,8 @@ export async function launchRepl(
       await import('../tasks/cron/GlobalCronScheduler');
     const { createCronExecutor } = await import('../tasks/cron/CronExecutor');
     const cronModel =
-      modelRouter.resolve('scheduled') || modelRouter.getCurrentModel();
+      (await resolveModelRoute(RouteKey.SCHEDULED)) ||
+      modelRouter.getCurrentModel();
     let provider = cronModel
       ? providerRegistry.getByModel(cronModel)
       : undefined;
@@ -669,7 +671,17 @@ export async function launchRepl(
             `当前模型: ${modelRouter.getCurrentModel() || '(未设置)'}`
           );
         } else {
-          modelRouter.setCurrentModel(modelName);
+          // 将模型名转换为 UUID 存储，保持 config.json 一致性
+          try {
+            const { modelPricingService } =
+              await import('../ai/models/ModelPricingService');
+            await modelPricingService.initialize();
+            const record = await modelPricingService.getPricing(modelName);
+            const modelId = record?.id || modelName;
+            modelRouter.setCurrentModel(modelId);
+          } catch {
+            modelRouter.setCurrentModel(modelName);
+          }
           ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);
         }
         rl.prompt();

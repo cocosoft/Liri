@@ -37,7 +37,11 @@ export interface ProviderValidationResult {
 export interface ImageGenerationParams {
   prompt: string;
   negativePrompt?: string;
+  /** 生图模型名（不指定时由 Provider 决定） */
+  model?: string;
   size?: string;
+  /** 纵横比，如 "1:1" | "16:9" | "9:16"（优先级高于 size） */
+  aspectRatio?: string;
   quality?: 'standard' | 'hd';
   style?: 'vivid' | 'natural';
   n?: number;

@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 图片缩放工具
  *
@@ -443,9 +443,64 @@ export async function compressImageBuffer(
     };
   }
 
+  // P2-2: sharp 渐进压缩回退（不依赖 ImageMagick）
+  try {
+    const sharp = (await import('sharp')).default;
+    const qualityLevels = [85, 70, 55, 40, 25];
+    const sizeLevels = [2048, 1600, 1024, 800, 600, 400];
+
+    // 策略 1: 保持尺寸，逐级降 JPEG 质量
+    for (const q of qualityLevels) {
+      const compressed = await sharp(imageBuffer)
+        .jpeg({ quality: q })
+        .toBuffer();
+      if (compressed.length <= maxBytes) {
+        return {
+          base64: compressed.toString('base64'),
+          mediaType: 'image/jpeg',
+          originalSize,
+        };
+      }
+    }
+
+    // 策略 2: 逐步缩小尺寸 + 固定质量 60
+    for (const side of sizeLevels) {
+      const compressed = await sharp(imageBuffer)
+        .resize(side, side, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 60 })
+        .toBuffer();
+      if (compressed.length <= maxBytes) {
+        return {
+          base64: compressed.toString('base64'),
+          mediaType: 'image/jpeg',
+          originalSize,
+        };
+      }
+    }
+
+    // 策略 3: 极致压缩（调色板 PNG + 400px）
+    try {
+      const extreme = await sharp(imageBuffer)
+        .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
+        .png({ palette: true, compressionLevel: 9, colors: 64 })
+        .toBuffer();
+      if (extreme.length <= maxBytes) {
+        return {
+          base64: extreme.toString('base64'),
+          mediaType: 'image/png',
+          originalSize,
+        };
+      }
+    } catch {
+      /* sharp png palette may fail for some images */
+    }
+  } catch {
+    // sharp not available, fall through to error
+  }
+
   const hint = hasMagick
     ? 'ImageMagick compression failed'
-    : 'Install ImageMagick (magick) for image compression support';
+    : 'Install ImageMagick (magick) or sharp for image compression support';
 
   throw new ImageResizeError(
     `Unable to compress image (${formatFileSize(originalSize)}) to fit within ${formatFileSize(maxBytes)}. ${hint}.`

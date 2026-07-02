@@ -50,8 +50,18 @@ export enum ModelCapability {
   BATCH_API = 'batch_api',
   PARALLEL_TOOL_CALLS = 'parallel_tool_calls',
   IMAGE_INPUT = 'image_input',
+  IMAGE_GENERATION = 'image_generation',
+  VIDEO_GENERATION = 'video_generation',
   PDF_INPUT = 'pdf_input',
   CODE_EXECUTION = 'code_execution',
+  EMBEDDING = 'embedding',
+  TEXT_TO_SPEECH = 'text_to_speech',
+  SPEECH_RECOGNITION = 'speech_recognition',
+  RERANKING = 'reranking',
+  MODERATION = 'moderation',
+  AUDIO_INPUT = 'audio_input',
+  VIDEO_INPUT = 'video_input',
+  IMAGE_EDITING = 'image_editing',
 }
 
 // 模型能力函数已迁移到 ModelConfigs.ts，请直接引用

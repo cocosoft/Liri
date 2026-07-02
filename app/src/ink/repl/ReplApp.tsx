@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Text, AlternateScreen, useApp } from '../../ink';
 import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
@@ -81,8 +81,9 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   useEffect(() => {
     (async () => {
       try {
-        const { modelRouter } = await import('@modules/ai/modelRouter.js');
-        const initialModel = modelRouter.resolve('chat');
+        const { resolveModelRoute, RouteKey } =
+          await import('@modules/ai/router/resolveModelRoute.js');
+        const initialModel = await resolveModelRoute(RouteKey.CHAT);
         setModelName(initialModel);
 
         const { getCoreAPI } =

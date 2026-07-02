@@ -39,7 +39,10 @@ import {
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { ParallelOrchestrator } from './ParallelOrchestrator';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '@modules/ai/router/resolveModelRoute.js';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { Logger } from '@modules/monitoring';
@@ -478,7 +481,7 @@ export class AgentTool implements Tool {
   ): Promise<{ result: string }> {
     const { providerRegistry } =
       await import('../../ai/providers/ProviderRegistry');
-    const agentModel = modelRouter.resolve('chat');
+    const agentModel = await resolveModelRoute(RouteKey.CHAT);
     let llmClient = agentModel
       ? providerRegistry.getByModel(agentModel)
       : undefined;

@@ -59,12 +59,16 @@ export default function TaskHistoryPanel({ onResume }: Props) {
 
   return (
     <div className="border-t border-gray-700/20 pt-3">
-      <button
+      {/* 使用 div+role="button" 代替 button，避免内层清除按钮嵌套在 button 内违反 HTML 规范 */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => {
           if (!expanded) refresh();
           setExpanded(!expanded);
         }}
-        className="flex items-center gap-1 w-full text-left text-xs text-gray-400 hover:text-gray-300 bg-transparent border-0 cursor-pointer"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!expanded) refresh(); setExpanded(!expanded); } }}
+        className="flex items-center gap-1 w-full text-left text-xs text-gray-400 hover:text-gray-300 bg-transparent cursor-pointer"
       >
         <span className="text-[10px]">{expanded ? "▼" : "▶"}</span>
         <span>{t("image.history")}</span>
@@ -77,7 +81,7 @@ export default function TaskHistoryPanel({ onResume }: Props) {
             {t("image.clearHistory")}
           </button>
         )}
-      </button>
+      </div>
 
       {expanded && (
         <div className="mt-2 space-y-0.5 max-h-[200px] overflow-y-auto">

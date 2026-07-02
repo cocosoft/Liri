@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron 作业 AI 执行器
  * 将 CronJob 的 prompt 发送给 AI 模型并返回结果
  */
@@ -7,7 +7,10 @@ import type { CronJob, CronJobResult } from './types';
 import type { AIProvider, ChatOptions } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '@modules/ai/router/resolveModelRoute.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -45,7 +48,10 @@ export function createCronExecutor(
 
     // 动态读取模型配置（通过 ModelRouter 统一路由）
     const model =
-      job.model || cfg.model || modelRouter.resolve('scheduled') || '';
+      job.model ||
+      cfg.model ||
+      (await resolveModelRoute(RouteKey.SCHEDULED)) ||
+      '';
 
     const messages: ChatMessage[] = [
       { role: 'system', content: cfg.systemPrompt! },

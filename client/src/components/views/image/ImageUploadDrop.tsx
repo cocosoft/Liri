@@ -2,7 +2,7 @@
  * ImageUploadDrop
  * 拖拽/点击上传图片（P2-8: XHR 进度条）
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from "react-i18next";
 import { imageService } from "../../../services/imageService";
 
@@ -62,6 +62,29 @@ export default function ImageUploadDrop({ onUploaded, accept, disabled }: Props)
     if (file) doUpload(file);
     e.target.value = "";
   };
+
+  // P1-1: Ctrl+V 剪贴板粘贴支持
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    if (disabled || uploading) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        const blob = item.getAsFile();
+        if (blob) {
+          doUpload(blob);
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+  }, [disabled, uploading, doUpload]);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
 
   return (
     <div>

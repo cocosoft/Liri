@@ -13,7 +13,10 @@ import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import { LocalEmbeddingProvider } from './providers/LocalEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
 import { configManager } from '@modules/config';
-import { modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '@modules/ai/router/resolveModelRoute.js';
 import { providerRegistry } from '@modules/ai';
 
 /**
@@ -46,14 +49,14 @@ export class EmbeddingManager {
    * 根据用户在前端"任务分工→嵌入"配置的模型，动态选择嵌入 Provider。
    * 优先级：用户配置 > 本地回退。
    */
-  initialize(config?: EmbeddingConfig): void {
+  async initialize(config?: EmbeddingConfig): Promise<void> {
     if (this.initialized) return;
 
     // 注册本地提供者（Ollama 等），始终可用
     this.providers.set('local', new LocalEmbeddingProvider());
 
-    // 从 ModelRouter 读取用户在前端"任务分工→嵌入"配置的模型
-    const resolved = this._resolveEmbeddingProvider(config);
+    // 从统一模型路由读取用户在前端"任务分工→嵌入"配置的模型
+    const resolved = await this._resolveEmbeddingProvider(config);
     if (resolved.type === 'openai' && resolved.apiKey) {
       this.providers.set(
         'openai',
@@ -78,18 +81,18 @@ export class EmbeddingManager {
    * 通过 ModelRouter 读取用户配置的嵌入任务模型，再经 ProviderRegistry
    * 映射到具体 Provider，最后从环境变量提取 API 凭据。
    */
-  private _resolveEmbeddingProvider(config?: EmbeddingConfig): {
+  private async _resolveEmbeddingProvider(config?: EmbeddingConfig): Promise<{
     type: 'openai' | 'local';
     baseUrl?: string;
     apiKey?: string;
-  } {
+  }> {
     // 优先使用构造参数中明确的 defaultProvider
     if (config?.defaultProvider === 'local') {
       return { type: 'local' };
     }
 
-    // 通过 ModelRouter 读取用户在前端"任务分工→嵌入"配置的模型
-    const modelId = modelRouter.resolve('embedding');
+    // 通过统一模型路由读取用户在前端"任务分工→嵌入"配置的模型
+    const modelId = await resolveModelRoute(RouteKey.EMBEDDING);
     if (!modelId) {
       return { type: 'local' };
     }
@@ -123,8 +126,8 @@ export class EmbeddingManager {
   /**
    * 获取指定提供者
    */
-  getProvider(id?: string): EmbeddingBase {
-    this.ensureInitialized();
+  async getProvider(id?: string): Promise<EmbeddingBase> {
+    await this.ensureInitialized();
 
     const providerId = id || this.defaultProviderId;
     const provider = this.providers.get(providerId);
@@ -145,7 +148,7 @@ export class EmbeddingManager {
     texts: string[],
     options?: EmbeddingOptions & { provider?: string }
   ): Promise<EmbeddingResult> {
-    const provider = this.getProvider(options?.provider);
+    const provider = await this.getProvider(options?.provider);
     return provider.embed(texts, options);
   }
 
@@ -156,7 +159,7 @@ export class EmbeddingManager {
     text: string,
     options?: EmbeddingOptions & { provider?: string }
   ): Promise<number[]> {
-    const provider = this.getProvider(options?.provider);
+    const provider = await this.getProvider(options?.provider);
     return provider.embedOne(text, options);
   }
 
@@ -164,7 +167,7 @@ export class EmbeddingManager {
    * 检查是否有可用提供者
    */
   async isAvailable(): Promise<boolean> {
-    if (!this.initialized) return false;
+    await this.ensureInitialized();
 
     for (const provider of this.providers.values()) {
       if (await provider.isAvailable()) return true;
@@ -189,10 +192,10 @@ export class EmbeddingManager {
   /**
    * 确保已初始化
    */
-  private ensureInitialized(): void {
+  private async ensureInitialized(): Promise<void> {
     if (!this.initialized) {
       // 自动使用环境变量初始化
-      this.initialize();
+      await this.initialize();
     }
   }
 }

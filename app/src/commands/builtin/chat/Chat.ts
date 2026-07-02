@@ -22,7 +22,10 @@ import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
 import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
-import { modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '@modules/ai/router/resolveModelRoute.js';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('Chat');
@@ -81,7 +84,7 @@ export class ChatCommand {
   private toolExecutor: ToolExecutor | null = null;
   private currentSessionId: string | null = null;
 
-  private initializeServices(options?: ChatOptions): void {
+  private async initializeServices(options?: ChatOptions): Promise<void> {
     // 根据选项选择客户端
     if (options?.provider) {
       try {
@@ -97,7 +100,7 @@ export class ChatCommand {
           providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
       }
     } else if (!this.llmClient) {
-      const chatModel = modelRouter.resolve('chat');
+      const chatModel = await resolveModelRoute(RouteKey.CHAT);
       let provider = chatModel
         ? providerRegistry.getByModel(chatModel)
         : undefined;
@@ -177,7 +180,7 @@ export class ChatCommand {
     }
 
     try {
-      this.initializeServices(options);
+      await this.initializeServices(options);
 
       if (!this.llmClient) {
         return {

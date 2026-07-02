@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'ai:provider-manager',
+});
 
 /** 供应商类型 */
 export type ProviderType =
@@ -45,7 +48,12 @@ export type ProviderType =
   | 'bedrock'
   | 'vertex'
   | 'azure'
-  | 'custom';
+  | 'custom'
+  // 图像生成专用类型
+  | 'fal'
+  | 'stability'
+  | 'replicate'
+  | 'comfy';
 
 /** 供应商分类 */
 export type ProviderCategory =

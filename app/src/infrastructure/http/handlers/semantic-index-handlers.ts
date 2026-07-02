@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -86,7 +86,7 @@ export async function handleSearchSemantic(
     });
     await store.load();
 
-    globalEmbeddingManager.initialize();
+    await globalEmbeddingManager.initialize();
     const embedding = await globalEmbeddingManager.embedOne(query);
     if (embedding.length === 0) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

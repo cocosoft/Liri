@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,6 +28,14 @@
 
 import type http from 'node:http';
 import { getLogger } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { ModelCapability } from './models/types';
+import {
+  getModelCapabilities,
+  getModelContextWindow,
+} from './models/ModelConfigs';
+import { modelPricingService } from './models/ModelPricingService.js';
 import {
   readSoulMd,
   writeSoulMd,
@@ -39,7 +47,7 @@ import {
   ensureDefaultUserMd,
 } from '@modules/services/soul/UserReader';
 
-const logger = getLogger('ModelManagementAPI');
+const logger = getLogger('ai:model-api');
 
 /** 解析请求 body */
 async function parseBody(req: http.IncomingMessage): Promise<unknown> {
@@ -50,7 +58,10 @@ async function parseBody(req: http.IncomingMessage): Promise<unknown> {
       try {
         const raw = Buffer.concat(chunks).toString('utf-8');
         resolve(raw ? JSON.parse(raw) : {});
-      } catch {
+      } catch (err) {
+        logger.warning('请求 body JSON 解析失败', {
+          error: (err as Error).message,
+        });
         resolve({});
       }
     });
@@ -94,6 +105,7 @@ async function handleListProviders(
     const providers = await providerManager.listProviders();
     sendJson(res, { data: providers });
   } catch (err) {
+    logger.error('获取供应商列表失败', { error: (err as Error).message });
     sendError(res, `获取供应商列表失败: ${(err as Error).message}`, 500);
   }
 }
@@ -114,6 +126,7 @@ async function handleGetProvider(
     }
     sendJson(res, { data: p });
   } catch (err) {
+    logger.error('获取供应商失败', { error: (err as Error).message });
     sendError(res, `获取供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -145,6 +158,7 @@ async function handleAddProvider(
 
     sendJson(res, { data: created }, 201);
   } catch (err) {
+    logger.error('添加供应商失败', { error: (err as Error).message });
     sendError(res, `添加供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -172,6 +186,7 @@ async function handleUpdateProvider(
 
     sendJson(res, { data: updated });
   } catch (err) {
+    logger.error('更新供应商失败', { error: (err as Error).message });
     sendError(res, `更新供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -197,6 +212,7 @@ async function handleDeleteProvider(
     }
     sendJson(res, { success: true });
   } catch (err) {
+    logger.error('删除供应商失败', { error: (err as Error).message });
     sendError(res, `删除供应商失败: ${(err as Error).message}`, 500);
   }
 }
@@ -229,6 +245,7 @@ async function handleToggleProvider(
 
     sendJson(res, { data: updated });
   } catch (err) {
+    logger.error('切换供应商状态失败', { error: (err as Error).message });
     sendError(res, `切换供应商状态失败: ${(err as Error).message}`, 500);
   }
 }
@@ -250,6 +267,7 @@ async function handleProviderStats(
       },
     });
   } catch (err) {
+    logger.error('获取统计失败', { error: (err as Error).message });
     sendError(res, `获取统计失败: ${(err as Error).message}`, 500);
   }
 }
@@ -276,6 +294,7 @@ async function handleProviderTest(
     const results = await testEndpoints([p.baseUrl]);
     sendJson(res, { data: { provider: p.name, results } });
   } catch (err) {
+    logger.error('测速失败', { error: (err as Error).message });
     sendError(res, `测速失败: ${(err as Error).message}`, 500);
   }
 }
@@ -327,6 +346,7 @@ async function handleProviderModels(
     );
     sendJson(res, result);
   } catch (err) {
+    logger.error('获取模型列表失败', { error: (err as Error).message });
     sendError(res, `获取模型列表失败: ${(err as Error).message}`, 500);
   }
 }
@@ -354,6 +374,7 @@ async function handleUsageSummary(
     );
     sendJson(res, { data: summary });
   } catch (err) {
+    logger.error('获取用量概览失败', { error: (err as Error).message });
     sendError(res, `获取用量概览失败: ${(err as Error).message}`, 500);
   }
 }
@@ -377,6 +398,7 @@ async function handleUsageTrend(
     );
     sendJson(res, { data: trends });
   } catch (err) {
+    logger.error('获取每日趋势失败', { error: (err as Error).message });
     sendError(res, `获取每日趋势失败: ${(err as Error).message}`, 500);
   }
 }
@@ -398,6 +420,7 @@ async function handleUsageModelStats(
     );
     sendJson(res, { data: stats });
   } catch (err) {
+    logger.error('获取模型统计失败', { error: (err as Error).message });
     sendError(res, `获取模型统计失败: ${(err as Error).message}`, 500);
   }
 }
@@ -419,6 +442,7 @@ async function handleUsageProviderStats(
     );
     sendJson(res, { data: stats });
   } catch (err) {
+    logger.error('获取供应商统计失败', { error: (err as Error).message });
     sendError(res, `获取供应商统计失败: ${(err as Error).message}`, 500);
   }
 }
@@ -443,6 +467,7 @@ async function handleUsageLogs(
     );
     sendJson(res, { data: result });
   } catch (err) {
+    logger.error('获取请求日志失败', { error: (err as Error).message });
     sendError(res, `获取请求日志失败: ${(err as Error).message}`, 500);
   }
 }
@@ -547,8 +572,12 @@ async function handleBatchBalances(
                 belowThreshold: false,
               });
             }
-          } catch {
-            // 单个查询失败不影响其他
+          } catch (err) {
+            // 单个查询失败不影响其他，记录日志
+            logger.warning('单个供应商余额查询失败', {
+              providerId: p.id,
+              error: (err as Error).message,
+            });
           }
         })()
       );
@@ -559,9 +588,12 @@ async function handleBatchBalances(
 
     // 后台执行刷新
     if (refreshPromises.length > 0) {
-      Promise.all(refreshPromises).catch(() => {});
+      Promise.all(refreshPromises).catch((er: unknown) => {
+        logger.warning('批量余额刷新失败', { error: (er as Error).message });
+      });
     }
   } catch (err) {
+    logger.error('批量余额查询失败', { error: (err as Error).message });
     sendError(res, `批量余额查询失败: ${(err as Error).message}`, 500);
   }
 }
@@ -603,6 +635,7 @@ async function handleBalanceQuery(
     const result = await checkBalance(baseUrl, apiKey);
     sendJson(res, { data: result });
   } catch (err) {
+    logger.error('余额查询失败', { error: (err as Error).message });
     sendError(res, `余额查询失败: ${(err as Error).message}`, 500);
   }
 }
@@ -614,12 +647,12 @@ async function handleListPricing(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
+    // modelPricingService 已通过顶部静态 import 引入
     await modelPricingService.initialize();
     const pricing = await modelPricingService.getAllPricing();
     sendJson(res, { data: pricing });
   } catch (err) {
+    logger.error('获取定价列表失败', { error: (err as Error).message });
     sendError(res, `获取定价列表失败: ${(err as Error).message}`, 500);
   }
 }
@@ -630,8 +663,7 @@ async function handleUpsertPricing(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
+    // modelPricingService 已通过顶部静态 import 引入
     await modelPricingService.initialize();
     const record = await modelPricingService.upsertPricing({
       modelId: body.modelId as string,
@@ -649,9 +681,14 @@ async function handleUpsertPricing(
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
     ModelRegistry.getInstance()
       .refreshDbPricing()
-      .catch(() => {});
+      .catch((er: unknown) => {
+        logger.warning('refreshDbPricing 失败', {
+          error: (er as Error).message,
+        });
+      });
     sendJson(res, { data: record }, 201);
   } catch (err) {
+    logger.error('更新定价失败', { error: (err as Error).message });
     sendError(res, `更新定价失败: ${(err as Error).message}`, 500);
   }
 }
@@ -663,17 +700,21 @@ async function handleDeletePricing(
 ): Promise<void> {
   const modelId = decodeURIComponent(match![1]);
   try {
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
+    // modelPricingService 已通过顶部静态 import 引入
     await modelPricingService.initialize();
     const ok = await modelPricingService.deletePricing(modelId);
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
     ModelRegistry.getInstance()
       .refreshDbPricing()
-      .catch(() => {});
+      .catch((er: unknown) => {
+        logger.warning('refreshDbPricing 失败', {
+          error: (er as Error).message,
+        });
+      });
     sendJson(res, { success: ok });
   } catch (err) {
+    logger.error('删除定价失败', { error: (err as Error).message });
     sendError(res, `删除定价失败: ${(err as Error).message}`, 500);
   }
 }
@@ -686,8 +727,7 @@ async function handleCreateCustomModel(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
+    // modelPricingService 已通过顶部静态 import 引入
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
 
     await modelPricingService.initialize();
@@ -705,6 +745,7 @@ async function handleCreateCustomModel(
       providerId: body.providerId as string | undefined,
       contextWindow: (body.contextWindow as number) || 200000,
       maxOutputTokens: (body.maxOutputTokens as number) || 4096,
+      capabilities: body.capabilities as string[] | undefined,
       inputCostPerMillion: (body.inputCostPerMillion as number) || 0,
       outputCostPerMillion: (body.outputCostPerMillion as number) || 0,
       cacheReadCostPerMillion:
@@ -721,10 +762,23 @@ async function handleCreateCustomModel(
       maxOutputTokens: (body.maxOutputTokens as number) || 4096,
     });
     // 刷新 ModelRegistry 定价缓存
-    registry.refreshDbPricing().catch(() => {});
+    registry.refreshDbPricing().catch((er: unknown) => {
+      logger.warning('refreshDbPricing 失败(registry)', {
+        error: (er as Error).message,
+      });
+    });
+
+    // 刷新 ModelRouter UUID 缓存
+    const { modelRouter } = await import('./modelRouter.js');
+    modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      logger.warning('invalidateUuidCache 失败', {
+        error: (er as Error).message,
+      });
+    });
 
     sendJson(res, { data: record }, 201);
   } catch (err) {
+    logger.error('创建模型失败', { error: (err as Error).message });
     sendError(res, `创建模型失败: ${(err as Error).message}`, 500);
   }
 }
@@ -735,8 +789,7 @@ async function handleBulkImportModels(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
+    // modelPricingService 已通过顶部静态 import 引入
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
 
     await modelPricingService.initialize();
@@ -767,7 +820,19 @@ async function handleBulkImportModels(
 
     // 刷新 ModelRegistry 定价缓存
     const registry = ModelRegistry.getInstance();
-    registry.refreshDbPricing().catch(() => {});
+    registry.refreshDbPricing().catch((er: unknown) => {
+      logger.warning('refreshDbPricing 失败(registry)', {
+        error: (er as Error).message,
+      });
+    });
+
+    // 刷新 ModelRouter UUID 缓存
+    const { modelRouter } = await import('./modelRouter.js');
+    modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      logger.warning('invalidateUuidCache 失败', {
+        error: (er as Error).message,
+      });
+    });
 
     sendJson(res, { data: { imported } }, 201);
   } catch (err) {
@@ -781,12 +846,10 @@ async function handleToggleModel(
   res: http.ServerResponse,
   match: RegExpMatchArray | null
 ): Promise<void> {
-  const modelId = decodeURIComponent(match![1]);
+  const id = decodeURIComponent(match![1]); // UUID
   try {
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
     await modelPricingService.initialize();
-    const result = await modelPricingService.toggleModel(modelId);
+    const result = await modelPricingService.toggleModelById(id);
     if (result === null) {
       sendError(res, '模型不存在', 404);
       return;
@@ -795,9 +858,23 @@ async function handleToggleModel(
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
     ModelRegistry.getInstance()
       .refreshDbPricing()
-      .catch(() => {});
-    sendJson(res, { data: { modelId, enabled: result } });
+      .catch((er: unknown) => {
+        logger.warning('refreshDbPricing 失败', {
+          error: (er as Error).message,
+        });
+      });
+    // 刷新 ModelRouter UUID 缓存
+    const { modelRouter } = await import('./modelRouter.js');
+    modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      logger.warning('invalidateUuidCache 失败', {
+        error: (er as Error).message,
+      });
+    });
+    sendJson(res, {
+      data: { id, modelId: result.modelId, enabled: result.enabled },
+    });
   } catch (err) {
+    logger.error('切换模型状态失败', { error: (err as Error).message });
     sendError(res, `切换模型状态失败: ${(err as Error).message}`, 500);
   }
 }
@@ -807,12 +884,10 @@ async function handleDeleteModel(
   res: http.ServerResponse,
   match: RegExpMatchArray | null
 ): Promise<void> {
-  const modelId = decodeURIComponent(match![1]);
+  const id = decodeURIComponent(match![1]); // UUID
   try {
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
     await modelPricingService.initialize();
-    const ok = await modelPricingService.deleteModel(modelId);
+    const ok = await modelPricingService.deleteModelById(id);
     if (!ok) {
       sendError(res, '模型不存在', 404);
       return;
@@ -821,9 +896,21 @@ async function handleDeleteModel(
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
     ModelRegistry.getInstance()
       .refreshDbPricing()
-      .catch(() => {});
+      .catch((er: unknown) => {
+        logger.warning('refreshDbPricing 失败', {
+          error: (er as Error).message,
+        });
+      });
+    // 刷新 ModelRouter UUID 缓存
+    const { modelRouter } = await import('./modelRouter.js');
+    modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      logger.warning('invalidateUuidCache 失败', {
+        error: (er as Error).message,
+      });
+    });
     sendJson(res, { success: true });
   } catch (err) {
+    logger.error('删除模型失败', { error: (err as Error).message });
     sendError(res, `删除模型失败: ${(err as Error).message}`, 500);
   }
 }
@@ -841,6 +928,7 @@ async function handleListAppConfigs(
     const configs = await appModelConfigService.getAllConfigs();
     sendJson(res, { data: configs });
   } catch (err) {
+    logger.error('获取应用配置失败', { error: (err as Error).message });
     sendError(res, `获取应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -862,6 +950,7 @@ async function handleGetAppConfig(
     }
     sendJson(res, { data: config });
   } catch (err) {
+    logger.error('获取应用配置失败', { error: (err as Error).message });
     sendError(res, `获取应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -885,6 +974,7 @@ async function handleSetAppConfig(
     });
     sendJson(res, { data: config });
   } catch (err) {
+    logger.error('设置应用配置失败', { error: (err as Error).message });
     sendError(res, `设置应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -902,6 +992,7 @@ async function handleDeleteAppConfig(
     await appModelConfigService.deleteConfig(appType);
     sendJson(res, { success: true });
   } catch (err) {
+    logger.error('删除应用配置失败', { error: (err as Error).message });
     sendError(res, `删除应用配置失败: ${(err as Error).message}`, 500);
   }
 }
@@ -916,10 +1007,12 @@ async function handleListModels(
   res: http.ServerResponse,
   _match: RegExpMatchArray | null
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('model.list', {});
+
   try {
     const { providerManager } = await import('./providers/ProviderManager.js');
-    const { modelPricingService } =
-      await import('./models/ModelPricingService.js');
+    // modelPricingService 已通过顶部静态 import 引入
     await providerManager.initialize();
     await modelPricingService.initialize();
 
@@ -946,7 +1039,8 @@ async function handleListModels(
     );
 
     const models: Array<{
-      id: string;
+      id: string; // UUID
+      modelId: string; // 模型名
       name: string;
       provider: string;
       providerId: string;
@@ -969,22 +1063,31 @@ async function handleListModels(
         if (modelProvider) {
           matchingProvider = providers.find((p) => p.id === modelProvider.id);
         }
-        if (!matchingProvider) {
-          matchingProvider = providers.find(
-            (p) =>
-              pr.modelId.startsWith(p.providerType) ||
-              p.name.toLowerCase().includes(pr.modelId.split('-')[0])
-          );
-        }
       }
+      const caps =
+        pr.capabilities && pr.capabilities.length > 0
+          ? pr.capabilities
+          : getModelCapabilities(pr.modelId);
+      const modelType: string = caps.includes(ModelCapability.IMAGE_GENERATION)
+        ? 'image'
+        : caps.includes(ModelCapability.VIDEO_GENERATION)
+          ? 'video'
+          : caps.includes(ModelCapability.EMBEDDING)
+            ? 'embedding'
+            : caps.includes(ModelCapability.TEXT_TO_SPEECH) ||
+                caps.includes(ModelCapability.SPEECH_RECOGNITION)
+              ? 'voice'
+              : 'chat';
+
       models.push({
-        id: pr.modelId,
+        id: pr.id, // UUID
+        modelId: pr.modelId, // 模型名（新增）
         name: pr.displayName || pr.modelId,
         provider: matchingProvider?.name || pr.modelId.split('-')[0],
         providerId: matchingProvider?.id || '',
         requiresAuth: matchingProvider ? matchingProvider.requiresAuth : true,
-        type: 'chat',
-        context_length: 65536,
+        type: modelType,
+        context_length: getModelContextWindow(pr.modelId),
         enabled:
           pr.enabled !== undefined
             ? pr.enabled
@@ -1002,7 +1105,8 @@ async function handleListModels(
 
     if (models.length === 0) {
       models.push({
-        id: 'pyapp-default',
+        id: 'pyapp-default', // 兜底 UUID
+        modelId: 'pyapp-default', // 兜底模型名
         name: 'Liri 默认',
         provider: 'pyapp',
         providerId: '',
@@ -1013,26 +1117,16 @@ async function handleListModels(
       });
     }
 
+    otel.endSpan(span, SpanStatusCode.OK);
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ object: 'list', data: models }));
   } catch (err) {
     logger.error('获取模型列表失败', { error: (err as Error).message });
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    otel.endSpan(span, SpanStatusCode.ERROR, (err as Error).message);
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
-      JSON.stringify({
-        object: 'list',
-        data: [
-          {
-            id: 'pyapp-default',
-            name: 'Liri 默认',
-            provider: 'pyapp',
-            providerId: '',
-            type: 'chat',
-            context_length: 65536,
-            enabled: true,
-          },
-        ],
-      })
+      JSON.stringify({ error: `获取模型列表失败: ${(err as Error).message}` })
     );
   }
 }
@@ -1155,6 +1249,7 @@ async function handleTestModel(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, response: result }));
   } catch (err) {
+    logger.error('测试模型失败', { error: (err as Error).message });
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: false, error: (err as Error).message }));
   }
@@ -1170,7 +1265,9 @@ async function handleGetCurrentModel(
 ): Promise<void> {
   try {
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
-    const { modelRouter } = await import('./modelRouter.js');
+    const { resolveModelRoute, RouteKey } =
+      await import('./router/resolveModelRoute.js');
+    const { TASK_DEFINITIONS } = await import('./modelRouter.js');
     const { providerRegistry } =
       await import('./providers/ProviderRegistry.js');
     const { getTotalCostUSD } = await import('@modules/cost/CostTracker.js');
@@ -1186,23 +1283,30 @@ async function handleGetCurrentModel(
       routingMode = 'off';
     }
 
-    const currentModel = lastDecision?.model ?? modelRouter.resolve('chat');
+    const currentModel =
+      lastDecision?.model ?? (await resolveModelRoute(RouteKey.CHAT));
     const defaultProviderId =
       lastDecision?.provider ?? providerRegistry.getDefaultProviderId() ?? '';
 
+    // 查找当前模型的 UUID
+    await modelPricingService.initialize();
+    const currentRecord = await modelPricingService.getPricing(currentModel);
+
     const response = {
-      modelId: currentModel,
+      modelId: currentModel, // 模型名
+      modelUuid: currentRecord?.id || '', // 新增 UUID
       provider: defaultProviderId,
       routerTier: lastDecision?.tier ?? null,
       routingMode,
       taskType: 'chat',
       costThisSession: getTotalCostUSD(),
-      availableTasks: [],
+      availableTasks: TASK_DEFINITIONS,
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(response));
   } catch (err) {
+    logger.error('获取当前模型信息失败', { error: (err as Error).message });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1218,28 +1322,33 @@ async function handleSwitchModel(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
-    const { modelId } = body;
+    const { modelId } = body; // 这是 UUID
+    await modelPricingService.initialize();
+    const record = await modelPricingService.getPricingById(modelId);
+    const modelName = record?.modelId || modelId; // 回退到原值
+
     const { providerRegistry } =
       await import('./providers/ProviderRegistry.js');
     const { modelRouter } = await import('./modelRouter.js');
 
-    const resolvedProvider = providerRegistry.getByModel(modelId);
+    const resolvedProvider = providerRegistry.getByModel(modelName);
     if (resolvedProvider) {
       providerRegistry.setDefaultProvider(resolvedProvider.id);
 
       const { getCoreAPI } =
         await import('@modules/runtime/api/CoreAPIImpl.js');
-      getCoreAPI().setModelName(modelId);
+      getCoreAPI().setModelName(modelName);
     } else {
-      providerRegistry.setDefaultProvider(modelId);
+      providerRegistry.setDefaultProvider(modelName);
     }
 
     // 持久化到 ConfigManager（models.current + tasks.default）
-    modelRouter.setCurrentModel(modelId);
+    modelRouter.setCurrentModel(modelId); // 存 UUID
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
+    logger.error('切换模型失败', { error: (err as Error).message });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1258,6 +1367,7 @@ async function handleGetTaskDefinitions(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(TASK_DEFINITIONS));
   } catch (err) {
+    logger.error('获取任务定义失败', { error: (err as Error).message });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1274,9 +1384,16 @@ async function handleGetTasks(
   try {
     const { modelRouter } = await import('./modelRouter.js');
     const tasks = modelRouter.getTasks();
+    await modelPricingService.initialize();
+    const allModels = await modelPricingService.getAllPricing();
+    const modelNames: Record<string, string> = {};
+    for (const m of allModels) {
+      if (m.id) modelNames[m.id] = m.displayName || m.modelId;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(tasks));
+    res.end(JSON.stringify({ tasks, modelNames }));
   } catch (err) {
+    logger.error('获取任务分工失败', { error: (err as Error).message });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1297,6 +1414,27 @@ async function handleSaveTasks(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
+    logger.error('保存任务分工失败', { error: (err as Error).message });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * GET /v1/models/tasks/validate — 校验任务分工（检查模型能力匹配）
+ */
+async function handleValidateTasks(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const { modelRouter } = await import('./modelRouter.js');
+    const issues = await modelRouter.validateTaskAssignment();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ valid: issues.length === 0, issues }));
+  } catch (err) {
+    logger.error('校验任务分工失败', { error: (err as Error).message });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1319,6 +1457,7 @@ async function handleSetDefaultModel(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
+    logger.error('设置默认模型失败', { error: (err as Error).message });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: (err as Error).message }));
   }
@@ -1336,6 +1475,7 @@ async function handleListPresets(
     const grouped = getPresetsByCategory();
     sendJson(res, { data: grouped });
   } catch (err) {
+    logger.error('获取预设失败', { error: (err as Error).message });
     sendError(res, `获取预设失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1354,6 +1494,7 @@ async function handleGetSoul(
     const content = readSoulMd();
     sendJson(res, { data: { content } });
   } catch (err) {
+    logger.error('读取人格定义失败', { error: (err as Error).message });
     sendError(res, `读取人格定义失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1375,6 +1516,7 @@ async function handlePutSoul(
     writeSoulMd(content);
     sendJson(res, { data: { success: true } });
   } catch (err) {
+    logger.error('保存人格定义失败', { error: (err as Error).message });
     sendError(res, `保存人格定义失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1391,6 +1533,7 @@ async function handleGetUser(
     const content = readUserMd();
     sendJson(res, { data: { content } });
   } catch (err) {
+    logger.error('读取用户身份失败', { error: (err as Error).message });
     sendError(res, `读取用户身份失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1412,6 +1555,7 @@ async function handlePutUser(
     writeUserMd(content);
     sendJson(res, { data: { success: true } });
   } catch (err) {
+    logger.error('保存用户身份失败', { error: (err as Error).message });
     sendError(res, `保存用户身份失败: ${(err as Error).message}`, 500);
   }
 }
@@ -1496,6 +1640,11 @@ const ROUTES: RouteEntry[] = [
     method: 'GET',
     pattern: /^\/v1\/models\/tasks\/definitions$/,
     handler: handleGetTaskDefinitions,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/tasks\/validate$/,
+    handler: handleValidateTasks,
   },
   { method: 'GET', pattern: /^\/v1\/models\/tasks$/, handler: handleGetTasks },
   { method: 'PUT', pattern: /^\/v1\/models\/tasks$/, handler: handleSaveTasks },

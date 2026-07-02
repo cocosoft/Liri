@@ -14,6 +14,12 @@ import type {
   ImageGenerationResult,
 } from '../../ai/providers/AIProvider';
 import type { GenerationCacheConfig } from './types';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  level: LogLevel.DEBUG,
+  module: 'tools:imageGenerate',
+});
 
 /** 缓存条目 */
 interface CacheEntry {
@@ -64,26 +70,47 @@ export class ImageGenerationCache {
       .replace(/[，。！？、；：""''（）【】《》]/g, '');
   }
 
-  /** 获取缓存 */
+  /**
+   * 获取缓存（支持精确匹配 + 语义近似匹配）
+   */
   get(params: ImageGenerationParams): ImageGenerationResult | null {
     if (!this.config.enabled) return null;
 
-    const key = this.computeKey(params);
-    const entry = this.store.get(key);
-
-    if (!entry) return null;
-
-    // 检查 TTL
-    if (Date.now() - entry.createdAt > entry.ttlMs) {
-      this.store.delete(key);
-      return null;
+    // 精确匹配
+    const exactKey = this.computeKey(params);
+    const exactEntry = this.store.get(exactKey);
+    if (exactEntry && !this.isExpired(exactEntry)) {
+      logger.debug('ImageGenerationCache · 精确命中', {
+        prompt: params.prompt.slice(0, 50),
+      });
+      return exactEntry.result;
     }
 
-    // LRU: 移到末尾
-    this.store.delete(key);
-    this.store.set(key, entry);
+    // 语义近似匹配（P2-5: 如果开启 semanticMatch）
+    if (this.config.semanticMatch) {
+      const normalized = this.normalizePrompt(params.prompt);
+      for (const [key, entry] of this.store) {
+        if (this.isExpired(entry)) continue;
+        // 提取已缓存条目的归一化 prompt（存在 key 的前半部分）
+        const cachedNormalized = key.split('|')[0];
+        if (cachedNormalized === normalized) {
+          logger.debug('ImageGenerationCache · 语义近似命中', {
+            prompt: params.prompt.slice(0, 50),
+          });
+          return entry.result;
+        }
+      }
+    }
 
-    return entry.result;
+    logger.debug('ImageGenerationCache · 缓存未命中', {
+      prompt: params.prompt.slice(0, 50),
+    });
+    return null;
+  }
+
+  /** 检查条目是否过期 */
+  private isExpired(entry: CacheEntry): boolean {
+    return Date.now() - entry.createdAt > entry.ttlMs;
   }
 
   /** 写入缓存 */
@@ -97,6 +124,9 @@ export class ImageGenerationCache {
       const oldest = this.store.keys().next().value;
       if (oldest) {
         this.store.delete(oldest);
+        logger.debug('ImageGenerationCache · LRU 淘汰最旧条目', {
+          size: this.store.size,
+        });
       }
     }
 
@@ -105,11 +135,18 @@ export class ImageGenerationCache {
       createdAt: Date.now(),
       ttlMs: (this.config.ttlSeconds || 3600) * 1000,
     });
+
+    logger.debug('ImageGenerationCache · 写入缓存', {
+      prompt: params.prompt.slice(0, 50),
+      cacheSize: this.store.size,
+    });
   }
 
   /** 清空所有缓存 */
   clear(): void {
+    const count = this.store.size;
     this.store.clear();
+    logger.debug('ImageGenerationCache · 清空缓存', { cleared: count });
   }
 
   /** 获取缓存大小 */

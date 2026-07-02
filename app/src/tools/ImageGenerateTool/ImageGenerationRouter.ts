@@ -1,16 +1,17 @@
 /**
  * ImageGenerationRouter
- * 多后端图像生成的 fallback 链路由器
+ * 图像生成协调器：缓存、安全检查、prompt 增强、费用追踪
  *
- * 流程：
- *   用户请求 → Provider[0].generate()
- *     → 成功 → 返回结果 + 费用记录
- *     → 失败（可重试状态码）→ 记录日志 → Provider[1].generate()
- *       → 全部失败 → 返回聚合错误
+ * Provider 级别回退（fallback 链）已由 SmartRouter.execute() 接管。
  */
 
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error/handleError';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '../../ai/router/resolveModelRoute.js';
 import type {
   ImageGenerationParams,
   ImageGenerationResult,
@@ -22,10 +23,7 @@ import type {
   ProviderConfig,
 } from './types';
 import { getDefaultGenerationConfig } from './types';
-import { DallEProvider } from './providers/DallEProvider';
-import { StabilityProvider } from './providers/StabilityProvider';
 import { SDWebUIProvider } from './providers/SDWebUIProvider';
-import { ReplicateProvider } from './providers/ReplicateProvider';
 import { ImageGenerationCache } from './ImageGenerationCache';
 import { getImageSafetyFilter } from './ImageSafetyFilter';
 
@@ -43,41 +41,28 @@ export class ImageGenerationRouter {
   constructor(config?: Partial<ImageGenerationConfig>) {
     this.config = { ...getDefaultGenerationConfig(), ...config };
     this.cache = new ImageGenerationCache(this.config.cache);
-    this.initProviders(this.config.providers);
   }
 
-  /** 根据配置初始化 Provider 列表 */
-  private initProviders(providerConfigs: ProviderConfig[]): void {
-    this.providers = [];
+  /** 更新配置（仅更新缓存和通用配置，Provider 由 setProviders 管理） */
+  updateConfig(config: Partial<ImageGenerationConfig>): void {
+    this.config = { ...this.config, ...config };
+    this.cache.updateConfig(this.config.cache);
+  }
+
+  /**
+   * 直接注入 Provider 实例（跳过 config 类型映射）
+   * 由 ImageGenerationTool.getRouter() 调用，Provider 来自模型管理基础设施
+   */
+  setProviders(providers: ImageGenerationProvider[]): void {
+    this.providers = providers;
     this.providerMap.clear();
-
-    for (const cfg of providerConfigs) {
-      if (!cfg.enabled) continue;
-
-      let provider: ImageGenerationProvider;
-      switch (cfg.type) {
-        case 'openai':
-          provider = new DallEProvider(cfg);
-          break;
-        case 'stability':
-          provider = new StabilityProvider(cfg);
-          break;
-        case 'sdwebui':
-          provider = new SDWebUIProvider(cfg);
-          break;
-        case 'replicate':
-          provider = new ReplicateProvider(cfg);
-          break;
-        default:
-          logger.warn('ImageGenerationRouter · 未知 Provider 类型', {
-            type: cfg.type,
-          });
-          continue;
-      }
-
-      this.providers.push(provider);
-      this.providerMap.set(cfg.type, provider);
+    for (const p of providers) {
+      this.providerMap.set(p.type, p);
     }
+    logger.info('ImageGenerationRouter · 直接注入 Provider', {
+      providerCount: this.providers.length,
+      providers: this.providers.map((p) => p.name),
+    });
   }
 
   /** 获取所有已注册的 Provider */
@@ -90,21 +75,16 @@ export class ImageGenerationRouter {
     return this.providerMap.get(type);
   }
 
-  /** 更新配置并重新初始化 */
-  updateConfig(config: Partial<ImageGenerationConfig>): void {
-    this.config = { ...this.config, ...config };
-    this.cache.updateConfig(this.config.cache);
-    this.initProviders(this.config.providers);
-  }
-
   /** 获取当前配置 */
   getConfig(): ImageGenerationConfig {
     return { ...this.config };
   }
 
   /**
-   * 带 fallback 链的图片生成
-   * 按配置顺序依次尝试 Provider，直到成功或全部失败
+   * 图片生成（单 Provider 调用，fallback 由 SmartRouter 接管）
+   *
+   * 管线：缓存检查 → 安全检查 → prompt 增强 → 单 Provider 调用
+   * Provider 级别回退由上层 SmartRouter.execute() 的 FallbackChain 处理。
    */
   async generate(params: ImageGenerationParams): Promise<{
     result: ImageGenerationResult;
@@ -114,7 +94,15 @@ export class ImageGenerationRouter {
   }> {
     const costBreakdown: CostRecord[] = [];
     let totalCostUsd = 0;
-    let lastError: string | undefined;
+    /** 收集每个 Provider 的具体失败原因 */
+    const providerErrors: Array<{ provider: string; error: string }> = [];
+
+    logger.info('ImageGenerationRouter.generate() 入口', {
+      prompt: params.prompt.slice(0, 80),
+      size: params.size,
+      providersCount: this.providers.length,
+      providers: this.providers.map((p) => p.name),
+    });
 
     // 检查缓存
     if (this.config.cache.enabled) {
@@ -160,17 +148,15 @@ export class ImageGenerationRouter {
       };
     }
 
-    // 按优先级依次尝试
-    const maxRetries = this.config.fallback.maxRetries;
-    const providers = this.providers.slice(0, maxRetries + 1);
-
+    // 通过统一模型路由解析模型名，匹配对应 Provider
+    // 注：Provider 级别的 fallback 链已由 SmartRouter.execute() 的 FallbackChain 接管
+    const providers = this.providers;
     if (providers.length === 0) {
       return {
         result: {
           success: false,
           data: [],
-          error:
-            'No AI image provider is configured. Please set OPENAI_API_KEY, STABILITY_API_KEY, REPLICATE_API_KEY, or SD_WEBUI_URL in your .env file.',
+          error: 'No image generation provider configured',
           durationMs: 0,
         },
         costBreakdown: [],
@@ -179,112 +165,147 @@ export class ImageGenerationRouter {
       };
     }
 
-    const otel = getOTelTracing();
+    // 解析模型名（优先用 params.model，否则从模型管理任务分工获取）
+    const resolvedModel =
+      params.model || (await resolveModelRoute(RouteKey.IMAGE_GENERATE));
 
-    for (const provider of providers) {
+    // 根据模型名匹配对应 Provider，并解析 UUID → 模型名
+    let provider = providers[0];
+
+    // 对每个 Provider 尝试（fallback 链）
+    for (const candidate of providers) {
+      provider = candidate;
+      let actualModelName: string | undefined;
+
+      if (resolvedModel) {
+        try {
+          const { modelPricingService } =
+            await import('../../ai/models/ModelPricingService.js');
+          await modelPricingService.initialize();
+          const allModels = await modelPricingService.getAllPricing();
+
+          const isUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              resolvedModel
+            );
+          const modelRecord = allModels.find((m) =>
+            isUuid ? m.id === resolvedModel : m.modelId === resolvedModel
+          );
+
+          if (modelRecord) {
+            actualModelName = modelRecord.modelId;
+          }
+        } catch (err) {
+          logger.warning('ImageGenerationRouter · 模型 Provider 匹配失败', {
+            error: (err as Error).message,
+          });
+        }
+      }
+
+      // 注入模型名
+      const currentParams =
+        actualModelName && actualModelName !== params.model
+          ? { ...params, model: actualModelName }
+          : params;
+
+      const otel = getOTelTracing();
       const providerStart = Date.now();
       const providerSpan = otel.startSpan('image.generate.provider', {
-        'provider.name': provider.name,
-        'provider.type': provider.type,
-        'prompt.length': params.prompt.length,
-        'image.size': params.size ?? '1024x1024',
+        'provider.name': candidate.name,
+        'provider.type': candidate.type,
+        'prompt.length': currentParams.prompt.length,
+        'image.size': currentParams.size ?? '1024x1024',
       });
 
-      // 估算费用
-      const costEstimate = provider.estimateCost(params);
-
       try {
-        const result = await provider.generate({
-          ...params,
-          // 增强 prompt
-          prompt: this.enhancePrompt(params.prompt),
+        const result = await candidate.generate({
+          ...currentParams,
+          prompt: this.enhancePrompt(currentParams.prompt),
         });
-
         const latencyMs = Date.now() - providerStart;
 
         if (result.success) {
           otel.endSpan(providerSpan, SpanStatusCode.OK);
-
           costBreakdown.push({
-            provider: provider.name,
+            provider: candidate.name,
             status: 'success',
-            estimatedCostUsd: costEstimate.estimatedUsd,
+            estimatedCostUsd: (await candidate.estimateCost(currentParams))
+              .estimatedUsd,
             latencyMs,
           });
-          totalCostUsd += costEstimate.estimatedUsd;
 
-          logger.info('ImageGenerationRouter · 生成成功', {
-            provider: provider.name,
-            latencyMs,
-            costUsd: costEstimate.estimatedUsd,
-          });
-
-          // 写入缓存
           if (this.config.cache.enabled) {
-            this.cache.set(params, result);
+            this.cache.set(currentParams, result);
           }
 
-          return {
-            result,
-            costBreakdown,
-            totalCostUsd,
-            usedProvider: provider.type,
-          };
+          logger.info('ImageGenerationRouter · Fallback 成功', {
+            provider: candidate.name,
+            attemptIndex: providers.indexOf(candidate),
+          });
+          provider = candidate;
+          break; // 成功，退出 fallback 循环
         }
 
-        // Provider 返回失败
+        // 当前 Provider 失败，记录并尝试下一个
         otel.endSpan(providerSpan, SpanStatusCode.ERROR, result.error);
-
         costBreakdown.push({
-          provider: provider.name,
+          provider: candidate.name,
           status: 'failed',
           estimatedCostUsd: 0,
           latencyMs,
         });
+        providerErrors.push({
+          provider: candidate.name,
+          error: result.error || '未知错误',
+        });
 
-        lastError = result.error;
-
-        logger.warn('ImageGenerationRouter · Provider 返回失败', {
-          provider: provider.name,
+        logger.warn('ImageGenerationRouter · Provider 失败，尝试下一个', {
+          provider: candidate.name,
           error: result.error,
-          latencyMs,
+          remainingProviders: providers
+            .slice(providers.indexOf(candidate) + 1)
+            .map((p) => p.name),
         });
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
         const latencyMs = Date.now() - providerStart;
-
-        otel.endSpan(providerSpan, SpanStatusCode.ERROR, errorMsg);
+        otel.endSpan(providerSpan, SpanStatusCode.ERROR, String(error));
 
         costBreakdown.push({
-          provider: provider.name,
+          provider: candidate.name,
           status: 'failed',
           estimatedCostUsd: 0,
           latencyMs,
         });
-
-        lastError = errorMsg;
-
-        logger.warn('ImageGenerationRouter · Provider 异常', {
-          provider: provider.name,
-          error: errorMsg,
+        providerErrors.push({
+          provider: candidate.name,
+          error: (error as Error).message,
         });
 
-        // 网络/超时类异常，继续 fallback
-        continue;
+        logger.warn('ImageGenerationRouter · Provider 异常，尝试下一个', {
+          provider: candidate.name,
+          error: (error as Error).message,
+          remainingProviders: providers
+            .slice(providers.indexOf(candidate) + 1)
+            .map((p) => p.name),
+        });
       }
     }
 
-    // 全部失败
-    logger.error('ImageGenerationRouter · 所有 Provider 均失败', {
-      attempted: costBreakdown.map((c) => c.provider),
-      lastError,
+    // 所有 Provider 都失败，返回最终失败结果含各 Provider 具体原因
+    const errorDetail = providerErrors
+      .map((e) => `  - ${e.provider}: ${e.error}`)
+      .join('\n');
+
+    logger.error('ImageGenerationRouter · 所有 Provider 均已失败', {
+      attemptedProviders: costBreakdown.map((c) => c.provider),
+      errors: providerErrors,
     });
 
     return {
       result: {
         success: false,
         data: [],
-        error: `All providers failed. Last error: ${lastError}`,
+        error: `所有图像生成 Provider 均失败 (已尝试: ${costBreakdown.map((c) => c.provider).join(', ')})\n${errorDetail}`,
         durationMs: 0,
       },
       costBreakdown,

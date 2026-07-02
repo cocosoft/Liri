@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { modelService } from "../../services/modelService";
+import { modelSwitchService } from "../../services/modelSwitchService";
 import { balanceService } from "../../services/balanceService";
 import { useSessionStore } from "../../stores/sessionStore";
 import type { ModelInfo, BalanceRecord } from "../../types";
@@ -39,7 +40,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
   useEffect(() => {
     modelService
       .list()
-      .then(setModels)
+      .then((all) => setModels(all.filter((m) => m.type === "chat")))
       .catch(() => {});
     balanceService.batchCheck().then(setBalances).catch(() => {});
   }, []);
@@ -49,7 +50,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
     if (!q) return models;
     return models.filter(
       (m) =>
-        m.id.toLowerCase().includes(q) ||
+        m.modelId?.toLowerCase().includes(q) ||
         m.name.toLowerCase().includes(q) ||
         m.provider.toLowerCase().includes(q),
     );
@@ -103,13 +104,18 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
     return null;
   }, [tasks, currentModelId]);
 
-  const taskLabels: Record<string, string> = {
-    default: "⭐ 默认",
-    chat: "💬 对话",
-    coding: "💻 编程",
-    translation: "🌐 翻译",
-    quick: "⚡ 快速",
-  };
+  const [taskDefs, setTaskDefs] = useState<Array<{ type: string; label: string; icon: string }>>([]);
+  useEffect(() => {
+    modelSwitchService.getTaskDefinitions().then(setTaskDefs).catch(() => {});
+  }, []);
+
+  const taskLabels = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const d of taskDefs) {
+      map[d.type] = `${d.icon} ${d.label}`;
+    }
+    return map;
+  }, [taskDefs]);
 
   const balanceByProvider = useMemo(() => {
     const map = new Map<string, BalanceRecord>();
@@ -179,7 +185,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
                         <span
                           className={`text-xs ${getProviderColor(model.provider)}`}
                         >
-                          {model.name || model.id}
+                          {model.name || model.modelId || model.id}
                         </span>
                       )}
                       {isSessionOverride && (
@@ -291,7 +297,7 @@ function ModelRow({
         >
           {model.provider}
         </span>
-        <span className="text-sm truncate">{model.name || model.id}</span>
+        <span className="text-sm truncate">{model.name || model.modelId || model.id}</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {isActive && (

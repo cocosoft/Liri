@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -82,7 +82,7 @@ export class IndexBuilder {
     const embedModel = config.embedModel ?? 'nomic-embed-text';
 
     // 确保 EmbeddingManager 已初始化
-    globalEmbeddingManager.initialize();
+    await globalEmbeddingManager.initialize();
 
     try {
       // Phase 1: 分块
@@ -235,7 +235,7 @@ export class IndexBuilder {
   async checkOllama(
     _baseUrl?: string
   ): Promise<{ ok: boolean; models: string[]; error?: string }> {
-    const provider = globalEmbeddingManager.getProvider('local');
+    const provider = await globalEmbeddingManager.getProvider('local');
     if (!provider) {
       return {
         ok: false,

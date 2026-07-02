@@ -202,8 +202,9 @@ export interface AppStore {
   clearUsageError: () => void;
 
   // ---- Model Switch ----
-  currentModelId: string;
-  currentProvider: string;
+	  currentModelId: string;      // UUID（内部标识符，用于比较匹配）
+	  currentModelName: string;    // 模型名（用于 Footer 显示）
+	  currentProvider: string;
   routerTier: string;
   routingMode: "dynamic" | "static" | "off";
   costThisSession: number;
@@ -589,6 +590,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // ---- Model Switch ----
   currentModelId: "",
+  currentModelName: "",
   currentProvider: "deepseek",
   routerTier: "",
   routingMode: "static" as const,
@@ -599,12 +601,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   modelSwitchError: null,
 
   loadCurrentModel: async () => {
-    set({ modelSwitchLoading: true, modelSwitchError: null });
-    try {
-      const info = await modelSwitchService.getCurrent();
-      set({
-        currentModelId: info.modelId,
-        currentProvider: info.provider,
+	    set({ modelSwitchLoading: true, modelSwitchError: null });
+	    try {
+	      const info = await modelSwitchService.getCurrent();
+	      set({
+	        currentModelId: info.modelUuid,       // UUID（用于比较匹配）
+	        currentModelName: info.modelId,       // 模型名（用于显示）
+	        currentProvider: info.provider,
         routerTier: info.routerTier ?? "",
         routingMode: info.routingMode ?? "static",
         costThisSession: info.costThisSession,
@@ -620,12 +623,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   switchModel: async (modelId) => {
-    set({ modelSwitchError: null });
-    try {
-      await modelSwitchService.switch(modelId);
-      // 切换后重新获取任务分工配置（确保 tasks.default 同步）
-      const tasks = await modelSwitchService.getTasks();
-      set({ currentModelId: modelId, tasks });
+	    set({ modelSwitchError: null });
+	    try {
+	      await modelSwitchService.switch(modelId);
+	      // 切换后重新获取任务分工配置（确保 tasks.default 同步）
+	      const tasks = await modelSwitchService.getTasks();
+	      // 从已加载的 models 列表中查找模型名（用于 Footer 显示）
+	      const model = get().models.find((m) => m.id === modelId);
+	      set({ currentModelId: modelId, currentModelName: model?.modelId || model?.name || modelId, tasks });
     } catch (e) {
       set({ modelSwitchError: e instanceof Error ? e.message : "切换模型失败" });
     }

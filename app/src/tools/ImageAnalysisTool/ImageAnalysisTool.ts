@@ -19,6 +19,10 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ImageProcessor } from '../../media/image/ImageProcessor';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '../../ai/router/resolveModelRoute.js';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '../../ai/python/WorkerGuard';
@@ -35,7 +39,10 @@ export type AnalysisAction =
   | 'vision'
   | 'ocr'
   | 'objects'
-  | 'similarity';
+  | 'similarity'
+  | 'segment'
+  | 'depth'
+  | 'pdf';
 
 /**
  * 图片分析输入
@@ -354,6 +361,15 @@ export class ImageAnalysisTool extends BaseTool {
             break;
           case 'similarity':
             result = await this.handleSimilarity(params);
+            break;
+          case 'segment':
+            result = await this.handleSegment(params);
+            break;
+          case 'depth':
+            result = await this.handleDepth(params);
+            break;
+          case 'pdf':
+            result = await this.handlePdfInput(params);
             break;
           default:
             logger.warn('ImageAnalysisTool · 未知操作', {
@@ -790,11 +806,17 @@ export class ImageAnalysisTool extends BaseTool {
     error?: string;
     durationMs?: number;
   }> {
-    let provider = providerRegistry.get('google');
-    if (!provider.analyzeImage) {
+    // 通过统一模型路由获取视觉识别模型，优先匹配 support analyzeImage 的 Provider
+    const visionModel = await resolveModelRoute(RouteKey.IMAGE_ANALYZE);
+    let provider = providerRegistry.getByModel(visionModel);
+    // 如果路由到的 Provider 不支持图片分析，回退到已知的视觉 Provider
+    if (!provider?.analyzeImage) {
+      provider = providerRegistry.get('google');
+    }
+    if (!provider?.analyzeImage) {
       provider = providerRegistry.get('openai');
     }
-    if (!provider.analyzeImage) {
+    if (!provider?.analyzeImage) {
       return {
         success: false,
         description: '',
@@ -813,7 +835,23 @@ export class ImageAnalysisTool extends BaseTool {
       bmp: 'image/bmp',
     };
     const mimeType = mimeMap[ext] || 'image/png';
-    return provider.analyzeImage({ imageBuffer, mimeType, prompt });
+
+    // P1-5: 响应式缩放（Vision API 图片过大时自动逐级缩小后重试）
+    const MAX_VISION_BYTES = 20 * 1024 * 1024;
+    let finalBuffer = imageBuffer;
+    if (imageBuffer.length > MAX_VISION_BYTES) {
+      const { ImageInputRouter } =
+        await import('../ImageGenerateTool/ImageInputRouter');
+      const router = new ImageInputRouter();
+      const shrunk = await router.shrinkIfNeeded(imageBuffer, MAX_VISION_BYTES);
+      finalBuffer = shrunk.buffer;
+    }
+
+    return provider.analyzeImage({
+      imageBuffer: finalBuffer,
+      mimeType,
+      prompt,
+    });
   }
 
   // ---- 底层分析器 ----
@@ -986,6 +1024,123 @@ export class ImageAnalysisTool extends BaseTool {
       aspectRatioDiff: Math.round(aspectRatioDiff * 100) / 100,
       sameFormat,
     };
+  }
+
+  // ---- P1+新操作: SAM 分割 / Depth 估计 / PDF 输入 / L3 缩放 ----
+
+  /**
+   * SAM 图像分割（P1-7）
+   * 委托 Python vision_worker.py 执行 sam_segment 命令
+   */
+  private async handleSegment(params: ImageAnalysisInput): Promise<ToolResult> {
+    try {
+      const worker = this.getVisionWorker();
+      const response = await worker.send('sam_segment', {
+        image_path: params.inputPath,
+      });
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'SAM segmentation failed',
+        };
+      }
+
+      const result = response.result as { masks?: string[]; scores?: number[] };
+      const maskCount = result.masks?.length || 0;
+      return {
+        success: true,
+        data: response.result,
+        output: `SAM 分割完成，生成 ${maskCount} 个 mask`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `SAM segmentation failed: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  /**
+   * MiDaS 深度估计（P1-7）
+   * 委托 Python vision_worker.py 执行 depth_estimate 命令
+   */
+  private async handleDepth(params: ImageAnalysisInput): Promise<ToolResult> {
+    try {
+      const worker = this.getVisionWorker();
+      const response = await worker.send('depth_estimate', {
+        image_path: params.inputPath,
+      });
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Depth estimation failed',
+        };
+      }
+
+      const result = response.result as {
+        depth_image?: string;
+        min_depth?: number;
+        max_depth?: number;
+      };
+      return {
+        success: true,
+        data: response.result,
+        output: `深度估计完成: 范围 ${result.min_depth?.toFixed(2) || '?'} ~ ${result.max_depth?.toFixed(2) || '?'}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Depth estimation failed: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  /**
+   * PDF 输入处理（P1-2）
+   * 提取 PDF 页面为图片后，对首页执行默认分析
+   */
+  private async handlePdfInput(
+    params: ImageAnalysisInput
+  ): Promise<ToolResult> {
+    try {
+      const { extractPdfPages } =
+        await import('../../media/pdf/PdfPageExtractor');
+      const pages = await extractPdfPages(params.inputPath, {
+        startPage: 1,
+        endPage: 1,
+      });
+
+      if (pages.length === 0) {
+        return { success: false, error: '无法从 PDF 提取页面' };
+      }
+
+      // 对首页执行分析
+      const pdfParams: ImageAnalysisInput = {
+        ...params,
+        action: 'full',
+        inputPath: pages[0].imagePath,
+      };
+
+      return this.handleFull(pdfParams);
+    } catch (error) {
+      return {
+        success: false,
+        error: `PDF input processing failed: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  /** 获取 Python Vision Worker 实例 */
+  private getVisionWorker(): {
+    send: (
+      method: string,
+      params: Record<string, unknown>
+    ) => Promise<{ success: boolean; result?: unknown; error?: string }>;
+  } {
+    const guard = WorkerGuard.getInstance();
+    return guard.getWorker() as any;
   }
 }
 

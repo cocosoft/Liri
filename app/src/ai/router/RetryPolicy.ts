@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615275@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,8 +29,10 @@
 
 import type { RouterConfig, RouteDecision } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:retry' });
 
 export interface RetryPolicyOptions {
   /** 路由配置（含重试设置） */
@@ -101,6 +103,14 @@ export async function executeWithRetry(
   let retryCount = 0;
   let response: RetryableResponse;
 
+  const otel = getOTelTracing();
+  const span = otel.startSpan('ai.retry.execute', {
+    'retry.zero_usage_enabled': config.zeroUsageRetry?.enabled ?? false,
+    'retry.transient_enabled': config.transientRetry?.enabled ?? false,
+    'retry.model': decision.model,
+    'retry.provider': decision.provider,
+  });
+
   // 第一轮执行
   response = await execute(decision);
 
@@ -144,6 +154,12 @@ export async function executeWithRetry(
       response = await execute(decision);
     }
   }
+
+  otel.endSpan(
+    span,
+    response.success ? SpanStatusCode.OK : SpanStatusCode.ERROR,
+    response.error
+  );
 
   return {
     response,

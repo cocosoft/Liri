@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615275@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,7 @@ import { CostTracker } from '@modules/cost/CostTracker.js';
 import { CostRecordRepository } from '@modules/cost/CostRecordRepository.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const logger = new Logger({ level: LogLevel.INFO, module: 'ai:stats' });
 
 export interface RouterCostRecord {
   /** 会话 ID */

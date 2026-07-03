@@ -19,12 +19,17 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
+import type { AIProvider } from '../../ai/providers/AIProvider';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { resolveOutputDir } from '@modules/core';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 import { ImageGenerationRouter } from './ImageGenerationRouter';
 import type { CostRecord } from './types';
 import { RegistryImageProvider } from './providers/RegistryImageProvider';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '../../ai/router/resolveModelRoute.js';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -148,8 +153,7 @@ export class ImageGenerateTool extends BaseTool {
   private static router: ImageGenerationRouter | null = null;
 
   /** 获取 Router 实例 */
-  private getRouter(): ImageGenerationRouter {
-    // 如果 Router 已存在但无 Provider（旧代码遗留），强制重建
+  private async getRouter(): Promise<ImageGenerationRouter> {
     if (
       ImageGenerateTool.router &&
       ImageGenerateTool.router.getProviders().length === 0
@@ -161,98 +165,105 @@ export class ImageGenerateTool extends BaseTool {
     }
 
     if (!ImageGenerateTool.router) {
-      logger.info('ImageGenerateTool.getRouter() · 开始创建 Router');
+      logger.info('ImageGenerateTool.getRouter() · 创建 Router（模型驱动）');
+      ImageGenerateTool.router = new ImageGenerationRouter();
 
       try {
-        ImageGenerateTool.router = new ImageGenerationRouter();
-
-        // 直接从 ProviderRegistry 获取带有 generateImage 的 AiProvider，包装为 RegistryImageProvider
-        const allProviders = providerRegistry.list();
-        logger.info(
-          'ImageGenerateTool.getRouter() · ProviderRegistry 总 Provider 数',
-          {
-            totalCount: allProviders.length,
-            allIds: allProviders.map((p) => p.id),
-            allNames: allProviders.map((p) => p.displayName),
-          }
-        );
-
-        const imageProviders = allProviders.filter(
-          (p) => typeof (p as any).generateImage === 'function'
-        );
-
-        logger.info(
-          'ImageGenerateTool.getRouter() · 有 generateImage 的 Provider 数',
-          {
-            imageProviderCount: imageProviders.length,
-            imageProviderIds: imageProviders.map(
-              (p) => `${p.id}(${p.displayName})`
-            ),
-          }
-        );
-
-        if (imageProviders.length === 0) {
+        const resolvedModel = await resolveModelRoute(RouteKey.IMAGE_GENERATE);
+        if (!resolvedModel) {
           throw new AppError(
-            '未找到图像生成 Provider，请先在 Provider 管理中注册（如 OpenAI DALL-E、Stability AI 等）',
+            '未配置生图模型，请在模型管理 → 任务分工中设置生图模型',
             ErrorCategory.CONFIGURATION,
             ErrorSeverity.HIGH,
-            'NO_IMAGE_PROVIDER'
+            'NO_IMAGE_MODEL_CONFIGURED'
           );
         }
 
-        const wrappedProviders: RegistryImageProvider[] = [];
-        for (const p of imageProviders) {
-          // 通过 ProviderRegistry 反向查找真实类型（openai/stability/replicate/sdwebui 等）
-          const realType = providerRegistry.getProviderTypeById(p.id);
-          logger.info('ImageGenerateTool.getRouter() · 类型查询', {
-            id: p.id,
-            displayName: p.displayName,
-            realType: realType ?? '(未找到)',
-          });
-
-          const normalized = (realType ?? '').toLowerCase();
-          let mappedType:
-            | 'openai'
-            | 'stability'
-            | 'sdwebui'
-            | 'replicate'
-            | 'fal'
-            | null = null;
-          if (normalized === 'openai' || normalized === 'custom')
-            mappedType = 'openai';
-          else if (normalized.includes('stability')) mappedType = 'stability';
-          else if (normalized === 'sdwebui' || normalized.includes('webui'))
-            mappedType = 'sdwebui';
-          else if (normalized === 'replicate') mappedType = 'replicate';
-          else if (normalized === 'fal') mappedType = 'fal';
-          // 国内镜像/硅基流动/DeepSeek 等 OpenAI 兼容 Provider → 使用 OpenAI 兼容计费估算
-          else if (realType) {
-            logger.info(
-              'ImageGenerateTool.getRouter() · OpenAI 兼容 Provider',
-              { realType, id: p.id }
-            );
-            mappedType = 'openai';
-          }
-
-          if (mappedType) {
-            logger.info('ImageGenerateTool.getRouter() · 包装 Provider', {
-              id: p.id,
-              mappedType,
-              realType,
-            });
-            wrappedProviders.push(new RegistryImageProvider(p, mappedType));
-          } else {
-            logger.warn('ImageGenerateTool · 无法确定 Provider 类型，跳过', {
-              id: p.id,
-              displayName: p.displayName,
-            });
-          }
+        const { modelPricingService } =
+          await import('../../ai/models/ModelPricingService.js');
+        await modelPricingService.initialize();
+        const allModels = await modelPricingService.getAllPricing();
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            resolvedModel
+          );
+        const modelRecord = allModels.find((m) =>
+          isUuid ? m.id === resolvedModel : m.modelId === resolvedModel
+        );
+        if (!modelRecord) {
+          throw new AppError(
+            `模型 "${resolvedModel}" 未在 DB 中注册`,
+            ErrorCategory.CONFIGURATION,
+            ErrorSeverity.HIGH,
+            'MODEL_NOT_FOUND'
+          );
         }
 
-        logger.info('ImageGenerateTool.getRouter() · 注入 Router', {
-          wrappedCount: wrappedProviders.length,
+        let providerRegistryId = modelRecord.providerId;
+        try {
+          const { getRegistryId } =
+            await import('../../ai/providers/ProviderSyncService.js');
+          const mapped = getRegistryId(modelRecord.providerId);
+          if (mapped) providerRegistryId = mapped;
+        } catch {
+          /* 不可用时用原始值 */
+        }
+
+        let aiProvider: AIProvider;
+        try {
+          aiProvider = providerRegistry.get(providerRegistryId);
+        } catch {
+          throw new AppError(
+            `Provider "${modelRecord.providerId}" 未注册`,
+            ErrorCategory.CONFIGURATION,
+            ErrorSeverity.HIGH,
+            'PROVIDER_NOT_FOUND'
+          );
+        }
+
+        if (!aiProvider.generateImage) {
+          throw new AppError(
+            `Provider "${aiProvider.displayName}" 不支持生图`,
+            ErrorCategory.CONFIGURATION,
+            ErrorSeverity.HIGH,
+            'PROVIDER_NO_IMAGE_SUPPORT'
+          );
+        }
+
+        const realType = providerRegistry.getProviderTypeById(aiProvider.id);
+        const normalized = (realType ?? '').toLowerCase();
+        let mappedType:
+          | 'openai'
+          | 'stability'
+          | 'sdwebui'
+          | 'replicate'
+          | 'fal'
+          | null = null;
+        if (normalized === 'openai' || normalized === 'custom')
+          mappedType = 'openai';
+        else if (normalized.includes('stability')) mappedType = 'stability';
+        else if (normalized.includes('webui')) mappedType = 'sdwebui';
+        else if (normalized === 'replicate') mappedType = 'replicate';
+        else if (normalized === 'fal') mappedType = 'fal';
+        else if (realType) mappedType = 'openai';
+
+        if (!mappedType) {
+          throw new AppError(
+            `无法确定 Provider "${aiProvider.displayName}" 的类型`,
+            ErrorCategory.CONFIGURATION,
+            ErrorSeverity.HIGH,
+            'PROVIDER_TYPE_UNKNOWN'
+          );
+        }
+
+        ImageGenerateTool.router.setProviders([
+          new RegistryImageProvider(aiProvider, mappedType),
+        ]);
+        logger.info('ImageGenerateTool.getRouter() · 模型匹配完成', {
+          modelId: modelRecord.modelId,
+          provider: aiProvider.displayName,
+          mappedType,
         });
-        ImageGenerateTool.router.setProviders(wrappedProviders);
       } catch (error) {
         logger.error('ImageGenerateTool · 创建 Router 失败', {
           error: error instanceof Error ? error.message : String(error),
@@ -371,7 +382,7 @@ export class ImageGenerateTool extends BaseTool {
   private async executeWithRouter(
     params: ImageGenerateParams
   ): Promise<ToolResult> {
-    const router = this.getRouter();
+    const router = await this.getRouter();
 
     // 预先显示费用估算
     const providers = router.getProviders();

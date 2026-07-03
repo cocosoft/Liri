@@ -175,8 +175,7 @@ function createProviderByType(
         defaultModel: (config?.model as string) || '',
       });
     case 'openrouter': {
-      // OpenRouter 不支持 /images/generations 端点，覆写 generateImage 给出明确指引
-      const provider = new OpenAIProvider({
+      return new OpenAIProvider({
         providerId: 'openrouter',
         displayName: 'OpenRouter',
         defaultBaseUrl:
@@ -184,20 +183,9 @@ function createProviderByType(
         envApiKey: 'OPENROUTER_API_KEY',
         defaultModel: (config?.model as string) || '',
       });
-      // OpenRouter 的 chat completions 可返回图片，但不支持标准 /images/generations
-      // 请使用 OpenAI / FAL / Stability / Replicate / ComfyUI 作为生图 Provider
-      provider.generateImage = async () => ({
-        success: false,
-        data: [],
-        error:
-          'OpenRouter 不支持图像生成端点。请在模型管理 → 供应商中添加 OpenAI / FAL / Stability / Replicate / ComfyUI，并在任务分工中将其设为生图模型。',
-        durationMs: 0,
-      });
-      return provider;
     }
     case 'siliconflow': {
-      // SiliconFlow 不支持 /images/generations 端点，覆写 generateImage 给出明确指引
-      const provider = new OpenAIProvider({
+      return new OpenAIProvider({
         providerId: 'siliconflow',
         displayName: 'SiliconFlow (硅基流动)',
         defaultBaseUrl:
@@ -205,15 +193,6 @@ function createProviderByType(
         envApiKey: 'SILICONFLOW_API_KEY',
         defaultModel: (config?.model as string) || '',
       });
-      // 请使用 OpenAI / FAL / Stability / Replicate / ComfyUI 作为生图 Provider
-      provider.generateImage = async () => ({
-        success: false,
-        data: [],
-        error:
-          'SiliconFlow 不支持图像生成端点。请在模型管理 → 供应商中添加 OpenAI / FAL / Stability / Replicate / ComfyUI，并在任务分工中将其设为生图模型。',
-        durationMs: 0,
-      });
-      return provider;
     }
     default: {
       // custom / unknown → 默认用 OpenAI 兼容格式

@@ -169,11 +169,55 @@ export class ImageGenerationRouter {
     const resolvedModel =
       params.model || (await resolveModelRoute(RouteKey.IMAGE_GENERATE));
 
-    // 根据模型名匹配对应 Provider，并解析 UUID → 模型名
-    let provider = providers[0];
+    // 通过 resolvedModel 匹配对应 Provider，优先尝试匹配到的 Provider
+    let matchedProvider: ImageGenerationProvider | null = null;
+    if (resolvedModel && providers.length > 0) {
+      try {
+        const { modelPricingService } =
+          await import('../../ai/models/ModelPricingService.js');
+        await modelPricingService.initialize();
+        const allModels = await modelPricingService.getAllPricing();
+
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            resolvedModel
+          );
+        const modelRecord = allModels.find((m) =>
+          isUuid ? m.id === resolvedModel : m.modelId === resolvedModel
+        );
+
+        if (modelRecord?.providerId) {
+          matchedProvider =
+            providers.find(
+              (p) => (p as any).providerId === modelRecord.providerId
+            ) || null;
+
+          if (matchedProvider) {
+            logger.info(
+              'ImageGenerationRouter · 通过模型匹配到 Provider，优先尝试',
+              {
+                model: resolvedModel,
+                providerId: modelRecord.providerId,
+                provider: matchedProvider.name,
+              }
+            );
+          }
+        }
+      } catch (err) {
+        logger.warning('ImageGenerationRouter · 模型 Provider 匹配失败', {
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    // 构建候选列表：匹配到的 Provider 优先，其余保持原顺序作为 fallback
+    const candidates = matchedProvider
+      ? [matchedProvider, ...providers.filter((p) => p !== matchedProvider)]
+      : providers;
 
     // 对每个 Provider 尝试（fallback 链）
-    for (const candidate of providers) {
+    let provider = candidates[0];
+    for (const candidate of candidates) {
       provider = candidate;
       let actualModelName: string | undefined;
 
@@ -242,8 +286,12 @@ export class ImageGenerationRouter {
             provider: candidate.name,
             attemptIndex: providers.indexOf(candidate),
           });
-          provider = candidate;
-          break; // 成功，退出 fallback 循环
+          return {
+            result,
+            costBreakdown,
+            totalCostUsd,
+            usedProvider: candidate.name,
+          };
         }
 
         // 当前 Provider 失败，记录并尝试下一个
@@ -292,9 +340,8 @@ export class ImageGenerationRouter {
     }
 
     // 所有 Provider 都失败，返回最终失败结果含各 Provider 具体原因
-    const errorDetail = providerErrors
-      .map((e) => `  - ${e.provider}: ${e.error}`)
-      .join('\n');
+    const attemptedNames = costBreakdown.map((c) => c.provider).join(', ');
+    const firstError = providerErrors[0]?.error || '未知错误';
 
     logger.error('ImageGenerationRouter · 所有 Provider 均已失败', {
       attemptedProviders: costBreakdown.map((c) => c.provider),
@@ -305,7 +352,7 @@ export class ImageGenerationRouter {
       result: {
         success: false,
         data: [],
-        error: `所有图像生成 Provider 均失败 (已尝试: ${costBreakdown.map((c) => c.provider).join(', ')})\n${errorDetail}`,
+        error: `[v2] 图像生成失败 — ${firstError} (providerErrors=${providerErrors.length}, providers=${this.providers.length})`,
         durationMs: 0,
       },
       costBreakdown,

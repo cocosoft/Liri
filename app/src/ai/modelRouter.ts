@@ -498,6 +498,9 @@ export class ModelRouter {
       configManager.env('AI_MODEL');
     if (envModel) return envModel;
 
+    logger.warn(
+      'ModelRouter: 当前模型未配置（models.current / flat key / env 均为空）'
+    );
     return '';
   }
 

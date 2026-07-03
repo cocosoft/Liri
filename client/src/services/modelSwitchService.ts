@@ -16,11 +16,15 @@ export const modelSwitchService = {
   },
 
   async getTasks(): Promise<TaskModelConfig> {
-    return http.get<TaskModelConfig>("/v1/models/tasks");
+    const res = await http.get<{ tasks: TaskModelConfig; modelNames: Record<string, string> }>("/v1/models/tasks");
+    return res.tasks;
   },
 
   async saveTasks(tasks: TaskModelConfig): Promise<void> {
-    await http.put("/v1/models/tasks", tasks);
+    const res = await http.put<{ success: boolean }>("/v1/models/tasks", tasks);
+    if (!res.success) {
+      throw new Error("保存任务分工失败：后端返回异常");
+    }
   },
 
   async setDefaultModel(providerId: string, modelId: string): Promise<void> {

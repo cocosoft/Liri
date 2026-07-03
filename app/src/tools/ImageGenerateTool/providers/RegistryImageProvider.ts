@@ -31,6 +31,11 @@ export class RegistryImageProvider implements ImageGenerationProvider {
 
   private aiProvider: AIProvider;
 
+  /** 暴露底层 AiProvider 的 UUID，用于模型路由匹配 */
+  get providerId(): string {
+    return this.aiProvider.id;
+  }
+
   /**
    * @param aiProvider ProviderRegistry 中的 AiProvider 实例
    * @param mappedType 映射到的 Router Provider 类型（用于费用估算和日志）

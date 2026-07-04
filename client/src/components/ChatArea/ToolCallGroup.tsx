@@ -92,14 +92,6 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
         ? "\u274C"
         : "\u{1F527}";
 
-  const statusColor = isStreaming
-    ? "#e6c384"
-    : toolCall.status === "completed"
-      ? "#9ece6a"
-      : toolCall.status === "failed"
-        ? "#f7768e"
-        : "#7aa2f7";
-
   const humanSummary = getToolHumanSummary(toolCall);
   const displayName = getToolDisplayName(toolCall.name);
   const isImageTool = IMAGE_TOOL_NAMES.includes(toolCall.name);
@@ -155,13 +147,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
           {isStreaming && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
           )}
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded shrink-0 ml-auto"
-            style={{ background: statusColor, color: "#1a1b26" }}
-          >
-            {isStreaming ? t("chat.executing") : t("chat.completed")}
-          </span>
-          <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
+          <span className="text-[10px] shrink-0 ml-auto">{expanded ? "\u25BC" : "\u25B6"}</span>
         </button>
         {expanded && (
           <div className="border-t border-gray-400/[0.1] px-2.5 py-1" style={{ background: "rgba(0,0,0,0.05)" }}>
@@ -189,12 +175,6 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
             {humanSummary}
           </span>
         )}
-        <span
-          className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-          style={{ background: statusColor, color: "#1a1b26" }}
-        >
-          {isStreaming ? t("chat.running") : t("chat.completed")}
-        </span>
         <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
       </button>
       {expanded && (

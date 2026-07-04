@@ -217,21 +217,6 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           </span>
         )}
 
-        {/* 状态徽章 */}
-        <span
-          className="text-[11px] px-2 py-0.5 rounded text-gray-900 font-semibold shrink-0"
-          style={{
-            background: statusConfig.color,
-            opacity: blocks.some(b => b.isStreaming) ? 0.8 : 1,
-          }}
-        >
-          {status === "running" ? (
-            <span>{statusConfig.label}…</span>
-          ) : (
-            statusConfig.label
-          )}
-        </span>
-
         {/* 展开/折叠箭头 */}
         <span className="text-[10px] shrink-0">
           {collapsed ? "\u25B6" : "\u25BC"}

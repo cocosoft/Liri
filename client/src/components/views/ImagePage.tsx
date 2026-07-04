@@ -1,17 +1,22 @@
 /**
  * ImagePage
- * 图像工作台 — 左侧工具面板 + 右侧图库网格（P2-7: 无限滚动）
+ * 图像工作台 — 左侧工具面板 + 右侧图库网格
+ *
+ * 核心逻辑已提取至 useImageToolExecution / useImageGallery hooks。
  */
-import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
-import { imageService, clearImageCache } from "../../services/imageService";
 import ModelSelector from "../common/ModelSelector";
 import ImageToolPanel from "./image/ImageToolPanel";
-import ImageGallery, { useImageGallery } from "./image/ImageGallery";
+import ImageGallery from "./image/ImageGallery";
+import { useImageGallery } from "./image/useImageGallery";
+import { useImageToolExecution } from "./image/useImageToolExecution";
 import ImageUploadDrop from "./image/ImageUploadDrop";
 import TaskHistoryPanel from "./image/TaskHistory";
-import { addHistory } from "./image/taskHistoryStore";
+import ErrorBoundary from "./image/ErrorBoundary";
+import ImageModuleErrorFallback from "./image/ImageModuleErrorFallback";
+import { CanvasEditor } from "./image/canvas-editor/components/CanvasEditor";
+import { CanvasErrorBoundary } from "./image/canvas-editor/components/CanvasErrorBoundary";
 
 function ImagePage() {
   const { t } = useTranslation();
@@ -19,86 +24,9 @@ function ImagePage() {
   const isDark = config.theme === "dark";
 
   const gallery = useImageGallery();
-  const [error, setError] = useState<string | null>(null);
-  const [toolLoading, setToolLoading] = useState(false);
+  const tool = useImageToolExecution(gallery);
 
-  const loading = gallery.loading || toolLoading;
-
-  // 模型选择
-  const [selectedModel, setSelectedModel] = useState<string>("");
-
-  const handleToolExecute = useCallback(
-    async (toolName: string, args: Record<string, unknown>) => {
-      const startedAt = Date.now();
-      setToolLoading(true);
-      setError(null);
-      try {
-        // 注入选中的模型（优先 ModelSelector，回退到 tool form 中的 model 字段）
-        const resolvedModel = selectedModel || (args.model as string | undefined);
-        const mergedArgs = resolvedModel ? { ...args, model: resolvedModel } : args;
-        let galleryUpdated = false;
-        switch (toolName) {
-          case "image_generate": {
-            const result = await imageService.generate(mergedArgs.prompt as string, mergedArgs as Record<string, unknown>);
-            // 直接将生成结果注入图库
-            if (result.images?.length > 0) {
-              gallery.prepend(result.images.map((img) => ({
-                path: img.url,
-                url: img.url,
-              })));
-              galleryUpdated = true;
-            }
-            break;
-          }
-          case "image_analysis":
-            await imageService.analyze(
-              args.inputPath as string,
-              args.action as string,
-              args as Record<string, unknown>
-            );
-            break;
-          case "image":
-            await imageService.edit(
-              args.inputPath as string,
-              args.action as string,
-              args as Record<string, unknown>
-            );
-            break;
-          case "image_svg_generate": {
-            const result = await imageService.generate(mergedArgs.prompt as string, mergedArgs as Record<string, unknown>);
-            if (result.images?.length > 0) {
-              gallery.prepend(result.images.map((img) => ({
-                path: img.url,
-                url: img.url,
-              })));
-              galleryUpdated = true;
-            }
-            break;
-          }
-          case "canvas":
-            break;
-        }
-        addHistory({ toolName, args, success: true, startedAt, completedAt: Date.now() });
-        clearImageCache();
-        if (!galleryUpdated) gallery.refresh();
-      } catch (err) {
-        addHistory({ toolName, args, success: false, error: err instanceof Error ? err.message : String(err), startedAt, completedAt: Date.now() });
-        setError(err instanceof Error ? err.message : t("image.toolExecutionFailed"));
-      } finally {
-        setToolLoading(false);
-      }
-    },
-    [gallery, t]
-  );
-
-  const handleUploaded = useCallback((_result: { path: string; url: string }) => {
-    clearImageCache();
-    gallery.refresh();
-  }, [gallery]);
-
-  const handleResume = useCallback((toolName: string, args: Record<string, unknown>) => {
-    handleToolExecute(toolName, args);
-  }, [handleToolExecute]);
+  const loading = gallery.loading || tool.toolLoading;
 
   const textColor = isDark ? "text-gray-300" : "text-gray-700";
   const subtitleColor = isDark ? "text-gray-500" : "text-gray-400";
@@ -121,12 +49,25 @@ function ImagePage() {
         </button>
       </div>
 
-      {/* Error banner */}
-      {error && (
-        <div className="mx-4 mt-2 px-3 py-2 bg-red-900/20 border border-red-800/40 rounded text-red-300 text-xs">
-          {error}
+      {/* Success banner */}
+      {tool.success && (
+        <div className="mx-4 mt-2 px-3 py-2 bg-green-900/20 border border-green-800/40 rounded text-green-300 text-xs flex items-center justify-between">
+          <span>{tool.success}</span>
           <button
-            onClick={() => setError(null)}
+            onClick={() => tool.setSuccess(null)}
+            className="ml-2 text-green-400 hover:text-green-300 bg-transparent border-0 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {tool.error && (
+        <div className="mx-4 mt-2 px-3 py-2 bg-red-900/20 border border-red-800/40 rounded text-red-300 text-xs">
+          {tool.error}
+          <button
+            onClick={() => tool.setError(null)}
             className="ml-2 text-red-400 hover:text-red-300 bg-transparent border-0 cursor-pointer"
           >
             ✕
@@ -135,31 +76,48 @@ function ImagePage() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 overflow-hidden flex">
-        <div className="w-64 shrink-0 overflow-y-auto border-r border-gray-700/20 p-3 space-y-4">
-          {/* 生图模型选择器 */}
-          <ModelSelector
-            type="image"
-            value={selectedModel}
-            onChange={setSelectedModel}
-            label={t("image.model")}
-          />
-          <ImageToolPanel onExecute={handleToolExecute} loading={loading} />
-          <ImageUploadDrop onUploaded={handleUploaded} />
-          <TaskHistoryPanel onResume={handleResume} />
+      <ErrorBoundary fallback={<ImageModuleErrorFallback error={undefined} onRetry={gallery.refresh} />}>
+        <div className="flex-1 overflow-hidden flex">
+          <div className="w-64 shrink-0 overflow-y-auto border-r border-gray-700/20 p-3 space-y-4">
+            <ModelSelector
+              type="image"
+              value={tool.selectedModel}
+              onChange={tool.setSelectedModel}
+              label={t("image.model")}
+            />
+            <ImageToolPanel
+              activeTool={tool.activeTool}
+              onActiveToolChange={tool.setActiveTool}
+              onExecute={tool.handleToolExecute}
+              loading={loading}
+              selectedPath={tool.selectedPath}
+            />
+            <ImageUploadDrop onUploaded={tool.handleUploaded} />
+            <TaskHistoryPanel onResume={tool.handleResume} />
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {tool.activeTool === "canvas" ? (
+              <CanvasErrorBoundary>
+                <CanvasEditor />
+              </CanvasErrorBoundary>
+            ) : (
+              <ImageGallery
+              images={gallery.images}
+              total={gallery.total}
+              hasMore={gallery.hasMore}
+              loading={gallery.loading}
+              loadingMore={gallery.loadingMore}
+              loadError={gallery.loadError}
+              onLoadMore={gallery.loadMore}
+              onRefresh={gallery.refresh}
+              selectable={tool.toolNeedsInputPath}
+              onSelect={tool.handleSelectGalleryImage}
+              onDelete={tool.handleDeleteImage}
+            />
+          )}
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          <ImageGallery
-            images={gallery.images}
-            total={gallery.total}
-            hasMore={gallery.hasMore}
-            loading={gallery.loading}
-            loadingMore={gallery.loadingMore}
-            onLoadMore={gallery.loadMore}
-            onRefresh={gallery.refresh}
-          />
-        </div>
-      </div>
+      </ErrorBoundary>
     </div>
   );
 }

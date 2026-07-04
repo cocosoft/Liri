@@ -1,0 +1,15 @@
+// __tests__/visual/README.md
+// 视觉回归测试基线目录
+//
+// 结构:
+//   visual/
+//   ├── baselines/       ← 期望输出 png（node-canvas 渲染 → pixelmatch）
+//   ├── snapshots/       ← 实际输出（每次运行生成）
+//   └── diff/            ← pixelmatch diff 输出
+//
+// CI 流程:
+//   1. node-canvas 渲染工具输出到 snapshots/
+//   2. pixelmatch(snapshot, baseline, diff, threshold=0.01)
+//   3. 阈值超标 → CI 失败
+//
+// 当前为预留结构，基线图片待 CI 阶段补充。

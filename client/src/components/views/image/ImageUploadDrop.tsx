@@ -48,10 +48,23 @@ export default function ImageUploadDrop({ onUploaded, accept, disabled }: Props)
     setDragging(false);
     if (disabled || uploading) return;
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      doUpload(file);
+    if (!file) return;
+
+    // 文件类型校验：仅接受图片
+    if (!file.type.startsWith("image/")) {
+      setError(t("image.invalidFileType"));
+      return;
     }
-  }, [disabled, uploading, doUpload]);
+
+    // 大小限制：超过 20MB 前端拦截
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(t("image.fileTooLarge"));
+      return;
+    }
+
+    doUpload(file);
+  }, [disabled, uploading, doUpload, t]);
 
   const handleClick = () => {
     if (!disabled && !uploading) inputRef.current?.click();
@@ -142,7 +155,15 @@ export default function ImageUploadDrop({ onUploaded, accept, disabled }: Props)
       </div>
 
       {error && (
-        <div className="mt-1 text-[10px] text-red-400">{error}</div>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="text-[10px] text-red-400">{error}</span>
+          <button
+            onClick={() => { setError(null); }}
+            className="text-[10px] text-blue-400 hover:underline bg-transparent border-0 cursor-pointer"
+          >
+            {t("common.retry")}
+          </button>
+        </div>
       )}
     </div>
   );

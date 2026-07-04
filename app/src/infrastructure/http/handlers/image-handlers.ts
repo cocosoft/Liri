@@ -1,10 +1,12 @@
 /**
  * Image Handlers
- * 图片静态文件服务 + 图片列表 API
+ * 图片静态文件服务 + 图片列表 API + 图片删除 API
  *
  * 端点：
- *   GET /v1/images/static/*  — 提供 ~/.pyapp/output/images/ 下的图片文件
- *   GET /v1/images/list       — 列出所有已生成的图片
+ *   GET    /v1/images/static/*  — 提供图片文件
+ *   GET    /v1/images/list       — 列出所有已生成的图片
+ *   POST   /v1/images/upload     — 上传图片
+ *   DELETE /v1/images/delete     — 删除图片（按路径）
  */
 
 import type http from 'node:http';
@@ -306,6 +308,61 @@ export async function handleImageList(
     );
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'image_list' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
+ * DELETE /v1/images/delete?path=media/YYYY-MM-DD/img.png
+ * 删除指定路径的图片文件（安全校验：仅允许在 IMAGE_ROOTS 内的路径）
+ */
+export async function handleImageDelete(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const filePath = urlObj.searchParams.get('path');
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return;
+    }
+
+    // 安全检查：仅允许在已知根目录内
+    if (!isAnyRootSafe(filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return;
+    }
+
+    const fullPath = resolveFullPath(filePath);
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Image not found' }));
+      return;
+    }
+
+    // 安全校验：必须是文件，不能是目录
+    const stat = fs.statSync(fullPath);
+    if (!stat.isFile()) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Cannot delete directory' }));
+      return;
+    }
+
+    fs.unlinkSync(fullPath);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, path: filePath }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'image_delete' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));

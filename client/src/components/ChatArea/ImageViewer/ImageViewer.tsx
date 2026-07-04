@@ -8,9 +8,11 @@ interface Props {
   images: string[];
   initialIndex?: number;
   onClose: () => void;
+  /** 删除当前图片回调 */
+  onDelete?: () => void;
 }
 
-export default function ImageViewer({ images, initialIndex = 0, onClose }: Props) {
+export default function ImageViewer({ images, initialIndex = 0, onClose, onDelete }: Props) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -125,6 +127,20 @@ export default function ImageViewer({ images, initialIndex = 0, onClose }: Props
       >
         ⬇
       </button>
+
+      {/* 删除按钮 */}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="absolute bottom-4 right-12 text-white/70 hover:text-red-400 text-xl bg-transparent border-0 cursor-pointer z-10"
+          title="Delete"
+        >
+          🗑
+        </button>
+      )}
 
       {/* 左箭头 */}
       {images.length > 1 && (

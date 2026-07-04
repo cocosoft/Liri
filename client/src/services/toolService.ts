@@ -29,10 +29,10 @@ function createMemoryToolService() {
   return {
     list: async (): Promise<Tool[]> => [],
     execute: async (
-      _toolName: string,
+      toolName: string,
       _args: Record<string, unknown>,
     ): Promise<unknown> => {
-      return "Fallback: tool execution unavailable";
+      return { success: false, error: `后端不可达：工具 "${toolName}" 无法执行，请确认服务已启动（HTTP 或 Tauri 模式）` };
     },
   };
 }

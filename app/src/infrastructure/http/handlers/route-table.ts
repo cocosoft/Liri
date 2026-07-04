@@ -410,6 +410,10 @@ export async function dispatchRoute(
     await self['handleImageUpload'](req, res);
     return true;
   }
+  if (method === 'DELETE' && url.startsWith('/v1/images/delete')) {
+    await self['handleImageDelete'](req, res);
+    return true;
+  }
 
   // ---- Agent ----
   if (method === 'GET' && url === '/v1/agents/tasks') {

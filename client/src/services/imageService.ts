@@ -133,8 +133,23 @@ export interface EditResult {
 
 export const imageService = {
   /**
-   * 图片生成
+   * SVG 矢量图生成（通过 LLM 文本生成，非图像 API）
    */
+  async svgGenerate(
+    prompt: string,
+    options?: Record<string, unknown>
+  ): Promise<{ svg: string; model: string; size: string }> {
+    const raw = await toolService.execute("image_svg_generate", {
+      prompt,
+      ...options,
+    }) as { success: boolean; data: { svg: string; model: string; size: string; filePath?: string }; error?: string; result?: string };
+
+    if (!raw?.success || !raw.data) {
+      const detail = raw?.error || raw?.result || JSON.stringify(raw);
+      throw new Error(`SVG generation failed: ${detail}`);
+    }
+    return raw.data;
+  },
   async generate(
     prompt: string,
     options?: {
@@ -214,7 +229,7 @@ export const imageService = {
   /**
    * 获取图片列表（含 TTL 缓存 + 分页）
    */
-  async listImages(params?: { page?: number; pageSize?: number }): Promise<{
+  async listImages(params?: { page?: number; pageSize?: number; signal?: AbortSignal }): Promise<{
     images: Array<{ path: string; url: string }>;
     total: number;
     page: number;
@@ -233,6 +248,31 @@ export const imageService = {
       }>(`/v1/images/list?page=${page}&pageSize=${pageSize}`);
       return raw || { images: [], total: 0, page, pageSize, hasMore: false };
     });
+  },
+
+  /**
+   * 删除图片
+   */
+  async deleteImage(imagePath: string): Promise<{ success: boolean }> {
+    return http.delete(`/v1/images/delete?path=${encodeURIComponent(imagePath)}`);
+  },
+
+  /**
+   * 画布操作
+   */
+  async canvas(
+    action: string,
+    options?: Record<string, unknown>
+  ): Promise<CanvasResult> {
+    const raw = await toolService.execute("canvas", { action, ...options }) as {
+      success: boolean;
+      data: CanvasResult;
+      error?: string;
+    };
+    if (!raw?.success || !raw.data) {
+      throw new Error(raw?.error || "Canvas operation failed");
+    }
+    return raw.data;
   },
 
   /**

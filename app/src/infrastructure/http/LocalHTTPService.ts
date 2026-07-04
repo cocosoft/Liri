@@ -85,6 +85,7 @@ import {
   handleImageStatic,
   handleImageList,
   handleImageUpload,
+  handleImageDelete,
 } from './handlers/image-handlers';
 import {
   handleListAgentTasks,
@@ -773,6 +774,13 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleImageUpload(this._handlerCtx, req, res);
+  }
+
+  private async handleImageDelete(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleImageDelete(this._handlerCtx, req, res);
   }
 
   // ========== Agent Handlers (extracted to handlers/agent1-handlers.ts) ==========

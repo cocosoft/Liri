@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Suspense } from "react";
+import React, { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore, inferFileType } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -6,11 +6,12 @@ import { useConfigStore } from "../../stores/configStore";
 import { useAppStore } from "../../stores/appStore";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
+import { imageService } from "../../services/imageService";
 import VoiceInputButton, { type VoiceInputHandle } from "../VoiceInputButton";
 import FileAttachmentBar from "./FileAttachmentBar";
 import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
 import { useChatDraft } from "./useChatDraft";
-import type { Message } from "../../types";
+import type { Message, AttachedImage } from "../../types";
 
 const EmojiPicker = React.lazy(() => import("./EmojiPicker"));
 
@@ -20,13 +21,40 @@ interface FileAttachment {
   data: string;
 }
 
+/** 图片上传状态 */
+interface ImageItem {
+  /** 本地 File 对象 */
+  file: File;
+  /** 本地 blob URL（缩略图） */
+  previewUrl: string;
+  /** 上传状态 */
+  status: "pending" | "uploading" | "done" | "error";
+  /** 上传进度 0-100 */
+  progress: number;
+  /** 上传完成后的结果 */
+  result?: AttachedImage;
+}
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGES_PER_MESSAGE = 20;
+const MAX_CONCURRENT_UPLOADS = 3;
+const MAX_VISIBLE_THUMBNAILS = 5;
+
+/** 判断是否为图片文件 */
+function isImageFile(file: File): boolean {
+  return file.type.startsWith("image/");
+}
+
 function ChatInput() {
   const { t } = useTranslation();
   const [showCommands, setShowCommands] = useState(false);
   const [commandIndex, setCommandIndex] = useState(0);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [imageItems, setImageItems] = useState<ImageItem[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isImageDragOver, setIsImageDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const wasShowingCommandsRef = useRef(false);
   const voiceBtnRef = useRef<VoiceInputHandle>(null);
 
@@ -89,6 +117,135 @@ function ChatInput() {
   };
 
   /**
+   * 处理图片文件选择：过滤非图片文件，检查大小和数量限制
+   */
+  const handleImageFiles = useCallback((files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter(isImageFile);
+    if (imageFiles.length === 0) return;
+
+    const oversized = imageFiles.find((f) => f.size > MAX_IMAGE_SIZE);
+    if (oversized) {
+      alert(t('chat.imageTooLarge', { name: oversized.name, max: '10MB' }));
+      return;
+    }
+
+    setImageItems((prev) => {
+      const available = MAX_IMAGES_PER_MESSAGE - prev.length;
+      if (available <= 0) return prev;
+
+      const toAdd = imageFiles.slice(0, available);
+      return [
+        ...prev,
+        ...toAdd.map((file) => ({
+          file,
+          previewUrl: URL.createObjectURL(file),
+          status: "pending" as const,
+          progress: 0,
+        })),
+      ];
+    });
+  }, [t]);
+
+  /** 移除单张图片 */
+  const handleRemoveImage = useCallback((index: number) => {
+    setImageItems((prev) => {
+      const item = prev[index];
+      if (item) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  /** 粘贴图片处理 */
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        const file = items[i].getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      handleImageFiles(files);
+    }
+  }, [handleImageFiles]);
+
+  /** 拖入图片处理 */
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsImageDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsImageDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsImageDragOver(false);
+    if (e.dataTransfer?.files) {
+      handleImageFiles(e.dataTransfer.files);
+    }
+  }, [handleImageFiles]);
+
+  /** 并发上传所有待上传图片，返回 AttachedImage[] */
+  const uploadImages = useCallback(async (): Promise<AttachedImage[]> => {
+    const pending = imageItems.filter((item) => item.status === "pending");
+    if (pending.length === 0) return [];
+
+    const uploaded: AttachedImage[] = [];
+    const total = pending.length;
+
+    for (let i = 0; i < total; i += MAX_CONCURRENT_UPLOADS) {
+      const batch = pending.slice(i, i + MAX_CONCURRENT_UPLOADS);
+      const results = await Promise.allSettled(
+        batch.map(async (item) => {
+          setImageItems((prev) =>
+            prev.map((p) =>
+              p.file === item.file ? { ...p, status: "uploading" as const, progress: 0 } : p
+            )
+          );
+          try {
+            const result = await imageService.upload(item.file, (pct) => {
+              setImageItems((prev) =>
+                prev.map((p) =>
+                  p.file === item.file ? { ...p, progress: pct } : p
+                )
+              );
+            });
+            setImageItems((prev) =>
+                prev.map((p) =>
+                  p.file === item.file ? { ...p, status: "done" as const, progress: 100, result: { ...result, filename: item.file.name, size: item.file.size } } : p
+                )
+              );
+            return { ...result, filename: item.file.name, size: item.file.size };
+          } catch {
+            setImageItems((prev) =>
+              prev.map((p) =>
+                p.file === item.file ? { ...p, status: "error" as const } : p
+              )
+            );
+            return null;
+          }
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) {
+          uploaded.push(r.value);
+        }
+      }
+    }
+    return uploaded;
+  }, [imageItems]);
+
+  /**
    * 发送消息，先上传附件
    */
   const handleSubmit = async () => {
@@ -119,7 +276,7 @@ function ChatInput() {
       return;
     }
 
-    if (!trimmed && attachments.length === 0) return;
+    if (!trimmed && attachments.length === 0 && imageItems.length === 0) return;
 
     useChatStore.setState({ isUploading: true });
 
@@ -130,6 +287,9 @@ function ChatInput() {
         const newSession = await createSession(t('chat.newSession'));
         sessionId = newSession.id;
       }
+
+      // 上传图片
+      const uploadedImages = await uploadImages();
 
       const uploadedPaths: string[] = [];
       const uploadedFiles: Array<{ name: string; path: string }> = [];
@@ -149,6 +309,14 @@ function ChatInput() {
           name: f.name,
           content: '',
           type: inferFileType(f.path),
+        });
+      }
+      for (const img of uploadedImages) {
+        addSessionFile({
+          path: img.path,
+          name: img.filename,
+          content: '',
+          type: 'image',
         });
       }
 
@@ -177,10 +345,11 @@ function ChatInput() {
       if (messageContent) {
         setInput("");
         setAttachments([]);
+        setImageItems([]);
         setReplyMessage(null);
         useChatStore.getState().setEditTarget(null);
         clearDraft();
-        await streamMessage(messageContent, sessionId);
+        await streamMessage(messageContent, sessionId, undefined, uploadedImages.length > 0 ? uploadedImages : undefined);
       }
 
       setShowCommands(false);
@@ -298,8 +467,55 @@ function ChatInput() {
   return (
     <div
       className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors flex-shrink-0`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div className="max-w-4xl mx-auto">
+        {/* 图片缩略图预览条 */}
+        {imageItems.length > 0 && (
+          <div className="mb-2 flex items-center gap-2 flex-wrap">
+            {imageItems.slice(0, MAX_VISIBLE_THUMBNAILS).map((item, idx) => (
+              <div key={idx} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0">
+                <img
+                  src={item.previewUrl}
+                  alt={item.file.name}
+                  className="w-full h-full object-cover"
+                />
+                {item.status === "uploading" && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {item.status === "error" && (
+                  <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center text-white text-xs">
+                    !
+                  </div>
+                )}
+                <button
+                  onClick={() => handleRemoveImage(idx)}
+                  className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:bg-black/80"
+                  title={t('chat.removeImage')}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {imageItems.length > MAX_VISIBLE_THUMBNAILS && (
+              <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                +{imageItems.length - MAX_VISIBLE_THUMBNAILS}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 拖入覆盖层 */}
+        {isImageDragOver && (
+          <div className="mb-2 p-4 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-center text-sm text-blue-600 dark:text-blue-400">
+            {t('chat.dropImageHere')}
+          </div>
+        )}
+
         {/* 文件附件栏 */}
         <FileAttachmentBar
           attachments={attachments}
@@ -392,6 +608,7 @@ function ChatInput() {
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onKeyUp={handleKeyUp}
+                onPaste={handlePaste}
                 aria-label={t('chat.messageInput')}
                 placeholder={
                   currentSession
@@ -409,6 +626,30 @@ function ChatInput() {
 
             {/* 右侧按钮 */}
             <div className="flex items-center gap-1">
+              {/* 隐藏的图片选择输入 */}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) handleImageFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              {/* 图片上传按钮 */}
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                aria-label={t('chat.uploadImage')}
+                disabled={!currentSession || isUploading}
+                className="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={t('chat.uploadImage')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
               <VoiceInputButton
                 ref={voiceBtnRef}
                 isDark={config.theme === "dark"}

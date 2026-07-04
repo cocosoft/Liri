@@ -1,3 +1,15 @@
+/** 聊天中附带的图片信息 */
+export interface AttachedImage {
+  /** 上传后的后端文件路径（绝对路径） */
+  path: string;
+  /** HTTP 可访问的 URL */
+  url: string;
+  /** 原始文件名 */
+  filename: string;
+  /** 文件大小（字节） */
+  size: number;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system" | "tool";
@@ -11,6 +23,8 @@ export interface Message {
   replyToId?: string;
   /** 产生该消息的 Agent 名称 */
   agentName?: string;
+  /** 用户消息附带的图片 */
+  attachedImages?: AttachedImage[];
   usage?: {
     inputTokens: number;
     outputTokens: number;

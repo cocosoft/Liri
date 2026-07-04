@@ -331,6 +331,7 @@ export class CoreAPIImpl implements CoreAPI {
         stream: request.stream,
         model,
         onProgress: request.onProgress,
+        images: request.images,
       });
 
       // 检查是否返回了待处理的用户交互（非流式路径）
@@ -430,6 +431,7 @@ export class CoreAPIImpl implements CoreAPI {
         sessionId: request.sessionId,
         metadata: enrichedMetadata,
         model,
+        images: request.images,
         onUsage: (usage) => {
           capturedUsage = {
             inputTokens: usage.inputTokens,

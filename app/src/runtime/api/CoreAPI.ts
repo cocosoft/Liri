@@ -46,6 +46,8 @@ export interface ChatRequest {
   sessionId?: string;
   stream?: boolean;
   metadata?: Record<string, unknown>;
+  /** 用户消息附带的图片信息 */
+  images?: Array<{ path: string; url: string; filename: string; size: number }>;
   /** 进度回调，用于在非流式路径中获取 AI 处理阶段信息 */
   onProgress?: (event: ProgressEvent) => void;
 }

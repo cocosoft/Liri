@@ -49,6 +49,7 @@ interface ChatCompletionRequest {
   stream?: boolean;
   session_id?: string;
   workspace_path?: string; // 方案 C：工作空间路径，用于工具执行默认 cwd
+  images?: Array<{ path: string; url: string; filename: string; size: number }>;
 }
 
 interface ChatCompletionResponse {
@@ -158,6 +159,7 @@ async function handleNormalChat(
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,
+      images: request.images,
     };
 
     const response = await coreAPI.chat(chatRequest);
@@ -362,6 +364,7 @@ async function handleStreamingChat(
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,
+      images: request.images,
     };
 
     const generator = coreAPI.chatStream(chatRequest);

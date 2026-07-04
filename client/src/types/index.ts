@@ -7,6 +7,7 @@ export { isApiResponse, unwrapApiResponse } from "./api";
 // ─── 核心业务类型 ───
 export type { Session } from "./session";
 export type {
+  AttachedImage,
   Message,
   MessageBlock,
   QuestionOption,

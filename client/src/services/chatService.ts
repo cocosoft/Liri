@@ -1,4 +1,4 @@
-import type { Message, BackendStatus, ToolCall } from "../types";
+import type { Message, BackendStatus, ToolCall, AttachedImage } from "../types";
 import { getBackendBaseUrl, getBackendPort, setApiSecret } from "./backendUrl";
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
@@ -191,6 +191,7 @@ export const chatService = {
   sendMessage: async (
     content: string,
     sessionId?: string,
+    images?: AttachedImage[],
   ): Promise<Message & { pendingInteraction?: QuestionData }> => {
     // 发消息前确保会话绑定的模型与后端一致
     await ensureSessionModelSync(sessionId);
@@ -205,6 +206,7 @@ export const chatService = {
     };
     if (sessionId) body.session_id = sessionId;
     if (workspacePath) body.workspace_path = workspacePath;
+    if (images && images.length > 0) body.images = images;
 
     const response = await fetchJSON<
       {
@@ -246,7 +248,7 @@ export const chatService = {
     content: string,
     sessionId?: string,
     signal?: AbortSignal,
-    options?: { workMode?: "plan" | "do" },
+    options?: { workMode?: "plan" | "do"; images?: AttachedImage[] },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     // 发消息前确保会话绑定的模型与后端一致
     await ensureSessionModelSync(sessionId);
@@ -263,6 +265,7 @@ export const chatService = {
     if (sessionId) body.session_id = sessionId;
     if (workspacePath) body.workspace_path = workspacePath;
     if (options?.workMode) body.work_mode = options.workMode;
+    if (options?.images && options.images.length > 0) body.images = options.images;
 
     const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
       method: "POST",

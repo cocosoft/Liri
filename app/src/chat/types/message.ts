@@ -668,6 +668,11 @@ export interface SendMessageOptions {
     message: string;
     toolName?: string;
   }) => void;
+
+  /**
+   * 用户消息附带的图片信息
+   */
+  images?: Array<{ path: string; url: string; filename: string; size: number }>;
 }
 
 /**

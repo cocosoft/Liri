@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
@@ -1313,6 +1315,34 @@ export class ChatManagerImpl implements ChatManager {
 
       return chatMessage;
     });
+
+    // 将附带的图片转换为多模态 content 数组
+    if (options?.images && options.images.length > 0) {
+      const lastUserMsg = [...apiMessages].reverse().find((m: Record<string, unknown>) => m.role === 'user');
+      if (lastUserMsg && typeof lastUserMsg.content === 'string') {
+        const contentBlocks: Array<Record<string, unknown>> = [
+          { type: 'text', text: lastUserMsg.content },
+        ];
+        for (const img of options.images) {
+          try {
+            const imageData = fs.readFileSync(img.path);
+            const base64 = imageData.toString('base64');
+            const ext = path.extname(img.filename).slice(1).toLowerCase() || 'png';
+            const mimeType = ext === 'jpg' ? 'jpeg' : ext;
+            contentBlocks.push({
+              type: 'image_url',
+              image_url: { url: `data:image/${mimeType};base64,${base64}` },
+            });
+          } catch (err) {
+            logger.warn('图片文件读取失败，跳过该图片', {
+              path: img.path,
+              error: String(err),
+            });
+          }
+        }
+        lastUserMsg.content = contentBlocks;
+      }
+    }
 
     // 过滤孤立的 tool 消息（没有前置 tool_calls 的 assistant 消息）
     this._sanitizeApiMessages(apiMessages);
@@ -2704,6 +2734,34 @@ export class ChatManagerImpl implements ChatManager {
 
       return chatMessage;
     });
+
+    // 将附带的图片转换为多模态 content 数组
+    if (options?.images && options.images.length > 0) {
+      const lastUserMsg = [...apiMessages].reverse().find((m: Record<string, unknown>) => m.role === 'user');
+      if (lastUserMsg && typeof lastUserMsg.content === 'string') {
+        const contentBlocks: Array<Record<string, unknown>> = [
+          { type: 'text', text: lastUserMsg.content },
+        ];
+        for (const img of options.images) {
+          try {
+            const imageData = fs.readFileSync(img.path);
+            const base64 = imageData.toString('base64');
+            const ext = path.extname(img.filename).slice(1).toLowerCase() || 'png';
+            const mimeType = ext === 'jpg' ? 'jpeg' : ext;
+            contentBlocks.push({
+              type: 'image_url',
+              image_url: { url: `data:image/${mimeType};base64,${base64}` },
+            });
+          } catch (err) {
+            logger.warn('图片文件读取失败，跳过该图片', {
+              path: img.path,
+              error: String(err),
+            });
+          }
+        }
+        lastUserMsg.content = contentBlocks;
+      }
+    }
 
     this._sanitizeApiMessages(apiMessages);
 

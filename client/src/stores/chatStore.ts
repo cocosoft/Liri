@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Message, MessageBlock, FilePreview } from "../types";
+import { Message, MessageBlock, FilePreview, AttachedImage } from "../types";
 import type { ToolCall, TaskCardTask, ProgressData } from "../types";
 import { chatService } from "../services/chatService";
 import { httpLegacy as http } from "../services/httpClient";
@@ -223,7 +223,7 @@ interface ChatStore {
   enqueueMessage: (content: string, sessionId?: string) => void;
   /** 消费队列中的下一条消息 */
   dequeueAndSend: (sessionId?: string) => Promise<void>;
-  streamMessage: (content: string, sessionId?: string, workMode?: "plan" | "do") => Promise<void>;
+  streamMessage: (content: string, sessionId?: string, workMode?: "plan" | "do", attachedImages?: AttachedImage[]) => Promise<void>;
   /** 重新生成上一条 AI 消息 */
   regenerateMessage: (sessionId?: string) => Promise<void>;
   /** 在出错后重试（传入出错的 assistant 消息 ID，内部找到前置用户消息重新发送） */
@@ -850,7 +850,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     await get().sendMessage(next.content, next.sessionId || sessionId);
   },
 
-  streamMessage: async (content: string, sessionId?: string, workMode?: "plan" | "do") => {
+  streamMessage: async (content: string, sessionId?: string, workMode?: "plan" | "do", attachedImages?: AttachedImage[]) => {
     // J1: 取消上一个未完成的流式请求
     const prevController = get().abortController;
     if (prevController) {
@@ -891,6 +891,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       content,
       timestamp: Date.now(),
       session_id: sessionId || "default",
+      attachedImages: attachedImages && attachedImages.length > 0 ? attachedImages : undefined,
     };
 
     const assistantId = crypto.randomUUID();
@@ -990,7 +991,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         content,
         sessionId,
         abortController.signal,
-        workMode ? { workMode } : undefined,
+        { workMode, images: attachedImages },
       );
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();

@@ -37,6 +37,17 @@ describe('SlowQueryDetector', () => {
   let detector: SlowQueryDetector;
 
   beforeEach(async () => {
+    // WAL 文件清理
+    if (existsSync(TEST_DB_PATH)) {
+      unlinkSync(TEST_DB_PATH);
+    }
+    if (existsSync(`${TEST_DB_PATH}-shm`)) {
+      unlinkSync(`${TEST_DB_PATH}-shm`);
+    }
+    if (existsSync(`${TEST_DB_PATH}-wal`)) {
+      unlinkSync(`${TEST_DB_PATH}-wal`);
+    }
+
     if (!existsSync(TEST_DB_DIR)) {
       mkdirSync(TEST_DB_DIR, { recursive: true });
     }
@@ -51,6 +62,12 @@ describe('SlowQueryDetector', () => {
     resetQueryLogStore();
     if (existsSync(TEST_DB_PATH)) {
       unlinkSync(TEST_DB_PATH);
+    }
+    if (existsSync(`${TEST_DB_PATH}-shm`)) {
+      unlinkSync(`${TEST_DB_PATH}-shm`);
+    }
+    if (existsSync(`${TEST_DB_PATH}-wal`)) {
+      unlinkSync(`${TEST_DB_PATH}-wal`);
     }
   });
 

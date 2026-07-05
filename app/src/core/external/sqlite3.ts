@@ -86,7 +86,8 @@ class Database {
     try {
       this._db = new BunDB(path, { create: true });
       this._db.run('PRAGMA journal_mode=WAL');
-      this._db.run('PRAGMA busy_timeout=5000');
+      this._db.run('PRAGMA busy_timeout=10000');
+      this._db.run('PRAGMA temp_store=MEMORY');
       process.nextTick(() => cb?.(null));
     } catch (e) {
       process.nextTick(() => cb?.(e as Error));

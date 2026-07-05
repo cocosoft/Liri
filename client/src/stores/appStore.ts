@@ -1075,6 +1075,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       try {
         const status = await chatService.startBackend();
         set({ backendStatus: status });
+        // 后端启动失败时，将退出码/stderr 展示给用户（而非仅"连接被拒"）
+        if (!status.running && (status.exit_code != null || status.error)) {
+          const errorMsg = status.error
+            ? `后端进程启动失败：\n${status.error}`
+            : `后端进程异常退出，退出码：${status.exit_code}`;
+          set({ backendError: errorMsg });
+        }
       } catch (e) {
         handleClientError(e, { module: 'stores:appStore', action: 'startBackend' }, 'warn');
         set({ backendError: e instanceof Error ? e.message : String(e) });

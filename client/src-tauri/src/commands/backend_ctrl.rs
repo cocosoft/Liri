@@ -22,6 +22,7 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tracing::info;
 
@@ -40,10 +41,18 @@ pub struct BackendStatus {
     pub running: bool,
     pub port: Option<u16>,
     pub pid: Option<u32>,
+    /// 进程退出码（仅当进程已退出时有效）
+    pub exit_code: Option<i32>,
+    /// 进程 stderr 输出或错误信息
+    pub error: Option<String>,
 }
 
 struct BackendProcess {
     child: tauri_plugin_shell::process::CommandChild,
+    /// 进程退出码（后台任务在进程退出时填充）
+    exit_code: Option<i32>,
+    /// 进程 stderr 输出（后台任务累积填充）
+    stderr_output: String,
 }
 
 #[tauri::command]
@@ -62,10 +71,24 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     let current_port = *port_guard;
 
     if process_guard.is_some() {
+        // 已有进程记录，检查其是否已崩溃退出
+        let exit_code = process_guard.as_ref().and_then(|p| p.exit_code);
+        let running = exit_code.is_none();
+        let error = process_guard
+            .as_ref()
+            .and_then(|p| {
+                if !p.stderr_output.is_empty() {
+                    Some(p.stderr_output.clone())
+                } else {
+                    None
+                }
+            });
         return Ok(BackendStatus {
-            running: true,
-            port: Some(current_port),
+            running,
+            port: if running { Some(current_port) } else { None },
             pid: None,
+            exit_code,
+            error,
         });
     }
 
@@ -128,13 +151,64 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         }
     );
 
-    let (_, child) = command
+    let (mut rx, child) = command
         .spawn()
         .map_err(|e| format!("Failed to start backend sidecar: {}", e))?;
 
     let pid = child.pid();
 
-    *process_guard = Some(BackendProcess { child });
+    // 启动后台任务：捕获 stderr/stdout 并监听进程退出事件
+    tauri::async_runtime::spawn(async move {
+        let mut stderr_buf = String::new();
+
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stderr(bytes) => {
+                    let text = String::from_utf8_lossy(&bytes);
+                    stderr_buf.push_str(&text);
+                    tracing::warn!("Backend stderr: {}", text.trim());
+                }
+                CommandEvent::Stdout(bytes) => {
+                    let text = String::from_utf8_lossy(&bytes);
+                    tracing::info!("Backend: {}", text.trim());
+                }
+                CommandEvent::Terminated(payload) => {
+                    if let Some(code) = payload.code {
+                        if let Ok(mut guard) = BACKEND_PROCESS.lock() {
+                            if let Some(ref mut proc) = *guard {
+                                proc.exit_code = Some(code);
+                                if !stderr_buf.is_empty() {
+                                    proc.stderr_output = stderr_buf.clone();
+                                }
+                            }
+                        }
+                        tracing::warn!(
+                            "Backend process exited with code: {}",
+                            code
+                        );
+                    } else {
+                        tracing::warn!("Backend process terminated (no exit code)");
+                    }
+                    break;
+                }
+                CommandEvent::Error(err) => {
+                    tracing::error!("Backend process error: {}", err);
+                    if let Ok(mut guard) = BACKEND_PROCESS.lock() {
+                        if let Some(ref mut proc) = *guard {
+                            proc.stderr_output = err.clone();
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    });
+
+    *process_guard = Some(BackendProcess {
+        child,
+        exit_code: None,
+        stderr_output: String::new(),
+    });
 
     info!("Backend started with PID: {:?}", pid);
 
@@ -142,6 +216,8 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         running: true,
         port: Some(current_port),
         pid: Some(pid),
+        exit_code: None,
+        error: None,
     })
 }
 
@@ -176,13 +252,28 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
     let port_guard = BACKEND_PORT.lock().map_err(|e| e.to_string())?;
     let current_port = *port_guard;
 
-    let running = process_guard.is_some();
-
-    Ok(BackendStatus {
-        running,
-        port: if running { Some(current_port) } else { None },
-        pid: None,
-    })
+    if let Some(ref proc) = *process_guard {
+        let running = proc.exit_code.is_none();
+        Ok(BackendStatus {
+            running,
+            port: if running { Some(current_port) } else { None },
+            pid: None,
+            exit_code: proc.exit_code,
+            error: if !proc.stderr_output.is_empty() {
+                Some(proc.stderr_output.clone())
+            } else {
+                None
+            },
+        })
+    } else {
+        Ok(BackendStatus {
+            running: false,
+            port: None,
+            pid: None,
+            exit_code: None,
+            error: None,
+        })
+    }
 }
 
 #[tauri::command]

@@ -164,6 +164,11 @@ export const chatService = {
         /* Tauri 旧版本不支持此命令时忽略 */
       }
       const healthy = await pollHealth();
+      // 健康检查失败时，查询进程是否已崩溃（获取退出码和 stderr）
+      if (!healthy) {
+        const updatedStatus = await core.invoke<BackendStatus>("get_backend_status");
+        return updatedStatus;
+      }
       return { ...status, running: healthy };
     }
 

@@ -203,7 +203,7 @@ pub fn run() {
                     "about" => {
                         if let Some(win) = window {
                             let _ = win.eval(
-                                "alert('Liri v0.3.1 - 你的 AI 私人助手');",
+                                "alert('Liri v0.4.25 - 你的 AI 私人助手');",
                             );
                         }
                     }

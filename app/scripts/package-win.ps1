@@ -321,7 +321,7 @@ function Step-CreateZip {
         return
     }
 
-    $zipName = "LiriAI-Windows-$Variant-v0.3.1.zip"
+    $zipName = "LiriAI-Windows-$Variant-v0.4.25.zip"
     $zipPath = Join-Path $DistDir $zipName
 
     if (Test-Path $zipPath) {
@@ -374,7 +374,7 @@ function Main {
     Write-OK 'All done!'
     Write-Host ''
     Write-Host 'Instructions:'
-    Write-Host ('  1. Extract LiriAI-Windows-{0}-v0.3.1.zip' -f $Variant)
+    Write-Host ('  1. Extract LiriAI-Windows-{0}-v0.4.25.zip' -f $Variant)
     Write-Host '  2. Right-click install.bat and select Run as Administrator'
     Write-Host '  3. Select [1] Install and start Liri service'
     Write-Host ''

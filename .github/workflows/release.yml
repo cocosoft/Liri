@@ -250,8 +250,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
           Copy-Item ../dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
-          if (Test-Path ../dist/node_modules) {
-            Copy-Item -Recurse -Force ../dist/node_modules src-tauri/binaries/node_modules
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
+          foreach ($pkg in @('sharp', 'pdfjs-dist')) {
+            if (Test-Path ../app/node_modules/$pkg) {
+              Copy-Item -Recurse -Force ../app/node_modules/$pkg src-tauri/binaries/node_modules/$pkg
+            }
           }
         shell: powershell
         if: matrix.config.os == 'windows-latest'
@@ -260,9 +263,12 @@ jobs:
         run: |
           mkdir -p src-tauri/binaries
           cp ../dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
-          if [ -d ../dist/node_modules ]; then
-            cp -r ../dist/node_modules src-tauri/binaries/node_modules
-          fi
+          mkdir -p src-tauri/binaries/node_modules
+          for pkg in sharp pdfjs-dist; do
+            if [ -d ../app/node_modules/$pkg ]; then
+              cp -r ../app/node_modules/$pkg src-tauri/binaries/node_modules/$pkg
+            fi
+          done
         shell: bash
         if: matrix.config.os != 'windows-latest'
 

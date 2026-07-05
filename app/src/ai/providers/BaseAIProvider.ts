@@ -365,7 +365,8 @@ export abstract class BaseAIProvider implements AIProvider {
   // ============================================================
 
   /** 缓存的自定义 undici Agent dispatcher（已注入系统 CA 证书） */
-  private static _caDispatcher: import('undici').Agent | undefined | null = null;
+  private static _caDispatcher: import('undici').Agent | undefined | null =
+    null;
 
   /**
    * 获取带有系统 CA 证书的 undici fetch dispatcher。
@@ -386,7 +387,7 @@ export abstract class BaseAIProvider implements AIProvider {
       const caCerts = getCACertificates();
       if (caCerts && caCerts.length > 0) {
         // 动态导入 undici（Node.js 18+ 内置，Bun 等其他运行时不可用）
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
+
         const { Agent } = require('undici') as typeof import('undici');
 
         BaseAIProvider._caDispatcher = new Agent({

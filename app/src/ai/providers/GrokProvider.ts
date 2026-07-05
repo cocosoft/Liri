@@ -200,8 +200,9 @@ export class GrokProvider extends BaseAIProvider {
       const errorMessage = (error as Error).message || String(error);
 
       // 检测 SSL/TLS 证书错误，提供用户友好的解决建议
-      const isSSLError =
-        /certificate|ssl|tls|unable to verify/i.test(errorMessage);
+      const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
+        errorMessage
+      );
 
       const userHint = isSSLError
         ? `SSL 证书验证失败。请尝试以下操作：\n` +

@@ -83,6 +83,19 @@ if [ -f "tsconfig.json" ]; then
   bun run typecheck 2>/dev/null || echo "  ⚠️ 类型检查有警告（不阻止提交）"
 fi
 
+# ── ESLint ──
+if grep -q '"lint"' package.json 2>/dev/null; then
+  echo "  运行 ESLint..."
+  bun run lint --fix
+  RESULT=$?
+  if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ ESLint 检查失败！提交已阻止。"
+    echo "   请运行: cd app && bun run lint:fix"
+    exit 1
+  fi
+fi
+
 # ── 模块依赖验证（如果存在） ──
 if grep -q '"modules:validate"' package.json 2>/dev/null; then
   echo "  验证模块依赖..."
@@ -95,7 +108,7 @@ exit 0
 
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
-  console.log('   提交前自动运行: 架构合规检查 + 类型检查 + 模块验证');
+  console.log('   提交前自动运行: 架构合规检查 + 类型检查 + ESLint + 模块验证');
 }
 
 function main(): void {

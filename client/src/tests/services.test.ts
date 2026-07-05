@@ -112,7 +112,9 @@ describe("ToolService (fallback)", () => {
 
   it("execute returns fallback message", async () => {
     const result = await toolService.execute("test", {});
-    expect(result).toBe("Fallback: tool execution unavailable");
+    expect(result).toHaveProperty("success", false);
+    expect(result).toHaveProperty("error");
+    expect(typeof (result as any).error).toBe("string");
   });
 });
 

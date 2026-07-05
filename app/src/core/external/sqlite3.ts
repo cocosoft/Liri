@@ -162,7 +162,8 @@ class Database {
         ? (args.pop() as (err: Error | null) => void)
         : undefined;
     try {
-      const result = this._db.run(sql, ...this.resolveParams(args));
+      const params = this.resolveParams(args);
+      const result = this._db.prepare(sql).run(...params);
       if (callback) {
         callback.call(
           { lastID: Number(result.lastInsertRowid), changes: result.changes },

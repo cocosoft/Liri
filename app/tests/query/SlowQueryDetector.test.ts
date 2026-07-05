@@ -4,15 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { unlinkSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
 
 import { SlowQueryDetector } from '../../src/query/SlowQueryDetector';
 import { QueryLogStore, resetQueryLogStore } from '../../src/query/QueryLogStore';
 import type { QueryLogEntry } from '../../src/query/QueryLogTypes';
-
-const TEST_DB_DIR = join(import.meta.dir, '.test_data');
-const TEST_DB_PATH = join(TEST_DB_DIR, 'test_slow_query.db');
 
 /**
  * 创建测试日志条目
@@ -37,22 +32,8 @@ describe('SlowQueryDetector', () => {
   let detector: SlowQueryDetector;
 
   beforeEach(async () => {
-    // WAL 文件清理
-    if (existsSync(TEST_DB_PATH)) {
-      unlinkSync(TEST_DB_PATH);
-    }
-    if (existsSync(`${TEST_DB_PATH}-shm`)) {
-      unlinkSync(`${TEST_DB_PATH}-shm`);
-    }
-    if (existsSync(`${TEST_DB_PATH}-wal`)) {
-      unlinkSync(`${TEST_DB_PATH}-wal`);
-    }
-
-    if (!existsSync(TEST_DB_DIR)) {
-      mkdirSync(TEST_DB_DIR, { recursive: true });
-    }
     resetQueryLogStore();
-    store = new QueryLogStore(TEST_DB_PATH);
+    store = new QueryLogStore(':memory:');
     await store.init();
     detector = new SlowQueryDetector(100, 3600_000, store);
   });
@@ -60,15 +41,6 @@ describe('SlowQueryDetector', () => {
   afterEach(async () => {
     await store.close();
     resetQueryLogStore();
-    if (existsSync(TEST_DB_PATH)) {
-      unlinkSync(TEST_DB_PATH);
-    }
-    if (existsSync(`${TEST_DB_PATH}-shm`)) {
-      unlinkSync(`${TEST_DB_PATH}-shm`);
-    }
-    if (existsSync(`${TEST_DB_PATH}-wal`)) {
-      unlinkSync(`${TEST_DB_PATH}-wal`);
-    }
   });
 
   describe('阈值配置', () => {

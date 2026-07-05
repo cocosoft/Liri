@@ -4,14 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { unlinkSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
 
 import { QueryLogStore } from '../../src/query/QueryLogStore';
 import type { QueryLogEntry, QueryLogFilter, QueryLogStats } from '../../src/query/QueryLogTypes';
-
-const TEST_DB_DIR = join(import.meta.dir, '.test_data');
-const TEST_DB_PATH = join(TEST_DB_DIR, 'test_query_logs.db');
 
 /**
  * 创建一条测试日志条目（不含 id）
@@ -35,40 +30,17 @@ describe('QueryLogStore', () => {
   let store: QueryLogStore;
 
   beforeEach(async () => {
-    // WAL 文件清理
-    if (existsSync(TEST_DB_PATH)) {
-      unlinkSync(TEST_DB_PATH);
-    }
-    if (existsSync(`${TEST_DB_PATH}-shm`)) {
-      unlinkSync(`${TEST_DB_PATH}-shm`);
-    }
-    if (existsSync(`${TEST_DB_PATH}-wal`)) {
-      unlinkSync(`${TEST_DB_PATH}-wal`);
-    }
-
-    if (!existsSync(TEST_DB_DIR)) {
-      mkdirSync(TEST_DB_DIR, { recursive: true });
-    }
-    store = new QueryLogStore(TEST_DB_PATH);
+    store = new QueryLogStore(':memory:');
     await store.init();
   });
 
   afterEach(async () => {
     await store.close();
-    if (existsSync(TEST_DB_PATH)) {
-      unlinkSync(TEST_DB_PATH);
-    }
-    if (existsSync(`${TEST_DB_PATH}-shm`)) {
-      unlinkSync(`${TEST_DB_PATH}-shm`);
-    }
-    if (existsSync(`${TEST_DB_PATH}-wal`)) {
-      unlinkSync(`${TEST_DB_PATH}-wal`);
-    }
   });
 
   describe('初始化', () => {
     it('应该成功初始化数据库', async () => {
-      const newStore = new QueryLogStore(TEST_DB_PATH);
+      const newStore = new QueryLogStore(':memory:');
       await newStore.init();
       expect(newStore).toBeDefined();
       await newStore.close();

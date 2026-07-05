@@ -266,6 +266,10 @@ jobs:
         shell: bash
         if: matrix.config.os != 'windows-latest'
 
+      - name: Clean Cargo cache
+        run: cargo clean
+        working-directory: client/src-tauri
+
       - name: Build Tauri app
         run: bun run tauri build --bundles ${{ matrix.config.bundles }}
 

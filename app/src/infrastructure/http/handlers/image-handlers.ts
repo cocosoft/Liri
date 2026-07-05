@@ -36,8 +36,58 @@ const MIME_MAP: Record<string, string> = {
   '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.bmp': 'image/bmp',
-  '.svg': 'image/svg+xml',
 };
+
+/** 文件签名（magic bytes）映射：扩展名 → 签名字节数组 */
+const MAGIC_BYTES: Record<
+  string,
+  Array<{ offset: number; bytes: number[] }>
+> = {
+  '.png': [
+    { offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  ],
+  '.jpg': [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
+  '.jpeg': [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
+  '.gif': [{ offset: 0, bytes: [0x47, 0x49, 0x46, 0x38] }],
+  '.webp': [
+    { offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
+    { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
+  ],
+  '.bmp': [{ offset: 0, bytes: [0x42, 0x4d] }],
+};
+
+/** 上传速率限制：每分钟最大上传次数 */
+const UPLOAD_RATE_LIMIT = 20;
+/** 速率限制窗口（毫秒） */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+/** 上传速率追踪：sessionId → 上传时间戳数组 */
+const uploadRateTracker = new Map<string, number[]>();
+
+/** 清理过期的速率记录 */
+function pruneRateTracker() {
+  const now = Date.now();
+  const threshold = now - RATE_LIMIT_WINDOW_MS;
+  for (const [sessionId, timestamps] of uploadRateTracker) {
+    const valid = timestamps.filter((t) => t > threshold);
+    if (valid.length === 0) {
+      uploadRateTracker.delete(sessionId);
+    } else {
+      uploadRateTracker.set(sessionId, valid);
+    }
+  }
+}
+
+/** 检查 magic bytes 是否匹配 */
+function checkMagicBytes(buffer: Buffer, ext: string): boolean {
+  const signatures = MAGIC_BYTES[ext];
+  if (!signatures) return true; // 无签名定义则放行
+
+  return signatures.every((sig) => {
+    if (buffer.length < sig.offset + sig.bytes.length) return false;
+    return sig.bytes.every((byte, i) => buffer[sig.offset + i] === byte);
+  });
+}
 
 /**
  * 获取文件的 MIME 类型
@@ -177,6 +227,28 @@ export async function handleImageUpload(
       return;
     }
 
+    // 速率限制：基于客户端 IP，每分钟最多 20 次上传
+    pruneRateTracker();
+    const clientId =
+      (req.headers['x-session-id'] as string) ||
+      req.socket?.remoteAddress ||
+      'unknown';
+    const timestamps = uploadRateTracker.get(clientId) || [];
+    const now = Date.now();
+    const recentUploads = timestamps.filter(
+      (t) => t > now - RATE_LIMIT_WINDOW_MS
+    );
+    if (recentUploads.length >= UPLOAD_RATE_LIMIT) {
+      res.writeHead(429, {
+        'Content-Type': 'application/json',
+        'Retry-After': '60',
+      });
+      res.end(
+        JSON.stringify({ error: 'Too many uploads. Please try again later.' })
+      );
+      return;
+    }
+
     const body = await readRawBody(req);
     const parts = parseMultipartBody(body, contentType);
     const filePart = parts.find((p) => p.name === 'file' && p.filename);
@@ -193,20 +265,27 @@ export async function handleImageUpload(
 
     // 安全校验：仅允许图片类型
     const ext = path.extname(filePart.filename || '.png').toLowerCase();
-    const allowedExts = [
-      '.png',
-      '.jpg',
-      '.jpeg',
-      '.webp',
-      '.gif',
-      '.bmp',
-      '.svg',
-    ];
+    const allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'];
     if (!allowedExts.includes(ext)) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: `Unsupported file type: ${ext}` }));
       return;
     }
+
+    // magic bytes 校验：确保文件内容与扩展名一致
+    if (!checkMagicBytes(filePart.data, ext)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: `File content does not match extension ${ext}`,
+        })
+      );
+      return;
+    }
+
+    // 记录上传（更新速率追踪）
+    recentUploads.push(now);
+    uploadRateTracker.set(clientId, recentUploads);
 
     // 保存到 output/images/YYYY-MM-DD/
     const today = new Date().toISOString().slice(0, 10);

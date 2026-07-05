@@ -355,6 +355,38 @@ async function handleStreamingChat(
     }
   };
 
+  /** 生图完成事件 → SSE 转发（含结构化 resultData 用于前端渲染） */
+  const onToolCompleted = (evt: { type: string; data: unknown }) => {
+    const d = evt.data as {
+      toolName: string;
+      images?: unknown;
+      toolCallId?: string;
+      resultData?: unknown;
+    };
+    if (d.toolName === 'image_generate') {
+      res.write(
+        `data: ${JSON.stringify({
+          id: responseId,
+          object: 'chat.completion.chunk',
+          created,
+          model,
+          __pyapp_type: 'tool_completed',
+          tool_name: d.toolName,
+          tool_call_id: d.toolCallId,
+          images: d.images,
+          result_data: d.resultData,
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: null,
+            },
+          ],
+        })}\n\n`
+      );
+    }
+  };
+
   try {
     const coreAPI = getCoreAPI();
     const chatRequest: ChatRequest = {
@@ -372,6 +404,7 @@ async function handleStreamingChat(
     // 启用压缩事件→SSE 翻译
     eventNotificationService.on('agent:context:compressing', onCompressing);
     eventNotificationService.on('agent:context:compressed', onCompressed);
+    eventNotificationService.on('tool:completed', onToolCompleted);
 
     let result = await generator.next();
     let streamUsage:
@@ -573,6 +606,7 @@ async function handleStreamingChat(
     // 清理压缩事件订阅
     eventNotificationService.off('agent:context:compressing', onCompressing);
     eventNotificationService.off('agent:context:compressed', onCompressed);
+    eventNotificationService.off('tool:completed', onToolCompleted);
     logger.info('Stream chat completed', {
       model,
       sessionId: request.session_id,
@@ -582,6 +616,7 @@ async function handleStreamingChat(
     // 清理压缩事件订阅
     eventNotificationService.off('agent:context:compressing', onCompressing);
     eventNotificationService.off('agent:context:compressed', onCompressed);
+    eventNotificationService.off('tool:completed', onToolCompleted);
     await handleError(err, {
       module: 'infra:http',
       action: 'chat_stream_request',

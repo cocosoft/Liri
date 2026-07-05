@@ -9,10 +9,12 @@
 
 export interface RenderedBlock {
   id: number;
-  type: 'text' | 'code' | 'math' | 'mermaid' | 'table' | 'heading' | 'list' | 'hr';
+  type: 'text' | 'code' | 'math' | 'mermaid' | 'table' | 'heading' | 'list' | 'hr' | 'image';
   content: string;
   language?: string;
   level?: number;
+  /** 图片 URL（仅 type='image' 时存在） */
+  url?: string;
 }
 
 /**
@@ -90,6 +92,14 @@ export function parseMarkdown(text: string, blockIdRef: { current: number }): Re
       blockIdRef.current++;
       result.push({ id: blockIdRef.current, type: 'hr', content: '' });
       i++;
+    } else if (line.match(/^!\[[^\]]*\]\([^)]+\)$/)) {
+      // 独立成行的 Markdown 图片语法：![alt](url)
+      const imgMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+      const alt = imgMatch?.[1] || '';
+      const url = imgMatch?.[2] || '';
+      blockIdRef.current++;
+      result.push({ id: blockIdRef.current, type: 'image', content: alt, url });
+      i++;
     } else {
       let textContent = line;
       i++;
@@ -100,7 +110,8 @@ export function parseMarkdown(text: string, blockIdRef: { current: number }): Re
              !lines[i].match(/^#{1,6}\s/) &&
              !lines[i].match(/^[-*+]\s/) &&
              !lines[i].match(/^\d+\.\s/) &&
-             !lines[i].match(/^---*$/)) {
+             !lines[i].match(/^---*$/) &&
+             !lines[i].match(/^!\[[^\]]*\]\([^)]+\)$/)) {
         textContent += '\n' + lines[i];
         i++;
       }

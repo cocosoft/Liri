@@ -67,6 +67,17 @@ const BlockContent = React.memo(
         return renderList(block.content, String(block.id));
       case 'hr':
         return <hr className="my-4 border-gray-300 dark:border-gray-600" />;
+      case 'image':
+        return (
+          <div className="my-2">
+            <img
+              src={block.url || block.content}
+              alt={block.content}
+              className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+              loading="lazy"
+            />
+          </div>
+        );
       case 'text':
         return (
           <p className="my-2 whitespace-pre-wrap">

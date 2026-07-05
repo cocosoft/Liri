@@ -725,6 +725,7 @@ const zh = {
     outputPath: "输出路径",
     moreRemaining: "张剩余",
     total: "张总计",
+    openInEditor: "在编辑器中打开",
   },
   dashboard: {
     title: "仪表盘",

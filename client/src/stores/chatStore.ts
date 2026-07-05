@@ -334,6 +334,8 @@ class ChronologicalBlockBuilder {
   private hasToolCallSinceLastText = false;
   private currentToolCallId: string | null = null;
   private currentGroupId: string = generateGroupId();
+  /** tool_completed 事件可能先于 tool_call 块到达，暂存结果数据等待块创建后应用 */
+  private pendingResults = new Map<string, Record<string, unknown>>();
 
   /** 追加文本块，工具调用后自动新建（同时分配新 groupId） */
   addText(content: string, isStreaming: boolean): void {
@@ -431,6 +433,9 @@ class ChronologicalBlockBuilder {
       (b) => b.type === "tool_call" && b.toolCall?.id === toolCall.id,
     );
 
+    // 检查是否有待处理的结果数据（tool_completed 可能先于 tool_call 到达）
+    const pendingResult = this.pendingResults.get(toolCall.id);
+
     if (existingIdx !== -1) {
       const existing = this.blocks[existingIdx];
       // 保留已存在的参数（'start' 阶段的完整参数），避免被 'end' 阶段的空参数覆盖
@@ -439,24 +444,40 @@ class ChronologicalBlockBuilder {
         Object.keys(toolCall.arguments as Record<string, unknown>).length > 0
           ? toolCall.arguments
           : existing.toolCall?.arguments || toolCall.arguments;
+      // 保留已存在的 result（由 tool_completed 事件设置），避免被 tool_call completion chunk 覆盖
+      // 同时检查 pendingResults 中的待处理结果
+      const existingResult = existing.toolCall?.result || (pendingResult ? { success: true, data: pendingResult } : undefined);
       existing.toolCall = {
         ...toolCall,
         arguments: mergedArgs,
         status: toolCall.status || ("completed" as const),
+        result: toolCall.result || existingResult,
       };
       existing.isStreaming = toolCall.status === "running";
         if (toolCall.status !== "running") { for (const b of this.blocks) { if (b.type === "status" && b.toolCallId === toolCall.id) { b.isStreaming = false; } } }
+      // 消费已应用的待处理结果
+      if (pendingResult) {
+        this.pendingResults.delete(toolCall.id);
+      }
     } else {
+      // 若存在待处理结果，直接注入到新创建的 toolCall 中
+      const toolCallWithResult = pendingResult
+        ? { ...toolCall, result: { success: true, data: pendingResult } }
+        : toolCall;
       this.blocks.push({
         id: generateBlockId(),
         type: "tool_call",
         content: "",
-        toolCall,
+        toolCall: toolCallWithResult,
         isStreaming: true,
         toolCallId: toolCall.id,
         groupId: this.currentGroupId,
       });
       this.hasToolCallSinceLastText = true;
+      // 消费已应用的待处理结果
+      if (pendingResult) {
+        this.pendingResults.delete(toolCall.id);
+      }
     }
   }
 
@@ -471,6 +492,20 @@ class ChronologicalBlockBuilder {
     if (block && block.toolCall) {
       block.toolCall.status = status;
       block.isStreaming = status === "running";
+    }
+  }
+
+  /** 更新工具调用结果（用于 tool_completed 事件，携带结构化 result data） */
+  updateToolCallResult(toolCallId: string, resultData: Record<string, unknown>): void {
+    const block = this.blocks.find(
+      (b) => b.type === "tool_call" && b.toolCall?.id === toolCallId,
+    );
+    if (block && block.toolCall) {
+      block.toolCall.result = { success: true, data: resultData };
+      block.isStreaming = false;
+    } else {
+      // tool_completed 先于 tool_call 块到达，暂存结果等待块创建后应用
+      this.pendingResults.set(toolCallId, resultData);
     }
   }
 
@@ -1044,6 +1079,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           // 上下文状态事件（压缩/召回等），使用 status 块渲染
           blockBuilder.addStatus(chunk.content);
           set({ streamingStatus: chunk.content });
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "tool_completed") {
+          // 工具完成事件：携带结构化 result data 更新对应 toolCall.result
+          const tcId = chunk.tool_call_id;
+          const resultData = chunk.result_data;
+          console.log("[chatStore] tool_completed chunk:", { tcId, hasResultData: !!resultData, resultDataKeys: resultData ? Object.keys(resultData) : "N/A" });
+          if (tcId && resultData) {
+            blockBuilder.updateToolCallResult(tcId, resultData);
+            console.log("[chatStore] after updateToolCallResult, blocks:", blockBuilder.getBlocks().filter(b => b.type === "tool_call").map(b => ({ id: b.toolCall?.id, name: b.toolCall?.name, hasResult: !!b.toolCall?.result })));
+          }
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "execution_phase" && chunk.executionPhase) {
           // 执行阶段推送：更新 executionPhase 状态 + 生成进度块

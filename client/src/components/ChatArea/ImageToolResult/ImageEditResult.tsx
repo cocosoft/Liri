@@ -1,9 +1,10 @@
 /**
  * ImageEditResult
- * 图片编辑结果渲染 — 输出路径 + 尺寸对比 + 批量结果
+ * 图片编辑结果渲染 — 输出路径 + 尺寸对比 + 批量结果 + 下载按钮
  */
 
 import { useTranslation } from "react-i18next";
+import { imageService } from "../../../services/imageService";
 
 interface Props {
   data: Record<string, unknown>;
@@ -26,6 +27,9 @@ export default function ImageEditResultView({ data }: Props) {
   const aspectRatio = data.aspectRatio as number | undefined;
   const format = data.format as string | undefined;
   const batchResults = data.batchResults as Array<Record<string, unknown>> | undefined;
+
+  const downloadUrl = outputPath ? imageService.getImageUrl(outputPath) : null;
+  const fileName = outputPath ? outputPath.split(/[/\\]/).pop() || "edited_image" : "edited_image";
 
   // 批量结果
   if (batchResults && batchResults.length > 0) {
@@ -71,7 +75,7 @@ export default function ImageEditResultView({ data }: Props) {
           <span>
             Output:{" "}
             <span className="text-gray-300 font-mono">
-              {(outputPath as string).split(/[/\\]/).pop()}
+              {outputPath.split(/[/\\]/).pop()}
             </span>
           </span>
         )}
@@ -117,6 +121,17 @@ export default function ImageEditResultView({ data }: Props) {
             </span>
           )}
         </div>
+      )}
+
+      {/* 下载按钮 */}
+      {downloadUrl && (
+        <a
+          href={downloadUrl}
+          download={fileName}
+          className="inline-block text-[10px] px-2 py-1 rounded bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 no-underline"
+        >
+          ↓ {t("image.download")}
+        </a>
       )}
     </div>
   );

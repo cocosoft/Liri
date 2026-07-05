@@ -73,6 +73,7 @@ import { costTracker } from '@modules/cost/CostTracker.js';
 import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
 import { recordCost } from '@modules/cost/CostMonitor.js';
 import { getCostMetricsBridge } from '@modules/cost/CostMetricsBridge.js';
+import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
 const logger = new Logger({ module: 'runtime:coreApi', level: LogLevel.INFO });
 
@@ -407,8 +408,26 @@ export class CoreAPIImpl implements CoreAPI {
       sessionId: finalSessionId,
     } as ChatStreamChunk;
 
+    // 工具执行结果缓存：tool:completed 事件可能在 onToolCall('end') 之前或之后到达
+    const toolResultCache = new Map<string, Record<string, unknown>>();
+    const onToolCompletedFromCache = (evt: { type: string; data: unknown }) => {
+      const d = evt.data as {
+        toolName: string;
+        toolCallId?: string;
+        resultData?: unknown;
+      };
+      if (d.toolCallId && d.resultData) {
+        toolResultCache.set(
+          d.toolCallId,
+          d.resultData as Record<string, unknown>
+        );
+      }
+    };
+
     try {
       const pendingEvents: ChatStreamChunk[] = [];
+
+      eventNotificationService.on('tool:completed', onToolCompletedFromCache);
 
       const { model, tier } = await this.resolveSmartModel(
         request.content,
@@ -555,6 +574,12 @@ export class CoreAPIImpl implements CoreAPI {
               }
             }
 
+            // 从缓存中查询 tool:completed 事件携带的结果数据并注入到完成块
+            const cachedResult = toolResultCache.get(toolCallId);
+            if (cachedResult) {
+              toolResultCache.delete(toolCallId);
+            }
+
             pendingEvents.push({
               type: 'tool_call',
               content: '',
@@ -564,6 +589,10 @@ export class CoreAPIImpl implements CoreAPI {
                 name: toolName,
                 arguments: extractedArgs,
                 status: isFailed ? ('failed' as const) : ('completed' as const),
+                // 将 tool:completed 事件的结果数据注入到完成块，确保前端能正确渲染
+                result: cachedResult
+                  ? { success: true, data: cachedResult }
+                  : undefined,
               },
             } as ChatStreamChunk);
           }
@@ -626,6 +655,8 @@ export class CoreAPIImpl implements CoreAPI {
         content: message,
         sessionId: finalSessionId,
       } as ChatStreamChunk;
+    } finally {
+      eventNotificationService.off('tool:completed', onToolCompletedFromCache);
     }
 
     // 从 finalMessage 提取实际的 finishReason，而非硬编码 'stop'

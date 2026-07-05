@@ -56,7 +56,7 @@ export interface QuestionData {
 }
 
 export interface StreamChunk {
-  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo" | "execution_phase" | "progress" | "deliverable" | "diff" | "context_state";
+  type: "text" | "thinking" | "tool_call" | "status" | "usage" | "done" | "error" | "question" | "todo" | "execution_phase" | "progress" | "deliverable" | "diff" | "context_state" | "tool_completed";
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
@@ -81,6 +81,12 @@ export interface StreamChunk {
   };
   /** 来自后端的终止原因（'stop' | 'length' | 'error'），仅 usage 或 done 类型时存在 */
   finishReason?: string;
+  /** tool_completed 事件携带的 tool_call_id，用于匹配前端 blocks 中的 tool call */
+  tool_call_id?: string;
+  /** tool_completed 事件携带的工具名 */
+  tool_name?: string;
+  /** tool_completed 事件携带的结构化 result data（如 image_generate 的 images 数组） */
+  result_data?: Record<string, unknown>;
 }
 
 async function getTauriCore() {
@@ -321,6 +327,28 @@ export const chatService = {
                 yield {
                   type: "context_state",
                   content: chunk.choices?.[0]?.delta?.content || "",
+                };
+              } else if (pyappType === "tool_completed") {
+                // 生图完成事件 → 通知图库刷新 + 传递结构化数据给 chatStore 渲染
+                console.log("[chatService] tool_completed SSE:", {
+                  tool_name: chunk.tool_name,
+                  tool_call_id: (chunk as Record<string, unknown>).tool_call_id,
+                  hasResultData: !!(chunk as Record<string, unknown>).result_data,
+                  resultDataKeys: (chunk as Record<string, unknown>).result_data ? Object.keys((chunk as Record<string, unknown>).result_data as Record<string, unknown>) : "N/A",
+                });
+                if (chunk.tool_name === "image_generate") {
+                  window.dispatchEvent(
+                    new CustomEvent("pyapp:image_generated", {
+                      detail: { images: chunk.images },
+                    })
+                  );
+                }
+                yield {
+                  type: "tool_completed",
+                  content: "",
+                  tool_call_id: (chunk as Record<string, unknown>).tool_call_id as string,
+                  tool_name: (chunk as Record<string, unknown>).tool_name as string,
+                  result_data: (chunk as Record<string, unknown>).result_data as Record<string, unknown>,
                 };
               } else if (pyappType === "error") {
                 yield {

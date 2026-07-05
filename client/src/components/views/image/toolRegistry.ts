@@ -113,7 +113,7 @@ export const TOOL_REGISTRY: Record<string, ToolRegistration> = {
     schema: {
       titleKey: "image.canvasOp",
       params: [
-        { name: "action", type: "string", enum: ["create", "draw", "text", "clear", "export"], descriptionKey: "image.action", required: true },
+        { name: "action", type: "string", enum: ["create", "draw", "text", "clear", "export", "import"], descriptionKey: "image.action", required: true },
         { name: "canvasId", type: "string", descriptionKey: "image.canvasId", required: false },
         { name: "width", type: "number", descriptionKey: "image.canvasWidth", required: false, default: 800 },
         { name: "height", type: "number", descriptionKey: "image.canvasHeight", required: false, default: 600 },
@@ -146,7 +146,7 @@ export type ToolResultType =
   | "gallery_svg"      // SVG 转 data URL 注入图库（image_svg_generate）
   | "analysis"         // 分析结果文本（image_analysis）
   | "edit_preview"     // 编辑预览图（image）
-  | "canvas"           // 画布（未实现）
+  | "canvas"           // 画布
   | "unknown";         // 兜底
 
 /** 工具 → 结果类型映射 */

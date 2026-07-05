@@ -53,8 +53,19 @@ function EmptyResult({ message }: { message: string }) {
 export default function ImageToolResult({ toolCall }: Props) {
   const { t } = useTranslation();
 
+  console.log("[ImageToolResult] toolCall:", {
+    name: toolCall.name,
+    hasResult: !!toolCall.result,
+    resultType: typeof toolCall.result,
+    resultKeys: toolCall.result && typeof toolCall.result === "object"
+      ? Object.keys(toolCall.result as Record<string, unknown>)
+      : "N/A",
+    result: toolCall.result,
+  });
+
   // 1. waiting
   if (!toolCall.result) {
+    console.log("[ImageToolResult] NO result — showing loading skeleton");
     return <LoadingSkeleton />;
   }
 

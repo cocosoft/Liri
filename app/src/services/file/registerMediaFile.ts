@@ -8,9 +8,13 @@
  * 将远程 URL 内容下载到本地 media/generated/ 目录并注册到 FileRegistry。
  */
 
+import path from 'node:path';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'services:file', level: LogLevel.INFO });
 
 /**
  * 下载远程媒体文件并注册到 FileRegistry
@@ -31,6 +35,11 @@ export async function registerGeneratedMedia(
     // Step 1: 下载远程文件
     const response = await fetch(url);
     if (!response.ok) {
+      logger.warn('下载远程媒体文件失败', {
+        status: response.status,
+        statusText: response.statusText,
+        url: url.slice(0, 200),
+      });
       return null;
     }
     const arrayBuffer = await response.arrayBuffer();
@@ -50,9 +59,22 @@ export async function registerGeneratedMedia(
       mediaType,
     });
 
-    // savedPath 已是相对于 media/ 的路径，如 "images/xxx.png"
-    return { fileId: result.fileId, savedPath: result.savedPath };
-  } catch {
+    logger.info('媒体文件已注册到本地', {
+      fileId: result.fileId,
+      savedPath: result.savedPath,
+    });
+
+    // 返回文件名（相对于媒体根目录），用于前端 URL 构造
+    // 如 handleImageStatic 中 media/ 前缀映射到 MEDIA_IMAGES_ROOT
+    return {
+      fileId: result.fileId,
+      savedPath: path.basename(result.savedPath),
+    };
+  } catch (err) {
+    logger.error('注册媒体文件异常', {
+      error: err instanceof Error ? err.message : String(err),
+      url: url.slice(0, 200),
+    });
     return null;
   }
 }

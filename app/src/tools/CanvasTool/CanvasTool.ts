@@ -127,8 +127,9 @@ export class CanvasTool extends BaseTool {
 
   description =
     'Create and manipulate visual canvases. Supports drawing shapes (rect, circle, line, path), ' +
-    'text, images, and exporting to PNG/JPEG/WebP/SVG. Use create to start, then chain draw/text, ' +
-    'and export to produce the final image.';
+    'text, image import, and exporting to PNG/JPEG/WebP/SVG. Use when the user asks to create ' +
+    'a diagram, draw on an image, add text annotations, or build a visual composition. ' +
+    'Use create to start, then chain draw/text, and export to produce the final image.';
 
   params: ToolParam[] = [
     {

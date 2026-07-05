@@ -196,9 +196,10 @@ export class ImageAnalysisTool extends BaseTool {
   name = 'image_analysis';
 
   description =
-    'Analyze images to extract metadata, color information, content characteristics, ' +
-    'perform OCR, object detection, similarity comparison, and compare images. ' +
-    'Supports local (L2) and cloud (L3) analysis.';
+    'Analyze image content including metadata, colors, OCR text recognition, ' +
+    'object detection, visual description (vision), and image similarity. ' +
+    'Use when the user asks what is in an image, requests analysis, or needs ' +
+    'to compare images. inputPath can be obtained from attachedImages or previous tool results.';
 
   params: ToolParam[] = [
     {

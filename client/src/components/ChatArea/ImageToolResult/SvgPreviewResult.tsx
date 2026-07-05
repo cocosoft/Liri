@@ -57,6 +57,15 @@ export default function SvgPreviewResult({ data }: Props) {
         </button>
         {size && <span>{t("image.size")}: {size}</span>}
         {filePath && <span className="text-gray-500">{t("image.saved")}: {filePath}</span>}
+        {rawSvg && (
+          <a
+            href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(rawSvg)}`}
+            download={filePath ? filePath.split(/[/\\]/).pop() || "image.svg" : "image.svg"}
+            className="text-[10px] px-2 py-0.5 rounded bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 no-underline"
+          >
+            ↓ {t("image.download")}
+          </a>
+        )}
       </div>
 
       {/* 校验结果 */}

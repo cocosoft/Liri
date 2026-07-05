@@ -52,6 +52,17 @@ export function useImageGallery() {
     }
   }, []);
 
+  // 监听聊天中生图完成事件，自动刷新图库
+  useEffect(() => {
+    const handler = () => {
+      loadInitial();
+    };
+    window.addEventListener("pyapp:image_generated", handler);
+    return () => {
+      window.removeEventListener("pyapp:image_generated", handler);
+    };
+  }, [loadInitial]);
+
   // 初始加载
   const initializedRef = useRef(false);
   useEffect(() => {

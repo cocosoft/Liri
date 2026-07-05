@@ -99,8 +99,9 @@ export class ImageTool extends BaseTool {
   name = 'image';
 
   description =
-    'Edit and manipulate images. Supports resize, crop, rotate, flip, watermark, adjust, ' +
-    'format conversion, grayscale filter, metadata info, and batch processing.';
+    'Edit images with operations: resize, crop, rotate, flip, add watermark, ' +
+    'adjust brightness/contrast/saturation, convert format, or grayscale. ' +
+    'Use when the user asks to modify or transform an existing image.';
 
   params: ToolParam[] = [
     {

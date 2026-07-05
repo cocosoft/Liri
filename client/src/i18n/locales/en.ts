@@ -692,6 +692,7 @@ const en = {
     loadFailed: "Failed to load images",
     moreRemaining: "remaining",
     total: "total",
+    openInEditor: "Open in Editor",
   },
   dashboard: {
     title: "Dashboard",

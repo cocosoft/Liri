@@ -41,6 +41,23 @@ const MEMORY_CONTEXT_RULES = `## 上下文保持规则
 5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。
 6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`;
 
+/** 图像工具链式操作指南 */
+const IMAGE_CHAIN_RULES = `## 图像工具链式操作
+当用户请求涉及多个图像操作时（如"生成一张图，然后编辑它，再分析一下"），你可以在单次回复中**依次调用多个工具**组成链式操作。规则如下：
+
+1. **识别链式意图**：用户消息中包含"然后""再""接着""并且"等连接词，通常表示多个操作意图。
+2. **顺序执行**：按用户描述的顺序依次调用工具，**前一个工具的输出路径作为后一个工具的 inputPath**。
+3. **路径传递**：
+   - image_generate 返回 images[0].filePath → 作为后续 image/image_analysis 的 inputPath
+   - image 返回 outputPath → 作为后续工具的 inputPath
+   - canvas export 返回 outputPath → 作为后续工具的 inputPath
+4. **常见链式模式**：
+   - 生成 → 编辑：先 image_generate 生成图片，再 image 进行裁剪/调色/加水印等
+   - 生成 → 分析：先 image_generate 生成图片，再 image_analysis 分析内容
+   - 编辑 → 分析：先 image 编辑图片，再 image_analysis 分析结果
+   - 生成 → 画布标注：先 image_generate 生成底图，再 canvas import 后在画布上标注
+5. **错误处理**：如果链中某一步失败，报告失败原因并停止后续步骤。不要默默跳过失败继续。`;
+
 import type { ChatManager } from './ChatManagerInterface.js';
 
 /**
@@ -306,6 +323,25 @@ export class ChatManagerImpl implements ChatManager {
   private rollbackIntegrations: Map<string, RollbackIntegration> = new Map();
 
   /**
+   * 会话级已知图片路径集合（用于执行工具前校验 inputPath）
+   * key: sessionId, value: 已知的图片文件绝对路径集合
+   */
+  private _sessionImagePaths: Map<string, Set<string>> = new Map();
+
+  /**
+   * 会话级图像上下文（用于跨轮对话中 AI 引用图片）
+   * key: sessionId, value: 最近图像操作记录
+   */
+  private _sessionImageContext: Map<
+    string,
+    {
+      lastGeneratedImage?: { filePath: string; prompt: string };
+      lastEditedImage?: { filePath: string; action: string };
+      lastAnalyzedImage?: { filePath: string; action: string };
+    }
+  > = new Map();
+
+  /**
    * 压缩服务
    */
   private compactService: CompactServiceImpl;
@@ -348,6 +384,178 @@ export class ChatManagerImpl implements ChatManager {
     this._contextCompressor = new ContextCompressor();
     this.hookChainManager = HookChainManager.getInstance();
     this._checkpointService = getCheckpointService();
+  }
+
+  /**
+   * 注册会话的已知图片路径（工具调用前校验用）
+   */
+  private _registerImagePaths(sessionId: string, paths: string[]): void {
+    if (!sessionId || paths.length === 0) return;
+    let imagePaths = this._sessionImagePaths.get(sessionId);
+    if (!imagePaths) {
+      imagePaths = new Set<string>();
+      this._sessionImagePaths.set(sessionId, imagePaths);
+    }
+    for (const p of paths) {
+      if (p) imagePaths.add(p);
+    }
+  }
+
+  /**
+   * 获取会话的已知图片路径集合
+   */
+  private _getKnownImagePaths(sessionId: string): string[] {
+    const paths = this._sessionImagePaths.get(sessionId);
+    return paths ? Array.from(paths) : [];
+  }
+
+  /**
+   * 在已知路径集合中查找最接近的路径
+   * 使用文件名匹配：如果 AI 编造的路径中文件名与已知路径中的文件名一致，则返回已知路径
+   */
+  private _findClosestPath(
+    inputPath: string,
+    knownPaths: string[]
+  ): string | null {
+    if (knownPaths.length === 0) return null;
+
+    const inputBasename = path.basename(inputPath);
+    for (const known of knownPaths) {
+      if (path.basename(known) === inputBasename) {
+        return known;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 从工具执行结果中提取图片文件路径
+   * 支持 image_generate (images[].filePath)、image (outputPath)、image_analysis (无输出)
+   */
+  private _extractImagePathsFromResult(
+    toolName: string,
+    result: Record<string, unknown>
+  ): string[] {
+    const paths: string[] = [];
+
+    if (toolName === 'image_generate') {
+      const images = result.images as
+        | Array<{ filePath?: string; localUrl?: string }>
+        | undefined;
+      if (Array.isArray(images)) {
+        for (const img of images) {
+          if (img.filePath) paths.push(img.filePath);
+        }
+      }
+    }
+
+    if (toolName === 'image') {
+      const outputPath = result.outputPath as string | undefined;
+      if (outputPath) paths.push(outputPath);
+    }
+
+    if (toolName === 'image_svg_generate') {
+      const savePath = result.savePath as string | undefined;
+      if (savePath) paths.push(savePath);
+    }
+
+    if (toolName === 'canvas') {
+      const outputPath = result.outputPath as string | undefined;
+      if (outputPath) paths.push(outputPath);
+    }
+
+    return paths;
+  }
+
+  /**
+   * 更新会话级图像上下文
+   */
+  private _updateImageContext(
+    sessionId: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    result: Record<string, unknown>
+  ): void {
+    let ctx = this._sessionImageContext.get(sessionId);
+    if (!ctx) {
+      ctx = {};
+      this._sessionImageContext.set(sessionId, ctx);
+    }
+
+    if (toolName === 'image_generate') {
+      const images = result.images as Array<{ filePath?: string }> | undefined;
+      if (Array.isArray(images) && images.length > 0 && images[0].filePath) {
+        ctx.lastGeneratedImage = {
+          filePath: images[0].filePath,
+          prompt: (args.prompt as string) || '',
+        };
+      }
+    }
+
+    if (toolName === 'image') {
+      const outputPath = result.outputPath as string | undefined;
+      if (outputPath) {
+        ctx.lastEditedImage = {
+          filePath: outputPath,
+          action: (args.action as string) || '',
+        };
+      }
+    }
+
+    if (toolName === 'image_analysis') {
+      const inputPath = args.inputPath as string | undefined;
+      if (inputPath) {
+        ctx.lastAnalyzedImage = {
+          filePath: inputPath,
+          action: (args.action as string) || '',
+        };
+      }
+    }
+
+    if (toolName === 'canvas') {
+      const outputPath = result.outputPath as string | undefined;
+      if (outputPath) {
+        ctx.lastEditedImage = {
+          filePath: outputPath,
+          action: (args.action as string) || 'export',
+        };
+      }
+    }
+  }
+
+  /**
+   * 构建图像上下文提示词（注入到系统提示词中）
+   */
+  private _buildImageContextPrompt(sessionId: string): string {
+    const ctx = this._sessionImageContext.get(sessionId);
+    if (!ctx) return '';
+
+    const parts: string[] = [];
+
+    if (ctx.lastGeneratedImage) {
+      parts.push(
+        `- 最近生成的图片: ${ctx.lastGeneratedImage.filePath} (提示词: ${ctx.lastGeneratedImage.prompt.slice(0, 100)})`
+      );
+    }
+    if (ctx.lastEditedImage) {
+      parts.push(
+        `- 最近编辑的图片: ${ctx.lastEditedImage.filePath} (操作: ${ctx.lastEditedImage.action})`
+      );
+    }
+    if (ctx.lastAnalyzedImage) {
+      parts.push(
+        `- 最近分析的图片: ${ctx.lastAnalyzedImage.filePath} (操作: ${ctx.lastAnalyzedImage.action})`
+      );
+    }
+
+    if (parts.length === 0) return '';
+
+    return (
+      `\n## 当前会话图像上下文\n以下是本会话中最近操作的图片，用户可能用"这张图""刚才那张图"等指代：\n` +
+      parts.join('\n') +
+      `\n调用图像工具时，请使用上述真实路径作为 inputPath，不要编造路径。\n`
+    );
   }
 
   /**
@@ -537,11 +745,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // 注入当前会话目标，防止上下文截断后 LLM 丢失当前任务
     const currentGoal = this._extractCurrentGoal(session, currentMessage);
+    const imageContext = this._buildImageContextPrompt(session.id);
     const basePrompt = currentGoal
       ? prompt +
         `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
-        `\n\n${MEMORY_CONTEXT_RULES}`
-      : prompt + `\n\n${MEMORY_CONTEXT_RULES}`;
+        `\n\n${MEMORY_CONTEXT_RULES}${imageContext}\n\n${IMAGE_CHAIN_RULES}`
+      : prompt +
+        `\n\n${MEMORY_CONTEXT_RULES}${imageContext}\n\n${IMAGE_CHAIN_RULES}`;
 
     return basePrompt;
   }
@@ -1318,7 +1528,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 将附带的图片转换为多模态 content 数组
     if (options?.images && options.images.length > 0) {
-      const lastUserMsg = [...apiMessages].reverse().find((m: Record<string, unknown>) => m.role === 'user');
+      const lastUserMsg = [...apiMessages]
+        .reverse()
+        .find((m: Record<string, unknown>) => m.role === 'user');
       if (lastUserMsg && typeof lastUserMsg.content === 'string') {
         const contentBlocks: Array<Record<string, unknown>> = [
           { type: 'text', text: lastUserMsg.content },
@@ -1327,7 +1539,8 @@ export class ChatManagerImpl implements ChatManager {
           try {
             const imageData = fs.readFileSync(img.path);
             const base64 = imageData.toString('base64');
-            const ext = path.extname(img.filename).slice(1).toLowerCase() || 'png';
+            const ext =
+              path.extname(img.filename).slice(1).toLowerCase() || 'png';
             const mimeType = ext === 'jpg' ? 'jpeg' : ext;
             contentBlocks.push({
               type: 'image_url',
@@ -1342,6 +1555,12 @@ export class ChatManagerImpl implements ChatManager {
         }
         lastUserMsg.content = contentBlocks;
       }
+
+      // 注册图片路径到会话已知路径集合
+      this._registerImagePaths(
+        options.sessionId || '',
+        options.images.map((img) => img.path)
+      );
     }
 
     // 过滤孤立的 tool 消息（没有前置 tool_calls 的 assistant 消息）
@@ -1735,6 +1954,7 @@ export class ChatManagerImpl implements ChatManager {
             id: normalizedToolCall.id,
             name: normalizedToolCall.name,
             arguments: parsedArguments,
+            sessionId: session.id,
           });
 
           logger.debug('Tool execution result', { result: toolResult });
@@ -2290,6 +2510,7 @@ export class ChatManagerImpl implements ChatManager {
           id: toolCallId,
           name: toolName,
           arguments: toolCall.arguments || {},
+          sessionId: session.id,
         });
 
         const toolResultMessage = this.messageService.createToolResultMessage(
@@ -2737,7 +2958,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 将附带的图片转换为多模态 content 数组
     if (options?.images && options.images.length > 0) {
-      const lastUserMsg = [...apiMessages].reverse().find((m: Record<string, unknown>) => m.role === 'user');
+      const lastUserMsg = [...apiMessages]
+        .reverse()
+        .find((m: Record<string, unknown>) => m.role === 'user');
       if (lastUserMsg && typeof lastUserMsg.content === 'string') {
         const contentBlocks: Array<Record<string, unknown>> = [
           { type: 'text', text: lastUserMsg.content },
@@ -2746,7 +2969,8 @@ export class ChatManagerImpl implements ChatManager {
           try {
             const imageData = fs.readFileSync(img.path);
             const base64 = imageData.toString('base64');
-            const ext = path.extname(img.filename).slice(1).toLowerCase() || 'png';
+            const ext =
+              path.extname(img.filename).slice(1).toLowerCase() || 'png';
             const mimeType = ext === 'jpg' ? 'jpeg' : ext;
             contentBlocks.push({
               type: 'image_url',
@@ -2761,6 +2985,12 @@ export class ChatManagerImpl implements ChatManager {
         }
         lastUserMsg.content = contentBlocks;
       }
+
+      // 注册图片路径到会话已知路径集合
+      this._registerImagePaths(
+        options.sessionId || '',
+        options.images.map((img) => img.path)
+      );
     }
 
     this._sanitizeApiMessages(apiMessages);
@@ -3132,6 +3362,7 @@ export class ChatManagerImpl implements ChatManager {
             id: toolCall.id,
             name: toolName,
             arguments: toolCall.arguments,
+            sessionId: session.id,
           });
 
           const resultDetail = toolResult.error
@@ -3530,6 +3761,7 @@ export class ChatManagerImpl implements ChatManager {
         id: normalizedToolCall.id,
         name: normalizedToolCall.name,
         arguments: parsedArguments,
+        sessionId: session.id,
       });
 
       // 注册表：存储工具执行结果
@@ -3855,6 +4087,94 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
+    // inputPath 安全校验：对图像类工具校验输入路径是否在已知路径集合中
+    const IMAGE_TOOL_NAMES = new Set([
+      'image_analysis',
+      'image',
+      'image_svg_generate',
+      'canvas',
+    ]);
+    if (IMAGE_TOOL_NAMES.has(normalizedToolCall.name) && toolCall.sessionId) {
+      const args = normalizedToolCall.arguments;
+      let inputPath = (args.inputPath || args.file_path || args.path) as
+        | string
+        | undefined;
+
+      if (!inputPath && normalizedToolCall.name === 'canvas') {
+        // canvas import 使用 elements[0].src 作为图片路径
+        const elements = args.elements as Array<{ src?: string }> | undefined;
+        if (Array.isArray(elements) && elements.length > 0 && elements[0].src) {
+          inputPath = elements[0].src;
+        }
+      }
+
+      if (!inputPath) {
+        // inputPath 为空时，从 imageContext 自动回退补全
+        const ctx = this._sessionImageContext.get(toolCall.sessionId);
+        if (ctx) {
+          if (normalizedToolCall.name === 'image') {
+            inputPath =
+              ctx.lastEditedImage?.filePath ||
+              ctx.lastGeneratedImage?.filePath ||
+              ctx.lastAnalyzedImage?.filePath;
+          } else {
+            inputPath =
+              ctx.lastAnalyzedImage?.filePath ||
+              ctx.lastGeneratedImage?.filePath ||
+              ctx.lastEditedImage?.filePath;
+          }
+          if (inputPath) {
+            logger.info('工具调用 inputPath 为空，从 imageContext 自动补全', {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              sessionId: toolCall.sessionId,
+              autoFilledPath: inputPath,
+            });
+            normalizedToolCall.arguments = {
+              ...args,
+              inputPath,
+            };
+          }
+        }
+      }
+
+      if (inputPath) {
+        const knownPaths = this._getKnownImagePaths(toolCall.sessionId);
+
+        if (knownPaths.length > 0 && !knownPaths.includes(inputPath)) {
+          const closestPath = this._findClosestPath(inputPath, knownPaths);
+
+          if (closestPath) {
+            logger.warn('工具调用路径不匹配，自动修正为最接近的已知路径', {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              sessionId: toolCall.sessionId,
+              inputPath,
+              correctedPath: closestPath,
+            });
+            normalizedToolCall.arguments = {
+              ...args,
+              inputPath: closestPath,
+            };
+          } else {
+            logger.error('工具调用路径不在已知集合中，拒绝执行', {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              sessionId: toolCall.sessionId,
+              inputPath,
+              knownPaths,
+            });
+            return {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              result: null,
+              error: `Invalid path: ${inputPath} is not in known image paths. Available paths: ${knownPaths.join(', ')}`,
+            };
+          }
+        }
+      }
+    }
+
     if (this.toolRegistry) {
       // 直接使用工具注册表执行
       try {
@@ -3904,6 +4224,39 @@ export class ChatManagerImpl implements ChatManager {
             typeof toolResult.metadata.error === 'string'
               ? toolResult.metadata.error
               : JSON.stringify(toolResult.metadata.error);
+        }
+
+        // 注册图像工具输出路径到已知路径集合
+        const resultData = (toolResult.data || toolResult.result) as
+          | Record<string, unknown>
+          | undefined;
+        if (resultData && !error && toolCall.sessionId) {
+          const extractedPaths = this._extractImagePathsFromResult(
+            normalizedToolCall.name,
+            resultData
+          );
+          if (extractedPaths.length > 0) {
+            this._registerImagePaths(toolCall.sessionId, extractedPaths);
+          }
+
+          // 更新会话级图像上下文
+          this._updateImageContext(
+            toolCall.sessionId,
+            normalizedToolCall.name,
+            normalizedToolCall.arguments,
+            resultData
+          );
+
+          // 生图完成后通知前端刷新图库
+          if (normalizedToolCall.name === 'image_generate') {
+            eventNotificationService.emitCustomEvent('tool:completed', {
+              toolName: 'image_generate',
+              sessionId: toolCall.sessionId,
+              toolCallId: toolCall.id,
+              images: (resultData as Record<string, unknown>).images,
+              resultData,
+            });
+          }
         }
 
         return {

@@ -99,8 +99,11 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
   name = 'image_svg_generate';
 
   description =
-    'Generate SVG vector graphics using LLM. Ideal for icons, diagrams, logos, charts, UI elements, and simple illustrations. ' +
-    'Much cheaper than image generation APIs (text tokens only). Includes SVG syntax validation.';
+    'Generate SVG vector graphics using LLM. Use when the user asks for icons, ' +
+    'diagrams, logos, charts, UI elements, or simple illustrations. Supports ' +
+    'multiple visual styles (flat, line, solid, colorful), custom colors, and ' +
+    'background colors. Includes SVG syntax validation. Much cheaper than image ' +
+    'generation APIs (text tokens only).';
 
   params: ToolParam[] = [
     {

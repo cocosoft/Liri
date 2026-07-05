@@ -91,6 +91,8 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
       { regex: /\*(.+?)\*/g, tag: 'em' as const },
       { regex: /~~(.+?)~~/g, tag: 'del' as const },
       { regex: /`([^`]+)`/g, tag: 'code' as const },
+      // 图片 pattern 必须放在链接 pattern 之前，确保 ![alt](url) 被优先匹配为图片
+      { regex: /!\[([^\]]*)\]\(([^)]+)\)/g, tag: 'image' as const },
       { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: 'link' as const },
       { regex: /\$([^$]+)\$/g, tag: 'math' as const },
       { regex: /https?:\/\/[^\s<>)\]]+/g, tag: 'url' as const },
@@ -136,7 +138,29 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
             parts.push(<span key={key++}>{beforeText}</span>);
           }
         }
-        if (pattern.tag === 'link') {
+        if (pattern.tag === 'image') {
+          // 清理 AI 可能生成的异常包装如 ${"/path/to/image.png"} → /path/to/image.png
+          let imgSrc = match[2];
+          const stripped = imgSrc.match(/^\$\{?["']([^"']+)["']\}?$/);
+          if (stripped) {
+            imgSrc = stripped[1];
+          }
+          const imgAlt = match[1] || '';
+          parts.push(
+            <img
+              key={key++}
+              src={imgSrc}
+              alt={imgAlt}
+              className="max-w-full h-auto rounded-lg my-2 cursor-pointer hover:opacity-90 transition-opacity"
+              loading="lazy"
+              onClick={() => onPreviewFile?.(imgSrc)}
+              onError={(e) => {
+                // 加载失败时显示为链接文本
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          );
+        } else if (pattern.tag === 'link') {
           parts.push(
             <a
               key={key++}

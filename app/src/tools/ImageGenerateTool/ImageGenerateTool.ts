@@ -70,8 +70,9 @@ export class ImageGenerateTool extends BaseTool {
   name = 'image_generate';
 
   description =
-    'Generate images using AI via configured providers. ' +
-    'Model is resolved from model management infrastructure.';
+    'Generate AI images from text descriptions (prompts). Use this when the user ' +
+    'asks to create, draw, or generate an image. Supports multiple aspect ratios, ' +
+    'quality levels, and output formats. Returns file paths of generated images.';
 
   params: ToolParam[] = [
     {
@@ -492,11 +493,14 @@ export class ImageGenerateTool extends BaseTool {
             ...img,
             fileId: result?.fileId,
             localUrl: result?.savedPath
-              ? `/v1/images/static/${result.savedPath.replace(/\\/g, '/')}`
+              ? `/v1/images/static/media/${result.savedPath}`
               : undefined,
           };
-        } catch {
-          // 注册失败不回传本地路径（fallback 到远程 URL）
+        } catch (err) {
+          logger.warn('ImageGenerateTool · 图片注册到本地失败（Router模式）', {
+            error: err instanceof Error ? err.message : String(err),
+            imgUrl: (img.url || '').slice(0, 200),
+          });
           return img;
         }
       })
@@ -636,10 +640,14 @@ export class ImageGenerateTool extends BaseTool {
             ...img,
             fileId: result?.fileId,
             localUrl: result?.savedPath
-              ? `/v1/images/static/${result.savedPath.replace(/\\/g, '/')}`
+              ? `/v1/images/static/media/${result.savedPath}`
               : undefined,
           };
-        } catch {
+        } catch (err) {
+          logger.warn('ImageGenerateTool · 图片注册到本地失败（兼容模式）', {
+            error: err instanceof Error ? err.message : String(err),
+            imgUrl: (img.url || '').slice(0, 200),
+          });
           return img;
         }
       })

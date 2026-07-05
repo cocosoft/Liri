@@ -163,8 +163,16 @@ function ChatInput() {
     const files: File[] = [];
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.startsWith("image/")) {
-        const file = items[i].getAsFile();
-        if (file) files.push(file);
+        try {
+          const file = items[i].getAsFile();
+          if (file) files.push(file);
+        } catch {
+          // NotAllowedError: 非 HTTPS 环境剪贴板权限不足
+          // 自动弹出文件选择对话框作为回退
+          e.preventDefault();
+          imageInputRef.current?.click();
+          return;
+        }
       }
     }
     if (files.length > 0) {

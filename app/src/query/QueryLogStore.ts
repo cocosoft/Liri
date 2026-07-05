@@ -26,6 +26,7 @@ const QUERY_LOG_TABLE = 'query_logs';
 export class QueryLogStore {
   private db: Database | null = null;
   private dbPath: string;
+  private initialized = false;
 
   /**
    * 写操作互斥锁（防止并发 SQLite WAL 锁冲突）
@@ -40,7 +41,7 @@ export class QueryLogStore {
    * 初始化数据库连接和表结构
    */
   async init(): Promise<void> {
-    if (this.db) {
+    if (this.initialized) {
       return;
     }
 
@@ -55,6 +56,7 @@ export class QueryLogStore {
     });
 
     await this.createTables();
+    this.initialized = true;
     logger.info('查询日志存储初始化完成', { dbPath: this.dbPath });
   }
 
@@ -301,13 +303,13 @@ export class QueryLogStore {
     const stats = await new Promise<any>((resolve, reject) => {
       this.db?.get(
         `SELECT
-          COUNT(*) FILTER (WHERE type = 'api_call') AS total_api_calls,
-          COALESCE(SUM(duration_ms) FILTER (WHERE type = 'api_call'), 0) AS total_api_duration_ms,
-          COALESCE(SUM(total_tokens) FILTER (WHERE type = 'api_call'), 0) AS total_tokens,
+          COALESCE(SUM(CASE WHEN type = 'api_call' THEN 1 ELSE 0 END), 0) AS total_api_calls,
+          COALESCE(SUM(CASE WHEN type = 'api_call' THEN duration_ms ELSE 0 END), 0) AS total_api_duration_ms,
+          COALESCE(SUM(CASE WHEN type = 'api_call' THEN total_tokens ELSE 0 END), 0) AS total_tokens,
           COALESCE(SUM(CASE WHEN type = 'api_call' AND success = 0 THEN 1 ELSE 0 END), 0) AS api_error_count,
-          COUNT(*) FILTER (WHERE type = 'tool_call') AS total_tool_calls,
+          COALESCE(SUM(CASE WHEN type = 'tool_call' THEN 1 ELSE 0 END), 0) AS total_tool_calls,
           COALESCE(SUM(CASE WHEN type = 'tool_call' AND success = 0 THEN 1 ELSE 0 END), 0) AS tool_error_count,
-          COUNT(*) FILTER (WHERE type = 'query') AS total_queries
+          COALESCE(SUM(CASE WHEN type = 'query' THEN 1 ELSE 0 END), 0) AS total_queries
         FROM ${QUERY_LOG_TABLE}
         WHERE timestamp >= ? AND timestamp <= ?`,
         [actualStart, actualEnd],

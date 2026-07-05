@@ -20,5 +20,18 @@
 // SOFTWARE.
 
 fn main() {
-    tauri_build::build()
+    #[cfg(windows)]
+    {
+        std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024) // 8 MB stack
+            .spawn(|| tauri_build::build())
+            .expect("Failed to spawn build thread")
+            .join()
+            .expect("Build thread panicked");
+    }
+
+    #[cfg(not(windows))]
+    {
+        tauri_build::build()
+    }
 }

@@ -56,6 +56,7 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import type { TransportStreamEvent } from '../transports/types';
 import { configManager } from '@modules/config';
 import { repairModelJson } from '@modules/utils/json';
+import { getCACertificates } from '@modules/utils/caCerts';
 
 const logger = new Logger({ module: 'ai:baseProvider', level: LogLevel.INFO });
 
@@ -359,8 +360,75 @@ export abstract class BaseAIProvider implements AIProvider {
     throw lastError;
   }
 
+  // ============================================================
+  // CA 证书 dispatcher（解决 Windows 环境下 SSL 证书验证失败问题）
+  // ============================================================
+
+  /** 缓存的自定义 undici Agent dispatcher（已注入系统 CA 证书） */
+  private static _caDispatcher: import('undici').Agent | undefined | null = null;
+
   /**
-   * 带连接重试的 fetch 包装。
+   * 获取带有系统 CA 证书的 undici fetch dispatcher。
+   *
+   * 优先从 NODE_EXTRA_CA_CERTS 环境变量读取，其次从系统默认 CA 路径读取。
+   * 仅在成功加载 CA 证书时返回 Agent，否则返回 undefined（使用默认行为）。
+   *
+   * 注意：undici 仅在 Node.js 18+ 环境中可用（Bun 等其他运行时可能没有）。
+   *
+   * @returns undici Agent dispatcher，或 undefined（使用默认 fetch）
+   */
+  private static getFetchDispatcher(): import('undici').Agent | undefined {
+    if (BaseAIProvider._caDispatcher !== null) {
+      return BaseAIProvider._caDispatcher;
+    }
+
+    try {
+      const caCerts = getCACertificates();
+      if (caCerts && caCerts.length > 0) {
+        // 动态导入 undici（Node.js 18+ 内置，Bun 等其他运行时不可用）
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { Agent } = require('undici') as typeof import('undici');
+
+        BaseAIProvider._caDispatcher = new Agent({
+          connect: {
+            ca: caCerts,
+          },
+        });
+
+        logger.info('BaseAIProvider · 已加载系统 CA 证书 dispatcher', {
+          certCount: caCerts.length,
+        });
+
+        return BaseAIProvider._caDispatcher;
+      }
+    } catch {
+      // undici 不可用或 CA 加载失败，回退到默认证书行为（不注入 dispatcher）
+    }
+
+    BaseAIProvider._caDispatcher = undefined;
+    return undefined;
+  }
+
+  /**
+   * 将 CA dispatcher 注入到 RequestInit 中（如果有的话）。
+   * 不会修改传入的 init 对象，返回新对象或原对象。
+   *
+   * @param init - 原始 RequestInit
+   * @returns 注入了 dispatcher 的 RequestInit
+   */
+  private static injectCADispatcher(init?: RequestInit): RequestInit {
+    const dispatcher = BaseAIProvider.getFetchDispatcher();
+    if (!dispatcher) return init ?? {};
+
+    return { ...(init ?? {}), dispatcher } as RequestInit;
+  }
+
+  // ============================================================
+  // 带连接重试的 fetch
+  // ============================================================
+
+  /**
+   * 带连接重试的 fetch 包装（已注入系统 CA 证书 dispatcher）。
    *
    * 仅在网络连接阶段失败时重试（TypeError），不重试 HTTP 错误响应或超时。
    * 适用场景：Provider API 网关偶发断连、DNS 闪断、TCP 重置等瞬态网络故障。
@@ -378,9 +446,12 @@ export abstract class BaseAIProvider implements AIProvider {
   ): Promise<Response> {
     let lastError: Error | null = null;
 
+    // 注入系统 CA 证书 dispatcher（解决 Windows SSL 证书验证问题）
+    const caInit = BaseAIProvider.injectCADispatcher(init);
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await fetch(url, init);
+        return await fetch(url, caInit);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 

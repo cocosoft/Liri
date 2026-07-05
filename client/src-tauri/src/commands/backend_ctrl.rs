@@ -200,6 +200,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
                     }
                     break;
                 }
+                _ => {}
             }
         }
     });

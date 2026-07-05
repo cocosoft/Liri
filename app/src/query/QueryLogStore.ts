@@ -34,7 +34,9 @@ export class QueryLogStore {
   private dbMutex = new SimpleMutex();
 
   constructor(dbPath?: string) {
-    this.dbPath = dbPath ?? (process.env.NODE_ENV === 'test' ? ':memory:' : resolveDbPath());
+    this.dbPath =
+      dbPath ??
+      (process.env.NODE_ENV === 'test' ? ':memory:' : resolveDbPath());
   }
 
   /**

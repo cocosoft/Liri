@@ -250,6 +250,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
           Copy-Item ../dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          if (Test-Path ../dist/node_modules) {
+            Copy-Item -Recurse -Force ../dist/node_modules src-tauri/binaries/node_modules
+          }
         shell: powershell
         if: matrix.config.os == 'windows-latest'
 
@@ -257,6 +260,9 @@ jobs:
         run: |
           mkdir -p src-tauri/binaries
           cp ../dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
+          if [ -d ../dist/node_modules ]; then
+            cp -r ../dist/node_modules src-tauri/binaries/node_modules
+          fi
         shell: bash
         if: matrix.config.os != 'windows-latest'
 

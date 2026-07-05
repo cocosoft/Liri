@@ -90,16 +90,18 @@ function getOnboardedFlagPath(): string {
 
 /**
  * 获取 .env 文件路径
+ * 与 pyapp.ts 启动加载路径保持一致：app/.env
  */
 function getEnvFilePath(): string {
-  return join(resolveProjectRoot(), '.env');
+  return join(resolveProjectRoot(), 'app', '.env');
 }
 
 /**
  * 获取 .env.example 文件路径
+ * 位于 app/.env.example
  */
 function getEnvExamplePath(): string {
-  return join(resolveProjectRoot(), '.env.example');
+  return join(resolveProjectRoot(), 'app', '.env.example');
 }
 
 /**
@@ -151,6 +153,77 @@ async function isAIConfigured(): Promise<boolean> {
 }
 
 /**
+ * 确保 .env 文件存在
+ *
+ * 在 HTTP 服务启动前调用，避免服务因缺少环境变量而失败。
+ * 从 .env.example 模板自动创建，如果模板也不存在则静默跳过。
+ */
+function ensureEnvFileExists(): void {
+  const envFile = getEnvFilePath();
+  const envExample = getEnvExamplePath();
+
+  if (existsSync(envFile)) {
+    return; // 已存在，无需创建
+  }
+
+  if (!existsSync(envExample)) {
+    logger.warn('.env.example 模板文件不存在，无法自动创建 .env', {
+      expectedPath: envExample,
+    });
+    return;
+  }
+
+  try {
+    const exampleContent = readFileSync(envExample, 'utf-8');
+    // 替换占位密钥为空，引导用户填写真实密钥
+    const envContent = exampleContent.replace(
+      /DEEPSEEK_API_KEY=.*/,
+      '# 请将下方密钥替换为你的真实 DeepSeek API 密钥\n# 获取地址: https://platform.deepseek.com/api_keys\nDEEPSEEK_API_KEY='
+    );
+    writeFileSync(envFile, envContent, 'utf-8');
+    logger.info('.env 文件已自动创建（来自 .env.example）', {
+      envFile,
+    });
+
+    // 重新加载环境变量，使新创建的 .env 文件生效
+    // 注意：这是增量加载，不覆盖已存在的环境变量（与 pyapp.ts 行为一致）
+    try {
+      const reloadedCount = reloadEnvFromFile(envFile);
+      logger.info(`已从 .env 重新加载 ${reloadedCount} 个环境变量`);
+    } catch (reloadErr) {
+      logger.warn('重新加载 .env 失败（非致命）', {
+        error: String(reloadErr),
+      });
+    }
+  } catch (e) {
+    logger.warn('自动创建 .env 文件失败', { error: String(e) });
+  }
+}
+
+/**
+ * 从指定 .env 文件重新加载环境变量
+ * 仅设置尚未存在的变量（与 pyapp.ts 行为一致，不覆盖已有值）
+ * @returns 成功加载的变量数量
+ */
+function reloadEnvFromFile(envPath: string): number {
+  const content = readFileSync(envPath, 'utf-8');
+  let count = 0;
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const value = trimmed.slice(eqIdx + 1).trim();
+    if (key && !(key in process.env)) {
+      process.env[key] = value;
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
  * 检查是否为首次运行（无配置的初始化）
  *
  * 通过检查 app/data/.onboarded 标记文件来判断。
@@ -158,8 +231,6 @@ async function isAIConfigured(): Promise<boolean> {
  */
 async function checkFirstRunAndOnboard(): Promise<void> {
   const onboardedFlag = getOnboardedFlagPath();
-  const envFile = getEnvFilePath();
-  const envExample = getEnvExamplePath();
   const onboardRetryFlag = getOnboardRetryFlagPath();
   const dataDir = getDataDir();
 
@@ -171,21 +242,8 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     return;
   }
 
-  // 首次运行：确保 .env 文件存在（从 .env.example 模板创建）
-  if (!existsSync(envFile) && existsSync(envExample)) {
-    try {
-      const exampleContent = readFileSync(envExample, 'utf-8');
-      // 替换占位密钥为空，引导用户填写真实密钥
-      const envContent = exampleContent.replace(
-        /DEEPSEEK_API_KEY=.*/,
-        '# 请将下方密钥替换为你的真实 DeepSeek API 密钥\n# 获取地址: https://platform.deepseek.com/api_keys\nDEEPSEEK_API_KEY='
-      );
-      writeFileSync(envFile, envContent, 'utf-8');
-      logger.info('.env 文件已自动创建（来自 .env.example）');
-    } catch (e) {
-      logger.warn('自动创建 .env 文件失败', { error: String(e) });
-    }
-  }
+  // 首次运行：.env 文件已在 ensureEnvFileExists() 中提前创建
+  // 此处仅执行用户引导流程
 
   // 检查重试次数
   let retryCount = 0;
@@ -474,6 +532,10 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   // 解析 --trust-level 参数（场景选择联动）
   const trustLevelArg = parseTrustLevelFromArgs(options.args);
 
+  // 首次启动：确保 .env 文件存在（必须在 HTTP 服务启动前完成）
+  // 原因：pyapp.ts 启动时已尝试加载 .env，此时不存在；需要先创建再启动 HTTP 服务
+  ensureEnvFileExists();
+
   // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
   // 从独立 http-server 模块导入，避免与 repl.ts 的静态 import 链形成循环依赖
   const { startHTTPServer } = await import('./entrypoints/http-server');
@@ -482,10 +544,17 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     httpService = await startHTTPServer(httpPort);
     process.env.LIRI_HTTP_STARTED = '1';
     logger.info(`HTTP 服务已启动: http://127.0.0.1:${httpPort}`);
-  } catch (e) {
-    logger.warning('HTTP 服务启动失败，引导期间前端不可用', {
-      error: String(e),
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    logger.error('HTTP 服务启动失败，前端将无法连接', {
+      error: errMsg,
+      stack: e instanceof Error ? e.stack : undefined,
     });
+    console.error(`\n[ERROR] HTTP 服务启动失败 (端口 ${httpPort}): ${errMsg}`);
+    console.error('请检查:');
+    console.error('  1. 端口是否被占用: netstat -ano | findstr :7890');
+    console.error(`  2. 数据库路径是否可写: ${resolveDataDir()}`);
+    console.error('  3. app/.env 文件是否存在且配置正确\n');
   }
 
   // --http-only 模式：仅启动 HTTP 服务，不进入 REPL

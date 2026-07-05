@@ -316,6 +316,7 @@ export function buildPlatformContext(platform: string): string {
  */
 export function buildEnvironmentHints(): string {
   const hints: string[] = [];
+  const isWindows = process.platform === 'win32';
 
   hints.push(`OS: ${process.platform}`);
   hints.push(
@@ -326,6 +327,27 @@ export function buildEnvironmentHints(): string {
   const username = process.env['USER'] || process.env['USERNAME'];
   if (username) {
     hints.push(`User: ${username}`);
+  }
+
+  // === 平台特定约束 ===
+  if (isWindows) {
+    hints.push('');
+    hints.push('--- WINDOWS COMMAND CONSTRAINTS ---');
+    hints.push(
+      'You are on Windows. The "bash" tool runs cmd.exe, NOT bash. Use Windows commands only.'
+    );
+    hints.push(
+      'Unix commands NOT available: head, tail, sed, awk, xargs, tee, grep (use findstr), cat (use type)'
+    );
+    hints.push(
+      'Paths: Use \\ separators and drive letters (C:\\...). /tmp does NOT exist — use %TEMP% or $env:TEMP'
+    );
+    hints.push(
+      'For complex operations, use: powershell -Command "your PowerShell script"'
+    );
+    hints.push(
+      'Git is available. Use: git clone https://... C:\\path\\to\\target'
+    );
   }
 
   // === 文件路径约束（修复 BUG #9：AI 乱编文件路径）===

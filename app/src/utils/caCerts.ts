@@ -44,7 +44,27 @@ function getDefaultCaCertPaths(): string[] {
 
   switch (process.platform) {
     case 'win32':
-      // Windows 默认证书存储在系统中
+      // Git for Windows 自带的 CA 包
+      const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+      paths.push(path.join(programFiles, 'Git', 'mingw64', 'ssl', 'cert.pem'));
+      paths.push(
+        path.join(
+          programFiles,
+          'Git',
+          'mingw64',
+          'ssl',
+          'certs',
+          'ca-bundle.crt'
+        )
+      );
+      // Chocolatey / standalone curl
+      paths.push('C:\\curl\\ca-bundle.crt');
+      // 用户安装的证书包
+      if (process.env['USERPROFILE']) {
+        paths.push(
+          path.join(process.env['USERPROFILE'], '.certs', 'ca-bundle.crt')
+        );
+      }
       break;
     case 'darwin':
       // macOS 默认证书路径

@@ -155,48 +155,30 @@ function isPathSafe(path: string): boolean {
 
 export class BashTool extends BaseTool {
   name = 'bash';
-  description = 'Execute bash commands with security checks';
+
+  /** 是否为 Windows 平台 */
+  private isWindows = process.platform === 'win32';
+
+  /** 动态描述：根据平台告知 LLM 实际的执行环境（getter 避免抽象属性构造函数赋值限制） */
+  override get description(): string {
+    if (this.isWindows) {
+      return [
+        'Execute commands via Windows Command Prompt (cmd.exe).',
+        'IMPORTANT: This runs cmd.exe, NOT bash. Use Windows commands only.',
+        '- Use \\ for path separators (e.g. C:\\Users\\...), NOT /',
+        '- Use %TEMP% or %USERPROFILE% for temp/user directories, NOT /tmp',
+        '- Use dir instead of ls, type instead of cat, findstr instead of grep',
+        '- Use del instead of rm, copy instead of cp, move instead of mv',
+        '- Use git, npm, node, python etc. as they are available on Windows',
+        '- For complex scripts, prefix with powershell -Command "..."',
+      ].join('\n');
+    }
+    return 'Execute shell commands with security checks';
+  }
 
   override tags = [ToolTag.CODE];
 
-  params: ToolParam[] = [
-    {
-      name: 'command',
-      type: 'string',
-      description: 'The command to execute',
-      required: true,
-      default: '',
-      example: 'ls -la',
-    },
-    {
-      name: 'timeout',
-      type: 'number',
-      description: 'Timeout in milliseconds (max 300000)',
-      required: false,
-      default: 60000,
-    },
-    {
-      name: 'cwd',
-      type: 'string',
-      description: 'Working directory',
-      required: false,
-      default: undefined,
-    },
-    {
-      name: 'env',
-      type: 'object',
-      description: 'Environment variables',
-      required: false,
-      default: undefined,
-    },
-    {
-      name: 'skipSecurityCheck',
-      type: 'boolean',
-      description: 'Skip security validation (dangerous)',
-      required: false,
-      default: false,
-    },
-  ];
+  params: ToolParam[];
 
   override aliases = ['sh', 'shell'];
   override searchHint = 'Execute shell commands with security checks';
@@ -207,6 +189,52 @@ export class BashTool extends BaseTool {
 
   constructor() {
     super();
+
+    // 动态参数描述
+    const commandParamDesc = this.isWindows
+      ? 'The command to execute. Must be a Windows cmd.exe command (NOT Unix/bash). Use \\ for paths, %VAR% for env vars.'
+      : 'The command to execute';
+    const commandParamExample = this.isWindows ? 'dir C:\\Users' : 'ls -la';
+
+    this.params = [
+      {
+        name: 'command',
+        type: 'string',
+        description: commandParamDesc,
+        required: true,
+        default: '',
+        example: commandParamExample,
+      },
+      {
+        name: 'timeout',
+        type: 'number',
+        description: 'Timeout in milliseconds (max 300000)',
+        required: false,
+        default: 60000,
+      },
+      {
+        name: 'cwd',
+        type: 'string',
+        description: 'Working directory',
+        required: false,
+        default: undefined,
+      },
+      {
+        name: 'env',
+        type: 'object',
+        description: 'Environment variables',
+        required: false,
+        default: undefined,
+      },
+      {
+        name: 'skipSecurityCheck',
+        type: 'boolean',
+        description: 'Skip security validation (dangerous)',
+        required: false,
+        default: false,
+      },
+    ];
+
     this.securityAnalyzer = new BashSecurityAnalyzer();
   }
 
@@ -234,8 +262,30 @@ export class BashTool extends BaseTool {
         });
       }
 
-      const { command, timeout, cwd, env, skipSecurityCheck } =
-        parsedInput.data;
+      let { command, timeout, cwd, env, skipSecurityCheck } = parsedInput.data;
+
+      // Windows 平台：预处理命令，翻译常见 Unix 路径
+      if (this.isWindows) {
+        const preprocessed = this.preprocessWindowsCommand(command);
+        if (preprocessed.warnings.length > 0) {
+          const warningMsg = `BashTool 命令预处理警告:\n${preprocessed.warnings.join('\n')}`;
+          if (preprocessed.warnings.some((w) => w.includes('禁止'))) {
+            return createToolResult(warningMsg, {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: ${warningMsg}`,
+                },
+              ],
+            });
+          }
+        }
+        command = preprocessed.command;
+        // 自动修正 cwd 中的 Unix 路径
+        if (cwd && this.isWindows) {
+          cwd = this.translateWindowsPath(cwd);
+        }
+      }
 
       // 报告开始执行
       onProgress?.({
@@ -344,9 +394,13 @@ export class BashTool extends BaseTool {
       if (cwd) {
         execOptions.cwd = cwd;
       }
-      if (env) {
-        execOptions.env = { ...process.env, ...env };
+
+      // 构建环境变量：Windows 上设置 git SSL 后端为 schannel
+      const mergedEnv = { ...process.env, ...(env || {}) };
+      if (this.isWindows) {
+        mergedEnv['GIT_SSL_BACKEND'] = 'schannel';
       }
+      execOptions.env = mergedEnv;
 
       // 执行命令
       const { stdout: rawStdout, stderr: rawStderr } = await execAsync(
@@ -576,5 +630,73 @@ export class BashTool extends BaseTool {
       interruptBehavior: 'block' as const,
       maxResultSizeChars: this.maxResultSizeChars,
     };
+  }
+
+  /**
+   * Windows 命令预处理：翻译常见 Unix 路径和命令
+   * @param command 原始命令
+   * @returns 预处理后的命令和警告列表
+   */
+  private preprocessWindowsCommand(command: string): {
+    command: string;
+    warnings: string[];
+  } {
+    const warnings: string[] = [];
+    let processed = command;
+
+    // 检测 Unix 专用命令（Windows cmd.exe 中不存在）
+    const unixOnlyCommands = ['head', 'tail', 'sed', 'awk', 'xargs', 'tee'];
+    const cmdWords = processed.split(/\s+/);
+    for (const cmd of unixOnlyCommands) {
+      if (cmdWords.some((w) => w === cmd || w === `${cmd}.exe`)) {
+        warnings.push(
+          `${cmd} 是 Unix/Linux 命令，Windows cmd.exe 中不可用。请使用 PowerShell: pwsh -Command "..." 或改用 Windows 等价命令。`
+        );
+      }
+    }
+
+    // 自动翻译常见 Unix 路径为 Windows 路径
+    if (processed.includes('/tmp')) {
+      processed = processed.replace(/\/tmp\b/g, '%TEMP%');
+      warnings.push('已自动将 /tmp 替换为 %TEMP%');
+    }
+    if (processed.includes('/dev/null')) {
+      processed = processed.replace(/\/dev\/null\b/g, 'NUL');
+      warnings.push('已自动将 /dev/null 替换为 NUL');
+    }
+
+    // 检测 2>&1 重定向（Windows cmd.exe 也支持，但确保格式正确）
+    // 无需修改，cmd.exe 支持 2>&1
+
+    // 检测 && 链式命令（cmd.exe 支持）
+    // 无需修改，cmd.exe 支持 &&
+
+    // 检测仅包含 Unix 路径的命令（禁止执行）
+    if (/\bcd\s+\/[a-z]/.test(processed)) {
+      warnings.push(
+        '禁止: cd 到 Unix 根路径（如 /tmp、/usr）。请使用 Windows 路径或 %TEMP%。'
+      );
+    }
+
+    return { command: processed, warnings };
+  }
+
+  /**
+   * 翻译 Unix 绝对路径为 Windows 路径
+   */
+  private translateWindowsPath(unixPath: string): string {
+    let result = unixPath;
+    if (result.startsWith('/tmp')) {
+      result = result.replace(
+        /^\/tmp/,
+        process.env['TEMP'] || 'C:\\Windows\\Temp'
+      );
+    } else if (result.startsWith('/home/') || result.startsWith('/Users/')) {
+      result = result.replace(
+        /^\/(home|Users)\/[^/]+/,
+        process.env['USERPROFILE'] || 'C:\\Users\\Default'
+      );
+    }
+    return result;
   }
 }
